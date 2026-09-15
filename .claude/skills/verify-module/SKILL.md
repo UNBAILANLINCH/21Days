@@ -82,6 +82,9 @@ run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"],
 3. 报告文件缺失时的退路：`read_console(filter_text="[VERIFY]", types=["all"])`。注意 Test Runner 进 Play 会触发域重载，
    MCP 读到的控制台缓冲常常是空的（实测如此）——所以**报告文件才是主证据**，退路拿不到东西就让开发者看 Unity 的 Console 窗口。
 4. **用 Read 工具打开关键截图 PNG 看一眼**，与对应步骤的期望对照；对不上就在汇报里点名哪一张。
+   本次 Play 产生的**埋点也是证据**：指针文件 `Logs/telemetry-source.txt` 指着当次日志在哪
+   （`Editor.log` 路径是本机全局的，不能按默认路径猜）。步骤结果异常、或报告里有说不清的时序问题时，
+   用 `/analyze-telemetry --module <模块小写> --last 1` 深挖；**不许直接 Read / grep 日志文件**（几百 MB）。
 
 `Logs/` 已在 `.gitignore`，Claude 只读它，永不写、永不提交。
 

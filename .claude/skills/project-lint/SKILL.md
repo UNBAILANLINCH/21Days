@@ -28,16 +28,28 @@ lint.py      ← 通用引擎（五层过滤 + 方法体跟踪），不随规则
 
 违规时 exit 2，stderr 的内容会喂回给 Agent，它据此自我纠正；无违规零输出，不打扰。
 
+## 两级严重度
+
+| `severity` | 退出码 | 效果 | 什么时候用 |
+| --- | --- | --- | --- |
+| `block`（默认，可省略） | 2 | stderr 喂回给 Agent，它据此自我纠正 | 真违规：写了就是错的 |
+| `warn` | 1 | 非阻断，stderr 给人看，方括号里多个「提醒·」前缀 | 提醒：该做但**不该拦住人干活**（如埋点缺失） |
+
+一次运行里只要有一条 block，退出码就是 2。**别把 warn 当垃圾桶**：判不准的规则不该收进来，
+而不是降成 warn（原则见下面「设计原则」第 2 条）。
+
 ## 规则字段
 
 | 字段 | 作用 |
 | --- | --- |
 | `id` | 唯一标识 |
 | `rule` | 中文分类名，显示在报错行的方括号里 |
+| `severity` | `block`（默认）/ `warn`，见上表 |
 | `files` | 适用后缀列表，省略则默认 `[".cs"]` |
 | `path_contains` | 路径含任一片段才生效（写正斜杠，引擎已把反斜杠归一） |
 | `file_context` | 文件级正则前置：整份文件匹配得上才检查 |
 | `file_context_absent` | 反向前置：整份文件匹配得上就跳过 |
+| `dir_context_absent` | **目录级**反向前置：`{"root_after": "/Scripts/Runtime/", "pattern": "…"}`，取路径里 `root_after` 之后的第一段目录（= 模块根）递归扫同后缀文件，**有任一文件命中就跳过**。用于「整个模块一处都没有 X」——按单文件判会误报 |
 | `pattern` | 行级主匹配正则（必填） |
 | `exclude_patterns` | 命中任一就跳过（排合法写法） |
 | `confirm_patterns` | 须再命中任一才算违规（二次确认） |
@@ -49,7 +61,7 @@ lint.py      ← 通用引擎（五层过滤 + 方法体跟踪），不随规则
 
 | 层 | 字段 | 作用 |
 | --- | --- | --- |
-| 1 文件级 | `files` / `path_contains` / `file_context` / `file_context_absent` | 不满足整条规则跳过 |
+| 1 文件级 | `files` / `path_contains` / `file_context` / `file_context_absent` / `dir_context_absent` | 不满足整条规则跳过 |
 | 2 行主匹配 | `pattern` | 当前行是否命中主正则 |
 | 3 排除 | `exclude_patterns` | 命中任一则跳过 |
 | 4 确认 | `confirm_patterns` | 须再命中任一才报 |
@@ -98,6 +110,7 @@ private void Update()
 | `empty-unity-message` | 空的 `Update` / `FixedUpdate` / `LateUpdate` |
 | `local-absolute-path` | `.cs/.md/.json/.asmdef/.txt` 里写进本机绝对路径 |
 | `using-unityeditor-in-runtime` | `Scripts/Runtime/` 下裸 `using UnityEditor` |
+| `module-missing-telemetry` | **提醒（warn）**：模块有 `XxxState` / `XxxIntent` 却整个模块零埋点 → 跑 `/instrument-module <模块>` |
 
 ## 新增一条规则
 
@@ -129,7 +142,7 @@ python .claude/skills/project-lint/lint.py Assets/_Project/Scripts/Runtime/Playe
 echo '{"tool_input":{"file_path":"Assets/_Project/Scripts/Runtime/Player/PlayerMovement.cs"}}' | python .claude/skills/project-lint/lint.py
 ```
 
-有违规 exit 2 并把详情打到 stderr；干净 exit 0 且零输出。
+有 block 违规 exit 2、只有 warn 提醒 exit 1，详情都打到 stderr；干净 exit 0 且零输出。
 
 ## 设计原则
 

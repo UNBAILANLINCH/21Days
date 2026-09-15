@@ -23,7 +23,8 @@ disable-model-invocation: true
    - **面板预制体放 `Prefabs/UI/`，Addressables 地址等于面板类名**，加进 `UI` 组；玩法场景加进 `Scenes` 组，地址别和类名撞。面板不注入服务，事件往外抛由状态接住。
    - **模块靠 `GameplayInstaller` 注册进根作用域**（继承它，组件挂到 Boot 场景的 `GameBootstrap` 物体上）。**不要用玩法场景里的子作用域注册状态**：`GameFlow` 从根 `IObjectResolver` 解析状态类型，而且标题界面时玩法场景还没加载，必然解析失败。
 5. **接线**：Unity MCP 已连接就用它建物体、挂组件、赋引用；未连接就只写脚本，把接线步骤列给用户在编辑器里做。接完跑一次 `21Days/工程/资产体检` 确认没有缺 `.meta` / 丢脚本 / 漏进 Addressables。
-6. **验证**：控制台零编译错误；规则类写 EditMode 测试并跑 `/unity-test`（假服务照 `SampleRulesTests.FakeConfigService` 写几行即可）。保存时 project-lint 自动跑，零违规；把改动范围交给 `code-reviewer` 子代理（model sonnet）做模块级审查。再跑 `/verify-module <模块>`，**开发者看过回放点头才算过**（写法见 `.claude/rules/module-verify.md`）。
-7. **收尾**：`/generate-doc <模块>` 生成文档三件套，在 `ai-docs/docs/catalog.md` 补一行、在 `.claude/skills/generate-doc/modules.json` 登记一条；跑 `/review-change`，停下等审。
+6. **埋点**：跑 `/instrument-module <模块>`——按 `docs/telemetry.md` 2.2 的四类尺子（意图入口 / 状态迁移 / 失败分支 / 长耗时）把该埋的补上，**每帧触发的一律不埋**。规则类只注入 `ITelemetryScope` 接口、由 Installer 工厂式喂进去，别把 Unity 依赖带进纯 C#（写法见该 skill 第 4 节）。埋完测试要跟着改（构造函数多了参数）。
+7. **验证**：控制台零编译错误；规则类写 EditMode 测试并跑 `/unity-test`（假服务照 `SampleRulesTests.FakeConfigService` 写几行即可）。保存时 project-lint 自动跑，零违规；把改动范围交给 `code-reviewer` 子代理（model sonnet）做模块级审查。再跑 `/verify-module <模块>`，**开发者看过回放点头才算过**（写法见 `.claude/rules/module-verify.md`）。
+8. **收尾**：`/generate-doc <模块>` 生成文档三件套，在 `ai-docs/docs/catalog.md` 补一行、在 `.claude/skills/generate-doc/modules.json` 登记一条；跑 `/review-change`，停下等审。
 
-完成标准：第 1 步列出的每个文件都已落地，或逐个说明未做原因；控制台零编译错误；`/verify-module <模块>` PASS 且开发者已点头；文档三件套与登记已就位；清单已列出且未提交。
+完成标准：第 1 步列出的每个文件都已落地，或逐个说明未做原因；控制台零编译错误；埋点已按四类尺子补过（`/instrument-module` 的清单里每条候选点都有结论，project-lint 的埋点提醒已消失）；`/verify-module <模块>` PASS 且开发者已点头；文档三件套与登记已就位；清单已列出且未提交。

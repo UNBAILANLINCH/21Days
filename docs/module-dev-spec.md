@@ -179,4 +179,5 @@ namespace Game.Tests.Showcase.Player
 | 截图全黑 | `Snapshot` 撞上帧边界，或 Game 视图被别的窗口完全挡住 | 保证 Game 视图可见；`Snapshot` 前加一步 `Wait(0.2f)`；批处理无图形时截图本来就跳过 |
 | 某个检查点一直红 | 期望写错了（比如查了看不见的内部状态），或模块行为确实不对 | 先看报告里那一步的截图对不对；只在数值上说不通的检查点，该挪去 EditMode |
 | 回放太慢等不住 | 节奏倍率是标准或慢速 | 菜单切 `快速 (x0.25)`；确认没红之后再切回标准细看 |
+| 回放卡住不动，切回 Unity 窗口才继续 | Player 设置的 Run In Background 被关了，编辑器失焦时 Play 停止更新 | 保持 `ProjectSettings.asset` 里 `runInBackground: 1`（仓库默认如此）；或回放期间让 Unity 窗口保持前台 |
 | `/unity-test PlayMode` 变得很慢 | 把 Showcase 也跑进去了 | 传 `assembly_names` 排除 `Game.Tests.Showcase`；回放只走 `/verify-module` |

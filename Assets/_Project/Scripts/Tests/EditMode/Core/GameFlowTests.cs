@@ -4,12 +4,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Events;
 using Game.Core.Flow;
 using MessagePipe;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 using VContainer;
 
 namespace Game.Tests.EditMode.Core
@@ -37,6 +40,7 @@ namespace Game.Tests.EditMode.Core
             builder.Register<StateA>(Lifetime.Singleton);
             builder.Register<StateB>(Lifetime.Singleton);
             builder.Register<GatedState>(Lifetime.Singleton);
+            builder.Register<ThrowingState>(Lifetime.Singleton);
             container = builder.Build();
 
             flow = container.Resolve<IGameFlow>();
@@ -99,6 +103,34 @@ namespace Game.Tests.EditMode.Core
             Assert.That(flow.Current, Is.Null);
         }
 
+        [Test]
+        public void GoToAsync_WhenEnterAsyncThrows_KeepsPreviousCurrentAndPropagates()
+        {
+            flow.GoToAsync<StateA>().Forget();
+
+            // GameFlow 切换失败时会 Log.Error 一条，测试运行器默认把 Error 当失败，先声明预期。
+            LogAssert.Expect(LogType.Error, new Regex("切换到 ThrowingState 失败"));
+
+            UniTask failing = flow.GoToAsync<ThrowingState>();
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+                () => failing.GetAwaiter().GetResult(),
+                "Enter 抛的异常要原样回传给 GoToAsync 的调用方");
+            Assert.That(error.Message, Is.EqualTo(ThrowingState.Message));
+
+            // Current 的语义是「最近一个**成功进入**的状态」。ThrowingState 没进去，
+            // 所以它仍是 StateA——注意此刻 StateA 的 ExitAsync 已经执行过了，
+            // 处在「前一状态已退出、目标未进入」的空档，恢复手段就是再切一次。
+            Assert.That(flow.Current, Is.TypeOf<StateA>());
+            Assert.That(published.Count, Is.EqualTo(1), "没进去的状态不该发 GameStateChangedEvent");
+
+            flow.GoToAsync<StateB>().Forget();
+
+            Assert.That(flow.Current, Is.TypeOf<StateB>(), "失败之后队列要能继续处理后面的请求");
+            Assert.That(published.Count, Is.EqualTo(2));
+            Assert.That(published[1].From, Is.EqualTo(typeof(StateA)));
+            Assert.That(published[1].To, Is.EqualTo(typeof(StateB)));
+        }
+
         /// <summary>记录状态进出顺序的公共黑板，由容器注入给各个测试状态。</summary>
         public sealed class TransitionLog
         {
@@ -145,6 +177,29 @@ namespace Game.Tests.EditMode.Core
             public override UniTask ExitAsync(CancellationToken ct)
             {
                 log.Add("B.Exit");
+                return UniTask.CompletedTask;
+            }
+        }
+
+        /// <summary>EnterAsync 直接抛异常的状态，用来覆盖「目标状态进不去」这条失败路径。</summary>
+        public sealed class ThrowingState : GameState
+        {
+            /// <summary>抛出的异常消息，测试用它确认拿到的就是这一个异常。</summary>
+            public const string Message = "ThrowingState 进不去";
+
+            private readonly TransitionLog log;
+
+            public ThrowingState(TransitionLog log) => this.log = log;
+
+            public override UniTask EnterAsync(CancellationToken ct)
+            {
+                log.Add("Throwing.Enter");
+                throw new InvalidOperationException(Message);
+            }
+
+            public override UniTask ExitAsync(CancellationToken ct)
+            {
+                log.Add("Throwing.Exit");
                 return UniTask.CompletedTask;
             }
         }

@@ -1,11 +1,73 @@
 # 行尾统一 LF；Unity 序列化文件全部按文本处理，方便 diff / 合并
 * text=auto eol=lf
 *.cs text eol=lf diff=csharp
-*.{unity,prefab,asset,mat,anim,controller,overrideController,physicMaterial,physicsMaterial2D,playable,mask,spriteatlas,shadervariants,asmdef,asmref,rsp,meta} text eol=lf
-*.{json,md,txt,xml,yml,yaml,shader,cginc,hlsl,uxml,uss} text eol=lf
-*.{bat,cmd} text eol=crlf
+# 下面 17 行原本写成 *.{unity,prefab,asset,mat,anim,controller,overrideController,physicMaterial,physicsMaterial2D,playable,mask,spriteatlas,shadervariants,asmdef,asmref,rsp,meta}，git 不支持花括号展开，逐行展开：
+*.unity text eol=lf
+*.prefab text eol=lf
+*.asset text eol=lf
+*.mat text eol=lf
+*.anim text eol=lf
+*.controller text eol=lf
+*.overrideController text eol=lf
+*.physicMaterial text eol=lf
+*.physicsMaterial2D text eol=lf
+*.playable text eol=lf
+*.mask text eol=lf
+*.spriteatlas text eol=lf
+*.shadervariants text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.rsp text eol=lf
+*.meta text eol=lf
+# 下面 11 行原本写成 *.{json,md,txt,xml,yml,yaml,shader,cginc,hlsl,uxml,uss}，git 不支持花括号展开，逐行展开：
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.shader text eol=lf
+*.cginc text eol=lf
+*.hlsl text eol=lf
+*.uxml text eol=lf
+*.uss text eol=lf
+# 下面 2 行原本写成 *.{bat,cmd}，git 不支持花括号展开，逐行展开：
+*.bat text eol=crlf
+*.cmd text eol=crlf
 
 # 二进制资源（暂不启用 git-lfs；素材体积上来后再考虑）
-*.{png,jpg,jpeg,gif,psd,tga,tif,tiff,bmp,exr,hdr} binary
-*.{wav,mp3,ogg,aif,aiff} binary
-*.{fbx,obj,blend,ttf,otf,dll,so,dylib,unitypackage} binary
+# 下面 11 行原本写成 *.{png,jpg,jpeg,gif,psd,tga,tif,tiff,bmp,exr,hdr}，git 不支持花括号展开，逐行展开：
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.tif binary
+*.tiff binary
+*.bmp binary
+*.exr binary
+*.hdr binary
+# 下面 5 行原本写成 *.{wav,mp3,ogg,aif,aiff}，git 不支持花括号展开，逐行展开：
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.aif binary
+*.aiff binary
+# 下面 9 行原本写成 *.{fbx,obj,blend,ttf,otf,dll,so,dylib,unitypackage}，git 不支持花括号展开，逐行展开：
+*.fbx binary
+*.obj binary
+*.blend binary
+*.ttf binary
+*.otf binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.unitypackage binary
+# 配置表：Excel 源表与 Luban 生成的二进制数据。text=auto 一般也能认出它们是二进制，
+# 这里写死是为了万无一失——一旦被当文本做了行尾转换，表就彻底读不出来了。
+# 注意：.gitattributes 不支持 {a,b} 花括号展开（git 的 wildmatch 没开这个），每个扩展名单写一行。
+*.xlsx binary
+*.xls binary
+*.xlsm binary
+*.bytes binary

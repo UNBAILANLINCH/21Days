@@ -94,7 +94,7 @@ scripts/gen-tables.ps1    生成配置表
 Boot 场景加载
  → GameBootstrap.Awake：DontDestroyOnLoad，构建 GameLifetimeScope（根作用域）
  → IGameFlow.GoToAsync<BootState>()（启动期 Current 不为空）
- → 按注册顺序串行调用每个 IGameService.InitializeAsync（Platform → Log → Config → Assets → Save → Input → Audio → UI）
+ → 按注册顺序串行调用每个 IGameService.InitializeAsync（Platform → Log → Assets → Config → Save → Input → Audio → UI）
  → 发布 BootCompletedEvent → IGameFlow.GoToAsync<TitleState>()
 ```
 
@@ -122,6 +122,7 @@ namespace Game.Core.Assets
 public interface IAssetService
 {
     UniTask<AssetHandle<T>> LoadAsync<T>(string key, CancellationToken ct = default) where T : UnityEngine.Object;
+    UniTask<IReadOnlyList<AssetHandle<T>>> LoadAllAsync<T>(string label, CancellationToken ct = default) where T : UnityEngine.Object;   // 按标签批量加载，配置表用
     UniTask<GameObject> InstantiateAsync(string key, Transform parent = null, CancellationToken ct = default);
     void ReleaseInstance(GameObject instance);
     UniTask<SceneHandle> LoadSceneAsync(string key, LoadSceneMode mode, CancellationToken ct = default);
@@ -230,7 +231,9 @@ public interface IPlatformService { PlatformKind Kind { get; } string SaveRoot {
 - 玩法只读 `Actions.Gameplay.Move` 这类动作，不读具体按键、不读 `Input.touches`。
 - 延时用 `ITimerService`，每帧用 `ITickable`，两者随作用域销毁自动取消；不用 `Interval(0)` 冒充每帧。
 - 需要时间的地方一律注入 `IClock`，不直接读 `Time.time` 与 `DateTime.UtcNow`；本地实现直接包装二者。
-- 音频走 AudioMixer 三组 Master / Bgm / Sfx；SFX 的 AudioSource 池化。
+- 音频三路音量 Master / Bgm / Sfx；SFX 的 AudioSource 池化。AudioMixer **可选**：Unity 没有公开 API 创建 Mixer 资产，`AudioConfig.Mixer` 为空时用音量相乘实现，手工建了 Mixer 后切换到暴露参数。另有 `PlaySfxAsync(key)` 按资源 key 播放。BGM 换曲是「旧曲淡出、新曲淡入」的顺序淡化，`fadeSeconds` 传负数表示用配置默认值。
+- 状态流附带 `SceneGameState` 基类：Enter 时 Additive 加载 `SceneKey`，Exit 时卸载，子类只写 `OnSceneReadyAsync`。
+- `UIView` 的开关过渡是 `PlayOpenTransitionAsync / PlayCloseTransitionAsync(seconds)`，默认 LitMotion 淡入淡出，时长来自 `UIConfig`。
 
 ## 6. 从参考工程借鉴的手法与规避的坑
 

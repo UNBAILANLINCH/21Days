@@ -1,0 +1,19 @@
+<!-- Luban 内置结构定义：向量类型。原样取自官方 MiniTemplate，不要改。
+     用法：表字段类型写 vector2 / vector3 / vector4，单元格里填 "1,2" 这样的逗号分隔值。 -->
+<module name="">
+    <bean name="vector2" valueType="1" sep=",">
+        <var name="x" type="float"/>
+        <var name="y" type="float"/>
+    </bean>
+    <bean name="vector3" valueType="1" sep=",">
+        <var name="x" type="float"/>
+        <var name="y" type="float"/>
+        <var name="z" type="float"/>
+    </bean>
+    <bean name="vector4" valueType="1" sep=",">
+        <var name="x" type="float"/>
+        <var name="y" type="float"/>
+        <var name="z" type="float"/>
+        <var name="w" type="float"/>
+    </bean>
+</module>

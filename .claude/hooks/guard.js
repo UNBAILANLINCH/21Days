@@ -12,6 +12,8 @@ const DENY = [
   [/\.meta$/i, '.meta 由 Unity 生成，移动/删除请用 git mv / git rm'],
   [/\.(csproj|sln)$/i, 'IDE 工程文件由 Unity 生成'],
   [/^Packages\/packages-lock\.json$/i, 'packages-lock 由 Unity 解析生成'],
+  [/^Assets\/_Project\/Scripts\/Core\/Config\/Generated\//i, 'Luban 生成的配置表代码，改 Tables/ 下的 Excel 再跑 scripts/gen-tables.ps1'],
+  [/^Assets\/_Project\/Data\/Config\//i, 'Luban 生成的配置表数据，改 Tables/ 下的 Excel 再跑 scripts/gen-tables.ps1'],
 ];
 const ASK = [
   [/^ProjectSettings\//i, '工程设置改动，需确认'],

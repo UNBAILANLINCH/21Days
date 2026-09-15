@@ -27,6 +27,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Build;
+using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -127,6 +130,13 @@ namespace Game.Editor
                 Log("开发版构建：带 Development 标记（可连 Profiler、允许调试，体积更大，别用来发版）");
             }
 
+            // Addressables 内容必须在 BuildPlayer 之前构建：包体里的资源目录是这一步产出的，
+            // 跳过它出来的包能启动但所有 LoadAsync 都拿不到东西（真机上是静默失败，最难查的一类）。
+            if (!BuildAddressableContent())
+            {
+                return;
+            }
+
             BuildPlayerOptions playerOptions = new BuildPlayerOptions
             {
                 scenes = scenes,
@@ -139,6 +149,39 @@ namespace Game.Editor
             Log($"开始打包，产物 {fullOutputPath}");
             BuildReport report = BuildPipeline.BuildPlayer(playerOptions);
             ReportResult(report);
+        }
+
+        /// <summary>
+        /// 构建 Addressables 内容。返回 false 表示已经报过错、打包要中止。
+        /// 配置表数据与 UI 预制体都走 Addressables，这一步失败就别继续出一个必然跑不起来的包。
+        /// </summary>
+        private static bool BuildAddressableContent()
+        {
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
+            if (settings == null)
+            {
+                Fail("找不到 Addressables 设置（Assets/AddressableAssetsData/）。"
+                     + "打开 Window > Asset Management > Addressables > Groups，点 Create Addressables Settings 生成后重试。");
+                return false;
+            }
+
+            Log("构建 Addressables 内容");
+
+            AddressablesPlayerBuildResult result;
+            AddressableAssetSettings.BuildPlayerContent(out result);
+
+            if (result != null && !string.IsNullOrEmpty(result.Error))
+            {
+                Fail($"Addressables 内容构建失败：{result.Error}");
+                return false;
+            }
+
+            if (result != null)
+            {
+                Log($"Addressables 内容构建完成，耗时 {result.Duration:F1} 秒，产物 {result.OutputPath}");
+            }
+
+            return true;
         }
 
         /// <summary>取 Build Settings 里勾选启用的场景路径。</summary>

@@ -3,6 +3,7 @@
     "rootNamespace": "Game.Core",
     "references": [
         "UniTask",
+        "UniTask.Addressables",
         "VContainer",
         "MessagePipe",
         "MessagePipe.VContainer",
@@ -10,6 +11,7 @@
         "Unity.ResourceManager",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
+        "Luban.Runtime",
         "LitMotion",
         "LitMotion.Extensions",
         "IngameDebugConsole.Runtime"

@@ -146,7 +146,7 @@ Boot.unity 加载
 
 要点：
 
-- **注册顺序就是初始化顺序**。要调整顺序，改 `GameLifetimeScope.Configure` 里的注册先后，不要在别处加调用。顺序按 `architecture.md` 5.1：Platform → Log → Config → Assets → Save → Input → Audio → UI。
+- **注册顺序就是初始化顺序**。要调整顺序，改 `GameLifetimeScope.Configure` 里的注册先后，不要在别处加调用。顺序按 `architecture.md` 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
 - **加一个新框架服务** = 实现 `IGameService` + 在 `GameLifetimeScope` 里 `.As<I你的接口, IGameService>()`，别的地方一行不用改。
 - 任何一步抛异常都会被 `BootAsync` 捕获、`Log.Error` 后**停止**启动，不会带着半初始化的状态往下跑。退出播放模式引起的 `OperationCanceledException` 不算错误。
 - 玩法场景走 Additive 加载，Boot 场景全程常驻。
@@ -230,9 +230,92 @@ await flow.GoToAsync<TitleState>(ct);
 ```
 
 切换串行：先 `ExitAsync` 当前状态，再 `EnterAsync` 目标状态；切换进行中再请求会**排队**按序执行，完成后发布 `GameStateChangedEvent(from, to)`。状态由容器解析，所以状态类可以构造注入服务。
-**禁止**：在 `GameState` 里写每帧逻辑（用 `ITickable`）；在 `EnterAsync` 里同步阻塞等待；忘了把玩法状态注册进作用域（`GoToAsync` 会解析失败）。
 
-> `Assets`、`Config`、`Save` 待波 2；`UI`、`Audio` 待波 3。
+**状态要带一个场景就继承 `SceneGameState`**，别自己在 `EnterAsync` 里加载：
+
+```csharp
+public sealed class BattleState : SceneGameState
+{
+    private readonly IUIService ui;
+    public BattleState(IAssetService assets, IUIService ui) : base(assets) => this.ui = ui;
+
+    protected override string SceneKey => "Battle";                     // Addressables 地址
+    protected override async UniTask OnSceneReadyAsync(CancellationToken ct)   // 场景加载完
+        => await ui.OpenAsync<BattleHudView>(ct: ct);
+    protected override UniTask OnSceneUnloadingAsync(CancellationToken ct) { ... }  // 卸载前清理
+}
+```
+
+基类的 `EnterAsync` / `ExitAsync` 是 `sealed` 的：进入时 `LoadSceneMode.Additive` 加载并持有 `SceneHandle`，退出时无条件卸载（子类清理抛异常也照卸，否则再进一次会叠出两份场景）。Boot 场景全程常驻，所以永远是 Additive，不用 Single。
+**禁止**：在 `GameState` 里写每帧逻辑（用 `ITickable`）；在 `EnterAsync` 里同步阻塞等待；忘了把玩法状态注册进作用域（`GoToAsync` 会解析失败）；自己在状态里 `LoadSceneAsync` 又不存句柄。
+
+### 6.8 Assets — `IAssetService`
+
+```csharp
+public sealed class Foo { public Foo(IAssetService assets) { ... } }
+using (AssetHandle<Sprite> h = await assets.LoadAsync<Sprite>("Icon_Sword", ct)) { image.sprite = h.Asset; }
+IReadOnlyList<AssetHandle<TextAsset>> all = await assets.LoadAllAsync<TextAsset>("config", ct);  // 按标签批量
+GameObject go = await assets.InstantiateAsync("Enemy_Slime", parent, ct);
+assets.ReleaseInstance(go);                                   // 配对，不要 Destroy
+SceneHandle scene = await assets.LoadSceneAsync("Level01", LoadSceneMode.Additive, ct);
+scene.Dispose();                                              // 即卸载
+```
+
+底下是 Addressables。**只有 Load 与 Release 两类动词**：句柄 `Dispose` 即释放且幂等，生命周期跟着持有者走；服务销毁时会把没还的强行释放并 `Log.Warn` 报数量，看到这条 Warn 就是有人漏了。
+**禁止**：直接调 `Addressables` / `Resources.Load`；把 `Instantiate` 出来的对象 `Destroy`（要 `ReleaseInstance`）；只存 `handle.Asset` 不存句柄（释放后 `Asset` 变 null）；指望有 `Exists` / `Check` / `Download`——**故意不提供**，业务拿它当加载判定会在真机上静默失败。
+
+### 6.9 Config — `IConfigService`
+
+```csharp
+public sealed class Foo { public Foo(IConfigService config) { ... } }
+cfg.Item item = config.Tables.TbItem.Get(1001);      // 主键不存在会抛
+cfg.Item maybe = config.Tables.TbItem.GetOrDefault(1001);
+foreach (cfg.Item it in config.Tables.TbItem.DataList) { ... }
+```
+
+数据源是 `Tables/` 下的 Excel，生成物在 `Core/Config/Generated/`（代码）与 `Data/Config/`（`.bytes`）。启动时 `ConfigService` 按 Addressables 标签 `config` 把全部表读进内存，所以加新表不用改框架代码。改表流程见第 8 章。
+**禁止**：手改 `Generated/` 与 `Data/Config/`（钩子会拒）；自己 `new cfg.Tables(...)`；往配置对象上挂运行期状态（字段都是 `readonly`，要状态就复制到自己的类里）；在注册顺序排在 `ConfigService` 之前的服务的 `InitializeAsync` 里读表（会抛「还没初始化完」）。
+
+### 6.10 Save — `ISaveService` / `ISaveData`
+
+```csharp
+public sealed class Foo { public Foo(ISaveService saves) { ... } }
+SettingsSaveData s = saves.Get<SettingsSaveData>();   // 首次访问自动创建，之后恒是同一个实例
+s.MasterVolume = 0.5f;                                // 直接改，不用「标记为脏」
+bool ok = await saves.SaveAsync(slot: 0, ct);         // 先写 .tmp 再原子替换
+bool loaded = await saves.LoadAsync(0, ct);           // 槽位不存在 / 文件损坏都返回 false，不抛
+if (saves.Exists(0)) { saves.Delete(0); }
+```
+
+JSON 文件在 `IPlatformService.SaveRoot` 下，一个槽位一个 `slot<N>.json`；每个分区各自带版本号，读回来时版本低于代码就调一次 `Migrate(旧版本)`。加分区、写迁移见第 9 章。
+**禁止**：自己拼 `Application.persistentDataPath`；在分区里放 `UnityEngine.Object` 引用（分区是纯 DTO，要存资源就存它的 Addressables key）；靠 `try/catch` 接读档异常（读档失败返回 `false`，不抛）；把大块运行期缓存塞进分区（存档要能人读能 diff）。
+
+### 6.11 UI — `IUIService` / `UIView`
+
+```csharp
+public sealed class Foo { public Foo(IUIService ui) { ... } }
+TitleView view = await ui.OpenAsync<TitleView>(arg: null, ct);   // 预制体地址 = 类名
+TitleView opened = ui.Get<TitleView>();                          // 没开返回 null
+await ui.CloseAsync(view, ct);
+await ui.CloseTopAsync(ct);                                      // 返回键：先关弹窗再关面板
+```
+
+`UIService` 启动时在代码里搭出 `UIRoot`（DontDestroyOnLoad）：四层 Canvas（Hud/Panel/Popup/Top，`sortingOrder` 0/100/200/300）各带 `CanvasScaler` + `GraphicRaycaster`，其下一个挂 `SafeAreaFitter` 的 `SafeArea` 节点当内容根；再加一个 `EventSystem` + `InputSystemUIInputModule`，动作集绑到 `IInputService.Actions.asset` 并启用 `UI` map。参考分辨率、匹配系数、过渡时长全从 `UIConfig` 来。新建面板的完整步骤见第 11 章。
+**禁止**：自己 `Instantiate` 面板预制体或自己找 Canvas；把面板做成场景里的常驻物体；在玩法场景里再放一个 `EventSystem`（Unity 只认第一个启用的，UIService 会把别的关掉并 Warn）；预制体地址和类名不一致（`OpenAsync` 会报「地址上没有那个组件」）。
+
+### 6.12 Audio — `IAudioService`
+
+```csharp
+public sealed class Foo { public Foo(IAudioService audio) { ... } }
+audio.PlaySfx(clip, 0.8f);                      // 手上已有 clip
+await audio.PlaySfxAsync("Sfx_Click");          // 按地址加载、播完自动释放
+await audio.PlayBgmAsync("Bgm_Title", 1.5f);    // 旧曲淡出 → 新曲淡入；0 直接切，负数用配置默认值
+audio.StopBgm(0.5f);
+audio.MasterVolume = 0.5f;                      // 立刻生效并写回 SettingsSaveData，但不落盘
+```
+
+三路音量都是 0～1 线性值，`Master` 乘在另外两路之上；setter 写的就是存档分区，**落盘由设置界面负责**（见第 12 章）。`AudioRoot` 上 1 个 loop 的 BGM 源 + `AudioConfig.SfxVoices` 个 SFX 声部（默认 8，轮转复用）。
+**禁止**：自己建 `AudioSource` 或用 `AudioSource.PlayClipAtPoint`；在音量 setter 之后立刻 `SaveAsync`（拖滑块会每帧写文件）；直接改 `SettingsSaveData` 的音量字段而不走服务（改了不会生效）。
 
 ## 7. 新建玩法模块
 
@@ -248,11 +331,122 @@ await flow.GoToAsync<TitleState>(ct);
 
 ## 8. 配置表怎么改
 
-待波 2 补充（Luban 接入后）。
+配置表用 [Luban](https://github.com/focus-creative-games/luban)。**Excel 是唯一数据源**，代码和二进制数据都是生成物。
+
+### 8.1 目录
+
+| 路径 | 是什么 | 进 git |
+| --- | --- | --- |
+| `Tables/luban.conf` | 生成配置：分组、schema 文件清单、目标 | 是 |
+| `Tables/Defines/builtin.xml` | 内置结构（`vector2/3/4`），原样别动 | 是 |
+| `Tables/Data/__enums__.xlsx` | 枚举定义 | 是 |
+| `Tables/Data/__beans__.xlsx` | 结构（表的行类型）定义 | 是 |
+| `Tables/Data/__tables__.xlsx` | 表清单：表名、行类型、数据文件、主键 | 是 |
+| `Tables/Data/<表>.xlsx` | 数据 | 是 |
+| `Assets/_Project/Scripts/Core/Config/Generated/` | 生成的 C# | **是**（同事和 CI 不用装工具） |
+| `Assets/_Project/Data/Config/*.bytes` | 生成的二进制数据 | **是** |
+| `Tools/Luban/` | Luban 工具本体，约 30 MB | 否（已 gitignore，脚本自动下载） |
+
+生成物**不手改**，钩子会直接拒。要改内容去改 Excel 再重新生成。
+
+### 8.2 改一张已有表的数据
+
+1. 改 `Tables/Data/<表>.xlsx`，保存关掉 Excel（占着文件会让生成失败）。
+2. 跑生成：编辑器里点菜单 **21Days → 配置表 → 生成**，或命令行
+   `powershell -ExecutionPolicy Bypass -File scripts/gen-tables.ps1`。
+3. 回 Unity 等刷新完，`/unity-test EditMode` 跑绿。
+4. 提交时**把生成物一起带上**（`Generated/` 的 `.cs` + `.meta`、`Data/Config/` 的 `.bytes` + `.meta`）。
+
+### 8.3 加一张新表
+
+1. `Tables/Data/__beans__.xlsx` 加行类型：`full_name` 填结构名（如 `Skill`），
+   右边 `*fields` 区逐行写字段 `name` / `type` / `comment`。类型写 `int` `long` `float` `bool` `string`、
+   已定义的枚举名、`vector2/3`，列表写 `(list#sep=,),string` 这种（`sep` 是单元格内的分隔符）。
+2. 要枚举就在 `Tables/Data/__enums__.xlsx` 加：`full_name` 一行，右边 `*items` 区逐行写 `name` / `alias` / `value`。
+3. `Tables/Data/__tables__.xlsx` 加一行：`full_name`=`TbSkill`、`value_type`=`Skill`、
+   `read_schema_from_file`=`FALSE`、`input`=`skill.xlsx`（相对 `Tables/Data/`）、`index`=主键字段名、`group`=`c`。
+4. 建 `Tables/Data/skill.xlsx`：A1 写 `##`，B 列起是字段名；第二行 A 列也写 `##`，其余填中文注释；第三行起是数据（A 列留空）。
+5. 跑生成，新表会自动出现在 `config.Tables.TbSkill`，**框架代码一行不用改**——
+   `Data/Config` 整个文件夹作为一个 Addressables 条目打了 `config` 标签，新 `.bytes` 自动被收进去。
+
+> 表头里 `*fields` / `*items` 这种「一对多」的父列必须是**合并单元格**，跨完它下面所有子列。
+> 不合并的话 Luban 只认得第一个子列，报「缺失列:'alias'」这类看不懂的错。
+
+### 8.4 环境要求
+
+- **.NET**：Luban 是 net8.0 程序。脚本会设 `DOTNET_ROLL_FORWARD=Major`，本机只有 .NET 9 也能跑。
+  万一报 `framework 'Microsoft.NETCore.App' version '8.0.0' was not found`，装个 .NET 8 运行时：
+  `winget install Microsoft.DotNet.Runtime.8`。
+- **解压**：工具包是 `.7z`。脚本先用 Windows 自带的 `tar.exe` 解，不行再找 `%ProgramFiles%\7-Zip\7z.exe`；
+  两条都不通就报错让你装：`winget install 7zip.7zip`。
+- **网络**：首次生成要从 GitHub 下 30 MB。下不动就手动下载
+  `https://github.com/focus-creative-games/luban/releases/download/v5.1.0/Luban.7z`，解压到 `Tools/Luban/`（`Luban.dll` 要在这一层）。
+  换版本改 `scripts/gen-tables.ps1` 顶部的 `$LubanVersion`，再跑一次 `-Force`。
+
+### 8.5 常见报错
+
+| 报错 | 原因与修法 |
+| --- | --- |
+| `缺失列:'xxx'` | `__beans__` / `__enums__` 的 `*fields` / `*items` 父列没做成合并单元格，见 8.3 末尾 |
+| `不存在对应的数据文件` | `__tables__` 的 `input` 写错了，路径相对 `Tables/Data/`，别带 `Data/` 前缀 |
+| `xxx 不是合法的类型` | 字段类型拼错，或枚举名和 `__enums__` 里的 `full_name` 对不上 |
+| Excel 被占用 / IO 异常 | 表还开在 Excel 里，关掉重跑 |
+| 运行时 `配置表 "xxx" 的数据文件没找到` | 代码生成了但 `.bytes` 没进 Addressables 的 Config 组，或者压根没重新生成——重跑 8.2 |
+| 运行时 `标签 "config" 下一个资源都没有` | Addressables 里 `Assets/_Project/Data/Config` 这个条目丢了标签。打开 Window → Asset Management → Addressables → Groups，把 Config 组里那个条目的 Label 勾回 `config` |
 
 ## 9. 存档
 
-待波 2 补充（`ISaveService` 落地后）。
+### 9.1 文件在哪、长什么样
+
+`<IPlatformService.SaveRoot>/slot<槽位>.json`；`SaveRoot` 是 `Application.persistentDataPath/saves`
+（Windows 在 `%userprofile%\AppData\LocalLow\DefaultCompany\<产品名>\saves`，Android 在应用私有目录）。
+
+```json
+{
+  "formatVersion": 1,
+  "partitions": {
+    "Game.Core.Save.SettingsSaveData": { "version": 1, "data": { "MasterVolume": 1.0, "Language": "zh-CN" } }
+  }
+}
+```
+
+键是分区类型的**全名**，所以给分区改命名空间或类名 = 换了一个分区，老数据会被当成「代码里已经没有的分区」跳过（只 Warn，不报错）。真要改名就把旧名当一个待迁移的老分区处理，或者别改。
+
+### 9.2 加一个分区
+
+1. 在 `Core/Save/`（框架级）或自己模块目录下写一个纯 C# 类实现 `ISaveData`：
+   ```csharp
+   public sealed class PlayerProgressSaveData : ISaveData
+   {
+       public int Version => 1;
+       public int Level { get; set; } = 1;
+       public List<string> UnlockedSkills { get; set; } = new List<string>();
+       public void Migrate(int fromVersion) { }
+   }
+   ```
+2. 只要可读写属性 + 属性初始化器给默认值，**不用注册**：`saves.Get<PlayerProgressSaveData>()` 第一次访问就会创建。
+3. 不放 `UnityEngine.Object` 引用（存不下），要指资源就存它的 Addressables key。
+
+### 9.3 版本迁移怎么写
+
+- **只加字段**：`Version` 不用动。老存档里没有的字段，Newtonsoft 会保留属性初始化器给的默认值。
+- **改语义**（改名、换单位、值域变了）：`Version` 加一，在 `Migrate` 里按 `fromVersion` **逐级**往上迁：
+  ```csharp
+  public int Version => 3;
+  public void Migrate(int fromVersion)
+  {
+      if (fromVersion < 2) { Hp = Hp * 10; }              // v1 的血量是百分比
+      if (fromVersion < 3) { Language = Language ?? "zh-CN"; }
+  }
+  ```
+  写成 `if (fromVersion < N)` 的阶梯而不是 `switch (fromVersion)`：玩家可能从很老的版本一步升上来。
+- `Migrate` 只在「存档里的版本 < 代码里的版本」时被调用**一次**。存档比代码新（玩家降级了）只 Warn 不迁，读进来的字段对不上的退回默认值。
+
+### 9.4 规矩
+
+- 写盘先落 `.tmp` 再原子替换，所以断电最多留个 `.tmp`，正档不会半截。磁盘 IO 在线程池上，序列化留在主线程（分区对象是玩法在改的）。
+- `LoadAsync` 对「没有文件」「JSON 坏了」「信封版本太新」一律记日志返回 `false`，**不抛**——存档坏掉不该把游戏带崩，拿到 `false` 就当新档开。
+- 什么时候存由调用方决定（存档点、退出、设置改完）。别每帧存。
 
 ## 10. 输入
 
@@ -288,11 +482,98 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 
 ## 11. UI 面板
 
-待波 3 补充（`IUIService` / `UIView` 落地后）。
+### 11.1 加一个新面板的完整步骤
+
+1. **写脚本**：`Assets/_Project/Scripts/Runtime/<模块>/UI/<名字>View.cs`（框架自带的占位面板在 `Core/UI/Views/`），继承 `UIView`，实现 `Layer`；按需重写三段生命周期。
+
+   ```csharp
+   public sealed class ShopView : UIView
+   {
+       [SerializeField] private Button closeButton;
+       public override UILayer Layer => UILayer.Panel;
+       public override bool IsFullScreen => true;                 // 半透明面板改成 false
+       public override UniTask OnOpenAsync(object arg, CancellationToken ct)
+       {
+           closeButton.onClick.RemoveListener(OnClose);           // 先摘再加，复用打开时不会叠监听
+           closeButton.onClick.AddListener(OnClose);
+           return UniTask.CompletedTask;
+       }
+       public override UniTask OnCloseAsync(CancellationToken ct)
+       {
+           closeButton.onClick.RemoveListener(OnClose);
+           return UniTask.CompletedTask;
+       }
+   }
+   ```
+
+   监听**只写在 `OnOpenAsync` / `OnCloseAsync`**，不写 `OnEnable` / `OnDisable`：面板被全屏面板盖住时会 `SetActive(false)`，那两个回调会重复触发。
+
+2. **建预制体**：放 `Assets/_Project/Prefabs/UI/<名字>View.prefab`。根节点是**全拉伸的 `RectTransform` + `CanvasGroup` + 面板脚本**，**不要带 `Canvas`**（Canvas 在 `UIRoot` 上，一层一个）。
+3. **加进 Addressables**：Window → Asset Management → Addressables → Groups，拖进 `UI` 组，**地址改成类名**（`ShopView`）。地址对不上时 `OpenAsync` 会抛「地址上没有那个组件」。
+4. **打开**：`await ui.OpenAsync<ShopView>(arg, ct)`。已经开着就返回同一个实例并再走一次 `OnOpenAsync`，不会开出两份。
+
+### 11.2 层级规则
+
+| 层 | 用途 | 进栈？ |
+| --- | --- | --- |
+| `Hud` | 血条、摇杆、小地图 | 否，常驻 |
+| `Panel` | 标题、背包、设置 | 是，**单栈**：压入全屏 Panel 时它下面的 Panel 全部 `SetActive(false)`，弹出后恢复 |
+| `Popup` | 确认框、飘窗 | 是，可叠加，互不隐藏，也不影响 Panel |
+| `Top` | 加载遮罩、转圈、调试台 | 否，永远在最上面 |
+
+`CloseTopAsync()` 先看 Popup 再看 Panel；`Hud` / `Top` 不进栈，所以返回键关不掉它们。规则本身写在纯 C# 的 `UIStack` 里，有 `UIStackTests` 钉着——改规则先改测试。
+
+### 11.3 过渡动画
+
+`UIView` 默认用 LitMotion 做 `CanvasGroup.alpha` 的淡入淡出，时长取 `UIConfig.TransitionSeconds`（默认 0.15 秒，设 0 则跳过动画直接显隐），调度器是 `UpdateIgnoreTimeScale`——暂停菜单在 `timeScale = 0` 时也得能淡出来。要换成缩放、滑入就重写 `PlayOpenTransitionAsync(float seconds, CancellationToken ct)` / `PlayCloseTransitionAsync`。同一时刻只跑一个过渡，新的会掐断旧的（旧的 `await` 正常结束，不抛异常）。
+
+### 11.4 安全区
+
+每层 Canvas 下的 `SafeArea` 节点挂着 `SafeAreaFitter`，按 `Screen.safeArea` 设 `anchorMin/anchorMax`，只在 `OnEnable` 与 `OnRectTransformDimensionsChange` 时重算（不轮询 `Update`）。面板生在这个节点下面，所以**不用自己适配刘海**。换算逻辑是纯函数 `SafeAreaMath.ToAnchors`，屏幕尺寸为 0 时退回全屏而不是产生 NaN（NaN 赋给 anchor 会让整个界面消失）。
+
+### 11.5 中文字体
+
+TMP 自带的 `LiberationSans SDF` **没有中日韩字形**，中文会显示成 `□` 并每次打警告。真要上中文界面前得做一次：拿一份可商用的中文字体 → Window → TextMeshPro → Font Asset Creator 生成 TMP 字体资产（字符集用常用字表，别全量）→ 设成 `TMP Settings` 的 Default Font Asset 或 fallback。占位的 `TitleView` 现在就是这个状态。
 
 ## 12. 音频
 
-待波 3 补充（`IAudioService` 落地后）。
+### 12.1 三路音量与存档的关系
+
+`MasterVolume` / `BgmVolume` / `SfxVolume` 三个属性**读写的就是 `SettingsSaveData` 分区**，不是服务自己的字段：
+
+```csharp
+audio.MasterVolume = 0.5f;     // ① 夹到 0～1 ② 写进 SettingsSaveData ③ 立刻应用到 AudioSource
+```
+
+**服务不负责落盘**——设置界面拖滑块时每帧写一次文件是灾难。正确做法是设置面板关闭时调一次 `saves.SaveAsync(slot, ct)`。反过来，`LoadAsync` 读回存档后要让音量生效，重新赋一次 `audio.MasterVolume = settings.MasterVolume` 即可。
+
+音量怎么落到声音上：`AudioConfig.Mixer` 留空（现状）时用 AudioSource 音量相乘——BGM 源音量 = `Master × Bgm`，SFX 声部音量 = `Master × Sfx`，`PlaySfx` 的 `volume` 参数再乘一次。换算在纯函数 `AudioVolumeMath.Effective` 里，有测试钉着。
+
+### 12.2 BGM 切换
+
+```csharp
+await audio.PlayBgmAsync("Bgm_Title");        // 不传就是契约里的默认值 0.5 秒
+await audio.PlayBgmAsync("Bgm_Title", -1f);   // 负数 = 用 AudioConfig.DefaultBgmFadeSeconds
+await audio.PlayBgmAsync("Bgm_Title", 0f);    // 0 = 直接切，不淡
+```
+
+只有一路 BGM 源，所以是**先淡出旧的再淡入新的**（总耗时约 `2 × fade`），不是真正的交叉淡化；要交叉得改成两路源轮流用。已经在放同一首时是空操作。曲子的 `AssetHandle` 由服务持有，换曲与 `StopBgm` 时释放。
+
+### 12.3 SFX 池
+
+`AudioRoot` 上有 `AudioConfig.SfxVoices` 个 `AudioSource`（默认 8），`PlaySfx` 轮转取一个 `PlayOneShot`——用满一圈后最早用过的那个被再次拿走，前一发声音继续混着播完，不会被掐。
+`PlaySfxAsync(key)` 按地址加载后播放，用 `UniTask.Delay(clip.length)` 等它播完再释放句柄（而不是缓存最近 N 个句柄：N 取多少都不对，短音效被提前释放、长音效白占内存）。不关心播完时机就 `.Forget()`。
+
+### 12.4 将来接 AudioMixer
+
+Unity 没有公开 API 从代码创建 AudioMixer 资产，所以这一步必须手工做一次：
+
+1. Assets → Create → Audio Mixer，放 `Assets/_Project/Data/Audio/`。
+2. 建 `Bgm`、`Sfx` 两个子组，在 Inspector 里把三个 Volume 参数 Expose 出来，改名成 `MasterVolume` / `BgmVolume` / `SfxVolume`（`AudioService` 按这三个名字 `SetFloat`）。
+3. 把 Mixer 拖到 `AudioConfig.Mixer` 字段上。
+4. 把 BGM 源与 SFX 声部的 `outputAudioMixerGroup` 指到对应组（目前 `AudioService` 不做这一步，接 Mixer 时补上）。
+
+接上之后 `AudioService` 自动改走分贝：各 `AudioSource` 音量恒为 1，音量由 `AudioVolumeMath.ToDecibels`（0 → -80，1 → 0）算出来喂给 Mixer 参数。
 
 ## 13. 测试
 
@@ -321,3 +602,96 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 - 编译是否成功：`execute_code` 里读 `UnityEditor.EditorUtility.scriptCompilationFailed`，再用 `System.Type.GetType("命名空间.类名, 程序集名")` 确认新类型真的被编译进了目标程序集。
 - 运行时日志：`execute_code` 里临时挂 `Application.logMessageReceived`，触发一次要观察的流程，收集完再摘掉。
 - 实在要看历史日志：让用户看编辑器 Console 窗口，或用运行时的 IngameDebugConsole。
+
+### 15.3 Luban 的 `__beans__` / `__enums__` 报「缺失列」（波 2 踩到）
+
+**现象**：`__beans__.xlsx` 照着官方 MiniTemplate 抄的表头，跑生成却报
+`bean:'__intern__.__FieldInfo__' 缺失列:'alias'，请检查是否写错或者遗漏`，报错位置指着第一个字段所在的单元格。
+
+**根因**：`*fields`（`__enums__` 里是 `*items`）这种「一对多」的父列，在官方模板里是**合并单元格**，
+横跨它下面所有子列（`__beans__` 是 `J1:P1`，`__enums__` 是 `H1:L1`）。不合并的话 Luban 只把第一个子列
+认成 `*fields` 的成员，后面的 `alias` / `type` 全部当成了顶层列，于是报「子结构缺列」。
+用 openpyxl 之类的脚本重建表头最容易漏掉这一步——肉眼看内容完全一样。
+
+**正确做法**：表头里凡是 `*` 开头的父列都要合并到覆盖全部子列。openpyxl 里是 `ws.merge_cells("J1:P1")`。
+
+### 15.4 EditMode 测试里同步等 UniTask 会死锁（波 2 踩到）
+
+**现象**：`JsonSaveServiceTests` 里用 `task.AsTask().GetAwaiter().GetResult()` 等存档写完，
+测试直接挂住不动，Test Runner 转圈到超时。
+
+**根因**：存档的磁盘 IO 走 `UniTask.RunOnThreadPool`，跑完要切回主线程继续。编辑器下 UniTask 的
+PlayerLoop 是靠 `EditorApplication.update` 推的（`PlayerLoopHelper.InitOnEditor`），
+在主线程上阻塞等，就等于把推它的那只手按住了——续接永远排不上队。
+
+**正确做法**：异步用例写成 `[UnityTest] public IEnumerator Xxx() => UniTask.ToCoroutine(async () => { ... });`。
+EditMode 的 `[UnityTest]` 由测试运行器按编辑器更新逐帧推进，主线程不被占住，续接就能回来。
+
+### 15.5 Addressables 的 `config` 标签丢了，配置表加载不出来
+
+**现象**：进 Play 模式启动到 `ConfigService` 时抛
+`Addressables 里标签 "config" 下一个资源都没有`。
+
+**根因**：`Assets/_Project/Data/Config` 是作为**一个文件夹条目**加进 Addressables 的 `Config` 组的，
+标签打在这个条目上、由子资源继承。有人在 Addressables 窗口里删了条目或取消了标签，就全断了。
+
+**正确做法**：Window → Asset Management → Addressables → Groups，确认 `Config` 组里有一个
+address 为 `Config` 的文件夹条目、Labels 勾着 `config`。条目整个没了就把 `Assets/_Project/Data/Config`
+文件夹重新拖进 `Config` 组再勾标签。Play Mode Script 保持 **Use Asset Database (fastest)**，
+这样改完表不用每次 Build 内容。出包时 `BuildScript` 会自动先跑 `BuildPlayerContent()`。
+
+### 15.6 编辑器失焦时 Play 模式不走帧，所有 `await` 卡住（波 3 踩到）
+
+**现象**：用 MCP 进 Play 模式后，`await ui.CloseTopAsync()` 之类的调用永远不返回，面板的淡出动画停在第一帧；
+连查两次 `Time.frameCount` 数值一模一样。代码本身没有报错，看起来像死锁。
+
+**根因**：`Application.runInBackground` 默认 false，编辑器窗口**没有焦点**时 Unity 不推进 PlayerLoop。
+不走帧 → LitMotion 不更新、UniTask 的续接排不上队 → 所有 `await` 停在原地。
+用 MCP 遥控时编辑器一直是失焦的，所以必现。
+
+**正确做法**：验证前先在 Play 模式里执行一次 `Application.runInBackground = true`（运行时改，退出即失效，
+不动 Player Settings）。判断是不是这个坑：隔几秒读两次 `Time.frameCount`，不变就是它。
+
+### 15.7 `read_console` 读不到日志，是控制台的等级开关被关了（波 3 定位）
+
+**现象**：`read_console(types=["all"])` 稳定返回 0 条，但 Console 窗口里明明有日志——
+这就是 15.2 记的那个「读不到刚打的日志」，波 3 查到了真因。
+
+**根因**：Console 窗口的三个等级开关（Log / Warning / Error 那三个按钮）是**过滤器**，
+关掉之后 `LogEntries` 一条都不返回，MCP 读的就是这个接口。本工程的编辑器里
+Log(1&lt;&lt;7) 与 Warning(1&lt;&lt;8) 两位是关的、Error(1&lt;&lt;9) 是开的，所以「只有错误读得到」。
+
+**正确做法**：在 Console 窗口右上角把三个等级按钮都点亮即可。脚本里确认用
+`UnityEditor.LogEntries.GetCountsByType(ref err, ref warn, ref log)`——**它不受过滤器影响**，
+所以「零错误」这个结论可以靠它，而不必依赖 `read_console` 能不能读出来。
+
+### 15.8 退出 Play 模式时报「资源服务销毁时还有 N 个实例没归还」（波 3 踩到）
+
+**现象**：明明每个面板都是 `IUIService` 开的、也没人手动 Destroy，退出播放模式却总看到
+`AddressablesAssetService` 报还有实例/句柄没归还。
+
+**根因**：VContainer 按**注册顺序**释放 `IDisposable`。`IAssetService` 注册在前（启动顺序要求），
+`UIService` / `AudioService` 注册在后，于是资源服务先销毁、清空登记，等 UI 与音频再去 `ReleaseInstance`
+就已经晚了。这是顺序问题，不是真泄漏——但它会让那条本来用来抓真泄漏的 Warn 变成天天响的噪音。
+
+**正确做法**：持有资源的服务在 `InitializeAsync` 里订阅 `Application.quitting`，在回调里把实例和句柄
+先还回去（`UIService.ReleaseAllViews` / `AudioService.ReleaseAllHandles`），`Dispose` 时退订并再调一次（幂等）。
+新写「持有 Addressables 句柄的框架服务」时照这个做。
+
+### 15.9 切状态时 `EnterAsync` 抛异常，`Current` 还停在旧状态（波 3 审查后定的语义）
+
+**现象**：`GoToAsync<SomeState>()` 抛异常回来，接着看 `IGameFlow.Current`，它还是切换**之前**那个状态；
+再切一次到别的状态时，旧状态的 `ExitAsync` 又被调了一遍。
+
+**根因**：`GameFlow` 现在只在 `EnterAsync` **成功之后**才把 `Current` 指向新状态（之前是 Enter 前就赋值，
+Enter 炸了 `Current` 会指着一个从没进去过的状态，下一次切换去 Exit 它，Exit 里那些「Enter 时申请的东西」全是空的）。
+代价是失败后会处在「前一状态已 `Exit`、目标状态未 `Enter`」的空档，而 `Current` 仍指向前一状态——
+它的语义是「**最近一个成功进入的状态**」，不是「场上活着的状态」。
+
+**正确做法**：
+
+- **状态的 `ExitAsync` 要写成幂等的**：可能被连着调用两次（失败那次 + 下一次切换那次）。摘监听、还句柄这类操作
+  本来就该能重复执行；`Exit` 里不要做「计数减一」这种只能跑一次的事。
+- 切换失败不用自己收拾状态机：异常会原样回传给 `GoToAsync` 的调用方，队列照常处理后面的请求，
+  恢复手段就是再 `GoToAsync` 到一个能进得去的状态。
+- 失败那次**不发** `GameStateChangedEvent`，所以订阅者看到的事件序列里永远只有成功的切换。

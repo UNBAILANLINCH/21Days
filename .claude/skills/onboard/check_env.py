@@ -174,6 +174,20 @@ def check_dotnet() -> dict:
     return {"name": name, "status": NOTE, "detail": f"已安装 {best[2]}，低于 8.0；波 2 起需要 8.0+；{anchor}"}
 
 
+def check_luban_tool() -> dict:
+    name = "Luban 工具（配置表生成）"
+    dll = ROOT / "Tools" / "Luban" / "Luban.dll"
+    if dll.is_file():
+        return {"name": name, "status": NOTE, "detail": f"已就位：{norm(str(dll.relative_to(ROOT)))}"}
+    return {
+        "name": name,
+        "status": NOTE,
+        "detail": "Tools/Luban/Luban.dll 不存在（该目录已 gitignore，本来就不进库）；"
+        "首次跑 `powershell -ExecutionPolicy Bypass -File scripts/gen-tables.ps1` 或点菜单 21Days/配置表/生成 会自动下载解压，"
+        "需要能访问 github.com；只改代码不改配置表的话不用管；见 docs/developer-guide.md 第 8 章",
+    }
+
+
 def check_claude_code() -> dict:
     name = "Claude Code（claude 在 PATH）"
     path = shutil.which("claude")
@@ -309,6 +323,7 @@ CHECKS = (
     check_python,
     check_uv,
     check_dotnet,
+    check_luban_tool,
     check_claude_code,
     check_winget,
     check_mcp_version_sync,

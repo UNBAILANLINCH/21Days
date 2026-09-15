@@ -71,3 +71,15 @@
 - 根因：VContainer 包自带 `Editor/ScriptTemplateModifier.cs`，它注册了 `AssetModificationProcessor.OnWillCreateAsset`：Unity 第一次发现新文件、给它生成 `.meta` 时会触发这个回调，回调对所有路径以 `LifetimeScope.cs` 结尾的脚本无条件 `File.WriteAllText` 写入模板。它本意是给「Assets → Create → C# Script」的新建流程填模板，但分不清文件是编辑器里建的还是外部拷进来的。
 - 正确做法：新建 `*LifetimeScope.cs` 时**先建一个空文件让 Unity 生成 `.meta`**（或先起别的名字再改名），确认 `.meta` 存在后再写入真正内容；已经被清空的重写一遍即可，第二次不会再触发。修改既有的 LifetimeScope 文件不受影响。
 - 关联：`Assets/_Project/Scripts/Core/Boot/GameLifetimeScope.cs`、`docs/developer-guide.md #15 常见问题`；首次踩到 2026-09-15。
+
+## `.gitattributes` 里的 `*.{png,jpg}` 花括号规则从来没生效
+- 现象：`.gitattributes` 写了 `*.{png,jpg,psd} binary`，`git check-attr -a foo.png` 却返回 `text: auto`；二进制资产全靠 `* text=auto` 的自动探测兜底，某些含大段 ASCII 的二进制（如部分 `.bytes`、`.fbx` 文本格式）有被当文本做行尾转换的风险。
+- 根因：`.gitattributes` 的模式匹配用的是 git 自带的 wildmatch，它不做 shell 那种 `{a,b}` 花括号展开，`*.{png,jpg}` 被当成字面量去匹配一个真的叫 `x.{png,jpg}` 的文件名。这条规则静默失效，没有任何警告。
+- 正确做法：每个扩展名单写一行（`*.png binary`、`*.jpg binary`……）。改完用 `git check-attr binary text eol -- foo.png foo.unity` 实测，`binary: set` 才算生效。写完 `.gitattributes` 就顺手测一次，别相信肉眼。
+- 关联：`.gitattributes`、`.claude/rules/unity-assets.md #.meta 与版本控制`；发现于 2026-09-15 波 2 验收。
+
+## MCP `read_console` 读不到日志，其实是 Console 窗口的等级按钮被关了
+- 现象：`read_console(action="get")` 稳定返回 0 条，连刚打的 `Debug.Log` / 警告都读不到，但 `execute_code` 能正常执行；编辑器 Console 窗口里看起来也「很干净」。
+- 根因：MCP for Unity 的 `read_console` 走的是编辑器 Console 的内部 `LogEntries` 接口，它尊重 Console 窗口右上角 **Log / Warning / Error 三个等级按钮**的开关状态。有人为了清净把 Log 和 Warning 关掉后，这两类条目在窗口里不显示、经 MCP 也读不到，只剩 Error。这个开关存在本机 `UserSettings/`，不进 git，所以每台机器状态不同，别人复现不了。
+- 正确做法：读不到日志先看 Console 窗口右上角三个等级按钮是否都亮着，点亮再读；`/onboard` 的人工步骤里提醒新人别关。真要过滤用 `read_console` 的 `types` / `filter_text` 参数，不要关窗口按钮。
+- 关联：`.claude/skills/unity-mcp/SKILL.md #故障排查`、`docs/developer-guide.md #15.2`；波 1 踩到、波 3 定位，2026-09-15。

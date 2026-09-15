@@ -10,19 +10,22 @@ harness 不是搭完就不动的：规则文件改名、技能目录挪位置、
 
 这个脚本把「harness 内部引用是否自洽」变成一次机械检查。
 
-## 查五样
+## 查六样
 
     1. markdown 相对链接      CLAUDE.md / README.md / .claude / ai-docs / docs 下的 [x](path) 目标在不在
     2. 模块文档目录          generate-doc/modules.json 里 status 不是 todo 的 docs 目录在不在
     3. 钩子脚本              settings.json 里 $CLAUDE_PROJECT_DIR/xxx.(py|js) 引用的脚本在不在
     4. 钩子自测              跑一遍 .claude/hooks/tests/run.py，全绿才算过
-    5. 必读文件（只提示）     .claude/hooks/required_reads.json 里提到的文件在不在
+    5. 工程静态不变量        跑一遍 invariants.py：asmdef 依赖方向、平台宏、命名空间、.meta、UI 地址
+    6. 必读文件（只提示）     .claude/hooks/required_reads.json 里提到的文件在不在
 
-前四样算失败（exit 1）；第 5 样**只作提示不算失败** —— 那份清单常常先于文档写好，
+前五样算失败（exit 1）；第 6 样**只作提示不算失败** —— 那份清单常常先于文档写好，
 「还没写」和「写歪了」是两回事，不该混在一起报。
 
-第 4 样是钩子自测的**执行载体**：钩子坏了不报错、只是悄悄不生效（判据写反、
-提示不再注入、闸被绕开），从外面完全看不出来，得有人定期问一声。
+第 4 / 5 样都是「本身也需要载体的检查」的**执行载体**：
+钩子坏了不报错、只是悄悄不生效（判据写反、提示不再注入、闸被绕开）；
+跨文件不变量破了也不报错、只在运行时静默失效（引用断链、面板地址找不到）。
+两类故障从外面都看不出来，得有人定期问一声，`/gc` 就是那一问。
 
 只读扫描，不改任何文件。
 用法：python gc_scan.py [工程根]（省略则从本文件位置往上推）
@@ -39,7 +42,7 @@ from pathlib import Path
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 #: 扫这些目录下的所有 .md
-SCAN_DIRS = (".claude", "ai-docs", "docs")
+SCAN_DIRS = (".claude", "ai-docs", "docs", "evals")
 #: 外加工程根上这几份
 ROOT_FILES = ("CLAUDE.md", "README.md")
 
@@ -176,6 +179,39 @@ def check_hook_tests(root: Path) -> list:
                       + [f"    {ln}" for ln in tail])]
 
 
+def check_invariants(root: Path) -> list:
+    """跑一遍工程静态不变量扫描（`invariants.py`）。**有违规算失效**（exit 1）。
+
+    查的是 project-lint 的逐行正则够不着的跨文件约束：asmdef 依赖方向、平台宏的位置、
+    命名空间与目录、`.meta` 配对、UI 面板的 Addressables 地址。这些破了都不报编译错误，
+    只在运行时静默失效，所以需要一个会被真的执行的载体来问一声 —— `/gc` 就是那个载体。
+
+    与第 4 样的差别：那边是子进程跑测试，这边直接 import（同目录的兄弟模块，省一次进程）。
+    import 失败**不 fail-open**：`invariants.py` 是仓库里的文件，导不进来就是仓库坏了，
+    而不是运行环境不行；悄悄跳过会让这一整项永远静默通过，正是要防的那种故障。
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        import invariants  # noqa: PLC0415  延迟导入：不让它的问题影响前几项检查
+    except Exception as exc:  # noqa: BLE001
+        return [f"  invariants.py 导入失败，工程静态不变量整项没跑：{exc}"]
+    try:
+        problems = invariants.scan(root)
+    except Exception as exc:  # noqa: BLE001
+        return [f"  invariants.py 运行出错，工程静态不变量整项没跑：{exc}"]
+    if not problems:
+        return []
+    # 整段算**一条**：把 N 处违规拆成 N 条会把「发现 X 处失效引用」的计数撑爆，
+    # 让人以为 harness 到处是洞（钩子自测那一项同理）。
+    lines = [f"  工程静态不变量扫描发现 {len(problems)} 处违规"
+             f"（单独重跑：python .claude/skills/evolution/invariants.py）："]
+    for n, p in enumerate(problems, 1):
+        body = invariants.render(p).splitlines()
+        lines.append(f"    {n}) {body[0]}")
+        lines.extend(f"    {ln}" for ln in body[1:])
+    return ["\n".join(lines)]
+
+
 def _walk_strings(node) -> list:
     """把任意形状的 JSON 里的字符串全捞出来 —— required_reads.json 的 schema
     可能随时变，按结构解析不如按内容筛来得稳，何况这一项只作提示。"""
@@ -230,6 +266,7 @@ def main() -> int:
     problems += check_modules_json(root)
     problems += check_hook_scripts(root)
     problems += check_hook_tests(root)
+    problems += check_invariants(root)
     notes = check_required_reads(root)
 
     if problems:
@@ -241,7 +278,8 @@ def main() -> int:
         print("\n先修失效引用，再看最近的 harness 改动是不是引入了退化。")
         return 1
 
-    print("[gc] 健康度扫描通过：markdown 链接、模块文档目录、钩子脚本引用均自洽，钩子自测全绿。")
+    print("[gc] 健康度扫描通过：markdown 链接、模块文档目录、钩子脚本引用均自洽，"
+          "钩子自测全绿，工程静态不变量无违规。")
     if notes:
         print(f"\n[gc] {len(notes)} 条提示（不算失败，多半是文档还没写）：")
         print("\n".join(notes))

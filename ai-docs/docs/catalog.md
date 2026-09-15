@@ -48,6 +48,8 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 新开发者首次上手（环境自检、MCP 连通、该读什么） | [`.claude/skills/onboard/SKILL.md`](../../.claude/skills/onboard/SKILL.md)（`/onboard`） |
 | 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
 | 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
+| 跑行为 eval（改完规则验 AI 行为有没有真变） | [`.claude/skills/run-evals/SKILL.md`](../../.claude/skills/run-evals/SKILL.md)（`/run-evals`） |
+| 工程跨文件静态不变量（asmdef 方向 / 平台宏 / 命名空间 / `.meta` / UI 地址） | [`.claude/skills/evolution/invariants.py`](../../.claude/skills/evolution/invariants.py)（`/gc` 第 5 项自动跑） |
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |
 | 操作编辑器 / 建物体 / 跑测试 / 看控制台 | [`.claude/skills/unity-mcp/SKILL.md`](../../.claude/skills/unity-mcp/SKILL.md)（MCP 已接，`/mcp` 看状态） |
 | MCP 一次性接入步骤、钩子总述 | [`docs/ai-setup.md`](../../docs/ai-setup.md) |

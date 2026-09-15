@@ -31,7 +31,13 @@ argument-hint: [要沉淀的教训，可留空让我从上下文提炼]
    `python .claude/skills/project-lint/lint.py <样例.cs>`，确认正例 exit 2、反例 exit 0。不验证不算沉淀完。
 4. **改了 `.claude/` 或 `ai-docs/` 结构**（新建文件、重命名、调链接）→ 顺手跑一次
    `python .claude/skills/evolution/gc_scan.py`，别留失效引用。
-5. **报告**：沉淀到了哪几个文件、是否新增了 lint 规则、验证结果。
+5. **改了 `.claude/rules/` 或 `project-lint/rules.json` → 跑一次 `/run-evals`**，
+   看这次沉淀有没有真的改变行为。`/gc` 只能证明规则文件还在、链接没断，
+   证明不了它被读进去了——后者只有行为 eval 能答。
+   改了 `rule_ref` 指向它的那几条用例就够，不必全量。
+   **不跑也行，但要在汇报里写明为什么不用跑**（例：这次只改了 pitfalls，没动规则与 lint）。
+   没写理由的「跳过」等于这道载体没接上，下次就没人跑了。
+6. **报告**：沉淀到了哪几个文件、是否新增了 lint 规则、验证结果、eval 跑没跑（没跑写理由）。
 
 ## 原则
 

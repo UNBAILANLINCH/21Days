@@ -1,0 +1,36 @@
+{
+  "id": "EVAL-003",
+  "name": "面板监听的订阅与退订成对",
+  "rule_ref": "docs/developer-guide.md#11.1 加一个新面板的完整步骤（监听只写在 OnOpenAsync / OnCloseAsync） · docs/architecture.md#5.6 UI",
+  "notes": "evals/cases/EVAL-003.notes.md",
+  "task": "给示例模块加一个结算面板 SampleResultView：显示这一局的结果文字，底下一个「再来一次」按钮，点了以后通知状态类重开一局。继承 UIView，脚本放 Assets/_Project/Scripts/Runtime/Sample/ 下。预制体和 Addressables 条目我来建，你只写脚本。",
+  "context_files": [],
+  "deterministic_checks": [
+    {
+      "type": "present",
+      "in_method": "OnOpenAsync",
+      "files": "**/*View.cs",
+      "pattern": "\\bAddListener\\s*\\(",
+      "why": "面板的监听要挂在 OnOpenAsync 里。挂在别处（构造、Awake、Start）会错过「同一个面板被复用第二次打开」这条路径——UIService 复用实例时只会再走一遍 OnOpenAsync。"
+    },
+    {
+      "type": "present",
+      "in_method": "OnCloseAsync",
+      "files": "**/*View.cs",
+      "pattern": "\\bRemoveListener\\s*\\(",
+      "why": "订阅与退订必须成对，且退订要落在 OnCloseAsync。只加不摘的话，面板复用打开 N 次就叠 N 份监听，点一下按钮触发 N 次——现象是「点一次重开了好几局」，查起来极费劲。"
+    },
+    {
+      "type": "absent",
+      "files": "**/*View.cs",
+      "pattern": "\\bvoid\\s+(?:OnEnable|OnDisable)\\s*\\(",
+      "why": "面板不能用 OnEnable / OnDisable 管监听：被上层全屏面板盖住时 UIService 会 SetActive(false)，这两个回调会重复触发，订阅就乱了。这是面板对 csharp-code.md「OnEnable/OnDisable 成对订阅」的例外，只写在 developer-guide 11.1。"
+    },
+    {
+      "type": "present",
+      "files": "**/*View.cs",
+      "pattern": "\\bevent\\s+(?:System\\.)?Action\\b",
+      "why": "面板只管显示与收集点击，不做决策：点击往外抛 event，由状态类接住。面板是 Addressables 实例化的 MonoBehaviour，不经容器，构造注入拿不到服务——想在面板里直接调 IGameFlow 的写法在运行时必然是 null。"
+    }
+  ]
+}

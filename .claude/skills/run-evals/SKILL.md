@@ -14,6 +14,14 @@ disable-model-invocation: true
 
 静态自洽归 `/gc`（`invariants.py`），这里只管**行为**：同一个任务，改完规则之后 AI 做得对不对。
 
+## 覆盖边界（下结论前先看这条）
+
+本 eval 测得到「常驻的 `CLAUDE.md`」与「按文件类型 glob 注入的 `.claude/rules/`」这两层，
+**测不到模块 guide 那道强制闸**——产出落在 scratchpad，`required-reads` 的路径匹配不命中。
+所以全绿只能说明前两层有效，不能外推成「知识层没问题」。那道闸由 `.claude/hooks/tests/` 覆盖，
+跑 `/gc` 会带着跑。完整因果见 [`ai-docs/pitfalls.md`](../../../ai-docs/pitfalls.md) 里
+「行为 eval 全绿，不代表知识注入三层都验过了」一条。
+
 ## 步骤
 
 1. **列用例**：`ls evals/cases/*.json`。改了某条规则就只跑 `rule_ref` 指向它的那几条，全量才跑全部。

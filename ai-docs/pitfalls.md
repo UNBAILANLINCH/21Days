@@ -89,3 +89,9 @@
 - 根因：Player Settings 的 **Run In Background** 关掉时（`ProjectSettings.asset` 里 `runInBackground: 0`），编辑器窗口失焦 Unity 就不推进 PlayerLoop。MCP 遥控时编辑器一直是失焦的，所以必现。这是**工程设置**，会连累每个用 MCP 的人。
 - 正确做法：本工程保持 `runInBackground: 1`，不要在 Player Settings 里取消勾选。真要让玩家切出去时暂停，用 `OnApplicationFocus` 写玩法层的暂停逻辑，不要关这个开关。临时绕过可在运行时设 `Application.runInBackground = true`，但那只在当次 Play 有效，治标。Android 上应用切后台由系统挂起，这个开关基本不起作用，所以关它对成品包也没什么收益。
 - 关联：`docs/developer-guide.md #15.6`、`ProjectSettings/ProjectSettings.asset`；2026-09-15 波 3 踩到、当天有人误关一次。
+
+## 行为 eval 全绿，不代表知识注入三层都验过了
+- 现象：`/run-evals` 报 3/3 通过，于是认为「规则能送达、AI 能照做」这件事已经有回归保护。实际上**第三层（模块 guide 强制闸）一次都没被测到**，它坏了 eval 也照样全绿。
+- 根因：知识是三层加载的——常驻的 `CLAUDE.md`、按文件类型 glob 注入的 `.claude/rules/`、以及编辑模块代码前由 `required-reads` 钩子强制先读的模块 guide。第三层靠钩子里的路径匹配触发，规则写死在 `required_reads.json`：`Assets/_Project/Scripts/Runtime/*/**`。而行为 eval 让 subagent 在 **scratchpad 的临时目录**里落盘（故意的，不能往仓库里写），临时目录不在那个路径下，匹配不命中，钩子根本不会触发。所以 eval 测得到前两层，唯独测不到第三层。
+- 正确做法：看 eval 结果时把结论限定成「常驻规则与按类型注入的规则有效」，不要外推成「知识层没问题」。模块 guide 那道闸单独验：`.claude/hooks/tests/` 里的端到端用例覆盖了它（构造真实仓库路径喂给钩子，断言拦与放行），跑 `/gc` 就会带着跑。真要在 eval 里连它一起验，只能让 subagent 在仓库内真写再回滚，风险和成本都高一截——**当前选择是不做，并把这个边界写明，而不是让人以为覆盖全了**。
+- 关联：`.claude/skills/run-evals/SKILL.md #覆盖边界`、`.claude/hooks/required_reads.json`、`.claude/hooks/tests/`；2026-09-16 建 eval 载体时识别。

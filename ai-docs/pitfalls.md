@@ -83,3 +83,9 @@
 - 根因：MCP for Unity 的 `read_console` 走的是编辑器 Console 的内部 `LogEntries` 接口，它尊重 Console 窗口右上角 **Log / Warning / Error 三个等级按钮**的开关状态。有人为了清净把 Log 和 Warning 关掉后，这两类条目在窗口里不显示、经 MCP 也读不到，只剩 Error。这个开关存在本机 `UserSettings/`，不进 git，所以每台机器状态不同，别人复现不了。
 - 正确做法：读不到日志先看 Console 窗口右上角三个等级按钮是否都亮着，点亮再读；`/onboard` 的人工步骤里提醒新人别关。真要过滤用 `read_console` 的 `types` / `filter_text` 参数，不要关窗口按钮。
 - 关联：`.claude/skills/unity-mcp/SKILL.md #故障排查`、`docs/developer-guide.md #15.2`；波 1 踩到、波 3 定位，2026-09-15。
+
+## 关掉 Run In Background，MCP 遥控下的 Play 模式必然「假死」
+- 现象：用 MCP 进 Play 模式后，`await` 永远不返回、面板动画停在第一帧、连查两次 `Time.frameCount` 数值一样；代码不报错，像死锁。手动点回编辑器窗口后又突然全部跑完。
+- 根因：Player Settings 的 **Run In Background** 关掉时（`ProjectSettings.asset` 里 `runInBackground: 0`），编辑器窗口失焦 Unity 就不推进 PlayerLoop。MCP 遥控时编辑器一直是失焦的，所以必现。这是**工程设置**，会连累每个用 MCP 的人。
+- 正确做法：本工程保持 `runInBackground: 1`，不要在 Player Settings 里取消勾选。真要让玩家切出去时暂停，用 `OnApplicationFocus` 写玩法层的暂停逻辑，不要关这个开关。临时绕过可在运行时设 `Application.runInBackground = true`，但那只在当次 Play 有效，治标。Android 上应用切后台由系统挂起，这个开关基本不起作用，所以关它对成品包也没什么收益。
+- 关联：`docs/developer-guide.md #15.6`、`ProjectSettings/ProjectSettings.asset`；2026-09-15 波 3 踩到、当天有人误关一次。

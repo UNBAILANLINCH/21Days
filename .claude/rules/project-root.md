@@ -10,7 +10,7 @@ alwaysApply: true
 ## 目录与 asmdef 依赖方向（硬约束）
 
 ```
-Game.Tests.EditMode / Game.Tests.PlayMode ──┐
+Game.Tests.EditMode / PlayMode / Showcase ──┐
 Game.Editor ─────────────────────────────────┼──► Game.Runtime ──► Game.Core ──► 第三方包
                                              └──────────────────►
 ```
@@ -38,6 +38,7 @@ Game.Editor ──────────────────────�
 | `Assets/_Project/Scripts/Runtime/<Module>/` | 游戏逻辑，一个模块一个目录，命名空间 `Game.<Module>` |
 | `Assets/_Project/Scripts/Editor/` | 编辑器工具、自定义 Inspector |
 | `Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/` | 测试；EditMode 优先 |
+| `Assets/_Project/Scripts/Tests/Showcase/<Module>/` | 模块回放验证场景（给人看的），asmdef `Game.Tests.Showcase`，由 `/verify-module` 跑 |
 | `Assets/_Project/Data/` | ScriptableObject 配置资产 |
 | `Assets/_Project/{Prefabs,Scenes,Art,Audio}/` | 资源 |
 | `Tables/` | Excel 源表与 Luban 配置 |

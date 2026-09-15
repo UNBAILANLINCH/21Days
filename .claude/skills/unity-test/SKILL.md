@@ -18,6 +18,8 @@ disable-model-invocation: true
   编辑器开着时工程被锁，批处理会直接失败，别重试。
 - **编辑器打开但 MCP 未连接**：停下，让用户在编辑器里跑 Test Runner，或关闭编辑器后再来。
 
+Showcase 回放在独立程序集 `Game.Tests.Showcase`（带停顿与截图，很慢）。`/unity-test PlayMode` 想只跑快测试，就传 `assembly_names` 把它排除掉；**回放不走这里，走 `/verify-module <模块>`**（规范见 `.claude/rules/module-verify.md`）。
+
 汇报：通过 / 失败 / 跳过数；每个失败用例给名字、断言信息、对应文件行。不贴整份日志。
 
 完成标准：已读到结果文件或 MCP 返回，失败用例逐条列出；拿不到结果就说明卡在哪一步。

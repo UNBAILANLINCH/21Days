@@ -24,7 +24,7 @@
 - `<模块>-external-api.md` —— 公开接口签名、调用约束、禁止事项（**跨模块调用时查**）
 - `<模块>-extension-guide.md` —— 扩展点与扩展模式（**要给这个模块加东西时看**）
 
-## 规则（策略层，`.claude/rules/`，共 6 条）
+## 规则（策略层，`.claude/rules/`，共 7 条）
 
 | 规则 | 加载 | 一句话 |
 | --- | --- | --- |
@@ -34,6 +34,7 @@
 | [`csharp-code.md`](../../.claude/rules/csharp-code.md) | `**/*.cs` | Unity C# 规范：命名、序列化暴露面（不用 public 字段）、生命周期、每帧路径的性能反模式。 |
 | [`unity-assets.md`](../../.claude/rules/unity-assets.md) | 场景 / 预制体 / SO / asmdef / mat 等 | 资产改动走 MCP、预制体优先、SO 配置只读、`.meta` 随资产一起提交。 |
 | [`unity-tests.md`](../../.claude/rules/unity-tests.md) | `Assets/_Project/Scripts/Tests/**` | EditMode 优先、测试命名、TearDown 清理、怎么跑（MCP / batchmode 二选一）。 |
+| [`module-verify.md`](../../.claude/rules/module-verify.md) | `Scripts/Tests/Showcase/**`、`Scenes/Verify/**` | 模块回放验证（Showcase）：目录命名、作者 API、编写约束、与快测试的分工、模块完成定义 DoD。 |
 
 ## 其它入口
 
@@ -45,6 +46,8 @@
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |
 | 操作编辑器 / 建物体 / 跑测试 / 看控制台 | [`.claude/skills/unity-mcp/SKILL.md`](../../.claude/skills/unity-mcp/SKILL.md)（MCP 已接，`/mcp` 看状态） |
 | MCP 一次性接入步骤、钩子总述 | [`docs/ai-setup.md`](../../docs/ai-setup.md) |
+| 一个模块从定范围到待审的完整流程、DoD、怎么写 Showcase | [`docs/module-dev-spec.md`](../../docs/module-dev-spec.md) |
+| 跑模块回放、看报告与截图、节奏菜单 | [`.claude/skills/verify-module/SKILL.md`](../../.claude/skills/verify-module/SKILL.md)（`/verify-module`，编辑器须打开） |
 | 本机出包（Windows / Android）怎么跑、失败怎么读日志 | [`.claude/skills/build/SKILL.md`](../../.claude/skills/build/SKILL.md)（`/build`，编辑器须关闭） |
 | CI 一次性配置、打 tag 出包、本机与 CI 的关系 | [`docs/ci-setup.md`](../../docs/ci-setup.md) |
 | 钩子各自做什么、怎么调试 | [`.claude/hooks/README.md`](../../.claude/hooks/README.md) |

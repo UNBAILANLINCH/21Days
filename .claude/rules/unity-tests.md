@@ -12,6 +12,7 @@ alwaysApply: false
 - **能抽成纯逻辑的先抽出来，写 EditMode 测试**：不依赖场景、不依赖帧循环，跑得快、编辑器开着也能跑。
 - 只有必须经过 Unity 生命周期（物理、协程、动画、场景加载）的才写 PlayMode，用 `[UnityTest]` + `yield return null`。
 - 一个玩法模块至少一条 EditMode 测试覆盖核心规则。
+- **可视化回放场景不写在这里**，它在独立程序集 `Game.Tests.Showcase`，见 [`module-verify.md`](module-verify.md)。
 
 ## 结构与命名
 

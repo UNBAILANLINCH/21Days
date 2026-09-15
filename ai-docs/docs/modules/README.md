@@ -29,6 +29,7 @@ ai-docs/docs/modules/<模块小写>/
 - **核心数据**：ScriptableObject 配置类及其资产位置（`Assets/_Project/Data/<Module>/`）；运行时状态存在哪。
 - **生命周期**：`Awake` / `Start` / `OnEnable` 各做了什么，订阅与退订在哪。
 - **接线要求**：Inspector 上必须拖赋哪些引用，缺了会怎样；场景里需要哪些对象。
+- **验证入口**：Showcase 文件与验证场景的路径（`Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`、`Scenes/Verify/<Module>.unity`），`/verify-module` 时要知道。
 - **禁止事项**：这个模块里踩过的坑、不要这么改的地方。
 
 ### external-api 写什么

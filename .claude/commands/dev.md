@@ -36,6 +36,7 @@ argument-hint: <要做的事>
    - 跑 `/unity-test`（能抽成纯逻辑的部分应有 EditMode 测试）。
    - 保存 `.cs` 时 `project-lint` 由钩子自动跑，按反馈修到零违规；误报在该行写 `// lint-ok: <理由>`。
    - 新增 `.cs` 需要 Unity 刷新生成 `.meta` 才算完整，提醒用户切一下编辑器。
+   - 改了模块可见行为 → `/verify-module <模块>`，开发者看过回放再进 `/review-change`。
    - 模块接口有变化 → `/generate-doc sync <模块>`。
    - 有新教训 → `/learn`。
    - 收敛后 `/review-change` 列清单，**停下等审，不擅自提交**。

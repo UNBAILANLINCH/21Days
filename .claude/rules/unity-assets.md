@@ -21,7 +21,7 @@ alwaysApply: false
 
 ## asmdef
 
-- 四个程序集：`Game.Runtime`、`Game.Editor`、`Game.Tests.EditMode`、`Game.Tests.PlayMode`；依赖方向见 `project-root.md`。
+- 五个程序集：`Game.Runtime`、`Game.Editor`、`Game.Tests.EditMode`、`Game.Tests.PlayMode`、`Game.Tests.Showcase`（回放场景，只被 `/verify-module` 跑，见 [`module-verify.md`](module-verify.md)）；依赖方向见 `project-root.md`。
 - 测试 asmdef 勾 `Test Assemblies`，引用 `UnityEngine.TestRunner` / `UnityEditor.TestRunner`；Runtime 不引用它们。
 
 ## .meta 与版本控制

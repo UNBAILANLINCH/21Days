@@ -22,7 +22,8 @@ Assets/_Project/
   Scripts/Editor/             编辑器工具      asmdef Game.Editor
   Scripts/Tests/EditMode/     纯逻辑测试      asmdef Game.Tests.EditMode
   Scripts/Tests/PlayMode/     运行时测试      asmdef Game.Tests.PlayMode
-  Prefabs/ Scenes/ Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
+  Scripts/Tests/Showcase/<Module>/   回放验证场景   asmdef Game.Tests.Showcase
+  Prefabs/ Scenes/(Verify/ 放验证场景) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
 ```
 
 框架层结构与 asmdef 已建立（设计见 docs/architecture.md）；玩法模块目录随 `/new-feature` 落地时再建。加能力的顺序：**先复用 → 再扩展已有文件 → 最后才新建**，新建要在文件头写明前两步为何不行。
@@ -55,6 +56,7 @@ Assets/_Project/
 | `/dev <任务>` | 统一入口：简单直接做 / 中等先出方案 / 复杂走 PRP |
 | `/new-feature <模块名>` | 新玩法模块：定范围 → 设计要点 → 实现 → 接线 → 验证 → 待审 |
 | `/unity-test [EditMode\|PlayMode] [过滤]` | 跑测试并汇报失败用例 |
+| `/verify-module <模块> [--manual]` | 在编辑器里跑模块回放场景，出报告，视觉验收交开发者 |
 | `/build [Windows\|Android] [版本]` | 本机出包（编辑器须关闭），失败摘日志前几条错误 |
 | `/review-change` | 列改动清单待审，授权后提交 |
 | `/refine-prd` → `/generate-prp` → `/validate-prp` → `/execute-prp` | PRP 四阶段（复杂功能） |
@@ -65,5 +67,7 @@ Assets/_Project/
 - 编译错误：Unity MCP `read_console`；编辑器没开就让用户看控制台。
 - 项目 lint：保存 `.cs` 时钩子自动跑；手动 `python .claude/skills/project-lint/lint.py <file.cs>`。
 - 健康度：`python .claude/skills/evolution/gc_scan.py`。
+- 模块回放验证：`/verify-module`，规范见 [`docs/module-dev-spec.md`](docs/module-dev-spec.md)。
 - 打包：本机 `scripts/build.ps1`（编辑器须关闭），CI 见 [`docs/ci-setup.md`](docs/ci-setup.md)。
+- **Bash 不写 `cd … &&`**：工作目录已在工程根，路径写绝对路径或相对工程根。带 `cd` 后权限检查算不出相对路径落在哪，会因 `.env` 的 Read deny 规则弹确认，自动模式也拦不住。
 - **中文优先**：回复、代码注释、文档、钩子与 lint 的提示信息一律中文；代码标识符（类名、变量名）仍用英文。引用代码用 `path:line`。

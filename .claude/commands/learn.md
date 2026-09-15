@@ -9,6 +9,9 @@ argument-hint: [要沉淀的教训，可留空让我从上下文提炼]
 
 先读 `.claude/skills/evolution/SKILL.md`。然后判断教训属于哪类，落到对应位置。
 
+**两个入口，一份判据**：用户主动敲 `/learn`；或 `/review-change` 第 3 步沉淀门判出「本次有结论」后转到这里落笔。
+沉淀门只负责「该不该停下来写」，**落到哪、怎么写只有下面这一份表**；门那一步已经写进去的不再重写一遍，收尾直接进它的清单待审。
+
 ## 沉淀路由表
 
 | 教训类型 | 落到哪 | 例子 |
@@ -17,6 +20,7 @@ argument-hint: [要沉淀的教训，可留空让我从上下文提炼]
 | 高频、**可正则检测**的代码违规 | `.claude/skills/project-lint/rules.json` 加一条规则 | `Update` 里 `FindObjectsOfType`、`public` 序列化字段 |
 | 用户偏好 / 工作方式纠正 | 全局记忆 `~/.claude/projects/<本项目>/memory/`（feedback 类） | 「提交前必须先列清单等审」 |
 | 项目动态 / 决策背景 | 全局记忆（project 类） | 「玩法方向定为 X，放弃 Y 的原因」 |
+| 框架契约 / 架构决策（接口约定、分层取舍、平台边界） | 对应的 `docs/*.md` 章节（多数是 `docs/architecture.md`） | 「UI 面板的 Addressables 地址等于类名」 |
 | 某模块的内部知识更新 | `ai-docs/docs/modules/<模块>/` 或 `/generate-doc sync <模块>` | 模块新增了扩展点 |
 | 通用 Unity / C# 规范的补充 | `.claude/rules/` 对应规则（csharp-code / unity-assets / unity-tests） | 新增一条命名约定 |
 

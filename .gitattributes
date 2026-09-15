@@ -1,0 +1,11 @@
+# 行尾统一 LF；Unity 序列化文件全部按文本处理，方便 diff / 合并
+* text=auto eol=lf
+*.cs text eol=lf diff=csharp
+*.{unity,prefab,asset,mat,anim,controller,overrideController,physicMaterial,physicsMaterial2D,playable,mask,spriteatlas,shadervariants,asmdef,asmref,rsp,meta} text eol=lf
+*.{json,md,txt,xml,yml,yaml,shader,cginc,hlsl,uxml,uss} text eol=lf
+*.{bat,cmd} text eol=crlf
+
+# 二进制资源（暂不启用 git-lfs；素材体积上来后再考虑）
+*.{png,jpg,jpeg,gif,psd,tga,tif,tiff,bmp,exr,hdr} binary
+*.{wav,mp3,ogg,aif,aiff} binary
+*.{fbx,obj,blend,ttf,otf,dll,so,dylib,unitypackage} binary

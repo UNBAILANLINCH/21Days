@@ -65,3 +65,9 @@
 - 根因：Windows PowerShell 5.1 读取**没有 BOM** 的脚本时按系统 ANSI 代码页（中文环境是 936/GBK）解码源码，UTF-8 的中文标点（引号、破折号等）被拆成错误字节，恰好撞上引号或括号就把字符串提前截断。PowerShell 7 默认按 UTF-8 读，所以不复现。
 - 正确做法：仓库里所有 `.ps1` 一律存成 **UTF-8 带 BOM**（与 `scripts/build.ps1` 一致）；脚本开头再加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` 避免输出乱码。用 `Write` 工具新建脚本后记得补 BOM（`head -c 3 <file> | xxd` 应为 `ef bb bf`）。其它文本文件（`.cs`、`.md`、`.py`、`.json`）保持无 BOM 不变，这条只针对 `.ps1`。
 - 关联：`.claude/skills/onboard/install_env.ps1`、`scripts/build.ps1`、`ai-docs/pitfalls.md #Windows 下钩子输出中文乱码`；首次踩到 2026-09-15。
+
+## 新建的 `*LifetimeScope.cs` 被 VContainer 清空成模板
+- 现象：用编辑器外的工具（Claude、IDE、脚本）新建一个文件名以 `LifetimeScope.cs` 结尾的脚本，切回 Unity 刷新后文件内容变成 VContainer 的空模板（只剩 `public class Xxx : LifetimeScope { protected override void Configure(...) {} }`），自己写的注册代码全没了，且没有任何提示。
+- 根因：VContainer 包自带 `Editor/ScriptTemplateModifier.cs`，它注册了 `AssetModificationProcessor.OnWillCreateAsset`：Unity 第一次发现新文件、给它生成 `.meta` 时会触发这个回调，回调对所有路径以 `LifetimeScope.cs` 结尾的脚本无条件 `File.WriteAllText` 写入模板。它本意是给「Assets → Create → C# Script」的新建流程填模板，但分不清文件是编辑器里建的还是外部拷进来的。
+- 正确做法：新建 `*LifetimeScope.cs` 时**先建一个空文件让 Unity 生成 `.meta`**（或先起别的名字再改名），确认 `.meta` 存在后再写入真正内容；已经被清空的重写一遍即可，第二次不会再触发。修改既有的 LifetimeScope 文件不受影响。
+- 关联：`Assets/_Project/Scripts/Core/Boot/GameLifetimeScope.cs`、`docs/developer-guide.md #15 常见问题`；首次踩到 2026-09-15。

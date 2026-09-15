@@ -130,15 +130,121 @@ Game.Editor ──────────────────────�
 
 ## 5. 启动流程
 
-待波 1 补充（`GameBootstrap` / `GameLifetimeScope` 落地后）。
+入口场景是 `Assets/_Project/Scenes/Boot.unity`（Build Settings 第 0 位）。场景里只有两个物体：`Main Camera` 和 `GameBootstrap`——后者同时挂着 `GameLifetimeScope`（根作用域）与 `GameBootstrap`（唯一 MonoBehaviour 入口）。
+
+```
+Boot.unity 加载
+ → GameBootstrap.Awake：DontDestroyOnLoad + 缓存 LifetimeScope + 建 CancellationTokenSource
+   （LifetimeScope 在它自己的 Awake 里建容器，所以启动流程写在 Start，不写在 Awake）
+ → GameBootstrap.Start → BootAsync
+     ① 编辑器/开发包下实例化 IngameDebugConsole 预制体（Inspector 上留空就跳过并 Warn）
+     ② IGameFlow.GoToAsync<BootState>()
+     ③ 解析 IReadOnlyList<IGameService>，按**容器注册顺序串行** await 每个 InitializeAsync
+     ④ 发布 BootCompletedEvent
+     ⑤ IGameFlow.GoToAsync<TitleState>()
+```
+
+要点：
+
+- **注册顺序就是初始化顺序**。要调整顺序，改 `GameLifetimeScope.Configure` 里的注册先后，不要在别处加调用。顺序按 `architecture.md` 5.1：Platform → Log → Config → Assets → Save → Input → Audio → UI。
+- **加一个新框架服务** = 实现 `IGameService` + 在 `GameLifetimeScope` 里 `.As<I你的接口, IGameService>()`，别的地方一行不用改。
+- 任何一步抛异常都会被 `BootAsync` 捕获、`Log.Error` 后**停止**启动，不会带着半初始化的状态往下跑。退出播放模式引起的 `OperationCanceledException` 不算错误。
+- 玩法场景走 Additive 加载，Boot 场景全程常驻。
 
 ## 6. 服务速查
 
-待波 1～3 补充。每个服务会给一小节：怎么拿到（构造注入 / `IObjectResolver`）、常用调用、禁止事项。覆盖：`Boot`、`Events`、`Assets`、`Config`、`Flow`、`UI`、`Audio`、`Save`、`Input`、`Pooling`、`Timing`、`Logging`、`Platform`。
+拿服务的方式只有两种：**构造注入**（推荐，写进自己的构造函数参数）和 `IObjectResolver.Resolve<T>()`（只在 MonoBehaviour 这类容器管不到的地方用）。下面各节的「禁止」都是踩过或必踩的坑。
+
+### 6.1 Logging — `Log`
+
+```csharp
+Log.Debug("只在编辑器与开发包里存在");   // 正式包里连参数求值都被剔除
+Log.Info("常规信息"); Log.Warn("要留意"); Log.Error("出错了", this);
+```
+
+静态门面，不进容器，不用注入。输出统一带 `[Game] ` 前缀，第二个参数传 `UnityEngine.Object` 后点日志能在 Hierarchy 里定位到对象。
+**禁止**：直接用 `UnityEngine.Debug.Log`（前缀不统一、剔除不掉）；在每帧路径上打日志（lint 会拦）；用 `Log.Info` 打调试信息（发布包里会留着）。
+
+### 6.2 Events — MessagePipe
+
+```csharp
+public sealed class Foo { public Foo(ISubscriber<BootCompletedEvent> sub) { ... } }
+sub.Subscribe(e => ...).AddTo(bag);      // bag 是 DisposableBag.CreateBuilder()
+publisher.Publish(new BootCompletedEvent(n));
+```
+
+事件类型写成 `readonly struct`，命名 `XxxEvent`；全局事件在 `GameLifetimeScope` 用 `RegisterMessageBroker<T>(options)` 注册，模块事件在模块子作用域注册。完整约定见 `Assets/_Project/Scripts/Core/Events/EventConventions.cs` 文件头。
+**禁止**：裸订阅（句柄不 `AddTo` 就退订不掉）；用 C# `static event` 做跨模块通信；在事件回调里同步再发同一个事件。
+
+### 6.3 Timing — `IClock` / `ITimerService`
+
+```csharp
+public sealed class Foo { public Foo(IClock clock, ITimerService timers) { ... } }
+TimerHandle h = timers.Delay(1.5f, () => ...);          // 到点触发一次
+TimerHandle r = timers.Interval(1f, () => ..., true);   // 每秒一次，true = 不受 timeScale 影响
+h.Dispose();                                            // 取消
+```
+
+`IClock` 是**唯一**时间来源（`UtcNow` / `GameTime` / `UnscaledTime` / `DeltaTime` / `UnscaledDeltaTime`）。`TimerService` 只读 `IClock`，所以拿假时钟就能写确定性测试（见 `TimerServiceTests`）。作用域 Dispose 时所有定时器自动取消。
+**禁止**：直接读 `Time.time` / `DateTime.UtcNow`；用 `Interval(0)` 冒充每帧（每帧请实现 VContainer 的 `ITickable`）；把句柄丢掉不管。
+
+### 6.4 Pooling — `GameObjectPool` / `IPoolable`
+
+```csharp
+var pool = new GameObjectPool(prefab, parentTransform);
+pool.Prewarm(20);
+GameObject go = pool.Get();   // 已 SetActive(true) 并回调过 IPoolable.OnGet
+pool.Release(go);             // 先回调 OnRelease 再 SetActive(false)
+```
+
+一个池管一种预制体，自己 `new`、自己 `Dispose`（不进容器）。池化对象在根节点上挂实现 `IPoolable` 的组件来重置状态。
+**禁止**：把从池里拿的对象 `Destroy` 掉（下次 `Release` 会炸）；指望 `OnEnable/OnDisable` 代替 `IPoolable`；跨预制体共用一个池。
+
+### 6.5 Input — `IInputService`
+
+```csharp
+public sealed class Foo { public Foo(IInputService input) { ... } }
+Vector2 move = input.Actions.Gameplay.Move.ReadValue<Vector2>();
+input.EnableMap("UI"); input.DisableMap("Gameplay");
+```
+
+详见第 10 章。
+**禁止**：玩法里读具体按键、读 `Input.touches` / 旧 `Input` 类；自己 `new GameInput()`；手改生成的 `GameInput.cs`。
+
+### 6.6 Platform — `IPlatformService`
+
+```csharp
+public sealed class Foo { public Foo(IPlatformService platform) { ... } }
+if (platform.IsTouchPrimary) { ... }
+platform.Vibrate(VibrationKind.Light);       // 不支持的平台上是空操作
+string root = platform.SaveRoot;             // persistentDataPath/saves，启动时已建好
+```
+
+实现由 `PlatformServiceFactory.Create()` 按构建目标选（编辑器恒定用 `StandalonePlatformService`）。
+**禁止**：在 `Core/Platform/` 以外的任何文件里写 `#if UNITY_ANDROID` 这类平台宏、调 `Handheld` / `Application.platform`（lint 与 code-review 都会拦）。
+
+### 6.7 Flow — `IGameFlow`
+
+```csharp
+await flow.GoToAsync<TitleState>(ct);
+```
+
+切换串行：先 `ExitAsync` 当前状态，再 `EnterAsync` 目标状态；切换进行中再请求会**排队**按序执行，完成后发布 `GameStateChangedEvent(from, to)`。状态由容器解析，所以状态类可以构造注入服务。
+**禁止**：在 `GameState` 里写每帧逻辑（用 `ITickable`）；在 `EnterAsync` 里同步阻塞等待；忘了把玩法状态注册进作用域（`GoToAsync` 会解析失败）。
+
+> `Assets`、`Config`、`Save` 待波 2；`UI`、`Audio` 待波 3。
 
 ## 7. 新建玩法模块
 
-待波 1 补充（`/new-feature` 命令落地流程后）。
+1. **建目录**：`Assets/_Project/Scripts/Runtime/<模块名>/`，命名空间 `Game.<模块名>`（asmdef 已有 `Game.Runtime`，模块不单独建 asmdef）。
+2. **划分类型**：规则类写成**纯 C# 类**（不继承 MonoBehaviour），MonoBehaviour 只做表现与输入转发；数值进 `Assets/_Project/Data/<模块名>/` 的 ScriptableObject。
+3. **挂子作用域**：模块场景里放一个 `<模块名>LifetimeScope : LifetimeScope`，在它的 `Configure` 里注册本模块的服务、状态与事件（`RegisterMessageBroker<T>` 用模块自己的 options）。父作用域自动是 `GameLifetimeScope`，所以能直接注入 `IClock`、`ITimerService`、`IInputService` 等框架服务。
+   > 新建以 `LifetimeScope.cs` 结尾的脚本时注意第 15 章那条坑：VContainer 会用空模板覆盖一次文件内容。
+4. **订阅事件**：构造注入 `ISubscriber<XxxEvent>`，`Subscribe(...).AddTo(bag)`，在 `Dispose` 里释放 bag。跨模块只订阅对方的公开事件，不 `GetComponent` 到对方的私有实现。
+5. **写成可测的形状**：规则类的输入输出都是普通值/DTO，不碰 `UnityEngine.Time`、不碰单例；这样 `Assets/_Project/Scripts/Tests/EditMode/<模块名>/` 里一条 `Assert.That` 就能覆盖核心规则，不需要场景也不需要帧循环。每个模块至少一条 EditMode 测试。
+6. **收尾**：`/unity-test EditMode` 跑绿，`/generate-doc <模块名>` 生成文档三件套，`/review-change` 列清单待审。
+
+命令入口：`/new-feature <模块名>` 会把上面 1～6 串起来走一遍。
 
 ## 8. 配置表怎么改
 
@@ -150,7 +256,35 @@ Game.Editor ──────────────────────�
 
 ## 10. 输入
 
-待波 1 补充（`IInputService` 与 `GameInput` 落地后）。
+### 10.1 资产与生成物
+
+- 动作定义在 `Assets/_Project/Data/Input/GameInput.inputactions`，**双击它在 Input Actions 窗口里改**，不要手改 JSON。
+- 它的导入器勾了 **Generate C# Class**，参数是：类名 `GameInput`、命名空间 `Game.Core.Input`、输出路径 `Assets/_Project/Scripts/Core/Input/GameInput.cs`。
+- `GameInput.cs` 是**生成物**：改了 `.inputactions` 保存，Unity 自动重新生成它。**不要手改这个文件**，改了下次保存资产就没了。
+
+### 10.2 两个 Action Map
+
+| Map | 动作 | 绑定 |
+| --- | --- | --- |
+| `Gameplay` | `Move`(Vector2)、`Confirm`、`Cancel`、`Pause` | 键鼠（WASD / 方向键 / Enter / Esc / P）、手柄（左摇杆 / 十字键 / A / B / Start）、触屏（primaryTouch tap）。`Move` 上留了一条空路径的 `TouchVirtualStick` 绑定，等波 3 的虚拟摇杆落地后在 Inspector 里补上 |
+| `UI` | Input System 默认的 UI 动作（Navigate / Submit / Cancel / Point / Click / ScrollWheel / MiddleClick / RightClick / TrackedDevice*） | 默认键鼠 + 手柄 + 触屏 |
+
+### 10.3 玩法怎么用
+
+```csharp
+public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C# 规则类都行
+{
+    private readonly IInputService input;
+    public PlayerMovement(IInputService input) => this.input = input;
+
+    public Vector2 ReadMove() => input.Actions.Gameplay.Move.ReadValue<Vector2>();
+}
+```
+
+- `InputService` 在启动初始化时 `new GameInput()` 并启用 `Gameplay` map；`UI` map 默认不开，由波 3 的 `IUIService` 按需 `EnableMap("UI")`。
+- 要临时屏蔽玩法输入（开面板、播过场）：`input.DisableMap("Gameplay")`，结束后再 `EnableMap`。
+- **只读动作，不读按键**：玩法代码里出现 `Keyboard.current`、`Input.GetKey`、`Input.touches` 一律算违规——那样手柄和触屏就得各写一遍。要加新的输入方式，去 `.inputactions` 里给同一个动作加 binding。
+- 新增一个动作 = 在 `.inputactions` 里加 → 保存（自动重新生成 `GameInput.cs`）→ 玩法里 `input.Actions.Gameplay.<新动作>`。框架代码一行不用改。
 
 ## 11. UI 面板
 
@@ -170,4 +304,20 @@ Game.Editor ──────────────────────�
 
 ## 15. 常见问题
 
-待各波开发过程中累积。
+### 15.1 新建的 `*LifetimeScope.cs` 内容被清空成模板（波 1 踩到）
+
+**现象**：写好一个名字以 `LifetimeScope.cs` 结尾的脚本，Unity 刷新一次之后打开发现内容变成了空的 `public class Xxx : LifetimeScope { protected override void Configure(...) { } }`，命名空间也被换成了 asmdef 的 rootNamespace。
+
+**根因**：VContainer 包里有个 `ScriptTemplateProcessor`（`AssetModificationProcessor.OnWillCreateAsset`），Unity 为**新建**的 `*LifetimeScope.cs` 生成 `.meta` 时，它会用自带模板 `File.WriteAllText` 覆盖文件内容。这是它的「新建 LifetimeScope 自动套模板」功能，对在编辑器外写好的文件是误伤。
+
+**正确做法**：只在**首次创建**时发生一次。流程改成「先建文件 → 让 Unity 刷新生成 `.meta` → 再把真正的内容写进去 → 再刷新」。文件存在之后再怎么改都不会被覆盖。想彻底关掉：`Project Settings → VContainer` 里勾 `Disable Script Modifier`（本工程没关，因为只在新建时影响一次）。
+
+### 15.2 MCP `read_console` 有时读不到刚打的日志（波 1 踩到）
+
+**现象**：波 1 实施时 `read_console(action="get")` 一度稳定返回 0 条，连刚用 `execute_code` 打的 `Debug.Log` 也读不到；随后主窗口在测试跑完后实测又能读到。根因未定位，怀疑与域重载时机或控制台被清空有关。遇到时先 `refresh_unity` 等编辑器空闲再读一次，`types` 传 `["all"]`。
+
+**替代验证手段**（不要因为读不到控制台就宣称「编译通过」）：
+
+- 编译是否成功：`execute_code` 里读 `UnityEditor.EditorUtility.scriptCompilationFailed`，再用 `System.Type.GetType("命名空间.类名, 程序集名")` 确认新类型真的被编译进了目标程序集。
+- 运行时日志：`execute_code` 里临时挂 `Application.logMessageReceived`，触发一次要观察的流程，收集完再摘掉。
+- 实在要看历史日志：让用户看编辑器 Console 窗口，或用运行时的 IngameDebugConsole。

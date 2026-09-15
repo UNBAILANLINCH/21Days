@@ -93,9 +93,12 @@ scripts/gen-tables.ps1    生成配置表
 ```
 Boot 场景加载
  → GameBootstrap.Awake：DontDestroyOnLoad，构建 GameLifetimeScope（根作用域）
+ → IGameFlow.GoToAsync<BootState>()（启动期 Current 不为空）
  → 按注册顺序串行调用每个 IGameService.InitializeAsync（Platform → Log → Config → Assets → Save → Input → Audio → UI）
- → IGameFlow.GoToAsync<TitleState>()
+ → 发布 BootCompletedEvent → IGameFlow.GoToAsync<TitleState>()
 ```
+
+平台实现的选择在 `Core/Platform/PlatformServiceFactory` 里做，根作用域只写一行普通注册。
 
 ```csharp
 namespace Game.Core.Boot
@@ -153,7 +156,7 @@ public interface IGameFlow
 }
 ```
 
-切换串行执行：先 Exit 当前再 Enter 目标；切换中再次请求切换则排队。内置 `BootState`、`TitleState`；玩法状态由 `Game.Runtime` 注册。
+切换串行执行：先 Exit 当前再 Enter 目标；切换中再次请求切换则排队。切换完成后发布一次 `GameStateChangedEvent(from, to)`，切换前不发。内置 `BootState`、`TitleState`；玩法状态由 `Game.Runtime` 注册。
 
 ### 5.6 UI
 
@@ -204,8 +207,13 @@ public interface ITimerService
     TimerHandle Delay(float seconds, Action callback, bool unscaled = false);
     TimerHandle Interval(float seconds, Action callback, bool unscaled = false);
 }
-public readonly struct TimerHandle : IDisposable { }   // Dispose 即取消
-public interface IClock { DateTime UtcNow { get; } float GameTime { get; } float DeltaTime { get; } }   // 唯一时间来源
+public readonly struct TimerHandle : IDisposable { bool IsActive { get; } }   // Dispose 即取消
+public interface IClock   // 唯一时间来源；Unscaled 两项供 unscaled 定时器用
+{
+    DateTime UtcNow { get; }
+    float GameTime { get; } float DeltaTime { get; }
+    float UnscaledTime { get; } float UnscaledDeltaTime { get; }
+}
 public interface IPoolable { void OnGet(); void OnRelease(); }
 public sealed class GameObjectPool { GameObject Get(); void Release(GameObject go); }   // 封装 UnityEngine.Pool
 public static class Log { Debug / Info / Warn / Error(string message, UnityEngine.Object context = null); }   // Debug 级别编译期剔除

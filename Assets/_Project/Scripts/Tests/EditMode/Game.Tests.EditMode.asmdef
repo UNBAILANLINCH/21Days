@@ -4,6 +4,10 @@
     "references": [
         "Game.Core",
         "Game.Runtime",
+        "UniTask",
+        "VContainer",
+        "MessagePipe",
+        "MessagePipe.VContainer",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

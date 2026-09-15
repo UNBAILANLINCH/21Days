@@ -49,14 +49,19 @@ description: harness 进化层——/learn 把纠错与新约定沉淀成可复�
 python .claude/skills/evolution/gc_scan.py
 ```
 
-查四样：
+查五样：
 
 1. `CLAUDE.md`、`README.md`、`.claude/`、`ai-docs/`、`docs/` 下 markdown 的相对链接目标是否存在
 2. `generate-doc/modules.json` 里登记且 `status` 不是 `todo` 的文档目录是否存在
 3. `.claude/settings.json` 里钩子引用的 `.py` / `.js` 脚本是否存在
-4. `.claude/hooks/required_reads.json` 里的必读文件是否存在 —— **只提示不算失败**
+4. 跑一遍钩子自测 `.claude/hooks/tests/run.py`，全绿才算过
+5. `.claude/hooks/required_reads.json` 里的必读文件是否存在 —— **只提示不算失败**
 
-前三样有失效就 exit 1 并逐条列出；全通过 exit 0。只读扫描，不改任何文件。
+前四样有失效就 exit 1 并逐条列出；全通过 exit 0。只读扫描，不改任何文件
+（第 4 样起子进程跑测试，测试自己会收拾掉写出的缓存）。
+
+第 4 样是钩子自测的**执行载体**：钩子坏掉的形态是「悄悄不生效」——判据写反、
+提示不再注入、闸被绕开，全都不报错。没有载体的自测跟没有自测一样。
 
 第 4 样单独降级，是因为必读清单常常先于文档写好（先定「编辑这个模块前必须读它的 guide」，
 文档随后补）。把「还没写」报成失败，只会逼人把清单删掉。

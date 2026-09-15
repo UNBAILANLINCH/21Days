@@ -2,10 +2,14 @@
 // Bash 里出现 cd / pushd 直接拒（会触发 .env Read deny 的静态检查弹窗）；
 // Agent 派单漏传 model 或派成 fable 直接拒（规则出处 .claude/rules/model-routing.md）。
 // 规则出处：CLAUDE.md「硬规则」。
+//
+// 本钩子的输出**几乎全是决策**（deny / ask），决策一律不去重：去重掉的那一次
+// 就是护栏漏掉的那一次。只有挂在 ask 上的背景说明走 shouldEmitOnce()，每会话说一次。
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const DENY = [
   [/^(Library|Temp|Logs|obj|Build|Builds|UserSettings)\//i, 'Unity 生成目录，不手改'],
@@ -49,7 +53,14 @@ function main() {
     if (/\bgit\s+commit\b/.test(cmd) && /Co-Authored-By:\s*Claude|Claude-Session:|Generated with.{0,4}Claude Code|🤖/i.test(cmd)) {
       return decide('deny', '提交信息带 AI 署名或会话链接，去掉后重试（docs/commit-convention.md）');
     }
-    if (/\bgit\s+(commit|push)\b/.test(cmd)) return decide('ask', 'git commit / push 需要用户逐次授权');
+    if (/\bgit\s+(commit|push)\b/.test(cmd)) {
+      // ask 本身**每次都要问**——要人点头的事去重掉一次，就是护栏漏掉一次。
+      // 只有附带的那句背景说明按会话去重：它每次都一样，说第二遍起只是在烧上下文。
+      const note = '本工程的提交约定：改动攒在工作区，收敛后列清单给用户逐次授权；'
+        + '提交信息按 docs/commit-convention.md，不带任何 AI 署名尾注。';
+      const ctx = shouldEmitOnce(sessionId(input), note, 'guard-commit') ? note : '';
+      return decide('ask', 'git commit / push 需要用户逐次授权', ctx);
+    }
     if (/\bgit\s+(reset\s+--hard|clean\b|checkout\s+--\s|restore\b)/.test(cmd)) return decide('deny', '会丢弃工作区改动的 git 操作，请用户手动执行');
     if (/(^|[\s;&|])(rm|rmdir|del|Remove-Item)\b[^\n]*\b(Assets|ProjectSettings|Packages|\.git)\b/i.test(cmd)) return decide('ask', '删除工程目录内容，需确认');
   }
@@ -81,11 +92,35 @@ function toRel(p, root) {
   if (p.toLowerCase().startsWith(root.toLowerCase() + '/')) p = p.slice(root.length + 1);
   return p.replace(/^\.\//, '');
 }
-function decide(permissionDecision, permissionDecisionReason) {
+function decide(permissionDecision, permissionDecisionReason, additionalContext) {
   // 不调用 process.exit：Windows 管道下 stdout 写入是异步的，提前退出会截断输出。
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision, permissionDecisionReason },
-  }) + '\n');
+  const out = { hookEventName: 'PreToolUse', permissionDecision, permissionDecisionReason };
+  if (additionalContext) out.additionalContext = additionalContext;
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: out }) + '\n');
+}
+
+function sessionId(input) {
+  let sid = String((input && input.session_id) || process.env.CLAUDE_SESSION_ID || '').trim();
+  if (!sid) sid = new Date().toISOString().slice(0, 10).replace(/-/g, '');  // 兜底：按天
+  return sid.replace(/[^\w.\-]/g, '_').slice(0, 100) || 'unknown';
+}
+
+// 同会话提示去重，`_hook_common.py` 的 JS 版：**共用同一份账本**
+// `.claude/.cache/emitted-<会话>.txt`，行格式 `<标签>:<sha1 前 16 位>`，两边算法必须一致。
+// key 是提示文本本身而不是文件名 —— 同一个文件的另一条提示该说，同一条提示换个文件不该重说。
+// 只给建议型文案用；deny / ask 的决策本身永远不去重。
+function shouldEmitOnce(sid, text, tag) {
+  const hash = crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 16);
+  const key = `${tag || '-'}:${hash}`;
+  const fp = path.resolve(__dirname, '..', '.cache', `emitted-${sid}.txt`);
+  try {
+    if (fs.existsSync(fp) && fs.readFileSync(fp, 'utf8').split(/\r?\n/).includes(key)) return false;
+  } catch { /* 读不了就当没说过：宁可多说一遍，也不能让提示悄悄消失 */ }
+  try {
+    fs.mkdirSync(path.dirname(fp), { recursive: true });
+    fs.appendFileSync(fp, key + '\n', 'utf8');
+  } catch { /* 记不下就下次再说一遍，不该因此吞掉这一次 */ }
+  return true;
 }
 
 // 读 .claude/agents/<name>.md 的 frontmatter，取 model 字段（小写）。

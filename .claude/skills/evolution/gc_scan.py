@@ -10,15 +10,19 @@ harness 不是搭完就不动的：规则文件改名、技能目录挪位置、
 
 这个脚本把「harness 内部引用是否自洽」变成一次机械检查。
 
-## 查四样
+## 查五样
 
     1. markdown 相对链接      CLAUDE.md / README.md / .claude / ai-docs / docs 下的 [x](path) 目标在不在
     2. 模块文档目录          generate-doc/modules.json 里 status 不是 todo 的 docs 目录在不在
     3. 钩子脚本              settings.json 里 $CLAUDE_PROJECT_DIR/xxx.(py|js) 引用的脚本在不在
-    4. 必读文件（只提示）     .claude/hooks/required_reads.json 里提到的文件在不在
+    4. 钩子自测              跑一遍 .claude/hooks/tests/run.py，全绿才算过
+    5. 必读文件（只提示）     .claude/hooks/required_reads.json 里提到的文件在不在
 
-前三样算失败（exit 1）；第 4 样**只作提示不算失败** —— 那份清单常常先于文档写好，
+前四样算失败（exit 1）；第 5 样**只作提示不算失败** —— 那份清单常常先于文档写好，
 「还没写」和「写歪了」是两回事，不该混在一起报。
+
+第 4 样是钩子自测的**执行载体**：钩子坏了不报错、只是悄悄不生效（判据写反、
+提示不再注入、闸被绕开），从外面完全看不出来，得有人定期问一声。
 
 只读扫描，不改任何文件。
 用法：python gc_scan.py [工程根]（省略则从本文件位置往上推）
@@ -28,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -142,6 +147,35 @@ def check_hook_scripts(root: Path) -> list:
     return problems
 
 
+def check_hook_tests(root: Path) -> list:
+    """跑一遍钩子自测。**失败算失效**（exit 1）。
+
+    钩子出故障的形态是「悄悄不生效」：判据写反、提示不再注入、闸被绕开 ——
+    全都不报错，从外面看跟正常一模一样。自测是唯一能把它变成可见信号的东西，
+    而自测本身也需要一个会被真的执行的载体，`/gc` 就是那个载体。
+
+    跑不起来（没装 python、超时、脚本不在）不算失效：这是体检工具，
+    不该因为自己的运行环境把别人的活儿卡住（fail-open）。
+    """
+    runner = root / ".claude" / "hooks" / "tests" / "run.py"
+    if not runner.is_file():
+        return []
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(runner)], capture_output=True, timeout=180, cwd=str(root),
+        )
+    except Exception:  # noqa: BLE001
+        return []
+    if proc.returncode == 0:
+        return []
+    text = (proc.stdout + proc.stderr).decode("utf-8", "replace").strip()
+    tail = [ln for ln in text.splitlines() if ln.strip()][-12:]
+    # 整段算**一条**失效：把失败详情按行拆开会把「13 处失效引用」这种计数撑爆，
+    # 让人以为 harness 到处是洞，其实只坏了一处。
+    return ["\n".join([f"  钩子自测失败（.claude/hooks/tests/run.py exit {proc.returncode}）："]
+                      + [f"    {ln}" for ln in tail])]
+
+
 def _walk_strings(node) -> list:
     """把任意形状的 JSON 里的字符串全捞出来 —— required_reads.json 的 schema
     可能随时变，按结构解析不如按内容筛来得稳，何况这一项只作提示。"""
@@ -195,6 +229,7 @@ def main() -> int:
     problems += check_markdown_links(root)
     problems += check_modules_json(root)
     problems += check_hook_scripts(root)
+    problems += check_hook_tests(root)
     notes = check_required_reads(root)
 
     if problems:
@@ -206,7 +241,7 @@ def main() -> int:
         print("\n先修失效引用，再看最近的 harness 改动是不是引入了退化。")
         return 1
 
-    print("[gc] 健康度扫描通过：markdown 链接、模块文档目录、钩子脚本引用均自洽。")
+    print("[gc] 健康度扫描通过：markdown 链接、模块文档目录、钩子脚本引用均自洽，钩子自测全绿。")
     if notes:
         print(f"\n[gc] {len(notes)} 条提示（不算失败，多半是文档还没写）：")
         print("\n".join(notes))

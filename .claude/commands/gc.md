@@ -5,7 +5,7 @@ argument-hint: (无参数)
 
 # /gc — Harness 健康度扫描
 
-找出 harness 内部的失效引用：markdown 相对链接断裂、`modules.json` 登记的文档目录缺失、`settings.json` 里注册的钩子脚本缺失。
+找出 harness 内部的失效引用：markdown 相对链接断裂、`modules.json` 登记的文档目录缺失、`settings.json` 里注册的钩子脚本缺失，外加跑一遍钩子自测（钩子坏了不报错，只会悄悄不生效）。
 
 ## 步骤
 
@@ -21,6 +21,8 @@ argument-hint: (无参数)
      - 链接断裂 → 补上目标文件，或改链接指向真实路径（别删链接了事）。
      - `modules.json` 里的文档目录不存在 → 跑 `/generate-doc <模块>` 生成，或把该模块状态改回 `todo`。
      - `settings.json` 引用的钩子脚本不存在 → 补脚本，或从 `settings.json` 注销该钩子。
+     - 钩子自测失败 → 单跑 `python .claude/hooks/tests/run.py` 看完整报错；是钩子坏了就修钩子，
+       是判据有意改了就同步改用例（别直接删用例了事，删掉的那条正是下次没人发现的故障）。
    - 修完**重跑一次**确认 exit 0。
 3. 失效项很多时，别逐个糊：结合 `.claude/skills/evolution/SKILL.md` 的「走歪信号」排查是不是最近某次 harness 改动引入的退化——先看 `git status` / `git log` 定位改动，必要时 `git revert` 回退那一次，而不是在坏结构上打补丁。
 

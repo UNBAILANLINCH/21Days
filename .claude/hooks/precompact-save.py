@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +22,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SNAP = ROOT / ".claude" / ".cache" / "precompact-state.txt"
 SNAP_REL = ".claude/.cache/precompact-state.txt"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from _hook_common import should_emit
+except Exception:  # noqa: BLE001  去重件缺失时宁可多注入一次
+    def should_emit(session_id: str, text: str, tag: str = "") -> bool:  # type: ignore[misc]
+        return True
 
 
 def _utf8_stdio() -> None:
@@ -45,8 +54,13 @@ def _git(*args: str) -> str:
 
 def main() -> int:
     _utf8_stdio()
-    try:  # 负载读掉就行，本钩子不依赖里面的字段
-        sys.stdin.buffer.read()
+    payload: dict = {}
+    try:  # 负载只用来取 session_id（去重用），取不到就退化成 unknown
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
+        if raw.strip():
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                payload = data
     except Exception:  # noqa: BLE001
         pass
 
@@ -55,11 +69,12 @@ def main() -> int:
     if not status.strip() and not diffstat.strip():
         return 0  # 工作区干净，没什么可存的
 
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     body = (
         "# 压缩前工作态快照（%s）\n\n"
         "## git status --short\n\n%s\n"
         "## git diff --stat\n\n%s\n"
-        % (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), status, diffstat)
+        % (stamp, status, diffstat)
     )
     try:
         SNAP.parent.mkdir(parents=True, exist_ok=True)
@@ -67,11 +82,17 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         return 0  # 存不下就别提示了，免得指向一个不存在的文件
 
+    # 文案是第三人称事实陈述，不写「你去读」：祈使句会触发模型的 prompt-injection 防御。
+    # 文案里带快照时间是有意的：去重按**文本**做，带上时间就意味着「同一份快照只提一次、
+    # 新一次压缩会重新提」——每次压缩都是一个新的上下文窗口，上一次注入的那句已经不在了。
     ctx = (
-        "上下文即将压缩。压缩前的工作态（改了哪些文件、各改了多少行）已存到 "
-        + SNAP_REL
-        + "，压缩后若记不清此前改动，直接读这个文件，不要凭印象复述。"
+        "上下文即将压缩。压缩前的工作态（改了哪些文件、各改了多少行）已存到 %s（%s）。"
+        "压缩后关于此前改动的问题，这个文件里有原始答案，比凭印象复述准。" % (SNAP_REL, stamp)
     )
+    sid = str(payload.get("session_id") or os.environ.get("CLAUDE_SESSION_ID") or "unknown")
+    sid = re.sub(r"[^\w.\-]", "_", sid)[:100] or "unknown"
+    if not should_emit(sid, ctx, "precompact"):
+        return 0
     print(json.dumps({
         "hookSpecificOutput": {"hookEventName": "PreCompact", "additionalContext": ctx}
     }, ensure_ascii=False))

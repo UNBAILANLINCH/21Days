@@ -6,10 +6,12 @@
     (a) 改动 / 新增的 `.cs` 里残留调试痕迹：Debug.Break() · // TEMP · // HACK
     (b) `Assets/` 下新增的 .cs/.asset/.prefab/.unity/.asmdef 没有同名 .meta
         —— 缺 .meta 就提交，别人（或换台机器的自己）打开工程会 GUID 变动、引用断裂
-    (c) 本会话编辑次数 ≥ 8 的文件，列为「疑未收敛」
+    (c) 本会话**累计**编辑次数 ≥ 8 的文件（收尾时值得回头看一眼改散了没）
+        —— 这里看累计，跟 doom-loop-detect.py 看「连续」是两个信号，不要混：
+        那边问「是不是在原地打转」，这边只问「这次改动的重心落在哪」。
 
 **永远 exit 0，不阻断停止**：收尾提醒只是提醒，拦住 Stop 会让人没法结束对话。
-没发现问题就一个字都不输出（成功静默）。
+没发现问题就一个字都不输出（成功静默）；同一份提醒同会话只说一次。
 """
 from __future__ import annotations
 
@@ -24,6 +26,13 @@ from pathlib import Path
 # 工程根：本文件在 <root>/.claude/hooks/ 下，往上两层。不写死绝对路径。
 ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = ROOT / ".claude" / ".cache"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from _hook_common import should_emit
+except Exception:  # noqa: BLE001  去重件缺失时宁可多报一次，不能把收尾提醒整个吞掉
+    def should_emit(session_id: str, text: str, tag: str = "") -> bool:  # type: ignore[misc]
+        return True
 
 DEBUG_MARKERS = ("Debug.Break()", "// TEMP", "// HACK")
 # Unity 会给这些资产生成 .meta；缺了就是还没回编辑器刷新过
@@ -143,15 +152,21 @@ def main() -> int:
     if no_meta:
         notes.append("  新增资产还没有 .meta（%d 个）：" % len(no_meta))
         notes += ["    · " + n for n in no_meta]
-        notes.append("    切回 Unity 让它刷新生成 .meta 再提交，否则别人打开工程 GUID 会变、引用断裂。")
+        notes.append("    这些资产要回 Unity 刷新一次才会生成 .meta；缺 .meta 就提交的话，"
+                     "别人打开工程时 GUID 会变、引用断裂。")
 
     # (c) 疑未收敛
-    hot = _hot_files(_session_id(payload))
+    sid = _session_id(payload)
+    hot = _hot_files(sid)
     if hot:
-        notes.append("  高频编辑文件（疑未收敛）：" + "、".join(hot))
+        notes.append("  本会话编辑次数最多的文件：" + "、".join(hot))
 
     if notes:
-        print("[stop-check] 收尾提醒：\n" + "\n".join(notes))
+        # 同一份提醒每会话只说一次：Stop 每轮都触发，同样的话说第二遍就开始被无视，
+        # 说到第五遍连带把真正变化的那条一起无视（context rot）。
+        text = "[stop-check] 收尾提醒：\n" + "\n".join(notes)
+        if should_emit(sid, text, "stop-check"):
+            print(text)
     return 0  # 永不阻断停止
 
 

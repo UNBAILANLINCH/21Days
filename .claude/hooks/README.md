@@ -9,12 +9,19 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 | 文件 | 事件 | matcher | 做什么 | 退出语义 |
 | --- | --- | --- | --- | --- |
 | `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`、Luban 生成的 `Core/Config/Generated/` 与 `Data/Config/`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒；Bash 里出现 `cd` / `pushd` 直接拒（带 cd 的相对路径过不了 `.env` Read deny 的静态检查，自动模式也弹确认；拒掉让调用方改绝对路径重发）；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
-| `required-reads.py` | PostToolUse | `Read` | 把读过的文件记进本会话已读账本 `.claude/.cache/reads/<会话>.jsonl` | 永远 exit 0，零输出 |
-| `required-reads.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 按 `required_reads.json` 查必读项读过没有，缺了就拒 | 永远 exit 0，deny 走 JSON `permissionDecision` |
-| `knowledge-routing.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 提示该文件适用的 `.claude/rules/` 规则与模块 guide，走 `additionalContext` 注入；同文件每会话只提一次 | 永远 exit 0，**从不阻断** |
-| `doom-loop-detect.py` | PostToolUse | `Edit\|Write\|MultiEdit` | 同文件同会话编辑计数，第 5 次首警、之后每 +3 次再警 | 触发时 exit 2（stderr 提醒 Agent，不撤销编辑），其余 exit 0 |
-| `stop-check.py` | Stop | —（无 matcher） | 收尾扫：`.cs` 残留调试痕迹 / 新增资产缺 `.meta` / 本会话高频编辑文件 | 永远 exit 0，**不阻断停止** |
+| `required-reads.py` | PostToolUse | `Read\|Bash` | 记账：`Read` 记 `file_path`；`Bash` 从 `cat` / `head` / `tail` / `sed -n` / `less` / `type` 里解析出被读的文件（不在管道里、没有重定向、文件真实存在才算；`2>/dev/null` 不影响）。都写进 `.claude/.cache/reads/<会话>.jsonl` | 永远 exit 0，零输出 |
+| `required-reads.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 按 `required_reads.json` 查必读项读过没有，缺了就拒（拒绝理由里写明两条解锁路径） | 永远 exit 0，deny 走 JSON `permissionDecision` |
+| `knowledge-routing.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 提示该文件适用的 `.claude/rules/` 规则与模块 guide，走 `additionalContext` 注入；**同一条提示文本**每会话只注入一次 | 永远 exit 0，**从不阻断** |
+| `doom-loop-detect.py` | PostToolUse | `Edit\|Write\|MultiEdit` | **连续**编辑同一文件计数（中间改过别的就清零），第 5 次首警、之后每 +3 次；`.md` 放宽到连续 8 次 | 触发时 exit 2（stderr 提醒 Agent，不撤销编辑），其余 exit 0 |
+| `stop-check.py` | Stop | —（无 matcher） | 收尾扫：`.cs` 残留调试痕迹 / 新增资产缺 `.meta` / 本会话累计编辑最多的文件；同一份提醒每会话只说一次 | 永远 exit 0，**不阻断停止** |
 | `precompact-save.py` | PreCompact | —（无 matcher） | 存 `git status --short` + `git diff --stat` 到 `.claude/.cache/precompact-state.txt`，并告知压缩后的 Agent 去哪读 | 永远 exit 0 |
+
+不直接注册、但被钩子引用的两样：
+
+| 文件 | 干什么 |
+| --- | --- |
+| `_hook_common.py` | 同会话提示去重 `should_emit(会话, 文本, 标签)`。`guard.js` 里有等价的 `shouldEmitOnce()`，**共用同一份账本**，格式必须一致 |
+| `tests/` | 钩子自测，入口 `python .claude/hooks/tests/run.py`（L1 纯函数 + L2 子进程端到端）。`/gc` 会跑它 |
 
 同一事件上注册的多个钩子并行跑，互相不保证顺序，所以**钩子之间不共享内存、只共享缓存文件**。
 
@@ -38,24 +45,43 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 7. **会话隔离。** 会话标识取负载 `session_id` → 环境变量 `CLAUDE_SESSION_ID` → 当天日期（逐级退化）。
    按天是兜底，不是常态：同一天多个会话共享记账的话，「上个会话读过这个会话就不用读了」——
    而新会话上下文是空的，正是最该重读的时候。
+8. **注入文案与阻断纪律另有一份规则**：`.claude/rules/hook-injection-style.md`
+   （第三人称陈述、只在写操作注入、同会话同文本去重、解锁链路不可靠就不许 deny）。
+   编辑本目录时它会自动注入，不用手找。
+9. **判据写成纯函数并补测试。** 改完跑 `python .claude/hooks/tests/run.py`；
+   验不了的钩子最后没人敢动，只能整个删掉。
 
 ### 缓存文件
 
 | 路径 | 谁写 | 内容 |
 | --- | --- | --- |
 | `.claude/.cache/reads/<会话>.jsonl` | `required-reads.py` | 每行一个 JSON 数组，本会话读过的相对路径。只追加，不读改写（并发安全） |
-| `.claude/.cache/routing-seen-<会话>.txt` | `knowledge-routing.py` | 每行一个已提示过的文件（小写），用于去重 |
-| `.claude/.cache/edit-counts-<会话>.json` | `doom-loop-detect.py` | `{相对路径: 编辑次数}`，`stop-check.py` 也读它 |
+| `.claude/.cache/emitted-<会话>.txt` | 所有注入型钩子 + `guard.js` | 每行 `<标签>:<提示文本 sha1 前 16 位>`，同会话同文本只注入一次 |
+| `.claude/.cache/edit-counts-<会话>.json` | `doom-loop-detect.py` | `{相对路径: 累计编辑次数}`，外加 `__streak__: {file, n}` 存连续状态。`stop-check.py` 读同一个文件，按 `isinstance(v, int)` 过滤，天然跳过 `__streak__` |
 | `.claude/.cache/precompact-state.txt` | `precompact-save.py` | 最近一次压缩前的 git 工作态快照 |
 
 行为不对时先删整个 `.claude/.cache/` 再复现——缓存脏是最常见的假故障。
 
-## 手工冒烟
-
-在工程根下跑（Git Bash）。`session_id` 随便取个 `smoke`，测完删 `.claude/.cache/*smoke*` 即可。
+## 自测
 
 ```bash
-# 0) 空 stdin：每个钩子都应零输出、exit 0
+python .claude/hooks/tests/run.py     # L1 纯函数 + L2 端到端，一条命令全跑
+```
+
+- **L1**（`tests/test_l1_units.py`）：判据算得对不对 —— Bash 读取解析、路径归一化、
+  `${seg:N}` 展开、连续性计数状态机、去重。
+- **L2**（`tests/test_l2_e2e.py`）：钩子被真的调起来时行为对不对 —— 子进程喂真实 stdin JSON，
+  断言退出码与输出里该出现 / 不该出现什么。`guard.js` 也在里面（没装 node 时自动跳过）。
+- `/gc` 会跑这个入口。加了新判据或新提示**就补一条用例**，没有用例的判据等于没加。
+
+## 手工冒烟
+
+自测覆盖不到、或想看**实际输出长什么样**时用。在工程根下跑（Git Bash）。
+`session_id` 随便取个 `smoke`，测完删 `.claude/.cache/*smoke*` 即可。
+
+```bash
+# 0) 空 stdin：exit 0 放行。前三个应零输出；stop-check / precompact-save 不看 tool_name、
+#    直接扫工作区，工作区脏的时候它们有输出是对的
 for h in required-reads knowledge-routing doom-loop-detect stop-check precompact-save; do
   printf '' | python .claude/hooks/$h.py; echo "$h exit=$?"
 done
@@ -82,7 +108,20 @@ printf '{"session_id":"smoke","hook_event_name":"PostToolUse","tool_name":"Read"
 ```
 
 ```bash
-# 4) knowledge-routing —— 首次给规则列表，第二次同文件静默
+# 3b) Bash 记账 —— cat 读过必读项，闸就该放行（解锁链路的实测）
+printf '{"session_id":"smoke2","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"cat .claude/hooks/README.md"}}' \
+  | python .claude/hooks/required-reads.py
+printf '{"session_id":"smoke2","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":".claude/hooks/guard.js"}}' \
+  | python .claude/hooks/required-reads.py   # 应零输出（放行）
+# 进了管道的 cat 不算读过整份 —— 换个会话试，仍应 deny
+printf '{"session_id":"smoke3","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"cat .claude/hooks/README.md | head -5"}}' \
+  | python .claude/hooks/required-reads.py
+printf '{"session_id":"smoke3","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":".claude/hooks/guard.js"}}' \
+  | python .claude/hooks/required-reads.py   # 应 deny
+```
+
+```bash
+# 4) knowledge-routing —— 首次给规则列表，同一条提示第二次静默
 printf '{"session_id":"smoke","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scripts/Runtime/Player/Move.cs"}}' \
   | python .claude/hooks/knowledge-routing.py
 printf '{"session_id":"smoke","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scripts/Runtime/Player/Move.cs"}}' \
@@ -94,6 +133,13 @@ printf '{"session_id":"smoke","tool_name":"Edit","tool_input":{"file_path":"Asse
 for i in 1 2 3 4 5; do
   printf '{"session_id":"smoke","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scripts/Runtime/Player/Move.cs"}}' \
     | python .claude/hooks/doom-loop-detect.py; echo "第 $i 次 exit=$?"
+done
+# 5b) 交替改两个文件 —— 连续性被打断，一次都不该报（跨波次回来改同一个注册入口就是这个形态）
+for i in 1 2 3 4 5 6; do
+  for f in Move.cs Jump.cs; do
+    printf '{"session_id":"smoke4","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scripts/Runtime/Player/'"$f"'"}}' \
+      | python .claude/hooks/doom-loop-detect.py; echo "$f exit=$?"
+  done
 done
 ```
 
@@ -137,7 +183,9 @@ printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y","subag
 for f in .claude/hooks/*.py; do
   python -c "import py_compile,sys;py_compile.compile(sys.argv[1],doraise=True)" "$f" && echo "ok $f"
 done
+node --check .claude/hooks/guard.js && echo "ok guard.js"
 python -c "import json;json.load(open('.claude/hooks/required_reads.json',encoding='utf-8'))" && echo "ok required_reads.json"
+python .claude/hooks/tests/run.py      # 语法过了不代表判据还对，这条才是
 ```
 
 ## 加一条必读
@@ -171,5 +219,8 @@ python -c "import json;json.load(open('.claude/hooks/required_reads.json',encodi
 3. 想影响工具调用就输出 JSON 到 stdout：
    - PreToolUse 拒绝/确认：`{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny|ask","permissionDecisionReason":"<中文理由>"}}`
    - 注入上下文：`{"hookSpecificOutput":{"hookEventName":"<事件>","additionalContext":"<中文>"}}`
+     —— 文案照 `.claude/rules/hook-injection-style.md` 写，并过一遍
+     `_hook_common.should_emit()` 去重（deny / ask 不去重）。
    - 只想提醒 Agent（PostToolUse）：写 stderr + exit 2。
-4. 按上面「手工冒烟」的形式补一组示例进本文件，并在「一览」表里加一行。
+4. 判据抽成纯函数，在 `tests/test_l1_units.py` 加用例；行为在 `tests/test_l2_e2e.py` 加一条端到端。
+5. 按上面「手工冒烟」的形式补一组示例进本文件，并在「一览」表里加一行。

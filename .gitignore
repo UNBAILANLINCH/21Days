@@ -48,3 +48,6 @@ Thumbs.db
 
 # Claude Code 运行缓存（钩子计数、已读记录、压缩快照）
 .claude/.cache/
+
+# Python 脚本（钩子 / lint / 扫描）运行产生的字节码缓存
+__pycache__/

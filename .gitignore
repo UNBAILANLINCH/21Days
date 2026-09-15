@@ -51,3 +51,6 @@ Thumbs.db
 
 # Python 脚本（钩子 / lint / 扫描）运行产生的字节码缓存
 __pycache__/
+
+# Codex hooks 的会话缓存
+.codex/.cache/

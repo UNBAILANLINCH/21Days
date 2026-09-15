@@ -1,0 +1,6 @@
+# 项目级配置；需要在 Codex 中信任此项目后加载。
+# 版本与 .mcp.json、Packages/manifest.json 保持一致。
+[mcp_servers.UnityMCP]
+command = "uvx"
+args = ["--from", "mcpforunityserver==10.2.0", "mcp-for-unity", "--transport", "stdio"]
+startup_timeout_sec = 60

@@ -1,6 +1,9 @@
 # 21Days
 
-一个 Unity 2D 个人项目，外加一套自用的 **Claude Code harness**——让 AI 在这个工程里「每一刻刚好看到它需要的信息、调得动它需要的工具、拿得到它需要的反馈」。
+一个 Unity 2D 个人项目，支持 **Claude Code 与 Codex 双入口**，共用项目规则和知识文档。
+
+Claude 从 [CLAUDE.md](CLAUDE.md)、Codex 从 [AGENTS.md](AGENTS.md) 读取 [共用项目约定](ai-docs/project-guide.md)。Codex MCP 配置在 [.codex/config.toml](.codex/config.toml)。
+下面的斜杠命令、模型派单和自动 hooks 描述属于 Claude；Codex 使用自然语言触发共用流程并主动执行检查。首次连接与验证见 [AI 接入说明](docs/ai-setup.md)。
 
 工程本体目前是 2D URP 空骨架，**玩法未定**；仓库里现成的是 harness。第一个玩法模块落地后再建 `Assets/_Project/` 的完整结构。
 

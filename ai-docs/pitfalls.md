@@ -122,3 +122,18 @@
 - 根因：`BuildReport.summary.totalSize` 统计的是**构建产物的未压缩总字节**（所有中间原生库、符号、未压缩资源都算进去），而 APK 是个 zip，`libil2cpp.so` 这类几十 MB 的原生库压缩率很高。这个字段在 Windows 那种「输出是一个目录」的平台上大致对得上，在 Android 上根本不是一回事。
 - 正确做法：Android 的体积以**磁盘上 `.apk` 文件的大小**为准（`scripts/build.ps1` 报的就是这个，对的）；`BuildSummary.totalSize` 只当「未压缩产物有多大」的参考，别写进汇报。要拆体积构成用 Build Report 或直接 `zipfile` 列 APK，不要用这个字段。
 - 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`ReportResult`，目前仍在打这个数）、`.claude/skills/build/SKILL.md #3 汇报`；2026-09-16 加 `-Release` 开关实测时发现，**尚未修**。
+
+## 两个会话共用一个工作区，整份暂存会把对方没审过的改动一起提交
+- 现象：两个 Claude Code 会话同时开在同一个仓库上，各改各的。轮到自己提交时 `git add CLAUDE.md`，结果把对方正在写、还没给用户看过的内容一起提交了。对方那边的 `/review-change` 清单从此对不上，用户也没机会审那部分。
+- 根因：`git add` 是**文件级**的，不是行级。而 `CLAUDE.md`、`ai-docs/docs/catalog.md`、`ai-docs/pitfalls.md`、`.claude/skills/new-feature/SKILL.md` 这类 harness 共享文件，两个会话都会改。只要同一个文件里有两家的改动，整份暂存必然越界。更麻烦的是**看文件名判断不出归属**：对方给某个服务加埋点会改到 `UIService.cs`、`developer-guide.md`、`pitfalls.md`，这些名字里都没有「埋点」二字。
+- 正确做法：提交前先**按内容判归属**（`git diff -- <file> | grep -c` 数各自的特征词，别只看文件名），混合文件走这三步——
+  1. `git show HEAD:<path>` 取基线，在基线上**只重放自己的改动**（字符串替换或按 `## ` 分块挑），生成一份临时文件；
+  2. `git hash-object -w --path <path> <临时文件>` 写进对象库，再 `git update-index --cacheinfo 100644,<hash>,<path>` 只把这一版放进索引；
+  3. 提交前 `git diff --cached | grep -i <对方特征词>` 兜底确认零命中，提交后再确认对方的改动仍留在工作区。
+  纯属自己的文件照常 `git add`。**别用 `git add -p`**：交互式在本环境跑不了。
+- 关联：`CLAUDE.md #硬规则 4`、`.claude/skills/review-change/SKILL.md #并发会话`；2026-09-15 起连续七次提交都这么做，2026-09-16 沉淀。
+## 打包期间编辑器是关的，MCP 全部不可用，验证得提前想好命令行退路
+- 现象：`/build` 要求关闭编辑器（工程锁只允许一个实例），于是打包这段时间里 `read_console`、`run_tests`、`execute_code` 全部连不上——而人往往是打完包才想起「我要怎么确认它对不对」，这时只剩一个退出码可看。
+- 根因：MCP 是**遥控编辑器**的通道，编辑器进程没了通道自然断。这和「编辑器开着 batchmode 打不了包」是同一枚硬币的两面：两者互斥，不可能同时拥有。
+- 正确做法：派打包类任务时**在派单里就写死命令行验证路径**，不要留给事后。可用的有——读 `Logs/build-*.log`（`grep -c "error CS\|BuildFailedException"`）；用 Python `zipfile` 列 APK 内容验架构与 bundle（别猜，要列）；`du -sh` / `stat` 量真实产物；`git status --short ProjectSettings/` 验临时改的工程设置是否恢复；`git show HEAD:<file>` 比对基线。全部不需要编辑器。
+- 关联：`.claude/skills/build/SKILL.md`、`ai-docs/pitfalls.md #编辑器开着时 batchmode 跑测试`；2026-09-16 出 Windows / Android / Release 三种包时踩到。

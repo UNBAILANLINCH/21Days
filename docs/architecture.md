@@ -94,7 +94,7 @@ scripts/gen-tables.ps1    生成配置表
 Boot 场景加载
  → GameBootstrap.Awake：DontDestroyOnLoad，构建 GameLifetimeScope（根作用域）
  → IGameFlow.GoToAsync<BootState>()（启动期 Current 不为空）
- → 按注册顺序串行调用每个 IGameService.InitializeAsync（Platform → Log → Config → Assets → Save → Input → Audio → UI）
+ → 按注册顺序串行调用每个 IGameService.InitializeAsync（Platform → Log → Assets → Config → Save → Input → Audio → UI）
  → 发布 BootCompletedEvent → IGameFlow.GoToAsync<TitleState>()
 ```
 
@@ -122,6 +122,7 @@ namespace Game.Core.Assets
 public interface IAssetService
 {
     UniTask<AssetHandle<T>> LoadAsync<T>(string key, CancellationToken ct = default) where T : UnityEngine.Object;
+    UniTask<IReadOnlyList<AssetHandle<T>>> LoadAllAsync<T>(string label, CancellationToken ct = default) where T : UnityEngine.Object;   // 按标签批量加载，配置表用
     UniTask<GameObject> InstantiateAsync(string key, Transform parent = null, CancellationToken ct = default);
     void ReleaseInstance(GameObject instance);
     UniTask<SceneHandle> LoadSceneAsync(string key, LoadSceneMode mode, CancellationToken ct = default);

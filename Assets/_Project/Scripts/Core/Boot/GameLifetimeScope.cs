@@ -6,10 +6,13 @@
 // 新脚本生成 .meta 时，用空模板覆盖文件内容。本文件已经存在，之后再改不会再被覆盖；
 // 但如果把它删掉重建，记得重建后再写一次内容（见 developer-guide.md 第 15 章）。
 
+using Game.Core.Assets;
+using Game.Core.Config;
 using Game.Core.Events;
 using Game.Core.Flow;
 using Game.Core.Input;
 using Game.Core.Platform;
+using Game.Core.Save;
 using Game.Core.Timing;
 using MessagePipe;
 using VContainer;
@@ -20,7 +23,7 @@ namespace Game.Core.Boot
     /// <summary>
     /// 根作用域，挂在 Boot 场景的 GameBootstrap 物体上。
     /// **注册顺序即启动初始化顺序**（GameBootstrap 按 IReadOnlyList&lt;IGameService&gt; 的顺序串行 await），
-    /// 顺序按 architecture.md 5.1：Platform → Log → Config → Assets → Save → Input → Audio → UI。
+    /// 顺序按 architecture.md 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
     /// 玩法模块不改这里，各自建子作用域。
     /// </summary>
     public sealed class GameLifetimeScope : LifetimeScope
@@ -37,7 +40,18 @@ namespace Game.Core.Boot
             builder.RegisterInstance(PlatformServiceFactory.Create())
                 .As<IPlatformService, IGameService>();
 
-            // Log 是静态门面，不进容器；Config / Assets / Save 待波 2，Audio / UI 待波 3
+            // Log 是静态门面，不进容器；Audio / UI 待波 3
+
+            // Assets 排在 Config 前面：ConfigService 的 InitializeAsync 要靠 IAssetService 按标签取表数据，
+            // 而 Addressables 必须先 InitializeAsync 过才能加载。
+            builder.Register<AddressablesAssetService>(Lifetime.Singleton)
+                .As<IAssetService, IGameService>();
+
+            builder.Register<ConfigService>(Lifetime.Singleton)
+                .As<IConfigService, IGameService>();
+
+            builder.Register<JsonSaveService>(Lifetime.Singleton)
+                .As<ISaveService, IGameService>();
 
             builder.Register<LocalClock>(Lifetime.Singleton).As<IClock>();
 

@@ -232,7 +232,48 @@ await flow.GoToAsync<TitleState>(ct);
 切换串行：先 `ExitAsync` 当前状态，再 `EnterAsync` 目标状态；切换进行中再请求会**排队**按序执行，完成后发布 `GameStateChangedEvent(from, to)`。状态由容器解析，所以状态类可以构造注入服务。
 **禁止**：在 `GameState` 里写每帧逻辑（用 `ITickable`）；在 `EnterAsync` 里同步阻塞等待；忘了把玩法状态注册进作用域（`GoToAsync` 会解析失败）。
 
-> `Assets`、`Config`、`Save` 待波 2；`UI`、`Audio` 待波 3。
+### 6.8 Assets — `IAssetService`
+
+```csharp
+public sealed class Foo { public Foo(IAssetService assets) { ... } }
+using (AssetHandle<Sprite> h = await assets.LoadAsync<Sprite>("Icon_Sword", ct)) { image.sprite = h.Asset; }
+IReadOnlyList<AssetHandle<TextAsset>> all = await assets.LoadAllAsync<TextAsset>("config", ct);  // 按标签批量
+GameObject go = await assets.InstantiateAsync("Enemy_Slime", parent, ct);
+assets.ReleaseInstance(go);                                   // 配对，不要 Destroy
+SceneHandle scene = await assets.LoadSceneAsync("Level01", LoadSceneMode.Additive, ct);
+scene.Dispose();                                              // 即卸载
+```
+
+底下是 Addressables。**只有 Load 与 Release 两类动词**：句柄 `Dispose` 即释放且幂等，生命周期跟着持有者走；服务销毁时会把没还的强行释放并 `Log.Warn` 报数量，看到这条 Warn 就是有人漏了。
+**禁止**：直接调 `Addressables` / `Resources.Load`；把 `Instantiate` 出来的对象 `Destroy`（要 `ReleaseInstance`）；只存 `handle.Asset` 不存句柄（释放后 `Asset` 变 null）；指望有 `Exists` / `Check` / `Download`——**故意不提供**，业务拿它当加载判定会在真机上静默失败。
+
+### 6.9 Config — `IConfigService`
+
+```csharp
+public sealed class Foo { public Foo(IConfigService config) { ... } }
+cfg.Item item = config.Tables.TbItem.Get(1001);      // 主键不存在会抛
+cfg.Item maybe = config.Tables.TbItem.GetOrDefault(1001);
+foreach (cfg.Item it in config.Tables.TbItem.DataList) { ... }
+```
+
+数据源是 `Tables/` 下的 Excel，生成物在 `Core/Config/Generated/`（代码）与 `Data/Config/`（`.bytes`）。启动时 `ConfigService` 按 Addressables 标签 `config` 把全部表读进内存，所以加新表不用改框架代码。改表流程见第 8 章。
+**禁止**：手改 `Generated/` 与 `Data/Config/`（钩子会拒）；自己 `new cfg.Tables(...)`；往配置对象上挂运行期状态（字段都是 `readonly`，要状态就复制到自己的类里）；在注册顺序排在 `ConfigService` 之前的服务的 `InitializeAsync` 里读表（会抛「还没初始化完」）。
+
+### 6.10 Save — `ISaveService` / `ISaveData`
+
+```csharp
+public sealed class Foo { public Foo(ISaveService saves) { ... } }
+SettingsSaveData s = saves.Get<SettingsSaveData>();   // 首次访问自动创建，之后恒是同一个实例
+s.MasterVolume = 0.5f;                                // 直接改，不用「标记为脏」
+bool ok = await saves.SaveAsync(slot: 0, ct);         // 先写 .tmp 再原子替换
+bool loaded = await saves.LoadAsync(0, ct);           // 槽位不存在 / 文件损坏都返回 false，不抛
+if (saves.Exists(0)) { saves.Delete(0); }
+```
+
+JSON 文件在 `IPlatformService.SaveRoot` 下，一个槽位一个 `slot<N>.json`；每个分区各自带版本号，读回来时版本低于代码就调一次 `Migrate(旧版本)`。加分区、写迁移见第 9 章。
+**禁止**：自己拼 `Application.persistentDataPath`；在分区里放 `UnityEngine.Object` 引用（分区是纯 DTO，要存资源就存它的 Addressables key）；靠 `try/catch` 接读档异常（读档失败返回 `false`，不抛）；把大块运行期缓存塞进分区（存档要能人读能 diff）。
+
+> `UI`、`Audio` 待波 3。
 
 ## 7. 新建玩法模块
 
@@ -248,11 +289,122 @@ await flow.GoToAsync<TitleState>(ct);
 
 ## 8. 配置表怎么改
 
-待波 2 补充（Luban 接入后）。
+配置表用 [Luban](https://github.com/focus-creative-games/luban)。**Excel 是唯一数据源**，代码和二进制数据都是生成物。
+
+### 8.1 目录
+
+| 路径 | 是什么 | 进 git |
+| --- | --- | --- |
+| `Tables/luban.conf` | 生成配置：分组、schema 文件清单、目标 | 是 |
+| `Tables/Defines/builtin.xml` | 内置结构（`vector2/3/4`），原样别动 | 是 |
+| `Tables/Data/__enums__.xlsx` | 枚举定义 | 是 |
+| `Tables/Data/__beans__.xlsx` | 结构（表的行类型）定义 | 是 |
+| `Tables/Data/__tables__.xlsx` | 表清单：表名、行类型、数据文件、主键 | 是 |
+| `Tables/Data/<表>.xlsx` | 数据 | 是 |
+| `Assets/_Project/Scripts/Core/Config/Generated/` | 生成的 C# | **是**（同事和 CI 不用装工具） |
+| `Assets/_Project/Data/Config/*.bytes` | 生成的二进制数据 | **是** |
+| `Tools/Luban/` | Luban 工具本体，约 30 MB | 否（已 gitignore，脚本自动下载） |
+
+生成物**不手改**，钩子会直接拒。要改内容去改 Excel 再重新生成。
+
+### 8.2 改一张已有表的数据
+
+1. 改 `Tables/Data/<表>.xlsx`，保存关掉 Excel（占着文件会让生成失败）。
+2. 跑生成：编辑器里点菜单 **21Days → 配置表 → 生成**，或命令行
+   `powershell -ExecutionPolicy Bypass -File scripts/gen-tables.ps1`。
+3. 回 Unity 等刷新完，`/unity-test EditMode` 跑绿。
+4. 提交时**把生成物一起带上**（`Generated/` 的 `.cs` + `.meta`、`Data/Config/` 的 `.bytes` + `.meta`）。
+
+### 8.3 加一张新表
+
+1. `Tables/Data/__beans__.xlsx` 加行类型：`full_name` 填结构名（如 `Skill`），
+   右边 `*fields` 区逐行写字段 `name` / `type` / `comment`。类型写 `int` `long` `float` `bool` `string`、
+   已定义的枚举名、`vector2/3`，列表写 `(list#sep=,),string` 这种（`sep` 是单元格内的分隔符）。
+2. 要枚举就在 `Tables/Data/__enums__.xlsx` 加：`full_name` 一行，右边 `*items` 区逐行写 `name` / `alias` / `value`。
+3. `Tables/Data/__tables__.xlsx` 加一行：`full_name`=`TbSkill`、`value_type`=`Skill`、
+   `read_schema_from_file`=`FALSE`、`input`=`skill.xlsx`（相对 `Tables/Data/`）、`index`=主键字段名、`group`=`c`。
+4. 建 `Tables/Data/skill.xlsx`：A1 写 `##`，B 列起是字段名；第二行 A 列也写 `##`，其余填中文注释；第三行起是数据（A 列留空）。
+5. 跑生成，新表会自动出现在 `config.Tables.TbSkill`，**框架代码一行不用改**——
+   `Data/Config` 整个文件夹作为一个 Addressables 条目打了 `config` 标签，新 `.bytes` 自动被收进去。
+
+> 表头里 `*fields` / `*items` 这种「一对多」的父列必须是**合并单元格**，跨完它下面所有子列。
+> 不合并的话 Luban 只认得第一个子列，报「缺失列:'alias'」这类看不懂的错。
+
+### 8.4 环境要求
+
+- **.NET**：Luban 是 net8.0 程序。脚本会设 `DOTNET_ROLL_FORWARD=Major`，本机只有 .NET 9 也能跑。
+  万一报 `framework 'Microsoft.NETCore.App' version '8.0.0' was not found`，装个 .NET 8 运行时：
+  `winget install Microsoft.DotNet.Runtime.8`。
+- **解压**：工具包是 `.7z`。脚本先用 Windows 自带的 `tar.exe` 解，不行再找 `%ProgramFiles%\7-Zip\7z.exe`；
+  两条都不通就报错让你装：`winget install 7zip.7zip`。
+- **网络**：首次生成要从 GitHub 下 30 MB。下不动就手动下载
+  `https://github.com/focus-creative-games/luban/releases/download/v5.1.0/Luban.7z`，解压到 `Tools/Luban/`（`Luban.dll` 要在这一层）。
+  换版本改 `scripts/gen-tables.ps1` 顶部的 `$LubanVersion`，再跑一次 `-Force`。
+
+### 8.5 常见报错
+
+| 报错 | 原因与修法 |
+| --- | --- |
+| `缺失列:'xxx'` | `__beans__` / `__enums__` 的 `*fields` / `*items` 父列没做成合并单元格，见 8.3 末尾 |
+| `不存在对应的数据文件` | `__tables__` 的 `input` 写错了，路径相对 `Tables/Data/`，别带 `Data/` 前缀 |
+| `xxx 不是合法的类型` | 字段类型拼错，或枚举名和 `__enums__` 里的 `full_name` 对不上 |
+| Excel 被占用 / IO 异常 | 表还开在 Excel 里，关掉重跑 |
+| 运行时 `配置表 "xxx" 的数据文件没找到` | 代码生成了但 `.bytes` 没进 Addressables 的 Config 组，或者压根没重新生成——重跑 8.2 |
+| 运行时 `标签 "config" 下一个资源都没有` | Addressables 里 `Assets/_Project/Data/Config` 这个条目丢了标签。打开 Window → Asset Management → Addressables → Groups，把 Config 组里那个条目的 Label 勾回 `config` |
 
 ## 9. 存档
 
-待波 2 补充（`ISaveService` 落地后）。
+### 9.1 文件在哪、长什么样
+
+`<IPlatformService.SaveRoot>/slot<槽位>.json`；`SaveRoot` 是 `Application.persistentDataPath/saves`
+（Windows 在 `%userprofile%\AppData\LocalLow\DefaultCompany\<产品名>\saves`，Android 在应用私有目录）。
+
+```json
+{
+  "formatVersion": 1,
+  "partitions": {
+    "Game.Core.Save.SettingsSaveData": { "version": 1, "data": { "MasterVolume": 1.0, "Language": "zh-CN" } }
+  }
+}
+```
+
+键是分区类型的**全名**，所以给分区改命名空间或类名 = 换了一个分区，老数据会被当成「代码里已经没有的分区」跳过（只 Warn，不报错）。真要改名就把旧名当一个待迁移的老分区处理，或者别改。
+
+### 9.2 加一个分区
+
+1. 在 `Core/Save/`（框架级）或自己模块目录下写一个纯 C# 类实现 `ISaveData`：
+   ```csharp
+   public sealed class PlayerProgressSaveData : ISaveData
+   {
+       public int Version => 1;
+       public int Level { get; set; } = 1;
+       public List<string> UnlockedSkills { get; set; } = new List<string>();
+       public void Migrate(int fromVersion) { }
+   }
+   ```
+2. 只要可读写属性 + 属性初始化器给默认值，**不用注册**：`saves.Get<PlayerProgressSaveData>()` 第一次访问就会创建。
+3. 不放 `UnityEngine.Object` 引用（存不下），要指资源就存它的 Addressables key。
+
+### 9.3 版本迁移怎么写
+
+- **只加字段**：`Version` 不用动。老存档里没有的字段，Newtonsoft 会保留属性初始化器给的默认值。
+- **改语义**（改名、换单位、值域变了）：`Version` 加一，在 `Migrate` 里按 `fromVersion` **逐级**往上迁：
+  ```csharp
+  public int Version => 3;
+  public void Migrate(int fromVersion)
+  {
+      if (fromVersion < 2) { Hp = Hp * 10; }              // v1 的血量是百分比
+      if (fromVersion < 3) { Language = Language ?? "zh-CN"; }
+  }
+  ```
+  写成 `if (fromVersion < N)` 的阶梯而不是 `switch (fromVersion)`：玩家可能从很老的版本一步升上来。
+- `Migrate` 只在「存档里的版本 < 代码里的版本」时被调用**一次**。存档比代码新（玩家降级了）只 Warn 不迁，读进来的字段对不上的退回默认值。
+
+### 9.4 规矩
+
+- 写盘先落 `.tmp` 再原子替换，所以断电最多留个 `.tmp`，正档不会半截。磁盘 IO 在线程池上，序列化留在主线程（分区对象是玩法在改的）。
+- `LoadAsync` 对「没有文件」「JSON 坏了」「信封版本太新」一律记日志返回 `false`，**不抛**——存档坏掉不该把游戏带崩，拿到 `false` 就当新档开。
+- 什么时候存由调用方决定（存档点、退出、设置改完）。别每帧存。
 
 ## 10. 输入
 
@@ -321,3 +473,40 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 - 编译是否成功：`execute_code` 里读 `UnityEditor.EditorUtility.scriptCompilationFailed`，再用 `System.Type.GetType("命名空间.类名, 程序集名")` 确认新类型真的被编译进了目标程序集。
 - 运行时日志：`execute_code` 里临时挂 `Application.logMessageReceived`，触发一次要观察的流程，收集完再摘掉。
 - 实在要看历史日志：让用户看编辑器 Console 窗口，或用运行时的 IngameDebugConsole。
+
+### 15.3 Luban 的 `__beans__` / `__enums__` 报「缺失列」（波 2 踩到）
+
+**现象**：`__beans__.xlsx` 照着官方 MiniTemplate 抄的表头，跑生成却报
+`bean:'__intern__.__FieldInfo__' 缺失列:'alias'，请检查是否写错或者遗漏`，报错位置指着第一个字段所在的单元格。
+
+**根因**：`*fields`（`__enums__` 里是 `*items`）这种「一对多」的父列，在官方模板里是**合并单元格**，
+横跨它下面所有子列（`__beans__` 是 `J1:P1`，`__enums__` 是 `H1:L1`）。不合并的话 Luban 只把第一个子列
+认成 `*fields` 的成员，后面的 `alias` / `type` 全部当成了顶层列，于是报「子结构缺列」。
+用 openpyxl 之类的脚本重建表头最容易漏掉这一步——肉眼看内容完全一样。
+
+**正确做法**：表头里凡是 `*` 开头的父列都要合并到覆盖全部子列。openpyxl 里是 `ws.merge_cells("J1:P1")`。
+
+### 15.4 EditMode 测试里同步等 UniTask 会死锁（波 2 踩到）
+
+**现象**：`JsonSaveServiceTests` 里用 `task.AsTask().GetAwaiter().GetResult()` 等存档写完，
+测试直接挂住不动，Test Runner 转圈到超时。
+
+**根因**：存档的磁盘 IO 走 `UniTask.RunOnThreadPool`，跑完要切回主线程继续。编辑器下 UniTask 的
+PlayerLoop 是靠 `EditorApplication.update` 推的（`PlayerLoopHelper.InitOnEditor`），
+在主线程上阻塞等，就等于把推它的那只手按住了——续接永远排不上队。
+
+**正确做法**：异步用例写成 `[UnityTest] public IEnumerator Xxx() => UniTask.ToCoroutine(async () => { ... });`。
+EditMode 的 `[UnityTest]` 由测试运行器按编辑器更新逐帧推进，主线程不被占住，续接就能回来。
+
+### 15.5 Addressables 的 `config` 标签丢了，配置表加载不出来
+
+**现象**：进 Play 模式启动到 `ConfigService` 时抛
+`Addressables 里标签 "config" 下一个资源都没有`。
+
+**根因**：`Assets/_Project/Data/Config` 是作为**一个文件夹条目**加进 Addressables 的 `Config` 组的，
+标签打在这个条目上、由子资源继承。有人在 Addressables 窗口里删了条目或取消了标签，就全断了。
+
+**正确做法**：Window → Asset Management → Addressables → Groups，确认 `Config` 组里有一个
+address 为 `Config` 的文件夹条目、Labels 勾着 `config`。条目整个没了就把 `Assets/_Project/Data/Config`
+文件夹重新拖进 `Config` 组再勾标签。Play Mode Script 保持 **Use Asset Database (fastest)**，
+这样改完表不用每次 Build 内容。出包时 `BuildScript` 会自动先跑 `BuildPlayerContent()`。

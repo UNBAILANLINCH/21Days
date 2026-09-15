@@ -43,6 +43,10 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 
+# Luban 工具本体（第三方二进制，约 30 MB）。scripts/gen-tables.ps1 发现缺失会自动下载解压，
+# 不必进库；生成出来的代码与 .bytes 照常进 git。
+/Tools/Luban/
+
 # Claude Code 本机覆盖配置
 .claude/settings.local.json
 

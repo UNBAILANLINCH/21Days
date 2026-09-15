@@ -1,4 +1,5 @@
 // PreToolUse 钩子：拦截对 Unity 生成物的直接写入；git 提交/推送与工程级配置改动改为弹确认；
+// Bash 里出现 cd / pushd 直接拒（会触发 .env Read deny 的静态检查弹窗）；
 // Agent 派单漏传 model 或派成 fable 直接拒（规则出处 .claude/rules/model-routing.md）。
 // 规则出处：CLAUDE.md「硬规则」。
 'use strict';
@@ -38,6 +39,11 @@ function main() {
 
   if (tool === 'Bash') {
     const cmd = String(ti.command || '');
+    // 带 cd 的复合命令里若有相对路径读取，权限检查算不出它落在哪、无法排除 .env 的 Read deny，
+    // 自动模式也会弹确认（CLAUDE.md「Bash 不写 cd」）。这里直接拒，让调用方改成绝对路径重发，弹窗就不会出现。
+    if (/(^|[;&|(\n]\s*)(cd|pushd)(\s|$)/.test(cmd)) {
+      return decide('deny', 'Bash 不写 cd / pushd：路径写绝对路径或相对工程根（CLAUDE.md「验证与工具」）。带 cd 的相对路径过不了 .env Read deny 的静态检查，会弹确认');
+    }
     if (/\bgit\s+commit\b/.test(cmd) && /Co-Authored-By:\s*Claude|Claude-Session:|Generated with.{0,4}Claude Code|🤖/i.test(cmd)) {
       return decide('deny', '提交信息带 AI 署名或会话链接，去掉后重试（docs/commit-convention.md）');
     }

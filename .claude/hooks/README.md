@@ -8,7 +8,7 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 
 | 文件 | 事件 | matcher | 做什么 | 退出语义 |
 | --- | --- | --- | --- | --- |
-| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
+| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒；Bash 里出现 `cd` / `pushd` 直接拒（带 cd 的相对路径过不了 `.env` Read deny 的静态检查，自动模式也弹确认；拒掉让调用方改绝对路径重发）；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
 | `required-reads.py` | PostToolUse | `Read` | 把读过的文件记进本会话已读账本 `.claude/.cache/reads/<会话>.jsonl` | 永远 exit 0，零输出 |
 | `required-reads.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 按 `required_reads.json` 查必读项读过没有，缺了就拒 | 永远 exit 0，deny 走 JSON `permissionDecision` |
 | `knowledge-routing.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 提示该文件适用的 `.claude/rules/` 规则与模块 guide，走 `additionalContext` 注入；同文件每会话只提一次 | 永远 exit 0，**从不阻断** |
@@ -107,6 +107,14 @@ printf '{"session_id":"smoke","hook_event_name":"PreCompact"}' | python .claude/
 # 7) guard.js —— 拦生成物
 printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity.meta"}}' \
   | node .claude/hooks/guard.js
+```
+
+```bash
+# 7b) guard.js —— Bash 带 cd 直接拒（免 .env Read deny 弹窗）
+printf '{"tool_name":"Bash","tool_input":{"command":"cd E:/x && head -20 a.cs"}}' \
+  | node .claude/hooks/guard.js   # → deny
+printf '{"tool_name":"Bash","tool_input":{"command":"head -20 E:/x/a.cs"}}' \
+  | node .claude/hooks/guard.js   # → 零输出
 ```
 
 ```bash

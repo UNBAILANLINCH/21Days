@@ -87,10 +87,16 @@ namespace Game.Core.Flow
                 await Current.ExitAsync(ct);
             }
 
-            Current = next;
+            // Enter 成功之后才换 Current。提前赋值的话，Enter 抛异常时 Current 会指着一个**从没进入过**的
+            // 状态，下一次切换会去 Exit 它，Exit 里那些「Enter 时申请的资源」全是空的。
+            // 代价是：切换失败后处于「前一状态已 Exit、目标未 Enter」的空档，此时 Current 仍指向前一状态——
+            // 它的语义是「最近一个成功进入的状态」，不是「场上活着的状态」。异常照旧回传给 GoToAsync 的
+            // 调用方，队列继续处理后面的请求；恢复手段是再 GoToAsync 到一个能进得去的状态。
             await next.EnterAsync(ct);
+            Current = next;
 
-            // 切换完成后发布一次，带上切换前后的状态类型；订阅者拿到时 Current 已是新状态
+            // 切换完成后发布一次，带上切换前后的状态类型；订阅者拿到时 Current 已是新状态。
+            // 失败路径不发这个事件——没进去的状态不算「切换完成」。
             stateChangedPublisher.Publish(new GameStateChangedEvent(from, stateType));
         }
 

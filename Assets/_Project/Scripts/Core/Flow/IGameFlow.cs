@@ -13,7 +13,12 @@ namespace Game.Core.Flow
     /// </summary>
     public interface IGameFlow
     {
-        /// <summary>当前状态；还没进入过任何状态时为 null。</summary>
+        /// <summary>
+        /// 最近一个**成功进入**的状态；还没进入过任何状态时为 null。
+        /// 切换失败（目标状态的 EnterAsync 抛异常）时这里仍指向前一个状态，
+        /// 而前一个状态的 ExitAsync 已经执行过——即处于「前一状态已退出、目标未进入」的空档。
+        /// 因此状态的 ExitAsync 必须幂等：失败那次和下一次切换会各调一遍。
+        /// </summary>
         GameState Current { get; }
 
         /// <summary>切到 TState。返回的 UniTask 在**这一次**切换真正完成时才结束（排队等待也算在内）。</summary>

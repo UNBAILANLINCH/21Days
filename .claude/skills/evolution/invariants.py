@@ -76,6 +76,8 @@ REF_EDITOR_USING = "project-root.md #目录与 asmdef 依赖方向"
 REF_NAMESPACE = "project-root.md #目录约定 · architecture.md #4 目录"
 REF_META = "project-root.md #生成物边界 · pitfalls.md #.meta 没提交"
 REF_UI_ADDRESS = "architecture.md #5.6 UI（预制体 Addressables key 等于类名）"
+FONT_ASSET_MAX_BYTES = 200 * 1024   # Dynamic 字体资产的干净基线是几 KB；超过这个数说明带着运行时字形
+REF_FONT_BLOAT = "Art/Fonts/README.md · pitfalls.md #Dynamic 字体资产污染 git"
 
 Problem = namedtuple("Problem", "path line symptom fix ref")
 
@@ -502,6 +504,44 @@ def check_ui_addressable_address(root: Path) -> list:
     return problems
 
 
+def check_dynamic_font_bloat(root: Path) -> list:
+    """Dynamic 模式的 TMP 字体资产不该把运行时攒下的字形数据带进 git。
+
+    为什么要机器查：Dynamic 字体按需栅格化，每跑一次 Play 就往资产里塞新字形，
+    体积从几 KB 涨到几 MB。靠人「提交前记得点 Clear Dynamic Data」是无载体约定，
+    必然有人忘；忘了的代价是每人每次 Play 都产生巨大 diff，还会在多人分支间冲突。
+    阈值取 200 KB：干净基线是几 KB，跑过一轮 Play 就上 MB，中间留足余量不误伤。
+    退场条件：TMP 若改成把动态图集存到资产外部，这条检查连同阈值一起删。
+    """
+    problems = []
+    base = root / PROJECT_DIR
+    if not base.is_dir():
+        return problems
+    for asset in sorted(base.rglob("*.asset")):
+        name = asset.name
+        if "SDF" not in name and "FontAsset" not in name:
+            continue
+        try:
+            size = asset.stat().st_size
+        except OSError:
+            continue
+        if size <= FONT_ASSET_MAX_BYTES:
+            continue
+        text = _read(asset)
+        # 只管 Dynamic（m_AtlasPopulationMode: 1）；Static 资产本来就该是大的
+        if "m_AtlasPopulationMode: 1" not in text:
+            continue
+        problems.append(Problem(
+            _rel(root, asset), 0,
+            f"Dynamic 字体资产 {size // 1024} KB，里面攒着 Play 期栅格化出来的字形数据，"
+            f"提交进去每人每次运行都会产生巨大 diff 并在分支间冲突",
+            "在 Inspector 里选中该资产 → 右键菜单 / 齿轮里点 Clear Dynamic Data，"
+            "回到几 KB 的基线再提交（字形运行时会自动重建，清掉不影响显示）",
+            REF_FONT_BLOAT,
+        ))
+    return problems
+
+
 # ------------------------------------------------------------------ 汇总
 
 CHECKS = (
@@ -511,6 +551,7 @@ CHECKS = (
     ("命名空间与目录一致", check_namespace_matches_dir),
     (".meta 配对", check_meta_pairing),
     ("UI 面板地址等于类名", check_ui_addressable_address),
+    ("Dynamic 字体资产未清动态数据", check_dynamic_font_bloat),
 )
 
 

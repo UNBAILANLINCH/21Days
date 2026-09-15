@@ -95,3 +95,14 @@
 - 根因：知识是三层加载的——常驻的 `CLAUDE.md`、按文件类型 glob 注入的 `.claude/rules/`、以及编辑模块代码前由 `required-reads` 钩子强制先读的模块 guide。第三层靠钩子里的路径匹配触发，规则写死在 `required_reads.json`：`Assets/_Project/Scripts/Runtime/*/**`。而行为 eval 让 subagent 在 **scratchpad 的临时目录**里落盘（故意的，不能往仓库里写），临时目录不在那个路径下，匹配不命中，钩子根本不会触发。所以 eval 测得到前两层，唯独测不到第三层。
 - 正确做法：看 eval 结果时把结论限定成「常驻规则与按类型注入的规则有效」，不要外推成「知识层没问题」。模块 guide 那道闸单独验：`.claude/hooks/tests/` 里的端到端用例覆盖了它（构造真实仓库路径喂给钩子，断言拦与放行），跑 `/gc` 就会带着跑。真要在 eval 里连它一起验，只能让 subagent 在仓库内真写再回滚，风险和成本都高一截——**当前选择是不做，并把这个边界写明，而不是让人以为覆盖全了**。
 - 关联：`.claude/skills/run-evals/SKILL.md #覆盖边界`、`.claude/hooks/required_reads.json`、`.claude/hooks/tests/`；2026-09-16 建 eval 载体时识别。
+
+## 中文显示成 `□`，改 TMP Settings 的 Default Font Asset 修不好
+- 现象：做好中文 TMP 字体资产，设成 `TMP Settings` 的 **Default Font Asset**，以为全局生效；结果已有界面（`TitleView` / `SampleView`）的中文还是方框，新建的 TMP 组件倒是好的。
+- 根因：预制体上的 TMP 组件把字体资产**显式序列化在 `m_fontAsset` 字段里**（这两个预制体指着 `LiberationSans SDF` 的 guid `8f586378...`），不是"留空用默认值"。TMP 的字符查找顺序是：组件自己的字体 → 该字体的局部 fallback → 局部 sprite asset → **TMP Settings 全局 fallback** → Default Font Asset → 默认 sprite asset（`TMP_Text.cs:6198` 一带）。Default Font Asset 排在倒数第二，确实会被查到，但它同时也决定**新建**文本组件默认挂哪个字体——用它兜中文，等于让以后每个新组件的主字体都变成中文字体，副作用比收益大。
+- 正确做法：中文字体挂进 `TMP Settings` 的 **Fallback Font Assets**（全局 fallback），Default Font Asset 保持 `LiberationSans SDF`。这样英文数字仍走 Liberation 的字形，缺字才回落；且对**所有** TMP 组件生效，不管它们各自挂的是哪个字体资产，一个预制体都不用改。不要去改 `Assets/TextMesh Pro/` 里 `LiberationSans SDF.asset` 自己的局部 fallback——那是模板自带资产，原位不动。
+- 关联：`docs/developer-guide.md #11.5`、`Assets/_Project/Art/Fonts/README.md`、`Assets/TextMesh Pro/Resources/TMP Settings.asset`；2026-09-16 上中文字体时踩到。
+## TMP Dynamic 字体资产进一次 Play 就胖 2 MB，污染 git
+- 现象：中文字体资产提交时才 6 KB，同事拉下来跑一次游戏，`git status` 里它就变成 2 MB 的改动；每个人每次 Play 都产生一份不一样的 diff，合并时天天冲突。
+- 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
+- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。
+- 关联：`Assets/_Project/Art/Fonts/README.md`、`docs/developer-guide.md #11.5`；2026-09-16 上中文字体时踩到。

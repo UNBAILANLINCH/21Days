@@ -71,11 +71,17 @@
 | UI 面板预制体 | `Assets/_Project/Prefabs/UI/` | 会被「资产体检」检查有没有进 Addressables，见第 9 章 |
 | 字体（`.ttf` / `.otf` 与 TMP 字体资产） | `Assets/_Project/Art/Fonts/` | 无自动规则，只是约定的位置 |
 
-**关于字体**：目前界面上的文字用的是 TextMesh Pro 自带的 `LiberationSans SDF`，它**没有中日韩字形**，
-中文会显示成 `□`。上中文界面前必须先做一次中文字体资产（流程见开发手册第 11.5 节，要程序或懂 TMP 的人做一次）。
-中文字体资产与它的源 `.ttf` 一起放 `Assets/_Project/Art/Fonts/`，命名 `Font_<字族><字重>`（例 `Font_NotoSansSC_Regular`）。
-中文字库很大，**不要一次把全部字符打进图集**：按常用字表生成，再配一个动态 fallback 兜生僻字。
-字体有授权问题，商用前确认许可证。
+**关于字体**：**中文已经能正常显示了，你不用做任何事**。工程里放了 `Font_NotoSansSC_Regular.otf`
+（Noto Sans SC Regular，8.0 MB，SIL OFL 1.1，可商用可再分发，许可证在同目录 `OFL.txt`，别删），
+配套的 TMP 资产是 `Font_NotoSansSC_Regular SDF.asset`。
+
+接法是 **fallback**：`TMP Settings` 的 Fallback 列表里挂着它，默认字体仍是 `LiberationSans SDF`。
+所以英文数字走 Liberation（字形更规整），遇到中文自动回落到 Noto Sans SC。
+**做 UI 时 TMP 组件上的 Font Asset 保持默认就行，不用手动换。**
+
+要加别的字重（Bold 之类）或换字族，流程见 `Assets/_Project/Art/Fonts/README.md`；
+关键一条是图集模式必须选 **Dynamic**，中文两万多字用 Static 会烘出巨大图集。
+新字体的许可证要一并放进那个目录，**不要用系统自带的微软雅黑 / 黑体**（不可再分发）。
 
 **图片进了别的目录会怎样**：不会报错，但第 4 章那套自动设置**一条都不会生效**，
 图会按 Unity 的通用默认值导入（很可能不是 Sprite、会被压缩、会糊）。所以别放错。

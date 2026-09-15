@@ -688,7 +688,26 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 
 ### 11.5 中文字体
 
-TMP 自带的 `LiberationSans SDF` **没有中日韩字形**，中文会显示成 `□` 并每次打警告。真要上中文界面前得做一次：拿一份可商用的中文字体 → Window → TextMeshPro → Font Asset Creator 生成 TMP 字体资产（字符集用常用字表，别全量）→ 设成 `TMP Settings` 的 Default Font Asset 或 fallback。占位的 `TitleView` 现在就是这个状态。
+**已解决，拉下来就能用，不需要各自生成。**
+
+工程里放了 `Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular.otf`（Noto Sans SC Regular，8.0 MB，
+SIL OFL 1.1，许可证在同目录 `OFL.txt`）与它的 TMP 资产 `Font_NotoSansSC_Regular SDF.asset`。
+
+**接法是 fallback，不是换默认字体**：`TMP Settings` 的 **Fallback Font Assets** 里挂着中文资产，
+`Default Font Asset` 仍是 `LiberationSans SDF`。这样英文数字保留 Liberation 的字形，缺字才回落。
+选 fallback 而不是改默认字体，是因为 `TitleView` / `SampleView` 的预制体上 **TMP 组件已经显式引用了
+`LiberationSans SDF`** —— 组件上指定了字体时，`Default Font Asset` 只是查找链的最后一环，
+改它不如改 fallback 直接；而 fallback 对**所有** TMP 组件生效，不管它们各自挂的是哪个字体资产。
+TMP 的查找顺序是：组件自己的字体 → 该字体的局部 fallback → **TMP Settings 全局 fallback** →
+Default Font Asset（`TMP_Text.cs:6198` 一带）。
+
+**图集模式是 Dynamic，1024×1024**。中文两万多字，Static 会烘出巨大图集且拖慢导入；
+Dynamic 按需栅格化，首帧用到几个字就只烘几个。加字重或换字族时这一条最容易做错，
+细则在 `Assets/_Project/Art/Fonts/README.md`。
+
+**提交前记得清动态数据**：Dynamic 字体资产在编辑器里进一次 Play 就会把用到的字烘进 `.asset`
+（6 KB → 2 MB），在 `git status` 里冒出来。字体资产 Inspector 上点 **Clear Dynamic Data** 再提交。
+出包后运行时只在内存里加字，不写回资产。
 
 ## 12. 音频
 

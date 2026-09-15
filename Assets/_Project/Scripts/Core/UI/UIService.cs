@@ -10,6 +10,7 @@ using Game.Core.Assets;
 using Game.Core.Boot;
 using Game.Core.Input;
 using Game.Core.Logging;
+using Game.Core.Telemetry;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -59,11 +60,27 @@ namespace Game.Core.UI
         private GameObject root;
         private bool disposed;
 
-        public UIService(IAssetService assets, IInputService input, UIConfig config)
+        private readonly ITelemetryScope telemetry;
+        private readonly ITelemetryClock clock;
+
+        /// <summary>
+        /// 两个埋点参数允许为 null（EditMode 测试里直接 new 出来的 UIService 没有容器）：
+        /// 拿不到就整条埋点链路变空操作，开关面板的行为一个字节都不变。
+        /// </summary>
+        public UIService(
+            IAssetService assets,
+            IInputService input,
+            UIConfig config,
+            ITelemetryService telemetry,
+            ITelemetryClock clock)
         {
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.input = input ?? throw new ArgumentNullException(nameof(input));
             this.config = config;
+            this.clock = clock;
+            this.telemetry = telemetry == null
+                ? (ITelemetryScope)NullTelemetryScope.Instance
+                : telemetry.Scope(TelemetryKeys.Ui);
         }
 
         public UniTask InitializeAsync(CancellationToken ct)
@@ -100,11 +117,15 @@ namespace Game.Core.UI
         {
             ThrowIfDisposed();
             Type type = typeof(T);
+            long startMs = NowMs;
 
             // 已经开着就复用：面板是有状态的，开两份会出现「关掉一个另一个还在」的幽灵界面。
             if (opened.TryGetValue(type, out UIView existing) && existing != null)
             {
                 await existing.OnOpenAsync(arg, ct);
+
+                // 复用也埋：OnOpenAsync 是玩法自己写的，重新打开同一个面板照样可能很慢。
+                TrackPanel(TelemetryKeys.UiEvents.Open, type.Name, startMs);
                 return (T)existing;
             }
 
@@ -113,6 +134,7 @@ namespace Game.Core.UI
             // 各实例化一份出来——第二份不在栈里也不在字典里，成了关不掉的幽灵面板。
             if (opening.TryGetValue(type, out UniTaskCompletionSource<UIView> inflight))
             {
+                // 这条路不埋：面板是上一次调用开的，那次自己会埋一条 open，这里再埋等于把同一次打开记两遍。
                 return (T)await inflight.Task;
             }
 
@@ -122,17 +144,28 @@ namespace Game.Core.UI
             {
                 T view = await OpenNewAsync<T>(type, arg, ct);
                 completion.TrySetResult(view);
+                TrackPanel(TelemetryKeys.UiEvents.Open, type.Name, startMs);
                 return view;
             }
             catch (OperationCanceledException e)
             {
                 // 取消要按取消传给排队的人，包成普通异常会让对方的 catch (OperationCanceledException) 漏掉。
+                // 取消是正常路径（状态切走、作用域销毁），不埋——埋了只会让退出播放模式满屏 E。
                 completion.TrySetCanceled(e.CancellationToken);
                 throw;
             }
             catch (Exception e)
             {
                 completion.TrySetException(e);
+
+                // 开面板失败的头号原因是 Addressables 地址与类名对不上，所以 panel 必须写进属性；
+                // ms 说明是「一上来就炸」还是「等了很久才炸」，两者查的方向完全不同。
+                telemetry.TrackError(
+                    TelemetryKeys.UiEvents.Open,
+                    e,
+                    TelemetryProps.Of(
+                        (TelemetryKeys.Props.Panel, type.Name),
+                        (TelemetryKeys.Props.Ms, NowMs - startMs)));
                 throw;
             }
             finally
@@ -198,13 +231,16 @@ namespace Game.Core.UI
             ThrowIfDisposed();
             if (view == null)
             {
+                TrackCloseDenied(string.Empty, "null_view");
                 return;
             }
 
             Type type = view.GetType();
+            long startMs = NowMs;
             if (!opened.TryGetValue(type, out UIView tracked) || tracked != view)
             {
                 Log.Warn($"CloseAsync 收到的 {type.Name} 不是 UIService 打开的，忽略");
+                TrackCloseDenied(type.Name, "not_opened_by_service");
                 return;
             }
 
@@ -215,6 +251,9 @@ namespace Game.Core.UI
             ApplyVisibility(stack.Remove(view), true);
 
             assets.ReleaseInstance(view.gameObject);
+
+            // 埋在最后：此时 opened 已经减过，depth 就是「关完之后还开着几个面板」。
+            TrackPanel(TelemetryKeys.UiEvents.Close, type.Name, startMs);
         }
 
         public UniTask CloseTopAsync(CancellationToken ct = default)
@@ -256,6 +295,32 @@ namespace Game.Core.UI
         }
 
         private float TransitionSeconds => config == null ? 0f : config.TransitionSeconds;
+
+        /// <summary>埋点层自己的时钟。拿不到时恒为 0（ms 记成 0），不影响任何业务路径。</summary>
+        private long NowMs => clock == null ? 0L : clock.MillisecondsNow;
+
+        /// <summary>
+        /// 埋一条面板开 / 关。<c>depth</c> 取的是**这条事件发生之后**还开着几个面板——
+        /// 面板一层层叠上去关不掉是 UI 最常见的故障，这条数列直接把它显出来。
+        /// </summary>
+        private void TrackPanel(string evt, string panel, long startMs)
+        {
+            telemetry.Track(
+                evt,
+                (TelemetryKeys.Props.Panel, panel),
+                (TelemetryKeys.Props.Ms, NowMs - startMs),
+                (TelemetryKeys.Props.Depth, opened.Count));
+        }
+
+        /// <summary>关面板被挡回去。两条分支用 reason 区分，聚合时不用去翻文案。</summary>
+        private void TrackCloseDenied(string panel, string reason)
+        {
+            telemetry.TrackWarn(
+                TelemetryKeys.UiEvents.Close,
+                TelemetryProps.Of(
+                    (TelemetryKeys.Props.Panel, panel),
+                    (TelemetryKeys.Props.Reason, reason)));
+        }
 
         /// <summary>
         /// 把所有打开的面板还给资源服务并清空记账。不播过渡、不调 OnCloseAsync——

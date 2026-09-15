@@ -9,6 +9,7 @@ using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
 using Game.Core.Flow;
 using Game.Core.Logging;
+using Game.Core.Telemetry;
 using Game.Core.UI;
 
 namespace Game.Sample
@@ -25,20 +26,52 @@ namespace Game.Sample
     /// </summary>
     public sealed class SampleState : SceneGameState
     {
+        /// <summary>
+        /// 本模块的埋点模块名。玩法层不受 <see cref="TelemetryKeys"/> 约束，但要照同一套规矩起名：
+        /// 模块目录的小写，只能出现小写字母、数字、下划线和点。写错不会编译失败，只会让这一批事件
+        /// 从分析脚本的聚合里悄悄消失，所以收成一个常量而不是散在调用点。
+        /// </summary>
+        private const string TelemetryModule = "sample";
+
+        /// <summary>一次购买意图被处理完了。事件名描述**已经发生的事实**，不用 <c>do_buy</c> 这种祈使式。</summary>
+        private const string BuyItemEvent = "buy_item";
+
+        /// <summary>购买意图算不出价格。失败单独一个事件名，聚合时不用先按级别过滤一遍。</summary>
+        private const string BuyItemFailedEvent = "buy_item_failed";
+
+        /// <summary>折后总价。框架的 Props 里没有对应语义，按契约「新键随便加」的规矩自己起一个。</summary>
+        private const string TotalProp = "total";
+
+        /// <summary>折扣。判定失败时它是首要嫌疑人，所以要写进失败事件的属性里。</summary>
+        private const string DiscountProp = "discount";
+
         private readonly IUIService ui;
         private readonly IGameFlow flow;
         private readonly SampleRules rules;
         private readonly SampleConfig config;
+        private readonly ITelemetryScope telemetry;
 
         private SampleView view;
 
-        public SampleState(IAssetService assets, IUIService ui, IGameFlow flow, SampleRules rules, SampleConfig config)
+        public SampleState(
+            IAssetService assets,
+            IUIService ui,
+            IGameFlow flow,
+            SampleRules rules,
+            SampleConfig config,
+            ITelemetryService telemetry)
             : base(assets)
         {
             this.ui = ui;
             this.flow = flow;
             this.rules = rules;
             this.config = config;
+
+            // 玩法模块的标准取法：注入 ITelemetryService，在构造函数里换成绑好模块名的门面。
+            // Scope 按模块名缓存，不会每次调用都 new。
+            this.telemetry = telemetry == null
+                ? (ITelemetryScope)NullTelemetryScope.Instance
+                : telemetry.Scope(TelemetryModule);
         }
 
         /// <summary>
@@ -66,14 +99,41 @@ namespace Game.Sample
 
                 line = $"{item.Name} ×{intent.Count}　原价 {item.Price}／个，"
                        + $"减 {config.Discount:P0} 后 {unitPrice}／个，共 {total}";
+
+                // 埋点尺子第 1 类「意图入口」：BuyItemIntent 被处理完的地方。
+                // 玩家（这里是配置）想买什么、买了几个、最后算成多少钱——这是玩法侧唯一的事实来源，
+                // 之后所有「为什么扣了这么多钱」的问题都要回到这一条上对。
+                telemetry.Track(
+                    BuyItemEvent,
+                    (TelemetryKeys.Props.Id, intent.ItemId),
+                    (TelemetryKeys.Props.N, intent.Count),
+                    (TotalProp, total));
             }
             catch (ArgumentOutOfRangeException e)
             {
                 line = $"配置有误，算不出价格：{e.Message}";
                 Log.Error($"SampleState 算价失败，检查 Data/Sample/SampleConfig.asset：{e}");
+
+                // 埋点尺子第 3 类「失败分支」：**把判定用到的数值一起写进属性**。
+                // 只埋一句「算价失败」等于什么都没埋——再查还得去翻当时的配置资产；
+                // id / n / discount 三个值在这儿，看日志就能判出是哪个填错了。
+                telemetry.TrackError(
+                    BuyItemFailedEvent,
+                    e,
+                    TelemetryProps.Of(
+                        (TelemetryKeys.Props.Id, config.ItemId),
+                        (TelemetryKeys.Props.N, config.Count),
+                        (DiscountProp, config.Discount)));
             }
 
-            view = await ui.OpenAsync<SampleView>(line, ct);
+            // 埋点尺子第 4 类「长耗时操作」：开面板要等 Addressables 实例化预制体，可能跨好几帧。
+            // 这种地方用 BeginSpan——struct + using，不装箱，Dispose 时自动埋一条带 ms 的
+            // sample/view_ready，不用自己起 Stopwatch 也不会忘记停表。
+            using (telemetry.BeginSpan("view_ready"))
+            {
+                view = await ui.OpenAsync<SampleView>(line, ct);
+            }
+
             view.OnBackClicked += HandleBackClicked;
             Log.Info($"进入 SampleState：{line}");
         }

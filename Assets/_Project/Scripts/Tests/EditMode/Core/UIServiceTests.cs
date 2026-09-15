@@ -44,7 +44,9 @@ namespace Game.Tests.EditMode.Core
             assets.Register<PlainView>();
 
             // InputService 只有在 InitializeAsync 之后才会创建 GameInput；这里只是给构造函数一个非空依赖。
-            service = new UIService(assets, new InputService(), null);
+            // 埋点两个参数传 null：UIService 会换成空实现，开关面板的行为和接了埋点时完全一样，
+            // 本文件要验的三条规则也就不受埋点影响。
+            service = new UIService(assets, new InputService(), null, null, null);
         }
 
         [TearDown]

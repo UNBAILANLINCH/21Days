@@ -36,7 +36,8 @@ namespace Game.Tests.EditMode.Core
         {
             saveRoot = Path.Combine(Path.GetTempPath(), "21Days-save-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(saveRoot);
-            saves = new JsonSaveService(new FakePlatformService(saveRoot));
+            // 埋点两个参数传 null：服务会换成空实现，读写存档的行为和接了埋点时完全一样。
+            saves = new JsonSaveService(new FakePlatformService(saveRoot), null, null);
         }
 
         [TearDown]
@@ -76,7 +77,7 @@ namespace Game.Tests.EditMode.Core
             Assert.That(await saves.SaveAsync(1), Is.True);
 
             // 换一个服务实例读回来：避免「其实只是读到了内存里那份」的假通过。
-            JsonSaveService reloaded = new JsonSaveService(new FakePlatformService(saveRoot));
+            JsonSaveService reloaded = new JsonSaveService(new FakePlatformService(saveRoot), null, null);
             Assert.That(await reloaded.LoadAsync(1), Is.True);
 
             SettingsSaveData restored = reloaded.Get<SettingsSaveData>();

@@ -16,6 +16,7 @@ using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Platform;
 using Game.Core.Save;
+using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
 using MessagePipe;
@@ -28,7 +29,7 @@ namespace Game.Core.Boot
     /// <summary>
     /// 根作用域，挂在 Boot 场景的 GameBootstrap 物体上。
     /// **注册顺序即启动初始化顺序**（GameBootstrap 按 IReadOnlyList&lt;IGameService&gt; 的顺序串行 await），
-    /// 顺序按 architecture.md 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
+    /// 顺序按 architecture.md 5.1，埋点插在最前面：Platform → Telemetry → Assets → Config → Save → Input → Audio → UI。
     /// 玩法模块不改这个文件：继承 <see cref="GameplayInstaller"/> 把组件挂到同一个物体上，
     /// 由 <c>InstallGameplay</c> 统一接进来（不要建子作用域，理由见那个方法的注释）。
     /// </summary>
@@ -40,6 +41,9 @@ namespace Game.Core.Boot
 
         [Tooltip("音频配置：Mixer（可空）、SFX 声部数、BGM 默认淡入淡出。资产在 Assets/_Project/Data/Audio/AudioConfig.asset。")]
         [SerializeField] private AudioConfig audioConfig;
+
+        [Tooltip("埋点配置：总开关、最低级别、模块过滤、采样与限流。资产在 Assets/_Project/Data/Telemetry/TelemetryConfig.asset。")]
+        [SerializeField] private TelemetryConfig telemetryConfig;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -53,6 +57,11 @@ namespace Game.Core.Boot
             // Platform 第一个：存档目录、触屏判定这些后面都要用
             builder.RegisterInstance(PlatformServiceFactory.Create())
                 .As<IPlatformService, IGameService>();
+
+            // Telemetry 紧跟在 Platform 之后、Assets 之前：注册顺序就是初始化顺序，
+            // 而它后面的每一个服务（Assets / Config / Save / Input / Audio / UI）初始化时都要埋点。
+            // 它要是排在后面，最该被记录的那一段——启动期——反而一条都留不下。
+            RegisterTelemetry(builder);
 
             // Log 是静态门面，不进容器
             RegisterConfigs(builder);
@@ -158,6 +167,42 @@ namespace Game.Core.Boot
 
             builder.RegisterInstance(ui);
             builder.RegisterInstance(audio);
+        }
+
+        /// <summary>
+        /// 注册埋点层：取值快照 → 时钟 → 输出终点 → 服务 → 性能采样器。
+        /// <para>
+        /// 配置资产没拖时的处理同 <see cref="RegisterConfigs"/>：记一条 Error 指明该拖哪个字段，
+        /// 再用代码建的默认资产顶上。默认值只写在 TelemetryConfig 的字段初始值里一处，这里不再抄一遍。
+        /// </para>
+        /// <para>
+        /// 服务注册的是具体类而不是现成实例：这样容器才会在作用域销毁时替我们调 <c>Dispose</c>，
+        /// 把日志桥和 <c>Application.quitting</c> 的订阅摘干净（RegisterInstance 进来的对象容器不负责销毁）。
+        /// </para>
+        /// </summary>
+        private void RegisterTelemetry(IContainerBuilder builder)
+        {
+            TelemetryConfig config = telemetryConfig;
+            if (config == null)
+            {
+                Log.Error("GameLifetimeScope 的 Telemetry Config 字段没赋值，已用默认值顶上。"
+                          + "把 Assets/_Project/Data/Telemetry/TelemetryConfig.asset 拖到 Boot 场景的 GameBootstrap 物体上。", this);
+                config = ScriptableObject.CreateInstance<TelemetryConfig>();
+            }
+
+            builder.RegisterInstance(config.ToOptions());
+            builder.RegisterInstance(new UnityTelemetryClock()).As<ITelemetryClock>();
+
+            // 注册成数组而不是单个 ITelemetrySink：服务把**同一次格式化的结果**分发给列表里的每一个终点。
+            // 正式路径这里只有 Unity 日志一个；编辑器镜像由服务在 InitializeAsync 里自己追加——
+            // 那份文件名要用会话 sid，而 sid 是服务构造出来的，组合根这会儿还拿不到。
+            builder.RegisterInstance(new ITelemetrySink[] { new UnityDebugTelemetrySink() });
+
+            builder.Register<TelemetryService>(Lifetime.Singleton)
+                .As<ITelemetryService, IGameService>();
+
+            // 采样器要每帧跑，同 TimerService 用 RegisterEntryPoint（只 Register 的话没人驱动 ITickable）
+            builder.RegisterEntryPoint<PerformanceSampler>(Lifetime.Singleton);
         }
     }
 }

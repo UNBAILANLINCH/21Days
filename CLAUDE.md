@@ -62,4 +62,5 @@ Assets/_Project/
 - 项目 lint：保存 `.cs` 时钩子自动跑；手动 `python .claude/skills/project-lint/lint.py <file.cs>`。
 - 健康度：`python .claude/skills/evolution/gc_scan.py`。
 - 打包：本机 `scripts/build.ps1`（编辑器须关闭），CI 见 [`docs/ci-setup.md`](docs/ci-setup.md)。
+- **Bash 不写 `cd … &&`**：工作目录已在工程根，路径写绝对路径或相对工程根。带 `cd` 后权限检查算不出相对路径落在哪，会因 `.env` 的 Read deny 规则弹确认，自动模式也拦不住。
 - **中文优先**：回复、代码注释、文档、钩子与 lint 的提示信息一律中文；代码标识符（类名、变量名）仍用英文。引用代码用 `path:line`。

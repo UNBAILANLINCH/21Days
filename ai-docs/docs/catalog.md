@@ -42,6 +42,8 @@
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |
 | 操作编辑器 / 建物体 / 跑测试 / 看控制台 | [`.claude/skills/unity-mcp/SKILL.md`](../../.claude/skills/unity-mcp/SKILL.md)（MCP 已接，`/mcp` 看状态） |
 | MCP 一次性接入步骤、钩子总述 | [`docs/ai-setup.md`](../../docs/ai-setup.md) |
+| 本机出包（Windows / Android）怎么跑、失败怎么读日志 | [`.claude/skills/build/SKILL.md`](../../.claude/skills/build/SKILL.md)（`/build`，编辑器须关闭） |
+| CI 一次性配置、打 tag 出包、本机与 CI 的关系 | [`docs/ci-setup.md`](../../docs/ci-setup.md) |
 | 钩子各自做什么、怎么调试 | [`.claude/hooks/README.md`](../../.claude/hooks/README.md) |
 | 项目 lint 规则清单 | [`.claude/skills/project-lint/`](../../.claude/skills/project-lint/) |
 | 跨会话记忆（用户偏好、项目动态） | 全局 `~/.claude/projects/<本项目>/memory/`（目录名由 Claude Code 按项目路径自动生成） |

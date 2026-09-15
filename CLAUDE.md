@@ -51,6 +51,7 @@ Assets/_Project/
 | `/dev <任务>` | 统一入口：简单直接做 / 中等先出方案 / 复杂走 PRP |
 | `/new-feature <模块名>` | 新玩法模块：定范围 → 设计要点 → 实现 → 接线 → 验证 → 待审 |
 | `/unity-test [EditMode\|PlayMode] [过滤]` | 跑测试并汇报失败用例 |
+| `/build [Windows\|Android] [版本]` | 本机出包（编辑器须关闭），失败摘日志前几条错误 |
 | `/review-change` | 列改动清单待审，授权后提交 |
 | `/refine-prd` → `/generate-prp` → `/validate-prp` → `/execute-prp` | PRP 四阶段（复杂功能） |
 | `/generate-doc` · `/learn` · `/gc` | 模块文档同步 · 经验沉淀 · harness 健康度扫描 |
@@ -60,4 +61,5 @@ Assets/_Project/
 - 编译错误：Unity MCP `read_console`；编辑器没开就让用户看控制台。
 - 项目 lint：保存 `.cs` 时钩子自动跑；手动 `python .claude/skills/project-lint/lint.py <file.cs>`。
 - 健康度：`python .claude/skills/evolution/gc_scan.py`。
+- 打包：本机 `scripts/build.ps1`（编辑器须关闭），CI 见 [`docs/ci-setup.md`](docs/ci-setup.md)。
 - **中文优先**：回复、代码注释、文档、钩子与 lint 的提示信息一律中文；代码标识符（类名、变量名）仍用英文。引用代码用 `path:line`。

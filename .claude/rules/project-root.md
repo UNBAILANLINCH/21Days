@@ -18,6 +18,16 @@ Game.Runtime                                ── 不引用 Editor / Tests；�
 - Runtime 里需要编辑器专用逻辑时用 `#if UNITY_EDITOR` 包住，并且只限调试/Gizmos，不放业务。
 - 模块之间：`Scripts/Runtime/<Module>/` 内部自洽；跨模块只通过对方的公开接口 / 事件 / ScriptableObject 引用，不互相 `GetComponent` 到私有实现。
 
+## 平台差异只在框架层
+
+手游（Android）与端游（Windows）**共用一套内容**，包体差异不许渗进玩法代码：
+
+- 条件编译 `#if UNITY_ANDROID / UNITY_IOS / UNITY_STANDALONE` 与平台专属 API（触控、振动、权限、路径、IAP）
+  **只允许出现在 `Scripts/Runtime/Platform/`**，对外只暴露与平台无关的接口；玩法模块里出现这类符号即违规。
+- 输入走 Input System 的 **Action Map**：键鼠 / 手柄 / 触控各绑一套 binding，玩法模块**只读动作**（"移动""确认"），不读具体按键或 `Input.touches`。
+- UI 用 **Canvas Scaler**（Scale With Screen Size + 固定参考分辨率）配**安全区**适配刘海与手势条，不按分辨率写死坐标。
+- 画质按平台分档：准备多份 **URP 资产**（阴影、后处理、渲染倍率不同），在质量设置里按平台挂，不在代码里逐项调参数。
+
 ## 目录约定
 
 | 目录 | 放什么 |
@@ -49,4 +59,5 @@ Game.Runtime                                ── 不引用 Editor / Tests；�
 - [ ] 新文件在正确的目录与 asmdef 下，命名空间与目录一致。
 - [ ] 没有 Runtime → Editor / Tests 的反向引用。
 - [ ] 没有手改生成物；新 `.cs` 有配套 `.meta`。
+- [ ] 玩法代码里没有平台条件编译与平台专属 API；这些只在 `Scripts/Runtime/Platform/`。
 - [ ] 文件内没有本机用户名、绝对路径、邮箱。

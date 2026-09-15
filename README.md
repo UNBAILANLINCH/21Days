@@ -12,8 +12,9 @@
 | uv | 提供 `uvx`，用来拉起 Unity MCP 服务端（`.mcp.json`） |
 | Python 3 | 跑 `.claude/hooks/` 的钩子与 `project-lint` / `gc_scan` |
 | Node | 跑 `.claude/hooks/guard.js`（写入 / 命令拦截） |
+| GitHub Actions | CI：push 跑 EditMode 测试、打 tag 出 Windows + Android 包（game-ci，公开仓库免费额度） |
 
-一次性接入步骤见 [`docs/ai-setup.md`](docs/ai-setup.md)。
+一次性接入步骤见 [`docs/ai-setup.md`](docs/ai-setup.md)（AI 协作）与 [`docs/ci-setup.md`](docs/ci-setup.md)（CI 与打包）。
 
 ## harness 五层
 
@@ -33,6 +34,7 @@
 /dev <要做的事>              统一入口，按复杂度路由：简单直接做 / 中等 Plan / 复杂走 PRP
 /new-feature <模块名>        新玩法模块：定范围 → 设计要点 → 实现 → 接线 → 验证 → 待审
 /unity-test [EditMode|PlayMode] [过滤]    跑测试并汇报失败用例
+/build [Windows|Android] [版本]           本机出包（Unity 编辑器须关闭），CI 出包见 docs/ci-setup.md
 /review-change               列改动清单待审，授权后才提交
 /generate-doc [sync|check] <模块>         生成 / 同步模块文档三件套
 /learn [教训]                沉淀经验：pitfalls / lint 规则 / 记忆 / 模块文档
@@ -76,7 +78,7 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 │   ├── settings.json          权限白名单 + 钩子注册
 │   ├── rules/                 策略层 6 条规则（frontmatter + glob 自动注入）
 │   ├── commands/              编排 + 进化：/dev、PRP 四阶段、/generate-doc、/learn、/gc
-│   ├── skills/                unity-mcp · unity-test · new-feature · review-change
+│   ├── skills/                unity-mcp · unity-test · build · new-feature · review-change
 │   │                          project-lint · generate-doc · unity-code-review · evolution
 │   ├── agents/                code-reviewer 子代理（model: sonnet）
 │   └── hooks/                 7 个生命周期钩子（说明见 hooks/README.md）
@@ -87,7 +89,10 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 ├── ai-shared/evolution/       进化产物归档（signals/ 复盘 · weekly/ 小结）
 ├── evals/                     harness 行为回归用例
 ├── PRP/                       PRP 工作区（决策留痕入库）
+├── .github/workflows/         CI：unity-tests.yml（push 跑测试）· build.yml（tag 出包）
+├── scripts/build.ps1          本机打包入口（调 Editor 的 BuildScript，编辑器须关闭）
 ├── docs/ai-setup.md           MCP 一次性接入
+├── docs/ci-setup.md           CI secret 配置、触发方式、本机打包与 CI 的关系
 ├── Assets/
 │   ├── _Project/              自己的内容全放这儿（第一个模块落地时建）
 │   │   ├── Scripts/Runtime/<Module>/   asmdef Game.Runtime
@@ -97,12 +102,14 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 │   ├── Scenes/ Settings/      模板自带，原位不动
 │   └── Plugins/               第三方（优先走 Package Manager）
 ├── Packages/ ProjectSettings/ Unity 工程配置（改动前先说明原因）
+├── Builds/                    本机打包产物（已忽略，不进仓库）
 └── Library/ Temp/ Logs/ ...   Unity 生成物，已忽略，不手改
 ```
 
 ## 延伸阅读
 
 - [`docs/ai-setup.md`](docs/ai-setup.md) —— Unity MCP 一次性接入与版本升级
+- [`docs/ci-setup.md`](docs/ci-setup.md) —— CI 一次性配置（三个 secret）、怎么触发、本机打包与 CI 的关系
 - [`.claude/hooks/README.md`](.claude/hooks/README.md) —— 7 个钩子各自做什么、怎么调试
 - [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md) —— 不知道该读哪份文档时从这里找
 - [`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) —— 踩过的坑

@@ -10,6 +10,14 @@
 
 ---
 
+## 怎么用
+
+- **写模块时什么都不用管**：框架层 `boot` / `flow` / `asset` / `ui` / `save` / `audio` 六处已经埋好，模块接进框架就自动有；模块自己的业务点由 `/new-feature` 第 6 步调 `/instrument-module` 补。
+- **出问题时跑 `/analyze-telemetry`**：它自己找日志（优先工程内镜像目录）、机器聚合出摘要、提假设、定向回读验证，最后出诊断报告。只诊断不改代码。
+- **嫌日志吵就调 `Assets/_Project/Data/Telemetry/TelemetryConfig.asset`**：总开关、最低级别、模块过滤、采样间隔、尖峰阈值都在那儿。
+
+---
+
 ## 1. 日志行格式（唯一契约，两侧都照它写）
 
 ```
@@ -107,6 +115,10 @@ Logs/telemetry/<sid>.log           # Logs/ 已 gitignore
 镜像目录的额外好处：一个文件一段会话，天然分好段，不用从几百 MB 里切；多次运行留成多个文件，
 「成功会话 vs 失败会话序列 diff」这类跨会话分析才真的用得上。
 
+**镜像与 Unity log 怎么选**：镜像是带缓冲写的（攒够 32 条 / 距上次超过 1 秒 / `E` 级立刻刷 / 退出时刷），
+所以崩溃时镜像可能缺最后几条；Unity log 由 Unity 自己 flush，通常更完整。
+一句话记法：**镜像干净但可能缺尾，Unity log 吵但完整——查崩溃现场两份对照着看。**
+
 ### 分析脚本的定位顺序
 
 **镜像目录 → 指针文件 → 用户显式给的路径 → 猜默认路径**，并在摘要头部注明用了哪条。
@@ -139,6 +151,10 @@ Logs/telemetry/<sid>.log           # Logs/ 已 gitignore
 
 `core.log/unity_error` 是根因分析的主线索：**任何** `Debug.LogError` 和未捕获异常都会变成一条带序号的埋点，
 于是「报错前 30 条发生了什么」这个问题永远答得出来。
+
+**组合根注册契约**：`TelemetryService` 的构造参数是 `params ITelemetrySink[] sinks`，组合根要注册的是
+**`ITelemetrySink[]`（数组）**，不是单个 `ITelemetrySink`——VContainer 按类型解析，注册单个接口会在解析时失败（实测踩过）。
+工程里已按此写的两处：`GameLifetimeScope`、`GameFlowTests`。
 
 ### 2.2 玩法模块：一行一个点
 
@@ -175,6 +191,13 @@ telemetry.Track("buy_item", ("id", intent.ItemId), ("n", intent.Count), ("ms", e
 | 每秒最多条数 | 200 | 超出的丢弃并在下一秒补一条 `core/throttled`，防止某个循环把日志刷爆 |
 | 关闭 Log 堆栈 | 开 | 启动时 `Application.SetStackTraceLogType(LogType.Log, None)`。**影响全工程的 `Debug.Log`**：普通日志不再带堆栈（Warning / Error 不受影响）。这是埋点开销的大头，关掉后一条埋点约等于一次字符串拼接 |
 
+**编辑器下尖峰阈值偏敏感**：实测编辑器 Play 的首帧与场景加载动辄超 100 ms，一次 13 秒的会话里尖峰打了 10 条、周期采样才 11 条。
+真机上 100 ms 是合理阈值，编辑器嫌吵就把阈值调高，或把采样间隔设 0 关掉周期采样。
+
+**新加的配置字段在资产被重新序列化之前不会出现在 `.asset` 的 YAML 里**（比如 `editorMirrorKeepSessions`），
+运行期取到的是字段的初始值，行为是对的；下次在 Inspector 里保存这份资产时会自动写进去。
+看到 `.asset` 里没有某个字段不用慌，也**不要手改资产 YAML**。
+
 正式包里 `D` 级埋点整句被编译器剔除（同 `Log.Debug`），`I` 及以上保留。
 
 ---
@@ -205,6 +228,10 @@ telemetry.Track("buy_item", ("id", intent.ItemId), ("n", intent.Count), ("ms", e
 ---
 
 ## 5. 相关
+
+**`module-missing-telemetry` 这条 lint 是 WARN 级（`exit 1`）**：Claude Code 对非 0/2 的退出码只把 stderr 给人看、不阻断模型，
+所以这条提醒人看得到，AI 不一定看得到。改成 `exit 2` 能让 AI 也被拦，但那样就成了硬阻断，
+与「埋点缺失不该拦住人干活」冲突，所以没这么做。**真正保证「做完模块就埋点」的是 `/new-feature` 第 6 步那个显式步骤，lint 只是给人的兜底提醒。**
 
 - 模块埋点补全：`/instrument-module <模块>`；`/new-feature` 在验证之前有一步专门调它
 - 日志门面：`Assets/_Project/Scripts/Core/Logging/Log.cs`

@@ -253,6 +253,7 @@ public interface ITelemetryService { /* … */ ITelemetryScope Scope(string modu
 - **不另建文件通道**：埋点就是一条格式固定的 Unity 日志（`[Game][T] <级别> <模块>/<事件> | <JSON>`），由 Unity 自己落盘。写入点只有一个，崩溃时最后几条不丢，真机路径不用自己管。
 - **日志在哪靠指针文件** `Logs/telemetry-source.txt`：`Editor.log` 的路径是本机全局的，猜默认路径会读到另一个 Unity 工程的日志。
 - **框架层零侵入自埋**：`core.boot` / `core.flow` / `core.asset` / `core.ui` / `core.save` / `core.audio` / `core.perf` / `core.log`，玩法接进框架就自动有。`core.log/unity_error` 把**任何** `Debug.LogError` 与未捕获异常转成带序号的埋点，是根因分析的主线索。
+- **新建组合根要注册 `ITelemetrySink[]`（数组）**，不是单个 `ITelemetrySink`：`TelemetryService` 构造参数是 `params ITelemetrySink[]`，注册单个接口会在解析时失败。
 - **玩法层只埋四类**：意图入口 / 状态迁移 / 失败分支 / 长耗时；**每帧触发的一律不埋**，要每帧数据用 `core.perf` 采样。
 - **零分配**：属性走定长四槽的 `TelemetryProps` + 不装箱的 `PropValue`，不用 `params` / `Dictionary`。属性超过四个说明这条事件混了两件事，拆成两条。
 - **规则类照埋不误**：`ITelemetryScope` 及其值类型全是纯 C#（只 `using System`），Unity 依赖只在 sink 与 clock 的实现里。规则类构造注入这个接口，仍然可 EditMode 测试、仍然能搬服务端（第 7 节）。

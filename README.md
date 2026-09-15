@@ -10,7 +10,7 @@
 
 | 你是谁 | 必读（按顺序） | 需要时再看 |
 | --- | --- | --- |
-| **程序** | [`docs/developer-guide.md`](docs/developer-guide.md) 第 1～4 章（环境、上手、目录与程序集、提交规范）→ [`docs/architecture.md`](docs/architecture.md) 第 3 节（分层）→ 本文「快速上手」 | 写玩法模块看开发手册第 7 章 + [`Runtime/Sample/`](Assets/_Project/Scripts/Runtime/Sample/) 样板；各服务怎么用看第 6 章；[`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) 踩过的坑 |
+| **程序** | [`docs/developer-guide.md`](docs/developer-guide.md) 第 1～4 章（环境、上手、目录与程序集、提交规范）→ [`docs/architecture.md`](docs/architecture.md) 第 3 节（分层）→ 本文「快速上手」 | 写玩法模块看开发手册第 7 章 + [`Runtime/Sample/`](Assets/_Project/Scripts/Runtime/Sample/) 样板；各服务怎么用看第 6 章；查日志定位问题看 [`docs/telemetry.md`](docs/telemetry.md)；[`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) 踩过的坑 |
 | **策划** | [`docs/designer-guide.md`](docs/designer-guide.md) 全文（改数值、加道具、加表、报错怎么查） | 存档字段与版本迁移看开发手册第 9 章；要加新表前先找程序对一下 |
 | **美术** | [`docs/artist-guide.md`](docs/artist-guide.md) 全文（资源放哪、导入规则、做 UI 面板、自查） | 面板与程序的分工看开发手册第 11 章；音频看第 12 章 |
 | **用 Claude Code 协作的人** | [`CLAUDE.md`](CLAUDE.md)（会话自动加载）→ [`docs/ai-workflow.md`](docs/ai-workflow.md) | 不知道读哪份时去 [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md)；钩子行为看 [`.claude/hooks/README.md`](.claude/hooks/README.md) |

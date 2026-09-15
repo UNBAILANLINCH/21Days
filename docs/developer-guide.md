@@ -2,6 +2,24 @@
 
 面向在本工程写代码的开发者，回答「怎么操作」。设计决策与各服务的契约见 [`architecture.md`](architecture.md)，本文不重复讲为什么，只讲怎么做。
 
+## 读这份手册的顺序
+
+**不要从头读到尾。** 按你现在要做的事挑：
+
+| 你是谁 / 要做什么 | 读哪几章 |
+| --- | --- |
+| 第一天，机器还是空的 | 1 环境准备 → 2 拉取工程后第一步（跑 `/onboard`，它会把这两章串起来） |
+| 第一次写代码，不知道文件该放哪 | 3 目录与程序集 → 4 提交规范 |
+| 想搞清楚游戏是怎么跑起来的 | 5 启动流程 → 6 服务速查（只看你要用的那一节） |
+| **要写第一个玩法模块** | 7 新建玩法模块（以 `Sample` 模块为范例，从头走一遍） |
+| 要改表 / 存档 / 输入 / UI / 音频 | 8～12，按主题挑一章 |
+| 要跑测试、出包 | 13 测试 → 14 打包与 CI |
+| 卡住了、报了看不懂的错 | 15 常见问题（先在这儿搜一遍，八成有） |
+
+三份文档的分工：**本文**讲怎么做，[`architecture.md`](architecture.md) 讲为什么这么设计、各服务的契约长什么样，
+[`../ai-docs/pitfalls.md`](../ai-docs/pitfalls.md) 记踩过的坑。不确定该读哪份就看
+[`../ai-docs/docs/catalog.md`](../ai-docs/docs/catalog.md)。
+
 ## 1. 环境准备
 
 新开发者拿到一台干净机器，按下表顺序装完、逐项验证即可。装完看下面的「一键安装」与「装完之后」两节；细节按需展开对应小节（`/onboard` 与 `check_env.py` 的失败提示会指到具体小节）。
@@ -13,7 +31,7 @@
 | 1.3 | Git | 任意近期版本 | 版本控制；本仓库不用 LFS | `winget install Git.Git` | `git --version` |
 | 1.4 | Python | 3.10+ | 钩子、lint 脚本、`/onboard` 自检脚本都是 Python 写的 | `winget install Python.Python.3.12` | `python --version` |
 | 1.5 | uv | 任意近期版本 | MCP for Unity 服务端靠 `uvx` 拉起（见 `.mcp.json`） | `winget install astral-sh.uv`，或官方一行安装脚本 | `uv --version`、`uvx --version` |
-| 1.6 | .NET SDK | 8.0+ | Luban 配置表生成用，波 2 起必需 | `winget install Microsoft.DotNet.SDK.8` | `dotnet --list-sdks` |
+| 1.6 | .NET SDK | 8.0+ | Luban 配置表生成用（第 8 章），改表就要 | `winget install Microsoft.DotNet.SDK.8` | `dotnet --list-sdks` |
 | 1.7 | Claude Code | 以官方文档为准 | 本工程的 harness（规则/钩子/命令/技能）跑在其中 | 以官方文档为准 | `claude --version` |
 | 1.8 | 可选：Rider / VS 2022 | 带 Unity 工作负载 | C# 编辑体验，非必需 | 官网下载安装，或 VS 2022 装 Unity 工作负载 | 能正常打开工程的 `.sln` |
 
@@ -61,7 +79,7 @@ MCP for Unity 的服务端靠 `uvx` 按需拉起（配置见工程根 `.mcp.json
 
 ### 1.6 .NET SDK
 
-8.0 及以上，`winget install Microsoft.DotNet.SDK.8`。Luban 配置表生成工具需要，波 2（配置表接入）起必需，波 0/1 可以先跳过。
+8.0 及以上，`winget install Microsoft.DotNet.SDK.8`。Luban 配置表生成工具需要（第 8 章「配置表怎么改」）。只读代码不改表的话可以先跳过，但跑 `scripts/gen-tables.ps1` 之前必须装。
 
 ### 1.7 Claude Code
 
@@ -101,8 +119,8 @@ python .claude/skills/onboard/check_env.py
 
 1. 在 Claude Code 里跑 `/onboard`，按提示逐项完成；环境没装齐时它会先带你按第 1 章把环境装好。
 2. 用 Unity Hub 打开工程根目录，等 Package Manager 把 `manifest.json` 里的包（Unity Registry 包 + git 包）解析完，编辑器状态栏转圈结束再动手，中途改代码容易和包解析打架。
-3. 波 1 落地 Boot 场景后，第一步会改成「打开 `Assets/_Project/Scenes/Boot.unity`」；当前波（波 0）还没有场景，打开工程能编译通过即可。
-4. **Input System 后端不用手动切**：本波已经把 `ProjectSettings/ProjectSettings.asset` 的 `activeInputHandler` 设成 `2`（Both），装完 Input System 不会弹「切换输入后端需要重启编辑器」的对话框，新旧两套输入 API 都能用（新 API 走 Action Map 给玩法用，旧 API 留给 `IngameDebugConsole` 这类第三方调试台）。
+3. 打开 `Assets/_Project/Scenes/Boot.unity`（入口场景），按 Play 应该看到标题界面，点「开始」能进示例玩法场景再退回来。跑不起来先看第 15 章。
+4. **Input System 后端不用手动切**：工程里 `ProjectSettings/ProjectSettings.asset` 的 `activeInputHandler` 已经是 `2`（Both），装完 Input System 不会弹「切换输入后端需要重启编辑器」的对话框，新旧两套输入 API 都能用（新 API 走 Action Map 给玩法用，旧 API 留给 `IngameDebugConsole` 这类第三方调试台）。
 
 ## 3. 目录与程序集：我的代码该放哪
 
@@ -118,7 +136,7 @@ Game.Editor ──────────────────────�
 - **写玩法**：`Assets/_Project/Scripts/Runtime/<你的模块名>/`，一个模块一个目录，命名空间 `Game.<模块名>`，asmdef `Game.Runtime`。只能引用 `Game.Core` 与第三方包提供的能力，不能反向引用别的玩法模块的私有实现——要用别的模块的东西，走对方的公开接口 / 事件 / ScriptableObject。
 - **写编辑器工具**：`Assets/_Project/Scripts/Editor/`，asmdef `Game.Editor`，可以引用 `Game.Core`、`Game.Runtime`，不会进构建包体。
 - **写测试**：`Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/`，EditMode 优先（不用起编辑器播放模式，跑得快）。
-- **能引用什么**：asmdef 里按名字引用第三方程序集（UniTask、VContainer、MessagePipe、MessagePipe.VContainer、Unity.Addressables、Unity.ResourceManager、Unity.InputSystem、Unity.TextMeshPro、LitMotion、LitMotion.Extensions），不要用 GUID 引用，也不要在代码里反射拿私有 API。
+- **能引用什么**：asmdef 里按名字引用第三方程序集（UniTask、VContainer、MessagePipe、MessagePipe.VContainer、Unity.Addressables、Unity.ResourceManager、Unity.InputSystem、Unity.TextMeshPro、LitMotion、LitMotion.Extensions、Luban.Runtime），不要用 GUID 引用，也不要在代码里反射拿私有 API。要用 Luban 生成的配置类（`cfg.Item` 这些）就得引 `Luban.Runtime`——它们继承 `Luban.BeanBase`，少了这条引用会报「类型定义在未引用的程序集里」。
 - **加能力前的顺序**：先看能不能复用已有脚本/组件/SO 换个参数解决，再看能不能扩展进已有文件，最后才新建文件——新建要在文件头写明前两步为什么不行。
 
 ## 4. 提交规范与审查
@@ -130,12 +148,14 @@ Game.Editor ──────────────────────�
 
 ## 5. 启动流程
 
-入口场景是 `Assets/_Project/Scenes/Boot.unity`（Build Settings 第 0 位）。场景里只有两个物体：`Main Camera` 和 `GameBootstrap`——后者同时挂着 `GameLifetimeScope`（根作用域）与 `GameBootstrap`（唯一 MonoBehaviour 入口）。
+入口场景是 `Assets/_Project/Scenes/Boot.unity`（Build Settings 第 0 位）。场景里只有两个物体：`Main Camera` 和 `GameBootstrap`——后者挂着 `GameLifetimeScope`（根作用域）、`GameBootstrap`（唯一 MonoBehaviour 入口），以及**各玩法模块的 `GameplayInstaller` 子类**（示例模块的是 `SampleInstaller`）。
 
 ```
 Boot.unity 加载
  → GameBootstrap.Awake：DontDestroyOnLoad + 缓存 LifetimeScope + 建 CancellationTokenSource
    （LifetimeScope 在它自己的 Awake 里建容器，所以启动流程写在 Start，不写在 Awake）
+ → GameLifetimeScope.Configure：注册全部框架服务，最后把同一物体上的
+   每个 GameplayInstaller.Install(builder) 调一遍（玩法的状态 / 规则类 / 入口点在这一步进根作用域）
  → GameBootstrap.Start → BootAsync
      ① 编辑器/开发包下实例化 IngameDebugConsole 预制体（Inspector 上留空就跳过并 Warn）
      ② IGameFlow.GoToAsync<BootState>()
@@ -148,6 +168,8 @@ Boot.unity 加载
 
 - **注册顺序就是初始化顺序**。要调整顺序，改 `GameLifetimeScope.Configure` 里的注册先后，不要在别处加调用。顺序按 `architecture.md` 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
 - **加一个新框架服务** = 实现 `IGameService` + 在 `GameLifetimeScope` 里 `.As<I你的接口, IGameService>()`，别的地方一行不用改。
+- **加一个玩法模块** = 写一个 `GameplayInstaller` 子类，把组件挂到 `GameBootstrap` 物体上。`Game.Core` 不认识任何玩法，所以玩法只能这样把自己接上来（第 7 章有完整流程）。**玩法状态必须注册进根作用域**，不能放玩法场景的子作用域——`GameFlow` 从根 `IObjectResolver` 解析状态类型，而且切进去之前那个场景还没加载。
+- 标题界面的「开始」按钮**不在框架里决定去哪**：`TitleView` 抛 `OnStartClicked` 事件 → `TitleState` 发布 `TitleStartClickedEvent` → 玩法侧的入口点订阅它并 `GoToAsync<自己的状态>()`。没有玩法接进来时点了只留一条日志，不是错误。
 - 任何一步抛异常都会被 `BootAsync` 捕获、`Log.Error` 后**停止**启动，不会带着半初始化的状态往下跑。退出播放模式引起的 `OperationCanceledException` 不算错误。
 - 玩法场景走 Additive 加载，Boot 场景全程常驻。
 
@@ -319,15 +341,148 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 
 ## 7. 新建玩法模块
 
-1. **建目录**：`Assets/_Project/Scripts/Runtime/<模块名>/`，命名空间 `Game.<模块名>`（asmdef 已有 `Game.Runtime`，模块不单独建 asmdef）。
-2. **划分类型**：规则类写成**纯 C# 类**（不继承 MonoBehaviour），MonoBehaviour 只做表现与输入转发；数值进 `Assets/_Project/Data/<模块名>/` 的 ScriptableObject。
-3. **挂子作用域**：模块场景里放一个 `<模块名>LifetimeScope : LifetimeScope`，在它的 `Configure` 里注册本模块的服务、状态与事件（`RegisterMessageBroker<T>` 用模块自己的 options）。父作用域自动是 `GameLifetimeScope`，所以能直接注入 `IClock`、`ITimerService`、`IInputService` 等框架服务。
-   > 新建以 `LifetimeScope.cs` 结尾的脚本时注意第 15 章那条坑：VContainer 会用空模板覆盖一次文件内容。
-4. **订阅事件**：构造注入 `ISubscriber<XxxEvent>`，`Subscribe(...).AddTo(bag)`，在 `Dispose` 里释放 bag。跨模块只订阅对方的公开事件，不 `GetComponent` 到对方的私有实现。
-5. **写成可测的形状**：规则类的输入输出都是普通值/DTO，不碰 `UnityEngine.Time`、不碰单例；这样 `Assets/_Project/Scripts/Tests/EditMode/<模块名>/` 里一条 `Assert.That` 就能覆盖核心规则，不需要场景也不需要帧循环。每个模块至少一条 EditMode 测试。
-6. **收尾**：`/unity-test EditMode` 跑绿，`/generate-doc <模块名>` 生成文档三件套，`/review-change` 列清单待审。
+工程里有一个**端到端的样板模块 `Sample`**：`Assets/_Project/Scripts/Runtime/Sample/`，
+文档在 [`../ai-docs/docs/modules/sample/`](../ai-docs/docs/modules/sample/sample-module-guide.md)。
+它用最少的代码把框架每一层串了一遍（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试），
+**新模块照它的形状抄**。下面九步就是它的建法。命令入口 `/new-feature <模块名>` 会把这九步串起来走一遍。
 
-命令入口：`/new-feature <模块名>` 会把上面 1～6 串起来走一遍。
+### 7.1 建骨架
+
+菜单 **`21Days/工程/创建模块骨架…`**，输入 PascalCase 的模块名（`Player`、`Inventory`）。它会建：
+
+```
+Assets/_Project/Scripts/Runtime/<模块>/<模块>Rules.cs   命名空间 Game.<模块>，带文件头注释的占位规则类
+Assets/_Project/Scripts/Tests/EditMode/<模块>/          EditMode 测试
+Assets/_Project/Data/<模块>/                            ScriptableObject 配置资产
+```
+
+三处任何一处已存在就整单拒绝。**模块不单独建 asmdef**，`Game.Runtime` 已经有了。
+
+### 7.2 规则类（最重要的一步）
+
+玩法规则写成**纯 C# 类**：不继承 MonoBehaviour、不碰 `UnityEngine.Time`、不读单例，
+依赖全部构造注入，输入输出都是普通值。这样它能被 EditMode 测试钉住，将来联网也能整体搬到服务端
+（[`architecture.md`](architecture.md) 第 7 节）。MonoBehaviour 只做表现与输入转发。
+
+```csharp
+public sealed class SampleRules                                   // Runtime/Sample/SampleRules.cs
+{
+    private readonly IConfigService config;
+    public SampleRules(IConfigService config) { this.config = config ?? throw new ArgumentNullException(nameof(config)); }
+
+    public int GetDiscountedPrice(int itemId, float discount)      // 纯函数：同样输入恒得同样输出
+    {
+        ValidateDiscount(discount);
+        int price = GetItem(itemId).Price;                          // id 不存在时抛带 id 和表名的异常
+        decimal discounted = price * (1m - (decimal)discount);      // 钱用 decimal 算，理由见 15.10
+        return (int)decimal.Round(discounted, 0, MidpointRounding.AwayFromZero);
+    }
+}
+```
+
+非法输入抛**带上出问题那个值**的异常（`ArgumentOutOfRangeException(nameof(itemId), itemId, "…")`），
+别让报错停在「给定关键字不在字典中」。
+
+### 7.3 意图对象
+
+要改状态就定义一个 `readonly struct` 意图，由 UI / 输入产生、由规则类消费，不在界面里直接改字段：
+
+```csharp
+public readonly struct BuyItemIntent { public BuyItemIntent(int itemId, int count) {...} public int ItemId { get; } public int Count { get; } }
+```
+
+**合法性由消费方判，不写在构造函数里**——`default(T)` 绕得过构造函数，写在那里只会给人「构造出来就一定合法」的错觉。
+
+### 7.4 配置
+
+数值进 ScriptableObject，代码里不写死魔法数字：
+
+```csharp
+[CreateAssetMenu(menuName = "21Days/Sample/Sample Config", fileName = "SampleConfig")]
+public sealed class SampleConfig : ScriptableObject
+{
+    [SerializeField] private int itemId = 1002;       // 一律 [SerializeField] private + 只读属性
+    public int ItemId => itemId;
+}
+```
+
+资产建在 `Assets/_Project/Data/<模块>/`，**运行时只读**（改 SO 字段会写回资产文件）。
+
+### 7.5 状态
+
+要带场景就继承 `SceneGameState`（基类负责 Additive 加载 / 卸载，`EnterAsync` / `ExitAsync` 是 sealed 的），
+纯 UI 的继承 `GameState`：
+
+```csharp
+public sealed class SampleState : SceneGameState
+{
+    public SampleState(IAssetService assets, IUIService ui, IGameFlow flow, SampleRules rules, SampleConfig config) : base(assets) {...}
+    protected override string SceneKey => "SampleScene_Game";                    // Addressables 地址
+    protected override async UniTask OnSceneReadyAsync(CancellationToken ct)     // 场景就绪：算数据、开面板、订阅
+    {
+        view = await ui.OpenAsync<SampleView>(rules.…, ct);
+        view.OnBackClicked += HandleBackClicked;
+    }
+    protected override async UniTask OnSceneUnloadingAsync(CancellationToken ct) // 卸载前：退订、关面板（要幂等）
+    { if (view != null) { view.OnBackClicked -= HandleBackClicked; await ui.CloseAsync(view, ct); view = null; } }
+}
+```
+
+场景的 Addressables 地址**别和类名或预制体地址撞**（`Sample` 用 `SampleScene_Game` 就是为了避开 `SampleView`）。
+
+### 7.6 面板
+
+继承 `UIView`，做法见第 11 章。玩法面板放 `Assets/_Project/Scripts/Runtime/<模块>/`，
+预制体放 `Assets/_Project/Prefabs/UI/`，**Addressables 地址等于面板类名**，加进 `UI` 组。
+
+**面板里不要注入服务**：它由 Addressables 实例化，不经容器，构造注入拿不到东西。
+要显示什么由 `OnOpenAsync` 的 `arg` 传进来，点击往外抛 `event Action`，由状态接住——
+`SampleView.OnBackClicked` 就是这个形状。
+
+### 7.7 场景
+
+新建玩法场景放 `Assets/_Project/Scenes/<模块>.unity`，加进 Addressables 的 `Scenes` 组，地址填进状态的 `SceneKey`。
+
+- **不要加进 Build Settings**：Addressables 加载的场景不需要，加了反而会被打两份。
+- **场景里不要放 `EventSystem`**：Unity 只认第一个启用的，`UIService` 会把别的关掉并 Warn。
+- 场景里的相机**不要带 `AudioListener`**：Boot 场景那个常驻相机上已经有一个，两个会一直报警告。
+
+### 7.8 注册（把模块接到框架上）
+
+写一个 `GameplayInstaller` 子类，把模块的类型注册进**根作用域**，再把这个组件挂到
+`Boot.unity` 的 `GameBootstrap` 物体上、配置资产拖到它的字段里：
+
+```csharp
+public sealed class SampleInstaller : GameplayInstaller                 // Runtime/Sample/SampleInstaller.cs
+{
+    [SerializeField] private SampleConfig config;
+    public override void Install(IContainerBuilder builder)
+    {
+        builder.RegisterInstance(ResolveConfig());
+        builder.Register<SampleRules>(Lifetime.Singleton);
+        builder.Register<SampleState>(Lifetime.Singleton);              // GoToAsync<T> 按具体类型解析
+        builder.RegisterEntryPoint<SampleTitleRouter>(Lifetime.Singleton);
+    }
+}
+```
+
+- `Install` 在容器**构建期间**调用：里面只能 `Register`，不能 `Resolve`、不能碰别的服务。
+  要在启动时做事就注册入口点（实现 VContainer 的 `IStartable`）。
+- 每帧逻辑实现 `ITickable`，同样用 `RegisterEntryPoint`；**不要**自己写 `Update`。
+- 模块内部事件的 broker 注册在**本模块的 Installer** 里（`builder.RegisterMessagePipe()` +
+  `RegisterMessageBroker<T>`），全局事件才注册在 `GameLifetimeScope`。
+- **想让标题界面的「开始」进你的模块**：写一个入口点订阅 `TitleStartClickedEvent`，
+  在回调里 `flow.GoToAsync<你的状态>().Forget()`——范例是 `SampleTitleRouter`。
+  订阅句柄必须进 `DisposableBag`，在 `Dispose` 里释放。
+
+### 7.9 测试与文档
+
+- 测试：`Scripts/Tests/EditMode/<模块>/<规则类>Tests.cs`，至少一条覆盖核心规则。写法见第 13 章。
+- 文档：`/generate-doc <模块>` 生成三件套，在 [`../ai-docs/docs/catalog.md`](../ai-docs/docs/catalog.md)
+  补一行、在 `.claude/skills/generate-doc/modules.json` 登记一条。
+- 接完线跑一次菜单 **`21Days/工程/资产体检`**：缺 `.meta`、丢脚本、贴图过大、UI 预制体漏进 Addressables，
+  这四类问题都只在运行时或别人拉代码时才炸，体检能提前抓到。
+- 收尾 `/unity-test EditMode` 跑绿 → `/verify-module <模块>` 开发者点头 → `/review-change` 列清单待审。
 
 ## 8. 配置表怎么改
 
@@ -460,7 +615,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 
 | Map | 动作 | 绑定 |
 | --- | --- | --- |
-| `Gameplay` | `Move`(Vector2)、`Confirm`、`Cancel`、`Pause` | 键鼠（WASD / 方向键 / Enter / Esc / P）、手柄（左摇杆 / 十字键 / A / B / Start）、触屏（primaryTouch tap）。`Move` 上留了一条空路径的 `TouchVirtualStick` 绑定，等波 3 的虚拟摇杆落地后在 Inspector 里补上 |
+| `Gameplay` | `Move`(Vector2)、`Confirm`、`Cancel`、`Pause` | 键鼠（WASD / 方向键 / Enter / Esc / P）、手柄（左摇杆 / 十字键 / A / B / Start）、触屏（primaryTouch tap）。`Move` 上留了一条空路径的 `TouchVirtualStick` 绑定，等虚拟摇杆落地后在 Inspector 里补上 |
 | `UI` | Input System 默认的 UI 动作（Navigate / Submit / Cancel / Point / Click / ScrollWheel / MiddleClick / RightClick / TrackedDevice*） | 默认键鼠 + 手柄 + 触屏 |
 
 ### 10.3 玩法怎么用
@@ -475,7 +630,7 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 }
 ```
 
-- `InputService` 在启动初始化时 `new GameInput()` 并启用 `Gameplay` map；`UI` map 默认不开，由波 3 的 `IUIService` 按需 `EnableMap("UI")`。
+- `InputService` 在启动初始化时 `new GameInput()` 并启用 `Gameplay` map；`UI` map 默认不开，由 `IUIService` 在初始化时 `EnableMap("UI")` 接上 EventSystem。
 - 要临时屏蔽玩法输入（开面板、播过场）：`input.DisableMap("Gameplay")`，结束后再 `EnableMap`。
 - **只读动作，不读按键**：玩法代码里出现 `Keyboard.current`、`Input.GetKey`、`Input.touches` 一律算违规——那样手柄和触屏就得各写一遍。要加新的输入方式，去 `.inputactions` 里给同一个动作加 binding。
 - 新增一个动作 = 在 `.inputactions` 里加 → 保存（自动重新生成 `GameInput.cs`）→ 玩法里 `input.Actions.Gameplay.<新动作>`。框架代码一行不用改。
@@ -484,7 +639,7 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 
 ### 11.1 加一个新面板的完整步骤
 
-1. **写脚本**：`Assets/_Project/Scripts/Runtime/<模块>/UI/<名字>View.cs`（框架自带的占位面板在 `Core/UI/Views/`），继承 `UIView`，实现 `Layer`；按需重写三段生命周期。
+1. **写脚本**：`Assets/_Project/Scripts/Runtime/<模块>/<名字>View.cs`（面板多到一眼看不过来时再开个 `UI/` 子目录；框架自带的占位面板在 `Core/UI/Views/`，玩法范例是 `Runtime/Sample/SampleView.cs`），继承 `UIView`，实现 `Layer`；按需重写三段生命周期。
 
    ```csharp
    public sealed class ShopView : UIView
@@ -577,11 +732,136 @@ Unity 没有公开 API 从代码创建 AudioMixer 资产，所以这一步必须
 
 ## 13. 测试
 
-测试怎么写、怎么跑见 [`../.claude/rules/unity-tests.md`](../.claude/rules/unity-tests.md) 与 `/unity-test` 命令；具体测试范例待波 4 补充。
+### 13.1 EditMode 还是 PlayMode
+
+**能抽成纯逻辑的一律写 EditMode**：不进播放模式、不加载场景、不等帧，一次全量跑完只要几秒。
+只有必须走 Unity 生命周期的（物理、动画、场景加载、协程时序）才写 PlayMode，用
+`[UnityTest]` + `yield return null`。规则见 [`../.claude/rules/unity-tests.md`](../.claude/rules/unity-tests.md)。
+
+| 要测什么 | 写哪种 | 例子 |
+| --- | --- | --- |
+| 玩法规则、纯算法、数据换算 | EditMode | `SampleRulesTests`、`UIStackTests`、`AudioVolumeMathTests` |
+| 服务的可测部分（喂假依赖） | EditMode | `TimerServiceTests`（假 `IClock`）、`ConfigServiceTests`（读磁盘 `.bytes`） |
+| 异步且要跨帧的 | EditMode + `[UnityTest]` | `JsonSaveServiceTests`（存档 IO 走线程池，见 15.4） |
+| 真要起场景、起物理 | PlayMode | 目前工程里还没有 |
+| 要肉眼看表现对不对 | **都不是** | 走 Showcase 回放：[`module-dev-spec.md`](module-dev-spec.md) + `/verify-module` |
+
+一个玩法模块**至少一条 EditMode 测试**覆盖核心规则，这是模块完成的硬条件。
+
+### 13.2 目录与命名
+
+```
+Assets/_Project/Scripts/Tests/EditMode/<模块>/<被测类>Tests.cs
+Assets/_Project/Scripts/Tests/PlayMode/<模块>/<被测类>Tests.cs
+```
+
+- 测试类 `<被测类>Tests`，方法 `<行为>_<条件>_<期望>`
+  （`GetDiscountedPrice_WhenDiscountIsOne_ReturnsZero`）。名字要能当报告读。
+- `[SetUp]` 建被测对象，`[TearDown]` 销毁 `new GameObject` 出来的东西。
+- 断言用 `Assert.That(actual, Is.EqualTo(expected))`，**一条测试一个关注点**；
+  断言里带一句中文说明，失败时不用再去翻代码：
+  `Assert.That(..., Is.EqualTo(0), "折扣 1 = 免费，不是原价")`。
+
+### 13.3 假服务怎么写
+
+框架服务都是接口，接口都小，**假实现通常就几行**，写在测试文件里当私有嵌套类，不要另开文件、
+更不要为了测试去拉起真服务（那就成了集成测试，慢且脆）。
+
+```csharp
+// Tests/EditMode/Sample/SampleRulesTests.cs 里的真实写法
+private sealed class FakeConfigService : IConfigService
+{
+    public FakeConfigService(global::cfg.Tables tables) { Tables = tables; }
+    public global::cfg.Tables Tables { get; }
+}
+```
+
+几个现成的路子：
+
+- **配置表**：不经 Addressables，直接从磁盘读 `Assets/_Project/Data/Config/*.bytes` 喂
+  `ConfigService.BuildTables(...)`（`SampleRulesTests.ReadAllTableBytes` 就是这么干的）。
+  路径从 `Application.dataPath` 推，**不写死本机绝对路径**。
+- **时间**：假一个 `IClock`，手动推 `GameTime`，就能测出「3 秒后触发」而不用真等 3 秒。
+- **存档**：`ISaveService` 的假实现拿个 `Dictionary` 当槽位即可。
+- **资源 / UI**：需要它们才说明被测的东西不够纯——先想想能不能把规则抽出来。
+
+### 13.4 怎么跑
+
+| 场景 | 怎么跑 |
+| --- | --- |
+| 编辑器开着、MCP 已连 | `/unity-test [EditMode\|PlayMode] [过滤]`，走 MCP 的 `run_tests`（先 `manage_tools activate testing`） |
+| 编辑器没开 | 同一个命令，它会走 batchmode |
+| 编辑器开着但 MCP 没连 | **停下**，让人在 Test Runner 里跑（Window → General → Test Runner） |
+
+**编辑器开着时 batchmode 必定失败**（工程锁被占），这是设计如此，重试没有意义，
+别为了跑通去关别人的编辑器（[`../ai-docs/pitfalls.md`](../ai-docs/pitfalls.md) 有这条）。
+
+测试失败**如实报告，不靠改弱断言凑绿**。当前 EditMode 全量 77 条（含 Addressables 包自带的一条桩测试）。
+
+### 13.5 `Sample` 模块的测试当范例
+
+`Assets/_Project/Scripts/Tests/EditMode/Sample/SampleRulesTests.cs` 七条，覆盖面就是玩法测试该有的样子：
+
+1. 正常路径（0 折扣 → 原价）；
+2. 有意思的中间值（0.15 折扣 → 42.5 → 43，**同时钉住「钱用 decimal 算」**，改回 `double` 这条就红）；
+3. 边界（折扣 1.0 → 0）；
+4. 非法 id → 抛异常，且**断言报错文案里有 id 和表名**；
+5. 折扣越界（负数 / 大于 1 / `NaN`）→ 抛异常；
+6. 意图对象的正常路径（单价 × 数量）；
+7. 意图对象的非法值（`default(T)` 的 `Count` 是 0）→ 抛异常。
+
+写新模块的测试时照这七类对一遍：正常、有意思的中间值、边界、每一类非法输入。
 
 ## 14. 打包与 CI
 
-本机出包用 `/build`（`scripts/build.ps1`，编辑器须关闭）；CI 一次性配置与打 tag 出包见 [`ci-setup.md`](ci-setup.md)。
+### 14.1 本机出包
+
+```
+/build Windows           # 或 /build Android，可带版本号：/build Windows 0.2.0
+```
+
+`/build` 底下跑的是 `scripts/build.ps1`，它再调用编辑器的 `Game.Editor.BuildScript`：
+
+| 平台 | 入口 | 默认产物 |
+| --- | --- | --- |
+| Windows | `BuildScript.BuildWindows`（`StandaloneWindows64`） | `Builds/Windows/21Days.exe` |
+| Android | `BuildScript.BuildAndroid`（只出 APK，不出 AAB） | `Builds/Android/21Days.apk` |
+
+**编辑器必须先关掉**：批处理实例拿不到 `Temp/UnityLockfile`，开着编辑器跑必定失败，重试没用。
+
+命令行参数由 `build.ps1` 拼装透传：`-outputPath <相对工程根的路径>`、`-buildVersion <字符串>`
+（写进 `PlayerSettings.bundleVersion`）、`-buildNumber <整数>`（Android 的 `bundleVersionCode`，
+不给而给了 `-buildVersion` 时改为自增）、`-development`（打开 `BuildOptions.Development`）。
+
+### 14.2 Addressables 内容已经接进打包
+
+`BuildScript` 在出包前会**自动跑一次 `AddressableAssetSettings.BuildPlayerContent()`**，
+所以不需要手动 Build 内容。这意味着：
+
+- 新加的 Addressables 条目（面板预制体、玩法场景、配置表数据）**不用额外操作**就会进包；
+- 反过来，**漏加进组的资源在编辑器里照跑、在包里直接找不到**——
+  编辑器的 Play Mode Script 是 `Use Asset Database (fastest)`，它不看组，直接从工程里取。
+  这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
+- 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
+
+### 14.3 出错了怎么读
+
+`/build` 失败时会摘日志里的前几条错误。常见的三类：
+
+| 报错 | 多半是 |
+| --- | --- |
+| 拿不到工程锁 / `Temp/UnityLockfile` | 编辑器还开着 |
+| `Android SDK/NDK not found` | 装编辑器时没勾 Android Build Support 的子模块（见 1.2） |
+| 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.2） |
+
+### 14.4 CI
+
+两条流水线（配置在 `.github/workflows/`）：**push 跑 EditMode 测试**、**打 tag 出包**
+（Windows 端游 + Android 手游，共用一套内容）。一次性配置——三个 Unity 许可证 secret 怎么填、
+tag 怎么打、产物去哪儿取——见 [`ci-setup.md`](ci-setup.md)。
+
+现状：**日常出包在本机 `/build`，CI 负责兜底**（本机漏跑的测试、只在干净机器上复现的编译错误，靠它拦）。
+改打包流程时两边都要想到——`Game.Editor.BuildScript` 是唯一入口，本机与 CI 走的是同一段代码，这是有意为之。
 
 ## 15. 常见问题
 
@@ -595,7 +875,9 @@ Unity 没有公开 API 从代码创建 AudioMixer 资产，所以这一步必须
 
 ### 15.2 MCP `read_console` 有时读不到刚打的日志（波 1 踩到）
 
-**现象**：波 1 实施时 `read_console(action="get")` 一度稳定返回 0 条，连刚用 `execute_code` 打的 `Debug.Log` 也读不到；随后主窗口在测试跑完后实测又能读到。根因未定位，怀疑与域重载时机或控制台被清空有关。遇到时先 `refresh_unity` 等编辑器空闲再读一次，`types` 传 `["all"]`。
+**现象**：波 1 实施时 `read_console(action="get")` 一度稳定返回 0 条，连刚用 `execute_code` 打的 `Debug.Log` 也读不到；随后主窗口在测试跑完后实测又能读到。
+
+> **真因见 15.7**（波 3 定位）：是 Console 窗口右上角的等级过滤按钮被关了。先去点亮那三个按钮，再看下面这些替代手段。剩下这一节留着是因为那些手段本身仍然有用。
 
 **替代验证手段**（不要因为读不到控制台就宣称「编译通过」）：
 
@@ -695,3 +977,38 @@ Enter 炸了 `Current` 会指着一个从没进去过的状态，下一次切换
 - 切换失败不用自己收拾状态机：异常会原样回传给 `GoToAsync` 的调用方，队列照常处理后面的请求，
   恢复手段就是再 `GoToAsync` 到一个能进得去的状态。
 - 失败那次**不发** `GameStateChangedEvent`，所以订阅者看到的事件序列里永远只有成功的切换。
+
+### 15.10 玩法状态注册在子作用域里，`GoToAsync` 解析失败（波 4 定的做法）
+
+**现象**：按「模块用自己的 `LifetimeScope` 子作用域注册」的直觉写法，把玩法状态注册在玩法场景里的
+`<模块>LifetimeScope` 上，然后 `flow.GoToAsync<你的状态>()`，运行时抛 VContainer 的解析失败，
+说找不到那个类型的注册。
+
+**根因**：两条叠一起。一是 `GameFlow` 持有的是**根作用域**的 `IObjectResolver`
+（构造注入进来的那个），子作用域的注册对父作用域**不可见**——VContainer 的可见性是单向的，
+子能看父，父看不到子。二是时序：玩家还在标题界面时，玩法场景根本没加载，那个子作用域连对象都还不存在。
+
+**正确做法**：玩法模块经 `Game.Core.Boot.GameplayInstaller` 把状态、规则类、入口点注册进**根作用域**——
+继承它，把组件挂到 `Boot.unity` 的 `GameBootstrap` 物体上，写法见第 7.8 节与 `Runtime/Sample/SampleInstaller.cs`。
+`Game.Core` 因此仍然不认识任何玩法类型（asmdef 依赖方向不变），玩法自己把自己接上来。
+子作用域不是不能用，但只适合「随场景生灭、且只在场景内部被解析」的东西。
+
+### 15.11 用 `float` 算钱，界面上的价格和策划口算对不上（波 4 踩到）
+
+**现象**：`50 × (1 - 0.15f)` 期望是 42.5、四舍五入 43，实际得到 42。断言写 43 的测试红了，
+但公式怎么看都没错。
+
+**根因**：`0.15f` 存不下 0.15，它的真值是 `0.150000005960464…`。按 `double` 算出来是 42.4999997，
+四舍五入自然是 42。这类误差在单笔交易上只差 1，但一旦参与累加、比较「够不够买」，就会变成
+「明明够却提示钱不够」这种查不出来的 bug。
+
+**正确做法**：**钱一律用 `decimal` 算中间值**，最后一步再转回 `int`：
+
+```csharp
+decimal discounted = price * (1m - (decimal)discount);
+int rounded = (int)decimal.Round(discounted, 0, MidpointRounding.AwayFromZero);
+```
+
+`(decimal)0.15f` 按 7 位有效数字取整，拿到的就是 `0.15`，结果 42.5，逢半进位得 43。
+取整用 `MidpointRounding.AwayFromZero`（逢半进位）而不是默认的银行家舍入——玩家看到的价格要和口算一致。
+`SampleRulesTests` 里有一条测试专门钉着这个，改回 `double` 它就会红。

@@ -6,6 +6,7 @@
 // 新脚本生成 .meta 时，用空模板覆盖文件内容。本文件已经存在，之后再改不会再被覆盖；
 // 但如果把它删掉重建，记得重建后再写一次内容（见 developer-guide.md 第 15 章）。
 
+using System;
 using Game.Core.Assets;
 using Game.Core.Audio;
 using Game.Core.Config;
@@ -28,7 +29,8 @@ namespace Game.Core.Boot
     /// 根作用域，挂在 Boot 场景的 GameBootstrap 物体上。
     /// **注册顺序即启动初始化顺序**（GameBootstrap 按 IReadOnlyList&lt;IGameService&gt; 的顺序串行 await），
     /// 顺序按 architecture.md 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
-    /// 玩法模块不改这里，各自建子作用域。
+    /// 玩法模块不改这个文件：继承 <see cref="GameplayInstaller"/> 把组件挂到同一个物体上，
+    /// 由 <c>InstallGameplay</c> 统一接进来（不要建子作用域，理由见那个方法的注释）。
     /// </summary>
     public sealed class GameLifetimeScope : LifetimeScope
     {
@@ -45,6 +47,7 @@ namespace Game.Core.Boot
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<BootCompletedEvent>(options);
             builder.RegisterMessageBroker<GameStateChangedEvent>(options);
+            builder.RegisterMessageBroker<TitleStartClickedEvent>(options);
 
             // --- 服务（注册顺序 = 初始化顺序）---
             // Platform 第一个：存档目录、触屏判定这些后面都要用
@@ -86,6 +89,48 @@ namespace Game.Core.Boot
             builder.Register<GameFlow>(Lifetime.Singleton).As<IGameFlow>();
             builder.Register<BootState>(Lifetime.Singleton);
             builder.Register<TitleState>(Lifetime.Singleton);
+
+            // --- 玩法层（Core 不认识玩法，玩法自己挂组件上来）---
+            InstallGameplay(builder);
+        }
+
+        /// <summary>
+        /// 调用挂在同一个物体上的全部 <see cref="GameplayInstaller"/>，让玩法模块把自己的状态、
+        /// 规则类与入口点注册进**根作用域**。
+        /// <para>
+        /// 为什么必须进根作用域而不是玩法场景的子作用域：<see cref="Flow.GameFlow"/> 是从根
+        /// <c>IObjectResolver</c> 解析状态类型的，而且玩家还在标题界面时玩法场景根本没加载，
+        /// 子作用域还不存在——<c>GoToAsync&lt;玩法状态&gt;()</c> 会解析失败。
+        /// </para>
+        /// <para>没挂任何注册器是合法状态（纯框架也要能跑起来），只记一条日志。</para>
+        /// </summary>
+        private void InstallGameplay(IContainerBuilder builder)
+        {
+            GameplayInstaller[] installers = GetComponents<GameplayInstaller>();
+            if (installers.Length == 0)
+            {
+                Log.Info("没有玩法注册器：只有框架层在跑。玩法模块要接入就继承 GameplayInstaller，"
+                         + "把组件挂到 Boot 场景的 GameBootstrap 物体上。");
+                return;
+            }
+
+            for (int i = 0; i < installers.Length; i++)
+            {
+                // 一个注册器抛异常会让整个容器建不成——连 Platform / Assets / Config 这些已经注册过的
+                // 框架服务一起作废，最后只在 GameBootstrap 里报一句笼统的「启动失败」，看不出是谁的锅。
+                // 所以这里点名记错，再把异常抛回去：容器确实没法半残着用，但至少知道该去改哪个文件。
+                try
+                {
+                    installers[i].Install(builder);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"玩法注册器 {installers[i].GetType().Name} 注册失败，容器无法构建：{e}", this);
+                    throw;
+                }
+
+                Log.Info($"玩法注册器 {installers[i].GetType().Name} 已装载");
+            }
         }
 
         /// <summary>

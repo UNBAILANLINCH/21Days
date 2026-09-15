@@ -14,9 +14,10 @@
 
 | 模块 | 状态 | 文档目录 |
 | --- | --- | --- |
-| —— | 当前为空 | —— |
+| Sample | 三件套齐备（**同时是模块文档的样例**） | [`modules/sample/`](modules/sample/sample-module-guide.md) |
 
-工程目前是空骨架，还没有玩法模块。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。
+Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
+新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。
 
 每个模块三件套（命名与职责见 [`modules/README.md`](modules/README.md)）：
 

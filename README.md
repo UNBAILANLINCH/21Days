@@ -135,6 +135,7 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 - [`docs/artist-guide.md`](docs/artist-guide.md) —— 美术：资源放哪、导入规则、做 UI 面板、交活前自查
 - [`.claude/hooks/README.md`](.claude/hooks/README.md) —— 各个钩子做什么、怎么调试
 - [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md) —— 不知道该读哪份文档时从这里找
+- [`docs/history/`](docs/history/) —— 建设纪要：某阶段做了什么、当时怎么取舍、**刻意没做什么**
 - [`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) —— 踩过的坑
 - [`PRP/README.md`](PRP/README.md) · [`evals/README.md`](evals/README.md) —— 复杂功能流程 / 行为回归
 

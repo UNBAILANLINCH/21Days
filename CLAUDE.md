@@ -70,8 +70,8 @@ Assets/_Project/
 | `/build [Windows\|Android] [版本]` | 本机出包（编辑器须关闭），失败摘日志前几条错误 |
 | `/review-change` | 列改动清单待审，授权后提交 |
 | `/refine-prd` → `/generate-prp` → `/validate-prp` → `/execute-prp` | PRP 四阶段（复杂功能） |
-| `/run-evals` | 行为回归：改完 `.claude/rules/` 或 lint 规则后，验 AI 行为有没有真变 |
 | `/generate-doc` · `/learn` · `/gc` | 模块文档同步 · 经验沉淀 · harness 健康度扫描 |
+| `/run-evals` | 行为回归：改完 `.claude/rules/` 或 lint 规则后，验 AI 行为有没有真变 |
 
 ## 验证与工具
 

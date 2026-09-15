@@ -48,8 +48,6 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 新开发者首次上手（环境自检、MCP 连通、该读什么） | [`.claude/skills/onboard/SKILL.md`](../../.claude/skills/onboard/SKILL.md)（`/onboard`） |
 | 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
 | 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
-| 跑行为 eval（改完规则验 AI 行为有没有真变） | [`.claude/skills/run-evals/SKILL.md`](../../.claude/skills/run-evals/SKILL.md)（`/run-evals`） |
-| 工程跨文件静态不变量（asmdef 方向 / 平台宏 / 命名空间 / `.meta` / UI 地址） | [`.claude/skills/evolution/invariants.py`](../../.claude/skills/evolution/invariants.py)（`/gc` 第 5 项自动跑） |
 | 这套 AI 工作流本身：五层怎么交互、日常怎么用、新增东西放哪层 | [`docs/ai-workflow.md`](../../docs/ai-workflow.md) |
 | 某阶段做了什么、当时怎么取舍、刻意没做什么 | [`docs/history/`](../../docs/history/) 下按日期的建设纪要 |
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |
@@ -67,6 +65,8 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 跨会话记忆（用户偏好、项目动态） | 全局 `~/.claude/projects/<本项目>/memory/`（目录名由 Claude Code 按项目路径自动生成） |
 | 复杂功能的决策留痕 | [`PRP/README.md`](../../PRP/README.md) |
 | harness 行为回归用例 | [`evals/README.md`](../../evals/README.md) |
+| 跑行为 eval（改完规则验 AI 行为有没有真变） | [`.claude/skills/run-evals/SKILL.md`](../../.claude/skills/run-evals/SKILL.md)（`/run-evals`） |
+| 工程跨文件静态不变量（asmdef 方向 / 平台宏 / 命名空间 / `.meta` / UI 地址） | [`.claude/skills/evolution/invariants.py`](../../.claude/skills/evolution/invariants.py)（`/gc` 第 5 项自动跑） |
 
 ## 三类资产的区别（别混）
 

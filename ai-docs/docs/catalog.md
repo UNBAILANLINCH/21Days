@@ -44,6 +44,8 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 框架层设计定稿、选型理由、各服务契约 | [`docs/architecture.md`](../../docs/architecture.md) |
 | 给其他开发者的操作手册 | [`docs/developer-guide.md`](../../docs/developer-guide.md) |
 | 新开发者首次上手（环境自检、MCP 连通、该读什么） | [`.claude/skills/onboard/SKILL.md`](../../.claude/skills/onboard/SKILL.md)（`/onboard`） |
+| 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
+| 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |
 | 操作编辑器 / 建物体 / 跑测试 / 看控制台 | [`.claude/skills/unity-mcp/SKILL.md`](../../.claude/skills/unity-mcp/SKILL.md)（MCP 已接，`/mcp` 看状态） |
 | MCP 一次性接入步骤、钩子总述 | [`docs/ai-setup.md`](../../docs/ai-setup.md) |

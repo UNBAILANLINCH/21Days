@@ -40,7 +40,8 @@ Game.Editor ──────────────────────�
 | `Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/` | 测试；EditMode 优先 |
 | `Assets/_Project/Scripts/Tests/Showcase/<Module>/` | 模块回放验证场景（给人看的），asmdef `Game.Tests.Showcase`，由 `/verify-module` 跑 |
 | `Assets/_Project/Data/` | ScriptableObject 配置资产 |
-| `Assets/_Project/{Prefabs,Scenes,Art,Audio}/` | 资源 |
+| `Assets/_Project/Art/{Sprites,Animations,Materials,Fonts}/` | 美术资源；`Sprites/` 有自动导入规则（`Editor/Importers/SpriteImportProcessor.cs`） |
+| `Assets/_Project/{Prefabs,Scenes,Audio}/` | 预制体、场景、音频 |
 | `Tables/` | Excel 源表与 Luban 配置 |
 | `Assets/_Project/Data/Config/` | Luban 生成物（不手改） |
 | `Assets/Scenes/`、`Assets/Settings/` | 模板自带（SampleScene、URP 配置），原位不动 |

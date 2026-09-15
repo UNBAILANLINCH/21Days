@@ -42,3 +42,9 @@ crashlytics-build.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code 本机覆盖配置
+.claude/settings.local.json
+
+# Claude Code 运行缓存（钩子计数、已读记录、压缩快照）
+.claude/.cache/

@@ -1,0 +1,11 @@
+{
+  "_说明": "模块注册表：玩法模块 -> 源码目录 + 文档目录 + 成熟度。/generate-doc 与 detect.py 都读这里，gc_scan 也按它查文档目录在不在。新模块落地时在 modules 里登记一条，格式为 \"<模块小写>\": {\"src\": \"Assets/_Project/Scripts/Runtime/<Module>\", \"docs\": \"ai-docs/docs/modules/<模块小写>\", \"status\": \"todo|seed|ready\"}。src 用 PascalCase 的目录名（与命名空间 Game.<Module> 一致），docs 与键名一样用小写。status：todo=登记了还没写文档（gc 不查目录），seed=只有 guide 骨架，ready=三件套齐备。工程目前是空骨架，第一个玩法模块落地前 modules 保持为空。",
+  "_示例": {
+    "player": {
+      "src": "Assets/_Project/Scripts/Runtime/Player",
+      "docs": "ai-docs/docs/modules/player",
+      "status": "todo"
+    }
+  },
+  "modules": {}
+}

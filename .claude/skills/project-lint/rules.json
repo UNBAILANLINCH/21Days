@@ -1,0 +1,100 @@
+{
+  "_comment": "project-lint 规则表（数据）。加规则只改本文件，不动 lint.py。过滤顺序：files/path_contains/file_context/file_context_absent（文件级）-> pattern（行级主匹配）-> exclude_patterns（排合法写法）-> confirm_patterns（二次确认）-> in_methods（须落在指定方法体内）。命中行写 // lint-ok: <理由> 放行。",
+  "_字段": {
+    "id": "唯一标识，英文短横线",
+    "rule": "中文分类名，出现在报错行的方括号里",
+    "files": "适用后缀列表，省略则默认 [\".cs\"]",
+    "path_contains": "路径包含任一片段才生效（正斜杠写法，引擎已把反斜杠归一）",
+    "file_context": "文件级正则前置：整份文件匹配得上才检查这条",
+    "file_context_absent": "反向前置：整份文件匹配得上就跳过这条",
+    "pattern": "行级主匹配正则",
+    "exclude_patterns": "命中任一就跳过（排掉合法写法）",
+    "confirm_patterns": "须再命中任一才算违规（二次确认）",
+    "in_methods": "方法名列表，命中行须落在这些方法体内才报；引擎按大括号计数跟踪方法范围",
+    "violation_tpl": "违规描述，{line} 是命中行占位符",
+    "fix": "怎么改",
+    "ref": "依据出处，如 csharp-code.md #序列化与暴露面"
+  },
+  "_收录原则": "只收机械可判、低误报的。要理解语义才能判的（该不该拆方法、这个魔法数字算不算配置）别硬塞进来——正则做不了，假阳性会逼人绕路，而绕的路子一旦形成，真该拦那次也拦不住。",
+  "rules": [
+    {
+      "id": "public-field-exposed",
+      "rule": "序列化与暴露面",
+      "files": [".cs"],
+      "file_context": "MonoBehaviour|ScriptableObject",
+      "pattern": "^\\s*public\\s+(?!(?:static|const|readonly|override|virtual|abstract|event|delegate|class|struct|interface|enum|void)\\b)[\\w<>\\[\\],.]+\\s+\\w+\\s*(?:=[^;]*)?;",
+      "exclude_patterns": ["=>", "\\(", "\\{"],
+      "violation_tpl": "public 字段直接暴露到 Inspector：{line}",
+      "fix": "改成 [SerializeField] private 字段 + 对外只读属性 public T Xxx => xxx;",
+      "ref": "csharp-code.md #序列化与暴露面"
+    },
+    {
+      "id": "find-in-update",
+      "rule": "每帧开销",
+      "files": [".cs"],
+      "pattern": "GameObject\\.Find\\(|FindObjectOfType|FindObjectsOfType|FindAnyObjectByType|FindFirstObjectByType|GetComponent(?:s|InChildren|InParent)?\\s*<",
+      "in_methods": ["Update", "FixedUpdate", "LateUpdate", "OnGUI"],
+      "violation_tpl": "每帧路径上做查找：{line}",
+      "fix": "在 Awake 里 GetComponent 缓存成字段，或直接用 [SerializeField] 在 Inspector 拖赋引用",
+      "ref": "csharp-code.md #序列化与暴露面 / #生命周期"
+    },
+    {
+      "id": "debug-log-in-update",
+      "rule": "每帧开销",
+      "files": [".cs"],
+      "pattern": "\\bDebug\\.Log(?:Warning|Error)?\\s*\\(",
+      "exclude_patterns": ["#if"],
+      "in_methods": ["Update", "FixedUpdate", "LateUpdate", "OnGUI"],
+      "violation_tpl": "每帧路径上打日志：{line}",
+      "fix": "去掉；确实要看就改成事件触发时打印，或用 #if UNITY_EDITOR 包住的调试开关",
+      "ref": "csharp-code.md #生命周期"
+    },
+    {
+      "id": "tag-string-compare",
+      "rule": "Unity 反模式",
+      "files": [".cs"],
+      "pattern": "\\.tag\\s*(?:==|!=)\\s*\"",
+      "violation_tpl": "用字符串比较 tag：{line}",
+      "fix": "改成 CompareTag(\"X\")：不产生字符串分配，tag 不存在时还会报错提醒",
+      "ref": "csharp-code.md #反模式"
+    },
+    {
+      "id": "send-message",
+      "rule": "Unity 反模式",
+      "files": [".cs"],
+      "pattern": "\\b(?:SendMessage|SendMessageUpwards|BroadcastMessage)\\s*\\(",
+      "violation_tpl": "用 SendMessage 系反射调用：{line}",
+      "fix": "改成直接引用、接口调用或 event Action<T>；方法名打错编译期就能发现",
+      "ref": "csharp-code.md #反模式"
+    },
+    {
+      "id": "empty-unity-message",
+      "rule": "生命周期",
+      "files": [".cs"],
+      "pattern": "void\\s+(?:Update|FixedUpdate|LateUpdate)\\s*\\(\\s*\\)\\s*\\{\\s*\\}",
+      "violation_tpl": "空的每帧回调没删：{line}",
+      "fix": "直接删掉整个方法。空方法 Unity 照样每帧走一次托管跨界调用，白花钱",
+      "ref": "csharp-code.md #生命周期"
+    },
+    {
+      "id": "local-absolute-path",
+      "rule": "本地标识",
+      "files": [".cs", ".md", ".json", ".asmdef", ".txt"],
+      "pattern": "[A-Za-z]:[\\\\/]+Users[\\\\/]|/Users/[A-Za-z]|/home/[A-Za-z]",
+      "violation_tpl": "写进了本机绝对路径（含用户名）：{line}",
+      "fix": "改成工程相对路径、Application.dataPath，或脚本里用 Path(__file__) 往上推工程根",
+      "ref": "CLAUDE.md 硬规则 2 不带本地标识"
+    },
+    {
+      "id": "using-unityeditor-in-runtime",
+      "rule": "依赖方向",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "file_context_absent": "#if\\s+UNITY_EDITOR",
+      "pattern": "^\\s*using\\s+UnityEditor\\b",
+      "violation_tpl": "Runtime 代码裸 using UnityEditor：{line}",
+      "fix": "Runtime 不依赖 Editor。确需编辑器专用逻辑（Gizmos / 调试）就整段用 #if UNITY_EDITOR 包住；业务逻辑挪去 Scripts/Editor/",
+      "ref": "project-root.md #目录与 asmdef 依赖方向"
+    }
+  ]
+}

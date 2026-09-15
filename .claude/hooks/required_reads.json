@@ -1,0 +1,56 @@
+{
+  "_说明": [
+    "改左边这些路径的文件之前，必须先读过右边列的文件。",
+    "由 .claude/hooks/required-reads.py 在 PreToolUse 上执行，本会话内只要求一次。",
+    "",
+    "键 = glob（相对工程根，正斜杠，大小写不敏感，fnmatch 语法：`*` 与 `**` 都跨目录）。",
+    "值 = 必读文件列表（相对工程根）。加新模块 / 新规则时只加一条，不用改代码。",
+    "以 `_` 开头的键是注释，不参与匹配。"
+  ],
+
+  "_占位符": [
+    "`${seg:N}`        = 被改文件路径的第 N 段（0 起）。",
+    "`${seg:N:lower}`  = 同上再转小写（目录名 PascalCase、文档名小写时用）。",
+    "",
+    "例：改 Assets/_Project/Scripts/Runtime/Player/Move.cs 时，",
+    "    seg0=Assets seg1=_Project seg2=Scripts seg3=Runtime seg4=Player，",
+    "    于是 ${seg:4:lower} → player，必读项自动指向 player 自己那份 guide。",
+    "",
+    "为什么用占位符而不逐模块写：逐模块写必漏，而漏掉**不报错** ——",
+    "那个模块的闸从来没生效过，从外面完全看不出来。一条规则覆盖所有现有和将来的模块。"
+  ],
+
+  "_必读文件不存在时跳过": [
+    "闸可以提前配好（建模块时一次配完），文档还没写出来也不会误拦。",
+    "反过来如果不跳过就是死锁：文件不存在 → 永远不在「读过」集合里 → 永远拦且读不到，",
+    "人只能去删配置 —— 而删掉的配置通常不会再加回来。",
+    "",
+    "另有豁免：目标文件本身就是必读文件，或文件名是 README.md / SKILL.md /",
+    "*-module-guide.md 时不查 —— 写文档不要求先读它自己。"
+  ],
+
+  "_清单别堆太长": [
+    "每多一份必读，动手前的成本就高一分，而它挡不住「读了没往心里去」——",
+    "那要靠 project-lint 的机械闸，不是靠这里。闸太紧等于没有闸，人会想办法绕。"
+  ],
+
+  "Assets/_Project/Scripts/Runtime/*/**": [
+    "ai-docs/docs/modules/${seg:4:lower}/${seg:4:lower}-module-guide.md"
+  ],
+
+  "Assets/**/*.unity": [
+    ".claude/rules/unity-assets.md"
+  ],
+
+  "Assets/**/*.prefab": [
+    ".claude/rules/unity-assets.md"
+  ],
+
+  ".claude/hooks/**": [
+    ".claude/hooks/README.md"
+  ],
+
+  ".claude/skills/project-lint/rules.json": [
+    ".claude/skills/project-lint/SKILL.md"
+  ]
+}

@@ -344,7 +344,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 工程里有一个**端到端的样板模块 `Sample`**：`Assets/_Project/Scripts/Runtime/Sample/`，
 文档在 [`../ai-docs/docs/modules/sample/`](../ai-docs/docs/modules/sample/sample-module-guide.md)。
 它用最少的代码把框架每一层串了一遍（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试），
-**新模块照它的形状抄**。下面九步就是它的建法。命令入口 `/new-feature <模块名>` 会把这九步串起来走一遍。
+**新模块照它的形状抄**。下面十步就是它的建法。命令入口 `/new-feature <模块名>` 会把这十步串起来走一遍。
 
 ### 7.1 建骨架
 
@@ -475,7 +475,55 @@ public sealed class SampleInstaller : GameplayInstaller                 // Runti
   在回调里 `flow.GoToAsync<你的状态>().Forget()`——范例是 `SampleTitleRouter`。
   订阅句柄必须进 `DisposableBag`，在 `Dispose` 里释放。
 
-### 7.9 测试与文档
+### 7.9 埋点（怎么给自己的模块埋点）
+
+出了事故只有两样东西能救你：能复现的步骤，和当时的日志。埋点就是后者。
+**跑 `/instrument-module <模块>`**，它按 [`telemetry.md`](telemetry.md) 第 2.2 节的四类尺子扫出候选点，逐条补。
+四类是：**意图入口**（玩家做了什么）、**状态迁移**、**失败分支**（`return false` / `throw` / `catch`）、**长耗时**（跨帧的异步）。
+**每帧触发的一律不埋**——高频事件会把日志淹掉，要每帧数据用框架自带的 `core.perf` 采样。
+
+拿门面：模块名用**模块目录名的小写**，一个模块一个。
+
+```csharp
+private readonly ITelemetryScope telemetry;
+
+public SampleState(/* … */, ITelemetryService telemetry)
+{
+    this.telemetry = telemetry.Scope("sample");   // 同名 scope 服务内部缓存，不会每次 new
+}
+
+telemetry.Track("buy_item", ("id", intent.ItemId), ("n", intent.Count));      // 事实，snake_case
+telemetry.TrackError("buy_rejected", $"数量非法：{intent.Count}");            // 失败比成功值钱
+using (telemetry.BeginSpan("scene_ready")) { await LoadAsync(ct); }           // Dispose 时自动带 ms
+```
+
+**规则类（纯 C#）也能埋，但只有一种写法不破坏「可 EditMode 测试、将来能搬服务端」**：
+
+```csharp
+// 规则类：构造函数收 ITelemetryScope 这个小接口（它只 using System，一行 Unity 都没有）
+public SampleRules(IConfigService config, ITelemetryScope telemetry) { … }
+
+// 模块 Installer：工厂式注册，显式把 scope 喂进去
+builder.Register(c => new SampleRules(
+        c.Resolve<IConfigService>(),
+        c.Resolve<ITelemetryService>().Scope("sample")),
+    Lifetime.Singleton);
+
+// EditMode 测试：三行造一个真服务，断言埋了哪些事件（两个假件在 Tests/EditMode/Telemetry/）
+var telemetry = new TelemetryService(
+    TelemetryOptions.Default, new FakeTelemetryClock(), new RecordingTelemetrySink());
+var rules = new SampleRules(config, telemetry.Scope("sample"));
+```
+
+**禁止**：把 `ITelemetryScope` 注册进根作用域（所有模块共用一个根，两个模块各注册一个会互相覆盖）；
+在规则类里写 `Log.Error` / `Debug.Log` 或读 `Time.realtimeSinceStartup`（要计时用 `BeginSpan`，时钟在服务那侧）；
+因为埋点改判定结果或吞异常（`TrackError` 之后照样 `throw` / `return false`）；
+往属性里塞 `UnityEngine.Object`（值只能是 number / string / bool，最多四个，超了拆成两条事件）。
+
+模块里有 `XxxState.cs` / `XxxIntent.cs` 却一条埋点都没有时，保存 `.cs` 时 project-lint 会**提醒**（不拦你）。
+埋完想看日志：`/analyze-telemetry --module <模块小写> --last 1`。
+
+### 7.10 测试与文档
 
 - 测试：`Scripts/Tests/EditMode/<模块>/<规则类>Tests.cs`，至少一条覆盖核心规则。写法见第 13 章。
 - 文档：`/generate-doc <模块>` 生成三件套，在 [`../ai-docs/docs/catalog.md`](../ai-docs/docs/catalog.md)

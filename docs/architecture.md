@@ -235,6 +235,30 @@ public interface IPlatformService { PlatformKind Kind { get; } string SaveRoot {
 - 状态流附带 `SceneGameState` 基类：Enter 时 Additive 加载 `SceneKey`，Exit 时卸载，子类只写 `OnSceneReadyAsync`。
 - `UIView` 的开关过渡是 `PlayOpenTransitionAsync / PlayCloseTransitionAsync(seconds)`，默认 LitMotion 淡入淡出，时长来自 `UIConfig`。
 
+### 5.9 埋点
+
+```csharp
+public interface ITelemetryScope   // 模块名已绑好；玩法层注入的是它，不是 ITelemetryService
+{
+    void Track(string evt, (string Key, PropValue Value) p0 /* 最多四个属性 */);
+    void TrackWarn(string evt, in TelemetryProps props = default);
+    void TrackError(string evt, Exception error, in TelemetryProps props = default);
+    TelemetrySpan BeginSpan(string name);            // using 包住一段，Dispose 时自动埋 ms
+}
+public interface ITelemetryService { /* … */ ITelemetryScope Scope(string module); }
+```
+
+契约要点（完整规范见 [`telemetry.md`](telemetry.md)，这里不重复）：
+
+- **不另建文件通道**：埋点就是一条格式固定的 Unity 日志（`[Game][T] <级别> <模块>/<事件> | <JSON>`），由 Unity 自己落盘。写入点只有一个，崩溃时最后几条不丢，真机路径不用自己管。
+- **日志在哪靠指针文件** `Logs/telemetry-source.txt`：`Editor.log` 的路径是本机全局的，猜默认路径会读到另一个 Unity 工程的日志。
+- **框架层零侵入自埋**：`core.boot` / `core.flow` / `core.asset` / `core.ui` / `core.save` / `core.audio` / `core.perf` / `core.log`，玩法接进框架就自动有。`core.log/unity_error` 把**任何** `Debug.LogError` 与未捕获异常转成带序号的埋点，是根因分析的主线索。
+- **玩法层只埋四类**：意图入口 / 状态迁移 / 失败分支 / 长耗时；**每帧触发的一律不埋**，要每帧数据用 `core.perf` 采样。
+- **零分配**：属性走定长四槽的 `TelemetryProps` + 不装箱的 `PropValue`，不用 `params` / `Dictionary`。属性超过四个说明这条事件混了两件事，拆成两条。
+- **规则类照埋不误**：`ITelemetryScope` 及其值类型全是纯 C#（只 `using System`），Unity 依赖只在 sink 与 clock 的实现里。规则类构造注入这个接口，仍然可 EditMode 测试、仍然能搬服务端（第 7 节）。
+- 开关在 `Data/Telemetry/TelemetryConfig.asset`（总开关 / 最低级别 / 模块过滤 / 采样间隔 / 限流）；`D` 级在正式包里整句剔除。
+- 工具：`/analyze-telemetry` 查日志出诊断报告，`/instrument-module <模块>` 按四类尺子补埋点。
+
 ## 6. 从参考工程借鉴的手法与规避的坑
 
 借鉴：

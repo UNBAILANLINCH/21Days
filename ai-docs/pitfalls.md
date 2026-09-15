@@ -90,6 +90,18 @@
 - 正确做法：本工程保持 `runInBackground: 1`，不要在 Player Settings 里取消勾选。真要让玩家切出去时暂停，用 `OnApplicationFocus` 写玩法层的暂停逻辑，不要关这个开关。临时绕过可在运行时设 `Application.runInBackground = true`，但那只在当次 Play 有效，治标。Android 上应用切后台由系统挂起，这个开关基本不起作用，所以关它对成品包也没什么收益。
 - 关联：`docs/developer-guide.md #15.6`、`ProjectSettings/ProjectSettings.asset`；2026-09-15 波 3 踩到、当天有人误关一次。
 
+## `Editor.log` 是本机全局的，按默认路径读会读到别的工程
+- 现象：分析埋点日志时摘要里的会话对不上——版本号、场景名、报错内容都不是本工程的；或者本工程明明刚跑过，日志里却一条埋点都没有。
+- 根因：`%LOCALAPPDATA%\Unity\Editor\Editor.log` 这个路径**不带工程名，是整台机器共用的**。本机同时开着两个 Unity（本工程 + 参考工程）时，后启动的那个会把先前那份挤成 `Editor-prev.log`；分析脚本按固定路径去读，读到的就是另一个工程正在写的日志。实测发生过一次，而且非常难察觉：日志是真的、格式是对的、只是**不是你要查的那个工程**。
+- 正确做法：`TelemetryService` 初始化时把 `Application.consoleLogPath`（Unity 给出的**当前实例真正在写的**日志完整路径）写进工程内的指针文件 `Logs/telemetry-source.txt`（`Logs/` 已 gitignore，里面没有任何埋点数据，只有一行「本工程的日志在哪」）。定位顺序固定为**指针文件 → 用户显式给的路径 → 猜默认路径**，猜出来的必须校验第一条 `session_start` 的 `p.prod` 与本工程 `productName` 对得上，对不上直接报错退出，不拿着别人的日志做分析。`/analyze-telemetry` 默认 `--source auto` 走的就是这条链；先跑 `analyze.py sources` 看这次用的是哪条。
+- 关联：`docs/telemetry.md #日志到底在哪：指针文件`、`.claude/skills/telemetry/SKILL.md #0 定位日志源`；2026-09-16 波 4 实测。
+
+## 往 `.cs` 里写含正则 / 反斜杠的代码，不能走 Bash heredoc
+- 现象：用 Bash 的 heredoc（`cat > Foo.cs <<'EOF'` 一类）生成脚本或测试文件，写进去的 `\\.` 变成 `\.`、`\\s` 变成 `\s`、`\"` 丢了反斜杠；Unity 一编译就是一串莫名其妙的语法错误，而对话里看到的内容是对的。波 1 为此返工过一次。
+- 根因：Bash 工具这一层对命令字符串还会做一次转义处理，heredoc 里的反斜杠被吃掉一层。正则字面量（`@"^\[Game\]\[T\] ..."`）、Windows 路径、JSON 里的 `\\.` 全是重灾区——**它们恰恰是「一个字符错了就整体失效、但不会报错」的东西**。
+- 正确做法：写文件一律用 **Write / Edit 工具**，不用 shell 重定向拼内容。Bash 只用来跑命令、读文件、做检索。同理：往 `rules.json` 这类 JSON 里加正则、往 Python 里写 `re.compile(...)`，也走 Write / Edit。
+- 关联：`CLAUDE.md #验证与工具`、`.claude/skills/project-lint/rules.json`、`.claude/skills/instrument-module/scan.py`；波 1 踩到，2026-09-16 波 4 复述。
+
 ## 行为 eval 全绿，不代表知识注入三层都验过了
 - 现象：`/run-evals` 报 3/3 通过，于是认为「规则能送达、AI 能照做」这件事已经有回归保护。实际上**第三层（模块 guide 强制闸）一次都没被测到**，它坏了 eval 也照样全绿。
 - 根因：知识是三层加载的——常驻的 `CLAUDE.md`、按文件类型 glob 注入的 `.claude/rules/`、以及编辑模块代码前由 `required-reads` 钩子强制先读的模块 guide。第三层靠钩子里的路径匹配触发，规则写死在 `required_reads.json`：`Assets/_Project/Scripts/Runtime/*/**`。而行为 eval 让 subagent 在 **scratchpad 的临时目录**里落盘（故意的，不能往仓库里写），临时目录不在那个路径下，匹配不命中，钩子根本不会触发。所以 eval 测得到前两层，唯独测不到第三层。
@@ -101,6 +113,7 @@
 - 根因：预制体上的 TMP 组件把字体资产**显式序列化在 `m_fontAsset` 字段里**（这两个预制体指着 `LiberationSans SDF` 的 guid `8f586378...`），不是"留空用默认值"。TMP 的字符查找顺序是：组件自己的字体 → 该字体的局部 fallback → 局部 sprite asset → **TMP Settings 全局 fallback** → Default Font Asset → 默认 sprite asset（`TMP_Text.cs:6198` 一带）。Default Font Asset 排在倒数第二，确实会被查到，但它同时也决定**新建**文本组件默认挂哪个字体——用它兜中文，等于让以后每个新组件的主字体都变成中文字体，副作用比收益大。
 - 正确做法：中文字体挂进 `TMP Settings` 的 **Fallback Font Assets**（全局 fallback），Default Font Asset 保持 `LiberationSans SDF`。这样英文数字仍走 Liberation 的字形，缺字才回落；且对**所有** TMP 组件生效，不管它们各自挂的是哪个字体资产，一个预制体都不用改。不要去改 `Assets/TextMesh Pro/` 里 `LiberationSans SDF.asset` 自己的局部 fallback——那是模板自带资产，原位不动。
 - 关联：`docs/developer-guide.md #11.5`、`Assets/_Project/Art/Fonts/README.md`、`Assets/TextMesh Pro/Resources/TMP Settings.asset`；2026-09-16 上中文字体时踩到。
+
 ## TMP Dynamic 字体资产进一次 Play 就胖 2 MB，污染 git
 - 现象：中文字体资产提交时才 6 KB，同事拉下来跑一次游戏，`git status` 里它就变成 2 MB 的改动；每个人每次 Play 都产生一份不一样的 diff，合并时天天冲突。
 - 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
@@ -112,11 +125,13 @@
 - 根因：批处理模式下汇报结果的最后一步是 `EditorApplication.Exit(code)`，它**直接终止进程，不抛异常、不返回、不展开调用栈**——所以包着它的 `finally` 永远轮不到执行。把 `BuildPipeline.BuildPlayer` 和 `ReportResult` 一起放进 `try` 是最自然的写法，恰恰是错的。`Fail()` 同理，它内部也调 `Quit`，改完设置之后再插任何会 `Fail()` 的前置检查，同样会漏掉恢复。
 - 正确做法：`try` 里**只放 `BuildPlayer`**，`finally` 里恢复设置，`ReportResult`（以及任何会调 `EditorApplication.Exit` 的收尾）**放在 `finally` 之后**；所有可能 `Fail()` 的前置检查全部提到「改设置」之前做，让「改设置 → BuildPlayer」之间不夹任何退出路径。恢复失败要 `Debug.LogError` 喊出来并提示 `git checkout -- ProjectSettings/ProjectSettings.asset`，别让人以为干净。
 - 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`Build` 的 try/finally、`RestoreAndroidSettings`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时识别。
+
 ## `SetScriptingBackend` 写回默认值不会删条目：`{}` 变成 `Android: 0`，git diff 照样脏
 - 现象：`finally` 里老老实实把脚本后端设回 `Mono2x`、架构设回 `ARMv7`，`AssetDatabase.SaveAssets()` 也调了，日志里「已恢复」也打了；`git diff ProjectSettings/ProjectSettings.asset` 却还是有一条改动——`scriptingBackend: {}` 变成了两行的 `scriptingBackend:` + `  Android: 0`。**实测确实会发生**，不是理论担心。
 - 根因：`scriptingBackend` / `platformArchitecture` 这类字段序列化成的是**按平台键的字典**。工程从没显式设过 Android，字典就是空的 `{}`，读出来是该平台的默认值（Android 默认 Mono2x）。`SetScriptingBackend(Android, Mono2x)` 是**写入一条值为 0 的记录**，不是「删掉记录、回到默认」——Unity 没有公开的删除 API。语义完全一样，文本多一行，diff 照样脏。
 - 正确做法：改设置之前把 `ProjectSettings/ProjectSettings.asset` 的**原始字节**一起 `File.ReadAllBytes` 存下来；`finally` 里三步走：① 按 API 恢复内存里的值 → ② `AssetDatabase.SaveAssets()` 刷盘 → ③ 拿磁盘上的字节和原始字节比，不一致就整体 `File.WriteAllBytes` 回写。三步缺一不可，顺序也不能换：只回写字节不恢复内存值，Unity 之后再刷一次盘就会把改动写回来；先比对再刷盘，等于把 Unity 的写入当成「已经恢复好了」。本工程实测两次 Android 出包前后 `ProjectSettings.asset` 的 md5 完全一致，就是靠这三步。
 - 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`RestoreAndroidSettings` / `RestoreProjectSettingsBytes`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时实测踩到。
+
 ## `BuildSummary.totalSize` 不是 APK 体积，Android 上能差 20 倍
 - 现象：打包日志里 `[Build] 体积 906.9 MB`，磁盘上的 `21Days.apk` 只有 41.6 MB；同一次构建两个数字差了 20 多倍。IL2CPP 的包尤其夸张（Mono 那次是 109.6 MB vs 33.4 MB，也差 3 倍）。照着日志汇报会把人吓一跳，以为包体爆了。
 - 根因：`BuildReport.summary.totalSize` 统计的是**构建产物的未压缩总字节**（所有中间原生库、符号、未压缩资源都算进去），而 APK 是个 zip，`libil2cpp.so` 这类几十 MB 的原生库压缩率很高。这个字段在 Windows 那种「输出是一个目录」的平台上大致对得上，在 Android 上根本不是一回事。
@@ -132,6 +147,7 @@
   3. 提交前 `git diff --cached | grep -i <对方特征词>` 兜底确认零命中，提交后再确认对方的改动仍留在工作区。
   纯属自己的文件照常 `git add`。**别用 `git add -p`**：交互式在本环境跑不了。
 - 关联：`CLAUDE.md #硬规则 4`、`.claude/skills/review-change/SKILL.md #并发会话`；2026-09-15 起连续七次提交都这么做，2026-09-16 沉淀。
+
 ## 打包期间编辑器是关的，MCP 全部不可用，验证得提前想好命令行退路
 - 现象：`/build` 要求关闭编辑器（工程锁只允许一个实例），于是打包这段时间里 `read_console`、`run_tests`、`execute_code` 全部连不上——而人往往是打完包才想起「我要怎么确认它对不对」，这时只剩一个退出码可看。
 - 根因：MCP 是**遥控编辑器**的通道，编辑器进程没了通道自然断。这和「编辑器开着 batchmode 打不了包」是同一枚硬币的两面：两者互斥，不可能同时拥有。

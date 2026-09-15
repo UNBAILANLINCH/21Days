@@ -25,6 +25,7 @@ public int GetOrderTotal(BuyItemIntent intent, float discount)   // = 折后单�
 - 结果四舍五入到整数（逢半进位）。中间计算走 `decimal`，别改成 `float` / `double`。
 - 三类非法输入都抛 `ArgumentOutOfRangeException`，报错里带上出问题的值：
   id 不在表里、`discount` 不在 0～1（含 `NaN`）、`intent.Count` 不是正数。
+- 这个类目前没有埋点依赖，构造函数没有因为本次埋点接入而变化。
 
 ### `Game.Sample.BuyItemIntent`（`readonly struct`）
 
@@ -51,6 +52,11 @@ public int ItemId { get; }      public int Count { get; }      public float Disc
 ```csharp
 await flow.GoToAsync<SampleState>(ct);
 ```
+
+进入后 `OnSceneReadyAsync` 会打三条埋点事件（`sample/buy_item` 或失败时的
+`sample/buy_item_failed`，以及 `sample/view_ready`）。这不是一个要调用的接口——外部想看这些事件
+直接跑 `/analyze-telemetry --module sample` 读日志即可，事件契约见 `docs/telemetry.md` 2.2，
+这里不重复。
 
 ### `Game.Sample.SampleView`（`UIView`）
 

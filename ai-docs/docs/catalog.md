@@ -57,6 +57,9 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | MCP 一次性接入步骤、钩子总述 | [`docs/ai-setup.md`](../../docs/ai-setup.md) |
 | 一个模块从定范围到待审的完整流程、DoD、怎么写 Showcase | [`docs/module-dev-spec.md`](../../docs/module-dev-spec.md) |
 | 跑模块回放、看报告与截图、节奏菜单 | [`.claude/skills/verify-module/SKILL.md`](../../.claude/skills/verify-module/SKILL.md)（`/verify-module`，编辑器须打开） |
+| 埋点契约：日志行格式、该埋什么 / 不该埋什么、开关与开销 | [`docs/telemetry.md`](../../docs/telemetry.md) |
+| 从日志倒推事故根因，出诊断报告 | [`.claude/skills/telemetry/SKILL.md`](../../.claude/skills/telemetry/SKILL.md)（`/analyze-telemetry`） |
+| 给一个模块补齐埋点（扫候选点 → 逐条判断 → 待审） | [`.claude/skills/instrument-module/SKILL.md`](../../.claude/skills/instrument-module/SKILL.md)（`/instrument-module <模块>`） |
 | 本机出包（Windows / Android）怎么跑、失败怎么读日志 | [`.claude/skills/build/SKILL.md`](../../.claude/skills/build/SKILL.md)（`/build`，编辑器须关闭） |
 | CI 一次性配置、打 tag 出包、本机与 CI 的关系 | [`docs/ci-setup.md`](../../docs/ci-setup.md) |
 | 钩子各自做什么、怎么调试 | [`.claude/hooks/README.md`](../../.claude/hooks/README.md) |

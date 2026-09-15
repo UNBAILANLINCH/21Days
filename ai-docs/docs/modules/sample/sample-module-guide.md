@@ -26,13 +26,22 @@ maturity: stable
 | `SampleRules` | **纯 C# 规则类**，按 `TbItem` 算折后单价与订单总价 | 根作用域单例，`SampleState` 注入 |
 | `BuyItemIntent` | `readonly struct` 意图对象（买几个几号道具） | 谁要算价谁现场 new，不存 |
 | `SampleConfig` | ScriptableObject，展示用的 itemId / count / discount | `SampleInstaller` 在 Inspector 上拖赋并注册进容器 |
-| `SampleState` | `SceneGameState` 子类，加载 Sample 场景、开面板、接返回 | 根作用域单例，`IGameFlow` 解析 |
+| `SampleState` | `SceneGameState` 子类，加载 Sample 场景、开面板、接返回、埋点 | 根作用域单例，`IGameFlow` 解析 |
 | `SampleView` | `UIView` 子类，显示一行字 + 返回按钮 | `IUIService` 实例化并持有 |
 | `SampleTitleRouter` | 入口点，订阅 `TitleStartClickedEvent` → `GoToAsync<SampleState>()` | 根作用域入口点 |
 | `SampleInstaller` | `GameplayInstaller` 子类，把上面这些注册进**根作用域** | Boot 场景的 `GameBootstrap` 物体 |
 
-依赖方向：`SampleState` → `SampleRules` → `IConfigService`。面板不注入任何服务（它由
-Addressables 实例化，不经容器），只往外抛 `event`，由状态接住。
+`SampleState` 的构造函数（`SampleState.cs:56`）是
+`SampleState(IAssetService, IUIService, IGameFlow, SampleRules, SampleConfig, ITelemetryService)`——
+比早期样板多了末位的 `ITelemetryService` 参数。构造函数里当场换成绑好模块名 `"sample"` 的
+`ITelemetryScope` 门面存起来，`telemetry` 传 `null`（比如测试里没接埋点服务）时退化成
+`NullTelemetryScope.Instance`，调用方不用自己判空。**照抄这个构造函数的新模块要把这个参数一起抄**，
+埋点契约见下面「埋点」一节。
+
+依赖方向：`SampleState` → `SampleRules` → `IConfigService`；`SampleState` 另外依赖 `ITelemetryService`——
+这是框架服务，`GameLifetimeScope.RegisterTelemetry` 已经把它注册进根作用域，`SampleInstaller` 不用
+额外注册就能被 VContainer 自动解析（`SampleRules` 目前没有拿到任何埋点依赖，构造函数没变）。
+面板不注入任何服务（它由 Addressables 实例化，不经容器），只往外抛 `event`，由状态接住。
 
 ## 核心数据
 
@@ -51,7 +60,11 @@ GameLifetimeScope.Configure
   └─ TitleView.OnStartClicked → TitleState 发 TitleStartClickedEvent → Router → GoToAsync<SampleState>
 SampleState.EnterAsync（基类 sealed）
   ├─ Additive 加载 Addressables 地址 SampleScene_Game
-  └─ OnSceneReadyAsync：SampleRules 算价 → ui.OpenAsync<SampleView>(那行字) → 订阅 OnBackClicked
+  └─ OnSceneReadyAsync：SampleRules 算价
+       ├─ 算成功 → 埋 sample/buy_item
+       ├─ 算失败（ArgumentOutOfRangeException）→ 埋 sample/buy_item_failed（TrackError），文案降级显示
+       └─ BeginSpan("view_ready") 包住 ui.OpenAsync<SampleView>(那行字)，Dispose 时自动埋
+          sample/view_ready(ms) → 订阅 OnBackClicked
 点「返回标题」
   └─ SampleState.HandleBackClicked → GoToAsync<TitleState>()
 SampleState.ExitAsync（基类 sealed）
@@ -61,6 +74,26 @@ SampleState.ExitAsync（基类 sealed）
 
 `Start` / `Awake` / `OnEnable` 一个都没用到：这个模块里唯一的 MonoBehaviour 是 `SampleInstaller`，
 它只实现 `Install`。**订阅与退订严格成对**，位置见上面的流程图。
+
+## 埋点
+
+`SampleState.OnSceneReadyAsync`（`SampleState.cs:83`）里三处，模块名 `sample`（`SampleState.cs:34`
+的 `TelemetryModule` 常量）。分类按 [`docs/telemetry.md`](../../../../docs/telemetry.md) 第 2.2 节的
+四类尺子：
+
+| 事件 | 尺子类别 | 触发点 | 属性 |
+| --- | --- | --- | --- |
+| `sample/buy_item` | 1 意图入口 | `BuyItemIntent` 算完价的成功路径（`SampleState.cs:106`） | `id` `n` `total` |
+| `sample/buy_item_failed` | 3 失败分支 | 算价抛 `ArgumentOutOfRangeException`，`catch` 里 `TrackError`（`SampleState.cs:120`） | `id` `n` `discount` |
+| `sample/view_ready` | 4 长耗时操作 | `BeginSpan("view_ready")` 包住 `ui.OpenAsync<SampleView>`，`Dispose` 自动带 `ms`（`SampleState.cs:132`） | `ms`（自动） |
+
+三处目前只在 `SampleState` 里；`SampleRules` 是纯 C# 规则类，还没有拿到 `ITelemetryScope`，
+将来要给它加埋点得走「工厂式注入 `ITelemetryScope`」那条路，见
+[`sample-extension-guide.md`](sample-extension-guide.md) 的「加一条埋点」。
+
+详细契约（日志行格式、四类尺子的判定标准、`ITelemetryScope` 的标准取法、`/analyze-telemetry` 怎么读）
+不在这里复述，看 [`docs/telemetry.md`](../../../../docs/telemetry.md) 与
+[`.claude/skills/instrument-module/SKILL.md`](../../../../.claude/skills/instrument-module/SKILL.md)。
 
 ## 接线要求
 
@@ -82,8 +115,10 @@ Sample 场景**不进 Build Settings**——Addressables 加载的场景不需�
 ## 验证入口
 
 - EditMode 测试：`Assets/_Project/Scripts/Tests/EditMode/Sample/SampleRulesTests.cs`（7 条，跑 `/unity-test EditMode`）。
+  只覆盖 `SampleRules`——它的构造函数没变；`SampleState` 走 Play 模式端到端验证，没有独立的 EditMode 测试。
 - 端到端：进 Play 模式，Boot → Title → 点「开始」→ 看到折后价 → 点「返回标题」回到 Title。
   遥控编辑器时先执行一次 `Application.runInBackground = true`（[`developer-guide.md`](../../../../docs/developer-guide.md) 15.6）。
+- 想确认埋点真的打出来了：跑一次端到端流程后 `/analyze-telemetry --module sample --last 1`。
 - **没有 Showcase 回放场景**：本模块是样板不是玩法，没有需要肉眼确认的表现。
   真玩法模块要按 [`module-dev-spec.md`](../../../../docs/module-dev-spec.md) 建 Showcase 并跑 `/verify-module`。
 
@@ -100,3 +135,8 @@ Sample 场景**不进 Build Settings**——Addressables 加载的场景不需�
   `SampleRules` 用 `decimal` 算中间值，有测试钉着。
 - **面板里不要注入服务**：`SampleView` 是 Addressables 实例化的 MonoBehaviour，不经容器，
   构造注入拿不到东西；要什么由 `OnOpenAsync` 的 `arg` 传进来。
+- **不要往规则类里塞 `ITelemetryScope` 却绕开 Installer 工厂式注入**：`SampleRules` 目前没有埋点依赖；
+  真要加，构造函数只收 `ITelemetryScope`（不收整个 `ITelemetryService`），由 `SampleInstaller` 用
+  `builder.Register(c => new SampleRules(..., c.Resolve<ITelemetryService>().Scope("sample")))` 喂进去——
+  **禁止** `builder.Register<ITelemetryScope>(...)`：所有 `GameplayInstaller` 共用同一个根作用域，
+  两个模块各注册一个 `ITelemetryScope` 会互相覆盖，谁拿到谁的全看注册顺序。

@@ -1,7 +1,10 @@
 {
     "name": "Game.Editor",
     "rootNamespace": "Game.Editor",
-    "references": [],
+    "references": [
+        "Game.Core",
+        "Game.Runtime"
+    ],
     "includePlatforms": [
         "Editor"
     ],

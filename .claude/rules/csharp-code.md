@@ -27,6 +27,11 @@ alwaysApply: false
 - 帧内不 `new` 大对象、不 `string` 拼接日志；`Debug.Log` 不放在每帧路径上。
 - 协程持有句柄（`Coroutine`），`OnDisable` 时 `StopCoroutine`；不裸 `StartCoroutine` 丢句柄。
 
+## Unity 特有
+
+- `UnityEngine.Object` 及其子类判空只用 `== null` / `!= null`，禁止 `?.`、`??`、`is null`：Unity 重载了 `==` 处理已销毁对象（伪空），另外三种绕过这个重载，会把「已销毁」误判成「非空」。
+- 数据类后缀各管一事，不叠加：`Config` 是 ScriptableObject 配置，`Settings` 是嵌套可序列化块，`Data` 是纯 DTO，`Info` 是运行时临时对象。
+
 ## 反模式（project-lint 会拦）
 
 | 反模式 | 改法 |
@@ -46,3 +51,5 @@ alwaysApply: false
 - [ ] 无 public 字段；配置数值在 ScriptableObject。
 - [ ] 每帧路径无 Find / GetComponent / Log / 分配。
 - [ ] 订阅与退订成对；协程有句柄。
+- [ ] `UnityEngine.Object` 判空只用 `== null` / `!= null`。
+- [ ] 数据类后缀（`Config`/`Settings`/`Data`/`Info`）用对没叠加。

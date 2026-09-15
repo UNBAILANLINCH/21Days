@@ -1,0 +1,26 @@
+{
+    "name": "Game.Core",
+    "rootNamespace": "Game.Core",
+    "references": [
+        "UniTask",
+        "VContainer",
+        "MessagePipe",
+        "MessagePipe.VContainer",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "LitMotion",
+        "LitMotion.Extensions",
+        "IngameDebugConsole.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

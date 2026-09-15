@@ -1,0 +1,24 @@
+{
+    "name": "Game.Runtime",
+    "rootNamespace": "Game",
+    "references": [
+        "Game.Core",
+        "UniTask",
+        "VContainer",
+        "MessagePipe",
+        "MessagePipe.VContainer",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "LitMotion",
+        "LitMotion.Extensions"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -10,10 +10,12 @@ alwaysApply: true
 ## 目录与 asmdef 依赖方向（硬约束）
 
 ```
-Game.Tests.EditMode / Game.Tests.PlayMode   ── 只能引用 Game.Runtime（测试不被任何人引用）
-Game.Editor                                 ── 只能引用 Game.Runtime（Editor 代码不进构建）
-Game.Runtime                                ── 不引用 Editor / Tests；不 using UnityEditor
+Game.Tests.EditMode / Game.Tests.PlayMode ──┐
+Game.Editor ─────────────────────────────────┼──► Game.Runtime ──► Game.Core ──► 第三方包
+                                             └──────────────────►
 ```
+
+`Game.Core` 是框架层，不引用 `Game.Runtime` / `Game.Editor` / `Game.Tests.*`；`Game.Runtime` 不引用 `Editor` / `Tests`，不 `using UnityEditor`。
 
 - Runtime 里需要编辑器专用逻辑时用 `#if UNITY_EDITOR` 包住，并且只限调试/Gizmos，不放业务。
 - 模块之间：`Scripts/Runtime/<Module>/` 内部自洽；跨模块只通过对方的公开接口 / 事件 / ScriptableObject 引用，不互相 `GetComponent` 到私有实现。
@@ -32,16 +34,19 @@ Game.Runtime                                ── 不引用 Editor / Tests；�
 
 | 目录 | 放什么 |
 | --- | --- |
+| `Assets/_Project/Scripts/Core/` | 框架层（零玩法），asmdef `Game.Core` |
 | `Assets/_Project/Scripts/Runtime/<Module>/` | 游戏逻辑，一个模块一个目录，命名空间 `Game.<Module>` |
 | `Assets/_Project/Scripts/Editor/` | 编辑器工具、自定义 Inspector |
 | `Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/` | 测试；EditMode 优先 |
 | `Assets/_Project/Data/` | ScriptableObject 配置资产 |
 | `Assets/_Project/{Prefabs,Scenes,Art,Audio}/` | 资源 |
+| `Tables/` | Excel 源表与 Luban 配置 |
+| `Assets/_Project/Data/Config/` | Luban 生成物（不手改） |
 | `Assets/Scenes/`、`Assets/Settings/` | 模板自带（SampleScene、URP 配置），原位不动 |
 | `ai-docs/` | 知识层：模块三件套、catalog、pitfalls |
 | `PRP/` | 复杂功能的 PRD / PRP / tasks |
 
-第一个玩法模块落地时再创建这套结构，asmdef 随之建立；空目录不预建。
+空目录不预建。
 
 ## 生成物边界（钩子强制）
 
@@ -61,3 +66,4 @@ Game.Runtime                                ── 不引用 Editor / Tests；�
 - [ ] 没有手改生成物；新 `.cs` 有配套 `.meta`。
 - [ ] 玩法代码里没有平台条件编译与平台专属 API；这些只在 `Scripts/Runtime/Platform/`。
 - [ ] 文件内没有本机用户名、绝对路径、邮箱。
+- [ ] `Game.Core` 里没有玩法名词，没有 `Core → Runtime` 引用。

@@ -53,3 +53,15 @@
 - 根因：Windows 的 Python 默认用系统 ANSI 代码页（中文环境是 GBK）而不是 UTF-8 处理 stdin / stdout。Claude Code 传给钩子的是 UTF-8 编码的 JSON，按 GBK 解就炸；中文提示按 GBK 输出到 UTF-8 终端就是乱码。
 - 正确做法：钩子脚本里**显式指定 UTF-8**——读 stdin 用 `sys.stdin.buffer.read().decode("utf-8")` 而不是 `input()` / `sys.stdin.read()`；输出前 `sys.stdout.reconfigure(encoding="utf-8")`、`sys.stderr.reconfigure(encoding="utf-8")`；读写文件一律带 `encoding="utf-8"`。另外 JSON 里的 Windows 路径含反斜杠，解析出来后 `replace("\\", "/")` 归一化再做匹配。
 - 关联：`.claude/hooks/README.md`、`.gitattributes`（行尾统一 LF）。
+
+## MCP for Unity 两侧传输方式不一致，服务端永远报 0 个实例
+- 现象：`/mcp` 里 `UnityMCP` 是 connected，读 `mcpforunity://instances` 却返回 `instance_count: 0`；任何工具调用都报 `No Unity Editor instances found`。而 Unity 的 `Window → MCP for Unity` 窗口里明明显示绿灯 `Session Active (project1)`。
+- 根因：Unity 侧窗口的 `Transport` 被设成了 `HTTPLocal`（它自己在 127.0.0.1:8080 起了个本地服务），而本工程 `.mcp.json` 用的是 `--transport stdio`。stdio 模式的服务端靠 Unity 桥接写在 `~/.unity-mcp/unity-mcp-status-<hash>.json` 的状态文件发现实例；HTTP 模式的桥接不写这个文件，所以两边各自「运行中」却互相看不见。首次装包、或有人点过窗口里的 `Configure All Detected Clients`，都可能把传输方式改掉。
+- 正确做法：在 **本工程** 的编辑器里打开 `Window → MCP for Unity`，`Transport` 改成 `Stdio`（若 HTTP 本地服务在跑先点 `Stop Server`），状态变成绿灯即可；**不要点** `Configure All Detected Clients`，它往用户级配置写东西，本工程只认项目级 `.mcp.json`。快速自检：`~/.unity-mcp/` 目录不存在 → 桥接没以 stdio 启动过。本机同时开着多个 Unity 时，先读 `mcpforunity://instances`，只 `set_active_instance` 到名字以本工程名开头的那个，不靠默认路由。
+- 关联：`.claude/skills/unity-mcp/SKILL.md #故障排查`、`docs/ai-setup.md`；首次踩到 2026-09-15。
+
+## 无 BOM 的 `.ps1` 在 Windows PowerShell 5.1 里中文被截断，报莫名其妙的语法错误
+- 现象：新写的 PowerShell 脚本本机一跑就报 `字符串缺少终止符` / `表达式或语句中包含意外的标记`，报错位置落在一行中文字符串里，而脚本内容看起来完全正常；同一脚本用 `pwsh`（PowerShell 7）跑又没事。
+- 根因：Windows PowerShell 5.1 读取**没有 BOM** 的脚本时按系统 ANSI 代码页（中文环境是 936/GBK）解码源码，UTF-8 的中文标点（引号、破折号等）被拆成错误字节，恰好撞上引号或括号就把字符串提前截断。PowerShell 7 默认按 UTF-8 读，所以不复现。
+- 正确做法：仓库里所有 `.ps1` 一律存成 **UTF-8 带 BOM**（与 `scripts/build.ps1` 一致）；脚本开头再加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` 避免输出乱码。用 `Write` 工具新建脚本后记得补 BOM（`head -c 3 <file> | xxd` 应为 `ef bb bf`）。其它文本文件（`.cs`、`.md`、`.py`、`.json`）保持无 BOM 不变，这条只针对 `.ps1`。
+- 关联：`.claude/skills/onboard/install_env.ps1`、`scripts/build.ps1`、`ai-docs/pitfalls.md #Windows 下钩子输出中文乱码`；首次踩到 2026-09-15。

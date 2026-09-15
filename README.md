@@ -110,6 +110,8 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 
 - [`docs/ai-setup.md`](docs/ai-setup.md) —— Unity MCP 一次性接入与版本升级
 - [`docs/ci-setup.md`](docs/ci-setup.md) —— CI 一次性配置（三个 secret）、怎么触发、本机打包与 CI 的关系
+- [`docs/architecture.md`](docs/architecture.md) —— 框架层设计定稿：选型、asmdef 分层、目录、各服务契约
+- [`docs/developer-guide.md`](docs/developer-guide.md) —— 给其他开发者的操作手册
 - [`.claude/hooks/README.md`](.claude/hooks/README.md) —— 7 个钩子各自做什么、怎么调试
 - [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md) —— 不知道该读哪份文档时从这里找
 - [`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) —— 踩过的坑

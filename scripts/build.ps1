@@ -247,8 +247,20 @@ else {
 }
 
 if (Test-Path $fullOutput) {
-    $sizeMb = [math]::Round(((Get-Item $fullOutput).Length / 1MB), 1)
-    Write-Host "打包成功：$fullOutput（$sizeMb MB）"
+    # Windows 的产物是一个目录：exe 只是个几百 KB 的启动器，数据全在同级的 *_Data 里。
+    # 只报 exe 的大小会让人以为整包就那么点，所以这里报**整个输出目录**的合计。
+    # Android 的产物就是单个 apk，报它自己即可。
+    $outputDir = Split-Path -Parent $fullOutput
+    $selfMb = [math]::Round(((Get-Item $fullOutput).Length / 1MB), 1)
+    if ($Target -eq 'Windows') {
+        $totalBytes = (Get-ChildItem -Path $outputDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+        $totalMb = [math]::Round(($totalBytes / 1MB), 1)
+        Write-Host "打包成功：$fullOutput"
+        Write-Host "  整包 $totalMb MB（目录 $outputDir），其中启动器 $selfMb MB"
+    }
+    else {
+        Write-Host "打包成功：$fullOutput（$selfMb MB）"
+    }
 }
 else {
     Write-Host "Unity 退出码 0，但没在 $fullOutput 找到产物。"

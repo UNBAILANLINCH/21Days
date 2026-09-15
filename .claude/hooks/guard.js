@@ -1,6 +1,10 @@
-// PreToolUse 钩子：拦截对 Unity 生成物的直接写入；git 提交/推送与工程级配置改动改为弹确认。
+// PreToolUse 钩子：拦截对 Unity 生成物的直接写入；git 提交/推送与工程级配置改动改为弹确认；
+// Agent 派单漏传 model 或派成 fable 直接拒（规则出处 .claude/rules/model-routing.md）。
 // 规则出处：CLAUDE.md「硬规则」。
 'use strict';
+
+const fs = require('fs');
+const path = require('path');
 
 const DENY = [
   [/^(Library|Temp|Logs|obj|Build|Builds|UserSettings)\//i, 'Unity 生成目录，不手改'],
@@ -41,6 +45,26 @@ function main() {
     if (/\bgit\s+(reset\s+--hard|clean\b|checkout\s+--\s|restore\b)/.test(cmd)) return decide('deny', '会丢弃工作区改动的 git 操作，请用户手动执行');
     if (/(^|[\s;&|])(rm|rmdir|del|Remove-Item)\b[^\n]*\b(Assets|ProjectSettings|Packages|\.git)\b/i.test(cmd)) return decide('ask', '删除工程目录内容，需确认');
   }
+
+  if (tool === 'Agent') {
+    const st = String(ti.subagent_type || '').trim();
+    const model = String(ti.model || '').trim().toLowerCase();
+
+    // a) fork 永远跑在主窗口模型上（fable），model 参数会被忽略 → ask
+    if (st === 'fork') return decide('ask', 'fork 子代理继承主窗口模型（fable），违反 .claude/rules/model-routing.md「subagent 永不派成 fable」；确属有意再放行，否则改派 general-purpose 并显式传 model: opus / sonnet');
+
+    // b) 显式派成 fable → deny
+    if (model === 'fable') return decide('deny', 'subagent 不得派成 fable（.claude/rules/model-routing.md）：工程任务改 model: opus，机械活改 model: sonnet；需要更高层判断时回主窗口验收，不升级 subagent');
+
+    // c) 没传 model：若 subagent_type 对应 .claude/agents/<st>.md 且其 frontmatter 声明了 model: → 放行；否则 deny
+    if (!model) {
+      const fm = agentFrontmatterModel(st);   // 读不到文件 / 没有 frontmatter / 没有 model 行 → 返回 ''
+      if (fm === 'fable') return decide('deny', `.claude/agents/${st}.md 的 frontmatter 把 model 定成了 fable，违反 model-routing.md，改成 sonnet 或 opus`);
+      if (fm) return;   // frontmatter 已固定，放行
+      return decide('deny', `派单未显式传 model（.claude/rules/model-routing.md 硬规则 1）：工程任务（跨文件实现、改接口、根因不明的调试）传 model: opus，机械活（单点执行、批量修改、检索摘要）传 model: sonnet${st ? `；或在 .claude/agents/${st}.md 的 frontmatter 里声明 model:` : ''}`);
+    }
+    // 其余（opus / sonnet / haiku 等）静默放行
+  }
 }
 
 function norm(p) { return String(p).replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/\/+$/, ''); }
@@ -54,4 +78,23 @@ function decide(permissionDecision, permissionDecisionReason) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision, permissionDecisionReason },
   }) + '\n');
+}
+
+// 读 .claude/agents/<name>.md 的 frontmatter，取 model 字段（小写）。
+// 读不到 / 没有 frontmatter / 没有 model 行一律返回 ''（fail-open，见 hooks/README.md 铁律 2）。
+function agentFrontmatterModel(name) {
+  try {
+    if (!name || /[\\/]/.test(name) || name.includes('..')) return '';
+    const root = path.resolve(__dirname, '..', '..');
+    const file = path.join(root, '.claude', 'agents', `${name}.md`);
+    if (!fs.existsSync(file)) return '';
+    const text = fs.readFileSync(file, 'utf8');
+    const fmMatch = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    if (!fmMatch) return '';
+    const modelMatch = /^\s*model\s*:\s*([A-Za-z0-9_-]+)/m.exec(fmMatch[1]);
+    if (!modelMatch) return '';
+    return modelMatch[1].toLowerCase();
+  } catch {
+    return '';
+  }
 }

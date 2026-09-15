@@ -8,7 +8,7 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 
 | 文件 | 事件 | matcher | 做什么 | 退出语义 |
 | --- | --- | --- | --- | --- |
-| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒 | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
+| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
 | `required-reads.py` | PostToolUse | `Read` | 把读过的文件记进本会话已读账本 `.claude/.cache/reads/<会话>.jsonl` | 永远 exit 0，零输出 |
 | `required-reads.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 按 `required_reads.json` 查必读项读过没有，缺了就拒 | 永远 exit 0，deny 走 JSON `permissionDecision` |
 | `knowledge-routing.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 提示该文件适用的 `.claude/rules/` 规则与模块 guide，走 `additionalContext` 注入；同文件每会话只提一次 | 永远 exit 0，**从不阻断** |
@@ -107,6 +107,20 @@ printf '{"session_id":"smoke","hook_event_name":"PreCompact"}' | python .claude/
 # 7) guard.js —— 拦生成物
 printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity.meta"}}' \
   | node .claude/hooks/guard.js
+```
+
+```bash
+# 8) guard.js —— Agent 派单校验
+printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y"}}' \
+  | node .claude/hooks/guard.js   # 缺 model → deny
+printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y","model":"fable"}}' \
+  | node .claude/hooks/guard.js   # model 传 fable → deny
+printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y","model":"opus"}}' \
+  | node .claude/hooks/guard.js   # model 传 opus → 零输出
+printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y","subagent_type":"code-reviewer"}}' \
+  | node .claude/hooks/guard.js   # subagent_type code-reviewer 不传 model → 零输出（frontmatter 已固定 sonnet）
+printf '{"tool_name":"Agent","tool_input":{"description":"x","prompt":"y","subagent_type":"fork"}}' \
+  | node .claude/hooks/guard.js   # subagent_type fork → ask
 ```
 
 语法自检（改完必跑）：

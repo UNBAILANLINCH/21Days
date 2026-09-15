@@ -106,3 +106,19 @@
 - 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
 - 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。
 - 关联：`Assets/_Project/Art/Fonts/README.md`、`docs/developer-guide.md #11.5`；2026-09-16 上中文字体时踩到。
+
+## 批处理打包里临时改工程设置，恢复写在「报告结果」之后 = 永远不会恢复
+- 现象：给 `BuildScript` 加 `-releaseBuild`（临时切 IL2CPP + ARM64 出 64 位包）后，出完包工作区里 `ProjectSettings/ProjectSettings.asset` 死死留着改动；代码里明明写了 `try/finally`，日志里那条「已恢复为……」却一次都没打出来过，像是 `finally` 被吃了。
+- 根因：批处理模式下汇报结果的最后一步是 `EditorApplication.Exit(code)`，它**直接终止进程，不抛异常、不返回、不展开调用栈**——所以包着它的 `finally` 永远轮不到执行。把 `BuildPipeline.BuildPlayer` 和 `ReportResult` 一起放进 `try` 是最自然的写法，恰恰是错的。`Fail()` 同理，它内部也调 `Quit`，改完设置之后再插任何会 `Fail()` 的前置检查，同样会漏掉恢复。
+- 正确做法：`try` 里**只放 `BuildPlayer`**，`finally` 里恢复设置，`ReportResult`（以及任何会调 `EditorApplication.Exit` 的收尾）**放在 `finally` 之后**；所有可能 `Fail()` 的前置检查全部提到「改设置」之前做，让「改设置 → BuildPlayer」之间不夹任何退出路径。恢复失败要 `Debug.LogError` 喊出来并提示 `git checkout -- ProjectSettings/ProjectSettings.asset`，别让人以为干净。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`Build` 的 try/finally、`RestoreAndroidSettings`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时识别。
+## `SetScriptingBackend` 写回默认值不会删条目：`{}` 变成 `Android: 0`，git diff 照样脏
+- 现象：`finally` 里老老实实把脚本后端设回 `Mono2x`、架构设回 `ARMv7`，`AssetDatabase.SaveAssets()` 也调了，日志里「已恢复」也打了；`git diff ProjectSettings/ProjectSettings.asset` 却还是有一条改动——`scriptingBackend: {}` 变成了两行的 `scriptingBackend:` + `  Android: 0`。**实测确实会发生**，不是理论担心。
+- 根因：`scriptingBackend` / `platformArchitecture` 这类字段序列化成的是**按平台键的字典**。工程从没显式设过 Android，字典就是空的 `{}`，读出来是该平台的默认值（Android 默认 Mono2x）。`SetScriptingBackend(Android, Mono2x)` 是**写入一条值为 0 的记录**，不是「删掉记录、回到默认」——Unity 没有公开的删除 API。语义完全一样，文本多一行，diff 照样脏。
+- 正确做法：改设置之前把 `ProjectSettings/ProjectSettings.asset` 的**原始字节**一起 `File.ReadAllBytes` 存下来；`finally` 里三步走：① 按 API 恢复内存里的值 → ② `AssetDatabase.SaveAssets()` 刷盘 → ③ 拿磁盘上的字节和原始字节比，不一致就整体 `File.WriteAllBytes` 回写。三步缺一不可，顺序也不能换：只回写字节不恢复内存值，Unity 之后再刷一次盘就会把改动写回来；先比对再刷盘，等于把 Unity 的写入当成「已经恢复好了」。本工程实测两次 Android 出包前后 `ProjectSettings.asset` 的 md5 完全一致，就是靠这三步。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`RestoreAndroidSettings` / `RestoreProjectSettingsBytes`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时实测踩到。
+## `BuildSummary.totalSize` 不是 APK 体积，Android 上能差 20 倍
+- 现象：打包日志里 `[Build] 体积 906.9 MB`，磁盘上的 `21Days.apk` 只有 41.6 MB；同一次构建两个数字差了 20 多倍。IL2CPP 的包尤其夸张（Mono 那次是 109.6 MB vs 33.4 MB，也差 3 倍）。照着日志汇报会把人吓一跳，以为包体爆了。
+- 根因：`BuildReport.summary.totalSize` 统计的是**构建产物的未压缩总字节**（所有中间原生库、符号、未压缩资源都算进去），而 APK 是个 zip，`libil2cpp.so` 这类几十 MB 的原生库压缩率很高。这个字段在 Windows 那种「输出是一个目录」的平台上大致对得上，在 Android 上根本不是一回事。
+- 正确做法：Android 的体积以**磁盘上 `.apk` 文件的大小**为准（`scripts/build.ps1` 报的就是这个，对的）；`BuildSummary.totalSize` 只当「未压缩产物有多大」的参考，别写进汇报。要拆体积构成用 Build Report 或直接 `zipfile` 列 APK，不要用这个字段。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`ReportResult`，目前仍在打这个数）、`.claude/skills/build/SKILL.md #3 汇报`；2026-09-16 加 `-Release` 开关实测时发现，**尚未修**。

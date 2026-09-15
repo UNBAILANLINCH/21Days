@@ -850,9 +850,62 @@ private sealed class FakeConfigService : IConfigService
 
 命令行参数由 `build.ps1` 拼装透传：`-outputPath <相对工程根的路径>`、`-buildVersion <字符串>`
 （写进 `PlayerSettings.bundleVersion`）、`-buildNumber <整数>`（Android 的 `bundleVersionCode`，
-不给而给了 `-buildVersion` 时改为自增）、`-development`（打开 `BuildOptions.Development`）。
+不给而给了 `-buildVersion` 时改为自增）、`-development`（打开 `BuildOptions.Development`）、
+`-releaseBuild`（Android 的可上架配置，对应 `build.ps1` 的 `-Release` 开关，见 14.2）。
 
-### 14.2 Addressables 内容已经接进打包
+### 14.2 两种 Android 配置：默认的快，`-Release` 的能过 64 位
+
+Android 出包有两档，**默认那档是为了快**：
+
+```powershell
+powershell -File scripts/build.ps1 -Target Android            # 默认：快
+powershell -File scripts/build.ps1 -Target Android -Release   # 可上架的 64 位配置：慢一个量级
+```
+
+| | 默认（不加 `-Release`） | 加 `-Release` |
+| --- | --- | --- |
+| 脚本后端 | Mono（`ProjectSettings` 里的默认值） | IL2CPP |
+| CPU 架构 | 沿用 `ProjectSettings`（当前 ARMv7） | **仅 ARM64** |
+| `lib/` 下 | `armeabi-v7a/`，含 `libmonobdwgc-2.0.so` | `arm64-v8a/`，含 `libil2cpp.so` |
+| 满足 Play 的 64 位要求 | **不满足** | 满足 |
+| 出包耗时（2026-09-16 实测，Library 已热） | **75 秒** | **268 秒，约 3.6 倍** |
+| APK 体积（同上） | 33.4 MB | 41.6 MB（+25%） |
+
+耗时那一行是**本工程当前**（几乎没有玩法代码）的数字，别当成上限：IL2CPP 的开销随 C# 代码量增长，
+代码上来之后十几分钟很常见，而 Mono 那档基本不动。所以这个差距只会越来越大，不会缩小。
+体积反过来：ARM64 单架构下 `libil2cpp.so` 比 Mono 的运行时大，但省掉了 32 位那一份，净增 8 MB 左右。
+
+**各自什么时候用**：日常自测、看美术效果、验流程走默认档，别加 `-Release` 白等；
+要出上架候选包，或者要在真机上量真实性能（Mono 与 IL2CPP 的运行速度不是一回事），才加。
+
+**为什么 `-Release` 的包能满足 64 位要求**：Google Play 自 2019 年 8 月起要求所有新应用和更新
+提供 64 位版本。Unity 的 Mono 后端在 Android 上**只支持 32 位**，想出 `arm64-v8a` 就必须切
+IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
+架构只勾 ARM64、不勾「ARMv7 + ARM64」：双架构会把 IL2CPP 的原生产物（`libil2cpp.so`、
+`libunity.so`）按架构各打一份进 APK，体积接近翻倍，而 2026 年的新项目只支持 64 位是主流做法。
+真要照顾 32 位老设备，改 `BuildScript.cs` 里 `targetArchitectures` 那一行即可。
+
+> **⚠ 加了 `-Release` ≠ 可以上架。** 它只解决 64 位这一条。还差两样：
+> **① 格式**——Google Play 对新应用要求 **AAB**（`.aab`），而 `BuildScript` 目前只出 **APK**；
+> **② 签名**——出来的包没配 keystore，是调试签名，商店不收。
+> 真要上架时：在 `ConfigureAndroid` 里把 `EditorUserBuildSettings.buildAppBundle` 翻成 `true`
+> （建议再加个 `-appBundle` 开关，别写死），并配上签名 keystore（CI 侧还要多加 secret，见
+> [`ci-setup.md`](ci-setup.md) 的「已知的缺口」）。**这两条现在都没做**，别以为有了开关就万事大吉。
+
+**设置是临时改的，不会留在工作区**。`-Release` 改的 `scriptingBackend` / `targetArchitectures`
+都存在 `ProjectSettings/ProjectSettings.asset` 里，属于全工程共享的状态。`BuildScript` 的做法是：
+进来先把原值和该文件的**原始字节**一起存下，`BuildPlayer` 包在 `try` 里，`finally` 里无条件写回
+并 `AssetDatabase.SaveAssets()`，再按原始字节比对、不一致就整体回写；构建失败或抛异常同样走这条路。
+所以出完包 `git status` 里**不该**多出 `ProjectSettings/ProjectSettings.asset`。
+两个细节值得知道，都不显然：
+
+- 只按 API 恢复语义是不够的。`scriptingBackend` 原本是空字典 `{}`，用 `SetScriptingBackend`
+  写回 `Mono2x` 会留下一条显式的 `Android: 0` —— 语义一样，文本多一行，`git diff` 照样脏。
+  所以恢复的最后一步是按原始字节整体回写。
+- 恢复必须发生在报告结果**之前**。批处理模式下汇报的最后一步是 `EditorApplication.Exit()`，
+  那是直接终止进程、不展开调用栈的，把它写进 `try` 块里 `finally` 就永远跑不到。
+
+### 14.3 Addressables 内容已经接进打包
 
 `BuildScript` 在出包前会**自动跑一次 `AddressableAssetSettings.BuildPlayerContent()`**，
 所以不需要手动 Build 内容。这意味着：
@@ -863,7 +916,7 @@ private sealed class FakeConfigService : IConfigService
   这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
 
-### 14.3 出错了怎么读
+### 14.4 出错了怎么读
 
 `/build` 失败时会摘日志里的前几条错误。常见的三类：
 
@@ -871,9 +924,9 @@ private sealed class FakeConfigService : IConfigService
 | --- | --- |
 | 拿不到工程锁 / `Temp/UnityLockfile` | 编辑器还开着 |
 | `Android SDK/NDK not found` | 装编辑器时没勾 Android Build Support 的子模块（见 1.2） |
-| 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.2） |
+| 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.3） |
 
-### 14.4 CI
+### 14.5 CI
 
 两条流水线（配置在 `.github/workflows/`）：**push 跑 EditMode 测试**、**打 tag 出包**
 （Windows 端游 + Android 手游，共用一套内容）。一次性配置——三个 Unity 许可证 secret 怎么填、

@@ -31,6 +31,19 @@
 .PARAMETER Development
     开发版构建：带 Development 标记，可连 Profiler，体积更大，不要用来发版。
 
+.PARAMETER Release
+    Android 可上架配置：临时切 IL2CPP + 仅 ARM64（Google Play 自 2019 年起要求 64 位），
+    出完包由 BuildScript 立刻把 ProjectSettings 改回原样，工作区不留 diff。
+
+    **平时不加**：IL2CPP 要把整个 C# 程序集转译成 C++、再用 NDK 编成原生库，比默认路径慢好几倍
+    （2026-09-16 本工程实测：默认 75 秒 → Release 268 秒，约 3.6 倍；包体 33.4 MB → 41.6 MB）。
+    这个差距随代码量增长，工程大了 IL2CPP 到十几分钟很常见。
+    **要上架、或者要测真机真实性能时才加**（Mono 和 IL2CPP 的运行速度不是一回事）。
+
+    只对 Android 有意义，Windows 上加了会被忽略。
+    注意：它只解决 64 位这一条，导出的仍是 APK，而 Google Play 对新应用要的是 AAB，
+    所以加了它也**不等于**可以直接上架，见 docs/developer-guide.md 第 14 章。
+
 .PARAMETER UnityPath
     直接指定 Unity.exe，覆盖自动探测。
 
@@ -42,6 +55,9 @@
 
 .EXAMPLE
     powershell -NoProfile -File scripts/build.ps1 -Target Windows -Development -OutputPath Builds/Dev/21Days.exe
+
+.EXAMPLE
+    powershell -NoProfile -File scripts/build.ps1 -Target Android -Release
 
 .NOTES
     打包前必须关掉 Unity 编辑器：批处理模式要独占工程锁。
@@ -61,6 +77,10 @@ param(
     [string]$OutputPath,
 
     [switch]$Development,
+
+    # 只影响 Android：临时切 IL2CPP + 仅 ARM64 出可上架的 64 位包，出完包设置立刻还原。
+    # 实测慢 3～4 倍（75 秒 → 268 秒），日常出包别加。
+    [switch]$Release,
 
     [string]$UnityPath
 )
@@ -207,7 +227,29 @@ if ($Development) {
     $unityArgs += '-development'
 }
 
+if ($Release) {
+    $unityArgs += '-releaseBuild'
+}
+
 Write-Host "目标平台：$Target"
+
+# 明确打出本次用的是哪种配置：出完包别让人对着体积猜自己刚才出的到底是不是能上架的那种。
+if ($Target -eq 'Android') {
+    if ($Release) {
+        Write-Host "配置：Release（IL2CPP + ARM64，满足 Google Play 的 64 位要求）"
+        Write-Host "  慢：IL2CPP 要先把 C# 转译成 C++ 再用 NDK 编原生库，比默认路径慢好几倍（本工程实测 268 秒 vs 75 秒），别以为卡死了。"
+        Write-Host "  仍不等于可上架：Google Play 对新应用要 AAB，这里只出 APK。"
+        Write-Host "  设置是临时改的，出完包 BuildScript 会改回原样，工作区不留 diff。"
+    }
+    else {
+        Write-Host "配置：Development（沿用 ProjectSettings 里的脚本后端与 CPU 架构，出包快；工程默认是 Mono + ARMv7，不可上架）"
+        Write-Host "  要出能上架的 64 位包加 -Release。"
+    }
+}
+elseif ($Release) {
+    Write-Host "提示：-Release 只对 Android 有意义（它切的是 Android 的脚本后端与 CPU 架构），本次忽略。"
+}
+
 Write-Host "日志：$logFile"
 Write-Host "命令行：$unityExe $($unityArgs -join ' ')"
 Write-Host "开始打包，首次切平台会重新导入资产，可能要几分钟……"
@@ -260,6 +302,15 @@ if (Test-Path $fullOutput) {
     }
     else {
         Write-Host "打包成功：$fullOutput（$selfMb MB）"
+    }
+
+    # 上面那几行「配置：……」说的是本脚本的**意图**；这一行是 BuildScript 从 PlayerSettings 实读后
+    # 打进日志的**实际结果**。两者不一致时以这条为准。
+    if ($Target -eq 'Android') {
+        $configLine = Select-String -Path $logFile -Pattern '\[Build\] 配置：' -Encoding utf8 | Select-Object -Last 1
+        if ($configLine) {
+            Write-Host "  实际生效 → $($configLine.Line.Trim())"
+        }
     }
 }
 else {

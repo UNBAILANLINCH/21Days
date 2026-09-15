@@ -153,3 +153,15 @@
 - 根因：MCP 是**遥控编辑器**的通道，编辑器进程没了通道自然断。这和「编辑器开着 batchmode 打不了包」是同一枚硬币的两面：两者互斥，不可能同时拥有。
 - 正确做法：派打包类任务时**在派单里就写死命令行验证路径**，不要留给事后。可用的有——读 `Logs/build-*.log`（`grep -c "error CS\|BuildFailedException"`）；用 Python `zipfile` 列 APK 内容验架构与 bundle（别猜，要列）；`du -sh` / `stat` 量真实产物；`git status --short ProjectSettings/` 验临时改的工程设置是否恢复；`git show HEAD:<file>` 比对基线。全部不需要编辑器。
 - 关联：`.claude/skills/build/SKILL.md`、`ai-docs/pitfalls.md #编辑器开着时 batchmode 跑测试`；2026-09-16 出 Windows / Android / Release 三种包时踩到。
+
+## 编辑器停在未保存的空场景时，进 Play 什么都不会发生
+- 现象：用 MCP `manage_editor(action="play")` 验证功能，等了 10 秒，该写的文件没写、Console 里一条相关日志都没有，看起来像功能坏了。实际是活动场景是 Unity 默认的未保存空场景——`manage_scene(action="get_active")` 返回的 `name` 是空串、`buildIndex: -1`、`rootCount: 1`，`GameBootstrap` 压根不在场景里，进 Play 只是跑了个空场景。
+- 根因：Unity 打开工程时不保证恢复上次的场景（上次异常退出、别的进程动过工程、刚跑完 batchmode 出包，都可能停在 Untitled）。空场景照样能进 Play，不报任何错。
+- 正确做法：任何需要**跑起框架**的验证（埋点、模块回放、状态流），进 Play 前先 `manage_scene(action="get_active")` 确认活动场景是 `Assets/_Project/Scenes/Boot.unity`，不是就先 `load` 它。判别特征：`buildIndex: -1` 或 `name` 为空 = 未保存的空场景。
+- 关联：`.claude/skills/unity-mcp/SKILL.md`、`.claude/skills/verify-module/SKILL.md`；2026-09-16 验证埋点端到端时踩到。
+
+## 预先拆好的大文件重构，会被 doom-loop 钩子当成打转拦下
+- 现象：一次「单文件解析链路 → 支持多文件」的重构，连续编辑同一个 `.py` 到第 8 次时被 `doom-loop-detect.py` 拦下，提示可能在错误方向上打转。但那是一次事先拆解清楚、按计划分步推进的重构，不是反复试错。
+- 根因：钩子按「同一文件连续编辑次数」判定，这个信号区分不了「反复试错」和「一次计划内的多步重构」——后者本来就会连着改同一个文件很多次。
+- 正确做法：被拦时**不要拆钩子**（`CLAUDE.md` 硬规则 5）。改用**脚本化补丁一次性打完**——把多处编辑写进一个 Python 脚本跑一遍，既绕开连续编辑计数，改动也更好复核。如果某类重构反复被拦，把现象报给用户去评估判据要不要加例外，**不擅自改钩子**（钩子归策略层，改它要单独授权）。
+- 关联：`.claude/hooks/doom-loop-detect.py`、`CLAUDE.md` 硬规则 5；2026-09-16 重构 `.claude/skills/telemetry/analyze.py` 时踩到。

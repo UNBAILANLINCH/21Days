@@ -173,6 +173,8 @@ MonoBehaviour:
   uiConfig: {fileID: 11400000, guid: 3a0e598ca6ca5364bb9949e0e78748d0, type: 2}
   audioConfig: {fileID: 11400000, guid: ac890f115ee84bd45ba9aaccf7cfb302, type: 2}
   telemetryConfig: {fileID: 11400000, guid: bb8858465bd64e3418facce8243e6d1b, type: 2}
+  simulationConfig: {fileID: 11400000, guid: 8aeb095ac7d0b4f4a8b12cb657563c7d, type: 2}
+  replayConfig: {fileID: 11400000, guid: 56f331b2ae302bb4f8f8275d778f2f87, type: 2}
 --- !u!4 &351087044
 Transform:
   m_ObjectHideFlags: 0

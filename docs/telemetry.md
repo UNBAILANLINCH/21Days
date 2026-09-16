@@ -231,7 +231,12 @@ telemetry.Track("buy_item", ("id", intent.ItemId), ("n", intent.Count), ("ms", e
 
 **`module-missing-telemetry` 这条 lint 是 WARN 级（`exit 1`）**：Claude Code 对非 0/2 的退出码只把 stderr 给人看、不阻断模型，
 所以这条提醒人看得到，AI 不一定看得到。改成 `exit 2` 能让 AI 也被拦，但那样就成了硬阻断，
-与「埋点缺失不该拦住人干活」冲突，所以没这么做。**真正保证「做完模块就埋点」的是 `/new-feature` 第 6 步那个显式步骤，lint 只是给人的兜底提醒。**
+与「埋点缺失不该拦住人干活」冲突，所以没这么做。
+
+**更要紧的是它的覆盖面**：这条规则只在「整个模块一个埋点调用都没有」时才响。模块已经埋过点之后，
+**新增代码里漏埋的点它完全沉默**——别指望 lint 兜住埋点完整性。
+真正保证「做完模块就埋点」的是两个显式步骤：新建模块走 `/new-feature` 第 6 步，
+迭代已有模块走 `/review-change` 的收尾门（只补本次改动新增的点，不背历史债）。lint 只是给人的兜底提醒。
 
 - 模块埋点补全：`/instrument-module <模块>`；`/new-feature` 在验证之前有一步专门调它
 - 日志门面：`Assets/_Project/Scripts/Core/Logging/Log.cs`

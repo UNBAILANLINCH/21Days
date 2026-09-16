@@ -80,6 +80,6 @@ Assets/_Project/
 - 健康度：`python .claude/skills/evolution/gc_scan.py`（含跨文件静态不变量 `invariants.py`：asmdef 依赖方向、平台宏、命名空间、`.meta`、UI 地址）。
 - 行为回归：`/run-evals`，用例与格式见 [`evals/README.md`](evals/README.md)。
 - 模块回放验证：`/verify-module`，规范见 [`docs/module-dev-spec.md`](docs/module-dev-spec.md)。
-- 打包：本机 `scripts/build.ps1`（编辑器须关闭），CI 见 [`docs/ci-setup.md`](docs/ci-setup.md)。
+- 打包：本机 `scripts/build.ps1`（编辑器须关闭）；CI 已搁置（Unity 账号激活 401），原因与将来重做的前置条件见 [`docs/ci-setup.md`](docs/ci-setup.md)。
 - **Bash 不写 `cd … &&`**：工作目录已在工程根，路径写绝对路径或相对工程根。带 `cd` 后权限检查算不出相对路径落在哪，会因 `.env` 的 Read deny 规则弹确认，自动模式也拦不住。
 - **中文优先**：回复、代码注释、文档、钩子与 lint 的提示信息一律中文；代码标识符（类名、变量名）仍用英文。引用代码用 `path:line`。

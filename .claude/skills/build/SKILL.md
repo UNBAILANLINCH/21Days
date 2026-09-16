@@ -16,10 +16,9 @@ disable-model-invocation: true
 Test-Path Temp/UnityLockfile
 ```
 
-**开着就停下**，把两条路摆给用户，等用户选：
+**开着就停下**，让用户关掉 Unity 编辑器后重新 `/build`。
 
-- 关掉 Unity 编辑器后重新 `/build`；
-- 或者走 CI：`gh workflow run build.yml -f targets=Windows`（用法见 `docs/ci-setup.md`）。
+（工程没有 CI 可退——2026-09-16 已搁置，原因见 `docs/ci-setup.md`。本机是唯一出包路径。）
 
 **不重试、不绕**（不要删锁文件、不要杀 Unity 进程、不要试 `-force` 之类的花样）。
 `scripts/build.ps1` 自己也会拦一道，检测到编辑器在跑就 **exit 2** —— 撞上 exit 2 同样按这条处理。
@@ -86,9 +85,9 @@ Android 还要**带上本次的配置**（脚本最后一行 `实际生效 → [
 
 - 只跑构建，**不改工程文件**。要改 Player Settings / 场景列表，先说明再单独做，不要顺手塞进这次打包。
 - 不 `git add` / `git commit` 产物；`Builds/` 已在 `.gitignore` 里。
-- 出给别人的正式版本走 CI 打 tag（`docs/ci-setup.md`），本机包只用于自测。
+- 工程没有 CI（已搁置，见 `docs/ci-setup.md`），出给别人的版本也是本机打，注意包没签名、只适合小范围分发。
 
 ## 完成标准
 
-编辑器开着时：已停下并给出两条路，没有任何重试。
+编辑器开着时：已停下并要求用户关掉编辑器，没有任何重试。
 编辑器没开时：构建进程已结束，且要么报出了产物路径与体积，要么给出了从日志里摘的前几条错误与对应文件行；卡在哪一步说不清就直说卡在哪，不猜结果。

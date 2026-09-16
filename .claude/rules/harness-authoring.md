@@ -27,7 +27,7 @@ alwaysApply: false
 标了就是诚实的 fire-and-forget，不标而指望自觉才是问题。
 
 **已证明在运转的载体（本工程）**：PreToolUse / PostToolUse / Stop / PreCompact 四个钩子事件、
-`/gc`、`/unity-test`、`/review-change`、GitHub Actions 的 push 与 tag 触发。
+`/gc`、`/unity-test`、`/review-change`。
 **未证明的**：任何需要人「想起来」的周期性动作。
 
 ## 不建伴生跟踪文件

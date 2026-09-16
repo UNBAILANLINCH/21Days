@@ -937,8 +937,8 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
 > **① 格式**——Google Play 对新应用要求 **AAB**（`.aab`），而 `BuildScript` 目前只出 **APK**；
 > **② 签名**——出来的包没配 keystore，是调试签名，商店不收。
 > 真要上架时：在 `ConfigureAndroid` 里把 `EditorUserBuildSettings.buildAppBundle` 翻成 `true`
-> （建议再加个 `-appBundle` 开关，别写死），并配上签名 keystore（CI 侧还要多加 secret，见
-> [`ci-setup.md`](ci-setup.md) 的「已知的缺口」）。**这两条现在都没做**，别以为有了开关就万事大吉。
+> （建议再加个 `-appBundle` 开关，别写死），并配上签名 keystore（见
+> [`ci-setup.md`](ci-setup.md) 的「上架相关的缺口」）。**这两条现在都没做**，别以为有了开关就万事大吉。
 
 **设置是临时改的，不会留在工作区**。`-Release` 改的 `scriptingBackend` / `targetArchitectures`
 都存在 `ProjectSettings/ProjectSettings.asset` 里，属于全工程共享的状态。`BuildScript` 的做法是：
@@ -974,14 +974,16 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
 | `Android SDK/NDK not found` | 装编辑器时没勾 Android Build Support 的子模块（见 1.2） |
 | 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.3） |
 
-### 14.5 CI
+### 14.5 CI（已搁置）
 
-两条流水线（配置在 `.github/workflows/`）：**push 跑 EditMode 测试**、**打 tag 出包**
-（Windows 端游 + Android 手游，共用一套内容）。一次性配置——三个 Unity 许可证 secret 怎么填、
-tag 怎么打、产物去哪儿取——见 [`ci-setup.md`](ci-setup.md)。
+**2026-09-16 起工程里没有 CI**：两条 GitHub Actions 流水线已删除，许可证 secret 已清空，
+push 不再触发任何自动化。原因是 game-ci 激活 Unity 许可证时账号登录返回 **401**——
+Personal 许可证是机器绑定的，而 CI 每跑一次都是一台新机器，绕这个限制要在线登录账号，
+这条链断在 Unity 侧，不是工程配置问题。完整根因、当时验证通过的环节、将来重做的前置条件，
+见 [`ci-setup.md`](ci-setup.md)。
 
-现状：**日常出包在本机 `/build`，CI 负责兜底**（本机漏跑的测试、只在干净机器上复现的编译错误，靠它拦）。
-改打包流程时两边都要想到——`Game.Editor.BuildScript` 是唯一入口，本机与 CI 走的是同一段代码，这是有意为之。
+**所以出包和跑测试都只有本机一条路**：`/build` 出包（编辑器须关闭），`/unity-test` 跑测试。
+没有兜底的第二道门了——本机漏跑的测试不会有人替你拦，提交前自己跑。
 
 ## 15. 常见问题
 

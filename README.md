@@ -26,9 +26,8 @@
 | uv | 提供 `uvx`，用来拉起 Unity MCP 服务端（`.mcp.json`） |
 | Python 3 | 跑 `.claude/hooks/` 的钩子与 `project-lint` / `gc_scan` |
 | Node | 跑 `.claude/hooks/guard.js`（写入 / 命令拦截） |
-| GitHub Actions | CI：push 跑 EditMode 测试、打 tag 出 Windows + Android 包（game-ci，公开仓库免费额度） |
 
-一次性接入步骤见 [`docs/ai-setup.md`](docs/ai-setup.md)（AI 协作）与 [`docs/ci-setup.md`](docs/ci-setup.md)（CI 与打包）。
+一次性接入步骤见 [`docs/ai-setup.md`](docs/ai-setup.md)（AI 协作）；打包见 [`docs/ci-setup.md`](docs/ci-setup.md)（本机出包用法；CI 已搁置，含根因）。
 
 ## harness 五层
 
@@ -104,10 +103,9 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 ├── ai-shared/evolution/       进化产物归档（signals/ 复盘 · weekly/ 小结）
 ├── evals/                     harness 行为回归用例
 ├── PRP/                       PRP 工作区（决策留痕入库）
-├── .github/workflows/         CI：unity-tests.yml（push 跑测试）· build.yml（tag 出包）
 ├── scripts/build.ps1          本机打包入口（调 Editor 的 BuildScript，编辑器须关闭）
 ├── docs/ai-setup.md           MCP 一次性接入
-├── docs/ci-setup.md           CI secret 配置、触发方式、本机打包与 CI 的关系
+├── docs/ci-setup.md           本机打包用法；CI 为何搁置（激活 401）与重做前置
 ├── Tables/                    配置表源头：Excel 源表 + Luban 配置（策划改这儿）
 ├── scripts/gen-tables.ps1     配置表生成（也可用 Unity 菜单 21Days/配置表/生成）
 ├── Assets/

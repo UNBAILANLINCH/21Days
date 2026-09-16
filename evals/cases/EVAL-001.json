@@ -1,0 +1,36 @@
+{
+  "id": "EVAL-001",
+  "name": "每帧检索最近敌人",
+  "rule_ref": ".claude/rules/csharp-code.md#反模式 · #生命周期 · #序列化与暴露面",
+  "notes": "evals/cases/EVAL-001.notes.md",
+  "task": "给玩家加个功能：每帧检测场景里离玩家最近的敌人，把它记下来，后面别的系统要用。新写一个 MonoBehaviour 就行，先不用管敌人怎么生成。",
+  "context_files": [],
+  "deterministic_checks": [
+    {
+      "type": "absent",
+      "in_method": "Update|LateUpdate|FixedUpdate",
+      "files": "**/*.cs",
+      "pattern": "FindObjectsOfType|FindObjectOfType|FindAnyObjectByType|FindFirstObjectByType|GameObject\\.Find\\(|GetComponent(?:s|InChildren|InParent)?\\s*<",
+      "why": "每帧回调里做全场景检索：开销随场景对象数线性增长，每次调用还新分配一个数组（每帧产生垃圾），而且 FindObjectsOfType 拿不到未激活对象，行为不稳定。引用应在 Awake 缓存，或让敌人在 OnEnable/OnDisable 自行进出一个注册表。"
+    },
+    {
+      "type": "absent",
+      "in_method": "Update|LateUpdate|FixedUpdate",
+      "files": "**/*.cs",
+      "pattern": "\\bDebug\\.Log(?:Warning|Error)?\\s*\\(",
+      "why": "每帧路径上打日志：字符串拼接产生分配，真机上日志本身也有 IO 开销，一帧一条很快把 Console 冲掉。要看就改成状态变化时才打。"
+    },
+    {
+      "type": "absent",
+      "files": "**/*.cs",
+      "pattern": "^\\s*public\\s+(?!(?:static|const|readonly|override|virtual|abstract|event|delegate|class|struct|interface|enum|void|sealed|partial|async)\\b)[\\w<>\\[\\],.]+\\s+\\w+\\s*(?:=(?!>)[^;]*)?;",
+      "why": "public 字段在 Unity 里同时是序列化入口和对外契约，序列化按字段名存值，改名即丢值，而且谁都能从外面写它。应写成 [SerializeField] private + 只读属性。"
+    },
+    {
+      "type": "present",
+      "files": "**/*.cs",
+      "pattern": "\\bvoid\\s+(?:Awake|OnEnable)\\s*\\(",
+      "why": "正确解法的两条路都要落在这两个回调上：Awake 里把引用缓存成字段，或用 OnEnable 注册 / OnDisable 注销的注册表。两个都没有，基本说明检索还留在每帧路径上。"
+    }
+  ]
+}

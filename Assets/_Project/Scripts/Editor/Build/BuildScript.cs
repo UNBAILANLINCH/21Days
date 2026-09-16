@@ -19,6 +19,7 @@
 //   -buildVersion <字符串> 写入 PlayerSettings.bundleVersion
 //   -buildNumber <整数>   Android 的 bundleVersionCode；不给而给了 -buildVersion 时改为自增
 //   -development          打开 BuildOptions.Development
+//   -releaseBuild         Android 可上架配置：临时切 IL2CPP + 仅 ARM64，出完包立刻把设置改回原样
 //
 // 新建理由（project-root.md「加能力的顺序」）：工程此前没有任何编辑器脚本，
 // 既没有可复用的现成工具，也没有职责相符、能塞进去的已有文件，只能新建。
@@ -130,6 +131,14 @@ namespace Game.Editor
                 Log("开发版构建：带 Development 标记（可连 Profiler、允许调试，体积更大，别用来发版）");
             }
 
+            // -releaseBuild 改的是 Android 的脚本后端与 CPU 架构，对别的平台无意义。
+            bool releaseBuild = HasFlag("-releaseBuild");
+            if (releaseBuild && target != BuildTarget.Android)
+            {
+                Log($"-releaseBuild 只对 Android 有意义（它切的是 Android 的脚本后端与 CPU 架构），{target} 忽略此开关。");
+                releaseBuild = false;
+            }
+
             // Addressables 内容必须在 BuildPlayer 之前构建：包体里的资源目录是这一步产出的，
             // 跳过它出来的包能启动但所有 LoadAsync 都拿不到东西（真机上是静默失败，最难查的一类）。
             if (!BuildAddressableContent())
@@ -147,8 +156,171 @@ namespace Game.Editor
             };
 
             Log($"开始打包，产物 {fullOutputPath}");
-            BuildReport report = BuildPipeline.BuildPlayer(playerOptions);
+
+            // 临时改工程设置前，把原值和 ProjectSettings.asset 的原始字节一起存下来。
+            // 为什么连字节都要存：「语义恢复」不等于「文本恢复」。scriptingBackend 原本是空字典 {}，
+            // 用 SetScriptingBackend 写回 Mono2x 会留下一条显式的 Android: 0 —— 语义一模一样，
+            // 但文件多了一行，工作区就凭空多出一条谁也不想要的 diff。
+            ScriptingImplementation originalBackend = default(ScriptingImplementation);
+            AndroidArchitecture originalArchitectures = default(AndroidArchitecture);
+            byte[] originalProjectSettings = null;
+            bool settingsTouched = false;
+
+            BuildReport report = null;
+            try
+            {
+                if (releaseBuild)
+                {
+                    originalBackend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android);
+                    originalArchitectures = PlayerSettings.Android.targetArchitectures;
+                    originalProjectSettings = ReadProjectSettingsBytes();
+
+                    // 先立旗再改：哪怕下面两句只成功了一半、或中间抛了异常，finally 也会照原值写回一遍。
+                    settingsTouched = true;
+
+                    PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
+
+                    // 只勾 ARM64，不勾「ARMv7 + ARM64」双架构：IL2CPP 的原生产物（libil2cpp.so / libunity.so）
+                    // 按架构各打一份进 APK，双架构体积接近翻倍；2026 年新项目只支持 64 位是主流做法
+                    // （Google Play 自 2019 年起本来就要求 64 位）。真要兼容 32 位老设备，改这一行即可。
+                    PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+                }
+
+                if (target == BuildTarget.Android)
+                {
+                    LogAndroidConfiguration(releaseBuild);
+                }
+
+                report = BuildPipeline.BuildPlayer(playerOptions);
+            }
+            finally
+            {
+                if (settingsTouched)
+                {
+                    RestoreAndroidSettings(originalBackend, originalArchitectures, originalProjectSettings);
+                }
+            }
+
+            // ReportResult 必须留在 try/finally 之外：它内部的 Quit 在批处理模式下调 EditorApplication.Exit，
+            // 那是直接终止进程、不展开调用栈的，写进 try 里 finally 永远跑不到，
+            // IL2CPP + ARM64 就会永久留在工作区 —— 这是本功能最容易翻车的地方。
             ReportResult(report);
+        }
+
+        /// <summary>
+        /// 把本次真正生效的 Android 配置打进日志，供 build.ps1 回显，也方便事后从日志确认出的是哪种包。
+        /// 读设置的当前值而不是照着开关硬写，免得日志和实际出的包对不上。
+        /// </summary>
+        /// <param name="releaseBuild">本次是否带了 -releaseBuild。</param>
+        private static void LogAndroidConfiguration(bool releaseBuild)
+        {
+            ScriptingImplementation backend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android);
+            AndroidArchitecture architectures = PlayerSettings.Android.targetArchitectures;
+            bool has64Bit = (architectures & AndroidArchitecture.ARM64) != 0;
+
+            string profile = releaseBuild ? "Release" : "Development";
+            string verdict = has64Bit
+                ? "满足 Google Play 的 64 位要求；但商店要的是 AAB，这里只出 APK，仍不能直接上架"
+                : "不可上架：Google Play 自 2019 年起要求 64 位";
+
+            Log($"配置：{profile}（{backend} + {architectures}，{verdict}）");
+        }
+
+        /// <summary>
+        /// 把 -releaseBuild 临时改掉的 Android 设置写回原样，并保证 ProjectSettings.asset 在磁盘上
+        /// 与构建前逐字节一致。构建成功、失败、抛异常都会走到这里。
+        /// </summary>
+        /// <param name="backend">构建前的脚本后端。</param>
+        /// <param name="architectures">构建前的 CPU 架构。</param>
+        /// <param name="originalProjectSettings">构建前 ProjectSettings.asset 的原始字节，读不到就是 null。</param>
+        private static void RestoreAndroidSettings(
+            ScriptingImplementation backend,
+            AndroidArchitecture architectures,
+            byte[] originalProjectSettings)
+        {
+            try
+            {
+                PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, backend);
+                PlayerSettings.Android.targetArchitectures = architectures;
+
+                // 先让 Unity 把内存里的设置刷到磁盘，再比对字节。顺序反了就会把 Unity 随后的写入
+                // 当成「已经恢复好了」，白忙一场。
+                AssetDatabase.SaveAssets();
+                RestoreProjectSettingsBytes(originalProjectSettings);
+
+                Log($"已恢复为 {backend} + {architectures}（-releaseBuild 只在本次构建期间生效）");
+            }
+            catch (Exception exception)
+            {
+                // 恢复失败必须喊出来：工作区里会留着 IL2CPP + ARM64 的改动，人得知道去手动还原。
+                Debug.LogError($"{LogPrefix} 恢复 Android 构建设置失败：{exception.Message}；"
+                               + "请手动执行 git checkout -- ProjectSettings/ProjectSettings.asset 还原。");
+            }
+        }
+
+        /// <summary>读 ProjectSettings.asset 的原始字节；文件不在就返回 null，那种情况下只做语义恢复。</summary>
+        private static byte[] ReadProjectSettingsBytes()
+        {
+            string path = GetProjectSettingsPath();
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return null;
+            }
+
+            return File.ReadAllBytes(path);
+        }
+
+        /// <summary>
+        /// 磁盘上的 ProjectSettings.asset 与构建前不一致时，按原始字节整体写回。
+        /// Unity 序列化「默认值」的写法和原文件不一定一样（空字典 {} vs 显式一条 Android: 0），
+        /// 只按 API 恢复语义会留下纯文本层面的 diff，这一步把它抹平。
+        /// </summary>
+        /// <param name="original">构建前的原始字节，null 表示没存到，跳过。</param>
+        private static void RestoreProjectSettingsBytes(byte[] original)
+        {
+            if (original == null)
+            {
+                return;
+            }
+
+            string path = GetProjectSettingsPath();
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return;
+            }
+
+            if (BytesEqual(File.ReadAllBytes(path), original))
+            {
+                return;
+            }
+
+            File.WriteAllBytes(path, original);
+            Log("ProjectSettings.asset 与构建前不一致，已按原始内容整体回写，工作区不留 diff。");
+        }
+
+        /// <summary>ProjectSettings.asset 的绝对路径，由工程根推出来，不写死任何本机路径。</summary>
+        private static string GetProjectSettingsPath()
+        {
+            return ToAbsoluteProjectPath("ProjectSettings/ProjectSettings.asset");
+        }
+
+        /// <summary>逐字节比较两段内容；任一为 null 或长度不同都算不相等。</summary>
+        private static bool BytesEqual(byte[] left, byte[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i] != right[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -205,9 +377,10 @@ namespace Game.Editor
         /// <param name="version">本次 -buildVersion 的值，没给就是 null。</param>
         private static bool ConfigureAndroid(string version)
         {
-            // 先出 APK：本地装机、发测试包都直接用它；上 Google Play 才需要 AAB，
-            // 那时再加一个 -appBundle 之类的参数打开这里，顺便把脚本后端切 IL2CPP、
-            // 架构勾 ARM64（Play 商店的硬要求）。现在保持工程默认，不在这里偷偷改工程设置。
+            // 只出 APK：本地装机、发测试包都直接用它。Google Play 对新应用要的是 AAB，
+            // 这是 -releaseBuild **没有**覆盖到的一条缺口 —— 它解决的是 64 位（IL2CPP + ARM64），
+            // 导出格式还是 APK，所以「加了 -Release」不等于「能上架」。
+            // 真要上架时在这里加一个 -appBundle 之类的开关把它翻成 true，顺带配签名 keystore。
             EditorUserBuildSettings.buildAppBundle = false;
 
             // 包名分平台存，用 NamedBuildTarget 显式读 Android 的那一份，
@@ -295,9 +468,11 @@ namespace Game.Editor
             BuildSummary summary = report.summary;
             if (summary.result == BuildResult.Succeeded)
             {
-                double sizeMb = summary.totalSize / 1024d / 1024d;
+                // 不用 summary.totalSize：它统计的是构建过程里所有中间产物的合计，
+                // 实测 Android 一次 IL2CPP 构建报 906.9 MB 而 APK 只有 41.6 MB，差二十倍，
+                // 看日志的人会以为包体失控。这里直接量磁盘上的真实产物。
                 Log($"打包成功：{summary.outputPath}");
-                Log($"体积 {sizeMb:F1} MB，耗时 {summary.totalTime.TotalSeconds:F1} 秒，"
+                Log($"体积 {MeasureOutputMb(summary.outputPath):F1} MB，耗时 {summary.totalTime.TotalSeconds:F1} 秒，"
                     + $"警告 {summary.totalWarnings} 条");
                 Quit(0);
                 return;
@@ -307,6 +482,60 @@ namespace Game.Editor
                            + $"耗时 {summary.totalTime.TotalSeconds:F1} 秒");
             LogFirstErrors(report);
             Quit(1);
+        }
+
+        /// <summary>
+        /// 量磁盘上真实产物的体积，单位 MB。
+        /// Android 的产物是单个 apk，量它自己；Windows 的产物是一个目录
+        /// （exe 只是几百 KB 的启动器，数据在同级的 *_Data 里），量整个目录。
+        /// 量不到就返回 0，只是日志少一个数字，不该因此让打包失败。
+        /// </summary>
+        private static double MeasureOutputMb(string outputPath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(outputPath))
+                {
+                    return 0d;
+                }
+
+                long bytes;
+                if (Directory.Exists(outputPath))
+                {
+                    bytes = DirectorySizeBytes(outputPath);
+                }
+                else if (File.Exists(outputPath))
+                {
+                    string dir = Path.GetDirectoryName(outputPath);
+                    // Windows：产物是目录里的一个 exe，整个目录才是包体
+                    bytes = Path.GetExtension(outputPath).Equals(".exe", StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrEmpty(dir)
+                        ? DirectorySizeBytes(dir)
+                        : new FileInfo(outputPath).Length;
+                }
+                else
+                {
+                    return 0d;
+                }
+
+                return bytes / 1024d / 1024d;
+            }
+            catch (Exception e)
+            {
+                Log($"量产物体积失败（不影响打包结果）：{e.Message}");
+                return 0d;
+            }
+        }
+
+        private static long DirectorySizeBytes(string dir)
+        {
+            long total = 0L;
+            foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+            {
+                total += new FileInfo(file).Length;
+            }
+
+            return total;
         }
 
         /// <summary>回显构建报告里的前几条错误，剩下的去完整日志里翻。</summary>

@@ -83,3 +83,85 @@
 - 根因：MCP for Unity 的 `read_console` 走的是编辑器 Console 的内部 `LogEntries` 接口，它尊重 Console 窗口右上角 **Log / Warning / Error 三个等级按钮**的开关状态。有人为了清净把 Log 和 Warning 关掉后，这两类条目在窗口里不显示、经 MCP 也读不到，只剩 Error。这个开关存在本机 `UserSettings/`，不进 git，所以每台机器状态不同，别人复现不了。
 - 正确做法：读不到日志先看 Console 窗口右上角三个等级按钮是否都亮着，点亮再读；`/onboard` 的人工步骤里提醒新人别关。真要过滤用 `read_console` 的 `types` / `filter_text` 参数，不要关窗口按钮。
 - 关联：`.claude/skills/unity-mcp/SKILL.md #故障排查`、`docs/developer-guide.md #15.2`；波 1 踩到、波 3 定位，2026-09-15。
+
+## 关掉 Run In Background，MCP 遥控下的 Play 模式必然「假死」
+- 现象：用 MCP 进 Play 模式后，`await` 永远不返回、面板动画停在第一帧、连查两次 `Time.frameCount` 数值一样；代码不报错，像死锁。手动点回编辑器窗口后又突然全部跑完。
+- 根因：Player Settings 的 **Run In Background** 关掉时（`ProjectSettings.asset` 里 `runInBackground: 0`），编辑器窗口失焦 Unity 就不推进 PlayerLoop。MCP 遥控时编辑器一直是失焦的，所以必现。这是**工程设置**，会连累每个用 MCP 的人。
+- 正确做法：本工程保持 `runInBackground: 1`，不要在 Player Settings 里取消勾选。真要让玩家切出去时暂停，用 `OnApplicationFocus` 写玩法层的暂停逻辑，不要关这个开关。临时绕过可在运行时设 `Application.runInBackground = true`，但那只在当次 Play 有效，治标。Android 上应用切后台由系统挂起，这个开关基本不起作用，所以关它对成品包也没什么收益。
+- 关联：`docs/developer-guide.md #15.6`、`ProjectSettings/ProjectSettings.asset`；2026-09-15 波 3 踩到、当天有人误关一次。
+
+## `Editor.log` 是本机全局的，按默认路径读会读到别的工程
+- 现象：分析埋点日志时摘要里的会话对不上——版本号、场景名、报错内容都不是本工程的；或者本工程明明刚跑过，日志里却一条埋点都没有。
+- 根因：`%LOCALAPPDATA%\Unity\Editor\Editor.log` 这个路径**不带工程名，是整台机器共用的**。本机同时开着两个 Unity（本工程 + 参考工程）时，后启动的那个会把先前那份挤成 `Editor-prev.log`；分析脚本按固定路径去读，读到的就是另一个工程正在写的日志。实测发生过一次，而且非常难察觉：日志是真的、格式是对的、只是**不是你要查的那个工程**。
+- 正确做法：`TelemetryService` 初始化时把 `Application.consoleLogPath`（Unity 给出的**当前实例真正在写的**日志完整路径）写进工程内的指针文件 `Logs/telemetry-source.txt`（`Logs/` 已 gitignore，里面没有任何埋点数据，只有一行「本工程的日志在哪」）。定位顺序固定为**指针文件 → 用户显式给的路径 → 猜默认路径**，猜出来的必须校验第一条 `session_start` 的 `p.prod` 与本工程 `productName` 对得上，对不上直接报错退出，不拿着别人的日志做分析。`/analyze-telemetry` 默认 `--source auto` 走的就是这条链；先跑 `analyze.py sources` 看这次用的是哪条。
+- 关联：`docs/telemetry.md #日志到底在哪：指针文件`、`.claude/skills/telemetry/SKILL.md #0 定位日志源`；2026-09-16 波 4 实测。
+
+## 往 `.cs` 里写含正则 / 反斜杠的代码，不能走 Bash heredoc
+- 现象：用 Bash 的 heredoc（`cat > Foo.cs <<'EOF'` 一类）生成脚本或测试文件，写进去的 `\\.` 变成 `\.`、`\\s` 变成 `\s`、`\"` 丢了反斜杠；Unity 一编译就是一串莫名其妙的语法错误，而对话里看到的内容是对的。波 1 为此返工过一次。
+- 根因：Bash 工具这一层对命令字符串还会做一次转义处理，heredoc 里的反斜杠被吃掉一层。正则字面量（`@"^\[Game\]\[T\] ..."`）、Windows 路径、JSON 里的 `\\.` 全是重灾区——**它们恰恰是「一个字符错了就整体失效、但不会报错」的东西**。
+- 正确做法：写文件一律用 **Write / Edit 工具**，不用 shell 重定向拼内容。Bash 只用来跑命令、读文件、做检索。同理：往 `rules.json` 这类 JSON 里加正则、往 Python 里写 `re.compile(...)`，也走 Write / Edit。
+- 关联：`CLAUDE.md #验证与工具`、`.claude/skills/project-lint/rules.json`、`.claude/skills/instrument-module/scan.py`；波 1 踩到，2026-09-16 波 4 复述。
+
+## 行为 eval 全绿，不代表知识注入三层都验过了
+- 现象：`/run-evals` 报 3/3 通过，于是认为「规则能送达、AI 能照做」这件事已经有回归保护。实际上**第三层（模块 guide 强制闸）一次都没被测到**，它坏了 eval 也照样全绿。
+- 根因：知识是三层加载的——常驻的 `CLAUDE.md`、按文件类型 glob 注入的 `.claude/rules/`、以及编辑模块代码前由 `required-reads` 钩子强制先读的模块 guide。第三层靠钩子里的路径匹配触发，规则写死在 `required_reads.json`：`Assets/_Project/Scripts/Runtime/*/**`。而行为 eval 让 subagent 在 **scratchpad 的临时目录**里落盘（故意的，不能往仓库里写），临时目录不在那个路径下，匹配不命中，钩子根本不会触发。所以 eval 测得到前两层，唯独测不到第三层。
+- 正确做法：看 eval 结果时把结论限定成「常驻规则与按类型注入的规则有效」，不要外推成「知识层没问题」。模块 guide 那道闸单独验：`.claude/hooks/tests/` 里的端到端用例覆盖了它（构造真实仓库路径喂给钩子，断言拦与放行），跑 `/gc` 就会带着跑。真要在 eval 里连它一起验，只能让 subagent 在仓库内真写再回滚，风险和成本都高一截——**当前选择是不做，并把这个边界写明，而不是让人以为覆盖全了**。
+- 关联：`.claude/skills/run-evals/SKILL.md #覆盖边界`、`.claude/hooks/required_reads.json`、`.claude/hooks/tests/`；2026-09-16 建 eval 载体时识别。
+
+## 中文显示成 `□`，改 TMP Settings 的 Default Font Asset 修不好
+- 现象：做好中文 TMP 字体资产，设成 `TMP Settings` 的 **Default Font Asset**，以为全局生效；结果已有界面（`TitleView` / `SampleView`）的中文还是方框，新建的 TMP 组件倒是好的。
+- 根因：预制体上的 TMP 组件把字体资产**显式序列化在 `m_fontAsset` 字段里**（这两个预制体指着 `LiberationSans SDF` 的 guid `8f586378...`），不是"留空用默认值"。TMP 的字符查找顺序是：组件自己的字体 → 该字体的局部 fallback → 局部 sprite asset → **TMP Settings 全局 fallback** → Default Font Asset → 默认 sprite asset（`TMP_Text.cs:6198` 一带）。Default Font Asset 排在倒数第二，确实会被查到，但它同时也决定**新建**文本组件默认挂哪个字体——用它兜中文，等于让以后每个新组件的主字体都变成中文字体，副作用比收益大。
+- 正确做法：中文字体挂进 `TMP Settings` 的 **Fallback Font Assets**（全局 fallback），Default Font Asset 保持 `LiberationSans SDF`。这样英文数字仍走 Liberation 的字形，缺字才回落；且对**所有** TMP 组件生效，不管它们各自挂的是哪个字体资产，一个预制体都不用改。不要去改 `Assets/TextMesh Pro/` 里 `LiberationSans SDF.asset` 自己的局部 fallback——那是模板自带资产，原位不动。
+- 关联：`docs/developer-guide.md #11.5`、`Assets/_Project/Art/Fonts/README.md`、`Assets/TextMesh Pro/Resources/TMP Settings.asset`；2026-09-16 上中文字体时踩到。
+
+## TMP Dynamic 字体资产进一次 Play 就胖 2 MB，污染 git
+- 现象：中文字体资产提交时才 6 KB，同事拉下来跑一次游戏，`git status` 里它就变成 2 MB 的改动；每个人每次 Play 都产生一份不一样的 diff，合并时天天冲突。
+- 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
+- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。
+- 关联：`Assets/_Project/Art/Fonts/README.md`、`docs/developer-guide.md #11.5`；2026-09-16 上中文字体时踩到。
+
+## 批处理打包里临时改工程设置，恢复写在「报告结果」之后 = 永远不会恢复
+- 现象：给 `BuildScript` 加 `-releaseBuild`（临时切 IL2CPP + ARM64 出 64 位包）后，出完包工作区里 `ProjectSettings/ProjectSettings.asset` 死死留着改动；代码里明明写了 `try/finally`，日志里那条「已恢复为……」却一次都没打出来过，像是 `finally` 被吃了。
+- 根因：批处理模式下汇报结果的最后一步是 `EditorApplication.Exit(code)`，它**直接终止进程，不抛异常、不返回、不展开调用栈**——所以包着它的 `finally` 永远轮不到执行。把 `BuildPipeline.BuildPlayer` 和 `ReportResult` 一起放进 `try` 是最自然的写法，恰恰是错的。`Fail()` 同理，它内部也调 `Quit`，改完设置之后再插任何会 `Fail()` 的前置检查，同样会漏掉恢复。
+- 正确做法：`try` 里**只放 `BuildPlayer`**，`finally` 里恢复设置，`ReportResult`（以及任何会调 `EditorApplication.Exit` 的收尾）**放在 `finally` 之后**；所有可能 `Fail()` 的前置检查全部提到「改设置」之前做，让「改设置 → BuildPlayer」之间不夹任何退出路径。恢复失败要 `Debug.LogError` 喊出来并提示 `git checkout -- ProjectSettings/ProjectSettings.asset`，别让人以为干净。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`Build` 的 try/finally、`RestoreAndroidSettings`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时识别。
+
+## `SetScriptingBackend` 写回默认值不会删条目：`{}` 变成 `Android: 0`，git diff 照样脏
+- 现象：`finally` 里老老实实把脚本后端设回 `Mono2x`、架构设回 `ARMv7`，`AssetDatabase.SaveAssets()` 也调了，日志里「已恢复」也打了；`git diff ProjectSettings/ProjectSettings.asset` 却还是有一条改动——`scriptingBackend: {}` 变成了两行的 `scriptingBackend:` + `  Android: 0`。**实测确实会发生**，不是理论担心。
+- 根因：`scriptingBackend` / `platformArchitecture` 这类字段序列化成的是**按平台键的字典**。工程从没显式设过 Android，字典就是空的 `{}`，读出来是该平台的默认值（Android 默认 Mono2x）。`SetScriptingBackend(Android, Mono2x)` 是**写入一条值为 0 的记录**，不是「删掉记录、回到默认」——Unity 没有公开的删除 API。语义完全一样，文本多一行，diff 照样脏。
+- 正确做法：改设置之前把 `ProjectSettings/ProjectSettings.asset` 的**原始字节**一起 `File.ReadAllBytes` 存下来；`finally` 里三步走：① 按 API 恢复内存里的值 → ② `AssetDatabase.SaveAssets()` 刷盘 → ③ 拿磁盘上的字节和原始字节比，不一致就整体 `File.WriteAllBytes` 回写。三步缺一不可，顺序也不能换：只回写字节不恢复内存值，Unity 之后再刷一次盘就会把改动写回来；先比对再刷盘，等于把 Unity 的写入当成「已经恢复好了」。本工程实测两次 Android 出包前后 `ProjectSettings.asset` 的 md5 完全一致，就是靠这三步。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`RestoreAndroidSettings` / `RestoreProjectSettingsBytes`）、`docs/developer-guide.md #14.2`；2026-09-16 加 `-Release` 开关时实测踩到。
+
+## `BuildSummary.totalSize` 不是 APK 体积，Android 上能差 20 倍
+- 现象：打包日志里 `[Build] 体积 906.9 MB`，磁盘上的 `21Days.apk` 只有 41.6 MB；同一次构建两个数字差了 20 多倍。IL2CPP 的包尤其夸张（Mono 那次是 109.6 MB vs 33.4 MB，也差 3 倍）。照着日志汇报会把人吓一跳，以为包体爆了。
+- 根因：`BuildReport.summary.totalSize` 统计的是**构建产物的未压缩总字节**（所有中间原生库、符号、未压缩资源都算进去），而 APK 是个 zip，`libil2cpp.so` 这类几十 MB 的原生库压缩率很高。这个字段在 Windows 那种「输出是一个目录」的平台上大致对得上，在 Android 上根本不是一回事。
+- 正确做法：Android 的体积以**磁盘上 `.apk` 文件的大小**为准（`scripts/build.ps1` 报的就是这个，对的）；`BuildSummary.totalSize` 只当「未压缩产物有多大」的参考，别写进汇报。要拆体积构成用 Build Report 或直接 `zipfile` 列 APK，不要用这个字段。
+- 关联：`Assets/_Project/Scripts/Editor/Build/BuildScript.cs`（`ReportResult`，目前仍在打这个数）、`.claude/skills/build/SKILL.md #3 汇报`；2026-09-16 加 `-Release` 开关实测时发现，**尚未修**。
+
+## 两个会话共用一个工作区，整份暂存会把对方没审过的改动一起提交
+- 现象：两个 Claude Code 会话同时开在同一个仓库上，各改各的。轮到自己提交时 `git add CLAUDE.md`，结果把对方正在写、还没给用户看过的内容一起提交了。对方那边的 `/review-change` 清单从此对不上，用户也没机会审那部分。
+- 根因：`git add` 是**文件级**的，不是行级。而 `CLAUDE.md`、`ai-docs/docs/catalog.md`、`ai-docs/pitfalls.md`、`.claude/skills/new-feature/SKILL.md` 这类 harness 共享文件，两个会话都会改。只要同一个文件里有两家的改动，整份暂存必然越界。更麻烦的是**看文件名判断不出归属**：对方给某个服务加埋点会改到 `UIService.cs`、`developer-guide.md`、`pitfalls.md`，这些名字里都没有「埋点」二字。
+- 正确做法：提交前先**按内容判归属**（`git diff -- <file> | grep -c` 数各自的特征词，别只看文件名），混合文件走这三步——
+  1. `git show HEAD:<path>` 取基线，在基线上**只重放自己的改动**（字符串替换或按 `## ` 分块挑），生成一份临时文件；
+  2. `git hash-object -w --path <path> <临时文件>` 写进对象库，再 `git update-index --cacheinfo 100644,<hash>,<path>` 只把这一版放进索引；
+  3. 提交前 `git diff --cached | grep -i <对方特征词>` 兜底确认零命中，提交后再确认对方的改动仍留在工作区。
+  纯属自己的文件照常 `git add`。**别用 `git add -p`**：交互式在本环境跑不了。
+- 关联：`CLAUDE.md #硬规则 4`、`.claude/skills/review-change/SKILL.md #并发会话`；2026-09-15 起连续七次提交都这么做，2026-09-16 沉淀。
+
+## 打包期间编辑器是关的，MCP 全部不可用，验证得提前想好命令行退路
+- 现象：`/build` 要求关闭编辑器（工程锁只允许一个实例），于是打包这段时间里 `read_console`、`run_tests`、`execute_code` 全部连不上——而人往往是打完包才想起「我要怎么确认它对不对」，这时只剩一个退出码可看。
+- 根因：MCP 是**遥控编辑器**的通道，编辑器进程没了通道自然断。这和「编辑器开着 batchmode 打不了包」是同一枚硬币的两面：两者互斥，不可能同时拥有。
+- 正确做法：派打包类任务时**在派单里就写死命令行验证路径**，不要留给事后。可用的有——读 `Logs/build-*.log`（`grep -c "error CS\|BuildFailedException"`）；用 Python `zipfile` 列 APK 内容验架构与 bundle（别猜，要列）；`du -sh` / `stat` 量真实产物；`git status --short ProjectSettings/` 验临时改的工程设置是否恢复；`git show HEAD:<file>` 比对基线。全部不需要编辑器。
+- 关联：`.claude/skills/build/SKILL.md`、`ai-docs/pitfalls.md #编辑器开着时 batchmode 跑测试`；2026-09-16 出 Windows / Android / Release 三种包时踩到。
+
+## 编辑器停在未保存的空场景时，进 Play 什么都不会发生
+- 现象：用 MCP `manage_editor(action="play")` 验证功能，等了 10 秒，该写的文件没写、Console 里一条相关日志都没有，看起来像功能坏了。实际是活动场景是 Unity 默认的未保存空场景——`manage_scene(action="get_active")` 返回的 `name` 是空串、`buildIndex: -1`、`rootCount: 1`，`GameBootstrap` 压根不在场景里，进 Play 只是跑了个空场景。
+- 根因：Unity 打开工程时不保证恢复上次的场景（上次异常退出、别的进程动过工程、刚跑完 batchmode 出包，都可能停在 Untitled）。空场景照样能进 Play，不报任何错。
+- 正确做法：任何需要**跑起框架**的验证（埋点、模块回放、状态流），进 Play 前先 `manage_scene(action="get_active")` 确认活动场景是 `Assets/_Project/Scenes/Boot.unity`，不是就先 `load` 它。判别特征：`buildIndex: -1` 或 `name` 为空 = 未保存的空场景。
+- 关联：`.claude/skills/unity-mcp/SKILL.md`、`.claude/skills/verify-module/SKILL.md`；2026-09-16 验证埋点端到端时踩到。
+
+## 预先拆好的大文件重构，会被 doom-loop 钩子当成打转拦下
+- 现象：一次「单文件解析链路 → 支持多文件」的重构，连续编辑同一个 `.py` 到第 8 次时被 `doom-loop-detect.py` 拦下，提示可能在错误方向上打转。但那是一次事先拆解清楚、按计划分步推进的重构，不是反复试错。
+- 根因：钩子按「同一文件连续编辑次数」判定，这个信号区分不了「反复试错」和「一次计划内的多步重构」——后者本来就会连着改同一个文件很多次。
+- 正确做法：被拦时**不要拆钩子**（`CLAUDE.md` 硬规则 5）。改用**脚本化补丁一次性打完**——把多处编辑写进一个 Python 脚本跑一遍，既绕开连续编辑计数，改动也更好复核。如果某类重构反复被拦，把现象报给用户去评估判据要不要加例外，**不擅自改钩子**（钩子归策略层，改它要单独授权）。
+- 关联：`.claude/hooks/doom-loop-detect.py`、`CLAUDE.md` 硬规则 5；2026-09-16 重构 `.claude/skills/telemetry/analyze.py` 时踩到。

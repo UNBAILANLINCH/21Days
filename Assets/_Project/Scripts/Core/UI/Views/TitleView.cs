@@ -2,9 +2,9 @@
 // 为什么新建：UIView 是抽象基类，得有一个真实面板把「面板该怎么写」立成范例；
 //   工程内没有任何 UIView 子类可复用或扩展。玩法定了之后这个面板会被真正的标题界面替换。
 
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.Core.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +27,14 @@ namespace Game.Core.UI.Views
         [Tooltip("「开始」按钮。")]
         [SerializeField] private Button startButton;
 
+        /// <summary>
+        /// 「开始」被点了。面板只报告**按钮被点了**这件事，不知道点完该去哪——
+        /// 那是玩法层的决定，由持有本面板的 <see cref="Flow.TitleState"/> 转成
+        /// <c>TitleStartClickedEvent</c> 发出去，玩法层订阅后自己切状态。
+        /// <para>订阅方自己负责退订；面板关闭时实例会被释放，订阅随之失效。</para>
+        /// </summary>
+        public event Action OnStartClicked;
+
         /// <summary>标题是主界面，走 Panel 层（全屏，会盖住下面的面板）。</summary>
         public override UILayer Layer => UILayer.Panel;
 
@@ -35,8 +43,8 @@ namespace Game.Core.UI.Views
             if (startButton != null)
             {
                 // 先 Remove 再 Add：面板被复用打开时（OpenAsync 对已开面板会再调一次 OnOpenAsync）不会叠两份监听。
-                startButton.onClick.RemoveListener(OnStartClicked);
-                startButton.onClick.AddListener(OnStartClicked);
+                startButton.onClick.RemoveListener(HandleStartClicked);
+                startButton.onClick.AddListener(HandleStartClicked);
             }
 
             OnRefresh();
@@ -47,7 +55,7 @@ namespace Game.Core.UI.Views
         {
             if (startButton != null)
             {
-                startButton.onClick.RemoveListener(OnStartClicked);
+                startButton.onClick.RemoveListener(HandleStartClicked);
             }
 
             return UniTask.CompletedTask;
@@ -62,9 +70,9 @@ namespace Game.Core.UI.Views
             }
         }
 
-        private void OnStartClicked()
+        private void HandleStartClicked()
         {
-            Log.Info("开始：玩法状态待接入");
+            OnStartClicked?.Invoke();
         }
     }
 }

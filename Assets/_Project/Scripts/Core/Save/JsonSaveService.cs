@@ -11,6 +11,7 @@ using Cysharp.Threading.Tasks;
 using Game.Core.Boot;
 using Game.Core.Logging;
 using Game.Core.Platform;
+using Game.Core.Telemetry;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -51,9 +52,20 @@ namespace Game.Core.Save
         /// <summary>分区类型全名 → 类型。反射扫程序集很贵，扫到的结果缓存下来。</summary>
         private readonly Dictionary<string, Type> typeCache = new Dictionary<string, Type>(StringComparer.Ordinal);
 
-        public JsonSaveService(IPlatformService platform)
+        private readonly ITelemetryScope telemetry;
+        private readonly ITelemetryClock clock;
+
+        /// <summary>
+        /// 两个埋点参数允许为 null（EditMode 测试里直接 new 出来的存档服务没有容器）：
+        /// 拿不到就整条埋点链路变空操作，读写存档的行为一个字节都不变。
+        /// </summary>
+        public JsonSaveService(IPlatformService platform, ITelemetryService telemetry, ITelemetryClock clock)
         {
             this.platform = platform ?? throw new ArgumentNullException(nameof(platform));
+            this.clock = clock;
+            this.telemetry = telemetry == null
+                ? (ITelemetryScope)NullTelemetryScope.Instance
+                : telemetry.Scope(TelemetryKeys.Save);
 
             serializerSettings = new JsonSerializerSettings
             {
@@ -83,6 +95,10 @@ namespace Game.Core.Save
             {
                 // 建不出目录不该把启动打断——存不了档比进不去游戏轻。真要存的时候会再报一次。
                 Log.Error($"存档目录创建失败：{SaveRoot}，{e.Message}");
+                telemetry.TrackError(
+                    TelemetryKeys.SaveEvents.Write,
+                    e,
+                    TelemetryProps.Of((TelemetryKeys.Props.Reason, "save_root_unavailable")));
             }
 
             return UniTask.CompletedTask;
@@ -109,6 +125,10 @@ namespace Game.Core.Save
             catch (Exception e)
             {
                 Log.Error($"检查存档槽 {slot} 是否存在时出错：{e.Message}");
+
+                // 契约里 core.save 只有 write / load / corrupt / migrate 四个事件，
+                // 所以这类「读这一侧出的问题」挂在 load 下面，用 reason 区分具体是哪条分支。
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Load, slot, e, "exists_check_failed");
                 return false;
             }
         }
@@ -133,6 +153,7 @@ namespace Game.Core.Save
             catch (Exception e)
             {
                 Log.Error($"删除存档槽 {slot} 失败：{e.Message}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Write, slot, e, "delete_failed");
             }
         }
 
@@ -140,6 +161,7 @@ namespace Game.Core.Save
         {
             string path = GetSlotPath(slot);
             string json;
+            long startMs = NowMs;
 
             // 序列化在调用线程（主线程）上做：分区对象随时可能被玩法改，丢到线程池上序列化就是竞态。
             try
@@ -164,6 +186,7 @@ namespace Game.Core.Save
             catch (Exception e)
             {
                 Log.Error($"存档槽 {slot} 序列化失败：{e}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Write, slot, e, "serialize_failed");
                 return false;
             }
 
@@ -178,10 +201,19 @@ namespace Game.Core.Save
             catch (Exception e)
             {
                 Log.Error($"存档槽 {slot} 写盘失败：{path}，{e}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Write, slot, e, "write_failed");
                 return false;
             }
 
             Log.Info($"存档已写入槽 {slot}：{partitions.Count} 个分区");
+
+            // bytes 按 UTF-8 的实际字节数算而不是 json.Length：中文一个字符占三字节，
+            // 拿字符数当大小会让「存档为什么涨到 10 MB」这类问题从一开始就查错方向。
+            telemetry.Track(
+                TelemetryKeys.SaveEvents.Write,
+                (TelemetryKeys.Props.Slot, slot),
+                (TelemetryKeys.Props.Ms, NowMs - startMs),
+                (TelemetryKeys.Props.Bytes, Encoding.UTF8.GetByteCount(json)));
             return true;
         }
 
@@ -189,6 +221,7 @@ namespace Game.Core.Save
         {
             string path = GetSlotPath(slot);
             string json;
+            long startMs = NowMs;
 
             try
             {
@@ -203,12 +236,21 @@ namespace Game.Core.Save
             catch (Exception e)
             {
                 Log.Error($"存档槽 {slot} 读盘失败：{path}，{e}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Load, slot, e, "read_failed");
                 return false;
             }
 
             if (json == null)
             {
                 Log.Warn($"存档槽 {slot} 没有文件，按新档处理：{path}");
+
+                // 没有文件是首次进游戏的正常路径，只记 W 不记 E；但它必须留痕——
+                // 「玩家说存档没了」的第一件事就是确认当时到底有没有读到文件。
+                telemetry.TrackWarn(
+                    TelemetryKeys.SaveEvents.Load,
+                    TelemetryProps.Of(
+                        (TelemetryKeys.Props.Slot, slot),
+                        (TelemetryKeys.Props.Reason, "no_file")));
                 return false;
             }
 
@@ -220,12 +262,14 @@ namespace Game.Core.Save
             catch (JsonException e)
             {
                 Log.Error($"存档槽 {slot} 的 JSON 解析不了，文件已损坏：{path}，{e.Message}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Corrupt, slot, e, "json_unparsable");
                 return false;
             }
 
             if (envelope == null || envelope.Partitions == null)
             {
                 Log.Error($"存档槽 {slot} 的内容不是本工程的存档格式（缺 partitions）：{path}");
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Corrupt, slot, "存档缺 partitions，不是本工程的格式", "no_partitions");
                 return false;
             }
 
@@ -233,6 +277,17 @@ namespace Game.Core.Save
             {
                 Log.Error($"存档槽 {slot} 的信封版本是 {envelope.FormatVersion}，本版本只认到 {CurrentFormatVersion}。"
                           + "多半是用更新的版本存过档，不要用旧版本覆盖它。");
+
+                // 版本号写进属性：判定用到的数值必须留在日志里，否则只知道「版本太新」，
+                // 不知道新到哪去了，也就没法判断玩家是从哪个版本回滚下来的。
+                telemetry.TrackError(
+                    TelemetryKeys.SaveEvents.Load,
+                    $"存档信封版本 {envelope.FormatVersion} 比代码认得的 {CurrentFormatVersion} 新",
+                    TelemetryProps.Of(
+                        (TelemetryKeys.Props.Slot, slot),
+                        (TelemetryKeys.Props.From, envelope.FormatVersion),
+                        (TelemetryKeys.Props.To, CurrentFormatVersion),
+                        (TelemetryKeys.Props.Reason, "format_too_new")));
                 return false;
             }
 
@@ -266,6 +321,14 @@ namespace Game.Core.Save
                 catch (Exception e) when (e is JsonException || e is FormatException || e is InvalidCastException)
                 {
                     Log.Error($"存档槽 {slot} 的分区 {pair.Key} 反序列化失败，分区已损坏，跳过：{e.Message}");
+
+                    // key 带上是哪个分区：一个档里坏一个分区和坏全部分区，处置方式完全不同。
+                    telemetry.TrackError(
+                        TelemetryKeys.SaveEvents.Corrupt,
+                        e,
+                        TelemetryProps.Of(
+                            (TelemetryKeys.Props.Slot, slot),
+                            (TelemetryKeys.Props.Key, pair.Key)));
                     anyPartitionCorrupt = true;
                     continue;
                 }
@@ -287,10 +350,26 @@ namespace Game.Core.Save
                         // Migrate 的实现本身抛异常是代码 bug，不是存档损坏——记下来后继续往上抛，
                         // 不能吞掉伪装成「返回 false」，否则这种 bug 永远暴露不出来。
                         Log.Error($"分区 {pair.Key} 的 Migrate({pair.Value.Version}) 实现抛出异常：{e}");
+                        telemetry.TrackError(
+                            TelemetryKeys.SaveEvents.Migrate,
+                            e,
+                            TelemetryProps.Of(
+                                (TelemetryKeys.Props.Slot, slot),
+                                (TelemetryKeys.Props.Key, pair.Key),
+                                (TelemetryKeys.Props.From, pair.Value.Version),
+                                (TelemetryKeys.Props.To, data.Version)));
                         throw;
                     }
 
                     Log.Info($"分区 {pair.Key} 已从版本 {pair.Value.Version} 迁移到 {data.Version}");
+
+                    // 迁移是「转移」，所以两端用契约里的 from / to（这里装的是版本号而不是状态名）。
+                    telemetry.Track(
+                        TelemetryKeys.SaveEvents.Migrate,
+                        (TelemetryKeys.Props.Slot, slot),
+                        (TelemetryKeys.Props.Key, pair.Key),
+                        (TelemetryKeys.Props.From, pair.Value.Version),
+                        (TelemetryKeys.Props.To, data.Version));
                 }
                 else if (pair.Value.Version > data.Version)
                 {
@@ -304,6 +383,10 @@ namespace Game.Core.Save
             if (anyPartitionCorrupt)
             {
                 Log.Error($"存档槽 {slot} 存在损坏分区，内存里的存档保持不变");
+
+                // 每个坏分区上面已经各埋了一条 corrupt，这里补的是「这次读档的最终结论是失败」——
+                // 少了它，日志里只看得到「某个分区坏了」，看不出整次 LoadAsync 返回了 false。
+                TrackSaveFailed(TelemetryKeys.SaveEvents.Load, slot, "存在损坏分区，读档放弃", "partition_corrupt");
                 return false;
             }
 
@@ -314,7 +397,40 @@ namespace Game.Core.Save
             }
 
             Log.Info($"存档槽 {slot} 已读入：{partitions.Count} 个分区");
+            telemetry.Track(
+                TelemetryKeys.SaveEvents.Load,
+                (TelemetryKeys.Props.Slot, slot),
+                (TelemetryKeys.Props.Ms, NowMs - startMs),
+                (TelemetryKeys.Props.N, partitions.Count));
             return true;
+        }
+
+        /// <summary>埋点层自己的时钟。拿不到时恒为 0（ms 记成 0），不影响任何业务路径。</summary>
+        private long NowMs => clock == null ? 0L : clock.MillisecondsNow;
+
+        /// <summary>
+        /// 埋一条存档失败（带异常）。契约里 <c>core.save</c> 只有 write / load / corrupt / migrate 四个事件，
+        /// 所以同一个事件下的多条失败分支靠 <c>reason</c> 区分，而不是去发明新事件名。
+        /// </summary>
+        private void TrackSaveFailed(string evt, int slot, Exception error, string reason)
+        {
+            telemetry.TrackError(
+                evt,
+                error,
+                TelemetryProps.Of(
+                    (TelemetryKeys.Props.Slot, slot),
+                    (TelemetryKeys.Props.Reason, reason)));
+        }
+
+        /// <summary>埋一条存档失败（只有一句话，没有异常）。</summary>
+        private void TrackSaveFailed(string evt, int slot, string message, string reason)
+        {
+            telemetry.TrackError(
+                evt,
+                message,
+                TelemetryProps.Of(
+                    (TelemetryKeys.Props.Slot, slot),
+                    (TelemetryKeys.Props.Reason, reason)));
         }
 
         /// <summary>槽位文件的完整路径。</summary>

@@ -4,6 +4,7 @@
     "references": [
         "Game.Core",
         "UniTask",
+        "Luban.Runtime",
         "VContainer",
         "MessagePipe",
         "MessagePipe.VContainer",

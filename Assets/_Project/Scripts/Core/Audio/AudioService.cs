@@ -10,6 +10,7 @@ using Game.Core.Assets;
 using Game.Core.Boot;
 using Game.Core.Logging;
 using Game.Core.Save;
+using Game.Core.Telemetry;
 using LitMotion;
 using LitMotion.Extensions;
 using UnityEngine;
@@ -66,11 +67,21 @@ namespace Game.Core.Audio
 
         private bool disposed;
 
-        public AudioService(IAssetService assets, ISaveService saves, AudioConfig config)
+        private readonly ITelemetryScope telemetry;
+
+        /// <summary>
+        /// 埋点参数允许为 null（EditMode 测试里直接 new 出来的音频服务没有容器）：
+        /// 拿不到就整条埋点链路变空操作，播放行为一个字节都不变。
+        /// <para>这里不需要 <see cref="ITelemetryClock"/>：契约里 <c>core.audio</c> 两个事件都不带 <c>ms</c>。</para>
+        /// </summary>
+        public AudioService(IAssetService assets, ISaveService saves, AudioConfig config, ITelemetryService telemetry)
         {
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
             this.config = config;
+            this.telemetry = telemetry == null
+                ? (ITelemetryScope)NullTelemetryScope.Instance
+                : telemetry.Scope(TelemetryKeys.Audio);
         }
 
         public float MasterVolume
@@ -172,12 +183,14 @@ namespace Game.Core.Audio
             if (clip == null)
             {
                 Log.Warn("PlaySfx 收到空 clip，忽略");
+                TrackSfxDenied(string.Empty, "null_clip");
                 return;
             }
 
             if (sfxSources == null || sfxSources.Length == 0)
             {
                 Log.Warn($"AudioService 还没初始化，音效 {clip.name} 被丢弃");
+                TrackSfxDenied(clip.name, "not_initialized");
                 return;
             }
 
@@ -192,6 +205,7 @@ namespace Game.Core.Audio
             ThrowIfDisposed();
             if (string.IsNullOrEmpty(key))
             {
+                TrackSfxDenied(string.Empty, "empty_key");
                 throw new ArgumentException("音效 key 不能为空", nameof(key));
             }
 
@@ -234,12 +248,14 @@ namespace Game.Core.Audio
             ThrowIfDisposed();
             if (string.IsNullOrEmpty(key))
             {
+                TrackBgmDenied(string.Empty, "empty_key");
                 throw new ArgumentException("BGM key 不能为空", nameof(key));
             }
 
             if (bgmSource == null)
             {
                 Log.Warn($"AudioService 还没初始化，BGM {key} 被丢弃");
+                TrackBgmDenied(key, "not_initialized");
                 return;
             }
 
@@ -260,6 +276,7 @@ namespace Game.Core.Audio
                 if (myId != bgmRequestId)
                 {
                     handle.Dispose();
+                    TrackBgmDenied(key, "superseded");
                     return;
                 }
 
@@ -275,6 +292,7 @@ namespace Game.Core.Audio
                         if (myId != bgmRequestId)
                         {
                             handle.Dispose();
+                            TrackBgmDenied(key, "superseded_while_fading");
                             return;
                         }
                     }
@@ -290,6 +308,10 @@ namespace Game.Core.Audio
                     bgmSource.clip = handle.Asset;
                     bgmSource.volume = fade > 0f ? 0f : BgmSourceLevel;
                     bgmSource.Play();
+
+                    // 埋在 Play() 之后、淡入之前：这条要回答的是「这一刻响的是哪首曲子」，
+                    // 淡入还要几百毫秒才结束，等在那后面会让曲子和画面对不上时刻。
+                    telemetry.Track(TelemetryKeys.AudioEvents.Bgm, (TelemetryKeys.Props.Key, key));
 
                     if (fade > 0f)
                     {
@@ -434,6 +456,7 @@ namespace Game.Core.Audio
                     // 淡出期间又有人切曲了：新曲已经在放，这里再 Stop 就把它掐了。
                     if (myId != bgmRequestId)
                     {
+                        TrackBgmDenied(bgmKey ?? string.Empty, "stop_superseded");
                         return;
                     }
                 }
@@ -442,6 +465,9 @@ namespace Game.Core.Audio
                 {
                     bgmSource.Stop();
                     bgmSource.clip = null;
+
+                    // 停曲也是一次 BGM 切换，只是切到「没有曲子」，所以 key 留空。
+                    telemetry.Track(TelemetryKeys.AudioEvents.Bgm, (TelemetryKeys.Props.Key, string.Empty));
                 }
 
                 if (bgmHandle != null)
@@ -490,6 +516,29 @@ namespace Game.Core.Audio
         private CancellationTokenSource LinkLifetime(CancellationToken ct)
         {
             return CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken, ct);
+        }
+
+        /// <summary>音效被拒。reason 区分具体是哪条分支，聚合时不用去翻文案。</summary>
+        private void TrackSfxDenied(string key, string reason)
+        {
+            telemetry.TrackWarn(
+                TelemetryKeys.AudioEvents.SfxDenied,
+                TelemetryProps.Of(
+                    (TelemetryKeys.Props.Key, key),
+                    (TelemetryKeys.Props.Reason, reason)));
+        }
+
+        /// <summary>
+        /// BGM 请求没生效（没初始化 / key 为空 / 被后来的请求取代）。
+        /// 用 W 级而不是 E：被取代是设计内的正常结果，但「点了切曲却没响」查起来必须看得见这条。
+        /// </summary>
+        private void TrackBgmDenied(string key, string reason)
+        {
+            telemetry.TrackWarn(
+                TelemetryKeys.AudioEvents.Bgm,
+                TelemetryProps.Of(
+                    (TelemetryKeys.Props.Key, key),
+                    (TelemetryKeys.Props.Reason, reason)));
         }
 
         private void ThrowIfDisposed()

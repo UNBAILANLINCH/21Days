@@ -11,6 +11,13 @@ Unity 版本以 `ProjectSettings/ProjectVersion.txt` 为准。
 4. **提交前必审**：改动攒在工作区，收敛后 按审查流程列清单，用户逐次明确授权才 `git commit`；不 push 除非明说。提交信息按 `docs/commit-convention.md`，不带任何 AI 署名（Claude 钩子会拒）。
 5. **护栏挡住时不拆护栏**：lint / 钩子拦下来先看理由；确属误报，在那一行写 `// lint-ok: <理由>` 放行，理由必须写。
 
+## 工作纪律（对 AI，违反即返工）
+
+1. **能力面内的事不外推**：修法已定且工具够得着，就直接做完，不要列 ABCD 选项让用户选、不要用「有风险 / 需人工确认 / 属于后续排期」把自己能做能验的事包装成推给用户。问用户只在三种情况：不可逆操作、穷尽探索仍无解、真正的主观偏好。
+2. **「做不了」必须实测过再说**：判断某个 API / 工具 / 路径不存在或不可用，先跑一次实测（MCP `read_console`、`execute_code`、跑一条命令）。读源码猜出来的是猜测，跑过的才是证据。没实测就下结论等同于编造。
+3. **subagent 自报通过不算通过**：派单回来说「测试全过」「编译零错误」时，主窗口自己复跑一次 `run_tests` / `read_console` 再采信。同理，凡声称某文件已生成 / 已更新，自己 `stat` 或读一眼。自报结果和自报证据是同一等级的东西，都要独立复核。
+4. **新增自动化必须锚定载体**：往 harness 里加会自己跑起来的东西（钩子、定时扫描、生成物刷新），文件头要写明执行载体、5 秒可证伪的状态锚点、退场条件，缺一不上线。细则见 [`.claude/rules/harness-authoring.md`](../.claude/rules/harness-authoring.md)。
+
 ## 目录约定（细则见 `.claude/rules/project-root.md`）
 
 自己的内容全放 `Assets/_Project/`；模板留下的 `Assets/Scenes/`、`Assets/Settings/` 原位不动；第三方包走 Package Manager 或 `Assets/Plugins/`。

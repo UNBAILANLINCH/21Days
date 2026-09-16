@@ -1,0 +1,34 @@
+{
+  "id": "EVAL-002",
+  "name": "玩法模块加载资源",
+  "rule_ref": "docs/developer-guide.md#6.8 Assets — IAssetService（禁止直接调 Addressables / Resources.Load） · docs/architecture.md#5.3 资源",
+  "notes": "evals/cases/EVAL-002.notes.md",
+  "task": "新开一个玩法模块 Backdrop，先写它的背景图加载器：进入这个模块时按资源地址 BackdropMain 加载一张 Sprite 交给外面用，离开时释放掉，别让它一直占着内存。写在 Assets/_Project/Scripts/Runtime/Backdrop/ 下，一个纯 C# 类就行，场景和预制体我来建。",
+  "context_files": [],
+  "deterministic_checks": [
+    {
+      "type": "absent",
+      "files": "**/*.cs",
+      "pattern": "\\bAddressables\\s*\\.|UnityEngine\\.AddressableAssets|\\bAsyncOperationHandle\\b",
+      "why": "玩法模块直接调 Addressables，就把资源后端焊死进了玩法层：以后换加载策略（或换 YooAsset）要挨个模块改。更现实的代价是绕开了 AssetHandle 的释放约定，服务销毁时统计不到这笔，漏释放变成静默泄漏。"
+    },
+    {
+      "type": "absent",
+      "files": "**/*.cs",
+      "pattern": "\\bResources\\s*\\.\\s*(?:Load|LoadAsync|UnloadAsset)",
+      "why": "Resources/ 下的东西无条件整包打进去、且不受 Addressables 生命周期管理，同样绕过 IAssetService。developer-guide 6.8 把它和直接调 Addressables 并列为禁止项。"
+    },
+    {
+      "type": "present",
+      "files": "**/*.cs",
+      "pattern": "\\bIAssetService\\b",
+      "why": "框架定的资源入口只有 IAssetService，构造注入进来用。没有它就说明这段代码没走框架，接线（VContainer 注册、销毁时的释放统计）也就都不生效。"
+    },
+    {
+      "type": "present",
+      "files": "**/*.cs",
+      "pattern": "\\.Dispose\\s*\\(|\\busing\\s*\\(|\\busing\\s+var\\b|\\bReleaseInstance\\s*\\(",
+      "why": "AssetHandle<T> 是 IDisposable，Dispose 即释放且幂等，生命周期跟着持有者走。任务明确要求「离开时释放」，代码里一处释放动作都没有就是没做到——而这种漏在编辑器里看不出来，只在真机上涨内存。"
+    }
+  ]
+}

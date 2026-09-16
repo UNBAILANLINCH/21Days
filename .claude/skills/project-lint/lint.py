@@ -21,19 +21,34 @@ Roslyn / IDE 管的是通用 C# 语法与风格；**项目语义违规它们不�
 ## 过滤流水线（逐层收窄，为的是把误报压到几乎没有）
 
     1. files / path_contains / file_context / file_context_absent  文件级前置，不满足整条规则跳过
+       dir_context_absent                                          目录级前置（见下），用于「整个模块都没有 X」
     2. pattern                                                     行级主匹配
     3. exclude_patterns                                            命中任一就跳过（排合法写法）
     4. confirm_patterns                                            须再命中任一才算数（二次确认）
     5. in_methods                                                  命中行须落在指定方法体内（如只管 Update）
 
+`dir_context_absent` 是唯一一个要读**别的文件**的过滤器：
+`{"root_after": "/Scripts/Runtime/", "pattern": "..."}` 取路径里 `root_after` 之后的第一段目录
+（= 模块根）做扫描根，递归扫该根下所有同后缀文件，**全都匹配不上** pattern 才继续往下判。
+为的是「这个模块里一处都没有 X」这类判断 —— 按单文件判会误报（X 写在同模块的另一个文件里）。
+结果按 (目录, 正则) 缓存，一次运行只扫一遍。
+
 ## 豁免
 
 命中行写 `// lint-ok: <理由>` 放行。要求写理由 —— 绕了也留痕（CLAUDE.md 硬规则 5）。
 
+## 两级严重度
+
+规则可写 `"severity": "warn"`，省略即 `block`。区别只在**退出码**，输出格式一样：
+
+    block  真违规，必须改或写 lint-ok      -> exit 2，stderr 喂回给 Agent 自我纠正
+    warn   提醒，不该拦住人干活            -> exit 1，stderr 给人看，Agent 不被打断
+
 ## 输出约定：成功静默、失败冗余
 
-    无违规 -> 零输出，exit 0（不打扰 Agent）
-    有违规 -> 文件 / 行号 / 规则 / 违规行 / 改法 / 依据 打到 stderr，exit 2（喂回给 Agent 自我纠正）
+    无违规            -> 零输出，exit 0（不打扰 Agent）
+    只有 warn         -> 打到 stderr，exit 1（非阻断）
+    有 block          -> 打到 stderr，exit 2（阻断，Agent 据此自我纠正）
 
 引擎自身出任何岔子一律 exit 0（fail-open）：护栏不该把会话卡死。
 """
@@ -69,6 +84,11 @@ HINT = (
     "（CLAUDE.md 硬规则 5：护栏挡住时不拆护栏）。"
 )
 
+WARN_HINT = (
+    "以上都是**提醒**（不阻断，退出码 1）：现在可以不管，方便的时候照「改法」处理即可。"
+    "确属误报同样可以在那一行写 `// lint-ok: <理由>` 让它闭嘴。"
+)
+
 
 def _reconfigure_utf8() -> None:
     """Windows 下默认按系统 ANSI 输出，中文提示会变乱码，强制切 UTF-8。"""
@@ -93,6 +113,52 @@ def _compile(pattern: str):
 def _search(pattern: str, text: str) -> bool:
     pat = _compile(pattern)
     return bool(pat and pat.search(text))
+
+
+#: dir_context_absent 的扫描结果缓存：(目录, 正则, 后缀) -> 有没有文件命中。
+#: 同一次运行里同一个模块只扫一遍磁盘。
+_DIR_CACHE = {}
+
+
+def dir_scan_root(npath: str, root_after: str):
+    """取路径里 `root_after` 之后的第一段目录（= 模块根）。取不到返回 None。
+
+    例：`.../Scripts/Runtime/Sample/SampleState.cs` + `/Scripts/Runtime/`
+        -> `.../Scripts/Runtime/Sample`
+    """
+    key = norm(root_after)
+    idx = npath.find(key)
+    if idx < 0:
+        return None
+    seg = npath[idx + len(key):].split("/", 1)[0]
+    if not seg:
+        return None
+    return Path(npath[:idx + len(key)] + seg)
+
+
+def dir_has_match(root: Path, suffixes: tuple, pattern: str) -> bool:
+    """目录（递归）下有没有任一同后缀文件匹配 pattern。读不到的文件跳过。"""
+    cache_key = (str(root), pattern, suffixes)
+    if cache_key in _DIR_CACHE:
+        return _DIR_CACHE[cache_key]
+    pat = _compile(pattern)
+    found = False
+    if pat is not None:
+        try:
+            files = sorted(root.rglob("*")) if root.is_dir() else []
+        except OSError:
+            files = []
+        for f in files:
+            try:
+                if not f.is_file() or f.suffix.lower() not in suffixes:
+                    continue
+                if pat.search(f.read_text(encoding="utf-8", errors="replace")):
+                    found = True
+                    break
+            except OSError:
+                continue
+    _DIR_CACHE[cache_key] = found
+    return found
 
 
 def load_rules() -> list:
@@ -209,7 +275,7 @@ def build_method_owner(lines: list) -> list:
 
 
 def lint_file(path: str, rules: list) -> list:
-    """lint 一个文件，返回已格式化的违规条目。读不到 / 后缀没规则管就返回空。"""
+    """lint 一个文件，返回 (严重度, 已格式化条目) 列表。读不到 / 后缀没规则管就返回空。"""
     p = Path(path)
     suffix = p.suffix.lower()
     try:
@@ -238,6 +304,13 @@ def lint_file(path: str, rules: list) -> list:
         fabsent = rule.get("file_context_absent")
         if fabsent and _search(fabsent, text):
             continue
+        # 目录级前置：整个模块都没有 X 才算数（按单文件判会误报——X 可能写在同模块另一个文件里）
+        dabsent = rule.get("dir_context_absent")
+        if isinstance(dabsent, dict) and dabsent.get("pattern"):
+            root_after = dabsent.get("root_after")
+            root = dir_scan_root(npath, root_after) if root_after else p.parent
+            if root is None or dir_has_match(root, tuple(files), dabsent["pattern"]):
+                continue
 
         pat = _compile(rule.get("pattern") or "")
         if pat is None or not rule.get("pattern"):
@@ -270,11 +343,16 @@ def lint_file(path: str, rules: list) -> list:
                 msg = tpl.format(line=body)
             except (KeyError, IndexError, ValueError):
                 msg = f"{tpl} {body}"
-            out.append(
-                f"  第 {i + 1} 行  [{rule.get('rule') or rule.get('id') or '?'}] {msg}\n"
+            severity = "warn" if str(rule.get("severity", "")).lower() == "warn" else "block"
+            label = rule.get("rule") or rule.get("id") or "?"
+            if severity == "warn":
+                label = f"提醒·{label}"
+            out.append((
+                severity,
+                f"  第 {i + 1} 行  [{label}] {msg}\n"
                 f"      改法：{rule.get('fix', '')}\n"
                 f"      依据：{rule.get('ref', '')}"
-            )
+            ))
     return out
 
 
@@ -305,14 +383,19 @@ def main() -> int:
     if not rules:
         return 0
     blocks = []
+    has_block = False
     for path in collect_paths():
         found = lint_file(path, rules)
-        if found:
-            blocks.append(f"[project-lint] {norm(path)}\n" + "\n".join(found))
-    if blocks:
-        print("\n\n".join(blocks) + "\n\n" + HINT, file=sys.stderr)
-        return 2
-    return 0
+        if not found:
+            continue
+        has_block = has_block or any(sev == "block" for sev, _ in found)
+        blocks.append(f"[project-lint] {norm(path)}\n" + "\n".join(text for _, text in found))
+    if not blocks:
+        return 0
+    tail = HINT if has_block else WARN_HINT
+    print("\n\n".join(blocks) + "\n\n" + tail, file=sys.stderr)
+    # block -> 2（喂回给 Agent 自我纠正）；只有 warn -> 1（非阻断，给人看）
+    return 2 if has_block else 1
 
 
 if __name__ == "__main__":

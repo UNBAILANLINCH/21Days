@@ -81,10 +81,13 @@ GitHub 的缓存单仓库上限 10 GB，超了自动淘汰最旧的。
 
 ## 已知的缺口（别忘了）
 
-- **Android 默认是 Mono + ARMv7/ARM64 的调试包**，装机自测够用，**上架 Google Play 前必须切 IL2CPP + 仅 ARM64**
-  （Play 从 2019 年起要求 64 位）。切法：在 `BuildScript.cs` 里设 `PlayerSettings.SetScriptingBackend` /
-  `targetArchitectures`，CI 侧则在 `unity-builder` 的参数里加对应设置；顺带还要配签名 keystore（再加 3 个 secret）。
-- 出的是 **APK**（`androidExportType: androidPackage`），装机即用；Google Play 要的 **AAB** 是另一个导出类型，上架时再切。
+- **CI 出的 Android 包仍是默认配置（Mono + ARMv7）**，装机自测够用，上不了 Google Play（Play 从 2019 年起要求 64 位）。
+  本机已经有开关了：`scripts/build.ps1 -Target Android -Release` 会临时切 IL2CPP + 仅 ARM64 再改回来
+  （见 [`developer-guide.md` 14.2](developer-guide.md)）。**CI 侧还没接** —— 要接就在 `unity-builder` 的
+  参数里透传 `-releaseBuild`，或直接换成调 `BuildScript` 的 `customParameters`。
+- 出的是 **APK**（`androidExportType: androidPackage`）。**`-Release` 不解决这一条**：它只管 64 位，
+  导出格式仍是 APK，而 Google Play 对新应用要 **AAB**。上架前还要把 `EditorUserBuildSettings.buildAppBundle`
+  翻成 `true`（建议加个 `-appBundle` 开关，别写死），并配签名 keystore（再加 3 个 secret）。
 - **iOS 没做**：需要 macOS runner（分钟数按 10 倍计费）+ Xcode + 证书与描述文件，属于第三阶段。
 - Release 里的包**没有签名**，只适合自己和小范围测试分发。
 
@@ -103,10 +106,11 @@ GitHub 的缓存单仓库上限 10 GB，超了自动淘汰最旧的。
 powershell -File scripts/build.ps1 -Target Windows           # 端游
 powershell -File scripts/build.ps1 -Target Android -Version 0.1.0
 powershell -File scripts/build.ps1 -Target Windows -Development   # 带调试符号与 Profiler
+powershell -File scripts/build.ps1 -Target Android -Release       # 64 位（IL2CPP + ARM64），慢一个量级
 ```
 
 参数：`-Target Windows|Android`（必填）、`-Version`、`-BuildNumber`（Android 的 versionCode）、
-`-Development`（开关）、`-OutputPath`（改产物路径）。
+`-Development`（开关）、`-Release`（开关，只对 Android 有效）、`-OutputPath`（改产物路径）。
 默认产物 `Builds/Windows/21Days.exe`、`Builds/Android/21Days.apk`（`Builds/` 已在 `.gitignore` 里），
 日志在 `Logs/build-windows.log` / `Logs/build-android.log`。
 

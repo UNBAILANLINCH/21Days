@@ -3,10 +3,12 @@
   "_字段": {
     "id": "唯一标识，英文短横线",
     "rule": "中文分类名，出现在报错行的方括号里",
+    "severity": "block（默认，可省略）= 真违规，exit 2 喂回给 Agent；warn = 提醒，exit 1 不阻断，方括号里会多个「提醒·」前缀",
     "files": "适用后缀列表，省略则默认 [\".cs\"]",
     "path_contains": "路径包含任一片段才生效（正斜杠写法，引擎已把反斜杠归一）",
     "file_context": "文件级正则前置：整份文件匹配得上才检查这条",
     "file_context_absent": "反向前置：整份文件匹配得上就跳过这条",
+    "dir_context_absent": "目录级反向前置 {\"root_after\": \"/Scripts/Runtime/\", \"pattern\": \"...\"}：取路径里 root_after 之后的第一段目录（模块根）递归扫同后缀文件，只要有一个文件命中 pattern 就跳过这条。用于「整个模块一处都没有 X」这类判断——按单文件判会误报",
     "pattern": "行级主匹配正则",
     "exclude_patterns": "命中任一就跳过（排掉合法写法）",
     "confirm_patterns": "须再命中任一才算违规（二次确认）",
@@ -95,6 +97,21 @@
       "violation_tpl": "Runtime 代码裸 using UnityEditor：{line}",
       "fix": "Runtime 不依赖 Editor。确需编辑器专用逻辑（Gizmos / 调试）就整段用 #if UNITY_EDITOR 包住；业务逻辑挪去 Scripts/Editor/",
       "ref": "project-root.md #目录与 asmdef 依赖方向"
+    },
+    {
+      "id": "module-missing-telemetry",
+      "rule": "埋点覆盖",
+      "severity": "warn",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "dir_context_absent": {
+        "root_after": "/Scripts/Runtime/",
+        "pattern": "\\.\\s*(?:Track|TrackWarn|TrackError|TrackLevel|BeginSpan)\\s*\\("
+      },
+      "pattern": "^\\s*(?:public|internal)\\s+(?:(?:sealed|abstract|partial|readonly|static|unsafe|ref)\\s+)*(?:class|struct)\\s+\\w*(?:State|Intent)\\b",
+      "violation_tpl": "这个模块有状态 / 意图类型，却整个模块一条埋点都没有：{line}",
+      "fix": "跑 /instrument-module <模块>（模块名就是本文件所在的 Scripts/Runtime/<模块>/ 目录名）。这是提醒不是拦路：埋点缺失不该挡着你干活，但出了事故日志里会什么线索都没有",
+      "ref": "docs/telemetry.md #2.2 玩法模块：一行一个点"
     }
   ]
 }

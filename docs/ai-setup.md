@@ -65,10 +65,10 @@ Codex 复用项目检查逻辑，但不继承 Claude 的模型派单和私有记
 | 钩子 | 一句话 |
 | --- | --- |
 | `guard.js` | 写入 / Bash 前拦截：Unity 生成物与 `.meta` 直接拒绝，`ProjectSettings/`、`Packages/`、`git commit` / `git push` 弹确认。 |
-| `required-reads.py` | 编辑某模块前查「该模块的 guide 读了没」，没读就拦下并指出该读哪份。 |
+| `required-reads.py` | 编辑某模块前查「该模块的 guide 读了没」，没读就拦下并指出该读哪份（Read 工具读、或 `cat` / `head` / `sed -n` 读都算数）。 |
 | `knowledge-routing.py` | 编辑匹配文件时提示适用的 `.claude/rules/` 规则与模块文档，省得手找。 |
 | `project-lint`（`skills/project-lint/lint.py`） | 保存 `.cs` 后跑 C# 语义 lint，违规给行号 + 原因 + 修复建议。 |
-| `doom-loop-detect.py` | 同一文件反复编辑到阈值时预警，防止在错误方向上空转。 |
+| `doom-loop-detect.py` | **连续**编辑同一文件到阈值时预警（中间改过别的就清零），防止在错误方向上空转。 |
 | `stop-check.py` | 会话收尾检查：改动的 `.cs` 里残留 `Debug.Break()` / `// TEMP` / `// HACK`、新资产缺 `.meta`、同一文件高频编辑未收敛。 |
 | `precompact-save.py` | 上下文压缩前保存工作态快照，压缩后可恢复。 |
 

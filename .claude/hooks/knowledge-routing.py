@@ -8,8 +8,12 @@
     L3 模块级：  `Assets/_Project/Scripts/Runtime/<Module>/` 对应的
                 `ai-docs/docs/modules/<模块小写>/<模块小写>-module-guide.md`（存在才提）
 
-通过 PreToolUse 的 additionalContext 注入。同一文件每会话只提示一次（缓存去重），
-否则每次编辑刷屏，刷多了就没人看了。
+通过 PreToolUse 的 additionalContext 注入。**同一条提示文本**每会话只注入一次
+（`_hook_common.should_emit` 按文本哈希去重），否则每次编辑刷屏，刷多了就一起没人看了。
+
+去重的 key 早先是「文件名」，是错的：同一个文件的**另一条**提示（规则集变了、
+模块 guide 刚生成出来）会被旧记录吃掉；而同一条提示换个文件名又会重说一遍。
+按实际文本去重两头都对。
 
 **永不阻断**：无命中、已提示过、自身异常，一律静默 exit 0。
 强制「必读」是另一个钩子（required-reads.py）的事，这里只做提示。
@@ -27,9 +31,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 RULES_DIR = ROOT / ".claude" / "rules"
 MODULES_DIR = ROOT / "ai-docs" / "docs" / "modules"
-CACHE_DIR = ROOT / ".claude" / ".cache"
 
 MODULE_RE = re.compile(r"^Assets/_Project/Scripts/Runtime/([^/]+)/", re.IGNORECASE)
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from _hook_common import should_emit
+except Exception:  # noqa: BLE001  去重件缺失时宁可多提示一次，不能把路由整个吞掉
+    def should_emit(session_id: str, text: str, tag: str = "") -> bool:  # type: ignore[misc]
+        return True
 
 
 def _utf8_stdio() -> None:
@@ -169,22 +179,13 @@ def _module_guide(rel: str) -> str | None:
     return None
 
 
-def _already_seen(sid: str, key: str) -> bool:
-    """本会话是否已对这个文件提示过。记不下就当没提示过（宁可多提一次）。"""
-    cache = CACHE_DIR / ("routing-seen-%s.txt" % sid)
-    try:
-        seen = set(cache.read_text(encoding="utf-8").splitlines())
-    except Exception:  # noqa: BLE001
-        seen = set()
-    if key in seen:
-        return True
-    try:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        with cache.open("a", encoding="utf-8") as f:
-            f.write(key + "\n")
-    except Exception:  # noqa: BLE001
-        pass
-    return False
+def context_text(rel: str, hints: list[str]) -> str:
+    """注入文案：第三人称陈述，只说「有什么」，不写「你要去读」。
+
+    祈使句会触发模型的 prompt-injection 防御（官方文档明示），整段被当可疑内容
+    surface 给用户而不是当上下文吸收——那就白注入了。
+    """
+    return "【知识路由】编辑 %s 相关知识：\n- %s" % (rel.rsplit("/", 1)[-1], "\n- ".join(hints))
 
 
 def main() -> int:
@@ -207,13 +208,13 @@ def main() -> int:
         hints.append("适用规则: " + " · ".join(rules))
     guide = _module_guide(rel)
     if guide:
-        hints.append("模块文档（编辑前必读）: " + guide)
+        hints.append("模块文档（required-reads 闸要求本会话读过）: " + guide)
     if not hints:
         return 0
-    if _already_seen(_session_id(payload), rel.lower()):
-        return 0
 
-    ctx = "【知识路由】编辑 %s 相关知识：\n- %s" % (rel.rsplit("/", 1)[-1], "\n- ".join(hints))
+    ctx = context_text(rel, hints)
+    if not should_emit(_session_id(payload), ctx, "knowledge-routing"):
+        return 0
     print(json.dumps({
         "hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ctx}
     }, ensure_ascii=False))

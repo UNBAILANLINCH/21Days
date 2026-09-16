@@ -49,17 +49,44 @@ description: harness 进化层——/learn 把纠错与新约定沉淀成可复�
 python .claude/skills/evolution/gc_scan.py
 ```
 
-查四样：
+查六样：
 
 1. `CLAUDE.md`、`README.md`、`.claude/`、`ai-docs/`、`docs/` 下 markdown 的相对链接目标是否存在
 2. `generate-doc/modules.json` 里登记且 `status` 不是 `todo` 的文档目录是否存在
 3. `.claude/settings.json` 里钩子引用的 `.py` / `.js` 脚本是否存在
-4. `.claude/hooks/required_reads.json` 里的必读文件是否存在 —— **只提示不算失败**
+4. 跑一遍钩子自测 `.claude/hooks/tests/run.py`，全绿才算过
+5. 跑一遍工程静态不变量扫描 `invariants.py`，无违规才算过
+6. `.claude/hooks/required_reads.json` 里的必读文件是否存在 —— **只提示不算失败**
 
-前三样有失效就 exit 1 并逐条列出；全通过 exit 0。只读扫描，不改任何文件。
+前五样有失效就 exit 1 并逐条列出；全通过 exit 0。只读扫描，不改任何文件
+（第 4 样起子进程跑测试，测试自己会收拾掉写出的缓存）。
 
-第 4 样单独降级，是因为必读清单常常先于文档写好（先定「编辑这个模块前必须读它的 guide」，
+第 4、5 样是两类「悄悄不生效」故障的**执行载体**：钩子坏掉不报错（判据写反、
+提示不再注入、闸被绕开），跨文件不变量破了也不报错（引用断链、面板地址找不到、
+Editor 代码混进包体）。两者从外面都看不出来，没有载体的检查跟没有检查一样。
+
+第 6 样单独降级，是因为必读清单常常先于文档写好（先定「编辑这个模块前必须读它的 guide」，
 文档随后补）。把「还没写」报成失败，只会逼人把清单删掉。
+
+### 第 5 样：工程静态不变量（`invariants.py`）
+
+```bash
+python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规时静默 exit 0
+```
+
+查六条**跨文件 / 跨资产**的约束——每一条都是 `project-lint` 的逐行正则天生够不着的：
+
+| 查什么 | 依据 |
+| --- | --- |
+| asmdef 依赖方向（`Game.Core` 不引用 Runtime/Editor/Tests，`Game.Runtime` 不引用 Editor/Tests） | `project-root.md` #asmdef 依赖方向 |
+| 平台宏只在 `Core/Platform/`（`#if UNITY_EDITOR` 放行，那是允许的） | `project-root.md` #平台差异只在框架层 |
+| `using UnityEditor` 必须真的落在 `#if UNITY_EDITOR` **块内**（lint 那条只做文件级判断，漏这种） | `project-root.md` #asmdef 依赖方向 |
+| 命名空间与目录一致（`Core/<X>/` → `Game.Core.<X>`；`Runtime/<M>/` → `Game.<M>`） | `architecture.md` #4 |
+| `.meta` 配对（缺 meta 与孤儿 meta 两头都查） | `pitfalls.md` #.meta 没提交 |
+| UI 面板的 Addressables 地址等于类名 | `architecture.md` #5.6 |
+
+分工尺子：**一行之内判得完的归 `rules.json`，必须把整个仓库摊开才能判的归 `invariants.py`**，
+两边不重复。误报出现两次就改判据或删掉那条，**不要加白名单**。
 
 ## harness 走歪了的信号与处理
 
@@ -81,5 +108,17 @@ harness 自身的改动同样受 `CLAUDE.md` 硬规则 4 管：攒在工作区�
 | `ai-docs/pitfalls.md` | 现役的坑，编辑前会被提示读 |
 | `ai-docs/docs/catalog.md` | 知识层目录索引，新增文档在这里挂上 |
 | `PRP/` | 复杂功能的 PRD / PRP / tasks，做完留档 |
+| `evals/` | 行为回归用例：真派 agent 做一个自然任务，再机器判产出（`/run-evals`） |
 
-规模做大之后再考虑引入评分与 eval 回归（`evals/`）。空项目阶段先别建目录占位 —— 空目录本身也是失效引用。
+## `/gc` 与 `/run-evals` 的分界
+
+两件事都叫「回归」，但查的东西和载体都不一样，别混：
+
+| | `/gc`（含 `invariants.py`） | `/run-evals` |
+| --- | --- | --- |
+| 查什么 | **当前仓库**静态自洽：引用、路径、不变量 | **AI 的行为**：同一个任务，改完规则之后做得对不对 |
+| 要不要跑 AI | 不要，秒级纯扫描 | 要，每条用例派一个 subagent 真做一遍 |
+| 载体 | 用户改完 harness 结构 / `/review-change` 之前主动跑 | 用户改完 `.claude/rules/` 或 `rules.json` 之后主动跑（`/learn` 收尾会问） |
+
+改了规则只跑 `/gc` 是不够的：`/gc` 能证明规则文件**还在、链接没断**，
+证明不了规则**被读进去了、并且改变了行为**。后者只有 `/run-evals` 能答。

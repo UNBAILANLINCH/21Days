@@ -9,6 +9,8 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Events;
 using Game.Core.Flow;
+using Game.Core.Telemetry;
+using Game.Tests.EditMode.Telemetry;
 using MessagePipe;
 using NUnit.Framework;
 using UnityEngine;
@@ -36,6 +38,16 @@ namespace Game.Tests.EditMode.Core
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<GameStateChangedEvent>(options);
             builder.Register<TransitionLog>(Lifetime.Singleton);
+
+            // GameFlow 波 2 起要埋点，容器里得有这几样它才建得出来。
+            // 假时钟 + 收集型 sink：不依赖真实时间，也不会往 Console 里打东西影响 LogAssert。
+            // 本文件不断言埋点内容（那是 TelemetryServiceTests 的事），只保证接了埋点之后转移逻辑不变。
+            builder.RegisterInstance(TelemetryOptions.Default);
+            builder.RegisterInstance(new FakeTelemetryClock()).As<ITelemetryClock>();
+            // 注册成数组：服务吃的是「终点列表」（同一次格式化分发给每一个），同 GameLifetimeScope
+            builder.RegisterInstance(new ITelemetrySink[] { new RecordingTelemetrySink() });
+            builder.Register<TelemetryService>(Lifetime.Singleton).As<ITelemetryService>();
+
             builder.Register<GameFlow>(Lifetime.Singleton).As<IGameFlow>();
             builder.Register<StateA>(Lifetime.Singleton);
             builder.Register<StateB>(Lifetime.Singleton);

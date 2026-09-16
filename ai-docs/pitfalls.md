@@ -165,3 +165,9 @@
 - 根因：钩子按「同一文件连续编辑次数」判定，这个信号区分不了「反复试错」和「一次计划内的多步重构」——后者本来就会连着改同一个文件很多次。
 - 正确做法：被拦时**不要拆钩子**（`CLAUDE.md` 硬规则 5）。改用**脚本化补丁一次性打完**——把多处编辑写进一个 Python 脚本跑一遍，既绕开连续编辑计数，改动也更好复核。如果某类重构反复被拦，把现象报给用户去评估判据要不要加例外，**不擅自改钩子**（钩子归策略层，改它要单独授权）。
 - 关联：`.claude/hooks/doom-loop-detect.py`、`CLAUDE.md` 硬规则 5；2026-09-16 重构 `.claude/skills/telemetry/analyze.py` 时踩到。
+
+## 只给 InputSystemUIInputModule 赋 actionsAsset，UI 一个点击都收不到
+- 现象：Canvas、GraphicRaycaster、EventSystem 全都在，按钮 `interactable=True`，在按钮位置 `RaycastAll` 也只命中它自己——但点下去毫无反应，**控制台零报错零警告**。逐段查链路（按钮监听、事件转发、状态机、Addressables）每一环单看都正常。
+- 根因：`InputSystemUIInputModule.actionsAsset` 的 setter 不会凭空按名字去新资产里找动作，它是拿模块**已有**的动作引用当模板去找同名的（`UpdateReferenceForNewAsset`：旧引用为 null 就直接 `return null`）。模块 `OnEnable` 时会自动塞一份 `DefaultInputActions` 当模板——如果为了"省一圈"把 GameObject 建成 inactive 再挂组件来阻止它，模板就没了，赋 `actionsAsset` 变成空转，`point`/`leftClick`/`submit` 等十个引用**全是 null**。模块没有任何输入源，所以既不响应也不报错。
+- 正确做法：赋完 `actionsAsset` **必须逐个显式绑定**（`UIService.BindUIActions`：`module.point = InputActionReference.Create(asset.FindAction("UI/Point"))`，Click / Navigate / Submit / Cancel / ScrollWheel / MiddleClick / RightClick 同理）。动作名改了就绑不上，而且同样是静默失灵，所以找不到动作要报 Warn。排查这类"UI 没反应又不报错"的问题，第一刀砍在 `EventSystem.current.currentInputModule` 的 `point`/`leftClick` 是不是 null，比顺着业务链路一段段查快得多。
+- 关联：`Assets/_Project/Scripts/Core/UI/UIService.cs` 的 `CreateEventSystem` / `BindUIActions`、`Assets/_Project/Data/Input/GameInput.inputactions` 的 UI 动作图；2026-09-16 点标题「开始」没反应时踩到。

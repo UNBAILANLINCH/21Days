@@ -88,6 +88,23 @@ python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规�
 分工尺子：**一行之内判得完的归 `rules.json`，必须把整个仓库摊开才能判的归 `invariants.py`**，
 两边不重复。误报出现两次就改判据或删掉那条，**不要加白名单**。
 
+### 第 6 样之外：派单模型审计（`agent_models.py`）
+
+```bash
+python .claude/skills/evolution/agent_models.py             # 最近一次有派单的会话
+python .claude/skills/evolution/agent_models.py 2198fc69    # 指定会话 id 前缀
+python .claude/skills/evolution/agent_models.py --all       # 本工程所有会话合并汇总
+```
+
+同一类「悄悄不生效」故障的载体：`model-routing.md` 那三条硬规则（每单显式传 `model`、
+不派 `fable`、工程走 `opus` 机械活走 `sonnet`），**主窗口自称守住了不算数**——它本身就是被审的对象。
+脚本读 Claude Code 的落盘记录来判：`subagents/agent-*.meta.json` 的 `model` 是派单时传的档位，
+同名 `.jsonl` 里 assistant 消息的 `model` 是实际跑的模型 ID；漏传、出现 `fable`、
+两边对不上都报，有违规 exit 1。
+
+不进 `/gc` 的六样：派单档位错了是钱和效率的问题，不像依赖方向破了那样会烂进包体。
+波次验收时顺手跑一次就够。
+
 ## harness 走歪了的信号与处理
 
 | 信号 | 说明它歪在哪 | 怎么处理 |

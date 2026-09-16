@@ -66,3 +66,11 @@ Assets/AddressableAssetsData/Android/
 Assets/AddressableAssetsData/Android.meta
 Assets/AddressableAssetsData/Windows/
 Assets/AddressableAssetsData/Windows.meta
+
+# Unity Test Framework 跑 PlayMode 测试时在 Assets/ 根上临时建的场景，形如
+# InitTestScene639251679653342362.unity（数字是时间戳）。测试正常结束 UTF 会自己删掉，
+# 但中断就会残留——手动停 Play、跑测试时触发重编译、进程被杀都算，2026-09-16 实际残留过一次。
+# 它不是工程资产，谁都不该提交。.meta 一并忽略，否则留下一个指向不存在资产的孤儿 meta，
+# Unity 下次打开会报「meta 没有对应资产」再把它删掉，白白产生一次 diff。
+Assets/InitTestScene*.unity
+Assets/InitTestScene*.unity.meta

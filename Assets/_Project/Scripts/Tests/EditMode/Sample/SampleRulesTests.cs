@@ -124,6 +124,12 @@ namespace Game.Tests.EditMode.Sample
             }
 
             public global::cfg.Tables Tables { get; }
+
+            /// <summary>
+            /// 指纹是给回放比对用的，定价规则不该碰它——所以这里抛而不是返回 0：
+            /// 哪天 SampleRules 偷偷读了指纹，测试会当场炸，而不是拿着一个假值静默通过。
+            /// </summary>
+            public ulong ContentHash => throw new NotSupportedException("假配置服务不提供内容指纹");
         }
     }
 }

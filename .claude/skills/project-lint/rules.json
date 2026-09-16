@@ -112,6 +112,58 @@
       "violation_tpl": "这个模块有状态 / 意图类型，却整个模块一条埋点都没有：{line}",
       "fix": "跑 /instrument-module <模块>（模块名就是本文件所在的 Scripts/Runtime/<模块>/ 目录名）。这是提醒不是拦路：埋点缺失不该挡着你干活，但出了事故日志里会什么线索都没有",
       "ref": "docs/telemetry.md #2.2 玩法模块：一行一个点"
+    },
+    {
+      "id": "gameplay-system-random",
+      "rule": "重放确定性",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "pattern": "\\bUnityEngine\\.Random\\.|\\bRandom\\.Range\\s*\\(|\\bnew\\s+System\\.Random\\b",
+      "violation_tpl": "玩法层用了系统随机源：{line}",
+      "fix": "改用 IRandomStream（注入 IRandomService 后取 logic.* 流）；系统随机拿不到也设不回状态，回放必炸",
+      "ref": "docs/architecture.md #5.10 确定性内核"
+    },
+    {
+      "id": "gameplay-render-time",
+      "rule": "重放确定性",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "pattern": "\\bTime\\.(?:deltaTime|time|fixedDeltaTime|unscaledTime)\\b",
+      "violation_tpl": "玩法层直接读渲染帧时间：{line}",
+      "fix": "玩法推进用 ILogicClock 与 SimulationContext.DeltaTime；渲染帧时间与逻辑 tick 是两回事，混用会让重放对不齐",
+      "ref": "docs/architecture.md #5.10 确定性内核"
+    },
+    {
+      "id": "gameplay-raw-math",
+      "rule": "重放确定性",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "pattern": "\\bMathf\\.|\\bMath\\.",
+      "violation_tpl": "玩法层直接用了原生数学库：{line}",
+      "fix": "改用 GameMath；它是将来换定点数的唯一改动点",
+      "ref": "docs/architecture.md #5.10 确定性内核"
+    },
+    {
+      "id": "gameplay-raw-input",
+      "rule": "重放确定性",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "pattern": "\\bInput\\.|\\.Actions\\b",
+      "violation_tpl": "玩法层直接读输入设备 / 动作表：{line}",
+      "fix": "玩法读 IInputSource.Current，不直接读设备；直接读设备的输入录不进回放",
+      "ref": "docs/architecture.md #5.8 输入、定时器、池、日志、音频、平台"
+    },
+    {
+      "id": "gameplay-physics-query",
+      "rule": "重放确定性",
+      "severity": "warn",
+      "files": [".cs"],
+      "path_contains": ["/Scripts/Runtime/"],
+      "pattern": "\\bPhysics2D\\.|\\bPhysics\\.|\\bRigidbody2D\\b|\\bRigidbody\\b|\\bOnCollision(?:Enter|Stay|Exit)(?:2D)?\\s*\\(|\\bOnTrigger(?:Enter|Stay|Exit)(?:2D)?\\s*\\(",
+      "violation_tpl": "玩法层用了物理引擎 API：{line}",
+      "fix": "物理不参与玩法判定（命中、位移、拾取自己算）；Unity 物理跨平台不保证确定性，让它参与判定，真机录的回放在 PC 上就放不出来。纯表现用途（碎片、特效）是合法的，误报时在该行末尾写 // lint-ok: 纯表现，不参与判定 放行",
+      "ref": "docs/architecture.md #5.10 确定性内核",
+      "_取舍": "故意定成 warn 不是 block：纯表现用途的物理合法，这条一定会误报；但不能因为会误报就不加——这条约束一旦破防，跨设备重放就没救了，宁可每次让人写一句理由"
     }
   ]
 }

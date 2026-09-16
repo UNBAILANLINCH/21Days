@@ -37,6 +37,9 @@ namespace Game.Core.Telemetry
         /// <summary>音频：BGM 切换与音效被拒。</summary>
         public const string Audio = "core.audio";
 
+        /// <summary>确定性内核：固定步长推进，目前只埋追帧超上限丢 tick。</summary>
+        public const string Sim = "core.sim";
+
         /// <summary>性能：周期采样与帧尖峰。</summary>
         public const string Perf = "core.perf";
 

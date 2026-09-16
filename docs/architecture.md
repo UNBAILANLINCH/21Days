@@ -39,7 +39,7 @@ Game.Editor ─────────────────────┼�
 
 | asmdef | 目录 | 职责 | 允许引用 |
 | --- | --- | --- | --- |
-| `Game.Core` | `Assets/_Project/Scripts/Core/` | 框架层。启动、服务、事件、资源、配置、状态流、UI、音频、存档、输入、池、定时器、日志、平台 | 第三方包；**不引用 Runtime / Editor / Tests** |
+| `Game.Core` | `Assets/_Project/Scripts/Core/` | 框架层。启动、服务、事件、资源、配置、状态流、UI、音频、存档、输入、池、定时器、日志、平台、确定性内核与回放 | 第三方包；**不引用 Runtime / Editor / Tests** |
 | `Game.Runtime` | `Assets/_Project/Scripts/Runtime/<Module>/` | 玩法模块，一个模块一个目录，命名空间 `Game.<Module>` | `Game.Core` 与第三方包 |
 | `Game.Editor` | `Assets/_Project/Scripts/Editor/` | 编辑器工具、打包、导入规则、生成菜单 | `Game.Core`、`Game.Runtime` |
 | `Game.Tests.*` | `Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/` | 测试 | `Game.Core`、`Game.Runtime` |
@@ -66,7 +66,9 @@ Assets/_Project/
       Save/               ISaveService、ISaveData
       Input/              IInputService、生成的 GameInput 包装类
       Pooling/            GameObjectPool、IPoolable
-      Timing/             ITimerService、TimerHandle
+      Timing/             ITimerService、TimerHandle（渲染帧口径）
+      Simulation/         确定性内核：ILogicClock、SimulationRunner、IInputSource、IRandomService、GameMath
+      Replay/             录制回放：录像文件读写与播放器（后续任务建）
       Logging/            Log 静态门面
       Platform/           IPlatformService 与各平台实现（唯一允许 #if 平台宏的地方）
     Runtime/<Module>/     Game.Runtime
@@ -136,10 +138,18 @@ public sealed class AssetHandle<T> : IDisposable { public T Asset { get; } }   /
 
 ```csharp
 namespace Game.Core.Config
-public interface IConfigService { Tables Tables { get; } }   // Luban 生成的 Tables 根，只读
+public interface IConfigService
+{
+    Tables Tables { get; }       // Luban 生成的 Tables 根，只读
+    ulong ContentHash { get; }   // 本次加载的配置内容指纹（FNV-1a 64 位）
+}
 ```
 
 Excel 是唯一数据源，`Tables/` 改完跑 `scripts/gen-tables.ps1`，生成代码进 `Core/Config/Generated/`，数据进 `Data/Config/`。两处都是生成物。
+
+`ContentHash` 是给回放用的：录制时把它写进回放文件头，放录像前先比一次。数值表改过之后再放旧录像，得到的是「配置版本不匹配，这份录像录于 X」这一句，而不是一串对不上的数据点——后者要人逐帧比对才看得出根因是表改了，是回放系统里最耗时的一类误判。它只反映配置内容，不含代码版本。
+
+算法是 FNV-1a 64 位，喂进去的字节流**先按表名 Ordinal 升序排好**再拼（表名 + 4 字节长度 + 内容）。排序这步是必须的：表字节来自 `IAssetService.LoadAllAsync` 的按标签批量加载，**返回顺序不保证稳定**，顺着它算的话同一份配置在两次运行、两台机器上会得出两个指纹，回放就会把「配置没改」误报成「配置版本不匹配」。和 `Tables` 同一条规矩：初始化完成前访问 `ContentHash` 抛异常，不返回 0 之类的哨兵值（哨兵值会被悄悄写进回放文件头，等放回放时才炸）。
 
 ### 5.5 状态流
 
@@ -203,18 +213,20 @@ JSON 文件，路径由 `IPlatformService.SaveRoot` 给出；先写临时文件�
 
 ```csharp
 public interface IInputService { GameInput Actions { get; } void EnableMap(string map); void DisableMap(string map); }
+public interface IInputSource { void Sample(long tick); InputCommand Current { get; } }   // 玩法逻辑读这个，契约见 5.10
 public interface ITimerService
 {
     TimerHandle Delay(float seconds, Action callback, bool unscaled = false);
     TimerHandle Interval(float seconds, Action callback, bool unscaled = false);
 }
 public readonly struct TimerHandle : IDisposable { bool IsActive { get; } }   // Dispose 即取消
-public interface IClock   // 唯一时间来源；Unscaled 两项供 unscaled 定时器用
+public interface IClock   // 渲染帧时间；Unscaled 两项供 unscaled 定时器用
 {
     DateTime UtcNow { get; }
     float GameTime { get; } float DeltaTime { get; }
     float UnscaledTime { get; } float UnscaledDeltaTime { get; }
 }
+public interface ILogicClock { long Tick { get; } float FixedDeltaTime { get; } float SimTime { get; } }   // 逻辑 tick，契约见 5.10
 public interface IPoolable { void OnGet(); void OnRelease(); }
 public sealed class GameObjectPool { GameObject Get(); void Release(GameObject go); }   // 封装 UnityEngine.Pool
 public static class Log { Debug / Info / Warn / Error(string message, UnityEngine.Object context = null); }   // Debug 级别编译期剔除
@@ -228,9 +240,9 @@ public interface IAudioService
 public interface IPlatformService { PlatformKind Kind { get; } string SaveRoot { get; } bool IsTouchPrimary { get; } void Vibrate(VibrationKind kind); }
 ```
 
-- 玩法只读 `Actions.Gameplay.Move` 这类动作，不读具体按键、不读 `Input.touches`。
+- **输入分两层，按「要不要确定性」分**：玩法逻辑读 `IInputSource`——它给出的是当前 tick 定格的一条 `InputCommand`，能录下来也能原样放回去；`IInputService.Actions` 继续服务 UI 导航、调试快捷键这类不需要确定性的场合。两层都只读动作（`Actions.Gameplay.Move` 这类），不读具体按键、不读 `Input.touches`。玩法逻辑里直接读 `Actions` 等于把「此刻的设备状态」灌进逻辑，重放会在某个 tick 悄悄分叉。
 - 延时用 `ITimerService`，每帧用 `ITickable`，两者随作用域销毁自动取消；不用 `Interval(0)` 冒充每帧。
-- 需要时间的地方一律注入 `IClock`，不直接读 `Time.time` 与 `DateTime.UtcNow`；本地实现直接包装二者。
+- **时间分两种，混用是这套框架里最容易出、也最难查的错**：`IClock` 是**渲染帧时间**（`DeltaTime` 每帧不等长、受 `timeScale` 与机器性能影响），UI 动效、定时器、表现插值用它；`ILogicClock` 是**逻辑 tick**（步长固定、不受掉帧与 `timeScale` 影响），玩法推进用它。两者都不直接读 `Time.time` 与 `DateTime.UtcNow`（`LocalClock` 就是二者的本地包装）。注入哪一个是个要想清楚的决定：逻辑里读到渲染帧时间，重放当场对不上，而且看起来一切正常。
 - 音频三路音量 Master / Bgm / Sfx；SFX 的 AudioSource 池化。AudioMixer **可选**：Unity 没有公开 API 创建 Mixer 资产，`AudioConfig.Mixer` 为空时用音量相乘实现，手工建了 Mixer 后切换到暴露参数。另有 `PlaySfxAsync(key)` 按资源 key 播放。BGM 换曲是「旧曲淡出、新曲淡入」的顺序淡化，`fadeSeconds` 传负数表示用配置默认值。
 - 状态流附带 `SceneGameState` 基类：Enter 时 Additive 加载 `SceneKey`，Exit 时卸载，子类只写 `OnSceneReadyAsync`。
 - `UIView` 的开关过渡是 `PlayOpenTransitionAsync / PlayCloseTransitionAsync(seconds)`，默认 LitMotion 淡入淡出，时长来自 `UIConfig`。
@@ -252,13 +264,41 @@ public interface ITelemetryService { /* … */ ITelemetryScope Scope(string modu
 
 - **不另建文件通道**：埋点就是一条格式固定的 Unity 日志（`[Game][T] <级别> <模块>/<事件> | <JSON>`），由 Unity 自己落盘。写入点只有一个，崩溃时最后几条不丢，真机路径不用自己管。
 - **日志在哪靠指针文件** `Logs/telemetry-source.txt`：`Editor.log` 的路径是本机全局的，猜默认路径会读到另一个 Unity 工程的日志。
-- **框架层零侵入自埋**：`core.boot` / `core.flow` / `core.asset` / `core.ui` / `core.save` / `core.audio` / `core.perf` / `core.log`，玩法接进框架就自动有。`core.log/unity_error` 把**任何** `Debug.LogError` 与未捕获异常转成带序号的埋点，是根因分析的主线索。
+- **框架层零侵入自埋**：`core.boot` / `core.flow` / `core.asset` / `core.ui` / `core.save` / `core.audio` / `core.sim` / `core.perf` / `core.log`，玩法接进框架就自动有。`core.sim` 埋的是确定性内核的推进异常，目前只有 `tick_dropped`（单帧追帧超上限时丢弃了多少个 tick）。`core.log/unity_error` 把**任何** `Debug.LogError` 与未捕获异常转成带序号的埋点，是根因分析的主线索。
 - **新建组合根要注册 `ITelemetrySink[]`（数组）**，不是单个 `ITelemetrySink`：`TelemetryService` 构造参数是 `params ITelemetrySink[]`，注册单个接口会在解析时失败。
 - **玩法层只埋四类**：意图入口 / 状态迁移 / 失败分支 / 长耗时；**每帧触发的一律不埋**，要每帧数据用 `core.perf` 采样。
 - **零分配**：属性走定长四槽的 `TelemetryProps` + 不装箱的 `PropValue`，不用 `params` / `Dictionary`。属性超过四个说明这条事件混了两件事，拆成两条。
 - **规则类照埋不误**：`ITelemetryScope` 及其值类型全是纯 C#（只 `using System`），Unity 依赖只在 sink 与 clock 的实现里。规则类构造注入这个接口，仍然可 EditMode 测试、仍然能搬服务端（第 7 节）。
 - 开关在 `Data/Telemetry/TelemetryConfig.asset`（总开关 / 最低级别 / 模块过滤 / 采样间隔 / 限流）；`D` 级在正式包里整句剔除。
 - 工具：`/analyze-telemetry` 查日志出诊断报告，`/instrument-module <模块>` 按四类尺子补埋点。
+
+### 5.10 确定性内核
+
+```csharp
+namespace Game.Core.Simulation
+public interface ILogicClock { long Tick { get; } float FixedDeltaTime { get; } float SimTime { get; } }
+public interface ISimulationStep { void Step(in SimulationContext context); }   // 一步逻辑；调用顺序 = 注册顺序，串行
+public readonly struct SimulationContext   // 一个 tick 里**允许读到的全部东西**，读不到的就是不许读的
+{
+    long Tick { get; } float DeltaTime { get; } InputCommand Input { get; } IRandomService Random { get; }
+}
+public interface IRandomService { IRandomStream Stream(string name); }   // 主种子 + 流名 → 互不干扰的流
+public interface IRandomStream { uint NextUInt(); int Range(int minInclusive, int maxExclusive); float Value01(); ulong State { get; set; } }
+public interface IInputSource { void Sample(long tick); InputCommand Current { get; } }
+public readonly struct InputCommand   // 定长可序列化的一帧输入：Axis0 / Axis1 / Buttons / Pointer / Flags
+public static class GameMath          // 玩法数值运算的唯一入口；当前是 Mathf 的薄封装
+```
+
+三条规则，破一条整套就不成立：
+
+1. **逻辑跑在固定步长 tick 上，与渲染帧解耦；不用 `FixedUpdate`。** `SimulationRunner` 在渲染帧里自己累积时间、自己决定这一帧推几个 tick（有追帧上限，超了整段丢弃并埋 `core.sim/tick_dropped`，免得滚成「卡顿 → 补帧 → 更卡」）。不用 `FixedUpdate` 是刻意的：它没法被外部单步（重放要「说推一格就推一格」），步长受 `timeScale` 影响（同一份录像在加速过的那次运行里推出的 tick 数不一样），而且跟物理绑死（改一次 Fixed Timestep 全部手感跟着变）。
+2. **随机数分 `logic.*` / `view.*` 两类流，表现层的随机绝不能污染逻辑序列。** 逻辑流影响游戏状态（伤害浮动、掉落、AI 选招），进快照、参与哈希；表现流只影响看得见听得见的（粒子朝向、音效变调），不进快照。共用一条序列的话，「这次多播了一个特效」就会把后面所有逻辑随机往后挪一位，重放必炸且毫无头绪——表现代码看上去跟逻辑八竿子打不着。`UnityEngine.Random` / `System.Random` 在逻辑里一律禁用：前者带全局状态，后者的实现不保证跨运行时一致。
+3. **玩法数值运算只走 `GameMath`。** 现在它就是 `Mathf` 的薄封装，存在的意义是把「将来要不要换定点数」收敛成一个改动点：浮点在不同 CPU / 编译目标上可能给出不同末位，跨端帧同步要真做起来，只有这一个文件需要换实现。
+
+接线上的两条决定：
+
+- `SimulationRunner` 在根作用域注册成 EntryPoint（`ITickable`），`ILogicClock` 绑的是它内部那一个时钟实例——另建一份没人推，注入方读到的 `Tick` 会永远停在 0，不报错也不崩。
+- 玩法注入到的 `IInputSource` 是 `InputSourceSwitch`：回放开关只换它内部的指向，不换实例。换实例会让已经把引用缓存进字段的系统继续指向旧对象，表现为「一半在放录像、一半还在收实时输入」的缓慢漂移，比崩溃难查。
 
 ## 6. 从参考工程借鉴的手法与规避的坑
 
@@ -292,6 +332,7 @@ public interface ITelemetryService { /* … */ ITelemetryScope Scope(string modu
 | 状态改变走命令 | 输入与 UI 产生「意图」对象，由规则类应用到状态，不直接改字段 | 意图对象即网络消息，序列化后发送 |
 | 存档是带版本的 DTO | `ISaveData` 分区各自版本化，JSON 序列化 | 同一份 DTO 上传下载或做云存档 |
 | 状态流是异步的 | `GameState.EnterAsync` 可等待 | 加一个连接中状态，不改状态机 |
+| 逻辑跑在确定性内核上 | 固定步长 tick + 输入命令 + 确定性随机，逻辑与渲染帧解耦（5.10） | 帧同步的现成地基：把本地 `InputCommand` 换成「收齐各家命令再推同一个 tick」。**这是确定性内核独立于回放系统存在的理由**——回放只是它的第一个用户，不是它的目的 |
 
 不做的事：不预建 `Core/Network/`，不定义 `INetworkService`，不给玩法留「联机模式」分支。真要做时再按上表换实现。
 

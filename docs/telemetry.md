@@ -43,7 +43,7 @@
 | 位置 | 字段 | 类型 | 含义 |
 | --- | --- | --- | --- |
 | 级别 | `D` / `I` / `W` / `E` | — | Debug / Info / Warn / Error。`D` 与 `Log.Debug` 一样，正式包里整句剔除 |
-| 模块 | — | string | 框架层用 `core.<服务>`（`core.boot` `core.flow` `core.ui` `core.asset` `core.save` `core.audio` `core.perf`）；玩法模块用模块名小写（`sample` `player` `inventory`） |
+| 模块 | — | string | 框架层用 `core.<服务>`（`core.boot` `core.flow` `core.ui` `core.asset` `core.save` `core.audio` `core.sim` `core.perf`）；玩法模块用模块名小写（`sample` `player` `inventory`） |
 | 事件 | — | string | `snake_case`，描述**已经发生的事实**（`state_enter`、`load_failed`），不用祈使式 |
 | JSON `t` | int | 必有 | 自本次会话开始的毫秒数 |
 | JSON `s` | int | 必有 | 会话内自增序号。日志被别的线程插行、或被工具重排时靠它恢复真实顺序 |
@@ -146,8 +146,13 @@ Logs/telemetry/<sid>.log           # Logs/ 已 gitignore
 | `core.ui` | `open` / `close` | `panel` `ms` `depth` |
 | `core.save` | `write` / `load` / `corrupt` / `migrate` | `slot` `ms` `bytes` |
 | `core.audio` | `bgm` / `sfx_denied` | `key` |
+| `core.sim` | `tick_dropped` | `n` |
 | `core.perf` | `sample` / `spike` | `fps` `frame_ms` `gc_mb` `mem_mb` |
 | `core.log` | `unity_error` | 由 `Application.logMessageReceived` 自动转，`err` `st` |
+
+`core.sim` 埋的是确定性内核（固定步长推进器）的推进异常，目前只有 `tick_dropped` 一条：
+`n` 是单帧追帧超上限时丢弃掉的 tick 数，逻辑时间就此落后于墙上时间。
+查「卡了一下之后画面像跳过去一段」这类手感问题时先看它。
 
 `core.log/unity_error` 是根因分析的主线索：**任何** `Debug.LogError` 和未捕获异常都会变成一条带序号的埋点，
 于是「报错前 30 条发生了什么」这个问题永远答得出来。

@@ -86,8 +86,9 @@ namespace Game.Tests.EditMode.Core
         /// <summary>
         /// 读 Data/Config 下全部 .bytes，键是不带扩展名的文件名——和 ConfigService 运行时用 TextAsset.name 一致。
         /// 路径从 <c>Application.dataPath</c> 推，不写死本机绝对路径。
+        /// <para><see cref="ConfigContentHashTests"/> 也要这份真实数据，所以开成 internal 给它复用，别再抄一份。</para>
         /// </summary>
-        private static Dictionary<string, byte[]> ReadAllTableBytes()
+        internal static Dictionary<string, byte[]> ReadAllTableBytes()
         {
             string configDir = Path.Combine(Application.dataPath, "_Project/Data/Config");
             if (!Directory.Exists(configDir))

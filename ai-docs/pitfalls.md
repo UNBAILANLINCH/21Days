@@ -171,3 +171,21 @@
 - 根因：`InputSystemUIInputModule.actionsAsset` 的 setter 不会凭空按名字去新资产里找动作，它是拿模块**已有**的动作引用当模板去找同名的（`UpdateReferenceForNewAsset`：旧引用为 null 就直接 `return null`）。模块 `OnEnable` 时会自动塞一份 `DefaultInputActions` 当模板——如果为了"省一圈"把 GameObject 建成 inactive 再挂组件来阻止它，模板就没了，赋 `actionsAsset` 变成空转，`point`/`leftClick`/`submit` 等十个引用**全是 null**。模块没有任何输入源，所以既不响应也不报错。
 - 正确做法：赋完 `actionsAsset` **必须逐个显式绑定**（`UIService.BindUIActions`：`module.point = InputActionReference.Create(asset.FindAction("UI/Point"))`，Click / Navigate / Submit / Cancel / ScrollWheel / MiddleClick / RightClick 同理）。动作名改了就绑不上，而且同样是静默失灵，所以找不到动作要报 Warn。排查这类"UI 没反应又不报错"的问题，第一刀砍在 `EventSystem.current.currentInputModule` 的 `point`/`leftClick` 是不是 null，比顺着业务链路一段段查快得多。
 - 关联：`Assets/_Project/Scripts/Core/UI/UIService.cs` 的 `CreateEventSystem` / `BindUIActions`、`Assets/_Project/Data/Input/GameInput.inputactions` 的 UI 动作图；2026-09-16 点标题「开始」没反应时踩到。
+
+## EditMode 测试用例总数不涨也不报错，其实是域没重载
+- 现象：新测试文件已经编译进 `Library/ScriptAssemblies/Game.Tests.EditMode.dll`（反射查得到类型），但 MCP `run_tests` 跑出来的用例总数没变——该有 173 条只跑了 169 条，少跑的 4 条**既不算失败也不算跳过**，结果照样全绿。
+- 根因：编辑器当前 AppDomain 里加载的还是旧程序集，跟磁盘上的 dll MVID 对不上——编译完了但没做域重载，测试框架枚举的是内存里那份旧的。触发条件是编辑器处于**未聚焦**状态（MCP 遥控时一直如此）；`refresh_unity(force, compile="request")`、菜单里的「立即编译」、`EditorUtility.RequestScriptReload()` 都压不住它。
+- 正确做法：用例总数不涨又不报错，先怀疑域没重载，别怀疑测试没写对。判据 5 秒可证伪：`execute_code` 里反射 `AppDomain.CurrentDomain.GetAssemblies()` 查目标类型在不在、比对程序集 MVID 与磁盘 dll 是否一致；确认没重载就用 `CompilationPipeline.RequestScriptCompilation(RequestScriptCompilationOptions.CleanBuildCache)` 强制重编重载。日常预防：跑测试前先 `refresh_unity(force, compile="request")`，并核对用例总数是否符合预期——总数是这类静默失败唯一的观测点。
+- 关联：`.claude/rules/unity-tests.md #怎么跑`、`.claude/skills/unity-test/SKILL.md`；2026-09-16 做回放系统时实测踩到。
+
+## 一条用例留下的未观察 UniTask 异常，会随机砸中另一条无关用例
+- 现象：EditMode 测试偶发失败，报 `Unhandled log message: '[Exception] InvalidOperationException: ThrowingView 打不开'`，而且每次挂的用例都不一样（`TelemetryServiceTests` 的限流用例、`RandomStreamTests` 的用例都中过），失败用例本身跟 UI、UniTask 毫无关系；同一份代码重跑一次又可能全绿。
+- 根因：`UIServiceTests` 里"`OnOpenAsync` 抛异常"那条用例留下一个未被观察的 UniTask 异常，由 `UniTaskScheduler` 延迟发布到 Unity 日志系统，落在哪条用例的边界里取决于 GC 时机，于是随机砸中当时正在跑的某条——测试框架把它当成本次运行的未预期日志判失败。跑过 `execute_code` 之后尤其容易触发，动态程序集会改变 GC 时机。
+- 正确做法：清空控制台挡不住它（只是清掉已有日志，异常还没发布）；跑测试前先 `refresh_unity(force, compile="request")` 触发一次域重载，把上一轮遗留的待发布异常一起带走。看到「失败用例与报错内容风马牛不相及」这种现象先按这条排查，不要去改那条无辜用例的断言。根治要在产生异常的那条用例里把 UniTask 异常观察掉（`.Forget()` 带异常处理，或接 `UniTaskScheduler.UnobservedTaskException`），这属于 UI 测试自己的范围。
+- 关联：`Assets/_Project/Scripts/Tests/EditMode/Core/UIServiceTests.cs`、UniTask 的 `UniTaskScheduler`、`.claude/rules/unity-tests.md`；2026-09-16 做回放系统时连续踩到两次。
+
+## 测试自己把依赖装上了，于是接线缺口全程不报
+- 现象：回放系统的验证全绿——PlayMode Showcase 2/2、EditMode 173/173，录制、状态哈希、完整快照、漂移检测逐条验过。但**真实启动路径下录出来的回放只有输入流**：状态哈希和快照全是空的，漂移检测、起点恢复、快照续跑全部空转。整个系统最核心的能力是空的，而没有任何一条验证发现得了。
+- 根因：框架只定义了 `IReplayStateProvider` 契约，**没有默认实现，组合根里也没注册没接线**。而 Showcase 为了自己能跑，`new` 了一个提供者挂上去。于是所有验证验的都是「这套类凑在一起能工作」，不是「产品启动起来能工作」——**接线那一层从头到尾没被任何一条验证覆盖过**，缺口被测试自带的依赖完美掩盖。
+- 正确做法：凡是靠容器接线才生效的能力，必须有**一条验证是从真实容器里解析出对象、再查它手上的依赖是不是真的挂上了**（反射读私有字段也算），而不是测试自己装一套。自查判据很简单：把测试里「自己 new 依赖挂上去」那几行删掉，看验证还跑不跑得起来——跑不起来，说明你验的是测试的接线，不是产品的接线。配套的一条：测试收尾还原时要还原成**容器里那个**，不是 `null` 也不是写死的初值，否则测试跑完会把真实运行环境弄坏（这次也真的发生了，Showcase 跑完把容器里的提供者还原成了 null）。
+- 关联：`Assets/_Project/Scripts/Core/Replay/ReplayStateRegistry.cs`、`Core/Boot/GameLifetimeScope.cs` 的 `RegisterReplay`、`PRP/replay/tasks.md`；2026-09-16 做回放系统时踩到。

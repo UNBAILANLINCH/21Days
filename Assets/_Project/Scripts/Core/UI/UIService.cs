@@ -13,6 +13,7 @@ using Game.Core.Logging;
 using Game.Core.Telemetry;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -398,13 +399,56 @@ namespace Game.Core.UI
             }
             else
             {
-                // 赋 actionsAsset 时模块会按「同名动作图 + 同名动作」重新绑定 Point / Click / Submit……
-                // 所以 GameInput 的 UI map 里那几个动作名不能改（Navigate / Submit / Cancel / Point / Click / …）。
+                // actionsAsset 的 setter 只会拿模块**已有**的动作引用去新资产里找同名的
+                // （InputSystemUIInputModule.UpdateReferenceForNewAsset：旧引用为 null 就直接 return null）。
+                // 上面故意让模块建成 inactive、不填 DefaultInputActions，也就没了可当模板的旧引用，
+                // 于是赋 actionsAsset 是空转、十个引用全是 null——EventSystem、Canvas、按钮看着都正常，
+                // 但模块没有任何输入源，点按钮毫无反应且不报任何错。所以必须逐个显式绑定。
                 module.actionsAsset = input.Actions.asset;
+                BindUIActions(module, input.Actions.asset);
                 input.EnableMap(InputService.UIMap);
             }
 
             eventSystemObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// 把 UI 动作图里的动作逐个绑到输入模块上。
+        /// <para>
+        /// 动作名必须和 GameInput 的 UI map 对得上，改了名字这里就绑不上——
+        /// 而且是**静默失灵**（UI 收不到点击但不报错），所以找不到时这里会报 Warn。
+        /// </para>
+        /// <para>
+        /// TrackedDevicePosition / TrackedDeviceOrientation 是 XR 才用的，本工程不接 XR，故不绑；
+        /// 将来要用按同样的写法补上。
+        /// </para>
+        /// </summary>
+        private static void BindUIActions(InputSystemUIInputModule module, InputActionAsset asset)
+        {
+            module.point = FindActionReference(asset, "UI/Point");
+            module.leftClick = FindActionReference(asset, "UI/Click");
+            module.middleClick = FindActionReference(asset, "UI/MiddleClick");
+            module.rightClick = FindActionReference(asset, "UI/RightClick");
+            module.scrollWheel = FindActionReference(asset, "UI/ScrollWheel");
+            module.move = FindActionReference(asset, "UI/Navigate");
+            module.submit = FindActionReference(asset, "UI/Submit");
+            module.cancel = FindActionReference(asset, "UI/Cancel");
+        }
+
+        /// <summary>
+        /// 按「动作图/动作」路径取引用。缺一个只是那一路输入失灵，
+        /// 不该让整个 UI 起不来，所以报 Warn 而不抛。
+        /// </summary>
+        private static InputActionReference FindActionReference(InputActionAsset asset, string path)
+        {
+            InputAction action = asset.FindAction(path);
+            if (action == null)
+            {
+                Log.Warn($"GameInput 里找不到动作「{path}」，这一路 UI 输入会失灵。");
+                return null;
+            }
+
+            return InputActionReference.Create(action);
         }
 
         /// <summary>

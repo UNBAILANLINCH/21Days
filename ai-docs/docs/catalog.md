@@ -1,5 +1,11 @@
 # 知识总目录（catalog）
 
+## 双客户端入口
+
+Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项目约定](../project-guide.md)。
+下表的自动注入、hooks 与斜杠命令描述属于 Claude Code；Codex 按 `AGENTS.md` 主动读取同一规则和流程并执行检查。
+模块文档与踩坑记录由双方维护同一份，跨客户端接入步骤见 [AI 接入说明](../../docs/ai-setup.md)。
+
 > 不确定该读哪份文档时，从这里找入口。遵循**渐进式加载**：只读当前任务相关的那一份，不要一次性全读。
 
 ## 三级加载（细则 `.claude/rules/knowledge-routing.md`）

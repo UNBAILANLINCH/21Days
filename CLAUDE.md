@@ -1,39 +1,8 @@
 # 21Days — Unity 2D 工程（Claude Code harness）
 
 多人协作项目，当前阶段由框架负责人先搭框架层，玩法未定。Unity 2022.3.62f2 LTS，2D URP 模板。
-本文件只放最核心的禁令、路由和入口；细则在 `.claude/rules/`（按文件类型自动注入）与 `ai-docs/`（按需读）。
-
-## 硬规则（违反即返工）
-
-1. **生成物不手改**：`Library/ Temp/ Logs/ obj/ UserSettings/`、`*.meta`、`*.csproj/*.sln`、`packages-lock.json`。钩子会拒绝，被拒就换做法，不绕。
-2. **不带本地标识**：工程内任何文件不出现本机用户名、绝对路径、邮箱。公司名保持 `DefaultCompany`。
-3. **改 `ProjectSettings/`、`Packages/manifest.json` 先说明为什么**，钩子会弹确认。
-4. **提交前必审**：改动攒在工作区，收敛后 `/review-change` 列清单，用户逐次明确授权才 `git commit`；不 push 除非明说。提交信息按 `docs/commit-convention.md`，不带任何 AI 署名（钩子会拒）。
-5. **护栏挡住时不拆护栏**：lint / 钩子拦下来先看理由；确属误报，在那一行写 `// lint-ok: <理由>` 放行，理由必须写。
-
-## 工作纪律（对 AI，违反即返工）
-
-1. **能力面内的事不外推**：修法已定且工具够得着，就直接做完，不要列 ABCD 选项让用户选、不要用「有风险 / 需人工确认 / 属于后续排期」把自己能做能验的事包装成推给用户。问用户只在三种情况：不可逆操作、穷尽探索仍无解、真正的主观偏好。
-2. **「做不了」必须实测过再说**：判断某个 API / 工具 / 路径不存在或不可用，先跑一次实测（MCP `read_console`、`execute_code`、跑一条命令）。读源码猜出来的是猜测，跑过的才是证据。没实测就下结论等同于编造。
-3. **subagent 自报通过不算通过**：派单回来说「测试全过」「编译零错误」时，主窗口自己复跑一次 `run_tests` / `read_console` 再采信。同理，凡声称某文件已生成 / 已更新，自己 `stat` 或读一眼。自报结果和自报证据是同一等级的东西，都要独立复核。
-4. **新增自动化必须锚定载体**：往 harness 里加会自己跑起来的东西（钩子、定时扫描、生成物刷新），文件头要写明执行载体、5 秒可证伪的状态锚点、退场条件，缺一不上线。细则见 [`.claude/rules/harness-authoring.md`](.claude/rules/harness-authoring.md)。
-
-## 目录约定（细则见 `.claude/rules/project-root.md`）
-
-自己的内容全放 `Assets/_Project/`；模板留下的 `Assets/Scenes/`、`Assets/Settings/` 原位不动；第三方包走 Package Manager 或 `Assets/Plugins/`。
-
-```
-Assets/_Project/
-  Scripts/Core/                框架层(零玩法)  asmdef Game.Core
-  Scripts/Runtime/<Module>/   游戏逻辑        asmdef Game.Runtime
-  Scripts/Editor/             编辑器工具      asmdef Game.Editor
-  Scripts/Tests/EditMode/     纯逻辑测试      asmdef Game.Tests.EditMode
-  Scripts/Tests/PlayMode/     运行时测试      asmdef Game.Tests.PlayMode
-  Scripts/Tests/Showcase/<Module>/   回放验证场景   asmdef Game.Tests.Showcase
-  Prefabs/ Scenes/(Verify/ 放验证场景) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
-```
-
-框架层结构与 asmdef 已建立（设计见 docs/architecture.md）；玩法模块目录随 `/new-feature` 落地时再建。加能力的顺序：**先复用 → 再扩展已有文件 → 最后才新建**，新建要在文件头写明前两步为何不行。
+开始项目任务前，读取并遵守 [共用项目约定](ai-docs/project-guide.md)。
+项目硬规则与目录约定只维护在该文件；下面补充 Claude Code 的客户端行为。
 
 ## 派单模型路由（主窗口纪律，细则 `.claude/rules/model-routing.md`）
 

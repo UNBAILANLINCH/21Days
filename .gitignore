@@ -56,6 +56,9 @@ Thumbs.db
 # Python 脚本（钩子 / lint / 扫描）运行产生的字节码缓存
 __pycache__/
 
+# Codex hooks 的会话缓存
+.codex/.cache/
+
 # Addressables 每平台的增量更新基线（出包时生成）。只有做 content update 热更才用得上，
 # 本工程暂不做；而且每次出包都变，是没法 diff 的二进制。将来要上热更，删掉这几行把它收回跟踪当基线。
 # 目录和目录的 .meta 必须一起忽略——只忽略 .bin 会剩下一个指向空目录的 .meta，Unity 会报「meta 没有对应资产」再删掉它。

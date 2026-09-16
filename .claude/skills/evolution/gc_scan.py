@@ -42,9 +42,9 @@ from pathlib import Path
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 #: 扫这些目录下的所有 .md
-SCAN_DIRS = (".claude", "ai-docs", "docs", "evals")
+SCAN_DIRS = (".claude", ".agents/skills", ".codex/hooks", "ai-docs", "docs", "evals")
 #: 外加工程根上这几份
-ROOT_FILES = ("CLAUDE.md", "README.md")
+ROOT_FILES = ("CLAUDE.md", "AGENTS.md", "README.md")
 
 #: required_reads.json 里被当成「文件路径」看待的后缀
 READ_SUFFIXES = (".md", ".cs", ".json", ".py", ".js", ".txt")

@@ -6,7 +6,9 @@
         "Game.Runtime",
         "Unity.Addressables.Editor",
         "Unity.Addressables",
-        "Unity.ResourceManager"
+        "Unity.ResourceManager",
+        "VContainer",
+        "UniTask"
     ],
     "includePlatforms": [
         "Editor"

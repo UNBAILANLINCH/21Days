@@ -61,7 +61,7 @@ harness 就是补这一层：**把约束按需送到眼前、把工具接进来�
 | 跑测试 | `/unity-test [EditMode\|PlayMode]` |
 | 出了 bug / 卡顿，想从日志倒推根因 | `/analyze-telemetry`——机器聚合出摘要，提假设，定向回读验证，出诊断报告；只诊断不改代码 |
 | 出包 | `/build [Windows\|Android]`（编辑器须关闭） |
-| 改动做完要提交 | `/review-change`——列清单等审，**授权后才提交** |
+| 改动做完要提交 | `/review-change`——先过收尾门（补埋点、沉淀结论），再列清单等审，**授权后才提交** |
 | 复杂功能要留决策痕迹 | PRP 四阶段，见 [`PRP/README.md`](../PRP/README.md) |
 | 生成 / 同步模块文档 | `/generate-doc <模块>` |
 | 踩了坑想让它别再犯 | `/learn` |

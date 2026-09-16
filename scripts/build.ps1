@@ -32,13 +32,18 @@
     开发版构建：带 Development 标记，可连 Profiler，体积更大，不要用来发版。
 
 .PARAMETER Release
-    Android 可上架配置：临时切 IL2CPP + 仅 ARM64（Google Play 自 2019 年起要求 64 位），
-    出完包由 BuildScript 立刻把 ProjectSettings 改回原样，工作区不留 diff。
+    强制 Android 走 IL2CPP + 仅 ARM64：临时改 ProjectSettings，出完包由 BuildScript
+    立刻改回原样，工作区不留 diff。
 
-    **平时不加**：IL2CPP 要把整个 C# 程序集转译成 C++、再用 NDK 编成原生库，比默认路径慢好几倍
-    （2026-09-16 本工程实测：默认 75 秒 → Release 268 秒，约 3.6 倍；包体 33.4 MB → 41.6 MB）。
+    **2026-09-16 起工程默认就是 IL2CPP + ARM64**，所以这个开关现在不切换任何东西，
+    只剩一层保险：万一谁把 ProjectSettings 改回了 Mono / ARMv7，加上它仍能出 64 位包。
+    改默认的起因不是上架，是装机 —— 骁龙 8 Gen 3 那一代之后的手机大核去掉了 AArch32，
+    32 位包根本装不上，而真机验证是当前的主要手段。
+
+    随之作废的旧说法：「平时不加，因为 IL2CPP 慢 3.6 倍」—— 现在不加也一样走 IL2CPP。
+    实测数字（2026-09-16 本工程）：IL2CPP + ARM64 约 268 秒 / 41.6 MB；
+    旧的 Mono + ARMv7 路径 75 秒 / 33.4 MB，只有手动把 ProjectSettings 改回去才走得到。
     这个差距随代码量增长，工程大了 IL2CPP 到十几分钟很常见。
-    **要上架、或者要测真机真实性能时才加**（Mono 和 IL2CPP 的运行速度不是一回事）。
 
     只对 Android 有意义，Windows 上加了会被忽略。
     注意：它只解决 64 位这一条，导出的仍是 APK，而 Google Play 对新应用要的是 AAB，
@@ -78,8 +83,8 @@ param(
 
     [switch]$Development,
 
-    # 只影响 Android：临时切 IL2CPP + 仅 ARM64 出可上架的 64 位包，出完包设置立刻还原。
-    # 实测慢 3～4 倍（75 秒 → 268 秒），日常出包别加。
+    # 只影响 Android：强制 IL2CPP + 仅 ARM64，出完包设置立刻还原。
+    # 工程默认已是 IL2CPP + ARM64，所以平时加不加都一样，它只防「默认被人改回 32 位」。
     [switch]$Release,
 
     [string]$UnityPath
@@ -236,14 +241,14 @@ Write-Host "目标平台：$Target"
 # 明确打出本次用的是哪种配置：出完包别让人对着体积猜自己刚才出的到底是不是能上架的那种。
 if ($Target -eq 'Android') {
     if ($Release) {
-        Write-Host "配置：Release（IL2CPP + ARM64，满足 Google Play 的 64 位要求）"
-        Write-Host "  慢：IL2CPP 要先把 C# 转译成 C++ 再用 NDK 编原生库，比默认路径慢好几倍（本工程实测 268 秒 vs 75 秒），别以为卡死了。"
-        Write-Host "  仍不等于可上架：Google Play 对新应用要 AAB，这里只出 APK。"
+        Write-Host "配置：Release（强制 IL2CPP + ARM64）"
+        Write-Host "  工程默认已是这套配置，本开关只防「默认被人改回 32 位」，平时不必加。"
+        Write-Host "  慢：IL2CPP 要先把 C# 转译成 C++ 再用 NDK 编原生库（本工程实测约 268 秒），别以为卡死了。"
         Write-Host "  设置是临时改的，出完包 BuildScript 会改回原样，工作区不留 diff。"
     }
     else {
-        Write-Host "配置：Development（沿用 ProjectSettings 里的脚本后端与 CPU 架构，出包快；工程默认是 Mono + ARMv7，不可上架）"
-        Write-Host "  要出能上架的 64 位包加 -Release。"
+        Write-Host "配置：沿用 ProjectSettings（工程默认 IL2CPP + ARM64，能装 2024 年后的纯 64 位手机）"
+        Write-Host "  慢：默认路径就走 IL2CPP，本工程实测约 268 秒，别以为卡死了。"
     }
 }
 elseif ($Release) {

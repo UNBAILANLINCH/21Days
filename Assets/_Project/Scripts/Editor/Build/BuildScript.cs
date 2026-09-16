@@ -19,7 +19,8 @@
 //   -buildVersion <字符串> 写入 PlayerSettings.bundleVersion
 //   -buildNumber <整数>   Android 的 bundleVersionCode；不给而给了 -buildVersion 时改为自增
 //   -development          打开 BuildOptions.Development
-//   -releaseBuild         Android 可上架配置：临时切 IL2CPP + 仅 ARM64，出完包立刻把设置改回原样
+//   -releaseBuild         强制 Android 走 IL2CPP + 仅 ARM64，出完包立刻把设置改回原样。
+//                         工程默认已是这套配置（2026-09-16 起），本开关只防「默认被人改回 32 位」
 //
 // 新建理由（project-root.md「加能力的顺序」）：工程此前没有任何编辑器脚本，
 // 既没有可复用的现成工具，也没有职责相符、能塞进去的已有文件，只能新建。
@@ -181,8 +182,10 @@ namespace Game.Editor
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
 
                     // 只勾 ARM64，不勾「ARMv7 + ARM64」双架构：IL2CPP 的原生产物（libil2cpp.so / libunity.so）
-                    // 按架构各打一份进 APK，双架构体积接近翻倍；2026 年新项目只支持 64 位是主流做法
-                    // （Google Play 自 2019 年起本来就要求 64 位）。真要兼容 32 位老设备，改这一行即可。
+                    // 按架构各打一份进 APK，双架构体积接近翻倍；何况骁龙 8 Gen 3 那一代之后的手机
+                    // 大核去掉了 AArch32，32 位包在那些机器上根本装不上。
+                    // 真要兼容 32 位老设备：改 ProjectSettings 里的默认值，不是改这一行 ——
+                    // 这里只在带了 -releaseBuild 时生效，且出完包立刻恢复，改了也留不住。
                     PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
                 }
 
@@ -218,10 +221,10 @@ namespace Game.Editor
             AndroidArchitecture architectures = PlayerSettings.Android.targetArchitectures;
             bool has64Bit = (architectures & AndroidArchitecture.ARM64) != 0;
 
-            string profile = releaseBuild ? "Release" : "Development";
+            string profile = releaseBuild ? "Release（强制）" : "默认";
             string verdict = has64Bit
-                ? "满足 Google Play 的 64 位要求；但商店要的是 AAB，这里只出 APK，仍不能直接上架"
-                : "不可上架：Google Play 自 2019 年起要求 64 位";
+                ? "能装纯 64 位手机；导出仍是 APK 不是 AAB，要上架另说"
+                : "32 位包：骁龙 8 Gen 3 那一代之后的纯 64 位手机装不上";
 
             Log($"配置：{profile}（{backend} + {architectures}，{verdict}）");
         }

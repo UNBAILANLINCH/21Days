@@ -8,6 +8,16 @@
     }
   },
   "modules": {
+    "player": {
+      "src": "Assets/_Project/Scripts/Runtime/Player",
+      "docs": "ai-docs/docs/modules/player",
+      "status": "ready"
+    },
+    "monster": {
+      "src": "Assets/_Project/Scripts/Runtime/Monster",
+      "docs": "ai-docs/docs/modules/monster",
+      "status": "ready"
+    },
     "sample": {
       "src": "Assets/_Project/Scripts/Runtime/Sample",
       "docs": "ai-docs/docs/modules/sample",

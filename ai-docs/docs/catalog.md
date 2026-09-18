@@ -21,6 +21,8 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | 模块 | 状态 | 文档目录 |
 | --- | --- | --- |
 | Sample | 三件套齐备（**同时是模块文档的样例**） | [`modules/sample/`](modules/sample/sample-module-guide.md) |
+| Player | 三件套齐备；Unity 场景接线待完成 | [`modules/player/`](modules/player/player-module-guide.md) |
+| Monster | 三件套齐备；Unity 场景接线待完成 | [`modules/monster/`](modules/monster/monster-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

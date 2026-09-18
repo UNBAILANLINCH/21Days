@@ -64,6 +64,33 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Sneak"",
+                    ""type"": ""Button"",
+                    ""id"": ""22f5bb31-36b4-45c2-8567-6d545dad8770"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Disguise"",
+                    ""type"": ""Button"",
+                    ""id"": ""9275c92e-919c-4252-92e2-0987288518c5"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Attack"",
+                    ""type"": ""Button"",
+                    ""id"": ""12967cdf-f87d-48e4-8972-ea66297e6723"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -295,6 +322,72 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Pause"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""f8aa4429-ddc8-4a5c-9cb0-7bb059b9d533"",
+                    ""path"": ""<Keyboard>/leftShift"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sneak"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""55a31355-aa37-4fe7-bc32-78d292b1c817"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sneak"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""225841ed-3629-4435-a104-a257b54d2d5e"",
+                    ""path"": ""<Keyboard>/g"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Disguise"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""cb7b0e10-14ce-4349-b327-4f14c1ee86a9"",
+                    ""path"": ""<Gamepad>/buttonNorth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Disguise"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""59bba9d9-9cdf-44dd-ab6e-122c25facbfb"",
+                    ""path"": ""<Keyboard>/j"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Attack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""29527b4f-d31c-4434-85e1-5adf27891c57"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Attack"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -693,6 +786,9 @@ namespace Game.Core.Input
             m_Gameplay_Confirm = m_Gameplay.FindAction("Confirm", throwIfNotFound: true);
             m_Gameplay_Cancel = m_Gameplay.FindAction("Cancel", throwIfNotFound: true);
             m_Gameplay_Pause = m_Gameplay.FindAction("Pause", throwIfNotFound: true);
+            m_Gameplay_Sneak = m_Gameplay.FindAction("Sneak", throwIfNotFound: true);
+            m_Gameplay_Disguise = m_Gameplay.FindAction("Disguise", throwIfNotFound: true);
+            m_Gameplay_Attack = m_Gameplay.FindAction("Attack", throwIfNotFound: true);
             // UI
             m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
             m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -776,6 +872,9 @@ namespace Game.Core.Input
         private readonly InputAction m_Gameplay_Confirm;
         private readonly InputAction m_Gameplay_Cancel;
         private readonly InputAction m_Gameplay_Pause;
+        private readonly InputAction m_Gameplay_Sneak;
+        private readonly InputAction m_Gameplay_Disguise;
+        private readonly InputAction m_Gameplay_Attack;
         public struct GameplayActions
         {
             private @GameInput m_Wrapper;
@@ -784,6 +883,9 @@ namespace Game.Core.Input
             public InputAction @Confirm => m_Wrapper.m_Gameplay_Confirm;
             public InputAction @Cancel => m_Wrapper.m_Gameplay_Cancel;
             public InputAction @Pause => m_Wrapper.m_Gameplay_Pause;
+            public InputAction @Sneak => m_Wrapper.m_Gameplay_Sneak;
+            public InputAction @Disguise => m_Wrapper.m_Gameplay_Disguise;
+            public InputAction @Attack => m_Wrapper.m_Gameplay_Attack;
             public InputActionMap Get() { return m_Wrapper.m_Gameplay; }
             public void Enable() { Get().Enable(); }
             public void Disable() { Get().Disable(); }
@@ -805,6 +907,15 @@ namespace Game.Core.Input
                 @Pause.started += instance.OnPause;
                 @Pause.performed += instance.OnPause;
                 @Pause.canceled += instance.OnPause;
+                @Sneak.started += instance.OnSneak;
+                @Sneak.performed += instance.OnSneak;
+                @Sneak.canceled += instance.OnSneak;
+                @Disguise.started += instance.OnDisguise;
+                @Disguise.performed += instance.OnDisguise;
+                @Disguise.canceled += instance.OnDisguise;
+                @Attack.started += instance.OnAttack;
+                @Attack.performed += instance.OnAttack;
+                @Attack.canceled += instance.OnAttack;
             }
 
             private void UnregisterCallbacks(IGameplayActions instance)
@@ -821,6 +932,15 @@ namespace Game.Core.Input
                 @Pause.started -= instance.OnPause;
                 @Pause.performed -= instance.OnPause;
                 @Pause.canceled -= instance.OnPause;
+                @Sneak.started -= instance.OnSneak;
+                @Sneak.performed -= instance.OnSneak;
+                @Sneak.canceled -= instance.OnSneak;
+                @Disguise.started -= instance.OnDisguise;
+                @Disguise.performed -= instance.OnDisguise;
+                @Disguise.canceled -= instance.OnDisguise;
+                @Attack.started -= instance.OnAttack;
+                @Attack.performed -= instance.OnAttack;
+                @Attack.canceled -= instance.OnAttack;
             }
 
             public void RemoveCallbacks(IGameplayActions instance)
@@ -962,6 +1082,9 @@ namespace Game.Core.Input
             void OnConfirm(InputAction.CallbackContext context);
             void OnCancel(InputAction.CallbackContext context);
             void OnPause(InputAction.CallbackContext context);
+            void OnSneak(InputAction.CallbackContext context);
+            void OnDisguise(InputAction.CallbackContext context);
+            void OnAttack(InputAction.CallbackContext context);
         }
         public interface IUIActions
         {

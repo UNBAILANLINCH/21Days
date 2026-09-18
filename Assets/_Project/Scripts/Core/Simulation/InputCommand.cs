@@ -37,6 +37,11 @@ namespace Game.Core.Simulation
         /// <summary>Pause 动作的按钮位。</summary>
         public const uint ButtonPause = 1u << 2;
 
+        /// <summary>潜行（按住）、伪装（按下切换）与普通攻击（按下触发）。保留原有 31 字节布局。</summary>
+        public const uint ButtonSneak = 1u << 3;
+        public const uint ButtonDisguise = 1u << 4;
+        public const uint ButtonAttack = 1u << 5;
+
         /// <summary>
         /// QA 打点标记位。**不来自动作图**，<see cref="LiveInputSource"/> 永远不会置它；
         /// 由录制系统的热键在采样之后按到这条命令上，用来在录像里标出「就是这一帧出的问题」。

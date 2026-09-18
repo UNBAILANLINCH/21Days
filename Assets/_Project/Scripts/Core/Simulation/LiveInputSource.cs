@@ -42,6 +42,9 @@ namespace Game.Core.Simulation
         private const string ConfirmActionPath = "Gameplay/Confirm";
         private const string CancelActionPath = "Gameplay/Cancel";
         private const string PauseActionPath = "Gameplay/Pause";
+        private const string SneakActionPath = "Gameplay/Sneak";
+        private const string DisguiseActionPath = "Gameplay/Disguise";
+        private const string AttackActionPath = "Gameplay/Attack";
 
         private readonly IInputService inputService;
 
@@ -49,6 +52,9 @@ namespace Game.Core.Simulation
         private InputAction confirmAction;
         private InputAction cancelAction;
         private InputAction pauseAction;
+        private InputAction sneakAction;
+        private InputAction disguiseAction;
+        private InputAction attackAction;
 
         private InputCommand current;
         private bool ready;
@@ -139,6 +145,9 @@ namespace Game.Core.Simulation
             confirmAction = FindAction(asset, ConfirmActionPath);
             cancelAction = FindAction(asset, CancelActionPath);
             pauseAction = FindAction(asset, PauseActionPath);
+            sneakAction = FindAction(asset, SneakActionPath);
+            disguiseAction = FindAction(asset, DisguiseActionPath);
+            attackAction = FindAction(asset, AttackActionPath);
             ready = true;
             initFailed = false;
         }
@@ -188,6 +197,21 @@ namespace Game.Core.Simulation
             if (pauseAction != null && pauseAction.IsPressed())
             {
                 buttons |= InputCommand.ButtonPause;
+            }
+
+            if (sneakAction != null && sneakAction.IsPressed())
+            {
+                buttons |= InputCommand.ButtonSneak;
+            }
+
+            if (disguiseAction != null && disguiseAction.IsPressed())
+            {
+                buttons |= InputCommand.ButtonDisguise;
+            }
+
+            if (attackAction != null && attackAction.IsPressed())
+            {
+                buttons |= InputCommand.ButtonAttack;
             }
 
             // Axis1 / Pointer 当前没有对应动作，恒为零；Flags 预留，恒为 0。

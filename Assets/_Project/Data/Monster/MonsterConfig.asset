@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f53947ac3db76a43866cbfee167119b, type: 3}
+  m_Name: MonsterConfig
+  m_EditorClassIdentifier: 
+  patrolSpeed: 2
+  alertSpeedMultiplier: 1.1
+  hostileSpeedMultiplier: 1.25
+  visionAngle: 75
+  alertRadius: 6
+  hostileRadius: 2
+  nearSenseRadius: 1.5
+  attackRange: 0.8
+  alertFillSeconds: 4
+  alertFallSeconds: 6
+  hostileLoseSeconds: 2
+  patrolPauseSeconds: 2
+  patrolMinSeconds: 7
+  patrolMaxSeconds: 10
+  attackCooldown: 1
+  maxHealth: 3
+  attackDamage: 1

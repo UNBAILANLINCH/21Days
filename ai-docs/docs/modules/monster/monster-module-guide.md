@@ -88,9 +88,9 @@ Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 
 
 ## 场景与生命周期
 
-Boot `GameBootstrap` 应挂 `PlayerInstaller` 和 `MonsterInstaller`，并移除 `SampleInstaller` 的入口接线。
-Monster 的场景 Addressables 地址固定为 `MonsterEncounter`，加到 `Scenes` 组。
-场景根部需有 `EncounterSceneView`，设置玩家出生点和顺序巡逻点。
+Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移除 `SampleInstaller` 的入口接线。
+Monster 场景已以地址 `MonsterEncounter` 加入 Addressables `Scenes` 组。
+场景根部已有 `EncounterSceneView`，玩家出生点为 `(-4, 0)`，巡逻点依次为 `(0, 0)`、`(4, 0)`。
 `MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑并销毁触屏控件。
 触屏优先平台创建虚拟摇杆、潜行、伪装、攻击按钮，映射到同一 Gameplay 动作。
 占位表现以玩家蓝/青/绿和怪物灰/橙/红/黑区分状态，并显示生命与警戒条。
@@ -98,9 +98,9 @@ Monster 的场景 Addressables 地址固定为 `MonsterEncounter`，加到 `Scen
 
 ## 已知集成状态
 
-脚本、输入映射、EditMode 用例与代码搭建的 Monster Showcase 已写入工程。
-当前会话无 Unity MCP；场景资产、配置资产、Boot 和 Addressables 接线需在编辑器中完成。
-Unity 编译、运行测试、资产体检、画面回放与开发者视觉确认尚未执行。
+脚本、输入映射、配置资产、Boot、遭遇场景和 Addressables 均已接线。
+2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
+Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检四项全过；视觉表现仍需开发者确认。
 
 ## 修改时检查
 

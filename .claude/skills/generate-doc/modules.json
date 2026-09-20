@@ -18,6 +18,11 @@
       "docs": "ai-docs/docs/modules/monster",
       "status": "ready"
     },
+    "isometricexploration": {
+      "src": "Assets/_Project/Scripts/Runtime/IsometricExploration",
+      "docs": "ai-docs/docs/modules/isometricexploration",
+      "status": "seed"
+    },
     "sample": {
       "src": "Assets/_Project/Scripts/Runtime/Sample",
       "docs": "ai-docs/docs/modules/sample",

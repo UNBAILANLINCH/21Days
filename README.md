@@ -134,6 +134,7 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 - [`docs/architecture.md`](docs/architecture.md) —— 框架层设计定稿：选型、asmdef 分层、目录、各服务契约
 - [`docs/developer-guide.md`](docs/developer-guide.md) —— 程序的操作手册（15 章，从装环境到打包）
 - [`docs/designer-guide.md`](docs/designer-guide.md) —— 策划：改数值、加道具、加表、报错怎么查
+- [`docs/cultural-guide.md`](docs/cultural-guide.md) —— 文策：相关考据参考安置处
 - [`docs/artist-guide.md`](docs/artist-guide.md) —— 美术：资源放哪、导入规则、做 UI 面板、交活前自查
 - [`.claude/hooks/README.md`](.claude/hooks/README.md) —— 各个钩子做什么、怎么调试
 - [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md) —— 不知道该读哪份文档时从这里找

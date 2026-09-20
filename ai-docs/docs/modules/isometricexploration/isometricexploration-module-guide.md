@@ -2,7 +2,7 @@
 type: module-guide
 module: isometricexploration
 layer: runtime
-maturity: seed
+maturity: stable
 ---
 
 # IsometricExploration 模块指南
@@ -10,15 +10,17 @@ maturity: seed
 ## 目的
 
 IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
-它用 3D 物理承载移动和碰撞，同时让 2D Sprite 纸片保持与摄像机成像平面平行。
+当前由确定性遭遇规则承载移动，2D Sprite 纸片保持与摄像机成像平面平行。早期 3D 物理控制器保留在工程中，但不参与当前场景推进。
 
-当前解决三个问题：
+当前解决四个问题：
 
-- 角色通过 `Rigidbody` 和 3D `CapsuleCollider` 在 XZ 地面移动；
+- 角色通过 `EncounterStep` 在逻辑 XY 移动，再投影到场景 XZ；
 - Sprite 纸片随摄像机倾角旋转，但逻辑碰撞体保持竖直；
 - 摄像机保留初始构图偏移，并在角色停止时平滑收敛。
+- 把 Player/Monster 的确定性 XY 逻辑坐标投影到等距场景 XZ 平面。
 
-这仍是场景原型，不是正式探索系统。模块暂不处理动画状态机、导航、存档、战斗状态或确定性回放。
+这仍是场景表现原型，不是正式探索系统。战斗状态与确定性回放复用 Player/Monster；
+本模块不增加背刺处决、障碍物视线、物理碰撞判定、寻路或正式动画。
 
 ## 当前组成
 
@@ -28,13 +30,30 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | `SmoothCameraFollow` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:8` | 保持初始偏移并平滑跟随目标 |
 | `IsometricExplorationConfig` | `Assets/_Project/Scripts/Runtime/IsometricExploration/IsometricExplorationConfig.cs:8` | 保存移动速度、排序兼容参数和相机缓动时间 |
 | `IsometricPlayerController3D` | `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricPlayerController3D.cs:10` | 把 `Gameplay/Move` 输入应用到 3D `Rigidbody` |
+| `StandaloneEncounterController` | `Assets/_Project/Scripts/Runtime/Monster/StandaloneEncounterController.cs:12` | 直接播放场景时，用现有遭遇规则读取 Gameplay 输入并推进角色、敌人与战斗 |
 
 `IsometricPlayerController3D` 位于 Showcase 程序集，只用于当前原型。
 不要把它当作正式玩家控制器，也不要让它写入正式玩法状态。
+场景停用该物理控制器、重力和刚体推进；位置只由 `EncounterStep` 推进，
+`EncounterSceneView` 负责把逻辑位置投影到场景。直接播放场景时由
+`StandaloneEncounterController` 驱动；从 Boot 加载时它会自行停用，改由正式 `SimulationRunner` 驱动。
 
 ## 场景结构
 
 当前接线保存在 `Assets/Scenes/SampleScene.unity`。
+
+运行时通过 Addressables 地址 `IsometricEncounter` 加载该场景。场景根节点 `Encounter` 上的
+`EncounterSceneView` 显式引用 `player`、`enerme`、两个 `Visual/SpriteRenderer`、出生点和巡逻点。
+若 Sprite 资产引用失效，`EncounterSceneView` 会回退为白色纸片并继续显示状态色。
+
+```text
+Encounter
+├─ EncounterSceneView
+├─ StandaloneEncounterController
+├─ PlayerSpawn
+├─ PatrolPoint0
+└─ PatrolPoint1
+```
 
 角色建议保持以下层级：
 
@@ -62,7 +81,7 @@ PropRoot
 `Visual` 是只负责显示的子节点。纸片倾斜只发生在这个节点上；`Rigidbody` 和 3D Collider 留在根节点。
 这样视觉可以面向摄像机，物理体仍保持竖直，不会因为斜碰撞面产生攀爬效果。
 
-## 3D 移动与碰撞
+## 历史 3D 移动验证（当前遭遇停用）
 
 角色根节点必须同时具备：
 
@@ -79,6 +98,9 @@ PropRoot
 
 `PlayerInput` 继续复用现有 `GameInput.inputactions` 的 `Gameplay/Move`，通过 `OnMove(InputValue)` 接收输入。
 不要在此脚本里直接读取具体键盘按键。
+
+上述物理控制器只服务历史物理验证。直接播放当前场景由 `PlayerInput → StandaloneEncounterController → EncounterStep` 推进；J/G 按下事件会缓存到下一个物理帧，避免短按丢失。正式遭遇输入由 `LiveInputSource → InputCommand → EncounterStep`
+推进，Unity 物理只保留为环境表现，不参与位移、感知或命中判定。
 
 ## 纸片朝向
 
@@ -126,7 +148,6 @@ offset = camera.position - target.position
 
 此后在 `LateUpdate` 使用 `Vector3.SmoothDamp` 追踪 `target.position + offset`。
 它只改变位置，不改变摄像机旋转和投影参数。
-
 `CameraSmoothTime` 越小，跟随越紧；越大，停下后的缓动越明显。
 当前默认值为 `0.2` 秒。
 
@@ -163,6 +184,12 @@ Player Transform
   → Main Camera position
   → CameraBillboard
   → Visual rotation / BoxCollider.center 校准
+
+InputCommand
+  → EncounterStep
+  → PlayerModel / MonsterModel（XY）
+  → EncounterSceneView（XY → XZ）
+  → player / enerme Transform
 ```
 
 ## 已知限制
@@ -171,12 +198,21 @@ Player Transform
 - Collider 校准以世界 Z 为目标轴，适用于当前固定构图，不是任意朝向通用解；
 - Collider 仍为长方体，无法精确拟合不规则 Sprite 轮廓；
 - 摄像机跟随只做位置缓动，没有边界、前视、死区或碰撞避让；
-- 3D 控制器属于 Showcase，不进入正式可重放玩法状态；
+- 3D 控制器属于原型，不进入正式可重放玩法状态，遭遇时会被停用；
+- 场景引用保存在 `EncounterSceneView`，重命名角色不会触发运行时名称查找；
+- 玩法规则不读取 Rigidbody 或 Collider，角色会穿过环境碰撞体；
 - 当前没有专门的 PlayMode 自动化测试，场景接线仍需在 Unity 中试玩确认。
+
+## 验证入口
+
+- EditMode：`Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterSceneViewTests.cs`
+- Showcase：`Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricExplorationShowcase.cs`
+- 当前 Showcase 直接加载 `Assets/Scenes/SampleScene.unity`；固定验证场景待 Unity MCP 可用后保存到
+  `Assets/_Project/Scenes/Verify/IsometricExploration.unity`。
 
 ## 修改时检查
 
-- 改移动：确认 XZ 速度更新仍保留 Y 速度和重力；
+- 改移动：确认唯一位置来源仍为遭遇规则，旧物理控制器保持停用；
 - 改输入：继续使用 Input Action，不直接读取设备键；
 - 改 Visual：确认 Rigidbody 与 Collider 没有被移动到倾斜节点；
 - 改 Billboard：同时验证纸片朝向和 Collider 前表面对齐；

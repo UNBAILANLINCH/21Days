@@ -37,6 +37,7 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动、朝向�
 
 `PlayerRules.Step` 返回本 tick 是否产生攻击动作；命中距离、朝向与目标由 `EncounterStep` 判定。
 伪装为按下边缘切换，攻击为按下边缘触发且受冷却限制，潜行为按住生效。
+独立场景的 StandaloneEncounterController 缓存 J/G 按下事件，避免短按落在两个物理帧之间被漏读。
 玩家生命归零后不再移动或攻击；死亡视觉由遭遇场景的占位图反馈。
 
 ## 运行数据与回放

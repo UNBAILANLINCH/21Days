@@ -21,7 +21,7 @@
     "isometricexploration": {
       "src": "Assets/_Project/Scripts/Runtime/IsometricExploration",
       "docs": "ai-docs/docs/modules/isometricexploration",
-      "status": "seed"
+      "status": "ready"
     },
     "sample": {
       "src": "Assets/_Project/Scripts/Runtime/Sample",

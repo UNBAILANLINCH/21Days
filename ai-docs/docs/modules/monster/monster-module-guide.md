@@ -23,6 +23,7 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 同 tick 调度 | `EncounterStep` | 先 Player 后 Monster，处理双方命中 |
 | 场景状态 | `MonsterEncounterState` | 加载和退出遭遇场景 |
 | 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面 |
+| 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
 | 触屏输入 | `EncounterTouchControls` | 运行时虚拟摇杆与按钮 |
 | 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线 |
 | 标题入口 | `MonsterTitleRouter` | 标题“开始”事件切到遭遇 |
@@ -89,8 +90,11 @@ Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 
 ## 场景与生命周期
 
 Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移除 `SampleInstaller` 的入口接线。
-Monster 场景已以地址 `MonsterEncounter` 加入 Addressables `Scenes` 组。
-场景根部已有 `EncounterSceneView`，玩家出生点为 `(-4, 0)`，巡逻点依次为 `(0, 0)`、`(4, 0)`。
+等距原型场景应以地址 `IsometricEncounter` 加入 Addressables `Scenes` 组。
+场景中的 `EncounterSceneView` 显式引用玩家出生点、巡逻点、`player`、`enerme` 及其纸片；
+逻辑 XY 由该视图投影到场景 XZ。缺少显式接线时状态会报错并返回标题，不再运行时按对象名补建。
+直接播放该场景时，`StandaloneEncounterController` 使用场景内 `PlayerInput` 推进同一个 `EncounterStep`；
+若检测到 Boot 的 `GameBootstrap`，该控制器立即停用，避免与正式 `SimulationRunner` 重复推进。
 `MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑并销毁触屏控件。
 触屏优先平台创建虚拟摇杆、潜行、伪装、攻击按钮，映射到同一 Gameplay 动作。
 占位表现以玩家蓝/青/绿和怪物灰/橙/红/黑区分状态，并显示生命与警戒条。

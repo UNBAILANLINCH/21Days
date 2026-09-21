@@ -13,6 +13,14 @@ namespace Game.IsometricExploration
         private Vector3 offset;
         private Vector3 velocity;
 
+        public Transform Target => target;
+
+        public void SetTarget(Transform next)
+        {
+            target = next;
+            velocity = Vector3.zero;
+        }
+
         private void Start()
         {
             if (target != null)

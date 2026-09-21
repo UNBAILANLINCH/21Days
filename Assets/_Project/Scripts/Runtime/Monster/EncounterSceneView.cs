@@ -29,6 +29,9 @@ namespace Game.Monster
 
         public event Action OnBackClicked;
 
+        public Transform PlayerBody => playerBody;
+        public Transform MonsterBody => monsterBody;
+
         public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : ToLogicPosition(playerSpawn.position);
 
         public void ConfigureXZ(Transform spawn, Transform[] points, Transform playerVisual,

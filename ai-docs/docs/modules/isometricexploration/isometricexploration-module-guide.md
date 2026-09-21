@@ -148,6 +148,7 @@ offset = camera.position - target.position
 
 此后在 `LateUpdate` 使用 `Vector3.SmoothDamp` 追踪 `target.position + offset`。
 它只改变位置，不改变摄像机旋转和投影参数。
+`Target` 可读取当前目标；`SetTarget(Transform)` 切换目标并重置缓动速度，保留初始构图偏移，供独立驯服验证使用。
 `CameraSmoothTime` 越小，跟随越紧；越大，停下后的缓动越明显。
 当前默认值为 `0.2` 秒。
 

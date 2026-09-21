@@ -12,6 +12,7 @@ maturity: stable
 | `StandaloneEncounterController` | 直接播放场景时推进现有遭遇规则，并缓存 J/G 短按 | 场景没有活动的 `GameBootstrap` |
 | `EncounterSceneView.ConfigureXZ(...)` | 显式接入现有角色并执行逻辑 XY → 场景 XZ 映射 | 出生点、巡逻点和角色引用完整 |
 | `MonsterEncounterState` | 通过正式流程加载等距遭遇 | Addressables 已登记 `IsometricEncounter` |
+| `SmoothCameraFollow.Target / SetTarget(Transform)` | 读取或切换镜头跟随对象 | 初始偏移已由 Start 建立；切换重置缓动速度 |
 
 ## 场景契约
 

@@ -84,6 +84,15 @@ namespace Game.Core.Input
                     ""initialStateCheck"": false
                 },
                 {
+                    ""name"": ""Tame"",
+                    ""type"": ""Button"",
+                    ""id"": ""06cbdd1c-19f2-4a14-8ad6-d0fe8301590d"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
                     ""id"": ""12967cdf-f87d-48e4-8972-ea66297e6723"",
@@ -94,6 +103,17 @@ namespace Game.Core.Input
                 }
             ],
             ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""b7f51a9b-d635-4fad-9f64-0ce295851cbb"",
+                    ""path"": ""<Keyboard>/t"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Tame"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
                 {
                     ""name"": ""WASD"",
                     ""id"": ""6f4c05ae-f348-4554-b050-938b5045dabf"",
@@ -788,6 +808,7 @@ namespace Game.Core.Input
             m_Gameplay_Pause = m_Gameplay.FindAction("Pause", throwIfNotFound: true);
             m_Gameplay_Sneak = m_Gameplay.FindAction("Sneak", throwIfNotFound: true);
             m_Gameplay_Disguise = m_Gameplay.FindAction("Disguise", throwIfNotFound: true);
+            m_Gameplay_Tame = m_Gameplay.FindAction("Tame", throwIfNotFound: true);
             m_Gameplay_Attack = m_Gameplay.FindAction("Attack", throwIfNotFound: true);
             // UI
             m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
@@ -874,6 +895,7 @@ namespace Game.Core.Input
         private readonly InputAction m_Gameplay_Pause;
         private readonly InputAction m_Gameplay_Sneak;
         private readonly InputAction m_Gameplay_Disguise;
+        private readonly InputAction m_Gameplay_Tame;
         private readonly InputAction m_Gameplay_Attack;
         public struct GameplayActions
         {
@@ -885,6 +907,7 @@ namespace Game.Core.Input
             public InputAction @Pause => m_Wrapper.m_Gameplay_Pause;
             public InputAction @Sneak => m_Wrapper.m_Gameplay_Sneak;
             public InputAction @Disguise => m_Wrapper.m_Gameplay_Disguise;
+            public InputAction @Tame => m_Wrapper.m_Gameplay_Tame;
             public InputAction @Attack => m_Wrapper.m_Gameplay_Attack;
             public InputActionMap Get() { return m_Wrapper.m_Gameplay; }
             public void Enable() { Get().Enable(); }
@@ -913,6 +936,9 @@ namespace Game.Core.Input
                 @Disguise.started += instance.OnDisguise;
                 @Disguise.performed += instance.OnDisguise;
                 @Disguise.canceled += instance.OnDisguise;
+                @Tame.started += instance.OnTame;
+                @Tame.performed += instance.OnTame;
+                @Tame.canceled += instance.OnTame;
                 @Attack.started += instance.OnAttack;
                 @Attack.performed += instance.OnAttack;
                 @Attack.canceled += instance.OnAttack;
@@ -938,6 +964,9 @@ namespace Game.Core.Input
                 @Disguise.started -= instance.OnDisguise;
                 @Disguise.performed -= instance.OnDisguise;
                 @Disguise.canceled -= instance.OnDisguise;
+                @Tame.started -= instance.OnTame;
+                @Tame.performed -= instance.OnTame;
+                @Tame.canceled -= instance.OnTame;
                 @Attack.started -= instance.OnAttack;
                 @Attack.performed -= instance.OnAttack;
                 @Attack.canceled -= instance.OnAttack;
@@ -1084,6 +1113,7 @@ namespace Game.Core.Input
             void OnPause(InputAction.CallbackContext context);
             void OnSneak(InputAction.CallbackContext context);
             void OnDisguise(InputAction.CallbackContext context);
+            void OnTame(InputAction.CallbackContext context);
             void OnAttack(InputAction.CallbackContext context);
         }
         public interface IUIActions

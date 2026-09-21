@@ -4,6 +4,7 @@ using System;
 using Game.Core.Replay;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Disguise;
 using Game.Player;
 using UnityEngine;
 
@@ -173,7 +174,9 @@ namespace Game.Monster
                     break;
                 case MonsterMode.Hostile:
                     MoveTowards(model.LastKnownTarget, config.PatrolSpeed * config.HostileSpeedMultiplier, deltaTime);
-                    if (sensed > 0 && intent.Target.IsAlive && model.AttackCooldownLeft <= 0f
+                    if (sensed > 0 && intent.Target.IsAlive
+                        && DisguiseRules.AllowsEnemyAttack(intent.Target.IsDisguised)
+                        && model.AttackCooldownLeft <= 0f
                         && GameMath.Distance(model.Position, intent.Target.Position) <= config.AttackRange)
                     {
                         model.AttackCooldownLeft = config.AttackCooldown;
@@ -184,6 +187,19 @@ namespace Game.Monster
             }
 
             return false;
+        }
+
+        // 驯服验证的公开移动入口；调用方接管期间不再调用 AI Step。
+        public void MoveControlled(Vector2 movement, float deltaTime)
+        {
+            if (deltaTime < 0f) throw new ArgumentOutOfRangeException(nameof(deltaTime));
+            if (model.Health <= 0) return;
+            if (GameMath.SqrMagnitude(movement) > 1f) movement = GameMath.Normalize(movement);
+            if (GameMath.SqrMagnitude(movement) > 0f)
+            {
+                model.Facing = GameMath.Normalize(movement);
+                model.Position += movement * config.PatrolSpeed * deltaTime;
+            }
         }
 
         public void ApplyDamage(in DamageIntent intent, in PlayerSnapshot attacker)

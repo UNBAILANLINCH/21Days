@@ -23,6 +23,9 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 
 ## 场景契约
 
+`MonsterRules.MoveControlled(Vector2 movement, float deltaTime)`：驯服模块直接控制存活敌人，按巡逻速度移动；调用方不能同时推进敌人 AI，负步长抛出异常。
+`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。
+
 `EncounterSceneView` 见 `EncounterSceneView.cs:9`。
 场景应配置 `playerSpawn` 与至少一个 `patrolPoints`；未配置巡逻点时 `PatrolPositions` 抛错。
 `ConfigureXZ` 显式接入现有角色和 SpriteRenderer，并把逻辑 XY 坐标映射到场景 XZ。

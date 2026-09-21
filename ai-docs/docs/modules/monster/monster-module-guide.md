@@ -23,6 +23,7 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 同 tick 调度 | `EncounterStep` | 先 Player 后 Monster，处理双方命中 |
 | 场景状态 | `MonsterEncounterState` | 加载和退出遭遇场景 |
 | 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面 |
+| 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
 | 触屏输入 | `EncounterTouchControls` | 运行时虚拟摇杆与按钮 |
 | 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线 |
 | 标题入口 | `MonsterTitleRouter` | 标题“开始”事件切到遭遇 |
@@ -55,7 +56,8 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 - 扇区本身不在游戏画面显示，状态颜色与警戒条可见。
 
 `MonsterRules.Sense` 在规则类内部完成上述优先级；表现层不能额外判定一次。
-攻击仅在敌对、能感知到活目标、进入攻击距离且冷却结束时触发。
+攻击仅在敌对、能感知到活目标、目标未伪装、进入攻击距离且冷却结束时触发。
+伪装的攻击保护由独立 `DisguiseRules` 统一判断，已敌对或受击的敌人同样不能攻击伪装玩家；感知、警戒与追击规则不变。
 玩家攻击命中 Monster 时，`EncounterStep` 限制距离和前半平面，再把伤害意图交给 Monster。
 
 ## 巡逻和数值
@@ -67,6 +69,8 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 1 秒。
 工作簿未规定攻击冷却；它是待试玩校准的原型值。
 全部数值集中在 `MonsterConfig`，不要在视图或场景脚本中复制一份。
+修改敌人血量：选中 `Assets/_Project/Data/Monster/MonsterConfig.asset`，修改 Inspector 的 `Max Health`，重新开始场景后生效。
+`MoveControlled` 供独立驯服原型驱动敌人位置，使用 `PatrolSpeed`；驯服不接入当前遭遇或回放注册。
 
 ## 回放状态
 
@@ -88,9 +92,12 @@ Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 
 
 ## 场景与生命周期
 
-Boot `GameBootstrap` 应挂 `PlayerInstaller` 和 `MonsterInstaller`，并移除 `SampleInstaller` 的入口接线。
-Monster 的场景 Addressables 地址固定为 `MonsterEncounter`，加到 `Scenes` 组。
-场景根部需有 `EncounterSceneView`，设置玩家出生点和顺序巡逻点。
+Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移除 `SampleInstaller` 的入口接线。
+等距原型场景应以地址 `IsometricEncounter` 加入 Addressables `Scenes` 组。
+场景中的 `EncounterSceneView` 显式引用玩家出生点、巡逻点、`player`、`enerme` 及其纸片；
+逻辑 XY 由该视图投影到场景 XZ。缺少显式接线时状态会报错并返回标题，不再运行时按对象名补建。
+直接播放该场景时，`StandaloneEncounterController` 使用场景内 `PlayerInput` 推进同一个 `EncounterStep`；
+若检测到 Boot 的 `GameBootstrap`，该控制器立即停用，避免与正式 `SimulationRunner` 重复推进。
 `MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑并销毁触屏控件。
 触屏优先平台创建虚拟摇杆、潜行、伪装、攻击按钮，映射到同一 Gameplay 动作。
 占位表现以玩家蓝/青/绿和怪物灰/橙/红/黑区分状态，并显示生命与警戒条。
@@ -98,9 +105,9 @@ Monster 的场景 Addressables 地址固定为 `MonsterEncounter`，加到 `Scen
 
 ## 已知集成状态
 
-脚本、输入映射、EditMode 用例与代码搭建的 Monster Showcase 已写入工程。
-当前会话无 Unity MCP；场景资产、配置资产、Boot 和 Addressables 接线需在编辑器中完成。
-Unity 编译、运行测试、资产体检、画面回放与开发者视觉确认尚未执行。
+脚本、输入映射、配置资产、Boot、遭遇场景和 Addressables 均已接线。
+2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
+Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检四项全过；视觉表现仍需开发者确认。
 
 ## 修改时检查
 

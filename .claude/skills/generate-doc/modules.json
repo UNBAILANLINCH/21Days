@@ -8,6 +8,16 @@
     }
   },
   "modules": {
+    "disguise": {
+      "src": "Assets/_Project/Scripts/Runtime/Disguise",
+      "docs": "ai-docs/docs/modules/disguise",
+      "status": "ready"
+    },
+    "taming": {
+      "src": "Assets/_Project/Scripts/Runtime/Taming",
+      "docs": "ai-docs/docs/modules/taming",
+      "status": "ready"
+    },
     "player": {
       "src": "Assets/_Project/Scripts/Runtime/Player",
       "docs": "ai-docs/docs/modules/player",
@@ -16,6 +26,11 @@
     "monster": {
       "src": "Assets/_Project/Scripts/Runtime/Monster",
       "docs": "ai-docs/docs/modules/monster",
+      "status": "ready"
+    },
+    "isometricexploration": {
+      "src": "Assets/_Project/Scripts/Runtime/IsometricExploration",
+      "docs": "ai-docs/docs/modules/isometricexploration",
       "status": "ready"
     },
     "sample": {

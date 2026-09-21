@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 351087044}
   - component: {fileID: 351087043}
   - component: {fileID: 351087042}
+  - component: {fileID: 351087046}
   - component: {fileID: 351087045}
   m_Layer: 0
   m_Name: GameBootstrap
@@ -199,10 +200,23 @@ MonoBehaviour:
   m_GameObject: {fileID: 351087041}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f186d1bab73f4e46845cdbe8ec71478, type: 3}
+  m_Script: {fileID: 11500000, guid: 0e87bfdaa668bf44b93cf67fc6a129b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  config: {fileID: 11400000, guid: 3651a078e8d788544bfc99ea2b486eca, type: 2}
+  config: {fileID: 11400000, guid: e074ad7ceacbc42428e5db941035406b, type: 2}
+--- !u!114 &351087046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 351087041}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08e28b952a0ff3a42826aae724e836e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  config: {fileID: 11400000, guid: c535ab6d45277b849914086bbbb3c80a, type: 2}
 --- !u!1 &1603631903
 GameObject:
   m_ObjectHideFlags: 0

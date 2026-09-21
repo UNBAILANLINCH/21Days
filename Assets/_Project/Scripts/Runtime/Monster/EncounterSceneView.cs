@@ -10,12 +10,15 @@ namespace Game.Monster
     {
         [SerializeField] private Transform playerSpawn;
         [SerializeField] private Transform[] patrolPoints;
+        [SerializeField] private bool useXZPlane;
+        [SerializeField] private Transform playerBody;
+        [SerializeField] private Transform monsterBody;
+        [SerializeField] private SpriteRenderer playerSprite;
+        [SerializeField] private SpriteRenderer monsterSprite;
 
         private PlayerModel player;
         private MonsterModel monster;
         private Sprite placeholderSprite;
-        private SpriteRenderer playerSprite;
-        private SpriteRenderer monsterSprite;
         private string playerStatus;
         private string monsterStatus;
         private int lastPlayerHealth = -1;
@@ -26,7 +29,23 @@ namespace Game.Monster
 
         public event Action OnBackClicked;
 
-        public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : (Vector2)playerSpawn.position;
+        public Transform PlayerBody => playerBody;
+        public Transform MonsterBody => monsterBody;
+
+        public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : ToLogicPosition(playerSpawn.position);
+
+        public void ConfigureXZ(Transform spawn, Transform[] points, Transform playerVisual,
+            SpriteRenderer playerRenderer, Transform monsterVisual, SpriteRenderer monsterRenderer)
+        {
+            playerSpawn = spawn != null ? spawn : throw new ArgumentNullException(nameof(spawn));
+            patrolPoints = points != null && points.Length > 0
+                ? points : throw new ArgumentException("至少需要一个巡逻点", nameof(points));
+            playerBody = playerVisual != null ? playerVisual : throw new ArgumentNullException(nameof(playerVisual));
+            monsterBody = monsterVisual != null ? monsterVisual : throw new ArgumentNullException(nameof(monsterVisual));
+            playerSprite = playerRenderer;
+            monsterSprite = monsterRenderer;
+            useXZPlane = true;
+        }
 
         public Vector2[] PatrolPositions()
         {
@@ -43,7 +62,7 @@ namespace Game.Monster
                     throw new InvalidOperationException($"Patrol Points 第 {i} 个引用为空");
                 }
 
-                result[i] = patrolPoints[i].position;
+                result[i] = ToLogicPosition(patrolPoints[i].position);
             }
 
             return result;
@@ -53,10 +72,7 @@ namespace Game.Monster
         {
             player = playerModel;
             monster = monsterModel;
-            placeholderSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1),
-                new Vector2(0.5f, 0.5f), 1f);
-            playerSprite = CreateBody("Player Placeholder", new Color(0.2f, 0.55f, 1f));
-            monsterSprite = CreateBody("Monster Placeholder", Color.gray);
+            EnsureBodies();
             EnsureCamera();
         }
 
@@ -64,6 +80,59 @@ namespace Game.Monster
         {
             player = null;
             monster = null;
+        }
+
+        private void EnsureBodies()
+        {
+            if (playerBody != null && playerSprite == null)
+            {
+                playerSprite = playerBody.GetComponentInChildren<SpriteRenderer>();
+            }
+
+            if (monsterBody != null && monsterSprite == null)
+            {
+                monsterSprite = monsterBody.GetComponentInChildren<SpriteRenderer>();
+            }
+
+            if (playerBody != null && playerSprite != null && monsterBody != null && monsterSprite != null)
+            {
+                EnsureSprite(playerSprite);
+                EnsureSprite(monsterSprite);
+                return;
+            }
+
+            EnsurePlaceholderSprite();
+            if (playerBody == null || playerSprite == null)
+            {
+                playerSprite = CreateBody("Player Placeholder", new Color(0.2f, 0.55f, 1f));
+                playerBody = playerSprite.transform;
+            }
+
+            if (monsterBody == null || monsterSprite == null)
+            {
+                monsterSprite = CreateBody("Monster Placeholder", Color.gray);
+                monsterBody = monsterSprite.transform;
+            }
+        }
+
+        private void EnsureSprite(SpriteRenderer renderer)
+        {
+            if (renderer.sprite != null)
+            {
+                return;
+            }
+
+            EnsurePlaceholderSprite();
+            renderer.sprite = placeholderSprite;
+        }
+
+        private void EnsurePlaceholderSprite()
+        {
+            if (placeholderSprite == null)
+            {
+                placeholderSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1),
+                    new Vector2(0.5f, 0.5f), 1f);
+            }
         }
 
         private SpriteRenderer CreateBody(string objectName, Color color)
@@ -98,8 +167,8 @@ namespace Game.Monster
                 return;
             }
 
-            playerSprite.transform.position = player.Position;
-            monsterSprite.transform.position = monster.Position;
+            playerBody.position = ToScenePosition(player.Position, playerBody.position);
+            monsterBody.position = ToScenePosition(monster.Position, monsterBody.position);
             playerSprite.color = player.Health <= 0 ? Color.black
                 : player.IsDisguised ? Color.green
                 : player.IsSneaking ? Color.cyan : new Color(0.2f, 0.55f, 1f);
@@ -123,6 +192,12 @@ namespace Game.Monster
                 monsterStatus = $"怪物生命 {monster.Health}  状态 {monster.Mode}";
             }
         }
+
+        private Vector2 ToLogicPosition(Vector3 position) =>
+            useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
+
+        private Vector3 ToScenePosition(Vector2 position, Vector3 current) =>
+            useXZPlane ? new Vector3(position.x, current.y, position.y) : new Vector3(position.x, position.y, current.z);
 
         private void OnGUI()
         {

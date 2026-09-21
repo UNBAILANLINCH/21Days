@@ -30,7 +30,7 @@ namespace Game.Monster
             this.platform = platform;
         }
 
-        protected override string SceneKey => "MonsterEncounter";
+        protected override string SceneKey => "IsometricEncounter";
 
         protected override UniTask OnSceneReadyAsync(CancellationToken ct)
         {
@@ -42,7 +42,7 @@ namespace Game.Monster
 
             if (view == null)
             {
-                Log.Error("MonsterEncounter 场景缺 EncounterSceneView，返回标题");
+                Log.Error("IsometricEncounter 场景缺少 EncounterSceneView 显式接线");
                 flow.GoToAsync<TitleState>().Forget();
                 return UniTask.CompletedTask;
             }

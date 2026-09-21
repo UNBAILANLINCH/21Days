@@ -17,8 +17,13 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: fd025ba1153228a44a083410d7c78aa7
   m_SerializeEntries:
-  - m_GUID: fce062d0579b98c4dac6c8d7261d1b97
-    m_Address: SampleScene_Game
+  - m_GUID: 8c9cfa26abfee488c85f1582747f6a02
+    m_Address: IsometricEncounter
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 91473997c19986941b78658f4d5f3241
+    m_Address: MonsterEncounter
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

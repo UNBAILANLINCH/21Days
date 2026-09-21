@@ -57,6 +57,7 @@ namespace Game.Player
             if (intent.Disguise && !model.PreviousDisguise)
             {
                 model.IsDisguised = !model.IsDisguised;
+                telemetry.Track("disguise_changed", ("active", model.IsDisguised));
             }
 
             Vector2 movement = intent.Movement;

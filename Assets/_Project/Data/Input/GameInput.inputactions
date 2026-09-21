@@ -60,6 +60,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Tame",
+                    "type": "Button",
+                    "id": "06cbdd1c-19f2-4a14-8ad6-d0fe8301590d",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Attack",
                     "type": "Button",
                     "id": "12967cdf-f87d-48e4-8972-ea66297e6723",
@@ -70,6 +79,17 @@
                 }
             ],
             "bindings": [
+                {
+                    "name": "",
+                    "id": "b7f51a9b-d635-4fad-9f64-0ce295851cbb",
+                    "path": "<Keyboard>/t",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Tame",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
                 {
                     "name": "WASD",
                     "id": "6f4c05ae-f348-4554-b050-938b5045dabf",

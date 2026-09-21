@@ -37,6 +37,8 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动、朝向�
 
 `PlayerRules.Step` 返回本 tick 是否产生攻击动作；命中距离、朝向与目标由 `EncounterStep` 判定。
 伪装为按下边缘切换，攻击为按下边缘触发且受冷却限制，潜行为按住生效。
+伪装开启后 Monster 的攻击统一被 DisguiseRules 禁止（含已敌对敌人），但不禁止警戒或追击；切换记录 `disguise_changed` 遥测。
+独立场景的 StandaloneEncounterController 缓存 J/G 按下事件，避免短按落在两个物理帧之间被漏读。
 玩家生命归零后不再移动或攻击；死亡视觉由遭遇场景的占位图反馈。
 
 ## 运行数据与回放
@@ -65,8 +67,8 @@ Player 回放状态由 `MonsterInstaller` 在固定顺序中首先注册，然�
 
 ## 接线与生命周期
 
-`PlayerInstaller` 应挂在 Boot 场景 `GameBootstrap` 上，和 `MonsterInstaller` 一起进入根作用域。
-配置资产应放 `Assets/_Project/Data/Player/` 并拖给 Installer 的 `config` 字段。
+`PlayerInstaller` 已挂在 Boot 场景 `GameBootstrap` 上，和 `MonsterInstaller` 一起进入根作用域。
+配置资产位于 `Assets/_Project/Data/Player/PlayerConfig.asset`，已赋给 Installer 的 `config` 字段。
 如果未拖配置，Installer 会记录错误并用内存中的默认 ScriptableObject，供原型调试。
 进入遭遇时 `EncounterStep.Begin` 调用 `PlayerRules.Reset`，以场景出生点初始化模型。
 退出遭遇时 `EncounterStep.End` 停止逻辑推进；回放仍可读写模型快照。
@@ -78,9 +80,9 @@ Player 回放状态由 `MonsterInstaller` 在固定顺序中首先注册，然�
 
 ## 已知集成状态
 
-脚本、输入映射、EditMode 用例与代码搭建的 Player Showcase 已写入工程。
-当前会话无 Unity MCP；Boot Installer、配置资产、遭遇场景和 Addressables 仍需在编辑器中接线。
-由于未运行 Unity 编译与 Showcase，本指南的行为描述依据源码，不能当作实机验收结论。
+脚本、输入映射、配置资产、Boot Installer、遭遇场景和 Addressables 均已接线。
+2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
+Player Showcase 的 3 个检查点通过且运行时异常为 0；视觉表现仍需开发者确认。
 
 ## 修改时检查
 

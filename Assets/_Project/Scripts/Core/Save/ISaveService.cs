@@ -1,6 +1,7 @@
 // 职责：存档读写契约（按槽位存读、按类型取分区）。
 // 为什么新建：architecture.md 5.7 定义了这个契约；实现与契约分开放，将来换成云存档只换实现。
 
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
@@ -22,17 +23,25 @@ namespace Game.Core.Save
         T Get<T>() where T : class, ISaveData, new();
 
         /// <summary>
-        /// 把内存里的全部分区写进槽位。先写临时文件再原子替换，中途断电不会留下半个存档。
+        /// 把内存里的全部分区写进槽位。优先使用临时文件替换；不支持原子替换的平台使用带 .bak 的恢复退路。
         /// 返回 false 表示写失败（已记 Error），调用方按需提示玩家，不用 try/catch。
         /// </summary>
         UniTask<bool> SaveAsync(int slot, CancellationToken ct = default);
 
         /// <summary>
-        /// 把槽位读回内存，逐分区反序列化并按需迁移版本。
-        /// 槽位不存在、文件损坏、格式不认识都返回 false（已记日志），**不抛异常**——
-        /// 存档坏掉不该把游戏带崩，调用方拿到 false 就当新档开。
+        /// 把槽位读回内存，逐分区反序列化并按需迁移版本。常见损坏返回 false；取消、迁移代码错误和 IO 取消会抛出，调用方需区分处理。
         /// </summary>
         UniTask<bool> LoadAsync(int slot, CancellationToken ct = default);
+
+        /// <summary>只读候选；失败返回 null，不修改内存分区，也不补默认分区。</summary>
+        UniTask<SaveSnapshot> ReadCandidateAsync(int slot, CancellationToken ct = default);
+        SaveSnapshot Capture();
+        void Commit(SaveSnapshot snapshot);
+
+        /// <summary>独立于槽位的玩家档案。名称只允许字母、数字、短横线及下划线。</summary>
+        UniTask<T> ReadProfileAsync<T>(string name, CancellationToken ct = default) where T : class, new();
+        UniTask<T> ReadProfileAsync<T>(string name, Action<T> validate, CancellationToken ct = default) where T : class, new();
+        UniTask WriteProfileAsync<T>(string name, T data, CancellationToken ct = default) where T : class;
 
         /// <summary>槽位里有没有存档文件。</summary>
         bool Exists(int slot);

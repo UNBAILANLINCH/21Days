@@ -74,7 +74,7 @@ namespace Game.Core.Replay
         /// <summary>
         /// 当前写出去的格式版本。什么改动要升它、什么不用，见类文档那一段——**不要凭感觉改这个数字**。
         /// </summary>
-        public const ushort CurrentFormatVersion = 2;
+        public const ushort CurrentFormatVersion = 3;
 
         /// <summary>
         /// 当前代码还能正确解读的最老格式版本。比它更老的文件会被明确拒掉（报「哪个版本」），
@@ -85,7 +85,7 @@ namespace Game.Core.Replay
         /// 抬到 2 就意味着 v1 回放一律拒收。到那一刻再做决定，但别让代码在那天才第一次长出这个概念。
         /// </para>
         /// </summary>
-        public const ushort MinimumReadableFormatVersion = 2;
+        public const ushort MinimumReadableFormatVersion = 3;
 
         /// <summary>
         /// 回放文件的推荐扩展名。**只是约定，不是格式的一部分**：

@@ -43,6 +43,62 @@ namespace Game.Monster
         public MonsterModel Model => model;
         public int AttackDamage => config.AttackDamage;
 
+        public bool Detects(in PlayerSnapshot target) => model.Health > 0 && Sense(in target) > 0;
+
+        public MonsterSaveData Capture()
+        {
+            var saved = new MonsterSaveData
+            {
+                PositionX = model.Position.x,
+                PositionY = model.Position.y,
+                FacingX = model.Facing.x,
+                FacingY = model.Facing.y,
+                TargetX = model.LastKnownTarget.x,
+                TargetY = model.LastKnownTarget.y,
+                Mode = model.Mode,
+                Health = model.Health,
+                WaypointIndex = model.WaypointIndex,
+                Alert = model.Alert,
+                PatrolWalkElapsed = model.PatrolWalkElapsed,
+                NextPauseAfter = model.NextPauseAfter,
+                PatrolPauseLeft = model.PatrolPauseLeft,
+                AlertAtLoss = model.AlertAtLoss,
+                AlertDecayElapsed = model.AlertDecayElapsed,
+                HostileLostElapsed = model.HostileLostElapsed,
+                AttackCooldownLeft = model.AttackCooldownLeft,
+                PatrolRandomState = patrolRandom.State,
+                WaypointX = new float[waypoints.Length],
+                WaypointY = new float[waypoints.Length],
+            };
+            for (int i = 0; i < waypoints.Length; i++)
+            { saved.WaypointX[i] = waypoints[i].x; saved.WaypointY[i] = waypoints[i].y; }
+            return saved;
+        }
+
+        public void Restore(MonsterSaveData saved)
+        {
+            if (saved == null) throw new ArgumentNullException(nameof(saved));
+            saved.Validate();
+            var restoredPoints = new Vector2[saved.WaypointX.Length];
+            for (int i = 0; i < restoredPoints.Length; i++) restoredPoints[i] = new Vector2(saved.WaypointX[i], saved.WaypointY[i]);
+            model.Position = new Vector2(saved.PositionX, saved.PositionY);
+            model.Facing = new Vector2(saved.FacingX, saved.FacingY);
+            model.LastKnownTarget = new Vector2(saved.TargetX, saved.TargetY);
+            model.Mode = saved.Mode;
+            model.Health = saved.Health;
+            model.WaypointIndex = saved.WaypointIndex;
+            model.Alert = saved.Alert;
+            model.PatrolWalkElapsed = saved.PatrolWalkElapsed;
+            model.NextPauseAfter = saved.NextPauseAfter;
+            model.PatrolPauseLeft = saved.PatrolPauseLeft;
+            model.AlertAtLoss = saved.AlertAtLoss;
+            model.AlertDecayElapsed = saved.AlertDecayElapsed;
+            model.HostileLostElapsed = saved.HostileLostElapsed;
+            model.AttackCooldownLeft = saved.AttackCooldownLeft;
+            patrolRandom.State = saved.PatrolRandomState;
+            waypoints = restoredPoints;
+        }
+
         public void Reset(Vector2[] patrolPoints)
         {
             if (patrolPoints == null || patrolPoints.Length == 0)

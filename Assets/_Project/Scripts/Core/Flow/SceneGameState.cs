@@ -54,7 +54,13 @@ namespace Game.Core.Flow
             }
 
             sceneHandle = await Assets.LoadSceneAsync(SceneKey, LoadSceneMode.Additive, ct);
-            await OnSceneReadyAsync(ct);
+            try { await OnSceneReadyAsync(ct); }
+            catch
+            {
+                // 场景已加载但绑定失败，也必须释放临时现场；调用方才能用旧快照回滚。
+                await ExitAsync(CancellationToken.None);
+                throw;
+            }
         }
 
         public sealed override async UniTask ExitAsync(CancellationToken ct)

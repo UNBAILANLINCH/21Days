@@ -41,6 +41,10 @@ namespace Game.Core.Save
         public const int CurrentFormatVersion = 1;
 
         private const string TempSuffix = ".tmp";
+        // ponytail: 全部存档 IO 共用锁；并行大档写入成为瓶颈时再改为按路径锁。
+        private static readonly object DiskGate = new object();
+        // ponytail: async gate also serializes full requests; use per-path queues if throughput matters.
+        private static readonly SemaphoreSlim IoGate = new SemaphoreSlim(1, 1);
 
         private readonly IPlatformService platform;
         private readonly JsonSerializer serializer;
@@ -120,7 +124,7 @@ namespace Game.Core.Save
         {
             try
             {
-                return File.Exists(GetSlotPath(slot));
+                lock (DiskGate) return File.Exists(GetSlotPath(slot));
             }
             catch (Exception e)
             {
@@ -134,6 +138,11 @@ namespace Game.Core.Save
         }
 
         public void Delete(int slot)
+        {
+            lock (DiskGate) DeleteLocked(slot);
+        }
+
+        private void DeleteLocked(int slot)
         {
             string path = GetSlotPath(slot);
             try
@@ -192,7 +201,9 @@ namespace Game.Core.Save
 
             try
             {
-                await UniTask.RunOnThreadPool(() => WriteAtomic(path, json), cancellationToken: ct);
+                await IoGate.WaitAsync(ct);
+                try { await UniTask.RunOnThreadPool(() => WriteAtomic(path, json), cancellationToken: ct); }
+                finally { IoGate.Release(); }
             }
             catch (OperationCanceledException)
             {
@@ -217,7 +228,7 @@ namespace Game.Core.Save
             return true;
         }
 
-        public async UniTask<bool> LoadAsync(int slot, CancellationToken ct = default)
+        public async UniTask<SaveSnapshot> ReadCandidateAsync(int slot, CancellationToken ct = default)
         {
             string path = GetSlotPath(slot);
             string json;
@@ -225,9 +236,9 @@ namespace Game.Core.Save
 
             try
             {
-                json = await UniTask.RunOnThreadPool(
-                    () => File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8) : null,
-                    cancellationToken: ct);
+                await IoGate.WaitAsync(ct);
+                try { json = await UniTask.RunOnThreadPool(() => ReadLocked(path), cancellationToken: ct); }
+                finally { IoGate.Release(); }
             }
             catch (OperationCanceledException)
             {
@@ -237,7 +248,7 @@ namespace Game.Core.Save
             {
                 Log.Error($"存档槽 {slot} 读盘失败：{path}，{e}");
                 TrackSaveFailed(TelemetryKeys.SaveEvents.Load, slot, e, "read_failed");
-                return false;
+                return null;
             }
 
             if (json == null)
@@ -251,7 +262,7 @@ namespace Game.Core.Save
                     TelemetryProps.Of(
                         (TelemetryKeys.Props.Slot, slot),
                         (TelemetryKeys.Props.Reason, "no_file")));
-                return false;
+                return null;
             }
 
             SaveEnvelope envelope;
@@ -263,17 +274,17 @@ namespace Game.Core.Save
             {
                 Log.Error($"存档槽 {slot} 的 JSON 解析不了，文件已损坏：{path}，{e.Message}");
                 TrackSaveFailed(TelemetryKeys.SaveEvents.Corrupt, slot, e, "json_unparsable");
-                return false;
+                return null;
             }
 
             if (envelope == null || envelope.Partitions == null)
             {
                 Log.Error($"存档槽 {slot} 的内容不是本工程的存档格式（缺 partitions）：{path}");
                 TrackSaveFailed(TelemetryKeys.SaveEvents.Corrupt, slot, "存档缺 partitions，不是本工程的格式", "no_partitions");
-                return false;
+                return null;
             }
 
-            if (envelope.FormatVersion > CurrentFormatVersion)
+            if (envelope.FormatVersion < 1 || envelope.FormatVersion > CurrentFormatVersion)
             {
                 Log.Error($"存档槽 {slot} 的信封版本是 {envelope.FormatVersion}，本版本只认到 {CurrentFormatVersion}。"
                           + "多半是用更新的版本存过档，不要用旧版本覆盖它。");
@@ -288,7 +299,7 @@ namespace Game.Core.Save
                         (TelemetryKeys.Props.From, envelope.FormatVersion),
                         (TelemetryKeys.Props.To, CurrentFormatVersion),
                         (TelemetryKeys.Props.Reason, "format_too_new")));
-                return false;
+                return null;
             }
 
             // 先全部读进临时字典，全部成功了再整体替换，避免出错时留下半份存档。
@@ -300,6 +311,7 @@ namespace Game.Core.Save
                 if (pair.Value == null || pair.Value.Data == null)
                 {
                     Log.Warn($"存档槽 {slot} 的分区 {pair.Key} 是空的，跳过");
+                    anyPartitionCorrupt = true;
                     continue;
                 }
 
@@ -336,6 +348,7 @@ namespace Game.Core.Save
                 if (data == null)
                 {
                     Log.Warn($"存档槽 {slot} 的分区 {pair.Key} 反序列化出 null，跳过");
+                    anyPartitionCorrupt = true;
                     continue;
                 }
 
@@ -373,8 +386,8 @@ namespace Game.Core.Save
                 }
                 else if (pair.Value.Version > data.Version)
                 {
-                    Log.Warn($"分区 {pair.Key} 在存档里是版本 {pair.Value.Version}，比代码里的 {data.Version} 新，"
-                             + "按原样读入，字段对不上的会退回默认值");
+                    Log.Error($"分区 {pair.Key} 版本 {pair.Value.Version} 高于当前支持的 {data.Version}");
+                    return null;
                 }
 
                 loaded[type] = data;
@@ -387,22 +400,30 @@ namespace Game.Core.Save
                 // 每个坏分区上面已经各埋了一条 corrupt，这里补的是「这次读档的最终结论是失败」——
                 // 少了它，日志里只看得到「某个分区坏了」，看不出整次 LoadAsync 返回了 false。
                 TrackSaveFailed(TelemetryKeys.SaveEvents.Load, slot, "存在损坏分区，读档放弃", "partition_corrupt");
-                return false;
+                return null;
             }
 
-            partitions.Clear();
-            foreach (KeyValuePair<Type, ISaveData> pair in loaded)
-            {
-                partitions[pair.Key] = pair.Value;
-            }
+            telemetry.Track(TelemetryKeys.SaveEvents.Load, (TelemetryKeys.Props.Slot, slot), (TelemetryKeys.Props.N, loaded.Count));
+            return new SaveSnapshot(loaded);
+        }
 
-            Log.Info($"存档槽 {slot} 已读入：{partitions.Count} 个分区");
-            telemetry.Track(
-                TelemetryKeys.SaveEvents.Load,
-                (TelemetryKeys.Props.Slot, slot),
-                (TelemetryKeys.Props.Ms, NowMs - startMs),
-                (TelemetryKeys.Props.N, partitions.Count));
+        public async UniTask<bool> LoadAsync(int slot, CancellationToken ct = default)
+        {
+            SaveSnapshot candidate = await ReadCandidateAsync(slot, ct);
+            if (candidate == null) return false;
+            ct.ThrowIfCancellationRequested();
+            Commit(candidate);
             return true;
+        }
+
+        public SaveSnapshot Capture() => new SaveSnapshot(partitions);
+
+        public void Commit(SaveSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            Dictionary<Type, ISaveData> copy = snapshot.CopyPartitions();
+            partitions.Clear();
+            foreach (KeyValuePair<Type, ISaveData> pair in copy) partitions.Add(pair.Key, pair.Value);
         }
 
         /// <summary>埋点层自己的时钟。拿不到时恒为 0（ms 记成 0），不影响任何业务路径。</summary>
@@ -436,7 +457,69 @@ namespace Game.Core.Save
         /// <summary>槽位文件的完整路径。</summary>
         public string GetSlotPath(int slot)
         {
+            if (slot < 0) throw new ArgumentOutOfRangeException(nameof(slot));
             return Path.Combine(SaveRoot, $"slot{slot}.json");
+        }
+
+        private static string ReadLocked(string path)
+        {
+            lock (DiskGate) return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8) : null;
+        }
+
+        public async UniTask<T> ReadProfileAsync<T>(string name, CancellationToken ct = default) where T : class, new()
+            => await ReadProfileAsync<T>(name, null, ct);
+
+        public async UniTask<T> ReadProfileAsync<T>(string name, Action<T> validate, CancellationToken ct = default) where T : class, new()
+        {
+            string path = ProfilePath(name);
+            string json;
+            await IoGate.WaitAsync(ct);
+            try { json = await UniTask.RunOnThreadPool(() => ReadLocked(path), cancellationToken: ct); }
+            finally { IoGate.Release(); }
+            if (json == null) return new T();
+            try
+            {
+                T value = JsonConvert.DeserializeObject<T>(json, serializerSettings);
+                if (value == null) throw new JsonSerializationException("玩家档案为空");
+                validate?.Invoke(value);
+                return value;
+            }
+            catch (JsonException e)
+            {
+                await IoGate.WaitAsync(ct);
+                try { await UniTask.RunOnThreadPool(() =>
+                {
+                    lock (DiskGate)
+                    {
+                        // 保留损坏现场。若并发写入已替换原内容，不移动新的有效档案。
+                        if (File.Exists(path) && File.ReadAllText(path, Encoding.UTF8) == json)
+                            File.Move(path, path + ".corrupt-" + Guid.NewGuid().ToString("N"));
+                    }
+                }, cancellationToken: ct); }
+                finally { IoGate.Release(); }
+                telemetry.TrackError("profile_corrupt", e);
+                return new T();
+            }
+        }
+
+        public async UniTask WriteProfileAsync<T>(string name, T data, CancellationToken ct = default) where T : class
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            string path = ProfilePath(name);
+            string json = JsonConvert.SerializeObject(data, serializerSettings);
+            await IoGate.WaitAsync(ct);
+            try { await UniTask.RunOnThreadPool(() => WriteAtomic(path, json), cancellationToken: ct); }
+            finally { IoGate.Release(); }
+        }
+
+        private string ProfilePath(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name.Length > 64) throw new ArgumentException("档案名称非法", nameof(name));
+            foreach (char character in name)
+                if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+                    (character >= '0' && character <= '9') || character == '-' || character == '_'))
+                    throw new ArgumentException("档案名称非法", nameof(name));
+            return Path.Combine(SaveRoot, "profile-" + name + ".json");
         }
 
         /// <summary>
@@ -445,6 +528,11 @@ namespace Game.Core.Save
         /// 跑在线程池上，不要在这里碰任何 Unity API。
         /// </summary>
         private static void WriteAtomic(string path, string json)
+        {
+            lock (DiskGate) WriteLocked(path, json);
+        }
+
+        private static void WriteLocked(string path, string json)
         {
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
@@ -464,7 +552,7 @@ namespace Game.Core.Save
                     try
                     {
                         // File.Replace 是真正的原子替换，但只在同卷的常规文件系统上可用。
-                        File.Replace(temp, path, null);
+                        File.Replace(temp, path, path + ".bak");
                     }
                     catch (Exception)
                     {
@@ -472,7 +560,17 @@ namespace Game.Core.Save
                         // 这一步不是原子的，但全程不主动删除正档：用 Copy 覆盖而不是
                         // 先 Delete 正档再 Move temp——Delete 之后 Move 万一再炸，
                         // 正档和 temp 会同时丢；Copy 中途失败正档还在、temp 也还在，不会两份都没了。
-                        File.Copy(temp, path, overwrite: true);
+                        File.Copy(path, path + ".bak", overwrite: true);
+                        try
+                        {
+                            File.Copy(temp, path, overwrite: true);
+                        }
+                        catch
+                        {
+                            // 失败时尝试恢复旧档；恢复失败也保留 .bak 与 .tmp 供后续恢复。
+                            File.Copy(path + ".bak", path, overwrite: true);
+                            throw;
+                        }
                     }
                 }
                 else

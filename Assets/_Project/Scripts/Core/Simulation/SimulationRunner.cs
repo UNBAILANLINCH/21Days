@@ -64,6 +64,18 @@ namespace Game.Core.Simulation
         private readonly IRandomService random;
         private readonly ITelemetryScope telemetry;
         private readonly List<ISimulationStep> steps = new List<ISimulationStep>();
+        private readonly HashSet<object> pauseOwners = new HashSet<object>();
+        public event Action OnTickCommitted;
+        public bool IsStepping { get; private set; }
+        public bool IsPaused => pauseOwners.Count > 0;
+
+        // 多个窗口各自持有暂停原因；关闭一个窗口不会解除其它原因。
+        public void SetPaused(object owner, bool paused)
+        {
+            if (owner == null) throw new ArgumentNullException(nameof(owner));
+            if (paused) pauseOwners.Add(owner);
+            else pauseOwners.Remove(owner);
+        }
 
         // 配置在构造时抄成只读字段：一是每 tick 路径上不再碰 ScriptableObject，
         // 二是运行中改资产不会把这一局的步长改掉（改了前后两段 tick 就对不上了）。
@@ -204,7 +216,7 @@ namespace Game.Core.Simulation
         /// </summary>
         public void Tick()
         {
-            if (CurrentMode != Mode.Live)
+            if (CurrentMode != Mode.Live || IsPaused)
             {
                 return;
             }
@@ -221,6 +233,11 @@ namespace Game.Core.Simulation
         /// </summary>
         public void AdvanceOneTick()
         {
+            if (IsPaused) return;
+            if (IsStepping) throw new InvalidOperationException("不允许在逻辑 tick 中递归推进");
+            IsStepping = true;
+            try
+            {
             // 每个 tick 各取一次输入。一帧补多个 tick 时会连着取到多条相同的命令，这是**预期行为**，
             // 不要「优化」成一帧只取一条：录制是按 tick 逐条记、重放是按 tick 逐条喂，
             // 少记一条，后面所有 tick 的输入就整体错位一格，重放从那里开始分叉。
@@ -241,6 +258,9 @@ namespace Game.Core.Simulation
 
             // 先跑完这一 tick 的所有步骤再推进时钟：Step 里读到的 Clock.Tick 与 context.Tick 因此永远相等。
             logicClock.Advance();
+            }
+            finally { IsStepping = false; }
+            OnTickCommitted?.Invoke();
         }
 
         /// <summary>
@@ -260,14 +280,14 @@ namespace Game.Core.Simulation
             }
 
             int advanced = 0;
-            while (accumulator >= step && advanced < maxCatchUpTicks)
+            while (accumulator >= step && advanced < maxCatchUpTicks && !IsPaused)
             {
                 accumulator -= step;
                 AdvanceOneTick();
                 advanced++;
             }
 
-            if (accumulator < step)
+            if (accumulator < step || IsPaused)
             {
                 return;
             }

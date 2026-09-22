@@ -19,6 +19,16 @@ namespace Game.Monster
         private readonly IPlatformService platform;
         private EncounterSceneView view;
         private GameObject touchControls;
+        private EncounterSaveData restore;
+        public bool NavigationBlocked { get; set; }
+
+        public void PrepareRestore(EncounterSaveData saved)
+        {
+            if (saved == null) throw new System.ArgumentNullException(nameof(saved));
+            saved.Validate();
+            restore = saved;
+        }
+        public void ClearPreparedRestore() => restore = null;
 
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
             MonsterModel monster, IGameFlow flow, IPlatformService platform) : base(assets)
@@ -43,13 +53,14 @@ namespace Game.Monster
             if (view == null)
             {
                 Log.Error("IsometricEncounter 场景缺少 EncounterSceneView 显式接线");
-                flow.GoToAsync<TitleState>().Forget();
-                return UniTask.CompletedTask;
+                throw new System.InvalidOperationException("IsometricEncounter 缺少 EncounterSceneView");
             }
 
             try
             {
-                step.Begin(view.PlayerStart, view.PatrolPositions());
+                if (restore != null) step.Restore(restore);
+                else step.Begin(view.PlayerStart, view.PatrolPositions());
+                restore = null;
                 view.Bind(player, monster);
                 view.OnBackClicked += HandleBackClicked;
                 if (platform.IsTouchPrimary)
@@ -61,7 +72,7 @@ namespace Game.Monster
             {
                 Log.Error($"MonsterEncounter 接线失败：{e}");
                 step.End();
-                flow.GoToAsync<TitleState>().Forget();
+                throw;
             }
 
             return UniTask.CompletedTask;
@@ -86,6 +97,9 @@ namespace Game.Monster
             return UniTask.CompletedTask;
         }
 
-        private void HandleBackClicked() => flow.GoToAsync<TitleState>().Forget();
+        private void HandleBackClicked()
+        {
+            if (!NavigationBlocked) flow.GoToAsync<TitleState>().Forget();
+        }
     }
 }

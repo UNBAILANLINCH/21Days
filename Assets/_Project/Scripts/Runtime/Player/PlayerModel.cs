@@ -17,6 +17,34 @@ namespace Game.Player
 
         public PlayerSnapshot Snapshot => new PlayerSnapshot(Position, Facing, IsSneaking, IsDisguised, Health);
 
+        public PlayerSaveData Capture() => new PlayerSaveData
+        {
+            PositionX = Position.x,
+            PositionY = Position.y,
+            FacingX = Facing.x,
+            FacingY = Facing.y,
+            IsSneaking = IsSneaking,
+            IsDisguised = IsDisguised,
+            Health = Health,
+            AttackCooldownLeft = AttackCooldownLeft,
+            PreviousDisguise = PreviousDisguise,
+            PreviousAttack = PreviousAttack,
+        };
+
+        public void Restore(PlayerSaveData saved)
+        {
+            if (saved == null) throw new System.ArgumentNullException(nameof(saved));
+            saved.Validate();
+            Position = new Vector2(saved.PositionX, saved.PositionY);
+            Facing = new Vector2(saved.FacingX, saved.FacingY);
+            IsSneaking = saved.IsSneaking;
+            IsDisguised = saved.IsDisguised;
+            Health = saved.Health;
+            AttackCooldownLeft = saved.AttackCooldownLeft;
+            PreviousDisguise = saved.PreviousDisguise;
+            PreviousAttack = saved.PreviousAttack;
+        }
+
         public void Serialize(IStateWriter writer)
         {
             writer.WriteVector2(Position);

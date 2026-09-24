@@ -1,0 +1,32 @@
+[
+    {
+        "id": "elder",
+        "displayName": "老者",
+        "defaultExpression": "default",
+        "expressions": [
+            {
+                "id": "default",
+                "sprite": "Dialogue/Portrait_elder_default"
+            },
+            {
+                "id": "angry",
+                "sprite": "Dialogue/Portrait_elder_angry"
+            }
+        ]
+    },
+    {
+        "id": "traveler",
+        "displayName": "旅人",
+        "defaultExpression": "default",
+        "expressions": [
+            {
+                "id": "default",
+                "sprite": "Dialogue/Portrait_traveler_default"
+            },
+            {
+                "id": "smile",
+                "sprite": "Dialogue/Portrait_traveler_smile"
+            }
+        ]
+    }
+]

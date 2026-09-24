@@ -14,6 +14,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -28,6 +29,9 @@ namespace Game.Tests.Showcase
     /// </summary>
     public abstract class ShowcaseScenario
     {
+        /// <summary>根作用域的程序集限定类型名，供 <see cref="ResolveService{T}"/> 反射查找（理由见该方法）。</summary>
+        private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
+
         private readonly List<UnityEngine.Object> tracked = new List<UnityEngine.Object>();
 
         private ShowcaseReport report;
@@ -284,6 +288,57 @@ namespace Game.Tests.Showcase
             }
 
             return component;
+        }
+
+        /// <summary>
+        /// 从运行中的根容器解析一个服务，拿不到（没 Boot、容器没建完、没注册）一律返回 null。
+        /// <para>**只能走反射**：本程序集没引用 VContainer，而 <c>GameLifetimeScope</c> 的基类在那个程序集里，
+        /// 源码里写出这个类型名就是 CS0012。写法照搬 <c>ReplayShowcase.TryConnectContainer / Resolve&lt;T&gt;</c>：
+        /// 按类型名找场上的 <c>GameLifetimeScope</c> → 取 <c>Container</c> 属性 →
+        /// 反射调 <c>IObjectResolver.TryResolve(Type, out object, object)</c>（<c>TryResolve&lt;T&gt;</c> 的泛型外壳底下就是它；
+        /// 别找 <c>Resolve(Type)</c>，它带可选 key 参数，按单参数签名找不到）。</para>
+        /// <para>不缓存容器：同一 Play 会话里每条用例都会重新加载 Boot，缓存会拿到上一条的旧容器。
+        /// 异常吞掉不打日志——常在 WaitForBootReady 里逐帧轮询，打日志会刷爆控制台。</para>
+        /// </summary>
+        protected T ResolveService<T>() where T : class
+        {
+            Type scopeType = Type.GetType(ScopeTypeName);
+            if (scopeType == null)
+            {
+                return null;
+            }
+
+            UnityEngine.Object scopeObject = UnityEngine.Object.FindObjectOfType(scopeType);
+            if (scopeObject == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                PropertyInfo containerProperty = scopeType.GetProperty("Container");
+                object resolver = containerProperty == null ? null : containerProperty.GetValue(scopeObject);
+                if (resolver == null)
+                {
+                    return null;
+                }
+
+                MethodInfo method = resolver.GetType().GetMethod(
+                    "TryResolve",
+                    new[] { typeof(Type), typeof(object).MakeByRefType(), typeof(object) });
+                if (method == null)
+                {
+                    return null;
+                }
+
+                object[] args = { typeof(T), null, null };
+                bool resolved = (bool)method.Invoke(resolver, args);
+                return resolved ? args[1] as T : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         /// <summary>

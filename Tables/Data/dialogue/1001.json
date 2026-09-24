@@ -1,0 +1,182 @@
+{
+    "id": 1001,
+    "entry": "l1",
+    "nodes": [
+        {
+            "id": "l1",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "angry",
+            "clearOther": true,
+            "text": "人都跑光了，对谁负责去？！",
+            "next": "l2",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "l2",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "traveler",
+            "speakerName": "",
+            "side": "Right",
+            "expression": "",
+            "clearOther": false,
+            "text": "老先生，您别急，村子里出什么事了？",
+            "next": "l3",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "l3",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "angry",
+            "clearOther": false,
+            "text": "你问我？我问谁去！你去帮我找点人来负责负责？！",
+            "next": "c1",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "c1",
+            "revision": 1,
+            "kind": "Choice",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "你倒是给句话！",
+            "next": "",
+            "outcome": "",
+            "blocking": true,
+            "choices": [
+                {
+                    "id": "accept",
+                    "text": "行，我这就去给您找人。",
+                    "next": "r_accept",
+                    "outcome": "",
+                    "hideWhenUnavailable": false,
+                    "unavailableReason": "",
+                    "icon": "Dialogue/ChoiceIcon_Go",
+                    "anyOf": []
+                },
+                {
+                    "id": "refuse",
+                    "text": "这事跟我可没关系。",
+                    "next": "r_refuse",
+                    "outcome": "",
+                    "hideWhenUnavailable": false,
+                    "unavailableReason": "",
+                    "icon": "Dialogue/ChoiceIcon_Leave",
+                    "anyOf": []
+                },
+                {
+                    "id": "remember",
+                    "text": "老先生，是我啊，您不记得了？",
+                    "next": "r_remember",
+                    "outcome": "",
+                    "hideWhenUnavailable": true,
+                    "unavailableReason": "你和这位老先生素不相识",
+                    "icon": "",
+                    "anyOf": [
+                        {
+                            "all": [
+                                {
+                                    "fact": "StoryFlag",
+                                    "key": "knows_elder",
+                                    "expected": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "r_accept",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "哼，总算来了个肯担事的。快去快回！",
+            "next": "end_accepted",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "r_refuse",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "angry",
+            "clearOther": false,
+            "text": "没关系？都没关系！那这烂摊子谁来收拾？！走走走！",
+            "next": "end_refused",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "r_remember",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "……是你小子啊。罢了，这事就托付给你了。",
+            "next": "end_accepted",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "end_accepted",
+            "revision": 1,
+            "kind": "End",
+            "speaker": "",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "",
+            "next": "",
+            "outcome": "Accepted",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "end_refused",
+            "revision": 1,
+            "kind": "End",
+            "speaker": "",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "",
+            "next": "",
+            "outcome": "Refused",
+            "blocking": true,
+            "choices": []
+        }
+    ]
+}

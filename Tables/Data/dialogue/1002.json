@@ -1,0 +1,51 @@
+{
+    "id": 1002,
+    "entry": "m1",
+    "nodes": [
+        {
+            "id": "m1",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": true,
+            "text": "唉，人都跑光了，连个搭话的都没有。",
+            "next": "m2",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "m2",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "angry",
+            "clearOther": false,
+            "text": "罢了罢了！老头子我自己去看看，还指望谁来负责？！",
+            "next": "end",
+            "outcome": "",
+            "blocking": true,
+            "choices": []
+        },
+        {
+            "id": "end",
+            "revision": 1,
+            "kind": "End",
+            "speaker": "",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "",
+            "next": "",
+            "outcome": "Done",
+            "blocking": true,
+            "choices": []
+        }
+    ]
+}

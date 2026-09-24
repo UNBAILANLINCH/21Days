@@ -102,6 +102,10 @@ namespace Game.Core.Boot
             // 确定性内核第二段：输入源与推进器。位置是硬约束，必须在 InputService 之后，理由见方法注释。
             RegisterSimulationDriver(builder);
 
+            // 世界暂停：timeScale + 逻辑 tick 的唯一持有者，要拿推进器所以排在第二段之后。
+            // 实现了 IDisposable，VContainer 在作用域销毁时会调 Dispose，释放全部持有者并恢复 timeScale。
+            builder.Register<WorldPauseService>(Lifetime.Singleton).As<IWorldPauseService>();
+
             // 回放系统：录制器、录制接线件、播放器。必须排在第二段之后——它们都要拿推进器与输入切换壳。
             RegisterReplay(builder);
 

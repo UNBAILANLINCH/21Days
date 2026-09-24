@@ -17,13 +17,63 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: 2b286b199be94c0449a5185b91ccb166
   m_SerializeEntries:
+  - m_GUID: 1278ef03915d0a74ebb3686136ec5119
+    m_Address: Dialogue/ChoiceIcon_Go
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 12ee4a59815963f4dba527224635b94b
+    m_Address: Dialogue/Portrait_traveler_smile
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 19b3f1ebfceb21647b9299628a77ca87
     m_Address: TitleView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3ca22c653559fbe40ae17a623807590d
+    m_Address: Dialogue/ChoiceIcon_Leave
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 78ccf4aa9d7c71c46b51fd6c9aacfe3e
+    m_Address: Dialogue/Portrait_traveler_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 822bdc7e976bb844db36d8625225ca62
+    m_Address: Dialogue/Portrait_elder_angry
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 84c8e80b4c8df2f4eafd22585d083956
     m_Address: SampleView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 89e100bd2661dc44387be21e8c0b7a87
+    m_Address: Dialogue/Portrait_elder_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b75d9cb23a8f4148a195b7f233ef219
+    m_Address: DialogueSkipConfirmView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b12b6e979ff62c74e835ceff262d1023
+    m_Address: DialogueInteractHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: db56eead34e41be43a4ff835c32aaeea
+    m_Address: DialogueHistoryView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e006f2af8aaae1a4e972a978c6fdec40
+    m_Address: DialogueView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

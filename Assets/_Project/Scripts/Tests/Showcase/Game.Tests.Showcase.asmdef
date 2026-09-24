@@ -1,7 +1,7 @@
 {
   "name": "Game.Tests.Showcase",
   "rootNamespace": "Game.Tests.Showcase",
-  "references": ["Game.Core", "Game.Runtime", "Unity.InputSystem", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+  "references": ["Game.Core", "Game.Runtime", "Unity.InputSystem", "Unity.TextMeshPro", "UniTask", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

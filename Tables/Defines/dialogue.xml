@@ -1,0 +1,84 @@
+<!-- 对话系统内容表的结构定义（PRP/dialogue-system/prp.md 3.5）。
+     数据：Tables/Data/dialogue/<id>.json（一棵对话树一个文件）与 Tables/Data/dialogue_character.json。
+     运行时由 Game.Dialogue.DialogueCatalog 翻译成 DialogueContent / DialogueCharacter；
+     ConditionFact 必须与 Game.Narrative.EncounterContext.Fact 同名同序（按名字映射）。 -->
+<module name="dialogue">
+    <enum name="NodeKind" comment="对白节点类型">
+        <var name="Line" value="0" comment="一句台词"/>
+        <var name="Choice" value="1" comment="选项"/>
+        <var name="End" value="2" comment="结束"/>
+    </enum>
+
+    <enum name="PortraitSide" comment="说话者立绘所在侧（即立绘槽位）">
+        <var name="Left" value="0"/>
+        <var name="Right" value="1"/>
+    </enum>
+
+    <enum name="ConditionFact" comment="条件读取的事实，与 EncounterContext.Fact 同名同序">
+        <var name="PlayerAlive" value="0"/>
+        <var name="PlayerSneaking" value="1"/>
+        <var name="PlayerDisguised" value="2"/>
+        <var name="TargetAlive" value="3"/>
+        <var name="TargetHostile" value="4"/>
+        <var name="TargetDetected" value="5"/>
+        <var name="StoryFlag" value="6"/>
+    </enum>
+
+    <bean name="Condition" comment="单个条件">
+        <var name="fact" type="ConditionFact"/>
+        <var name="key" type="string" comment="StoryFlag 用的标记名，其它事实留空"/>
+        <var name="expected" type="bool"/>
+    </bean>
+
+    <bean name="ConditionGroup" comment="条件组：组内全部满足（AND）">
+        <var name="all" type="list,Condition"/>
+    </bean>
+
+    <bean name="Choice" comment="选项；next 与 outcome 有且只有一个">
+        <var name="id" type="string"/>
+        <var name="text" type="string"/>
+        <var name="next" type="string"/>
+        <var name="outcome" type="string"/>
+        <var name="hideWhenUnavailable" type="bool"/>
+        <var name="unavailableReason" type="string"/>
+        <var name="icon" type="string" comment="选项图标 Addressables 地址，空 = 无图标；JSON 里必须显式写"/>
+        <var name="anyOf" type="list,ConditionGroup" comment="任一组满足即可（OR）；空 = 无条件"/>
+    </bean>
+
+    <bean name="Node" comment="对白节点">
+        <var name="id" type="string"/>
+        <var name="revision" type="int" comment="台词修订号；JSON 里必须写（Luban 不允许缺字段），填 0 按 1 处理"/>
+        <var name="kind" type="NodeKind"/>
+        <var name="speaker" type="string" comment="角色 id，空 = 旁白"/>
+        <var name="speakerName" type="string" comment="空 = 用角色显示名"/>
+        <var name="side" type="PortraitSide"/>
+        <var name="expression" type="string" comment="空 = 角色默认表情"/>
+        <var name="clearOther" type="bool" comment="清掉另一侧立绘"/>
+        <var name="text" type="string"/>
+        <var name="next" type="string"/>
+        <var name="outcome" type="string"/>
+        <var name="blocking" type="bool" comment="Luban JSON 不允许缺字段，数据里显式写 true / false"/>
+        <var name="choices" type="list,Choice"/>
+    </bean>
+
+    <bean name="Dialogue" comment="一棵对话树">
+        <var name="id" type="int"/>
+        <var name="entry" type="string"/>
+        <var name="nodes" type="list,Node"/>
+    </bean>
+
+    <bean name="Expression" comment="角色表情">
+        <var name="id" type="string"/>
+        <var name="sprite" type="string" comment="Addressables 地址"/>
+    </bean>
+
+    <bean name="Character" comment="对话角色">
+        <var name="id" type="string"/>
+        <var name="displayName" type="string"/>
+        <var name="defaultExpression" type="string"/>
+        <var name="expressions" type="list,Expression"/>
+    </bean>
+
+    <table name="TbDialogue" value="Dialogue" index="id" input="dialogue" group="c" comment="对话树表"/>
+    <table name="TbDialogueCharacter" value="Character" index="id" input="*@dialogue_character.json" group="c" comment="对话角色表"/>
+</module>

@@ -14,18 +14,30 @@ namespace cfg
 public partial class Tables
 {
     /// <summary>
+    /// 对话树表
+    /// </summary>
+    public dialogue.TbDialogue TbDialogue {get; }
+    /// <summary>
+    /// 对话角色表
+    /// </summary>
+    public dialogue.TbDialogueCharacter TbDialogueCharacter {get; }
+    /// <summary>
     /// 道具表
     /// </summary>
     public TbItem TbItem {get; }
 
     public Tables(System.Func<string, ByteBuf> loader)
     {
+        TbDialogue = new dialogue.TbDialogue(loader("dialogue_tbdialogue"));
+        TbDialogueCharacter = new dialogue.TbDialogueCharacter(loader("dialogue_tbdialoguecharacter"));
         TbItem = new TbItem(loader("tbitem"));
         ResolveRef();
     }
     
     private void ResolveRef()
     {
+        TbDialogue.ResolveRef(this);
+        TbDialogueCharacter.ResolveRef(this);
         TbItem.ResolveRef(this);
     }
 }

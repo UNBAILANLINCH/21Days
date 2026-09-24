@@ -9,12 +9,13 @@ namespace Game.Dialogue
 {
     public sealed class DialogueRules
     {
+        // 同步快进的句数上限；超过即视为内容环路，避免 Skip 死循环。
+        private const int MaxSkipLines = 4096;
         private readonly DialogueReadData read;
         private readonly int historyLimit;
         private readonly ITelemetryScope telemetry;
         private DialogueContent content;
         private DialogueSaveData state = new DialogueSaveData();
-        private bool wasReadOnEntry;
         private int visibleCharacters;
         private int totalCharacters;
 
@@ -35,11 +36,11 @@ namespace Game.Dialogue
         public string Speaker => state.ResolvedSpeaker;
         public string Outcome => state.Outcome;
         public int VisibleCharacters => visibleCharacters;
-        public bool CanSkip => wasReadOnEntry && (Phase == DialogueSaveData.Phase.Typing || Phase == DialogueSaveData.Phase.AwaitAdvance);
         public bool Blocking => Current != null && (Current.Blocking || Phase == DialogueSaveData.Phase.AwaitChoice);
         public IReadOnlyList<DialogueSaveData.HistoryEntry> History => state.History;
         public IReadOnlyList<DialogueContent.Portrait> Portraits => state.Portraits;
         public bool HistoryTruncated => state.HistoryTruncated;
+        public event Action<DialogueContent.Choice> OnChoiceSelected;
 
         public void Start(DialogueContent conversation)
         {
@@ -95,7 +96,34 @@ namespace Game.Dialogue
             telemetry.Track("choice_selected", ("choice", selected.Id));
             if (!string.IsNullOrEmpty(selected.Next)) Enter(selected.Next);
             else Complete(selected.Outcome);
+            OnChoiceSelected?.Invoke(selected);
             return true;
+        }
+
+        // 同步快进：Line 节点逐句「补全 + 记历史 + 标已读 + 进下一句」，停在 AwaitChoice / Completed / Closed。
+        // Preparing 阶段不等 TMP 字数：历史记 node.Text 与 resolveSpeaker 解析出的说话者。
+        public int Skip(long generation, Func<DialogueContent.Node, string> resolveSpeaker)
+        {
+            if (generation != Generation) return 0;
+            if (resolveSpeaker == null) throw new ArgumentNullException(nameof(resolveSpeaker));
+            int count = 0;
+            while (Phase == DialogueSaveData.Phase.Preparing || Phase == DialogueSaveData.Phase.Typing ||
+                   Phase == DialogueSaveData.Phase.AwaitAdvance)
+            {
+                if (count >= MaxSkipLines) throw new InvalidOperationException("跳过句数超过上限，对白内容可能成环：" + content.Id);
+                DialogueContent.Node node = Current;
+                if (Phase == DialogueSaveData.Phase.Preparing)
+                {
+                    state.ResolvedText = node.Text;
+                    state.ResolvedSpeaker = resolveSpeaker(node) ?? string.Empty;
+                    totalCharacters = 0;
+                }
+                if (Phase != DialogueSaveData.Phase.AwaitAdvance) RevealAll();
+                count++;
+                Enter(node.Next);
+            }
+            if (count > 0) telemetry.Track("skipped", ("count", count));
+            return count;
         }
 
         public DialogueSaveData Capture()
@@ -112,12 +140,12 @@ namespace Game.Dialogue
                 throw new ArgumentException("对白快照非法");
             DialogueContent.Node node = conversation.Get(saved.NodeId);
             if (node.Revision != saved.NodeRevision) throw new ArgumentException("当前台词版本不兼容");
-            if (saved.History.Count > historyLimit || saved.Portraits.Length > 3) throw new ArgumentException("对白快照超出限制");
+            if (saved.History.Count > historyLimit || saved.Portraits.Length > DialogueContent.SlotCount) throw new ArgumentException("对白快照超出限制");
             foreach (DialogueSaveData.HistoryEntry entry in saved.History)
                 if (entry == null || entry.Text == null) throw new ArgumentException("历史记录损坏");
             var slots = new HashSet<int>();
             foreach (DialogueContent.Portrait portrait in saved.Portraits)
-                if (portrait == null || portrait.Slot < 0 || portrait.Slot > 2 || !slots.Add(portrait.Slot) ||
+                if (portrait == null || portrait.Slot < 0 || portrait.Slot >= DialogueContent.SlotCount || !slots.Add(portrait.Slot) ||
                     portrait.Action != DialogueContent.PortraitAction.Show || string.IsNullOrWhiteSpace(portrait.CharacterId) ||
                     string.IsNullOrWhiteSpace(portrait.ExpressionId))
                     throw new ArgumentException("立绘快照损坏");
@@ -136,7 +164,6 @@ namespace Game.Dialogue
             state = JsonConvert.DeserializeObject<DialogueSaveData>(JsonConvert.SerializeObject(saved));
             content = conversation;
             Generation++;
-            wasReadOnEntry = false;
             visibleCharacters = int.MaxValue;
             if (linePhase)
             {
@@ -165,7 +192,6 @@ namespace Game.Dialogue
             state.ResolvedText = node.Text;
             state.ResolvedSpeaker = node.SpeakerName;
             visibleCharacters = 0;
-            wasReadOnEntry = read.Keys.Contains(DialogueReadData.Key(content.Id, id, node.Revision));
             var portraits = new List<DialogueContent.Portrait>(state.Portraits);
             foreach (DialogueContent.Portrait change in node.Portraits)
             {

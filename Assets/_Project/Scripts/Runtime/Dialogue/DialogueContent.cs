@@ -7,6 +7,9 @@ namespace Game.Dialogue
 {
     public sealed class DialogueContent
     {
+        // 立绘只有对话框左上 / 右上两个槽位；说话者在哪一侧由内容适配层翻译成 Portraits。
+        public const int SlotCount = 2;
+        public enum PortraitSlot { Left = 0, Right = 1 }
         public enum NodeKind { Line, Choice, End }
         public enum PortraitAction { Keep, Show, Clear }
         public sealed class Portrait
@@ -24,6 +27,8 @@ namespace Game.Dialogue
             public string Outcome { get; set; } = string.Empty;
             public bool HideWhenUnavailable { get; set; }
             public string UnavailableReason { get; set; } = string.Empty;
+            /// <summary>选项图标的 Addressables 地址；空 = 无图标。</summary>
+            public string IconKey { get; set; } = string.Empty;
             public NarrativeCondition[][] Conditions { get; set; } = Array.Empty<NarrativeCondition[]>();
         }
         public sealed class Node
@@ -60,7 +65,7 @@ namespace Game.Dialogue
                 if (node.Portraits == null || node.Choices == null) throw new ArgumentException("节点数组不可为空");
                 var slots = new HashSet<int>();
                 foreach (Portrait portrait in node.Portraits)
-                    if (portrait == null || portrait.Slot < 0 || portrait.Slot > 2 || !slots.Add(portrait.Slot) ||
+                    if (portrait == null || portrait.Slot < 0 || portrait.Slot >= SlotCount || !slots.Add(portrait.Slot) ||
                         !Enum.IsDefined(typeof(PortraitAction), portrait.Action) ||
                         (portrait.Action == PortraitAction.Show && (string.IsNullOrWhiteSpace(portrait.CharacterId) ||
                             string.IsNullOrWhiteSpace(portrait.ExpressionId))))

@@ -74,10 +74,12 @@ namespace Game.Tests.EditMode.Core
         [Test]
         public void BuildTables_WhenATableIsMissing_ThrowsWithTheTableName()
         {
-            Dictionary<string, byte[]> empty = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            // 只拿掉 tbitem、其它表都在：不依赖生成代码里各表的加载先后（表一多，空字典报的是第一张表）。
+            Dictionary<string, byte[]> withoutItem = ReadAllTableBytes();
+            withoutItem.Remove("tbitem");
 
             InvalidOperationException error =
-                Assert.Throws<InvalidOperationException>(() => ConfigService.BuildTables(empty));
+                Assert.Throws<InvalidOperationException>(() => ConfigService.BuildTables(withoutItem));
 
             Assert.That(error.Message, Does.Contain("tbitem"), "报错里要点名是哪张表缺了");
             Assert.That(error.Message, Does.Contain("gen-tables.ps1"), "报错里要给出修法");

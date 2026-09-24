@@ -24,7 +24,13 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 ## 场景契约
 
 `MonsterRules.MoveControlled(Vector2 movement, float deltaTime)`：驯服模块直接控制存活敌人，按巡逻速度移动；调用方不能同时推进敌人 AI，负步长抛出异常。
-`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。
+`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs:51`）
+只读暴露玩家纸片当前场景坐标（含贴地后的 Y），供 Showcase 与跨模块读取而不碰私有字段；
+`StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。
+
+`EncounterProjection`（静态纯函数）：`ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:10`）
+是贴地高度裁决的纯函数（下落不限、上抬超过阈值保持原高度）；`ResolveFlipX(previousX, currentX, currentFlipX, threshold)`
+（`EncounterProjection.cs:14`）是翻转纯规则；均可在测试或其它表现脚本中直接复用。
 
 `EncounterSceneView` 见 `EncounterSceneView.cs:9`。
 场景应配置 `playerSpawn` 与至少一个 `patrolPoints`；未配置巡逻点时 `PatrolPositions` 抛错。

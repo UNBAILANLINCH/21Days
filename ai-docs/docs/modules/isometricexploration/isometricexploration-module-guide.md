@@ -26,7 +26,7 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 
 | 类型 | 位置 | 职责 |
 | --- | --- | --- |
-| `CameraBillboard` | `Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs:8` | 旋转纸片，并可校准竖直 `BoxCollider` 的前表面 |
+| `CameraBillboard` | `Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs:7` | 旋转纸片，并可校准竖直 `BoxCollider` 的前表面；本次升级中 `NameTag` 子节点也复用它保持朝向摄像机 |
 | `SmoothCameraFollow` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:8` | 保持初始偏移并平滑跟随目标 |
 | `IsometricExplorationConfig` | `Assets/_Project/Scripts/Runtime/IsometricExploration/IsometricExplorationConfig.cs:8` | 保存移动速度、排序兼容参数和相机缓动时间 |
 | `IsometricPlayerController3D` | `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricPlayerController3D.cs:10` | 把 `Gameplay/Move` 输入应用到 3D `Rigidbody` |
@@ -55,31 +55,90 @@ Encounter
 └─ PatrolPoint1
 ```
 
-角色建议保持以下层级：
+`Environment_Graybox`（灰盒环境几何体）与 `GlobalVolume`（后处理，见下文「表现层」）是与 `Encounter`
+平级的场景根节点，不挂在 `Encounter` 下；`EncounterSceneView` 不引用它们，纯表现，不参与玩法判断：
 
 ```text
-Player
-├─ Rigidbody
-├─ CapsuleCollider
-├─ PlayerInput
-├─ IsometricPlayerController3D
-└─ Visual
-   ├─ SpriteRenderer
-   └─ CameraBillboard
+Environment_Graybox（场景根）
+├─ Ground / Wall_Back / Wall_Left / Tower / Stairs
+└─ Fence / Cone_1..3 / Bench_1..2
+
+GlobalVolume（场景根，Global + ExplorationVolumeProfile）
 ```
 
-环境纸片建议保持以下层级：
+`Environment_Graybox` 下全部物体统一放在新建 Layer `Ground`（slot 8，`ProjectSettings/TagManager.asset`），
+`Encounter/EncounterSceneView.groundMask` 只勾这一层，供贴地射线专用；这一层只用于贴地探测，
+不代表玩法碰撞层，新增环境物体记得同样放进 `Ground` 层，否则角色纸片走上去不会贴地。
+
+角色（`player` / `enerme`）当前层级；根节点已改为**脚底**、缩放归一 `(1, 1, 1)`，
+Y = 地面高度 `4.8884`（`Assets/Scenes/SampleScene.unity:4581`，`CapsuleCollider.center (0, 0.8, 0)`、
+`height 1.6`、`radius 0.3`，即碰撞体从脚底往上量）：
 
 ```text
-PropRoot
-├─ BoxCollider
-└─ Visual
-   ├─ SpriteRenderer
-   └─ CameraBillboard
+player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
+├─ Rigidbody / CapsuleCollider(center 0,0.8,0 / height 1.6 / radius 0.3) / PlayerInput / IsometricPlayerController3D
+├─ Visual
+│  ├─ SpriteRenderer（Chibi_Player.png，96×160，Pivot BottomCenter，PPU 100，世界尺寸 0.96×1.6，材质 M_SpriteDepthClip）
+│  └─ CameraBillboard
+├─ BlobShadow（贴地阴影纸片，localPosition.y 0.02，世界直径 0.9）
+├─ SelectRing（状态指示环纸片，localPosition.y 0.02，世界直径 1.1，已启用，赋给
+│  EncounterSceneView.playerStateIndicator，状态色改染在这个环上而不是本体纸片）
+└─ NameTag（World Space Canvas + CameraBillboard + Image + TMP「玩家」，localPosition.y 1.9，
+   localScale 0.007，世界高 0.35）
 ```
+
+`enerme` 同构，Visual 用 `Chibi_Patrol.png`；`SelectRing` 同样已启用并赋给
+`monsterStateIndicator`；`NameTag` 文字为「巡逻者」；`enerme/Visual` 的 `localPosition.z` 仍为
+`0.05`，避免两角色重合时与 `player/Visual` 发生 z-fighting。
+
+根节点缩放已归一为 `(1, 1, 1)`，`BlobShadow` / `SelectRing` / `NameTag` 的局部尺寸此前需要按非等比
+根缩放换算的问题已不存在；新角色若根节点仍做非等比缩放，才需要按对应轴换算。新增角色纸片的完整
+步骤见 `isometricexploration-extension-guide.md`。
 
 `Visual` 是只负责显示的子节点。纸片倾斜只发生在这个节点上；`Rigidbody` 和 3D Collider 留在根节点。
 这样视觉可以面向摄像机，物理体仍保持竖直，不会因为斜碰撞面产生攀爬效果。
+
+**环境纸片（`PropRoot` + `SpriteRenderer` + `CameraBillboard` 层级）已停用、待美术替换**：原六个
+「室内*」纸片物体仍在场景中但已停用（未删除，未来正式表现如仍需要 2D 占位可重新启用）；正式/灰盒
+环境改用 `Environment_Graybox` 下的 3D 几何体，见下文「表现层」与扩展指南的「新增灰盒/正式环境模型的步骤」。
+
+## 表现层（渲染分档 / 光影 / 后处理）
+
+场景表现从「2D Sprite 纸片替代环境」升级为「3D 灰盒环境 + 深度裁剪纸片角色」，渲染管线按平台分两档：
+
+| 档位 | Pipeline Asset | Renderer List | 差异 |
+| --- | --- | --- | --- |
+| 高档（Standalone 默认 High） | `Assets/Settings/UniversalRP.asset` | `[Renderer2D(0), UniversalRenderer(1)]`，`UniversalRenderer.asset` 带 SSAO Feature | 软阴影开、Shadow Distance 40、Cascade 2、MSAA 2x、Depth Texture 开 |
+| 手游档（Android 默认 Low） | `Assets/Settings/UniversalRP_Mobile.asset` | `[Renderer2D(0), UniversalRenderer_Mobile(1)]`，无 SSAO | 软阴影关、Shadow Distance 25、Cascade 1、无 MSAA |
+
+Quality 六档见 `ProjectSettings/QualitySettings.asset`：Very Low / Low / Medium 用手游档 Pipeline Asset，
+High / Very High / Ultra 用高档；平台默认 Android = Low、Standalone = High。改分档参数只改这两份
+Pipeline/Renderer 资产或 Quality 映射，不要在玩法代码里按平台分支调渲染参数（呼应
+`project-root.md` 的平台隔离约束）。守卫测试：
+`Assets/_Project/Scripts/Tests/EditMode/Rendering/RenderPipelineTiersTests.cs`，改完两份 Renderer List
+或 Quality 映射后必须跑它。
+
+后处理用 `Assets/Settings/ExplorationVolumeProfile.asset`（Tonemapping Neutral、Color Adjustments、
+Vignette，故意不加 Bloom），由场景根节点 `GlobalVolume`（Global）引用。调后处理效果改这份
+Profile，不要新建 Volume。
+
+光照：删除了原 `Global Light 2D` 与旧地面占位 `Cube`，改用新建的 `Directional Light`
+（旋转 `(50, -35, 0)`、色 `(1, .96, .88)`、强度 1.15、Soft 阴影 0.75）；`RenderSettings` 配 Linear 雾
+（距离 18–42，色 `(.80,.76,.68)`）与 Flat 环境光 `(.62,.60,.58)`。改光照效果改这盏灯和
+`RenderSettings`，不要再挂 2D 灯。
+
+角色纸片要能被灰盒环境遮挡、参与 SSAO，用专门着色器
+`Assets/_Project/Art/Shaders/SpriteDepthClip.shader`（`UniversalForward` / `ShadowCaster` /
+`DepthOnly` / `DepthNormals` 四个 Pass 都做 alpha clip，`ZWrite On`），材质
+`Assets/_Project/Art/Materials/Character/M_SpriteDepthClip.mat`。SpriteRenderer 默认不投实时阴影，
+`ShadowCaster` Pass 已备好，需要投影时在 Renderer 上开 Cast Shadows。新纸片素材要能被环境遮挡，
+必须走这份材质，不要用 URP 自带 Sprite-Lit/Unlit-Default（不写深度、没有 ShadowCaster/DepthNormals
+Pass）；`BlobShadow`/`SelectRing` 这类贴地特效纸片用普通 `Sprite-Unlit-Default` 材质即可，
+不需要深度裁剪。
+
+`SpriteImportProcessor`（`Assets/_Project/Scripts/Editor/Importers/SpriteImportProcessor.cs`）已改为
+高清手绘预设（Bilinear / mipmap / Compressed / PPU 100），新角色/环境纸片素材导入时按这份预设走，
+不要手改单张贴图的导入设置。
 
 ## 历史 3D 移动验证（当前遭遇停用）
 
@@ -152,6 +211,12 @@ offset = camera.position - target.position
 `CameraSmoothTime` 越小，跟随越紧；越大，停下后的缓动越明显。
 当前默认值为 `0.2` 秒。
 
+当前 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 28、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
+`Start` 记录的 `offset` 落地为 `player 根 + (0, 11, -14)`；`UniversalAdditionalCameraData.rendererIndex`
+= 1（对应表现层里的 `UniversalRenderer` / `UniversalRenderer_Mobile`，不是索引 0 的 `Renderer2D`），
+Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 / 偏移）在编辑器里调 `Main Camera`
+的 Transform 与 `SmoothCameraFollow.target`，脚本本身不用改。
+
 ## 配置资产
 
 配置资产位于：
@@ -202,14 +267,24 @@ InputCommand
 - 3D 控制器属于原型，不进入正式可重放玩法状态，遭遇时会被停用；
 - 场景引用保存在 `EncounterSceneView`，重命名角色不会触发运行时名称查找；
 - 玩法规则不读取 Rigidbody 或 Collider，角色会穿过环境碰撞体；
-- 当前没有专门的 PlayMode 自动化测试，场景接线仍需在 Unity 中试玩确认。
+- 当前没有专门的 PlayMode 自动化测试，场景接线仍需在 Unity 中试玩确认；
+- 贴地投影是表现层：`groundMask` 只影响 `EncounterSceneView` 里纸片的世界 Y，逻辑层没有高度、
+  不做障碍或视线判定，玩法规则依旧不读取贴地结果；
+- 两角色重合时 `NameTag` 会叠在一起，没有做避让或层级排序。
 
 ## 验证入口
 
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterSceneViewTests.cs`
-- Showcase：`Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricExplorationShowcase.cs`
+  （含 `EncounterProjection` 的 5 条 `ResolveGroundY` + 4 条 `ResolveFlipX` 用例）。
+- 渲染分档守卫：`Assets/_Project/Scripts/Tests/EditMode/Rendering/RenderPipelineTiersTests.cs`
+- Showcase：`Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricExplorationShowcase.cs`，
+  公共绑定逻辑抽到 `BindEncounter()`；除原有 `SneakApproach_ThenAttack_KillsMonster`，新增
+  `WalkOntoStairs_RaisesBody`：逐级把玩家 `Reset` 到 `Stairs_Step_1..3`，检查
+  `EncounterSceneView.PlayerScenePosition.y` 相对地面抬升 ≥0.55，再 `Reset` 回平地确认落回地面高度。
 - 当前 Showcase 直接加载 `Assets/Scenes/SampleScene.unity`；固定验证场景待 Unity MCP 可用后保存到
   `Assets/_Project/Scenes/Verify/IsometricExploration.unity`。
+- Showcase 报告落 `Logs/verify/isometricexploration/`（已 gitignore，不进版本库）；「探索场景 2.5D
+  表现升级」本次验证结果 PASS。
 
 ## 修改时检查
 
@@ -220,4 +295,12 @@ InputCommand
 - 改 Collider：通过 Unity 编辑器修改并保存场景，不手改 `.unity` YAML；
 - 改相机缓动：在角色持续移动和突然停止两种状态下检查构图；
 - 改配置字段：同步配置资产和本指南；
+- 改渲染分档 / 光影 / 后处理：高低档一起改（`UniversalRP*.asset` 与对应 `UniversalRenderer*.asset`、
+  `QualitySettings.asset` 映射），跑 `RenderPipelineTiersTests`；
+- 改角色纸片材质：确认仍用 `M_SpriteDepthClip`，不要回退到 URP 默认 Sprite 材质（会丢失遮挡与 SSAO）；
+- 改灰盒/环境模型：新对象挂在 `Environment_Graybox` 下，不要改动 `PlayerSpawn` / `PatrolPoint0` /
+  `PatrolPoint1` 的位置；新增的可站立物体要放进 `Ground` 层，否则贴地射线打不到，角色纸片会悬空；
+- 改贴地参数（`groundMask` / `groundProbeHeight` / `groundProbeDepth` / `maxStepHeight`）：跑
+  `EncounterSceneViewTests.cs` 里 `EncounterProjection` 的 5 条 `ResolveGroundY` + 4 条 `ResolveFlipX`
+  用例与 Showcase 的 `WalkOntoStairs_RaisesBody`；
 - 提交前：运行项目 lint、刷新 Unity 编译并读取 Console 错误。

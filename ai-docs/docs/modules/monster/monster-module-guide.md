@@ -22,7 +22,7 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 规则 | `MonsterRules` | 纯 C# 巡逻、感知、转态、战斗与快照 |
 | 同 tick 调度 | `EncounterStep` | 先 Player 后 Monster，处理双方命中 |
 | 场景状态 | `MonsterEncounterState` | 加载和退出遭遇场景 |
-| 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面 |
+| 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面、XZ 贴地投影、状态色染色、按移动方向翻转纸片 |
 | 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
 | 触屏输入 | `EncounterTouchControls` | 运行时虚拟摇杆与按钮 |
 | 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线 |
@@ -100,14 +100,42 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 若检测到 Boot 的 `GameBootstrap`，该控制器立即停用，避免与正式 `SimulationRunner` 重复推进。
 `MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑并销毁触屏控件。
 触屏优先平台创建虚拟摇杆、潜行、伪装、攻击按钮，映射到同一 Gameplay 动作。
-占位表现以玩家蓝/青/绿和怪物灰/橙/红/黑区分状态，并显示生命与警戒条。
+占位表现以玩家蓝/青/绿和怪物灰/橙/红/黑区分状态（状态色优先染 `playerStateIndicator` /
+`monsterStateIndicator` 指示环，当前场景接线为脚下 `SelectRing`；为空才回退染本体纸片），并显示
+生命与警戒条。
 标题入口由 `MonsterTitleRouter` 订阅 `TitleStartClickedEvent`；同一事件不应同时留给 Sample 路由。
+
+`EncounterSceneView.ToScenePosition`（`EncounterSceneView.cs:227`）在 XZ 模式下额外做贴地投影：
+`groundMask` 非 0 时，从 `当前 Y + groundProbeHeight` 向下 Raycast（`QueryTriggerInteraction.Ignore`），
+最大探测距离 `groundProbeHeight + groundProbeDepth`；命中后交给
+`public static float ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:10`）
+裁决：`groundY - currentY <= maxStepHeight` 才采用新高度，否则保留当前高度（视为墙顶/家具）；
+下落方向不受该上限约束。`groundMask` 为 0 时完全不贴地，行为与旧版一致。
+同文件的 `ResolveFlipX(previousX, currentX, currentFlipX, threshold)`（`EncounterProjection.cs:14`）
+是纯翻转规则，供 `flipByMoveDirection` 复用。
+
+| 字段 | 默认值 | 作用 |
+| --- | --- | --- |
+| `groundMask` | 空（不贴地） | 贴地射线只打这一层；场景把 `Environment_Graybox` 下物体统一放在 `Ground`（layer 8） |
+| `groundProbeHeight` | 2 | 射线起点相对当前 Y 的上偏移 |
+| `groundProbeDepth` | 4 | 射线在起点之下的最大探测距离 |
+| `maxStepHeight` | 0.32 | 单帧允许的最大抬升；楼梯每级 0.3 可上，长椅 0.45 / 路障 0.35 会被拒绝，墙顶不会被“跳”上去；下落不限 |
+| `playerStateIndicator` / `monsterStateIndicator` | 空 | 状态色优先染色目标；为空回退染本体 SpriteRenderer |
+| `flipByMoveDirection` | false | 按本帧场景 X 位移翻转纸片 `flipX`（逻辑坐标系不受影响）；只在 XZ 等距场景勾选，SampleScene 已勾；Disguise / Taming 等 2D 验证场景保持关闭 |
+
+`PlayerScenePosition`（`EncounterSceneView.cs:51`）暴露玩家纸片贴地后的场景坐标，供 Showcase 与
+跨模块只读取用，不需要碰视图私有字段。
 
 ## 已知集成状态
 
 脚本、输入映射、配置资产、Boot、遭遇场景和 Addressables 均已接线。
 2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
 Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检四项全过；视觉表现仍需开发者确认。
+
+**已知限制**：贴地是表现层行为——`PlayerModel`/`MonsterModel` 的逻辑坐标只有 XY，没有高度、
+不做视线遮挡或障碍判定；`Reset` 或任意跨点瞬移只改变逻辑 XY，视图在下一帧仍按
+`maxStepHeight` 裁决贴地高度，不会把角色“抬升”到远高于当前值的高台，只有逐帧连续行走、
+每步抬升不超过阈值才会一路爬升（对应 Showcase 用例 `WalkOntoStairs_RaisesBody`）。
 
 ## 修改时检查
 
@@ -117,4 +145,7 @@ Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检�
 - 改路径：维持场景按序配置，`Reset` 必须收到非空巡逻点。
 - 改攻击：仅让规则返回攻击动作，由遭遇步骤给玩家施加伤害。
 - 改触屏：先改 Gameplay 输入绑定，触屏控件只模拟同一游戏手柄路径。
+- 改贴地/状态色/翻转字段：跑 `EncounterSceneViewTests.cs` 里 `EncounterProjection` 的 `ResolveGroundY` /
+  `ResolveFlipX` 用例与 IsometricExploration Showcase 的 `WalkOntoStairs_RaisesBody`，确认逻辑坐标（XY）
+  没有被贴地投影反向影响。
 - 完成场景接线后：跑 Monster Showcase、资产体检、lint、文档检查并让开发者看画面。

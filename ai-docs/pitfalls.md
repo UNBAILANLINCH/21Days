@@ -189,3 +189,9 @@
 - 根因：框架只定义了 `IReplayStateProvider` 契约，**没有默认实现，组合根里也没注册没接线**。而 Showcase 为了自己能跑，`new` 了一个提供者挂上去。于是所有验证验的都是「这套类凑在一起能工作」，不是「产品启动起来能工作」——**接线那一层从头到尾没被任何一条验证覆盖过**，缺口被测试自带的依赖完美掩盖。
 - 正确做法：凡是靠容器接线才生效的能力，必须有**一条验证是从真实容器里解析出对象、再查它手上的依赖是不是真的挂上了**（反射读私有字段也算），而不是测试自己装一套。自查判据很简单：把测试里「自己 new 依赖挂上去」那几行删掉，看验证还跑不跑得起来——跑不起来，说明你验的是测试的接线，不是产品的接线。配套的一条：测试收尾还原时要还原成**容器里那个**，不是 `null` 也不是写死的初值，否则测试跑完会把真实运行环境弄坏（这次也真的发生了，Showcase 跑完把容器里的提供者还原成了 null）。
 - 关联：`Assets/_Project/Scripts/Core/Replay/ReplayStateRegistry.cs`、`Core/Boot/GameLifetimeScope.cs` 的 `RegisterReplay`、`PRP/replay/tasks.md`；2026-09-16 做回放系统时踩到。
+
+## 给共享 MonoBehaviour 加新序列化字段，默认值会静默改掉别的场景
+- 现象：给 `EncounterSceneView` 加 `flipByMoveDirection` 时默认 `true`，本场景勾了看着没问题；但 `Scenes/Verify/Disguise.unity`、`Taming.unity` 也挂着同一个组件，它们的 YAML 里没有这个新字段，Unity 按脚本默认值加载，两个无关模块的验证场景就多出了翻转纸片的行为，没有任何测试或人知道。
+- 根因：序列化字段缺省走脚本默认值；共享组件被多个场景 / 预制体引用时，默认值等于对所有旧场景做了一次静默改动。
+- 正确做法：新字段默认值取「旧行为不变」的那个（bool 默认 `false`、数值默认「不生效」的 0），只在需要的场景里显式打开；提交前 `grep` 一下该组件的 `m_Script` guid 出现在哪些 `.unity` / `.prefab` 里，逐个确认。
+- 关联：`.claude/rules/csharp-code.md` 序列化与暴露面；code-reviewer 在 2026-09-25 的探索场景审查里抓到。

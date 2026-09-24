@@ -3,7 +3,12 @@
 自己做的材质（`.mat`）与配套的 Shader 产物放这里。
 
 **放进来会自动发生什么**：**没有自动规则**，这里只是约定的位置。
-`.mat` / `.shader` 在 `.gitattributes` 里已按文本处理，能正常 diff 和提交。
+`.mat` / `.shader` 在 `.gitattributes` 里已按文本处理，能正常 diff 和提交。自己写的 Shader 放
+`Art/Shaders/`（例如角色纸片用的 `SpriteDepthClip.shader`），材质在这里引用它。
+
+**子目录**：`Character/` 角色纸片材质（如 `M_SpriteDepthClip.mat`，配 `Art/Shaders/SpriteDepthClip.shader`，
+写深度、受雾不受光，接法见 `docs/developer-guide.md` 6.13）；`Graybox/` 场景灰盒材质，正式美术替换灰盒时按模块化
+Prefab 的形式接进 `Environment_Graybox` 根节点下。
 
 **命名**：全小写 + 下划线，`类别_用途`，例如 `fx_dissolve.mat`、`ui_grayscale.mat`。
 不用空格、不用中文。

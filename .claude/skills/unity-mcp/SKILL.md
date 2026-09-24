@@ -162,6 +162,7 @@ Claude Code 侧在 `.mcp.json` 用 `uvx` 拉起同版本的 `mcpforunityserver`�
 | 工具返回超时 | Unity 正在编译或域重载 | 等编译完；长任务（构建、测试）本来就是异步的，用 poll 而不是干等 |
 | 编辑器里点了「Configure All Detected Clients」 | 它往用户级配置写东西 | 本工程用项目级 `.mcp.json`，不需要点。已经点了就检查用户级配置有没有写进冲突的 `UnityMCP` 条目 |
 | connected 但实例列表 `instance_count: 0`，Unity 窗口却显示 Session Active | Unity 侧 `Transport` 是 HTTPLocal，与 `.mcp.json` 的 stdio 不一致 | 窗口里改成 `Stdio`（先 `Stop Server`）；多个 Unity 同开时只 `set_active_instance` 到本工程。细节见 `ai-docs/pitfalls.md #MCP for Unity 两侧传输方式不一致` |
+| `manage_components(action="set_property")` 给字段赋**场景对象引用**或 **LayerMask** 时报 `Failed to convert` | 该工具只能转换基础类型与资产路径，转不了场景内 instance 引用和位掩码 | 改用 `execute_code`（先 `manage_tools activate scripting_ext`）通过 `SerializedObject` / `SerializedProperty.objectReferenceValue` / `intValue` 赋值并 `ApplyModifiedProperties()`，在报告里注明；基础类型仍走 `set_property` |
 
 排查时不要顺手改 `Packages/manifest.json` —— 那是 `CLAUDE.md` 硬规则 3 的范围，
 先说明为什么要改，钩子也会弹确认。

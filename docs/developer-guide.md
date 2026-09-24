@@ -14,6 +14,7 @@
 | **要写第一个玩法模块** | 7 新建玩法模块（以 `Sample` 模块为范例，从头走一遍） |
 | 要改表 / 存档 / 输入 / UI / 音频 | 8～12，按主题挑一章 |
 | 要跑测试、出包 | 13 测试 → 14 打包与 CI |
+| 要接 2.5D 场景美术（画质分档 / 角色纸片 / 贴地） | 6.13 |
 | 卡住了、报了看不懂的错 | 15 常见问题（先在这儿搜一遍，八成有） |
 
 三份文档的分工：**本文**讲怎么做，[`architecture.md`](architecture.md) 讲为什么这么设计、各服务的契约长什么样，
@@ -339,6 +340,20 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 三路音量都是 0～1 线性值，`Master` 乘在另外两路之上；setter 写的就是存档分区，**落盘由设置界面负责**（见第 12 章）。`AudioRoot` 上 1 个 loop 的 BGM 源 + `AudioConfig.SfxVoices` 个 SFX 声部（默认 8，轮转复用）。
 **禁止**：自己建 `AudioSource` 或用 `AudioSource.PlayClipAtPoint`；在音量 setter 之后立刻 `SaveAsync`（拖滑块会每帧写文件）；直接改 `SettingsSaveData` 的音量字段而不走服务（改了不会生效）。
 
+### 6.13 2.5D 场景美术接线（画质分档 / 角色纸片 / 贴地）
+
+探索场景是 3D 灰盒 + 2D 角色纸片的 2.5D 表现（`c5d01ae` 落地），接线要点集中在这一节。
+
+**画质分档**：两份 URP 资产各管一档——`Assets/Settings/UniversalRP.asset`（高档：Renderer List = `[Renderer2D, UniversalRenderer]`，软阴影、MSAA 2x、HDR、`UniversalRenderer.asset` 带 SSAO）与 `UniversalRP_Mobile.asset`（手游档：`[Renderer2D, UniversalRenderer_Mobile]`，硬阴影、无 MSAA/HDR/SSAO）。`ProjectSettings/QualitySettings.asset` 六档 Very Low/Low/Medium → 手游档，High/Very High/Ultra → 高档；平台默认 Android=Low、Standalone=High。**改渲染参数去对应的 URP 资产改；新增或调整分档时两份资产要一起改**，改完跑一遍守护测试
+`Assets/_Project/Scripts/Tests/EditMode/Rendering/RenderPipelineTiersTests.cs`。`Renderer2D` 仍是索引 0，Boot/UI 场景不受影响。
+
+**角色纸片接法**：贴图 Pivot 设为 Bottom、PPU 100 → 材质用 `Art/Materials/Character/M_SpriteDepthClip.mat`（着色器 `Art/Shaders/SpriteDepthClip.shader`，写深度、受雾不受光）→ 根节点摆在脚底 → 脚下挂 `BlobShadow` / `SelectRing`、头顶挂 World Space Canvas 的 `NameTag`（配 `CameraBillboard`）。完整步骤见
+[`isometricexploration-extension-guide.md`](../ai-docs/docs/modules/isometricexploration/isometricexploration-extension-guide.md)，这里只给入口。
+
+**可站立的环境物体放 `Ground` 层**：`EncounterSceneView` 靠 `groundMask` 向下射线贴地（纯规则在 `Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`），只认 `Ground` 层（`ProjectSettings/TagManager.asset` 第 8 槽），没挂这个层的物体贴不上地。
+
+**Sprite 导入默认预设已经是高清手绘**（Bilinear / 压缩 / 生成 mipmap / PPU 100），不是像素风，见 `Assets/_Project/Art/Sprites/README.md`。
+
 ## 7. 新建玩法模块
 
 工程里有一个**端到端的样板模块 `Sample`**：`Assets/_Project/Scripts/Runtime/Sample/`，
@@ -446,6 +461,7 @@ public sealed class SampleState : SceneGameState
 - **不要加进 Build Settings**：Addressables 加载的场景不需要，加了反而会被打两份。
 - **场景里不要放 `EventSystem`**：Unity 只认第一个启用的，`UIService` 会把别的关掉并 Warn。
 - 场景里的相机**不要带 `AudioListener`**：Boot 场景那个常驻相机上已经有一个，两个会一直报警告。
+- **3D 场景（2.5D 表现）相机要选对 Renderer**：`UniversalAdditionalCameraData` 的 Renderer 下拉选**索引 1**（`UniversalRenderer` / `UniversalRenderer_Mobile`），索引 0 是 2D 场景公用的 `Renderer2D`；画质分档细节见 6.13。
 
 ### 7.8 注册（把模块接到框架上）
 

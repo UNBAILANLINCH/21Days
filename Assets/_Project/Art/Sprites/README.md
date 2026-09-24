@@ -4,9 +4,12 @@
 
 **放进来会自动发生什么**：图片一进这个目录（含任意子目录），
 `Scripts/Editor/Importers/SpriteImportProcessor.cs` 会在**首次导入**时自动设成
-**Sprite 类型 / 每单位像素 100 / Point 过滤 / 不压缩 / 不生成 mipmap**，Console 会打一行中文提示。
+**Sprite 类型 / 每单位像素 100 / Bilinear 过滤 / 压缩 / 生成 mipmap**（高清手绘纸片预设，不是像素风），Console 会打一行中文提示。
 之后你在 Inspector 里手调的参数**不会被覆盖**；反过来，规则改了老图也不会自动跟上，需要右键 **Reimport**。
 放进别的目录 = 一条规则都不生效。
+
+**子目录**：`Characters/` 角色纸片，贴图 **Pivot 设为 Bottom**（根节点对齐脚底），配套材质见
+`Art/Materials/Character/`；`Fx/` 脚下贴片（`BlobShadow`、`SelectRing` 等）与其它特效图；`Dialogue/` 对话相关立绘/图标。
 
 **命名**：全小写 + 下划线，`类别_名字_状态`，例如 `ui_btn_start_normal.png`、`chr_player_idle_01.png`。
 不用空格、不用中文。

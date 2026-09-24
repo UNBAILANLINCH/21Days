@@ -1,4 +1,4 @@
-// 职责：场景中的巡逻点和占位视觉；规则数据仍由 PlayerModel / MonsterModel 持有。
+// 职责：场景中的巡逻点和占位视觉；把逻辑位置投影到场景（XZ 模式可贴地爬台阶）、状态色与朝向翻转；规则数据仍由 PlayerModel / MonsterModel 持有。
 // 为什么新建：SampleView 是示例商品面板，现有场景中没有角色表现组件可复用。
 using System;
 using Game.Player;
@@ -8,6 +8,8 @@ namespace Game.Monster
 {
     public sealed class EncounterSceneView : MonoBehaviour
     {
+        private const float MinFlipDelta = 0.0001f;
+
         [SerializeField] private Transform playerSpawn;
         [SerializeField] private Transform[] patrolPoints;
         [SerializeField] private bool useXZPlane;
@@ -15,6 +17,21 @@ namespace Game.Monster
         [SerializeField] private Transform monsterBody;
         [SerializeField] private SpriteRenderer playerSprite;
         [SerializeField] private SpriteRenderer monsterSprite;
+
+        [Tooltip("贴地射线只打这些层；为 0 时不贴地，XZ 模式保留当前高度")]
+        [SerializeField] private LayerMask groundMask;
+        [Tooltip("贴地射线从当前 Y 往上多少开始打")]
+        [SerializeField] private float groundProbeHeight = 2f;
+        [Tooltip("贴地射线从当前 Y 往下最多打多远")]
+        [SerializeField] private float groundProbeDepth = 4f;
+        [Tooltip("单帧允许抬升的最大高度；超过视为墙顶或家具，保持原高度。随关卡台阶高度调；灰盒每级 0.3")]
+        [SerializeField] private float maxStepHeight = 0.32f;
+        [Tooltip("玩家状态色染在这个 Renderer 上；为空时染玩家本体")]
+        [SerializeField] private SpriteRenderer playerStateIndicator;
+        [Tooltip("怪物状态色染在这个 Renderer 上；为空时染怪物本体")]
+        [SerializeField] private SpriteRenderer monsterStateIndicator;
+        [Tooltip("按场景 X 方向的移动翻转角色纸片：左移 flipX，右移还原。只在 XZ 等距场景勾选；2D 验证场景保持关闭")]
+        [SerializeField] private bool flipByMoveDirection;
 
         private PlayerModel player;
         private MonsterModel monster;
@@ -31,6 +48,7 @@ namespace Game.Monster
 
         public Transform PlayerBody => playerBody;
         public Transform MonsterBody => monsterBody;
+        public Vector3 PlayerScenePosition => playerBody == null ? Vector3.zero : playerBody.position;
 
         public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : ToLogicPosition(playerSpawn.position);
 
@@ -167,12 +185,22 @@ namespace Game.Monster
                 return;
             }
 
-            playerBody.position = ToScenePosition(player.Position, playerBody.position);
-            monsterBody.position = ToScenePosition(monster.Position, monsterBody.position);
-            playerSprite.color = player.Health <= 0 ? Color.black
+            Vector3 lastPlayerScene = playerBody.position;
+            Vector3 lastMonsterScene = monsterBody.position;
+            playerBody.position = ToScenePosition(player.Position, lastPlayerScene);
+            monsterBody.position = ToScenePosition(monster.Position, lastMonsterScene);
+            if (flipByMoveDirection)
+            {
+                ApplyFlip(playerSprite, lastPlayerScene.x, playerBody.position.x);
+                ApplyFlip(monsterSprite, lastMonsterScene.x, monsterBody.position.x);
+            }
+
+            SpriteRenderer playerTint = playerStateIndicator != null ? playerStateIndicator : playerSprite;
+            SpriteRenderer monsterTint = monsterStateIndicator != null ? monsterStateIndicator : monsterSprite;
+            playerTint.color = player.Health <= 0 ? Color.black
                 : player.IsDisguised ? Color.green
                 : player.IsSneaking ? Color.cyan : new Color(0.2f, 0.55f, 1f);
-            monsterSprite.color = monster.Mode == MonsterMode.Dead ? Color.black
+            monsterTint.color = monster.Mode == MonsterMode.Dead ? Color.black
                 : monster.Mode == MonsterMode.Hostile ? Color.red
                 : monster.Mode == MonsterMode.Alert ? new Color(1f, 0.55f, 0f) : Color.gray;
 
@@ -196,8 +224,36 @@ namespace Game.Monster
         private Vector2 ToLogicPosition(Vector3 position) =>
             useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
 
-        private Vector3 ToScenePosition(Vector2 position, Vector3 current) =>
-            useXZPlane ? new Vector3(position.x, current.y, position.y) : new Vector3(position.x, position.y, current.z);
+        private Vector3 ToScenePosition(Vector2 position, Vector3 current)
+        {
+            if (!useXZPlane)
+            {
+                return new Vector3(position.x, position.y, current.z);
+            }
+
+            float y = current.y;
+            if (groundMask.value != 0)
+            {
+                var origin = new Vector3(position.x, current.y + groundProbeHeight, position.y);
+                if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, groundProbeHeight + groundProbeDepth, // lint-ok: 纯表现，只定纸片高度，不参与判定
+                        groundMask, QueryTriggerInteraction.Ignore))
+                {
+                    y = EncounterProjection.ResolveGroundY(current.y, hit.point.y, maxStepHeight);
+                }
+            }
+
+            return new Vector3(position.x, y, position.y);
+        }
+
+        private static void ApplyFlip(SpriteRenderer renderer, float previousX, float currentX)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            renderer.flipX = EncounterProjection.ResolveFlipX(previousX, currentX, renderer.flipX, MinFlipDelta);
+        }
 
         private void OnGUI()
         {

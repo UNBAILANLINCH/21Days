@@ -1,4 +1,4 @@
-// 职责：给 Assets/_Project/Art/Sprites/ 下新导入的贴图套一份 2D 像素风的默认导入设置。
+// 职责：给 Assets/_Project/Art/Sprites/ 下新导入的贴图套一份「高清手绘纸片 + 3D 透视场景」的默认导入设置。
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   1. 复用不行：Unity 的 Preset 也能做默认值，但 Preset 要每台机器在 Project Settings 里手动挂，
 //      新同事拉下工程不会自动生效；AssetPostprocessor 是代码，跟着仓库走。
@@ -15,10 +15,11 @@ namespace Game.Editor
 {
     /// <summary>
     /// 2D 贴图导入规则。命中路径前缀 <see cref="SpriteRoot"/> 的贴图，首次导入时设成：
-    /// Sprite 类型、每单位 <see cref="PixelsPerUnit"/> 像素、Point 过滤、不压缩、不生成 mipmap。
+    /// Sprite 类型、每单位 <see cref="PixelsPerUnit"/> 像素、Bilinear 过滤、压缩、生成 mipmap。
     /// <para>
-    /// 为什么是这几项：像素风的 2D 工程里 Bilinear 会把像素糊掉、压缩会在色块边缘出脏点、
-    /// mipmap 对正交相机下的 UI 与 Sprite 没用还多占三分之一内存。
+    /// 为什么是这几项：美术是高清手绘，纸片放在固定俯角的透视相机下，远近尺寸一直在变——
+    /// 没有 mipmap 远处的纸片会缩小采样而闪烁；Bilinear 让缩放后的手绘边缘保持平滑，Point 会出锯齿；
+    /// 高清贴图不压缩会把手游包体撑大，交给平台默认压缩格式控体积。
     /// 真要改这套默认值就改这里的常量，不要一张张手调。
     /// </para>
     /// </summary>
@@ -53,11 +54,11 @@ namespace Game.Editor
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spritePixelsPerUnit = PixelsPerUnit;
-            importer.filterMode = FilterMode.Point;
-            importer.textureCompression = TextureImporterCompression.Uncompressed;
-            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            importer.mipmapEnabled = true;
 
-            Debug.Log($"[贴图导入] {path} 已套用 2D 默认设置（Sprite / PPU {PixelsPerUnit} / Point / 不压缩 / 无 mipmap）。"
+            Debug.Log($"[贴图导入] {path} 已套用纸片默认设置（Sprite / PPU {PixelsPerUnit} / Bilinear / 压缩 / mipmap）。"
                       + "要改就在 Inspector 上改，之后不会再被覆盖。");
         }
     }

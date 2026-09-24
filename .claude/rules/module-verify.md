@@ -58,6 +58,8 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 - `UnityEditor` 相关代码一律 `#if UNITY_EDITOR` 包住；`UnityEngine.Object` 判空用 `== null` / `!= null`。
 - 框架落地后：异步接口用 `yield return task.ToCoroutine()`（UniTask）；Boot 就绪信号有了就覆写 `WaitForBootReady()`。
 - 跨帧的等待一律用 `Check(..., timeout:)` 或 `WaitUntil(...)`，**不能靠 `Step` 的 hold 等表现自然发生**：批处理（CI）下节奏倍率为 0，hold 只剩一帧，靠它等的回放会在 CI 里误判失败。
+- 多条用例都加载 Boot 的 Showcase：`GameBootstrap` 只有 `DontDestroyOnLoad`、没有重复实例保护，第二条用例起会叠出多套容器 / UIRoot / EventSystem。加 `[UnityTearDown]` 按类型名找到所有 `GameLifetimeScope` 并 `Destroy` 其 GameObject、等一帧，参考 `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs` 的 `DestroyBootScope`。
+- 要验证**瞬态**（正在打字、动画进行中、淡入未完成）时，触发它的那一步写 `Step(..., hold: 0f)` 并紧跟带 timeout 的 `Check`；默认 1.5 s 停顿足够让十几个字打完，检查点会红在「状态已经过去了」而不是功能坏了。
 
 ## 与 EditMode / PlayMode 快测试的分工
 

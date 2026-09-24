@@ -138,6 +138,7 @@ Claude Code 侧在 `.mcp.json` 用 `uvx` 拉起同版本的 `mcpforunityserver`�
    先 `find_gameobjects` + 读组件资源确认目标与当前值，再改。
 6. **`execute_code` 是最后手段。** 它能在编辑器里跑任意 C#，绕过一切护栏。
    有专门工具就用专门工具；真要用，先说清楚为什么别的工具做不到。
+   本工程编辑器里 `execute_code` 走 codedom 编译，只认 **C# 6** 语法：不要用 `is` 模式匹配、`out var`、元组、本地函数、`default` 字面量、字符串插值以外的 C# 7+ 特性；`UnityEngine.UI` 等类型写全名，避免与 `using` 冲突。报「Feature 'xxx' is not available in C# 6」就是这个原因，改写法而不是重试。
 
 ## 编辑器没开时的退路
 

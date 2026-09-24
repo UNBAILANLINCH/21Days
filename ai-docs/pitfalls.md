@@ -190,6 +190,18 @@
 - 正确做法：凡是靠容器接线才生效的能力，必须有**一条验证是从真实容器里解析出对象、再查它手上的依赖是不是真的挂上了**（反射读私有字段也算），而不是测试自己装一套。自查判据很简单：把测试里「自己 new 依赖挂上去」那几行删掉，看验证还跑不跑得起来——跑不起来，说明你验的是测试的接线，不是产品的接线。配套的一条：测试收尾还原时要还原成**容器里那个**，不是 `null` 也不是写死的初值，否则测试跑完会把真实运行环境弄坏（这次也真的发生了，Showcase 跑完把容器里的提供者还原成了 null）。
 - 关联：`Assets/_Project/Scripts/Core/Replay/ReplayStateRegistry.cs`、`Core/Boot/GameLifetimeScope.cs` 的 `RegisterReplay`、`PRP/replay/tasks.md`；2026-09-16 做回放系统时踩到。
 
+## `gen-tables.ps1` 首次下载 Luban 后解压失败：本机没有 7-Zip
+- 现象：脚本报「解压 Luban.7z 失败：自带的 tar 解不了，也没找到 7-Zip」，退出码 2；`Tools/Luban/Luban.7z` 留在原地。
+- 根因：Windows 自带 `tar.exe`（libarchive）解不了这份 7z；脚本只回退到 `C:\Program Files\7-Zip\7z.exe`。
+- 正确做法：装 7-Zip（`winget install 7zip.7zip`）后重跑；或不装系统软件，用 Python：`pip install --user py7zr` 后 `py7zr.SevenZipFile('Tools/Luban/Luban.7z').extractall('Tools/Luban')`，再删包、确认 `Tools/Luban/Luban.dll` 在，重跑脚本会跳过下载直接生成。`Tools/` 已 gitignore。
+- 关联：`scripts/gen-tables.ps1`、`docs/developer-guide.md` 配置表一节；2026-09-25 落地对话表时踩到。
+
+## Luban JSON 数据源：字段不能缺省，一文件多记录要写 `*@`
+- 现象：JSON 里省掉 `revision`、`blocking` 这类有「默认值」的字段，生成报「结构:'Node' 字段:'revision' 缺失」；把多条记录放进一个数组文件、`input` 写文件名，报「requires an element of type 'Object', but the target element has type 'Array'」；写 `*文件名` 又报「input 文件不存在」。
+- 根因：Luban 5.1 的 JSON 读取器按 bean 定义逐字段取值，schema 里 `default=`、`type="int#default=1"` 都不被识别；目录输入是「一文件一记录（JSON 对象）」，数组文件必须用 `*@文件名` 语法声明。
+- 正确做法：JSON 每个字段显式写（空串、空数组、`revision: 1`、`blocking: true` 都写）；一棵树 / 一条记录一个文件放目录里，`input="目录名"`；确实要一个文件装多条就 `input="*@文件名.json"`。「缺省值」在代码适配层做（例如 `DialogueCatalog` 把 `revision < 1` 按 1 处理）。
+- 关联：`Tables/Defines/dialogue.xml`、`ai-docs/docs/modules/dialogue/dialogue-module-guide.md` 内容表一节；2026-09-25 踩到。
+
 ## 给共享 MonoBehaviour 加新序列化字段，默认值会静默改掉别的场景
 - 现象：给 `EncounterSceneView` 加 `flipByMoveDirection` 时默认 `true`，本场景勾了看着没问题；但 `Scenes/Verify/Disguise.unity`、`Taming.unity` 也挂着同一个组件，它们的 YAML 里没有这个新字段，Unity 按脚本默认值加载，两个无关模块的验证场景就多出了翻转纸片的行为，没有任何测试或人知道。
 - 根因：序列化字段缺省走脚本默认值；共享组件被多个场景 / 预制体引用时，默认值等于对所有旧场景做了一次静默改动。

@@ -37,6 +37,11 @@
       "src": "Assets/_Project/Scripts/Runtime/Sample",
       "docs": "ai-docs/docs/modules/sample",
       "status": "ready"
+    },
+    "dialogue": {
+      "src": "Assets/_Project/Scripts/Runtime/Dialogue",
+      "docs": "ai-docs/docs/modules/dialogue",
+      "status": "ready"
     }
   }
 }

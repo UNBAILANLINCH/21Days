@@ -227,6 +227,7 @@ public interface IClock   // 渲染帧时间；Unscaled 两项供 unscaled 定�
     float UnscaledTime { get; } float UnscaledDeltaTime { get; }
 }
 public interface ILogicClock { long Tick { get; } float FixedDeltaTime { get; } float SimTime { get; } }   // 逻辑 tick，契约见 5.10
+public interface IWorldPauseService { bool IsPaused { get; } IDisposable Acquire(object owner); }   // 世界暂停：timeScale + 逻辑 tick，多持有者引用计数
 public interface IPoolable { void OnGet(); void OnRelease(); }
 public sealed class GameObjectPool { GameObject Get(); void Release(GameObject go); }   // 封装 UnityEngine.Pool
 public static class Log { Debug / Info / Warn / Error(string message, UnityEngine.Object context = null); }   // Debug 级别编译期剔除
@@ -243,6 +244,7 @@ public interface IPlatformService { PlatformKind Kind { get; } string SaveRoot {
 - **输入分两层，按「要不要确定性」分**：玩法逻辑读 `IInputSource`——它给出的是当前 tick 定格的一条 `InputCommand`，能录下来也能原样放回去；`IInputService.Actions` 继续服务 UI 导航、调试快捷键这类不需要确定性的场合。两层都只读动作（`Actions.Gameplay.Move` 这类），不读具体按键、不读 `Input.touches`。玩法逻辑里直接读 `Actions` 等于把「此刻的设备状态」灌进逻辑，重放会在某个 tick 悄悄分叉。
 - 延时用 `ITimerService`，每帧用 `ITickable`，两者随作用域销毁自动取消；不用 `Interval(0)` 冒充每帧。
 - **时间分两种，混用是这套框架里最容易出、也最难查的错**：`IClock` 是**渲染帧时间**（`DeltaTime` 每帧不等长、受 `timeScale` 与机器性能影响），UI 动效、定时器、表现插值用它；`ILogicClock` 是**逻辑 tick**（步长固定、不受掉帧与 `timeScale` 影响），玩法推进用它。两者都不直接读 `Time.time` 与 `DateTime.UtcNow`（`LocalClock` 就是二者的本地包装）。注入哪一个是个要想清楚的决定：逻辑里读到渲染帧时间，重放当场对不上，而且看起来一切正常。
+- **世界暂停只走 `IWorldPauseService`**：对话、暂停菜单等各自 `Acquire(this)` 拿令牌、Dispose 释放，任一持有者在持有期间 `timeScale = 0` 且逻辑 tick 停推；暂停中还要动的表现层用 unscaled 时间；不各自改 `Time.timeScale`（全局单值，互相覆盖），也不拿推进器的 Driven 模式冒充暂停（那是重放用的）。
 - 音频三路音量 Master / Bgm / Sfx；SFX 的 AudioSource 池化。AudioMixer **可选**：Unity 没有公开 API 创建 Mixer 资产，`AudioConfig.Mixer` 为空时用音量相乘实现，手工建了 Mixer 后切换到暴露参数。另有 `PlaySfxAsync(key)` 按资源 key 播放。BGM 换曲是「旧曲淡出、新曲淡入」的顺序淡化，`fadeSeconds` 传负数表示用配置默认值。
 - 状态流附带 `SceneGameState` 基类：Enter 时 Additive 加载 `SceneKey`，Exit 时卸载，子类只写 `OnSceneReadyAsync`。
 - `UIView` 的开关过渡是 `PlayOpenTransitionAsync / PlayCloseTransitionAsync(seconds)`，默认 LitMotion 淡入淡出，时长来自 `UIConfig`。

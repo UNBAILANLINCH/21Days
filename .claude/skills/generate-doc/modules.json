@@ -42,6 +42,11 @@
       "src": "Assets/_Project/Scripts/Runtime/Dialogue",
       "docs": "ai-docs/docs/modules/dialogue",
       "status": "ready"
+    },
+    "characterpuppet": {
+      "src": "Assets/_Project/Scripts/Runtime/CharacterPuppet",
+      "docs": "ai-docs/docs/modules/characterpuppet",
+      "status": "seed"
     }
   }
 }

@@ -95,6 +95,10 @@ player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
 根缩放换算的问题已不存在；新角色若根节点仍做非等比缩放，才需要按对应轴换算。新增角色纸片的完整
 步骤见 `isometricexploration-extension-guide.md`。
 
+`Visual` 的纸片 `SpriteRenderer` 隐藏但保留（`enabled = false`，sprite 不删：仍是 `EncounterSceneView` 的
+`EnsureSprite` 与 `flipX` 载体），小人预制体 `ChibiPuppet_Player` / `ChibiPuppet_Patrol` 挂在其下，
+见 characterpuppet 模块（`ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`）。
+
 `Visual` 是只负责显示的子节点。纸片倾斜只发生在这个节点上；`Rigidbody` 和 3D Collider 留在根节点。
 这样视觉可以面向摄像机，物理体仍保持竖直，不会因为斜碰撞面产生攀爬效果。
 

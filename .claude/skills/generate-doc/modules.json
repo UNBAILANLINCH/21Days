@@ -47,6 +47,11 @@
       "src": "Assets/_Project/Scripts/Runtime/CharacterPuppet",
       "docs": "ai-docs/docs/modules/characterpuppet",
       "status": "ready"
+    },
+    "quest": {
+      "src": "Assets/_Project/Scripts/Runtime/Quest",
+      "docs": "ai-docs/docs/modules/quest",
+      "status": "ready"
     }
   }
 }

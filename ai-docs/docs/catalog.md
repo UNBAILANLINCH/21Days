@@ -28,6 +28,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | IsometricExploration | 三件套齐备；确定性潜行战斗接入等距纸片场景 | [`modules/isometricexploration/`](modules/isometricexploration/isometricexploration-module-guide.md) |
 | Dialogue | 三件套齐备；Unity 接线已完成，视觉验收待开发者跑 /verify-module | [`modules/dialogue/`](modules/dialogue/dialogue-module-guide.md) |
 | CharacterPuppet | 三件套齐备；拼接小人待机 / 走路表现，已替换 SampleScene 玩家与巡逻者纸片 | [`modules/characterpuppet/`](modules/characterpuppet/characterpuppet-module-guide.md) |
+| Quest | 三件套齐备；Unity 接线完成，回放 3 条 PASS，视觉验收由开发者持续跟进 | [`modules/quest/`](modules/quest/quest-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

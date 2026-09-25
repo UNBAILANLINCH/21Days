@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9707456cf4be29f4c9deb8c0c0afdae0, type: 3}
+  m_Name: ChibiPuppetConfig
+  m_EditorClassIdentifier: 
+  moveStartSpeed: 0.15
+  moveStopSpeed: 0.05
+  sampleWindow: 0.1
+  facingDeadZone: 0.01
+  walkCycleSpeedPerUnit: 0.8
+  walkRateMin: 0.8
+  walkRateMax: 1.6

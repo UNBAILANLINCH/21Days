@@ -1,0 +1,16 @@
+{
+    "id": 1002,
+    "kind": "Main",
+    "title": "与旅人叙旧",
+    "description": "营地里有位旅人，看起来像是老相识。",
+    "prerequisites": [1001],
+    "objectives": [
+        {
+            "text": "和旅人聊聊",
+            "kind": "TalkTo",
+            "key": "1002",
+            "count": 1,
+            "location": ""
+        }
+    ]
+}

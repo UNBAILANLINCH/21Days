@@ -1,0 +1,23 @@
+{
+    "id": 1001,
+    "kind": "Main",
+    "title": "找到落脚处",
+    "description": "刚到这片荒原，先找个能落脚的地方。听说长者知道营地在哪。",
+    "prerequisites": [],
+    "objectives": [
+        {
+            "text": "与长者谈谈",
+            "kind": "TalkTo",
+            "key": "1001",
+            "count": 1,
+            "location": ""
+        },
+        {
+            "text": "前往营地",
+            "kind": "ReachLocation",
+            "key": "camp",
+            "count": 1,
+            "location": ""
+        }
+    ]
+}

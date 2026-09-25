@@ -22,6 +22,10 @@ public partial class Tables
     /// </summary>
     public dialogue.TbDialogueCharacter TbDialogueCharacter {get; }
     /// <summary>
+    /// 任务表
+    /// </summary>
+    public quest.TbQuest TbQuest {get; }
+    /// <summary>
     /// 道具表
     /// </summary>
     public TbItem TbItem {get; }
@@ -30,6 +34,7 @@ public partial class Tables
     {
         TbDialogue = new dialogue.TbDialogue(loader("dialogue_tbdialogue"));
         TbDialogueCharacter = new dialogue.TbDialogueCharacter(loader("dialogue_tbdialoguecharacter"));
+        TbQuest = new quest.TbQuest(loader("quest_tbquest"));
         TbItem = new TbItem(loader("tbitem"));
         ResolveRef();
     }
@@ -38,6 +43,7 @@ public partial class Tables
     {
         TbDialogue.ResolveRef(this);
         TbDialogueCharacter.ResolveRef(this);
+        TbQuest.ResolveRef(this);
         TbItem.ResolveRef(this);
     }
 }

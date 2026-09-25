@@ -1,0 +1,30 @@
+<!-- 任务系统内容表结构定义（PRP/quest-system/prp.md 3.1）。
+     数据：Tables/Data/quest/<id>.json（一条任务一个文件）。
+     运行时由 Game.Quest.QuestCatalog 翻译成 QuestContent。 -->
+<module name="quest">
+    <enum name="QuestKind" comment="任务类型">
+        <var name="Main" value="0" comment="主线"/>
+        <var name="Side" value="1" comment="支线"/>
+    </enum>
+    <enum name="ObjectiveKind" comment="目标完成条件类型">
+        <var name="TalkTo" value="0" comment="与某人对话：key 为对话树编号"/>
+        <var name="ReachLocation" value="1" comment="到达地点：key 为场景地点编号"/>
+        <var name="Counter" value="2" comment="计数 / 标记：key 为其它模块上报的自定义键"/>
+    </enum>
+    <bean name="Objective" comment="一个目标">
+        <var name="text" type="string" comment="显示文本"/>
+        <var name="kind" type="ObjectiveKind"/>
+        <var name="key" type="string" comment="按 kind 解释：对话编号 / 地点编号 / 自定义键"/>
+        <var name="count" type="int" comment="需要次数，JSON 必须写，1 起"/>
+        <var name="location" type="string" comment="指引地点编号；空 = ReachLocation 用自己的 key、TalkTo 指向该对话的 NPC、Counter 无指引"/>
+    </bean>
+    <bean name="Quest" comment="一条任务">
+        <var name="id" type="int"/>
+        <var name="kind" type="QuestKind"/>
+        <var name="title" type="string"/>
+        <var name="description" type="string"/>
+        <var name="prerequisites" type="list,int" comment="前置任务编号，全部完成才激活；空 = 开局激活"/>
+        <var name="objectives" type="list,Objective" comment="有序目标，逐个完成"/>
+    </bean>
+    <table name="TbQuest" value="Quest" index="id" input="quest" group="c" comment="任务表"/>
+</module>

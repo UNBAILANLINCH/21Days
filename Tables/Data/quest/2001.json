@@ -1,0 +1,16 @@
+{
+    "id": 2001,
+    "kind": "Side",
+    "title": "观察神秘生物",
+    "description": "有人说瞭望点附近能看到奇怪的生物。",
+    "prerequisites": [],
+    "objectives": [
+        {
+            "text": "前往瞭望点",
+            "kind": "ReachLocation",
+            "key": "lookout",
+            "count": 1,
+            "location": ""
+        }
+    ]
+}

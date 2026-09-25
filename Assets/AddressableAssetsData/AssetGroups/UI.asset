@@ -32,6 +32,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 266cfb716a8b889419d1d2b37acbed7a
+    m_Address: QuestPanelView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3ca22c653559fbe40ae17a623807590d
     m_Address: Dialogue/ChoiceIcon_Leave
     m_ReadOnly: 0
@@ -62,8 +67,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a3de1a952dfcfcf4ca2fe7fc00291e36
+    m_Address: QuestHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b12b6e979ff62c74e835ceff262d1023
     m_Address: DialogueInteractHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c5489dc3637d13d409d512b379bce552
+    m_Address: QuestTargetMarker
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

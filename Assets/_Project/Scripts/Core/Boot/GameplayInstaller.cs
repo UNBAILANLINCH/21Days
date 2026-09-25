@@ -10,7 +10,13 @@
 //      （见 Core/Flow/GameFlow.cs 的 TransitionAsync），子作用域的注册对父作用域不可见，
 //      而且玩法场景的作用域在标题界面那会儿还没加载出来。
 //   所以只能新建一个抽象基类，由玩法层继承——Core 只认识这个基类，不认识任何玩法类型。
+//
+// 为什么扩展（2026-09-25）：
+//   Install 拿不到根作用域的 MessagePipeOptions，模块没法 RegisterMessageBroker，只能退回 C# event
+//   （违反 Core/Events/EventConventions.cs 第 1 条）。把 options 经一个默认空实现的虚方法
+//   InstallEvents 递进来，既有注册器零改动。
 
+using MessagePipe;
 using UnityEngine;
 using VContainer;
 
@@ -34,5 +40,11 @@ namespace Game.Core.Boot
     {
         /// <summary>把本模块的类型注册进根作用域。由 <see cref="GameLifetimeScope.Configure"/> 调用。</summary>
         public abstract void Install(IContainerBuilder builder);
+
+        /// <summary>
+        /// 注册本模块的 MessagePipe 事件 broker（<c>builder.RegisterMessageBroker&lt;XxxEvent&gt;(options)</c>）。
+        /// 在 <see cref="Install"/> 之前被调用；默认什么都不做，没有模块事件的注册器不用重写。
+        /// </summary>
+        public virtual void InstallEvents(IContainerBuilder builder, MessagePipeOptions options) { }
     }
 }

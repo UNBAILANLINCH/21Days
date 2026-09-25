@@ -124,7 +124,7 @@ namespace Game.Core.Boot
             builder.Register<TitleState>(Lifetime.Singleton);
 
             // --- 玩法层（Core 不认识玩法，玩法自己挂组件上来）---
-            InstallGameplay(builder);
+            InstallGameplay(builder, options);
         }
 
         /// <summary>
@@ -136,8 +136,12 @@ namespace Game.Core.Boot
         /// 子作用域还不存在——<c>GoToAsync&lt;玩法状态&gt;()</c> 会解析失败。
         /// </para>
         /// <para>没挂任何注册器是合法状态（纯框架也要能跑起来），只记一条日志。</para>
+        /// <para>
+        /// 每个注册器先调 <see cref="GameplayInstaller.InstallEvents"/>（拿根作用域的 <paramref name="options"/>
+        /// 注册模块事件 broker），再调 <see cref="GameplayInstaller.Install"/>。
+        /// </para>
         /// </summary>
-        private void InstallGameplay(IContainerBuilder builder)
+        private void InstallGameplay(IContainerBuilder builder, MessagePipeOptions options)
         {
             GameplayInstaller[] installers = GetComponents<GameplayInstaller>();
             if (installers.Length == 0)
@@ -154,6 +158,7 @@ namespace Game.Core.Boot
                 // 所以这里点名记错，再把异常抛回去：容器确实没法半残着用，但至少知道该去改哪个文件。
                 try
                 {
+                    installers[i].InstallEvents(builder, options);
                     installers[i].Install(builder);
                 }
                 catch (Exception e)

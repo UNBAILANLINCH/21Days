@@ -16,7 +16,9 @@
 // 4. 注册：在作用域的 Configure 里
 //        var options = builder.RegisterMessagePipe();
 //        builder.RegisterMessageBroker<XxxEvent>(options);
-//    全局事件注册在根作用域 GameLifetimeScope；模块内部事件注册在模块自己的子作用域。
+//    全局事件注册在根作用域 GameLifetimeScope；模块事件在模块自己的
+//    GameplayInstaller.InstallEvents(builder, options) 里 RegisterMessageBroker
+//    （根作用域在调 Install 前把 options 递进来），不再需要子作用域。
 //
 // 5. 订阅句柄必须托管，禁止裸订阅：
 //        var bag = DisposableBag.CreateBuilder();

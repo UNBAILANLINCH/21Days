@@ -1,5 +1,10 @@
 # Narrative／Dialogue 后续对接指南
 
+> **2026-09-25 更新**：第 3 节（对白接线）已过时——其中三槽立绘、`advance` 按钮、已读快进 Toggle、
+> 调用方自行 `rules.Start` + `PresentAsync`、`SetPaused` 等做法均已被 `PRP/dialogue-system/` 的实现取代。
+> 对白接线以 [`ai-docs/docs/modules/dialogue/dialogue-external-api.md`](../../ai-docs/docs/modules/dialogue/dialogue-external-api.md) 为准；
+> 第 4、6 节（剧情 / 存档）仍可参考。以下正文保持原样。
+
 > 状态：接线指南，基于当前工作区源码整理。
 > 适用范围：把已经落地的纯规则、对白表现骨架、战斗快照和存档候选接口接入 Unity 运行时。
 > 当前结论：规则层可以独立检查；Unity 场景、Addressables、Luban 内容和完整存读档事务还没有验收。

@@ -26,6 +26,7 @@
 | 改道具价格 / 加一件新道具 | [第 4 章](#4-改配置表的完整流程) |
 | 加一整张新表 | [第 5 章](#5-加一张新表要先找程序) |
 | 加一个新品质 / 新类型 | [第 6 章](#6-枚举怎么加) |
+| 写一段 NPC 对话 / 改台词 / 调打字速度 | [第 11 章](#11-配一段对话) |
 | 想知道什么绝对不能碰 | [第 7 章](#7-绝对不要做的事) |
 | 改完没生效 / 弹了红字 | [第 8 章](#8-改出问题了怎么办) |
 | 改完了怎么交给程序 | [第 9 章](#9-和程序怎么配合) |
@@ -92,6 +93,7 @@
 | --- | --- | --- |
 | `Assets/_Project/Data/UI/UIConfig.asset` | 参考分辨率、宽高匹配系数、面板淡入淡出秒数 | 1920×1080、0.5、0.15 秒 |
 | `Assets/_Project/Data/Audio/AudioConfig.asset` | 混音器（留空）、同时能响几个音效、BGM 默认淡入淡出秒数 | 空、8、0.5 秒 |
+| `Assets/_Project/Data/Dialogue/DialogueConfig.asset` | 对话表现：打字速度、历史上限、倍速档、三连点补全、自动播放间隔（见第 11 章） | 35 字/秒、500、x1/x2/x4、3 次 0.5 秒内、1.5 秒 |
 | `Assets/_Project/Data/Sample/SampleConfig.asset` | 示例模块展示的那笔订单：道具 id、买几个、打几折 | 1002、3、0.2 |
 
 怎么改：在 Project 窗口点开那个 `.asset` → 右边 **Inspector** 里改 → `Ctrl+S` 保存工程 → 点 Play 看效果。
@@ -302,3 +304,57 @@ Inspector 上显示的是**英文字段名**（`Transition Seconds`、`Sfx Voice
 | **asmdef** | 代码的分组文件，跟你没关系，看到了绕开 |
 | **Luban** | 把 Excel 变成游戏能读的数据的工具，就是「生成」那一步在跑的东西 |
 | **`.bytes`** | 生成出来的数据文件（`Assets/_Project/Data/Config/tbitem.bytes`），游戏真正读的是它，**不要手改** |
+
+## 11. 配一段对话
+
+对话内容不在 Excel 里，而是 **JSON 文本文件**，同样经 Luban 生成。程序侧的完整约定见
+[`dialogue-extension-guide.md`](../ai-docs/docs/modules/dialogue/dialogue-extension-guide.md)，本章只讲策划要动手的部分。
+
+### 11.1 文件在哪
+
+| 文件 | 放什么 |
+| --- | --- |
+| `Tables/Data/dialogue/<编号>.json` | **一个文件一棵对话树**，文件名就是编号（现有 `1001.json`、`1002.json`，新写一段照着抄） |
+| `Tables/Data/dialogue_character.json` | 角色表：一个文件放全部角色，每个角色的 `id`、`displayName`（显示名）、`defaultExpression`（默认表情）、`expressions`（表情 id → 立绘地址） |
+
+一棵树的外层是 `id`（编号）、`entry`（从哪个节点开始）、`nodes`（节点列表）。每个节点的字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `id` | 节点名，同一棵树里不重复，`next` 靠它跳转 |
+| `revision` | 修订号，填 `1`；**改已上线台词的文字时 +1** |
+| `kind` | `Line` 一句台词 / `Choice` 一组选项 / `End` 结束 |
+| `speaker` | 说话角色的 id（对应角色表）；空串 = 旁白 |
+| `speakerName` | 临时改显示名；空串 = 用角色表的显示名 |
+| `side` | 立绘站哪边：`Left` / `Right` |
+| `expression` | 表情 id；空串 = 角色默认表情 |
+| `clearOther` | `true` 时清掉另一侧立绘（旁白忽略） |
+| `text` | 台词正文 |
+| `next` | 下一个节点；`Line` 必填 |
+| `outcome` | `End` 节点的出口码（如 `Accepted`），程序按它决定后续；不同结局用不同的 `End` |
+| `blocking` | 填 `true` |
+| `choices` | 只有 `Choice` 节点填，其余写 `[]` |
+
+每个选项：`id`、`text`；**`next`（跳到哪个节点）和 `outcome`（直接结束并给出口码）二选一，另一个写空串**；
+`icon` 选项左侧的小图标地址（如 `Dialogue/ChoiceIcon_Go`，没有写 `""`）；
+`anyOf` 出现条件：外层任一组满足即可，组内 `all` 里的条件要全部满足，空数组 = 无条件；
+条件不满足时 `hideWhenUnavailable` 为 `true` 就藏起来，为 `false` 就置灰并显示 `unavailableReason`。
+条件事实能用哪些（`PlayerSneaking`、`StoryFlag` 等）以 `Tables/Defines/dialogue.xml` 里的 `ConditionFact` 为准，要新增找程序。
+
+> **JSON 不允许缺字段。** 哪怕是空串、空数组、`false`，每个字段都要写出来。漏一个，生成时就报错。
+> 最稳的做法是整段复制一个现成节点再改。
+
+### 11.2 生成与挂到 NPC 上
+
+1. 改完 JSON，跑 `scripts/gen-tables.ps1`，或 Unity 菜单 **21Days → 配置表 → 生成**（和第 4 章同一步）。
+2. 场景里选中 NPC，在 Inspector 的 `Dialogue Interactable` 组件上把 **Dialogue Id** 填成你的编号。
+3. 从 Boot 场景 Play → 标题点「开始」进入玩法，走到 NPC 旁按确认键或点右下角「对话」。**直接 Play 玩法场景不会有对话。**
+
+跳转写错、选项 `next` / `outcome` 两个都写或都不写、表情不存在，都会在第一次打开对话时报红字，消息里带对话编号。
+
+### 11.3 不走表的两处
+
+- **只说一句闲话的 NPC**（没有对话树）：Dialogue Id 填 `0`，台词写在同一组件的 **Bubble Lines** 里，交互时头顶气泡按顺序轮流说。
+  这部分**暂时没进表**，也不参与本地化，改了要保存场景。
+- **对话手感**：`Assets/_Project/Data/Dialogue/DialogueConfig.asset` 里改打字速度（字/秒）、倍速档（默认 x1/x2/x4）、
+  三连点补全（打字中连点几次、每两次间隔多久内算连点）、自动播放每句停留秒数。改法同第 3 章。

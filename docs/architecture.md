@@ -110,6 +110,14 @@ public sealed class GameLifetimeScope : LifetimeScope   // 注册全部 Core 服
 ```
 
 每帧逻辑用 VContainer 的 `ITickable` / `IFixedTickable` / `ILateTickable`，不自定义 Update 分发。
+**Boot 兜底相机**：Boot 常驻场景的 `Main Camera` 挂 `Game.Core.Boot.FallbackCamera`（`Assets/_Project/Scripts/Core/Boot/FallbackCamera.cs`）。
+它订阅 `SceneManager.sceneLoaded / sceneUnloaded`，每次事件后看「除自己外」还有没有启用的相机：有就禁用自己，没有就恢复。
+于是玩法场景带相机 Additive 加载进来时 Boot 相机自动让位——不再在玩法相机之上重画一层灰底，`Camera.main` 也指向玩法相机
+（点击射线、朝向相机的 Billboard 都靠它）；卸载回标题后再启用，保证标题界面有东西画。
+放 Core 而不是玩法模块或状态流：`SceneGameState` 只管场景加载卸载、不知道也不该知道场景里有哪些相机，`GameBootstrap` 只管启动，
+所以做成挂在相机物体上、只靠场景事件驱动的小组件，不每帧轮询、不认识任何玩法。已知边界：只在加载 / 卸载时判断，
+玩法场景加载后才启用的相机不会让它让位。
+
 
 ### 5.2 事件
 

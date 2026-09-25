@@ -46,7 +46,7 @@
     "characterpuppet": {
       "src": "Assets/_Project/Scripts/Runtime/CharacterPuppet",
       "docs": "ai-docs/docs/modules/characterpuppet",
-      "status": "seed"
+      "status": "ready"
     }
   }
 }

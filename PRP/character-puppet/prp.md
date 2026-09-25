@@ -52,7 +52,7 @@ ChibiPuppet（预制体根；ChibiPuppet + ChibiPuppetMotion + Animator）
 
 - EditMode `Tests/EditMode/CharacterPuppet/ChibiPuppetMotionRulesTests.cs`：静止 / 起步阈值 / 滞回停止 / dt=0 / 朝向死区与保持。
 - Showcase `Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs`（`LoadBootScene=false`）：① 待机 2 s（Check Animator 当前状态为 Idle）→ 截图；② 以 1.5 单位/秒向右移动根 2 s（Check 状态 Walk、`localScale.x > 0`）→ 截图；③ 向左移动（Check `localScale.x < 0`）→ 截图；④ 停下（Check 回到 Idle）。
-- SampleScene Play 冒烟：进遭遇后玩家出生静止为 Idle；巡逻者巡逻时 Walk 且朝向随移动翻转；对话时停时动画定格。
+- SampleScene Play 冒烟：进遭遇后玩家出生静止为 Idle；巡逻者巡逻时 Walk 且朝向随移动翻转；对话时停时小人保持待机呼吸（Animator 走 unscaled 时间，驱动层强制待机），对话结束后巡逻者恢复走路。
 
 ## 7. 收尾
 

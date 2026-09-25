@@ -60,7 +60,7 @@ maturity: stable
 | --- | --- | --- |
 | `Current` | `DialogueInteractable Current { get; }` | 离玩家最近且可交互的那个；无玩家标记 / 对白进行中 / 无候选时为 null |
 | `OnFocusChanged` | `event Action<DialogueInteractable>` | 焦点变化时（含变 null）触发一次，不每帧 |
-| `SelectNearest` | `static DialogueInteractable SelectNearest(Vector3, IReadOnlyList<DialogueInteractable>)` | 纯选择函数，无分配（`DialogueInteractionFocus.cs:95`） |
+| `SelectNearest` | `static DialogueInteractable SelectNearest(Vector3, IReadOnlyList<DialogueInteractable>)` | 纯选择函数，无分配（`DialogueInteractionFocus.cs:80`） |
 
 前提：场景玩家根挂 `DialogueInteractionActor`；候选只含场景里摆好的物体。要自己的交互提示就订阅 `OnFocusChanged`，别再逐帧测距。
 

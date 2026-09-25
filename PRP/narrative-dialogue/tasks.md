@@ -29,6 +29,12 @@
 - [ ] T8 Unity 资产接线及 Showcase。
 - [ ] T9 检查与模块文档。
 
+> 2026-09-25 说明：T5（对白运行时与 UI）、T7 中的对话表、T8 中的 Dialogue 预制体 / 验证场景 / Showcase
+> 已由 [`PRP/dialogue-system/`](../dialogue-system/prp.md) 以不同表现语义完成（两槽立绘、跳过取代已读快进、JSON 内容表），
+> 上面的勾选保持原样未改。后续 T6 / T9 与 Narrative 半边接线，以 `PRP/dialogue-system/prp.md` 的
+> `IDialogueConditionSource`（条件事实来源，替换 `DefaultDialogueConditionSource`）与 `DialogueService.PlayAsync`（拉起入口）为对接点，
+> 现行接口见 `ai-docs/docs/modules/dialogue/dialogue-external-api.md`。
+
 ## 资产与环境
 
 验证场景目标为 `Assets/_Project/Scenes/Verify/Dialogue.unity`、`Narrative.unity`；

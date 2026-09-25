@@ -13,8 +13,10 @@
 | 图放进去会被自动设成什么样 | 第 4 章 |
 | 2.5D 探索场景美术规格（环境低模等） | 第 3.1 节 |
 | 角色纸片怎么画（俯视 3/4） | 第 3.2 节 |
+| 拼接小人（分件角色）怎么换图 | 第 3.3 节 |
 | 文件该怎么起名 | 第 5 章 |
 | 做一个 UI 面板（界面） | 第 6 章 |
+| 对话框、立绘、NPC 头顶标记与气泡 | 第 6.8 节 |
 | 界面在别的手机上变形、被刘海挡住 | 第 7 章 |
 | 加背景音乐或音效 | 第 8 章 |
 | 交活之前自己检查一遍 | 第 9 章 |
@@ -141,6 +143,30 @@
 | 正面图 + 程序算法压缩 | 低，不用重画 | 只压比例，变不出头顶和鞋面 | 占位、远景 NPC |
 
 **交付检查清单**：PNG 带透明 → 尺寸与锚点按上表、Pivot 落双脚中心 → 命名 `Chibi_<角色名>.png` → 放 `Assets/_Project/Art/Sprites/Characters/` → 视角四条判断标准逐条自查 → 找程序拖进 `SampleScene` 站一次，截图回看。
+
+### 3.3 拼接小人分件
+
+探索场景里的玩家与巡逻者现在是「拼接小人」：5 张分件图 + Unity 自带 Animator 拼起来做待机 / 走路，不是 Spine / Live2D。
+现有分件是程序画的占位，**换美术只换图，不改动画、不改预制体层级**。
+
+分件在 `Assets/_Project/Art/Sprites/Characters/Puppet/`，PPU 100，整只小人高约 1.6 个单位：
+
+| 文件 | 现尺寸（px） | Pivot | 说明 |
+| --- | --- | --- | --- |
+| `Puppet_Head.png` | 56×48 | 底边中点（脖子） | 五官要**左右居中对称**：小人翻面是整体镜像，不对称会穿帮 |
+| `Puppet_Hair.png` | 60×34 | 底边中点 | 盖在头上，随头动 |
+| `Puppet_Torso.png` | 34×40 | 底边中点（腰） | |
+| `Puppet_Arm.png` | 12×34 | 顶边中点（肩） | 左右臂共用一张，右臂程序镜像 |
+| `Puppet_Leg.png` | 14×34 | 顶边中点（髋） | 左右腿共用一张 |
+
+- **白底 + 深色描边**：颜色是程序用 `SpriteRenderer` 的颜色乘上去的（玩家蓝衣、巡逻者灰衣都是同一套图染出来的）。
+  要染色的区域画成白 / 浅灰，描边与五官用深色。想要不染色的彩色分件，先跟程序说，预制体上的颜色要改回白。
+- **Pivot 语义不能变**：动画是绕 pivot 转的，头 / 发 / 躯干在底边中点，臂 / 腿在顶边中点。换图后在 Inspector 的 Sprite 设置里核对 Pivot。
+  尺寸可以变，变了请程序微调预制体里各分件的位置。
+- 动画在 `Assets/_Project/Art/Animations/`：`chr_chibi_idle.anim`（待机）、`chr_chibi_walk.anim`（走路）、`chr_chibi_puppet.controller`。
+  **换图不要动它们**；要改动作幅度、加新动作找程序。
+- 预制体：`Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab`、`ChibiPuppet_Patrol.prefab`。换完图打开
+  `Assets/_Project/Scenes/Verify/CharacterPuppet.unity` 请程序跑一次 `/verify-module CharacterPuppet` 看待机 / 走路 / 翻面。
 
 ## 4. 图片导入规则
 
@@ -296,6 +322,32 @@ Window → Asset Management → **Addressables** → **Groups**，把你的预�
 3. 面板什么时候打开、点了按钮去哪，全是程序的事。
 
 面板的代码侧细节详见[开发手册第 11 章](developer-guide.md)。
+
+### 6.8 对话 UI 与立绘
+
+**立绘**：放 `Assets/_Project/Art/Sprites/Dialogue/`，文件名 `Portrait_<角色>_<表情>.png`（现有 `Portrait_elder_default`、
+`Portrait_elder_angry`、`Portrait_traveler_default`、`Portrait_traveler_smile`，占位 256×256）。每张拖进 Addressables 的 **`UI`** 组，
+地址写 `Dialogue/Portrait_<角色>_<表情>`（和文件名一致，前面加 `Dialogue/`）。地址要和策划角色表 `dialogue_character.json` 里的
+`sprite` 一字不差；漏登记不会报红，只是对话里退回默认表情或那一侧不显示立绘。新角色 / 新表情要和策划对一下 id。
+对话里立绘分左右两侧，说话的一侧原色、另一侧压暗，不用单独出暗版。
+
+选项左边的小图标同理：`Art/Sprites/Dialogue/ChoiceIcon_*.png`，登记地址 `Dialogue/ChoiceIcon_*`。
+NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，气泡底框是 `Bubble_Frame.png`，同目录，直接换图即可（不走 Addressables）。
+
+**对话相关预制体目前都是占位纯色**：
+
+| 预制体 | 是什么 |
+| --- | --- |
+| `Assets/_Project/Prefabs/UI/DialogueView.prefab` | 对话框：名字、正文、左右立绘、右侧竖排胶囊选项、自动 / 倍速 / 跳过 / LOG 按钮 |
+| `Assets/_Project/Prefabs/UI/DialogueHistoryView.prefab` | 历史记录面板 |
+| `Assets/_Project/Prefabs/UI/DialogueInteractHudView.prefab` | 靠近 NPC 时右下角的「对话」按钮 |
+| `Assets/_Project/Prefabs/UI/DialogueSkipConfirmView.prefab` | 「是否跳过剧情？」确认弹窗 |
+| `Assets/_Project/Prefabs/World/DialogueSpeechBubble.prefab` | 无对话树 NPC 头顶的台词气泡（世界空间） |
+
+替换美术时**只换 `Image` / `SpriteRenderer` 上的 Sprite（和颜色、字体大小），不改层级、不改物体名、不删节点**：
+脚本按名字和槽位找它们，漏一个打开面板时会直接报错点名。特别是 `DialogueView` 里的 `TapArea`（全屏透明点击区）
+要保持在选项和按钮**下面**，选项模板 `ChoiceTemplate` 下的 `Icon`、`Label` 两个子物体名字写死。
+手绘边框、贴纸、背景模糊这类装饰本期没做，给图时一并和程序商量加在哪一层。
 
 ## 7. 分辨率与安全区
 

@@ -34,7 +34,7 @@ maturity: stable
 
 ## 加一个带树 NPC 并配头顶标记
 
-1. 根物体：`BoxCollider`（3D）或 `Collider2D`（2D）+ `DialogueInteractable`（填 Id、`Display Name`，`Interact Radius` 建议 3.5，`Actor` 留空）+ `DialogueInteractableMarker`。
+1. 根物体：`BoxCollider`（3D）或 `Collider2D`（2D）+ `DialogueInteractable`（填 Id、`Display Name`，`Interact Radius` 建议 2.0，约一个多身位，`Actor` 留空）+ `DialogueInteractableMarker`。
 2. 子物体 `MarkerIdle` / `MarkerFocus`（SpriteRenderer，图 `Art/Sprites/Dialogue/Marker_Idle` / `Marker_Focus`）、
    `NameLabel`（TMP 3D）；3D 场景三者各挂 `CameraBillboard`。拖进标记的 `bubbleIdle` / `bubbleFocused` / `nameLabel`，`target` 拖自己。
 3. 玩家根要有 `DialogueInteractionActor`；相机要有 `PhysicsRaycaster`（3D）或 `Physics2DRaycaster`（2D）。参照 SampleScene 的 `Npc_Elder`。
@@ -52,7 +52,7 @@ maturity: stable
 | --- | --- | --- |
 | 右下角「对话」卡片 | `Prefabs/UI/DialogueInteractHudView.prefab` 的 `Root` / `Icon` / 边框 Image | `root`、`button`、`label` 接线；地址 `DialogueInteractHudView` |
 | 跳过确认弹窗 | `Prefabs/UI/DialogueSkipConfirmView.prefab` 的 `Panel` / 按钮 | `message` / `confirm` / `cancel` 接线；地址同名 |
-| 头顶气泡 | `Prefabs/World/DialogueSpeechBubble.prefab` 的 `Frame`（`Art/Sprites/Dialogue/Bubble_Frame`）、字体 | `Content` / `Name` / `Body` / `Arrow` 与根 `CanvasGroup` 接线 |
+| 头顶气泡 | `Prefabs/World/DialogueSpeechBubble.prefab` 的 `Frame`（`Art/Sprites/Dialogue/Bubble_Frame`）、字体 | `Content` / `Name` / `Body` / `Arrow` 与根 `CanvasGroup` 接线；两级 `VerticalLayoutGroup` + 根 `ContentSizeFitter`（高度随文字自适应，别写死高度） |
 | 头顶标记 | 替换 `Marker_Idle.png` / `Marker_Focus.png` | 子物体名与标记字段接线 |
 | 选项胶囊 | `DialogueView.prefab` 的 `ChoiceTemplate` 背景与 `Label` | 子物体名 `Icon`（写死）；`ChoiceRoot` 锚点 |
 

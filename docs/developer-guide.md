@@ -15,6 +15,7 @@
 | 要改表 / 存档 / 输入 / UI / 音频 | 8～12，按主题挑一章 |
 | 要跑测试、出包 | 13 测试 → 14 打包与 CI |
 | 要接 2.5D 场景美术（画质分档 / 角色纸片 / 贴地） | 6.13 |
+| 要接对话（代码拉起 / 场景放 NPC）或给角色换拼接小人 | 6.14 · 6.15 |
 | 卡住了、报了看不懂的错 | 15 常见问题（先在这儿搜一遍，八成有） |
 
 三份文档的分工：**本文**讲怎么做，[`architecture.md`](architecture.md) 讲为什么这么设计、各服务的契约长什么样，
@@ -353,6 +354,50 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 **可站立的环境物体放 `Ground` 层**：`EncounterSceneView` 靠 `groundMask` 向下射线贴地（纯规则在 `Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`），只认 `Ground` 层（`ProjectSettings/TagManager.asset` 第 8 槽），没挂这个层的物体贴不上地。
 
 **Sprite 导入默认预设已经是高清手绘**（Bilinear / 压缩 / 生成 mipmap / PPU 100），不是像素风，见 `Assets/_Project/Art/Sprites/README.md`。
+
+### 6.14 对话系统 — `DialogueService` / `DialogueInteractable`
+
+模块 `Game.Dialogue`（`Assets/_Project/Scripts/Runtime/Dialogue/`）。这里只给接入入口，内部结构、接线全表与禁止事项见
+[`dialogue-module-guide.md`](../ai-docs/docs/modules/dialogue/dialogue-module-guide.md)，签名与异常见
+[`dialogue-external-api.md`](../ai-docs/docs/modules/dialogue/dialogue-external-api.md)，加内容 / 换触发见
+[`dialogue-extension-guide.md`](../ai-docs/docs/modules/dialogue/dialogue-extension-guide.md)。
+
+**从代码拉起**：构造注入 `DialogueService`，`var result = await dialogue.PlayAsync(id, ct);`。它负责暂停世界（`IWorldPauseService`）、
+关 Gameplay 输入图、跑完整段对白、恢复现场，返回 `DialogueResult`（`Outcome` 出口码、`Skipped`）。进行中重复调用抛
+`InvalidOperationException`（先看 `IsRunning`），表里没有该编号抛 `ArgumentException`。要旁听用它的 C# 事件
+`OnStarted / OnChoiceSelected / OnEnded`（不是 MessagePipe，自己退订）。
+
+**场景里放 NPC**：根上碰撞体（3D `BoxCollider` / 2D `Collider2D`）+ `DialogueInteractable`（填对话树编号、显示名、交互半径）+
+`DialogueInteractableMarker`，子物体放头顶标记 `MarkerIdle` / `MarkerFocus` 与名字 `NameLabel`（3D 场景再挂 `CameraBillboard`）。
+玩家根挂一个 `DialogueInteractionActor`，焦点系统据此选最近的 NPC，确认键或右下角「对话」按钮触发。
+要支持鼠标 / 触屏点 NPC，场景相机挂 `PhysicsRaycaster`（3D 碰撞体）或 `Physics2DRaycaster`（`Collider2D`），缺了点击静默无效。
+现成样子照 `Assets/Scenes/SampleScene.unity` 的 `Npc_Elder` 抄。
+
+**无对话树的 NPC**：编号填 `0`、Inspector 的 `bubbleLines` 填几句台词，再放一个 `Prefabs/World/DialogueSpeechBubble.prefab` 实例作子物体
+并拖进标记的 `speechBubble`。交互时头顶气泡按序循环说一句，不暂停世界、不开对话面板。
+
+**两个容易误判的点**：
+- 对话服务、焦点系统、EventSystem 都随 Boot 启动。**从 Boot → 标题「开始」进入才有对话**；直接 Play 玩法场景只会记 Warn。
+- 运行时 `Instantiate` 出来的 NPC 不会被自动扫描，要自己调 `interactable.Bind(service)`，且不参与焦点。
+
+验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（验证场景 `Assets/_Project/Scenes/Verify/Dialogue.unity`，编辑器须打开）。
+对话内容怎么配见 [`designer-guide.md` 第 11 章](designer-guide.md)。
+
+### 6.15 拼接小人 — `ChibiPuppet`
+
+模块 `Game.CharacterPuppet`（`Assets/_Project/Scripts/Runtime/CharacterPuppet/`），分件 Sprite + Animator 做 Q 版角色的待机 / 走路表现，
+**只管表现**：不读输入、不改位置，按角色根的位移自己判走 / 停与朝向。细节见
+[`characterpuppet-module-guide.md`](../ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md)。
+
+给一个角色换上小人：
+1. 把 `Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab`（或 `ChibiPuppet_Patrol.prefab`）实例化到角色的 `Visual` 下，
+   localPosition `(0, 0, -0.01)`（略靠前，避免与原纸片同面）。`trackedRoot` 留空即可，自动取父链上第一个不叫 `Visual` 的节点。
+2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`：`EncounterSceneView` 仍往它上面写 sprite 和 `flipX`，
+   它就是朝向的载体。把它拖进小人 `ChibiPuppetMotion` 的 `facingSource`。
+3. 没有纸片的场景（如验证场景）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
+
+手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、走路播放速率）。
+Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（`Assets/_Project/Scenes/Verify/CharacterPuppet.unity`）。
 
 ## 7. 新建玩法模块
 

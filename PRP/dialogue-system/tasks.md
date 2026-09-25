@@ -60,3 +60,4 @@
 - [x] T10（主窗口全量 EditMode 248 条仅 2 条遗留失败、编译零错误；二期 code-reviewer PASS，其 WARN（HUD 打开竞态）与 INFO（历史面板退订对称）已修；`/generate-doc sync dialogue` 已同步三件套；气泡高度改为随文字自适应；Showcase 6 条主窗口复跑见下）。
 - [ ] 开发者视觉验收：从 Boot 进 Play 点「开始」自己看；`/verify-module Dialogue` 点头。
 - [x] 2026-09-25 用户授权后已提交并推送（3ec71e7 fix(boot)、7f59688 feat(dialogue)、0234909 docs(dialogue)、86b1a93 chore(harness)）。`Assets/Scenes/SampleScene.unity`（含他人未提交灰盒场景 + 本轮三个 NPC）按用户决定**未提交**，留给对方一起提。
+- [x] 拼接小人（玩家 / 巡逻者换成 `CharacterPuppet` 小人）与 SampleScene 三个 NPC 交互半径 2.0 已随 8d0bd39 / a9c5586 提交；补验通过。

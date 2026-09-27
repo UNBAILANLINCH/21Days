@@ -23,6 +23,10 @@
 第 6～8 步是个环，转到开发者点头为止。第 9 步的 guide 里要写上 Showcase 路径与回放舞台说明
 （见 [`ai-docs/docs/modules/README.md`](../ai-docs/docs/modules/README.md)）。
 
+**回放舞台 = 实现模板**：Showcase 在 SampleScene 上演示的接法（挂哪些组件、引用哪些配置资产、触发怎么接）与表现，
+就是该模块在正式场景里的标准做法；正式场景接同一功能要与之对齐，只改内容不改接法。所以第 5 步要用的物体优先作为
+demo 内容放进 SampleScene，而不是回放里临时生成——生成得出来的东西，正式场景往往也得自己接一遍，等于接法没有模板可抄。
+
 ## 2. 模块完成定义（DoD）
 
 六条全成立才算「做完」：
@@ -30,7 +34,8 @@
 1. 代码在 `Scripts/Runtime/<Module>/`，命名空间 `Game.<Module>`，project-lint 零违规，`code-reviewer` 无 BLOCK。
 2. 核心规则有 EditMode 测试（`Scripts/Tests/EditMode/<Module>/`），全绿。
 3. 有 `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`（≥1 条场景），每条 3～10 步，覆盖「用户能看见的主要行为」；
-   回放统一在 `Assets/Scenes/SampleScene.unity`（`ShowcaseOptions.DemoScenePath`）上跑，所需物体放进 SampleScene 或由回放运行时生成并 `Track()`。
+   优先走 Boot 真实流程进场（`ScenePath` 返回 `null` + `EnterWorldFromTitle`），只叠加加载 SampleScene（`DemoScenePath`）留给
+   验框架机制、不验玩法的回放；所需物体放进 SampleScene 或由回放运行时生成并 `Track()`。
 4. `/verify-module <Module>` PASS，**且开发者看过回放并点头**（对话里有记录）。
 5. `ai-docs/docs/modules/<模块小写>/` guide 存在，`modules.json` 已登记，guide 里写了 Showcase 路径与回放舞台说明。
 6. `/review-change` 清单已列，停下等授权。
@@ -45,15 +50,16 @@ AI 不做视觉验收，只负责把回放跑出来、把报告和截图摆到�
 
 不做「录制原始输入再重播」，理由：
 
-- Input System 还没落地，现在没有可录的输入层。
 - 原始输入回放脆：帧率、分辨率、随机种子、异步加载时序任一变化就对不上，维护成本比重写脚本高。
 - 录制出来的东西**读不懂**——出问题时只能反复看，无法定位是哪一步的哪个期望没满足。脚本化回放的每一步都有标题和期望。
 
-落地后的扩展点：
+已落地的能力：
 
-- **Input System**：加一层「动作驱动」适配（喂 Action 而不是按键），让回放能走真实输入路径。是扩展，不是前提。
+- **Input System 动作驱动**：`ShowcaseScenario.Input`（虚拟手柄 + 键盘）与 `WalkTo` / `Walk` 已经把「喂 Action 而不是按键」这层做出来了，
+  走的是 Input System 真实路径（虚拟设备 → 动作图 → `LiveInputSource` → 玩家规则），**是默认做法**，不是将来的扩展点。
 - **UniTask**：模块的异步接口用 `yield return task.ToCoroutine()` 接进回放。
-- **Boot 就绪信号**：框架给出信号后覆写 `WaitForBootReady()`，回放就能等框架服务初始化完再开始。
+- **Boot 就绪信号**：`EnterWorldFromTitle` 已经等到标题就绪、点「开始」、等进世界、等相机跟随，Boot 就绪等待已由它承担；
+  模块特有的就绪条件（HUD、存档槽……）在它之后自己 `WaitUntil`。
 
 ## 4. 怎么写一条 Showcase
 
@@ -61,7 +67,8 @@ AI 不做视觉验收，只负责把回放跑出来、把报告和截图摆到�
 
 1. 复制 `Assets/_Project/Scripts/Tests/Showcase/SelfTest/ShowcaseSelfTest.cs` 到 `Showcase/<Module>/<Module>Showcase.cs`。
 2. 改命名空间为 `Game.Tests.Showcase.<Module>`，类名为 `<Module>Showcase`。
-3. 改 `Module` 返回模块名（PascalCase），`ScenePath` 返回 `ShowcaseOptions.DemoScenePath`（场景在代码里搭就返回 `null`）。
+3. 改 `Module` 返回模块名（PascalCase）；`ScenePath` 默认返回 `null`，用例开头 `yield return EnterWorldFromTitle();` 走 Boot 真实流程进世界；
+   不进世界、只叠加加载 SampleScene 验框架机制时才返回 `ShowcaseOptions.DemoScenePath`。
 4. 把自检的步骤换成模块行为：一条 `[UnityTest]` 讲一个用户可见行为，3～10 步。
 5. 需要 demo 物体就用 MCP 把它加进 `Assets/Scenes/SampleScene.unity`（预制体实例化，不堆 override），存盘；或在回放里运行时生成并 `Track()` 清理。
 6. `Game.Core` / `Game.Runtime` 已存在时，确认它们在 `Game.Tests.Showcase.asmdef` 的 `references` 里，否则引用不到模块类型。
@@ -76,17 +83,25 @@ namespace Game.Tests.Showcase.Player
     public class PlayerShowcase : ShowcaseScenario
     {
         protected override string Module => "Player";
-        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
+        protected override string ScenePath => null; // 世界由 Boot 流程加载，不叠加一份 SampleScene
 
         [UnityTest]
-        public IEnumerator TakeDamage_ShowsHealthDrop()
+        public IEnumerator Sneak_LowersMoveSpeed()
         {
-            var player = FindRequired<PlayerHealth>("Player");
-            yield return Step("玩家受击 20 点", () => player.TakeDamage(20));
-            yield return Check("血量应为 80", () => player.Health == 80);
-            yield return Snapshot("受击后");
-            yield return Step("等待回血", hold: 3f);
-            yield return Check("血量回到 100", () => player.Health == 100, timeout: 3f);
+            yield return EnterWorldFromTitle();
+            var input = ResolveService<IInputService>();
+            var player = ResolveService<PlayerModel>();
+
+            yield return WalkTo(new Vector2(7.5f, 4.9f));
+            yield return Snapshot("走到目标点");
+
+            yield return Step("按住潜行键（Gameplay/Sneak）", null, 0f);
+            yield return Input.Hold(input.Actions.Gameplay.Sneak);
+            yield return Check("玩家进入潜行状态", () => player.IsSneaking, 2f);
+            yield return Snapshot("潜行中");
+
+            yield return Input.Release(input.Actions.Gameplay.Sneak);
+            yield return Check("松开后退出潜行", () => !player.IsSneaking, 2f);
         }
     }
 }
@@ -97,18 +112,19 @@ namespace Game.Tests.Showcase.Player
 | 行 | 在干什么 |
 | --- | --- |
 | `[Category("Showcase")]` | 打上分类，`/verify-module` 与 Test Runner 靠它把回放与快测试分开 |
-| `: ShowcaseScenario` | 继承基类，拿到场景加载、叠加层、截图、报告与收尾断言 |
+| `: ShowcaseScenario` | 继承基类，拿到进场 / 收尾 / 虚拟输入 / 叠加层 / 截图 / 报告 |
 | `Module => "Player"` | 模块名，PascalCase；报告落到 `Logs/verify/player/` |
-| `ScenePath => ShowcaseOptions.DemoScenePath` | SetUp 里自动加载 SampleScene（回放舞台）；返回 `null` 就完全在代码里搭场景 |
-| `FindRequired<PlayerHealth>("Player")` | 取被测对象，找不到直接失败——前置条件不满足，继续跑没意义 |
-| `Step("玩家受击 20 点", …)` | 记一步、叠加层显示标题、执行动作、按倍率停顿（默认 1.5 s），**你在这一停里看表现** |
-| `Check("血量应为 80", …)` | 检查点：过了绿、没过红并多停一会儿；**失败不中断**，整条跑完才统一报 |
-| `Snapshot("受击后")` | 帧末截图存进本次 run 目录，报告里带路径 |
-| `Step("等待回血", hold: 3f)` | 只停不做事，用来看一段持续的表现（回血、动画、特效） |
-| `Check(…, timeout: 3f)` | 带超时的检查点，逐帧轮询到条件成立或超时 |
+| `ScenePath => null` | 世界由 Boot 流程加载（标题「开始」→ 进 SampleScene）；只叠加加载 SampleScene 才返回 `ShowcaseOptions.DemoScenePath` |
+| `EnterWorldFromTitle()` | 走 Boot 真实流程进世界：等标题就绪 → 点「开始」→ 等进世界 → 等相机跟随 |
+| `ResolveService<IInputService>()` / `ResolveService<PlayerModel>()` | 从容器取输入服务与玩家模型（只读状态），不摸私有实现 |
+| `WalkTo(...)` | 推虚拟摇杆走到目标点，到位松杆等停稳——真走，不是瞬移 |
+| `Input.Hold(...)` / `Input.Release(...)` | 按住 / 松开某个动作（按动作查绑定，不按键位） |
+| `Step("按住潜行键…", null, 0f)` | 记一步、叠加层显示标题；`hold: 0f` 因为紧跟着带 timeout 的 `Check` 自己等 |
+| `Check(...)` | 检查点：过了绿、没过红并多停一会儿；**失败不中断**，整条跑完才统一报 |
+| `Snapshot(...)` | 帧末截图存进本次 run 目录，报告里带路径 |
 
-约束（完整版见 [`module-verify.md`](../.claude/rules/module-verify.md)）：只走公开接口 / 事件，不摸私有实现、不改 SO、不读 `Input.*`；
-断言少而准，细粒度规则留给 EditMode。
+约束（完整版见 [`module-verify.md`](../.claude/rules/module-verify.md)）：默认走 `EnterWorldFromTitle` + `Input`/`WalkTo` 真实输入路径，
+直达模块公开接口 / 事件是退路；不摸私有实现、不改 SO；「不读 `Input.*`」指旧版 `UnityEngine.Input` 静态 API；断言少而准，细粒度规则留给 EditMode。
 
 ## 5. 报告、截图与节奏
 

@@ -118,18 +118,18 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Dialogue | stable | 是 | SampleScene | 33 | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
 | Quest | seed | 是 | SampleScene | 50 | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
-| Monster | stable | 是 | SampleScene、MonsterEncounter | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
-| Player | stable | 是 | 无场景挂件 | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
-| CharacterPuppet | stable | 不需要 | SampleScene | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
-| IsometricExploration | stable | 不需要 | SampleScene 等 | 挂在 Monster 测试里 | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
-| Disguise | stable | 不需要 | SampleScene（回放） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
+| Monster | stable | 是 | SampleScene（Boot 真实流程）、MonsterEncounter（遗留原型，无人加载） | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
+| Player | stable | 是 | 无场景挂件；回放 SampleScene（Boot 真实流程） | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
+| CharacterPuppet | stable | 不需要 | SampleScene（Boot 真实流程） | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
+| IsometricExploration | stable | 不需要 | SampleScene（Boot 真实流程） | 19（另有共享用例在 Monster 测试里） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
+| Disguise | stable | 不需要 | SampleScene（Boot 真实流程） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
 | Taming | seed | 按要求不接 | SampleScene（回放） | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
 | Narrative | 无 | 无 Installer | 无（纯 C# 库） | 4 | 无 | **无，也未登记 `modules.json`** | 阶段迁移 / 条件 / 遭遇仲裁 / 存档 DTO 全是纯逻辑，未接 Unity |
 | Sample | stable | **否** | 无 | 7 | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
 
-- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`（`Sample.unity` 与 `Verify/` 已于 2026-09-28 删除，回放统一在 SampleScene 上跑）。
+- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`（`Sample.unity` 与 `Verify/` 已于 2026-09-28 删除，回放统一在 SampleScene 上跑）；它同时是功能实现模板，正式场景接法与之对齐。
 - **预制体**：12 个。UI 8 个（Title、Sample、Dialogue×4、Quest×2），世界 2 个（气泡、任务标记），角色 2 个（拼接小人玩家 / 巡逻者）。
 - **美术**：拼接小人 5 张分件 + 2 段动画 + 1 个控制器；2 张整体 chibi 纸片；对话占位（2 角色 × 2 表情、气泡框、2 个选项图标、2 个标记）；灰盒材质 5 份；深度裁剪着色器 1 份；中文字体 1 套。**无环境模型、无怪物 / 妖灵、无 UI 皮肤、无镜面特效。**
 - **音频**：零。

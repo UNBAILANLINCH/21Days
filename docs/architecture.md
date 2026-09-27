@@ -90,6 +90,9 @@ scripts/gen-tables.ps1    生成配置表
 `Assets/Scenes/SampleScene.unity`（模板自带目录，不在 `_Project/` 下）是**功能 demo 示例场景**，
 同时也是模块回放（Showcase）统一跑的舞台；Addressables 地址 `IsometricEncounter` 现在临时指向它，
 正式内容落地后会改指向 `Assets/_Project/Scenes/` 下的新场景。
+更重要的是，它是**功能实现模板**：场景里每个功能的接法（挂哪些组件、引用哪些配置资产、触发怎么接）与表现，
+就是该功能的标准做法。正式场景引用同一功能时，接线方式与表现要与 SampleScene 对齐，允许不同的只有内容
+（位置、数量、具体资产、美术），不是接法；需要 SampleScene 里没有的接法，先把它补进 SampleScene 并让回放覆盖，再用到正式场景。
 
 ## 5. 启动流程与核心契约
 

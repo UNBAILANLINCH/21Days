@@ -12,6 +12,8 @@ alwaysApply: false
 - 改场景 / 预制体**优先通过 Unity MCP 在编辑器里做**（`manage_gameobject`、`manage_scene`），让 Unity 自己序列化。直接改 `.unity` / `.prefab` 文本只在用户明确要求时，且只改明确的字段，不动 `fileID` / `guid`。
 - 可复用的对象做成预制体，场景里只放实例；预制体改动走 Prefab 本身，不在场景实例上堆 override。
 - 场景尽量小而多（主场景 + 功能子场景 Additive），减少多人/多会话同时改同一场景的合并冲突。
+- 正式场景接某功能，照 `Assets/Scenes/SampleScene.unity` 里该功能的接法抄（挂哪些组件、引用哪些配置资产、触发怎么接），
+  只改内容（位置、数量、具体资产）不改接法；SampleScene 没有的接法先补进 SampleScene 并让回放覆盖，再用到正式场景。
 
 ## ScriptableObject 配置
 

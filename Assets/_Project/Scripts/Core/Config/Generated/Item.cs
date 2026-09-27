@@ -24,6 +24,8 @@ public sealed partial class Item : Luban.BeanBase
         Quality = (EItemQuality)_buf.ReadInt();
         Price = _buf.ReadInt();
         {int n0 = _buf.ReadSize(); Tags = new System.Collections.Generic.List<string>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { string _e0;  _e0 = _buf.ReadString(); Tags.Add(_e0);}}
+        Desc = _buf.ReadString();
+        Category = (EItemCategory)_buf.ReadInt();
     }
 
     public static Item DeserializeItem(ByteBuf _buf)
@@ -51,6 +53,14 @@ public sealed partial class Item : Luban.BeanBase
     /// 标签，单元格内用英文逗号分隔
     /// </summary>
     public readonly System.Collections.Generic.List<string> Tags;
+    /// <summary>
+    /// 描述（可空）
+    /// </summary>
+    public readonly string Desc;
+    /// <summary>
+    /// 类别（Material/Consumable/Clue/Key）
+    /// </summary>
+    public readonly EItemCategory Category;
    
     public const int __ID__ = 2289459;
     public override int GetTypeId() => __ID__;
@@ -67,6 +77,8 @@ public sealed partial class Item : Luban.BeanBase
         + "quality:" + Quality + ","
         + "price:" + Price + ","
         + "tags:" + Luban.StringUtil.CollectionToString(Tags) + ","
+        + "desc:" + Desc + ","
+        + "category:" + Category + ","
         + "}";
     }
 }

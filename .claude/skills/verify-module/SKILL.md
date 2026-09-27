@@ -41,7 +41,7 @@ disable-model-invocation: true
 | `Assets/_Project/Scripts/Runtime/<Module>/` 存在 | 只提醒（模块名可能拼错了，顺手确认一下） |
 | `Assets/_Project/Scripts/Tests/EditMode/<Module>/` 有测试 | 只提醒（DoD 第 2 条没达成） |
 | `Assets/_Project/Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs` 存在 | **停**：按 `.claude/rules/module-verify.md` 先写一条，从 `ShowcaseSelfTest.cs` 复制起步 |
-| Showcase 的 `ScenePath` 非空（grep 该文件）时 `Assets/_Project/Scenes/Verify/<Module>.unity` 存在 | **停**：场景加载不到回放必失败，先用 MCP 建场景存盘（`manage_scene` + `manage_gameobject`） |
+| Showcase 的 `ScenePath` 非空（grep 该文件）时 `Assets/Scenes/SampleScene.unity` 存在 | **停**：场景加载不到回放必失败，先确认 SampleScene 还在，或用 MCP 把所需 demo 物体补进去（`manage_scene` + `manage_gameobject`） |
 | `ai-docs/docs/modules/<模块小写>/` guide 存在且 `modules.json` 已登记 | 只提醒（DoD 第 5 条，收尾时 `/generate-doc`） |
 
 `SelfTest` 跳过上表的 Runtime / EditMode / 场景 / 文档四项，只查 `ShowcaseSelfTest.cs` 在不在。
@@ -60,12 +60,16 @@ disable-model-invocation: true
 
 原话模板（照抄，回放是要人盯着看的，不能悄悄开始）：
 
-> 回放马上开始，请把 Unity 的 **Game 视图切到前台**盯着看。每步会停 1～3 秒，屏幕顶部叠加层显示第几步和检查结果；
+> 回放马上开始，请把 Unity 的 **Game 视图切到前台**盯着看，分辨率先切到 **Full HD (1920x1080)** 再看。每步会停 1～3 秒，屏幕顶部叠加层显示第几步和检查结果；
 > 觉得太慢 / 太快用菜单 `21Days/验证/回放节奏` 调倍率（慢速 x2 / 标准 x1 / 快速 x0.25 / 不停顿 x0），调完重跑。
 
 然后 `read_console(action="clear")` 清掉旧日志，事后只看本次。
 
+框架 SetUp 会自动把焦点切到 Game 视图；真实按键用例仍红时才手动 `execute_menu_item("Window/General/Game")` 再跑。
+
 ## 6. 回放
+
+跑批量回归先记下当前节奏倍率（读 `ShowcaseOptions` 的 EditorPrefs 键，或问开发者），切「快速」跑完**切回原值**；共用编辑器时别留下你的节奏给别人。
 
 ```
 run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"],
@@ -92,6 +96,7 @@ run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"],
    `EditorSettings.asset` 的 Enter Play Mode Options 打开（域重载 / 场景重载关闭），跑完未必复原；
    Test Runner 首次建新场景还会生成 `SceneTemplateSettings.json`。这两处**不是回放框架需要的**，
    在汇报里列出来，由开发者决定恢复（`git checkout -- ProjectSettings/EditorSettings.asset`，Claude 不能替他跑）还是保留。
+6. 跑完 `ls Assets/InitTestScene*` 看有没有残留，编辑器不在 Play 就删掉。
 
 ## 8. 汇报（固定格式）
 
@@ -118,7 +123,7 @@ run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"],
 
 ## 10. `--manual`（自己动手看）
 
-跳过第 4～8 步：`manage_scene(action="load", path="Assets/_Project/Scenes/Verify/<Module>.unity")` →
+跳过第 4～8 步：`manage_scene(action="load", path="Assets/Scenes/SampleScene.unity")` →
 `manage_editor(action="play")` → 开发者自己操作 → 说「好了」后 `read_console(action="get", types=["error"])` 汇总异常 →
 `manage_editor(action="stop")`。**Play 期间不改任何资产**。Showcase 还没写、或想手感试玩时用它。
 

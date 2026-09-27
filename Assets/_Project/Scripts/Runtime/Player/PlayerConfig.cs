@@ -8,6 +8,8 @@ namespace Game.Player
     {
         [SerializeField] private float moveSpeed = 3f;
         [SerializeField] private float sneakSpeed = 1.5f;
+        [Tooltip("奔跑速度：Run 键切到奔跑模式且未按潜行时生效；潜行按住时按潜行速度走。")]
+        [SerializeField] private float runSpeed = 5f;
         [SerializeField] private float attackRange = 1f;
         [SerializeField] private float attackCooldown = 0.6f;
         [SerializeField] private int maxHealth = 3;
@@ -15,6 +17,7 @@ namespace Game.Player
 
         public float MoveSpeed => moveSpeed;
         public float SneakSpeed => sneakSpeed;
+        public float RunSpeed => runSpeed;
         public float AttackRange => attackRange;
         public float AttackCooldown => attackCooldown;
         public int MaxHealth => maxHealth;

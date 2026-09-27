@@ -19,6 +19,9 @@ namespace Game.Sample
     /// 的 <c>GameBootstrap</c> 物体上（和 <c>GameLifetimeScope</c> 同一个物体），
     /// 并把 <c>Assets/_Project/Data/Sample/SampleConfig.asset</c> 拖到 Config 字段。
     /// <para>
+    /// 现状（2026-09-26）：Boot 未挂本组件、场景地址未登记，本模块只作样板；见 sample-module-guide「当前接线状态」。
+    /// </para>
+    /// <para>
     /// 新玩法模块照抄这个文件即可：换个类名、换成自己的配置资产、注册自己的类型。
     /// 一个模块一个 Installer，互不干扰。
     /// </para>

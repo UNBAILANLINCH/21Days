@@ -1,0 +1,14 @@
+{
+    "name": "Game.Live2D",
+    "rootNamespace": "Game.Live2D",
+    "references": ["Game.Core", "Game.Runtime", "Live2D.Cubism"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": ["LIVE2D_CUBISM"],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,4 +1,4 @@
-// 职责：锁定对白表现策略——三连点补全、单点推进、倍速循环、自动播放计时、复位与设置校验。
+// 职责：锁定对白表现策略——三连点补全、单点推进、倍速循环、自动播放计时、复位与设置校验（含标点停顿与面板动效参数）。
 // 新建原因：DialogueRulesTests 只测规则层，策略类是独立的纯 C# 类型，按「被测类 + Tests」单独成文件。
 using System;
 using Game.Dialogue;
@@ -117,6 +117,46 @@ namespace Game.Tests.EditMode.Dialogue
             Assert.Throws<ArgumentException>(() => new DialoguePlaybackSettings(10f, steps, 3, 0f, 1f));
             Assert.Throws<ArgumentException>(() => new DialoguePlaybackSettings(10f, steps, 3, 0.5f, -1f));
             Assert.DoesNotThrow(() => new DialoguePlaybackSettings(10f, steps, 1, 0.5f, 0f));
+        }
+
+        [Test]
+        public void Settings_WhenPunctuationPauseNegative_Throws()
+        {
+            var steps = new[] { 1f, 2f };
+            Assert.Throws<ArgumentException>(() => new DialoguePlaybackSettings(10f, steps, 3, 0.5f, 1f, -0.01f, "，"));
+        }
+
+        [Test]
+        public void Settings_WhenPunctuationCharsNull_KeepsEmptyString()
+        {
+            var settings = new DialoguePlaybackSettings(10f, new[] { 1f }, 3, 0.5f, 1f, 0.1f, null);
+            Assert.That(settings.PunctuationChars, Is.EqualTo(string.Empty));
+        }
+
+        [Test]
+        public void Settings_WhenMotionOmitted_UsesDefaultMotion()
+        {
+            var settings = new DialoguePlaybackSettings(10f, new[] { 1f }, 3, 0.5f, 1f);
+            Assert.That(settings.Motion.IsValid, Is.True);
+            Assert.That(settings.Motion.PortraitSlideSeconds, Is.EqualTo(DialogueMotionSettings.Default.PortraitSlideSeconds));
+        }
+
+        [Test]
+        public void Settings_WhenMotionIsUninitializedDefault_Throws()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new DialoguePlaybackSettings(10f, new[] { 1f }, 3, 0.5f, 1f, 0f, null, default(DialogueMotionSettings)));
+        }
+
+        [Test]
+        public void MotionSettings_WhenArgumentsInvalid_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(-1f, 0.25f, 0.15f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, -0.1f, 0.15f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, -0.1f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, 0.15f, -0.1f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, 0.15f, 0.15f, 0f));
+            Assert.DoesNotThrow(() => new DialogueMotionSettings(0f, 0f, 0f, 0f, 1f));
         }
     }
 }

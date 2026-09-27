@@ -37,18 +37,18 @@ namespace Game.Tests.Showcase.Player
             view.Bind(player, monster);
 
             yield return Step("玩家向右移动", () => rules.Step(
-                new PlayerIntent(Vector2.right, false, false, false), 0.5f));
+                new PlayerIntent(Vector2.right, false, false, false, false), 0.5f));
             yield return Check("玩家已移动", () => player.Position.x > -2f);
             yield return Snapshot("移动");
 
             yield return Step("潜行并开启伪装", () => rules.Step(
-                new PlayerIntent(Vector2.right, true, true, false), 0.5f));
+                new PlayerIntent(Vector2.right, true, true, false, false), 0.5f));
             yield return Check("潜行与伪装状态已生效", () => player.IsSneaking && player.IsDisguised);
             yield return Snapshot("潜行伪装");
 
             yield return Step("攻击并受到致命伤害", () =>
             {
-                rules.Step(new PlayerIntent(Vector2.zero, false, false, true), 0f);
+                rules.Step(new PlayerIntent(Vector2.zero, false, false, true, false), 0f);
                 rules.ApplyDamage(new DamageIntent(3));
             });
             yield return Check("玩家死亡", () => !player.Snapshot.IsAlive);

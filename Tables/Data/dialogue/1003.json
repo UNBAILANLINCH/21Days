@@ -1,0 +1,70 @@
+{
+    "id": 1003,
+    "entry": "l1",
+    "nodes": [
+        {
+            "id": "l1",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "angry",
+            "clearOther": true,
+            "text": "你又来了？站那儿别动，先看看我这把老骨头。",
+            "next": "l2",
+            "outcome": "",
+            "blocking": true,
+            "performance": "",
+            "choices": []
+        },
+        {
+            "id": "l2",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "traveler",
+            "speakerName": "",
+            "side": "Right",
+            "expression": "smile",
+            "clearOther": false,
+            "text": "老先生，我就看一眼——",
+            "next": "l3",
+            "outcome": "",
+            "blocking": true,
+            "performance": "perf_sample_greeting",
+            "choices": []
+        },
+        {
+            "id": "l3",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "elder",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "看完了？那就去村口帮我把人找回来。",
+            "next": "e",
+            "outcome": "",
+            "blocking": true,
+            "performance": "",
+            "choices": []
+        },
+        {
+            "id": "e",
+            "revision": 1,
+            "kind": "End",
+            "speaker": "",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "",
+            "next": "",
+            "outcome": "Done",
+            "blocking": true,
+            "performance": "",
+            "choices": []
+        }
+    ]
+}

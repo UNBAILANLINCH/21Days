@@ -24,7 +24,7 @@
 - [x] T6 Showcase（`DialogueShowcase.cs` 三条回放 + 基类 `ResolveService<T>`；主窗口用 MCP 跑 PlayMode：3 条通过、0 检查点失败、0 异常，报告 `Logs/verify/dialogue/latest.md`）。
 - [x] T7 验证与沉淀（code-reviewer 首轮 NEEDS-CHANGES 三条 WARN → T4b 修完复核 PASS；`ai-docs/docs/modules/dialogue/` 三件套 + catalog + modules.json 登记；gc 仅报他人未提交的字体资产）。
 - [ ] 开发者视觉验收：请自行运行 `/verify-module Dialogue` 看 Game 视图回放并点头（DoD 第 4 条）。
-- [ ] `/review-change` 授权后提交（本轮未提交）。
+- [x] `/review-change` 授权后提交（2026-09-25 已按授权分 4 个提交推送：fix(boot) / feat(dialogue) / docs(dialogue) / chore(harness)；SampleScene 随 4a7e385 feat(exploration) 单独进库）。
 
 ## 环境事实
 

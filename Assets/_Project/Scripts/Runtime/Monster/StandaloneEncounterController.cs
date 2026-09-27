@@ -22,8 +22,10 @@ namespace Game.Monster
         private InputAction sneak;
         private InputAction disguise;
         private InputAction attack;
+        private InputAction run;
         private bool pendingAttack;
         private bool pendingDisguise;
+        private bool pendingRun;
         private long tick;
         public PlayerModel Player { get; private set; }
         public MonsterModel Enemy { get; private set; }
@@ -45,7 +47,8 @@ namespace Game.Monster
             var monsterRules = new MonsterRules(monsterConfig, Enemy, random, NullTelemetryScope.Instance);
             step = new EncounterStep(playerRules, monsterRules);
             step.Begin(view.PlayerStart, view.PatrolPositions());
-            view.Bind(Player, Enemy);
+            view.Bind(Player, Enemy, ReadInterpolationAlpha);
+            view.OnPlayerBlocked += step.CorrectPlayerPosition;
 
             playerInput.enabled = true;
             playerInput.ActivateInput();
@@ -54,6 +57,7 @@ namespace Game.Monster
             sneak = gameplay.FindAction("Sneak", true);
             disguise = gameplay.FindAction("Disguise", true);
             attack = gameplay.FindAction("Attack", true);
+            run = gameplay.FindAction("Run", true);
         }
 
         private void FixedUpdate()
@@ -63,12 +67,21 @@ namespace Game.Monster
             if (sneak.IsPressed()) buttons |= InputCommand.ButtonSneak;
             if (disguise.IsPressed() || pendingDisguise) buttons |= InputCommand.ButtonDisguise;
             if (attack.IsPressed() || pendingAttack) buttons |= InputCommand.ButtonAttack;
+            // 走 / 跑是按下沿切换，短按同样可能落在两个物理帧之间，照伪装的做法缓存一次按下。
+            if (run.IsPressed() || pendingRun) buttons |= InputCommand.ButtonRun;
             pendingAttack = false;
             pendingDisguise = false;
+            pendingRun = false;
 
             var command = new InputCommand(move.ReadValue<Vector2>(), Vector2.zero, buttons, Vector2.zero, 0);
             Simulate(in command, Time.fixedDeltaTime); // lint-ok: 独立场景原型以 FixedUpdate 作为唯一逻辑 tick，不参与正式回放
         }
+
+        // 独立场景以 FixedUpdate 为逻辑 tick：LateUpdate 时「当前时间 − 最近一次固定步时间」就是未满一步的余量。
+        // 时停（timeScale = 0）两者都不走，alpha 恒定；Showcase 手动单步（ManualSimulation）时不插值，直接显示当前 tick。
+        private float ReadInterpolationAlpha() => ManualSimulation
+            ? 1f
+            : EncounterProjection.InterpolationAlpha(Time.time - Time.fixedTime, Time.fixedDeltaTime); // lint-ok: 表现层插值相位，只影响渲染位置，不进逻辑
 
         public void Simulate(in InputCommand command, float deltaTime)
         {
@@ -81,6 +94,7 @@ namespace Game.Monster
             if (attack == null) return;
             attack.performed += OnAttack;
             disguise.performed += OnDisguise;
+            run.performed += OnRun;
         }
 
         private void OnDisable()
@@ -88,12 +102,15 @@ namespace Game.Monster
             if (attack == null) return;
             attack.performed -= OnAttack;
             disguise.performed -= OnDisguise;
+            run.performed -= OnRun;
             pendingAttack = false;
             pendingDisguise = false;
+            pendingRun = false;
         }
 
         private void OnAttack(InputAction.CallbackContext context) => pendingAttack = true;
         private void OnDisguise(InputAction.CallbackContext context) => pendingDisguise = true;
+        private void OnRun(InputAction.CallbackContext context) => pendingRun = true;
 
         private void OnDestroy()
         {
@@ -103,6 +120,7 @@ namespace Game.Monster
             }
 
             step.End();
+            view.OnPlayerBlocked -= step.CorrectPlayerPosition;
             view.Unbind();
         }
     }

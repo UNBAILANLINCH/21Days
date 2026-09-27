@@ -22,7 +22,7 @@ namespace Game.Tests.Showcase.IsometricExploration
         private long tick;
 
         protected override string Module => "IsometricExploration";
-        protected override string ScenePath => "Assets/Scenes/SampleScene.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
         protected override bool LoadBootScene => false;
 
         [UnityTest]

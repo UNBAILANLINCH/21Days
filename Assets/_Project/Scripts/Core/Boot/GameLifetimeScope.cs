@@ -17,6 +17,7 @@ using Game.Core.Logging;
 using Game.Core.Platform;
 using Game.Core.Replay;
 using Game.Core.Save;
+using Game.Core.Settings;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
@@ -61,7 +62,11 @@ namespace Game.Core.Boot
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<BootCompletedEvent>(options);
             builder.RegisterMessageBroker<GameStateChangedEvent>(options);
+            builder.RegisterMessageBroker<GameStateChangingEvent>(options);
             builder.RegisterMessageBroker<TitleStartClickedEvent>(options);
+            builder.RegisterMessageBroker<TitleContinueClickedEvent>(options);
+            builder.RegisterMessageBroker<TitleLoadClickedEvent>(options);
+            builder.RegisterMessageBroker<HudVisibilityChangedEvent>(options);
 
             // --- 服务（注册顺序 = 初始化顺序）---
             // Platform 第一个：存档目录、触屏判定这些后面都要用
@@ -86,6 +91,8 @@ namespace Game.Core.Boot
 
             builder.Register<JsonSaveService>(Lifetime.Singleton)
                 .As<ISaveService, IGameService>();
+            // 设置紧跟存档之后、音频之前：它要用存档服务读独立档案 "settings"，音频初始化时要读里面的音量。
+            builder.Register<SettingsService>(Lifetime.Singleton).As<ISettingsService, IGameService>();
 
             builder.Register<LocalClock>(Lifetime.Singleton).As<IClock>();
 
@@ -115,8 +122,15 @@ namespace Game.Core.Boot
 
             // UI 最后：它的 InitializeAsync 要拿 IInputService.Actions 去接 EventSystem，
             // Input 必须已经初始化完。
+            // 同一条注册上并挂 IHudVisibility（沉浸模式）：另起一条同实现类型的注册会撞键（见 RegisterSimulationDriver）。
             builder.Register<UIService>(Lifetime.Singleton)
-                .As<IUIService, IGameService>();
+                .As<IUIService, IHudVisibility, IGameService>().AsSelf();
+            builder.RegisterEntryPoint<UICancelRouter>(Lifetime.Singleton).AsSelf(); // Esc 关栈顶面板；构造要 UIService.TopView，靠上一条的 AsSelf 按具体类型注入
+            builder.RegisterEntryPoint<PauseMenuController>(Lifetime.Singleton); // Esc 无面板可关 / P 键开暂停菜单；要按具体类型拿 UICancelRouter，所以排在它后面
+            builder.Register<SettingsController>(Lifetime.Singleton); // 设置面板会话（暂停菜单的「设置」按钮调它）
+
+            // 通知服务建在 IUIService 之上；不是 IGameService，首次 Show 时才开视图。
+            builder.Register<NotificationService>(Lifetime.Singleton).As<INotificationService>();
 
             // --- 状态流与内置状态 ---
             builder.Register<GameFlow>(Lifetime.Singleton).As<IGameFlow>();

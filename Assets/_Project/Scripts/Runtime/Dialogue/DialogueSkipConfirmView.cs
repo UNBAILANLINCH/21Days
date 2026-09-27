@@ -23,6 +23,11 @@ namespace Game.Dialogue
 
         public override UILayer Layer => UILayer.Popup;
         public override bool IsFullScreen => false;
+        /// <summary>
+        /// 不让通用取消路由直接关：弹窗的开关由 DialogueController 持有（覆盖中标记、事件退订），被 UIService 越过 Controller 关掉
+        /// 会让两边状态对不上。Esc 由 <see cref="DialogueKeyboardInput"/> 翻成「点取消」走 Controller 的正常收尾。
+        /// </summary>
+        public override bool CloseOnCancel => false;
         public event Action OnConfirm;
         public event Action OnCancel;
 
@@ -34,6 +39,8 @@ namespace Game.Dialogue
             cancel.onClick.RemoveListener(Cancel);
             confirm.onClick.AddListener(Confirm);
             cancel.onClick.AddListener(Cancel);
+            // 默认选中「取消」由预制体的 UIView.defaultSelected（= CancelButton）交给 UIService 在打开后设置：
+            // 键盘 Enter / 手柄 A 走 UI Submit 点中选中项，误触不会跳过剧情；Esc 由对白键位处理为取消。
             return UniTask.CompletedTask;
         }
 

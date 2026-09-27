@@ -51,7 +51,7 @@ namespace Game.Taming
             previousToggle = intent.ToggleControl;
 
             var playerIntent = new PlayerIntent(IsControllingEnemy ? Vector2.zero : intent.Movement,
-                false, false, false);
+                false, false, false, intent.Run);
             player.Step(in playerIntent, deltaTime);
             if (IsTamed)
             {

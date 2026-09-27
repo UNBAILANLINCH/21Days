@@ -1,4 +1,4 @@
-// 职责：IGameFlow 的唯一实现——串行切换 + 请求排队 + 发布 GameStateChangedEvent。
+// 职责：IGameFlow 的唯一实现——串行切换 + 请求排队 + 发布 GameStateChangingEvent（Exit 前）/ GameStateChangedEvent（Enter 后）。
 // 为什么新建：没有现成实现；也不能把排队逻辑塞进 GameState（状态不该知道有没有别的状态在排队）。
 
 using System;
@@ -22,6 +22,7 @@ namespace Game.Core.Flow
     {
         private readonly IObjectResolver resolver;
         private readonly IPublisher<GameStateChangedEvent> stateChangedPublisher;
+        private readonly IPublisher<GameStateChangingEvent> stateChangingPublisher;
         private readonly Queue<TransitionRequest> queue = new Queue<TransitionRequest>();
 
         /// <summary>埋点服务本体。只用来问 <see cref="ITelemetryService.SessionStarted"/>，埋点本身走 <see cref="telemetry"/>。</summary>
@@ -39,12 +40,15 @@ namespace Game.Core.Flow
         public GameFlow(
             IObjectResolver resolver,
             IPublisher<GameStateChangedEvent> stateChangedPublisher,
+            IPublisher<GameStateChangingEvent> stateChangingPublisher,
             ITelemetryService telemetryService,
             ITelemetryClock clock)
         {
             this.resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
             this.stateChangedPublisher = stateChangedPublisher
                 ?? throw new ArgumentNullException(nameof(stateChangedPublisher));
+            this.stateChangingPublisher = stateChangingPublisher
+                ?? throw new ArgumentNullException(nameof(stateChangingPublisher));
             this.telemetryService = telemetryService;
             this.clock = clock;
             telemetry = telemetryService == null
@@ -114,6 +118,11 @@ namespace Game.Core.Flow
             // 首次进入没有来源，那一侧留空字符串。
             string fromName = from == null ? string.Empty : from.Name;
             string toName = stateType.Name;
+
+            // 前一状态 Exit 之前先发「即将切换」：订阅者在回调里同步抓现场（如存档捕获），回调返回后才开始 Exit，
+            // 那时前一状态的场景与对象都还在。首次进入没有前一状态也照发（From 为 null），订阅者自己按 From 过滤。
+            // 发在 Resolve 之后：目标状态解析不出来时整次切换直接失败，不该先喊一声「要切了」。
+            stateChangingPublisher.Publish(new GameStateChangingEvent(from, stateType));
 
             if (Current != null)
             {

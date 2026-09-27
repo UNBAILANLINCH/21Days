@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 第 1、2 步的三道门是 PRP 三道门的简版，完整说明与由来见 [`PRP/README.md`](../../../PRP/README.md#三道门)。
 
-1. **定范围 + 定验收**：按 `CLAUDE.md` 目录约定，用一段话复述这个模块做什么、不做什么，列出将新建 / 修改的文件路径（全部在 `Assets/_Project/` 下），其中必须包含 `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs` 与 `Scenes/Verify/<Module>.unity`。有歧义的地方合并成一次提问，问完再动手。
+1. **定范围 + 定验收**：按 `CLAUDE.md` 目录约定，用一段话复述这个模块做什么、不做什么，列出将新建 / 修改的文件路径（全部在 `Assets/_Project/` 下），其中必须包含 `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`；回放在 `Assets/Scenes/SampleScene.unity` 上跑，需要补的 demo 物体也列出来。有歧义的地方合并成一次提问，问完再动手。
    - **门一：这一步只写「什么」，不写「怎么」。** 出现类名、方法名、具体 API、「用某某模式实现」就是越界，那属于第 2 步。越界的害处是把实现方案伪装成需求，后面没人再质疑它。
    - **门二：验收标准在这一步就写死**，3 到 6 条，每条要么机器可判（测试断言、lint 规则、`invariants.py` 能扫的）、要么肉眼可验（Showcase 回放里看得见的）。**写完对一遍：后面每个任务至少覆盖其中一条，没被任何任务覆盖的验收标准，要么删掉要么补任务。**
 2. **设计要点**：3 到 6 条。哪些数据进 ScriptableObject、运行时类各自的职责、依赖方向、与已有模块的接口。只写决定，不写实现。若模块已有 `ai-docs/docs/modules/<模块小写>/` guide，先读。

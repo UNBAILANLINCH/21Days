@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a284ee09e3ac46448b0a7fdbb9e88f8b, type: 3}
+  m_Name: LootConfig
+  m_EditorClassIdentifier: 
+  crateInteractRadius: 1.5
+  crateQuestKey: crate
+  promptText: "E \u6253\u5F00\u7269\u8D44\u7BB1"
+  rewardTitle: "\u83B7\u5F97\u7269\u8D44"
+  rewardBodyFormat: "{0} \xD7{1}"
+  markerLift: 0.3

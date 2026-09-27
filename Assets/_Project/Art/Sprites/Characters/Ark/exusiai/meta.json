@@ -1,0 +1,36 @@
+{
+  "name": "exusiai",
+  "fps": 24,
+  "scale": 0.904598,
+  "frameWidth": 316,
+  "frameHeight": 384,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.020833
+  },
+  "pivotPx": {
+    "x": 158,
+    "y": 8
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -170.125,
+    "minY": -3.382,
+    "maxX": 138.937,
+    "maxY": 411.027
+  },
+  "animations": {
+    "idle": {
+      "source": "Relax",
+      "frames": 72,
+      "duration": 3,
+      "loop": true
+    },
+    "walk": {
+      "source": "Move",
+      "frames": 58,
+      "duration": 2.4,
+      "loop": true
+    }
+  }
+}

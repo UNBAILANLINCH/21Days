@@ -16,6 +16,11 @@ namespace Game.Dialogue
         [SerializeField] private TMP_Text content;
         [SerializeField] private Button close;
         public override UILayer Layer => UILayer.Popup;
+        /// <summary>
+        /// 不让通用取消路由直接关：面板开关由 DialogueController 持有（覆盖中标记、事件退订）。
+        /// Esc 与「历史」键由 <see cref="DialogueKeyboardInput"/> 翻成关闭，走 Controller 的正常收尾。
+        /// </summary>
+        public override bool CloseOnCancel => false;
         public event Action OnDismiss;
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {

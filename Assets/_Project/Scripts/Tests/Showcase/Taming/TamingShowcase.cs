@@ -1,4 +1,6 @@
 // 职责：独立回放驯服后移动与镜头接管；复用场景入口，不再创建第二套规则。
+// 舞台是 SampleScene（不加载 Boot）：Encounter 上的 StandaloneEncounterController 默认驱动遭遇，驯服挂点 Encounter/TamingDemo
+//   （TamingSceneController，默认不激活，正常游玩不受影响）。回放先停用前者、再激活挂点，两套控制器不会同时驱动同一视图。
 using System.Collections;
 using Game.IsometricExploration;
 using Game.Monster;
@@ -14,16 +16,37 @@ namespace Game.Tests.Showcase.Taming
     [Category("Showcase")]
     public sealed class TamingShowcase : ShowcaseScenario
     {
+        /// <summary>SampleScene 里驯服挂点的物体名（Encounter 的子物体，默认不激活）。</summary>
+        private const string TamingDemoName = "TamingDemo";
+
         protected override string Module => "Taming";
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Taming.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
         protected override bool LoadBootScene => false;
 
         [UnityTest]
         public IEnumerator ToggleControl_MovesEnemyAndCamera_ThenReturns()
         {
-            var controller = FindRequired<TamingSceneController>("Encounter");
+            var standalone = FindRequired<StandaloneEncounterController>("Encounter");
             var view = FindRequired<EncounterSceneView>("Encounter");
             var follow = FindRequired<SmoothCameraFollow>("Main Camera");
+            // 挂点默认不激活，GameObject.Find 找不到，只能从 Encounter 下按名字取。
+            Transform demo = view.transform.Find(TamingDemoName);
+            if (demo == null)
+            {
+                Assert.Fail($"SampleScene 的 Encounter 下没有驯服挂点「{TamingDemoName}」（TamingSceneController，默认不激活）。");
+            }
+
+            yield return Step("切到驯服玩法：停用遭遇原型控制器，激活驯服挂点", () =>
+            {
+                standalone.enabled = false;
+                demo.gameObject.SetActive(true);
+            });
+            var controller = demo.GetComponent<TamingSceneController>();
+            if (controller == null)
+            {
+                Assert.Fail($"驯服挂点「{TamingDemoName}」上没有 TamingSceneController。");
+            }
+
             var keyboard = InputSystem.AddDevice<Keyboard>();
             try
             {

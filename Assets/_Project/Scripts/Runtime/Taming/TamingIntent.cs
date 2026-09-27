@@ -5,13 +5,16 @@ namespace Game.Taming
 {
     public readonly struct TamingIntent
     {
-        public TamingIntent(Vector2 movement, bool toggleControl)
+        /// <param name="run">玩家奔跑状态，原样透传给 PlayerIntent。末尾可选参数：老调用不改，默认步行。</param>
+        public TamingIntent(Vector2 movement, bool toggleControl, bool run = false)
         {
             Movement = movement;
             ToggleControl = toggleControl;
+            Run = run;
         }
 
         public Vector2 Movement { get; }
         public bool ToggleControl { get; }
+        public bool Run { get; }
     }
 }

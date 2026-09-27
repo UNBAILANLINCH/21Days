@@ -19,7 +19,7 @@ namespace Game.Tests.EditMode.Core
     public sealed class ConfigServiceTests
     {
         /// <summary>示例表 TbItem 在 Tables/Data/item.xlsx 里的行数。改了示例表要同步改这里。</summary>
-        private const int ExpectedItemCount = 4;
+        private const int ExpectedItemCount = 6;
 
         private global::cfg.Tables tables;
 
@@ -61,6 +61,25 @@ namespace Game.Tests.EditMode.Core
         {
             Assert.That(tables.TbItem.Get(1002).Tags, Is.EqualTo(new[] { "武器", "近战", "锻造" }));
             Assert.That(tables.TbItem.Get(1004).Tags, Is.EqualTo(new[] { "消耗品", "回复" }));
+        }
+
+        [Test]
+        public void TbItem_WhenLookedUpById_ReturnsDescAndCategory()
+        {
+            global::cfg.Item letter = tables.TbItem.Get(1005);
+            Assert.That(letter.Category, Is.EqualTo(global::cfg.EItemCategory.Clue));
+            Assert.That(letter.Desc, Does.Contain("镜"));
+            Assert.That(tables.TbItem.Get(1004).Category, Is.EqualTo(global::cfg.EItemCategory.Consumable));
+            Assert.That(tables.TbItem.Get(1006).Category, Is.EqualTo(global::cfg.EItemCategory.Key));
+        }
+
+        [Test]
+        public void EItemCategory_HasTheValuesDefinedInExcel()
+        {
+            Assert.That((int)global::cfg.EItemCategory.Material, Is.EqualTo(1));
+            Assert.That((int)global::cfg.EItemCategory.Consumable, Is.EqualTo(2));
+            Assert.That((int)global::cfg.EItemCategory.Clue, Is.EqualTo(3));
+            Assert.That((int)global::cfg.EItemCategory.Key, Is.EqualTo(4));
         }
 
         [Test]

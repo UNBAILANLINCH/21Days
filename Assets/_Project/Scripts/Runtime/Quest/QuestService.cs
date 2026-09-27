@@ -9,6 +9,7 @@ using Game.Core.Boot;
 using Game.Core.Logging;
 using Game.Core.Save;
 using Game.Core.Telemetry;
+using Game.Session;
 using MessagePipe;
 
 namespace Game.Quest
@@ -31,6 +32,7 @@ namespace Game.Quest
         private readonly IPublisher<QuestObjectiveProgressedEvent> progressedPublisher;
         private readonly IPublisher<QuestCompletedEvent> completedPublisher;
         private readonly IPublisher<QuestTrackingChangedEvent> trackingPublisher;
+        private readonly ISubscriber<SessionStartedEvent> sessionStarted;
         private readonly ITelemetryScope telemetry;
 
         private readonly List<QuestActivatedEvent> pendingActivated = new List<QuestActivatedEvent>();
@@ -49,6 +51,7 @@ namespace Game.Quest
         private readonly List<QuestTrackingChangedEvent> batchTracking = new List<QuestTrackingChangedEvent>();
 
         private QuestRules rules;
+        private IDisposable sessionSubscription;
 
         public QuestService(
             QuestCatalog catalog,
@@ -57,6 +60,7 @@ namespace Game.Quest
             IPublisher<QuestObjectiveProgressedEvent> progressed,
             IPublisher<QuestCompletedEvent> completed,
             IPublisher<QuestTrackingChangedEvent> tracking,
+            ISubscriber<SessionStartedEvent> sessionStarted,
             ITelemetryScope telemetry)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -65,6 +69,7 @@ namespace Game.Quest
             progressedPublisher = progressed ?? throw new ArgumentNullException(nameof(progressed));
             completedPublisher = completed ?? throw new ArgumentNullException(nameof(completed));
             trackingPublisher = tracking ?? throw new ArgumentNullException(nameof(tracking));
+            this.sessionStarted = sessionStarted ?? throw new ArgumentNullException(nameof(sessionStarted));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
         }
 
@@ -112,8 +117,38 @@ namespace Game.Quest
             rules.ActivateAvailable();
             Flush();
 
+            // 读档 / 新游戏后 GameSession 会发这个事件；分区实例可能已被 ISaveService.LoadAsync 整体替换，
+            // 所以重载不缓存旧分区，回调里直接调 ReloadFromSave 重新 Get。
+            DisposableBagBuilder bag = DisposableBag.CreateBuilder();
+            sessionStarted.Subscribe(_ => ReloadFromSave()).AddTo(bag);
+            sessionSubscription = bag.Build();
+
             telemetry.Track("initialized", ("quests", rules.InProgress.Count));
             return UniTask.CompletedTask;
+        }
+
+        /// <summary>
+        /// 读档 / 新游戏后重新装载任务进度：用当前分区（每次重新 <c>saves.Get</c>）走 <see cref="RestoreAndBroadcast"/>，
+        /// 写回并补发 Progressed / TrackingChanged，让 HUD / 面板整体刷新。
+        /// 由 <see cref="SessionStartedEvent"/> 触发（<see cref="GameSession"/> 发布时分区已就位）；也可在测试里直接调用核对重载结果。
+        /// <para>
+        /// 必须补发：<c>QuestRules.Restore</c> 不抛事件，<c>ActivateAvailable</c> 只为新激活的任务抛 Activated，
+        /// 且在已初始化的档上不会改追踪——读一份任务都已在存档里的档时规则一个事件都不发，
+        /// 只靠事件刷新的 HUD 会停在读档前的文本上。
+        /// </para>
+        /// 未就绪时记 Warn 并忽略。
+        /// </summary>
+        public void ReloadFromSave()
+        {
+            if (!IsReady)
+            {
+                Log.Warn("QuestService 未就绪，忽略读档重载。");
+                telemetry.TrackWarn("reload_ignored", TelemetryProps.Of(("reason", "not_ready")));
+                return;
+            }
+
+            // 每次都重新 Get：LoadAsync 会整体替换分区实例，缓存旧引用会把进度写进一份没人读的对象。
+            RestoreAndBroadcast(saves.Get<QuestSaveData>(), "reloaded");
         }
 
         /// <summary>上报一次目标事实，返回本次被推进的目标数；未就绪返回 0。</summary>
@@ -147,6 +182,66 @@ namespace Game.Quest
 
             rules.Untrack();
             Flush();
+        }
+
+        /// <summary>
+        /// 把全部任务进度重置回「新开局」：用一份全新的 <see cref="QuestSaveData"/> 走 <see cref="RestoreAndBroadcast"/>
+        /// （<c>ActivateAvailable</c> 让追踪自动回到默认主线），写回存档分区后发布事件让 HUD 与面板整体刷新。
+        /// 未就绪时记 Warn 并忽略。
+        /// </summary>
+        public void ResetProgress()
+        {
+            if (!IsReady)
+            {
+                Log.Warn("QuestService 未就绪，忽略任务进度重置。");
+                telemetry.TrackWarn("reset_ignored", TelemetryProps.Of(("reason", "not_ready")));
+                return;
+            }
+
+            RestoreAndBroadcast(new QuestSaveData(), "progress_reset");
+        }
+
+        /// <summary>
+        /// 用 <paramref name="partition"/> 整体替换规则里的进度，补激活后写回分区并广播一次「整体刷新」。
+        /// <para>
+        /// 规则层在这条路径上几乎是静默的：<c>QuestRules.Restore</c> 不抛任何事件；<c>ActivateAvailable</c>
+        /// 只为新激活的任务抛 Activated，且只在分区 <c>Initialized == false</c> 时才自动追踪主线（抛 TrackingChanged）。
+        /// 所以这里补发：每条进行中任务一条反映当前计数的 Progressed、至少一条 TrackingChanged（当前追踪 id）——
+        /// 只靠事件刷新的 HUD 据此重画，否则读一份已初始化的档后 HUD 会停在旧文本上。
+        /// </para>
+        /// </summary>
+        /// <param name="partition">要恢复的分区：重置传全新空分区，读档传 <c>saves.Get</c> 的当前分区。</param>
+        /// <param name="telemetryEvent">完成后埋点的事件名（<c>progress_reset</c> / <c>reloaded</c>）。</param>
+        private void RestoreAndBroadcast(QuestSaveData partition, string telemetryEvent)
+        {
+            // 此前还没发布的事件描述的是旧进度，发出去只会让订阅者先刷一遍马上作废的状态。
+            pendingActivated.Clear();
+            pendingProgressed.Clear();
+            pendingCompleted.Clear();
+            pendingTracking.Clear();
+
+            rules.Restore(partition);
+            rules.ActivateAvailable();
+
+            IReadOnlyList<QuestProgress> active = rules.InProgress;
+            for (int i = 0; i < active.Count; i++)
+            {
+                QuestProgress progress = active[i];
+                if (!progress.HasCurrentObjective) continue;
+
+                pendingProgressed.Add(new QuestObjectiveProgressedEvent(
+                    progress.Id, progress.ObjectiveIndex, progress.Count, progress.CurrentObjective.RequiredCount, false));
+            }
+
+            // 已初始化的档 / 表里没有可接主线时 ActivateAvailable 不会改追踪，这里保证至少发一次，
+            // 让 HUD 切到分区里的追踪任务（或「未追踪」）。
+            if (pendingTracking.Count == 0)
+            {
+                pendingTracking.Add(new QuestTrackingChangedEvent(rules.TrackedId));
+            }
+
+            Flush();
+            telemetry.Track(telemetryEvent, ("quests", active.Count), ("tracked", rules.TrackedId));
         }
 
         public bool TryGet(int id, out QuestProgress progress)
@@ -187,6 +282,9 @@ namespace Game.Quest
 
         public void Dispose()
         {
+            sessionSubscription?.Dispose();
+            sessionSubscription = null;
+
             if (rules == null) return;
 
             rules.OnActivated -= HandleActivated;

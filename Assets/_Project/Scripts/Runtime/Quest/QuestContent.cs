@@ -60,28 +60,29 @@ namespace Game.Quest
             IReadOnlyList<QuestObjectiveDefinition> objectives = quest.Objectives;
             if (objectives.Count == 0) throw new ArgumentException($"任务 {quest.Id}：目标列表为空");
 
+            // 错误文案里的目标序号从 1 起（给策划看的），与代码下标 i 差 1。
             for (int i = 0; i < objectives.Count; i++)
             {
                 QuestObjectiveDefinition objective = objectives[i];
                 if (string.IsNullOrWhiteSpace(objective.Text))
                 {
-                    throw new ArgumentException($"任务 {quest.Id}：第 {i} 个目标的文本为空");
+                    throw new ArgumentException($"任务 {quest.Id}：第 {i + 1} 个目标的文本为空");
                 }
 
                 if (!Enum.IsDefined(typeof(QuestObjectiveKind), objective.Kind))
                 {
-                    throw new ArgumentException($"任务 {quest.Id}：第 {i} 个目标的类别 {(int)objective.Kind} 不在枚举内");
+                    throw new ArgumentException($"任务 {quest.Id}：第 {i + 1} 个目标的类别 {(int)objective.Kind} 不在枚举内");
                 }
 
                 if (objective.Kind == QuestObjectiveKind.TalkTo &&
                     !int.TryParse(objective.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
                 {
-                    throw new ArgumentException($"任务 {quest.Id}：第 {i} 个目标是对话，键「{objective.Key}」不是角色 id 整数");
+                    throw new ArgumentException($"任务 {quest.Id}：第 {i + 1} 个目标是对话，对话编号「{objective.Key}」不是整数");
                 }
 
                 if (objective.Kind == QuestObjectiveKind.ReachLocation && string.IsNullOrWhiteSpace(objective.Key))
                 {
-                    throw new ArgumentException($"任务 {quest.Id}：第 {i} 个目标是抵达地点，地点键为空");
+                    throw new ArgumentException($"任务 {quest.Id}：第 {i + 1} 个目标是抵达地点，地点键为空");
                 }
             }
         }

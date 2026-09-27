@@ -8,7 +8,6 @@ using Game.Core.Telemetry;
 using Game.Player;
 using UnityEngine;
 using VContainer;
-using VContainer.Unity;
 
 namespace Game.Monster
 {
@@ -34,7 +33,7 @@ namespace Game.Monster
                     resolver.Resolve<ITelemetryService>().Scope("monster")), Lifetime.Singleton);
             builder.Register<EncounterStep>(Lifetime.Singleton);
             builder.Register<MonsterEncounterState>(Lifetime.Singleton);
-            builder.RegisterEntryPoint<MonsterTitleRouter>(Lifetime.Singleton);
+            // 标题「开始」不在本模块路由：已由存档会话（Game.Session 的 SessionTitleRouter）接管，PRP/save-session D5。
 
             builder.RegisterBuildCallback(resolver =>
             {

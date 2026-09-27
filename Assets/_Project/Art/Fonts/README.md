@@ -38,6 +38,8 @@
 - **Dynamic 字体资产会在编辑器里被玩脏**：进一次 Play，用到的字就被烘进 `.asset`，
   文件从 6 KB 涨到 2 MB 上下，`git status` 里冒出来。提交前在字体资产的 Inspector 里
   点 **Clear Dynamic Data**（或右键 `Reset`）再提交，保持基线干净。
+  清完若文件仍有几 MB，是 Play 期扩容留下的孤立图集子资产（`… SDF Atlas N`），Clear 不管它们；
+  `AssetDatabase.RemoveObjectFromAsset` + `DestroyImmediate` 摘掉再保存（见 pitfalls「TMP Dynamic 字体资产」条）。
   运行时（出包后）只在内存里加字，不写回资产，不影响成品。
 - 字体有授权问题。Noto Sans SC 是 SIL OFL 1.1，**可商用、可再分发**，条件是保留 `OFL.txt`。
   **不要用系统自带的微软雅黑 / 黑体** —— 那些不可再分发，商用会出问题。

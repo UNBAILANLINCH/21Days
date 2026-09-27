@@ -1,10 +1,13 @@
 // 职责：驱动任务 HUD 与世界空间目标标记——启动后打开常驻 HUD 并实例化头顶标记，任务事件驱动刷新标题 / 目标文本；
-//   每帧：目标在画面内只摆头顶标记，画面外才画 HUD 贴边箭头与节流后的距离；对白期间隐藏，点击打开任务面板。
+//   每帧：目标在画面内只摆头顶标记，画面外才画 HUD 贴边箭头与节流后的距离；对白期间隐藏，点击或按任务键（Gameplay/Journal）打开任务面板。
+//   标记摆到 NPC 头顶时接管该 NPC 的对话标记图标（DialogueInteractable.SetMarkerOverridden），替代而不是叠在「…/!」上；
+//   标记隐藏 / 换目标 / Dispose 时交还。
 // 为什么新建：QuestHudView 只显示不注入服务；QuestSceneBinder 只管场景目标解析，QuestPanelController 只管面板会话，逐帧指引与 HUD 生命周期无处可放。
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
 using Game.Core.Events;
+using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
@@ -12,6 +15,7 @@ using Game.Core.UI;
 using Game.Dialogue;
 using MessagePipe;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using VContainer.Unity;
 
 namespace Game.Quest
@@ -21,10 +25,19 @@ namespace Game.Quest
     /// 字符串只在事件驱动的刷新里拼；Tick 只在整数米变化时生成距离文本。
     /// 目标标记（<see cref="QuestTargetMarker"/>）在 HUD 打开后按 <see cref="QuestConfig.TargetMarkerAddress"/> 实例化；
     /// 实例化失败只影响画面内提示，画面外箭头照常。
+    /// <para>
+    /// 任务键（Gameplay/Journal，Tab / 手柄 Select）也挂在这里而不是 <see cref="QuestPanelController"/>：
+    /// 控制器不是入口点，没有「启动完成后」的时机去挂动作订阅；本类已经在 <see cref="BootCompletedEvent"/> 后开 HUD、
+    /// 已经有「点任务栏 → 开面板」的同一条入口与错误处理，键位提示也要写到本类持有的 HUD 上。
+    /// 面板开着时 Gameplay 图被控制器关掉，任务键关不了面板——关闭走 Esc（UICancelRouter）与面板上的返回按钮。
+    /// </para>
     /// </summary>
     public sealed class QuestHudPresenter : IStartable, ITickable, IDisposable
     {
         private const string MeterSuffix = " m";
+
+        /// <summary>键位提示只取键盘绑定：动作集没有 control scheme，按绑定路径前缀区分设备。</summary>
+        private const string KeyboardPathPrefix = "<Keyboard>";
 
         private readonly QuestService service;
         private readonly QuestSceneBinder binder;
@@ -32,6 +45,8 @@ namespace Game.Quest
         private readonly QuestConfig config;
         private readonly DialogueService dialogue;
         private readonly IUIService ui;
+        private readonly IHudVisibility hudVisibility;
+        private readonly IInputService input;
         private readonly IAssetService assets;
         private readonly IClock clock;
         private readonly ISubscriber<BootCompletedEvent> bootCompleted;
@@ -45,15 +60,20 @@ namespace Game.Quest
         private QuestHudView hud;
         private QuestTargetMarker marker;
         private GameObject markerInstance;
+        /// <summary>当前被任务标记接管了头顶图标的 NPC；没有接管时为 null。</summary>
+        private DialogueInteractable overriddenInteractable;
         private bool disposed;
         private bool dialogueHooked;
         private int lastTrackedId = -1;
         private int lastMeters = -1;
         private float distanceElapsed;
         private bool cameraMissingReported;
+        private InputAction journalAction;
+        private string journalHint = string.Empty;
 
         public QuestHudPresenter(QuestService service, QuestSceneBinder binder, QuestPanelController panel,
-            QuestConfig config, DialogueService dialogue, IUIService ui, IAssetService assets, IClock clock,
+            QuestConfig config, DialogueService dialogue, IUIService ui, IHudVisibility hudVisibility,
+            IInputService input, IAssetService assets, IClock clock,
             ISubscriber<BootCompletedEvent> bootCompleted, ISubscriber<QuestActivatedEvent> activated,
             ISubscriber<QuestObjectiveProgressedEvent> progressed, ISubscriber<QuestCompletedEvent> completed,
             ISubscriber<QuestTrackingChangedEvent> tracking, ITelemetryScope telemetry)
@@ -66,6 +86,8 @@ namespace Game.Quest
             this.config = config;
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
             this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
+            this.hudVisibility = hudVisibility ?? throw new ArgumentNullException(nameof(hudVisibility));
+            this.input = input ?? throw new ArgumentNullException(nameof(input));
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             this.bootCompleted = bootCompleted ?? throw new ArgumentNullException(nameof(bootCompleted));
@@ -80,7 +102,7 @@ namespace Game.Quest
         {
             // 订阅句柄必须托管（EventConventions.cs 第 5 条）。
             DisposableBagBuilder bag = DisposableBag.CreateBuilder();
-            bootCompleted.Subscribe(_ => OpenHudAsync().Forget()).AddTo(bag);
+            bootCompleted.Subscribe(_ => HandleBootCompleted()).AddTo(bag);
             activated.Subscribe(_ => RefreshText()).AddTo(bag);
             progressed.Subscribe(_ => RefreshText()).AddTo(bag);
             completed.Subscribe(_ => RefreshText()).AddTo(bag);
@@ -92,10 +114,37 @@ namespace Game.Quest
             dialogueHooked = true;
         }
 
+        /// <summary>
+        /// 按了任务键该不该开面板：HUD 已开好、不在对白中、面板没开着。纯逻辑，供回调与测试共用。
+        /// 面板开着时本来收不到任务键（Gameplay 图已关），这里再判一次是防「开面板途中」的连按。
+        /// </summary>
+        public static bool ShouldOpenOnJournal(bool hudReady, bool dialogueRunning, bool panelOpen)
+            => hudReady && !dialogueRunning && !panelOpen;
+
+        /// <summary>
+        /// 取动作第一条键盘绑定的显示文字（如「Tab」），给 HUD 键位提示用；没有键盘绑定返回空串。
+        /// 只在启动完成时调一次，不在每帧路径上。
+        /// </summary>
+        public static string KeyboardBindingDisplay(InputAction action)
+        {
+            if (action == null) return string.Empty;
+            for (int i = 0; i < action.bindings.Count; i++)
+            {
+                InputBinding binding = action.bindings[i];
+                if (binding.isComposite || binding.isPartOfComposite) continue;
+                string path = binding.effectivePath;
+                if (path != null && path.StartsWith(KeyboardPathPrefix, StringComparison.Ordinal))
+                    return action.GetBindingDisplayString(i);
+            }
+
+            return string.Empty;
+        }
+
         public void Tick()
         {
             if (hud == null) return;
-            if (dialogue.IsRunning)
+            // 沉浸模式：世界空间目标标记隐藏；贴边箭头在 Hud 面板里，随面板一起被 UIService 隐藏。
+            if (dialogue.IsRunning || hudVisibility.IsHudHidden)
             {
                 HideMarker();
                 return;
@@ -125,9 +174,11 @@ namespace Game.Quest
             cameraMissingReported = false;
             // 头顶标记每帧跟着锚点走（NPC 可能在动）；画面外时标记也留在世界里，被相机裁掉即可。
             if (marker != null) marker.Show(target.Anchor);
+            // 标记实例化失败（marker == null）时不接管，否则 NPC 头顶什么都没有。
+            SetOverridden(marker != null ? target.Interactable : null);
 
             Vector3 viewport = camera.WorldToViewportPoint(target.Anchor);
-            QuestGuidance guidance = QuestGuidanceMath.Solve(viewport, hud.CanvasSize, config.EdgeMargin, config.HoverOffset);
+            QuestGuidance guidance = QuestGuidanceMath.Solve(viewport, hud.CanvasSize, config.EdgeMargin);
             if (guidance.OnScreen)
             {
                 // 画面内由头顶标记提示，HUD 不画标识；下次出画面时立刻重算距离。
@@ -170,6 +221,12 @@ namespace Game.Quest
                 dialogueHooked = false;
             }
 
+            if (journalAction != null)
+            {
+                journalAction.performed -= HandleJournal;
+                journalAction = null;
+            }
+
             if (hud != null)
             {
                 hud.OnClicked -= HandleHudClicked;
@@ -177,6 +234,8 @@ namespace Game.Quest
             }
 
             hud = null;
+            // 先交还被接管的 NPC 图标，再释放标记实例。
+            SetOverridden(null);
             ReleaseMarker();
         }
 
@@ -221,9 +280,30 @@ namespace Game.Quest
             lastMeters = -1;
         }
 
+        // 对白中（Tick 与 OnStarted）、沉浸模式、目标解析失败 / 缺相机或玩家锚点都经这里：标记藏起来的同时把 NPC 图标交还。
         private void HideMarker()
         {
             if (marker != null) marker.Hide();
+            SetOverridden(null);
+        }
+
+        /// <summary>切换被接管图标的 NPC；规则见 <see cref="SwitchIconOverride"/>。每帧路径只做引用比较，无分配。</summary>
+        private void SetOverridden(DialogueInteractable next)
+        {
+            overriddenInteractable = SwitchIconOverride(overriddenInteractable, next);
+        }
+
+        /// <summary>
+        /// 成对接管 / 交还的纯切换逻辑，返回新的「当前接管对象」：与 current 相同（引用相等）则什么都不做；
+        /// 否则先交还 current（场景卸载后可能已伪空，用 != null 判，已销毁的不再调），再接管 next（null 表示不接管）。
+        /// 公开是为了测试程序集可调（Game.Runtime 未对测试开 InternalsVisibleTo），同 <see cref="ShouldOpenOnJournal"/>。
+        /// </summary>
+        public static DialogueInteractable SwitchIconOverride(DialogueInteractable current, DialogueInteractable next)
+        {
+            if (ReferenceEquals(current, next)) return current;
+            if (current != null) current.SetMarkerOverridden(false);
+            if (next != null) next.SetMarkerOverridden(true);
+            return next;
         }
 
         private void HandleDialogueStarted(DialogueStartedEvent e)
@@ -240,6 +320,34 @@ namespace Game.Quest
         }
 
         private void HandleHudClicked() => OpenPanelAsync().Forget();
+
+        private void HandleBootCompleted()
+        {
+            HookJournal();
+            OpenHudAsync().Forget();
+        }
+
+        // 经输入服务的动作集取「Gameplay/Journal」，不读具体按键；只订阅一次。开面板是 UI 行为，不进确定性模拟与回放。
+        private void HookJournal()
+        {
+            if (journalAction != null || disposed) return;
+            if (input.Actions == null) // lint-ok: 开任务面板是 UI 行为，不进确定性模拟与回放
+            {
+                Log.Warn("QuestHudPresenter：启动完成时输入服务还没有动作集，任务键不可用（点任务栏仍可打开面板）。");
+                return;
+            }
+
+            journalAction = input.Actions.Gameplay.Journal; // lint-ok: 开任务面板是 UI 行为，不进确定性模拟与回放
+            journalAction.performed += HandleJournal;
+            journalHint = KeyboardBindingDisplay(journalAction);
+        }
+
+        private void HandleJournal(InputAction.CallbackContext context)
+        {
+            if (!ShouldOpenOnJournal(hud != null, dialogue.IsRunning, panel.IsOpen)) return;
+            telemetry.Track("journal_key");
+            OpenPanelAsync().Forget();
+        }
 
         private async UniTaskVoid OpenPanelAsync()
         {
@@ -274,6 +382,7 @@ namespace Game.Quest
                 hud = opened;
                 hud.OnClicked -= HandleHudClicked;
                 hud.OnClicked += HandleHudClicked;
+                hud.SetKeyHint(journalHint);
                 hud.HideGuidance();
                 hud.SetVisible(!dialogue.IsRunning);
                 lastTrackedId = -1;

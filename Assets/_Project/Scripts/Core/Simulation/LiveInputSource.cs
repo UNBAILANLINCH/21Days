@@ -45,6 +45,7 @@ namespace Game.Core.Simulation
         private const string SneakActionPath = "Gameplay/Sneak";
         private const string DisguiseActionPath = "Gameplay/Disguise";
         private const string AttackActionPath = "Gameplay/Attack";
+        private const string RunActionPath = "Gameplay/Run";
 
         private readonly IInputService inputService;
 
@@ -55,6 +56,7 @@ namespace Game.Core.Simulation
         private InputAction sneakAction;
         private InputAction disguiseAction;
         private InputAction attackAction;
+        private InputAction runAction;
 
         private InputCommand current;
         private bool ready;
@@ -75,8 +77,17 @@ namespace Game.Core.Simulation
         /// <summary>最近一次 <see cref="Sample"/> 采到的命令。还没采过时是 <see cref="InputCommand.Empty"/>。</summary>
         public InputCommand Current => current;
 
-        /// <summary>动作引用是否已经缓存成功。false 时 <see cref="Sample"/> 只会产出空命令。</summary>
+        /// <summary>动作引用是否已经缓存成功。false 时 <see cref="Sample"/> 的动作槽位全空（<see cref="HeldButtons"/> 照样生效）。</summary>
         public bool IsReady => ready;
+
+        /// <summary>
+        /// 软件侧按住位：每次 <see cref="Sample"/> 时原样 OR 进 <see cref="InputCommand.Buttons"/>。
+        /// 给不走动作图的软件按钮用（例如 UI 上的奔跑钮：按下期间置 <see cref="InputCommand.ButtonRun"/>、
+        /// 松开清位，与键盘按住同一语义；切换由玩法规则按按下沿完成）。
+        /// 它必须进 <see cref="InputCommand"/> 才能被确定性内核与回放看到；若由上层直接改玩法状态，
+        /// 重放时读不到这一路，录像就会分叉。置位与清位由持有该按钮的一方负责；这里不校验位，也不清。
+        /// </summary>
+        public uint HeldButtons { get; set; }
 
         /// <summary>
         /// 缓存动作引用。要求注册顺序排在 <see cref="IInputService"/> 之后，
@@ -148,6 +159,7 @@ namespace Game.Core.Simulation
             sneakAction = FindAction(asset, SneakActionPath);
             disguiseAction = FindAction(asset, DisguiseActionPath);
             attackAction = FindAction(asset, AttackActionPath);
+            runAction = FindAction(asset, RunActionPath);
             ready = true;
             initFailed = false;
         }
@@ -183,7 +195,7 @@ namespace Game.Core.Simulation
 
             Vector2 axis0 = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
 
-            uint buttons = 0u;
+            uint buttons = HeldButtons;
             if (confirmAction != null && confirmAction.IsPressed())
             {
                 buttons |= InputCommand.ButtonConfirm;
@@ -214,6 +226,12 @@ namespace Game.Core.Simulation
                 buttons |= InputCommand.ButtonAttack;
             }
 
+            if (runAction != null && runAction.IsPressed())
+            {
+                buttons |= InputCommand.ButtonRun;
+            }
+
+            // HeldButtons（软件侧按住位）已在上面作为初值 OR 进来。
             // Axis1 / Pointer 当前没有对应动作，恒为零；Flags 预留，恒为 0。
             // bit31 的 QA 打点标记不在这里置位——它不来自动作图，由录制系统的热键按到命令上。
             current = new InputCommand(axis0, Vector2.zero, buttons, Vector2.zero, 0);

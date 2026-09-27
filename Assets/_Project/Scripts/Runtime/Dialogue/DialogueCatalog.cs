@@ -16,6 +16,7 @@ namespace Game.Dialogue
     /// <item><c>side</c> → 该槽 <c>Show</c>（角色 = speaker，表情为空取角色默认表情）；<c>clearOther</c> → 另一槽 <c>Clear</c>。</item>
     /// <item><c>speaker</c> 为空（旁白）不产生任何立绘变化。</item>
     /// <item><c>speakerName</c> 为空时用角色显示名；<c>revision</c> 小于 1 按 1。</item>
+    /// <item><c>performance</c>（节点前插播的演出 id）去首尾空白；空串 = 不插播。</item>
     /// <item>条件 <c>anyOf[].all[]</c> → <c>NarrativeCondition[][]</c>（外层 OR、内层 AND），事实按名字映射。</item>
     /// </list>
     /// 内容非法时抛 <see cref="ArgumentException"/>，消息带对话 id，原始异常挂在 InnerException。
@@ -160,6 +161,7 @@ namespace Game.Dialogue
                 Next = row.Next ?? string.Empty,
                 Outcome = row.Outcome ?? string.Empty,
                 Blocking = row.Blocking,
+                PerformanceId = (row.Performance ?? string.Empty).Trim(),
                 Portraits = portraits,
                 Choices = choices,
             };

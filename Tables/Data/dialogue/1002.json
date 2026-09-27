@@ -4,32 +4,34 @@
     "nodes": [
         {
             "id": "m1",
-            "revision": 1,
+            "revision": 2,
             "kind": "Line",
-            "speaker": "elder",
+            "speaker": "traveler",
             "speakerName": "",
-            "side": "Left",
-            "expression": "",
+            "side": "Right",
+            "expression": "smile",
             "clearOther": true,
-            "text": "唉，人都跑光了，连个搭话的都没有。",
+            "text": "哟，是你啊。这一路走来连个人影都没碰见，你也是被老先生支来的？",
             "next": "m2",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
             "id": "m2",
-            "revision": 1,
+            "revision": 2,
             "kind": "Line",
-            "speaker": "elder",
+            "speaker": "traveler",
             "speakerName": "",
-            "side": "Left",
-            "expression": "angry",
+            "side": "Right",
+            "expression": "",
             "clearOther": false,
-            "text": "罢了罢了！老头子我自己去看看，还指望谁来负责？！",
+            "text": "营地就先凑合着落脚吧。天亮以后我打算去瞭望点那边看看，你要是没事，一起？",
             "next": "end",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -45,6 +47,7 @@
             "next": "",
             "outcome": "Done",
             "blocking": true,
+            "performance": "",
             "choices": []
         }
     ]

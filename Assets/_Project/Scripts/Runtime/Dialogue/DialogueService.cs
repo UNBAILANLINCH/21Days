@@ -1,6 +1,6 @@
-// 职责：对白的对外入口——按 id 拉起一段对白：查内容、持世界暂停、关 Gameplay 输入图、交给 Controller 展示、收尾并广播事件。
-// 为什么新建：DialogueRules 只管推进语义、DialogueController 只管表现，二者都不该持有「世界暂停 / 输入图 / 重入保护」
-//   这类会话级资源；把它们塞进 Controller 会让表现层依赖 Core 的暂停与输入服务，也没法被其他模块当成一行调用。
+// 职责：对白的对外入口——按 id 拉起一段对白：查内容、持世界暂停、关 Gameplay 输入图、藏探索 HUD 层、交给 Controller 展示、收尾并广播事件。
+// 为什么新建：DialogueRules 只管推进语义、DialogueController 只管表现，二者都不该持有「世界暂停 / 输入图 / 重入保护
+//   / HUD 层显隐」这类会话级资源；把它们塞进 Controller 会让表现层依赖 Core 的暂停与输入服务，也没法被其他模块当成一行调用。
 // 事件为什么不用 MessagePipe：broker 注册要根作用域的 MessagePipeOptions，而 GameplayInstaller.Install 只拿到
 //   IContainerBuilder、拿不到 GameLifetimeScope 里 RegisterMessagePipe() 返回的 options（重复 RegisterMessagePipe 会冲突），
 //   所以按 PRP 3.4 的二选一改用 C# event 暴露同名事件（OnStarted / OnChoiceSelected / OnEnded），不做两套。
@@ -11,15 +11,26 @@ using Cysharp.Threading.Tasks;
 using Game.Core.Input;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
+using Game.Core.UI;
 
 namespace Game.Dialogue
 {
     /// <summary>
     /// 对白服务。其他模块直接 <c>await PlayAsync(id)</c> 即可；场景物体走 <see cref="DialogueInteractable"/>。
     /// <para>同一时刻只允许一段对白；对白期间世界暂停（timeScale = 0），表现层一律用 unscaled 时间。</para>
+    /// <para>
+    /// 对白期间隐藏 Hud 层（与演出观感一致），结束按进来前的显隐恢复；不动 Popup 层（对白框自己在 Popup 层）。
+    /// 无树 NPC 的头顶气泡不经本服务，不藏 HUD。
+    /// </para>
     /// </summary>
     public sealed class DialogueService : IDisposable
     {
+        /// <summary>
+        /// 对白动作图的名字（GameInput 里的 Dialogue 图：推进 / 自动 / 倍速 / 跳过 / 历史 / 选项键）。
+        /// 常量放本模块而不放 Core 的 InputService：Core 不带玩法名词。启动时不启用，只在对白期间由本服务开关。
+        /// </summary>
+        public const string InputMap = "Dialogue";
+
         private const string TargetPrefix = "dialogue:";
 
         private readonly DialogueCatalog catalog;
@@ -29,6 +40,7 @@ namespace Game.Dialogue
         private readonly IDialogueConditionSource conditions;
         private readonly IWorldPauseService worldPause;
         private readonly IInputService input;
+        private readonly IUIService ui;
         private readonly ITelemetryScope telemetry;
         private DialoguePlaybackPolicy policy;
         private int currentId;
@@ -36,7 +48,7 @@ namespace Game.Dialogue
 
         public DialogueService(DialogueCatalog catalog, DialogueRules rules, DialogueController controller,
             DialogueConfig config, IDialogueConditionSource conditions, IWorldPauseService worldPause,
-            IInputService input, ITelemetryScope telemetry)
+            IInputService input, IUIService ui, ITelemetryScope telemetry)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
@@ -46,6 +58,7 @@ namespace Game.Dialogue
             this.conditions = conditions ?? throw new ArgumentNullException(nameof(conditions));
             this.worldPause = worldPause ?? throw new ArgumentNullException(nameof(worldPause));
             this.input = input ?? throw new ArgumentNullException(nameof(input));
+            this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
             rules.OnChoiceSelected += ForwardChoice;
         }
@@ -53,11 +66,11 @@ namespace Game.Dialogue
         /// <summary>是否有对白正在进行（含打开面板、展示、收尾）。</summary>
         public bool IsRunning => running;
 
-        /// <summary>对白开始（已暂停世界、已关 Gameplay 输入图之后）。</summary>
+        /// <summary>对白开始（已暂停世界、已关 Gameplay 输入图、已藏 Hud 层之后）。</summary>
         public event Action<DialogueStartedEvent> OnStarted;
         /// <summary>玩家选定一个选项。</summary>
         public event Action<DialogueChoiceSelectedEvent> OnChoiceSelected;
-        /// <summary>对白结束（成功、取消、失败都会触发；非成功时 Outcome 为空）。已恢复输入图、已释放暂停。</summary>
+        /// <summary>对白结束（成功、取消、失败都会触发；非成功时 Outcome 为空）。已恢复 Hud 层与输入图、已释放暂停。</summary>
         public event Action<DialogueEndedEvent> OnEnded;
 
         /// <summary>播放一段对白直到结束，返回出口与是否跳过。</summary>
@@ -95,7 +108,17 @@ namespace Game.Dialogue
                     // Actions 为 null（InputService 尚未初始化、或 EditMode 测试）时没有输入图可管，记录 / 禁用 / 恢复一并跳过。
                     bool hasInput = input.Actions != null; // lint-ok: 只判动作集是否已创建，不读设备输入、不影响回放
                     bool gameplayWasEnabled = hasInput && input.Actions.Gameplay.enabled; // lint-ok: 只读动作图启用状态用于收尾恢复，不读设备输入、不影响回放
-                    if (hasInput) input.DisableMap(InputService.GameplayMap);
+                    // 对白键位（推进 / 自动 / 倍速 / 跳过 / 历史 / 选项）只在对白期间有效：与关 Gameplay 同处打开，收尾对称关闭。
+                    if (hasInput)
+                    {
+                        input.DisableMap(InputService.GameplayMap);
+                        input.EnableMap(InputMap);
+                    }
+                    // 藏探索 HUD 层（与演出一致）；在开对白面板（PresentAsync）之前记进来前的整层开关、收尾按它恢复——
+                    // 调用方本来藏着（如过场中）就不擅自亮出来。
+                    // 不藏 Popup 层：对白框（DialogueView）就在 Popup 层。
+                    bool hudWasVisible = ui.IsLayerVisible(UILayer.Hud);
+                    ui.SetLayerVisible(UILayer.Hud, false);
                     try
                     {
                         OnStarted?.Invoke(new DialogueStartedEvent(dialogueId));
@@ -105,6 +128,9 @@ namespace Game.Dialogue
                     }
                     finally
                     {
+                        // 正常结束、取消、异常都走这里：先按进来前的值恢复 Hud 层，再关对白图、按进来前的状态恢复 Gameplay 图。
+                        ui.SetLayerVisible(UILayer.Hud, hudWasVisible);
+                        if (hasInput) input.DisableMap(InputMap);
                         if (gameplayWasEnabled) input.EnableMap(InputService.GameplayMap);
                     }
                 }

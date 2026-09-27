@@ -21,6 +21,7 @@ namespace Game.Core.Simulation
     /// <para>
     /// 槽位映射（对应 <c>Data/Input/GameInput.inputactions</c> 的 Gameplay 动作图）：
     /// <see cref="Axis0"/> ← Move；<see cref="Buttons"/> bit0/1/2 ← Confirm/Cancel/Pause；
+    /// bit3/4/5 ← Sneak/Disguise/Attack；bit6 ← Run（走 / 跑切换键，见 <see cref="ButtonRun"/>）；
     /// bit31 ← QA 打点标记（不来自动作图，见 <see cref="ButtonQaMarker"/>）。
     /// <see cref="Axis1"/> 与 <see cref="Pointer"/> 当前**没有对应动作，恒为零**，玩法定了再映射——
     /// 槽位先占住，将来加动作不改字节布局，老录像还能读。
@@ -41,6 +42,13 @@ namespace Game.Core.Simulation
         public const uint ButtonSneak = 1u << 3;
         public const uint ButtonDisguise = 1u << 4;
         public const uint ButtonAttack = 1u << 5;
+
+        /// <summary>
+        /// 奔跑键位（Gameplay/Run，按住即置位）。它记录的是<b>按键</b>而不是奔跑状态：
+        /// 走 / 跑切换由玩法规则按「按下沿」自己翻转并存进模型快照，命令里只如实记录这一 tick 键是否按着。
+        /// 位掩码只是追加一位，命令字节布局不变。
+        /// </summary>
+        public const uint ButtonRun = 1u << 6;
 
         /// <summary>
         /// QA 打点标记位。**不来自动作图**，<see cref="LiveInputSource"/> 永远不会置它；
@@ -88,7 +96,7 @@ namespace Game.Core.Simulation
         /// <summary>副轴。当前动作图里没有对应动作，恒为零；槽位先留着，玩法定了再映射。</summary>
         public Vector2 Axis1 { get; }
 
-        /// <summary>按钮位掩码。bit0=Confirm，bit1=Cancel，bit2=Pause，bit31=QA 打点标记。</summary>
+        /// <summary>按钮位掩码。bit0=Confirm，bit1=Cancel，bit2=Pause，bit3~5=Sneak/Disguise/Attack，bit6=Run，bit31=QA 打点标记。</summary>
         public uint Buttons { get; }
 
         /// <summary>指针位置。当前动作图里没有对应动作，恒为零。</summary>

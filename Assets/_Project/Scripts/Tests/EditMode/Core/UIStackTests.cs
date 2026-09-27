@@ -141,6 +141,38 @@ namespace Game.Tests.EditMode.Core
             Assert.That(stack.Top(), Is.Null, "Hud / Top 是常驻层，不该被 CloseTop 关掉");
         }
 
+        [Test]
+        public void HasFullScreenPanel_WhenStackEmpty_IsFalse()
+        {
+            Assert.That(stack.HasFullScreenPanel, Is.False);
+        }
+
+        [Test]
+        public void HasFullScreenPanel_WhenOnlyNonFullScreenPanelsAndPopups_IsFalse()
+        {
+            stack.Push(new Entry(UILayer.Panel, false));
+            stack.Push(new Entry(UILayer.Popup, true));
+            stack.Push(new Entry(UILayer.Hud, true));
+
+            Assert.That(stack.HasFullScreenPanel, Is.False, "非全屏面板 / 弹窗 / 常驻层都不该把 Hud 盖住");
+        }
+
+        [Test]
+        public void HasFullScreenPanel_WhenNonFullScreenAboveFullScreen_StaysTrueUntilFullScreenRemoved()
+        {
+            var fullScreen = new Entry(UILayer.Panel, true);
+            var overlay = new Entry(UILayer.Panel, false);
+
+            stack.Push(fullScreen);
+            Assert.That(stack.HasFullScreenPanel, Is.True);
+
+            stack.Push(overlay);
+            Assert.That(stack.HasFullScreenPanel, Is.True, "全屏面板被非全屏面板压着，仍然算有全屏面板");
+
+            stack.Remove(fullScreen);
+            Assert.That(stack.HasFullScreenPanel, Is.False, "全屏面板出栈后只剩非全屏面板");
+        }
+
         /// <summary>栈条目的假实现：只有层和是否全屏两个属性，不碰 Unity。</summary>
         private sealed class Entry : IUIStackEntry
         {

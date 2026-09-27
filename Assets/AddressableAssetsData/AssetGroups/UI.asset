@@ -17,6 +17,11 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: 2b286b199be94c0449a5185b91ccb166
   m_SerializeEntries:
+  - m_GUID: 11c872a854b0f6145aa5610c1849689e
+    m_Address: ConfirmView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1278ef03915d0a74ebb3686136ec5119
     m_Address: Dialogue/ChoiceIcon_Go
     m_ReadOnly: 0
@@ -27,8 +32,28 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 13e378206d377b74ba59fae6ec9fd710
+    m_Address: InventoryPanelView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1733eeac5706f00489e536bd5d2e1399
+    m_Address: ExplorationConfirmView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 19b3f1ebfceb21647b9299628a77ca87
     m_Address: TitleView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1fc690199a4737f4696af9e89ba7f27b
+    m_Address: ExplorationHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 21f3fd747e66bde48beeee5652f593bb
+    m_Address: NotificationView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -57,6 +82,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8644a674e0d86f64d8575e3d20e56867
+    m_Address: SettingsView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 89e100bd2661dc44387be21e8c0b7a87
     m_Address: Dialogue/Portrait_elder_default
     m_ReadOnly: 0
@@ -64,6 +94,16 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8b75d9cb23a8f4148a195b7f233ef219
     m_Address: DialogueSkipConfirmView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9144c1b9afef4c54c8b343b67346af5e
+    m_Address: SaveSlotsView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 934c4115c93ea8d409a7318383a10026
+    m_Address: PerformanceView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -89,6 +129,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e006f2af8aaae1a4e972a978c6fdec40
     m_Address: DialogueView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e205b71d26673fd46a23e00f526b2731
+    m_Address: PauseMenuView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

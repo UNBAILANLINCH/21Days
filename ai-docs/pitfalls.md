@@ -54,6 +54,18 @@
 - 正确做法：钩子脚本里**显式指定 UTF-8**——读 stdin 用 `sys.stdin.buffer.read().decode("utf-8")` 而不是 `input()` / `sys.stdin.read()`；输出前 `sys.stdout.reconfigure(encoding="utf-8")`、`sys.stderr.reconfigure(encoding="utf-8")`；读写文件一律带 `encoding="utf-8"`。另外 JSON 里的 Windows 路径含反斜杠，解析出来后 `replace("\\", "/")` 归一化再做匹配。
 - 关联：`.claude/hooks/README.md`、`.gitattributes`（行尾统一 LF）。
 
+## Showcase 真实按键用例红：Game 视图没焦点，键盘事件被丢
+- 现象：Taming / Disguise 这类用真实 Input System 按键（而非 Simulate）的回放用例第一轮跑红，检查点显示按键没生效；同样的回放重跑一次、或手动在编辑器里按同一个键却是好的。
+- 根因：Unity 编辑器只把键盘事件路由给当前有焦点的窗口。跑测试时 Game 视图未必在前台，Input System 的事件队列直接丢弃了这些按键，与场景、代码逻辑无关。
+- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。
+- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #FocusGameView`。日期：2026-09-28。
+
+## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
+- 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
+- 根因：Showcase 从独立验证场景迁到 `Assets/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
+- 正确做法：回放先用 `StandNextTo` / `Approach` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体（如 `QuestLocation_Camp` / `QuestLocation_Lookout`）读 transform，不写死数字。
+- 关联：`.claude/rules/module-verify.md`、`docs/module-dev-spec.md`。日期：2026-09-28。
+
 ## MCP for Unity 两侧传输方式不一致，服务端永远报 0 个实例
 - 现象：`/mcp` 里 `UnityMCP` 是 connected，读 `mcpforunity://instances` 却返回 `instance_count: 0`；任何工具调用都报 `No Unity Editor instances found`。而 Unity 的 `Window → MCP for Unity` 窗口里明明显示绿灯 `Session Active (project1)`。
 - 根因：Unity 侧窗口的 `Transport` 被设成了 `HTTPLocal`（它自己在 127.0.0.1:8080 起了个本地服务），而本工程 `.mcp.json` 用的是 `--transport stdio`。stdio 模式的服务端靠 Unity 桥接写在 `~/.unity-mcp/unity-mcp-status-<hash>.json` 的状态文件发现实例；HTTP 模式的桥接不写这个文件，所以两边各自「运行中」却互相看不见。首次装包、或有人点过窗口里的 `Configure All Detected Clients`，都可能把传输方式改掉。
@@ -117,7 +129,7 @@
 ## TMP Dynamic 字体资产进一次 Play 就胖 2 MB，污染 git
 - 现象：中文字体资产提交时才 6 KB，同事拉下来跑一次游戏，`git status` 里它就变成 2 MB 的改动；每个人每次 Play 都产生一份不一样的 diff，合并时天天冲突。
 - 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
-- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。
+- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。 **Clear Dynamic Data 只清当前引用的那张图集**：Play 期动态扩容时新建的旧图集会以孤立子资产（`… SDF Atlas N`）留在 `.asset` 里，清完文件仍有几 MB；用 `AssetDatabase.RemoveObjectFromAsset` + `DestroyImmediate` 摘掉再 `SaveAssets`（2026-09-28 从 17 MB 清到 6 KB 时发现，HEAD 里 8.5 MB 就是这么来的）。
 - 关联：`Assets/_Project/Art/Fonts/README.md`、`docs/developer-guide.md #11.5`；2026-09-16 上中文字体时踩到。
 
 ## 批处理打包里临时改工程设置，恢复写在「报告结果」之后 = 永远不会恢复
@@ -147,6 +159,8 @@
   3. 提交前 `git diff --cached | grep -i <对方特征词>` 兜底确认零命中，提交后再确认对方的改动仍留在工作区。
   纯属自己的文件照常 `git add`。**别用 `git add -p`**：交互式在本环境跑不了。
 - 关联：`CLAUDE.md #硬规则 4`、`.claude/skills/review-change/SKILL.md #并发会话`；2026-09-15 起连续七次提交都这么做，2026-09-16 沉淀。
+- **并行改同一批文件（2026-09-26）**：这次不是提交期撞车，是**开工期**就撞了——两个会话各自派 subagent 改 Player / Input / UIService 等同一批文件，而且两边设计还不一样（字段命名、迁移路径都不同）。发现得晚一步就会互相覆盖；这次是其中一个 subagent 中途 `git status`/`git diff` 发现对方的未提交改动跟自己要改的文件重叠，主动停手，另一边才没被覆盖。正确做法：开工前先 `git status` 看工作区有没有别人的未提交改动；有就先跨会话发消息划清各自改哪些文件、谁的底层设计为准，不要各写各的等提交时再对；改共用文件前**重新 `Read`**（别信自己上一轮读到的内容，对方可能已经改过），只做最小插入，不顺手重排或重构无关部分；改完等到「编译零错误 + EditMode 全绿」这个稳定点再通知对方开工，不要在半成品状态上招呼别人接手。
+- **共享索引与临时索引提交（2026-09-26）**：`git commit` 不带路径会把别的会话 `git add` 进共享索引的文件一起带走（今天两个会话各踩一次）；混合文件即使按路径提交（`git commit -- <路径…>`），只要该路径在共享索引里已经是对方 `add` 过的混合版本，拿到的仍是连着对方未完成追加的那一份，不是自己单独的改动。稳妥做法是以 `git show HEAD:<文件>` 为基线，只重放自己这一轮的改动生成一份临时文件，再走一条完全不碰共享索引的临时索引提交：`GIT_INDEX_FILE=<临时索引路径> git read-tree HEAD` 建一份独立索引 → `git hash-object -w --path <path> <临时文件>` 把重放结果写进对象库，`GIT_INDEX_FILE=<临时索引> git update-index --cacheinfo 100644,<hash>,<path>` 只把这一条换成新版本 → `GIT_INDEX_FILE=<临时索引> git write-tree` 出树 → `git commit-tree <树> -p HEAD -m <信息>` 出提交对象 → `git update-ref refs/heads/main <新提交> <提交前的旧 HEAD>` 带旧值校验推进分支。用这条路径出完提交后，**共享索引里那些被提交的路径仍指向提交前的旧 blob**，相对新 HEAD 会显示成「反向改动」（看起来像被撤销了一样）；必须紧接着 `git reset -- <这些路径>` 把共享索引对齐新 HEAD，否则下一个用整份索引提交（`git commit` 不带路径，或 `git add -A`）的人会把这次刚提交的内容撤掉。
 
 ## 打包期间编辑器是关的，MCP 全部不可用，验证得提前想好命令行退路
 - 现象：`/build` 要求关闭编辑器（工程锁只允许一个实例），于是打包这段时间里 `read_console`、`run_tests`、`execute_code` 全部连不上——而人往往是打完包才想起「我要怎么确认它对不对」，这时只剩一个退出码可看。
@@ -183,6 +197,7 @@
 - 根因：`UIServiceTests` 里"`OnOpenAsync` 抛异常"那条用例留下一个未被观察的 UniTask 异常，由 `UniTaskScheduler` 延迟发布到 Unity 日志系统，落在哪条用例的边界里取决于 GC 时机，于是随机砸中当时正在跑的某条——测试框架把它当成本次运行的未预期日志判失败。跑过 `execute_code` 之后尤其容易触发，动态程序集会改变 GC 时机。
 - 正确做法：清空控制台挡不住它（只是清掉已有日志，异常还没发布）；跑测试前先 `refresh_unity(force, compile="request")` 触发一次域重载，把上一轮遗留的待发布异常一起带走。看到「失败用例与报错内容风马牛不相及」这种现象先按这条排查，不要去改那条无辜用例的断言。根治要在产生异常的那条用例里把 UniTask 异常观察掉（`.Forget()` 带异常处理，或接 `UniTaskScheduler.UnobservedTaskException`），这属于 UI 测试自己的范围。
 - 关联：`Assets/_Project/Scripts/Tests/EditMode/Core/UIServiceTests.cs`、UniTask 的 `UniTaskScheduler`、`.claude/rules/unity-tests.md`；2026-09-16 做回放系统时连续踩到两次。
+- **根治（2026-09-26）**：根因是 `Core/UI/UIService.cs` 打开面板失败路径对给并发等待者准备的 `UniTaskCompletionSource` 调了 `TrySetException`——单次打开（没有别的调用方在排队等同一个 `type`）时没有等待者去读这个 completion 的结果，异常就成了「未观察」，由 GC 终结器经 `UniTaskScheduler` 延迟再发布一次，砸中当时随便哪条正在跑的用例。修法是在 `TrySetException` 之后**立刻读一次它自己的结果**（`completion.Task.GetAwaiter().GetResult()`，包一层 try/catch 吞掉同一个异常）把它标记为已观察，本次调用方仍然拿到原始异常（下面照常 `throw`），互不冲突。配了回归用例 `UIServiceTests.OpenAsync_WhenOnOpenAsyncThrows_LeavesNoUnobservedTaskException` 断言不再有未观察异常。跑测试前强制刷新域重载的做法仍然推荐（挡的是其它遗留场景），但对这一条已经不再是必需。
 
 ## 测试自己把依赖装上了，于是接线缺口全程不报
 - 现象：回放系统的验证全绿——PlayMode Showcase 2/2、EditMode 173/173，录制、状态哈希、完整快照、漂移检测逐条验过。但**真实启动路径下录出来的回放只有输入流**：状态哈希和快照全是空的，漂移检测、起点恢复、快照续跑全部空转。整个系统最核心的能力是空的，而没有任何一条验证发现得了。
@@ -207,3 +222,223 @@
 - 根因：序列化字段缺省走脚本默认值；共享组件被多个场景 / 预制体引用时，默认值等于对所有旧场景做了一次静默改动。
 - 正确做法：新字段默认值取「旧行为不变」的那个（bool 默认 `false`、数值默认「不生效」的 0），只在需要的场景里显式打开；提交前 `grep` 一下该组件的 `m_Script` guid 出现在哪些 `.unity` / `.prefab` 里，逐个确认。
 - 关联：`.claude/rules/csharp-code.md` 序列化与暴露面；code-reviewer 在 2026-09-25 的探索场景审查里抓到。
+
+## 用 MCP 在活动场景里搭 UI 预制体，散件会随场景一起保存
+- 现象：用 MCP 在 `SampleScene`（活动场景）里现搭一个 UI 预制体的层级（建 GameObject、挂组件、调 RectTransform），
+  搭完再另存为 `.prefab`；`SampleScene` 里却多出一个同名的根物体——那些散件本来就是场景里的真实 GameObject，
+  另存为预制体只是**复制**了一份，原实例仍留在场景根节点上。2026-09-26 波 3 在 `SampleScene` 里发现并删除了一个
+  遗留的 `ExplorationHudView` 根物体。
+- 根因：MCP 的 `manage_gameobject` 是对**当前打开的场景**操作，没有「预览场景」概念；在活动场景里搭好再拖成
+  Prefab（或用 `manage_prefabs` 从场景对象生成）不会自动清场景里的源实例，这一步需要额外手动删除，容易漏。
+- 正确做法：优先用 `PrefabUtility.LoadPrefabContents` / `SaveAsPrefabAsset` 这类走**预览场景**的 API 建预制体
+  （不经过任何已打开的真实场景）；确实要在活动场景里现搭再转存的，转存完立刻把场景里的源实例删掉，保存场景前
+  跑 `git diff -U0 -- <场景文件> | grep m_Name` 复核有没有多出不该在的根物体。
+- 关联：`.claude/rules/unity-assets.md #场景与预制体`、`PRP/exploration-whitebox/tasks.md` T6；2026-09-26 波 3 发现。
+
+## Showcase 回放中途别人保存 .cs，Play 内域重载把测试协程吞掉，进度卡住不报失败
+- 现象：`run_tests(PlayMode, Game.Tests.Showcase)` 跑到某条用例后进度不再前进（2026-09-26 Dialogue 回放停在 2/23 达 4 分钟），`get_test_job` 一直 running；编辑器仍在 Play、帧数在涨、`timeScale = 0`、对白面板开着，控制台刷第三方 `IngameDebugConsole.DebugLogManager.LateUpdate` 空引用；既不超时也不判失败。回放框架的 `Check` / `WaitUntil` 都用 `realtimeSinceStartup` 计超时，与时停无关，别往那查。
+- 根因：并行会话保存了 `.cs`（当时是 `Core/Save/*`），编辑器偏好「Script Changes While Playing」默认是「Recompile And Continue Playing」，于是在 Play 中重编译并做域重载；UTF 的 `[UnityTest]` 协程随旧域被丢掉，没人再推进它。`Editor.log`（本工程那份，见上文「`Editor.log` 是本机全局的」）里紧跟在最后一条 `[VERIFY]` 之后能看到 `Requested script compilation because: Assetdatabase observed changes` → `initialDomainReloadingComplete`。
+- 正确做法：`ShowcaseScenario` 的 SetUp 调 `EditorApplication.LockReloadAssemblies()`、TearDown 在 `finally` 里对称 `UnlockReloadAssemblies()`（静态计数防重复解锁，退出 Play 时兜底全部释放），回放期间的改动只排队、结束后再编译。兜底：本机 Preferences → General → Script Changes While Playing 设为「Recompile After Finished Playing」；并行派单时约定回放期间不保存 `.cs`。已经卡住的：`run_tests(clear_stuck=true)` + `manage_editor(action="stop")`，再重跑。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.cs`（`AcquireReloadLock` / `ReleaseReloadLock`）、`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`；2026-09-26 H1 / H6 并行时踩到。
+
+## MCP 改完场景没当场保存，别的会话一跑 PlayMode 测试改动就没了
+- 现象：用 `execute_code` / `manage_gameobject` 在 Additive 打开的 `SampleScene` 里建了一批物体，还没保存，并行会话启动了 PlayMode 测试；退出 Play 后编辑器只剩 `Boot.unity`，`SampleScene` 连同未保存改动一起消失（2026-09-26 探索白盒波 9 踩到，灰盒 `MultiLevel` 重建了一遍）。
+- 根因：UTF 跑 PlayMode 前会记下场景布局、跑完按**它开始时的磁盘版本**恢复；它开始时 `SampleScene` 的改动还没落盘，或它根本不恢复 Additive 打开的场景。多会话共用一个编辑器时，场景的「脏状态」不是你独占的。
+- 正确做法：场景改动**在同一次 MCP 调用里建完就 `EditorSceneManager.SaveScene`**，调用开头先判 `EditorApplication.isPlayingOrWillChangePlaymode`，是 Play 就退出等待，不要改；改前把场景文件复制一份到 scratchpad，保存后 `diff` 复核只增不删。
+- 关联：`.claude/skills/unity-mcp/SKILL.md` 改场景纪律、`PRP/exploration-whitebox/tasks.md` 波 9。
+- **补充（2026-09-28 换箱子标记那轮）**：两个会话的子代理在同一个编辑器里、同一个打开的 `SampleScene` 实例上各改各的物体，最后由一次保存一起写进磁盘（两组改动都在，没有覆盖）；但期间另一会话的 `.cs` 触发域重载，MCP 桥重启后 `batch_execute` 返回「0 成功、load 拒绝：当前场景有未保存改动」，磁盘却已带着全部改动落盘——**返回值失败不等于没保存，判定以磁盘 diff 为准**。`manage_scene load` 遇到脏场景会拒绝，但编辑态直接 `EditorSceneManager.OpenScene(Boot, Single)`（`execute_code` / 菜单）不会，会把别人内存里的改动悄悄丢掉：切场景前先 `manage_scene get_active` 看 `isDirty`，脏了就等对方保存，不要硬切。
+
+## 等距相机下「人在桥下」不等于「桥挡住人」
+- 现象：遮挡半透明回放把玩家放在桥正中下方 (17.25, 10.25)，桥始终不淡出；以为射线或层写错了。
+- 根因：相机偏移 (0, 11.8, −14)，相机→玩家胸口的视线俯角约 40°；离地 2.6 m、南北宽 2.5 m 的桥，在视线方向上挡住的是它**北侧** 2～3 m 的人（桥投影往后落），正下方的人相机从桥南沿下面看得见。
+- 正确做法：遮挡用例先用 `Physics.RaycastAll(相机, 胸口)` 在编辑器里算一遍被挡的站位再写；挡人的位置 ≈ 遮挡物北沿 + (离地高 − 0.8) / tan(俯角)。宽大的甲板（10 m）人站在下方中部确实会被挡。
+- 关联：`Runtime/IsometricExploration/OccluderFadePresenter.cs`、`ExplorationShowcase.Occluder_FadesBridgeWhenPlayerBeneath`。
+
+## 可选第三方 SDK 的适配层：asmdef 引用不存在的程序集不会报错，但程序集名猜错会静默失效
+- 现象：给 Live2D 做适配层时担心「SDK 缺席、asmdef 引用了不存在的 `Live2D.Cubism.*` 会编译报错」，准备绕远路（`~` 目录 + 复制安装）。实测（2026-09-26）：asmdef 的 `defineConstraints` 未满足时 Unity **跳过整个程序集**，连引用解析都不做，控制台零错误零警告，`CompilationPipeline.GetAssemblies()` 里也没有它。反过来真正的坑是：PRP 里按印象写的引用名 `Live2D.Cubism.Core` / `Live2D.Cubism.Framework` 都不存在——官方 CubismUnityComponents 运行时只有一个 `Live2D.Cubism.asmdef`（另有 `Live2D.Cubism.Editor`）。名字错了不会报错，导入 SDK 后适配层照样不编译、符号也不会被检测脚本加上，表现成「装了 SDK 什么都没发生」。
+- 根因：约束未满足的程序集对编译管线是不可见的，错误只会在符号真的被定义之后才暴露；而符号又靠检测那个（写错的）asmdef 名来加，两头互相掩护。
+- 正确做法：可选 SDK 一律「独立 asmdef + `defineConstraints` + 编辑器脚本按 SDK 的 asmdef **文件名**检测后写符号」；引用名与检测名必须去官方仓库的文件树核对（不要凭记忆写），并在适配层文件头列出用到的 API 与「未本地编译验证」字样；导入 SDK 后第一件事是编译一次适配层。
+- 关联：`Assets/_Project/Scripts/Runtime/Live2D/Game.Live2D.asmdef`、`Scripts/Editor/Performance/Live2DDefineSync.cs`（菜单 `21Days/演出/检查 Live2D 符号` 是状态锚点）、`PRP/performance-pipeline/prp.md` 2.7。
+
+## 编辑器代码用 Timeline API 建好的时间轴，会被别的测试运行器收尾时回滚 Undo 打成空壳
+- 现象：`PerformanceTemplateFactory` 刚建好 8 秒 / 5 轨的 `.playable`，回放一进 Play 就秒结束；磁盘上的资产变成 `m_Tracks: []`、`m_FixedDuration: 0`（`CreateAsset` 时的初始状态），只多一个没人引用的 Markers 子资产（2026-09-26 演出回放第 1 轮）。
+- 根因（推断，未复现）：`TimelineAsset.CreateTrack` / `CreateClip` / `CreateMarkerTrack` 在编辑器下会往 Undo 栈推快照；随后并行会话的 EditMode 运行器或别的工具回滚了当前 Undo 组，资产被打回初始状态并在下一次保存时写盘。
+- 正确做法：编辑器工具用代码建完时间轴 / 预制体后，对资产本体与每条轨道 `Undo.ClearUndo(obj)` 再 `SaveAssetIfDirty`；建完就保存，别让「刚建好、还没落盘」的状态跨越任何测试运行。另外 Animation 轨默认 `ApplyTransformOffsets`，片段按**首帧相对**叠加到轨道偏移上：代码建的入场动画要把轨道 `m_Position` 设成片段首帧值，否则演员会整体漂移（同一轮踩到）。
+- 关联：`Assets/_Project/Scripts/Editor/Performance/PerformanceTemplateFactory.cs`、`PRP/performance-pipeline/tasks.md` T26。
+
+## 并行会话整目录恢复 `ProjectSettings/`，会把别人刚加的图层 / 符号一起抹掉
+- 现象：本会话用 MCP `add_layer Performance` 加进 `TagManager.asset` 后，同一小时内该文件两次被改写回没有这个图层的版本（一次只是编辑器内存丢了、一次文件也回去了），场景与预制体里的第 9 层引用随之悬空（2026-09-26）。
+- 根因：`/verify-module` 的副作用清单建议恢复 `EditorSettings.asset`，有会话顺手用 git 把 `ProjectSettings/` **整个目录**恢复到 HEAD；`TagManager.asset` / `ProjectSettings.asset`（脚本符号）都在里面。
+- 正确做法：恢复 ProjectSettings 只恢复**点名的那一个文件**；加了图层 / 标签 / 编译符号的会话立刻给并行会话发一条；回放或提交前 `git diff ProjectSettings/TagManager.asset` 复核图层还在。
+- 关联：`ai-docs/pitfalls.md #两个会话共用一个工作区`、`.claude/skills/verify-module/SKILL.md` 第 7 步。
+
+## 多会话共用一个工作区：别人 `git add` 过的文件会随你的 `git commit` 一起进库
+- 现象：任务编辑器那轮首笔提交混进六个别人暂存的文件（并非本轮改动）。
+- 根因：`git commit` 提交的是整个索引，索引是共享的，不会自动区分「谁 `add` 的」。
+- 正确做法：`git commit -F <信息文件> -- <路径…>` 按路径提交，提交后 `git show --stat` 核对只有自己的文件；已混入且未推送时用 `git reset --soft <基底>` 再按路径重建，别人的文件会回到已暂存状态，不会丢。
+- 关联：`docs/commit-convention.md #多会话共用工作区`、`ai-docs/project-guide.md` 硬规则第 4 条；2026-09-26 任务编辑器那轮。
+
+## Write 工具整份重写 Markdown 会把换行变成 CRLF
+- 现象：`git diff` 警告 `CRLF will be replaced`，整份文件每一行都带 `\r`。
+- 根因：Write 工具整份重写已有文件时按平台行为写入换行符，与仓库既有 LF 不一致。
+- 正确做法：已有文件一律用 Edit 局部改，不用 Write 整份重写；写完 `tr -cd '\r' < <文件> | wc -c` 应为 0；不小心变了用 Python `data.replace(b"\r\n", b"\n")` 转回再存盘。
+- 关联：`docs/designer-guide.md` 曾被整份重写变成 CRLF；2026-09-26 任务编辑器那轮。
+
+## MCP `execute_menu_item` 会把菜单项执行两遍
+- 现象：调一次 `execute_menu_item` 执行某菜单项，Console 里出现两份完全相同的输出。
+- 根因：MCP 工具本身的行为（未定位到具体原因），与被调用菜单项的代码无关。
+- 正确做法：验证菜单行为时按「结果会出现两遍」去看，不要当成代码 bug 去加去重；要精确验证一次调用的效果就用 `execute_code` 直接调那段静态方法。
+- 关联：`.claude/skills/unity-mcp/SKILL.md`；2026-09-26 任务编辑器那轮验证「校验任务表」菜单时发现。
+
+## Luban 生成物内容相同时不重写文件，`.bytes` 时间戳不变
+- 现象：`TryGenerate` 返回成功，Console 也有「生成完成，资产已刷新」，但 `quest_tbquest.bytes` 的 mtime 没变。
+- 根因：Luban 生成时内容与磁盘上已有文件相同就不重写，是生成器的正常行为，不是生成失败。
+- 正确做法：判断「这次生成跑过」看 Console 的「生成完成，资产已刷新」，不要看文件时间戳；要验证内容确实变了，就先改一处表数据再生成对比。
+- 关联：`Assets/_Project/Scripts/Editor/Config/GenerateTablesMenu.cs`；2026-09-26 任务编辑器那轮 T5 实测。
+
+## MCP 预制体舞台改动可能不落盘，agent 报告「已改」不能当数
+- 现象：波 8（`ResetButton` 挪左下角）agent 用 MCP 预制体舞台（`open_prefab_stage` → `set_property` →
+  `save_prefab_stage`）改完并做了 YAML 复核，报告里也写了复核结果，但用户后续截图发现按钮还压在
+  左上角原位；实际 `git diff` 一看，提交进库的 `ExplorationHudView.prefab` 里 `ResetButton` 的
+  `anchoredPosition` 仍是改前的 `(16, -130)`——舞台里的修改没有真正写回磁盘上的预制体资产。
+- 根因：预制体舞台（Prefab Stage）是编辑器里的一份内存副本，`save_prefab_stage` 依赖舞台仍处于
+  预期状态才会落盘；并发会话频繁切场景 / 跑 PlayMode 测试触发的域重载或场景切换会打断舞台，
+  agent 拿到的「保存成功」返回值不能保证这次保存真的写到了资产文件，YAML 复核如果读的是内存态
+  或读的时机在真正落盘之前，同样会得出「已经改对」的假阳性。
+- 正确做法：改预制体用 `execute_code` 走 `PrefabUtility.LoadPrefabContents(path)` 加载一份独立的
+  离屏副本 → 直接改 `RectTransform` 等组件字段 → `PrefabUtility.SaveAsPrefabAsset(root, path, out ok)`
+  → `PrefabUtility.UnloadPrefabContents(root)` → `AssetDatabase.SaveAssets()`；这条路径不经过任何
+  可能被打断的编辑器舞台。改完用 Bash 直接 `grep`/`sed` 读磁盘上的 YAML 核对字段值，并跑
+  `git diff --stat -- <预制体路径>` 确认真的有改动落盘；再 `refresh_unity` 一次后**重新读一遍 YAML**，
+  确认没有被后续的资产刷新或别的会话覆盖 / 回滚。全程不要在任何场景里留下该预制体的实例。
+- 关联：`ai-docs/pitfalls.md #用 MCP 在活动场景里搭 UI 预制体，散件会随场景一起保存`；
+  `PRP/exploration-whitebox/tasks.md` 波 8 T16、波 12（本次用新方法改 `ImmersiveButton`/`ResetButton`
+  右上角位置并复核成功）。
+
+## 走 Boot 的回放会写玩家真实存档槽，第 4 次新游戏就进不了场景
+- 现象：`ExplorationShowcase` 8 条用例前 3 条 PASS，第 4 条起全部卡在 `EnterExploration()` 的
+  「等进入探索场景」超时；跑完一看，真实存档目录 `<persistentDataPath>/saves/` 下多出了
+  `slot1.json`、`slot2.json`、`slot3.json`。
+- 根因：标题「开始」现在走真实存档链路（`SessionTitleRouter` → `GameSession.NewGameAsync` →
+  `SessionTitleRules.PickNewGameSlot` 选第一个空槽 → `MonsterEncounterState` 进场景后自动写
+  `<IPlatformService.SaveRoot>/slot{N}.json`）；`SessionConfig.slotCount = 3`。回放走的是真 Boot，
+  没有覆盖 `SaveRoot`，每条用例点一次「开始」就真占用一个槽。3 个槽在第 3 条用例后全部写满，
+  第 4 条起 `PickNewGameSlot` 找不到空槽返回 0，路由改成打开 `SaveSlotsController.OpenAsync
+  (SlotsMode.NewGame)` 选槽面板而不是直接进场景，回放却仍在等「进入探索场景」，于是必超时。
+- 正确做法（**已根治，2026-09-26**）：不用再各自模块备份/还原槽文件了——`PlatformServiceBase.SaveRootOverride`
+  已落地，`ShowcaseScenario.ShowcaseSetUp/TearDown` 统一在加载 Boot 之前把 `SaveRoot` 重定向到临时隔离目录、
+  收尾时清理，细节见下一条「从『开始』进场景的回放把玩家真实存档写满了」。`ExplorationShowcase` 若仍在用
+  `IsolateSaveSlots` / `RestoreSaveSlots` 这套自备份，应当改为直接依赖基类的覆盖目录并删掉这段自建逻辑
+  （同 `SessionShowcase` 2026-09-26 的改法）；新写的回放不要再照抄这条里的临时备份方案。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Exploration/ExplorationShowcase.cs`；
+  `Assets/_Project/Scripts/Core/Save/JsonSaveService.cs`（槽文件命名 `GetSlotPath`/`ProfilePath`）；
+  `Assets/_Project/Scripts/Runtime/Session/SessionTitleRules.cs`；
+  `ai-docs/pitfalls.md #从『开始』进场景的回放把玩家真实存档写满了`；2026-09-26 探索白盒波 13，同日由存档会话根治。
+
+## 编辑器 `isCompiling` 长期 true、控制台错误与磁盘不符、反射看到旧签名 —— 程序集重载锁泄漏
+- 现象（2026-09-26 实测）：`QuestInstaller` 的 CS7036 在磁盘早已修好后仍报了十几分钟；`EditorApplication.isCompiling`
+  一直是 `true`；反射看 `QuestService` 的构造仍是旧的 7 参数版本；同时 `editor/state` 资源里 `is_compiling` 却报
+  `false`，两个信息源互相矛盾。
+- 根因：某次测试运行被域重载打断时，`LockReloadAssemblies` 的计数没能归零（大概率是回放框架的锁在异常路径下没走到
+  对称的 Unlock），编辑器认为「还有人要求不许重载」，于是磁盘上已经修好的代码永远编译不进来，控制台报的错、反射看到的
+  签名都停在锁死那一刻，看起来像是「怎么改都没用」。
+- 正确做法：判定依据用**反射看程序集里的实际签名**，不要看控制台报错（控制台这时候是旧状态的回声）。解法是
+  `execute_code` 里连续调几次 `UnityEditor.EditorApplication.UnlockReloadAssemblies()`（锁是计数式的，一次不一定够）
+  + `CompilationPipeline.RequestScriptCompilation()` + `AssetDatabase.Refresh()`，再 `refresh_unity` 一次。预防：回放
+  框架（`ShowcaseScenario`）的锁已经在 TearDown / 退出 Play 时对称释放，但别的会话正在跑测试期间不要保存 `.cs`，
+  被打断的正是这条路径。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.cs`（`AcquireReloadLock` / `ReleaseReloadLock`）、
+  `ai-docs/pitfalls.md #Showcase 回放中途别人保存 .cs`；`PRP/save-session/tasks.md`。
+
+## 从「开始」进场景的回放把玩家真实存档写满了
+- 现象：`SessionShowcase` / `ExplorationShowcase` 这类从标题「开始」进场景的回放，会经真实的存档服务把 `slot1..N.json` 写进 `IPlatformService.SaveRoot`——也就是玩家本机真实存档目录（Windows 上 `%LOCALAPPDATA%Low/DefaultCompany/<产品名>/saves/`）。跑上三条这样的用例后三个槽全被占满，`Session/Exploration` 回放里再点「开始」就不再直落新游戏，而是弹出选槽面板等玩家二选一，回放的 `WaitUntil` 等不到预期状态，直接超时挂住。
+- 根因：`PlatformServiceBase.SaveRoot` 在 2026-09-26 之前只有一种算法——拼 `Application.persistentDataPath`，不区分「真实运行」与「回放测试」。Showcase 复用的是**真实**存档服务（不是 mock），这是它「验证真实启动路径」这个设计初衷决定的，副作用是槽文件必然落进真实目录。最早发现这问题的 `SessionShowcase` 曾经用「SetUp 备份本机槽文件到临时目录、TearDown 还原」自保，但这只解决了「不污染开发者本机存档」，没解决「三条用例之间互相占槽、槽用满后『开始』行为改变」这个根本问题；且每个新写的 Showcase 都要抄一遍这段备份/还原逻辑，抄漏一步就会把真实存档删掉或还原不回去。
+- 正确做法：不再各自模块自保，改成框架统一在**根目录**上做覆盖——`PlatformServiceBase.SaveRootOverride`（静态，默认 null，只给编辑器内测试/回放用）。`SaveRoot` 属性每次读取都先看这个覆盖，非空就直接返回，不走 persistentDataPath 那条老路径。`ShowcaseScenario.ShowcaseSetUp` 在**加载 Boot 场景之前**把它设成 `Application.temporaryCachePath/showcase-saves/<模块小写>-<用例名>`（保证目录存在且为空），`ShowcaseTearDown` 的 `finally` 里无条件置回 `null` 并删除该目录（删失败只 Warn，不影响用例判定）。因为设置发生在 Boot 加载、容器建出 `PlatformServiceFactory.Create()` 之前，且属性每次调用都现读覆盖值（不缓存旧值），所以时机上必然生效。模块作者的 Showcase 不再需要（也不应该）自己碰 `SaveRoot`、自己备份/还原槽文件——直接读 `platform.SaveRoot` 拿到的就是这个隔离目录，坏档用例往这个目录里写坏文件即可，清理交给基类。
+- 关联：`Assets/_Project/Scripts/Core/Platform/PlatformServiceBase.cs`（`SaveRootOverride`）、`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.cs`（`ShowcaseSetUp`/`ShowcaseTearDown`）、`Assets/_Project/Scripts/Tests/Showcase/Session/SessionShowcase.cs`、`.claude/rules/module-verify.md #编写规范`；2026-09-26 由 `SessionShowcase` 的手工备份/还原自保方案收敛为框架统一方案。
+
+## `run_tests(clear_stuck=true)` 清掉了别的会话真实在跑的 PlayMode 任务
+- 现象：另一会话的模块回放跑到第 7 条用例被清掉，任务状态直接变成 `Failed`，而那条回放本身没有卡死，只是还没跑完。
+- 根因：`clear_stuck=true` 把「当前有一个 `tests_running` 的任务」当成孤儿状态直接清掉，但共用编辑器时这个任务可能是
+  别的会话正常在跑、只是还没到自己的用例。
+- 正确做法：清之前先读 `mcpforunity://editor/state` 的 `tests.current_job_id` 与 `started_unix_ms`，只清确认是**自己
+  起的**、且**已经超过 5 分钟没有任何进展**的任务；共用编辑器时优先用 `get_test_job(wait_timeout=60)` 之类的轮询等待，
+  不要一遇到「暂时没结果」就 `clear_stuck`。
+- 关联：`.claude/skills/unity-mcp/SKILL.md`、`ai-docs/pitfalls.md #Showcase 回放中途别人保存 .cs`；`PRP/save-session/tasks.md`。
+
+## URP 相机栈只接受渲染器类型一致的相机：舞台 Overlay 相机在 3D 场景里整段不画
+- 现象：演出舞台相机（Overlay）叠进主相机的 `cameraStack` 后，2D 验证场景正常，SampleScene（3D）里黑边、字幕都在、舞台内容一片空白；服务没走退路、没埋点，只有游戏内调试面板的 Warning 计数每帧涨 1（2026-09-26 冒烟发现）。
+- 根因：URP 资产里有多个渲染器（0 号 Renderer2D、1 号 UniversalRenderer），舞台相机 `rendererIndex = -1` 落到默认的 0 号，主相机用 1 号；`UniversalRenderPipeline` 对渲染器类型不同的叠加相机直接跳过并每帧告警 `Only cameras with compatible renderer types can be stacked`，MCP 的 `read_console` 读不到这条原文。
+- 正确做法：叠加前把 Overlay 相机的渲染器对齐到主相机（URP 14 没有公开的索引 getter，反射读 `UniversalAdditionalCameraData.m_RendererIndex` 再 `SetRenderer`，收尾还原），叠加后再比一次 `scriptableRenderer.GetType()`，不一致就走 Base 退路并埋点；验证场景与正式场景用的渲染器不同时，两边都要冒烟一次。
+- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。
+
+## 序列帧画布宽不是 4 的倍数，出包时块压缩退回不压缩；编辑器里看不出来
+- 现象：方舟小人第一次渲出的画布宽 242 / 318 / 330 px，导入后 Inspector 显示正常；但这台机器编辑器里所有贴图（连现有纸片）`Texture2D.format` 都是 `RGBA32`，从编辑器里根本判断不了出包是否压缩。
+- 根因：DXT / ETC2 / ASTC 都是 4×4 块压缩，宽高不是 4 的倍数时 Unity 出包会退回不压缩（体积 ×4～×8）；本机编辑器不在导入时压缩，所以没有任何提示。
+- 正确做法：序列帧画布宽高一律取 4 的倍数（`scripts/ark-spine-frames/render_frames.py` 已按此补边：宽两侧对称、高只补顶，脚底原点不变）；美术交付规范写进了 `docs/artist-guide.md` 3.4。验证压缩结果看 `TextureImporter.GetAutomaticFormat("Standalone")` 或出包报告，不看编辑器里的 `format`。
+- 关联：`Assets/_Project/Scripts/Editor/Importers/SpriteImportProcessor.cs`（首次导入默认压缩）；2026-09-28 序列帧小人那轮。
+
+## 纯纸片 NPC 的 `Visual` 在半身高，小人挂它下面脚底会随相机俯仰偏移
+- 现象：想照玩家的接法把小人实例挂到 NPC 的 `Visual` 下，位置、缩放怎么抵消都不贴地。
+- 根因：NPC 纸片 pivot 在中心，`Visual` 摆在 y 0.8、缩放 0.625；`CameraBillboard` 把整个 `rotation` 设成相机旋转（含 38° 俯仰），子物体绕半身高的点转，脚底被甩离地面。玩家 / 巡逻者的 `Visual` 原点就在脚底，所以没这个问题。
+- 正确做法：NPC 根下另建 `PuppetVisual`（原点 + `CameraBillboard`），小人挂其下；纸片停用当朝向源（`flipX`），`trackedRoot` 指 NPC 根。步骤见 `docs/developer-guide.md` 6.15。
+- 关联：`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs`、`ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`；2026-09-28 序列帧小人那轮。
+
+## 逻辑 tick 与渲染帧脱节导致拖影 / 抖动
+- 现象：遭遇场景里角色纸片看起来顿一下再跳一下，转向和贴墙滑动时最明显；直接把逻辑 `Position` 抄给 Transform 时数值本身没错，但同一逻辑值会连续渲染好几帧，下一次 tick 到达时又整段跳过去。
+- 根因：逻辑位置只在固定 tick（`SimulationRunner` 的固定步长）推进，渲染却是每帧都刷新；视图如果直接读当前 tick 的 `Position`，帧率与 tick 率脱节的部分就会表现成拖影 / 抖动。
+- 正确做法：视图按 `SimulationRunner.Accumulator / FixedDeltaTime` 算出的 alpha，在 `PreviousPosition` 与 `Position` 之间插值（纯函数 `EncounterProjection.InterpolationAlpha` / `InterpolatePosition`），不要直接抄 `Position`。凡是整体改写 `Position` 的新入口（传送、剧情挪人）都要同步 `PreviousPosition`（调 `SyncPreviousPosition` 或走 `Rules.Reset`），否则插值会把角色从旧位置「拉」过来一次。表现层把碰撞修正写回逻辑位置时只改被挡的那一根轴，另一根轴保留逻辑值——两根轴都改会把逻辑位置往回拉，插值点因此变慢，贴墙滑动会跟着变慢。
+- 关联：`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs`（`Bind` / `Interpolate`）、`Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`（`InterpolationAlpha` / `InterpolatePosition`）、`ai-docs/docs/modules/isometricexploration/isometricexploration-module-guide.md #修改时检查`；2026-09-28。
+
+## 序列帧走路播放速率不能用「速度 × 常数」
+- 现象：给方舟序列帧小人接走路速率时套用旧的「速度 × 0.53」，跑步状态下动画播放成了约 2.65 倍快放，脚步和位移完全对不上。
+- 根因：0.53 是按旧循环（0.6 秒一圈）反算出来的系数；套到时长不同的新剪辑（方舟 Move 循环 1.13 秒）上就失效——常数背后隐含的是「剪辑本身按什么速度做的」，剪辑变了常数就要跟着变，不是一个能通用的系数。
+- 正确做法：播放速率 = 角色实际速度 ÷ 剪辑制作时的地速（`ChibiPuppet.walkClipSpeed` / `runClipSpeed`，来自序列帧 `meta.json` 的 `groundSpeed`），算出来的比值再夹到 `[0.8, 1.6]`；需要角色跑得更快就出专门的 run 帧，不要靠调高上限去让 walk 剪辑硬撑。
+- 关联：`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs`（`PlaybackRate`）、`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs`（`walkClipSpeed` / `runClipSpeed`）；2026-09-28。
+
+## MCP `execute_code` 改预制体可能被重复执行，非幂等脚本会把新节点加出好几份
+- 现象：用 `execute_code` 走 `LoadPrefabContents → 加子物体 → SaveAsPrefabAsset` 给 `PerformanceView.prefab` 加面板节点，只调了一次、返回 `saved=True`；磁盘 YAML 里 `PanelBackground`、`Avatar`、`SkipHint` 等每个新节点都有 4 份，`get_history` 里同一段代码记了 2 次执行。
+- 根因：同 `execute_menu_item` 执行两遍那条，MCP 这一侧会重放请求（未定位到具体原因）；「加子物体」类脚本不幂等，每多跑一次就多一份。
+- 正确做法：改资产的 `execute_code` 脚本开头先查「是否已改过」（如 `if (find("PanelBackground") != null) return "already-applied";`），做成幂等；改完照「预制体舞台改动可能不落盘」那条用 `grep "m_Name:" | sort | uniq -c` 核对节点没有重复。已经加重了就用 `git show HEAD:<路径> > <路径>` 只恢复这一个文件再重跑（不要整目录 checkout，共用工作区）。
+- 关联：`ai-docs/pitfalls.md #MCP execute_menu_item 会把菜单项执行两遍`、`#MCP 预制体舞台改动可能不落盘`；2026-09-28 演出世界模式 / 对白面板那轮。
+
+## 服务里懒建 `DontDestroyOnLoad` 根，EditMode 测试里一调就抛
+- 现象：给 `PerformanceService` 写 EditMode 服务级测试，`PlayAsync` 一调就同步结束，断言「应在播放」失败；主相机、摆放都没被动过。
+- 根因：`EnsureRoot` 里 `Object.DontDestroyOnLoad(go)` 在非 Play 模式直接抛 `InvalidOperationException`（「can only be used in play mode」，已实测），异常被 `PlayAsync` 包进任务里，测试不 `GetResult` 就看不到。
+- 正确做法：运行时代码里的 `DontDestroyOnLoad` 用 `if (Application.isPlaying)` 包住（EditMode 下根物体留在当前场景，测试 `TearDown` 按名字删掉）；测试断言「在播放」时顺手把已完成任务的异常带进失败信息，别只报 `Expected: True`。
+- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`EnsureRoot`）、`Tests/EditMode/Performance/PerformanceServiceWorldTests.cs`；2026-09-28 同一轮。
+
+## 世界空间头顶标记跨模块复用同一张图，不同含义撞脸
+- 现象：SampleScene 里物资箱头顶标记和任务目标标记长得一模一样，玩家分不清「这里能开箱」还是「这里是任务目标」。
+- 根因：箱子 `Marker` 直接借了对白模块的 `Art/Sprites/Dialogue/Marker_Focus.png`（白「!」气泡）并染黄 (1, 0.85, 0.3)，恰好与 `Prefabs/World/QuestTargetMarker.prefab` 的图和颜色完全相同；各模块各自「顺手借图」时没人看全局。
+- 正确做法：新模块的头顶标记用自己目录下的专属图（如 `Art/Sprites/Loot/marker_crate.png`），**形状与颜色都要区分**，不靠同一张图换染色；加新标记前把现有三种（NPC 可对话、任务目标、可拾取箱子）放一起比一眼。
+- 关联：`docs/artist-guide.md` 6.8 节、`ai-docs/docs/modules/loot/loot-module-guide.md #接线要求`；2026-09-28。
+
+## 同一类面板在不同会话里各自对标参考图，视觉漂移
+- 现象：NPC 交互对白框（`DialogueView.prefab`）做成深色底 + 左右两侧立绘压暗，同期时间轴演出对白框（`PerformanceView.prefab`）做成白色圆角 + 头像位与样式；玩家在同一场景里连续碰到两种对白框，风格明显不一致。
+- 根因：两处面板分别在不同时间、由不同会话对标不同参考图搭出来，各自都符合自己那份需求，但没人比对过「这两个面板在玩家看来是不是同一套视觉语言」；样式散落在预制体与 `DialogueConfig` 的压暗 / 缩放参数里，代码侧也没有任何东西能提醒「另一份面板已经不一样了」。
+- 正确做法：**后建的面板照先有的那份规范来**，不各自另起参考图；确定「同一视觉语言」的一组面板要有**一致性测试**锁住共用节点名与样式值（本例是 `Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`，逐节点比对 `DialogueView.prefab` 与 `PerformanceView.prefab` 的 Rect / Image / TMP 属性），改任一份不同步另一份就挂测试；样式全放预制体，代码只填文字与显隐，不要把「压暗」「缩放」这类视觉差异编码进表现层参数（`DialogueMotionSettings` 一度带了三个压暗 float，后来发现这本身就是两套视觉语言各自演化出的产物，直接删掉）。
+- 关联：`ai-docs/docs/modules/dialogue/dialogue-module-guide.md #对白面板视觉与演出面板共用规范`、`ai-docs/docs/modules/performance/performance-module-guide.md #对白面板`、`Assets/_Project/Scripts/Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`；2026-09-28。
+
+## 正式场景引用了测试程序集脚本
+- 现象：`Assets/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
+- 根因：asmdef 依赖方向只在代码层有 `invariants.py` 拦（Runtime 不引用 Tests），资产层（场景 / 预制体挂了哪个脚本）没人查；回放用的临时控制器顺手挂进了正式场景。
+- 正确做法：正式场景、预制体只挂 `Scripts/Core/`、`Scripts/Runtime/` 下的脚本；回放需要的控制器由 Showcase 运行时 `AddComponent` / 实例化并 `Track()`。`invariants.py` 新增「正式场景 / 预制体不引用测试程序集脚本」检查，`/gc` 会报。
+- 关联：`.claude/rules/project-root.md #目录与 asmdef 依赖方向`、`.claude/skills/evolution/invariants.py`；2026-09-28。
+
+## InitTestScene 残留堆积
+- 现象：Project 窗口 `Assets/` 根下出现一排 `InitTestScene6392…unity`，2026-09-28 一次清掉 41 个。
+- 根因：Unity Test Framework 跑 PlayMode 测试时在 `Assets/` 根建临时启动场景，正常结束会自删；手动停 Play、跑测试时触发重编译、进程被杀、多会话共用编辑器互相打断，都会残留。`.gitignore` 已忽略，所以 git 看不见，只在编辑器里堆。
+- 正确做法：编辑器不在 Play 时直接 `rm Assets/InitTestScene*.unity Assets/InitTestScene*.unity.meta`，零风险；`invariants.py` 新增残留检查，`/gc` 会报数量。少残留的办法：PlayMode 测试跑的时候别停 Play、别改代码触发编译。
+- 关联：`.gitignore` 里 InitTestScene 注释、`.claude/skills/evolution/invariants.py`；2026-09-28。
+
+## 回放静置期玩家自走提前触发演出，恢复检查伪装成代码故障
+- 现象：2026-09-28 两次演出回放（`ScenePerformanceShowcase`）「结束后恢复」的三项检查连续失败；反复复跑同一份代码却能通过，看起来像间歇性 bug。
+- 根因：回放拍 before 快照前有一段静置等待，这段时间里玩家自己走动了（疑似卡键 / 外部输入落到了 Game 视图），提前走进了触发区，before 快照拍在演出已经开始运行之后，之后的所有「恢复」断言自然和预期对不上；代码本身没有问题。
+- 正确做法：排查回放失败先看 Editor.log 里的埋点时间线（`performance/trigger_fired`、`dialogue/focus_changed` 等），比对时间戳能不能对上用例预期的顺序，别一上来就改代码；回放在拍 before 快照前加「环境干净」守卫（演出尚未运行、玩家存活），环境不干净就直接报环境问题而不是走进断言失败。`ScenePerformanceShowcase.WalkIntoTrigger()` 已加上这道守卫（`Check("回放环境干净：演出尚未运行、玩家存活", …)`）。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Performance/ScenePerformanceShowcase.cs:223`–`228`（`WalkIntoTrigger`）；2026-09-28 字幕逐字 / HUD 恢复那轮。
+
+## 共用一台编辑器的并发会话互相干扰
+- 现象：一个会话在跑对白回放、开着 MonsterEncounter 场景；另一个会话的 agent 为了改 SampleScene 把当前场景切走、又把回放节奏（EditorPrefs，全局）切成「快速」，对方的回放节奏和打开的场景都变了。
+- 根因：Unity 编辑器状态（当前场景、EditorPrefs、Play 状态、选中物体）是单例全局的，MCP 谁都能改，没有隔离；agent 只顾自己的任务，不知道别人在用。
+- 正确做法：用 MCP 改场景前先 `manage_scene get_hierarchy` / 读 `mcpforunity://editor/state` 记下当前打开的场景，改完存盘后切回去；改 EditorPrefs 这类全局设置（回放节奏）先读旧值，跑完还原；派单 prompt 里明确写「共用编辑器，跑完还原场景与节奏」。看到别人的场景在 Play 就等，不抢。
+- 关联：`.claude/skills/unity-mcp/SKILL.md #改场景 / 预制体的纪律`、`.claude/skills/verify-module/SKILL.md`、记忆 `shared-worktree-commit-discipline`；2026-09-28。

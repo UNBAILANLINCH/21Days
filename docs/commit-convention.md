@@ -57,3 +57,9 @@ feat(player): 角色移动与跳跃基础模块
 ```
 fix(ui): 暂停面板关闭后时间缩放没恢复
 ```
+
+## 多会话共用工作区
+
+按路径提交：`git commit -F <信息文件> -- <路径…>`，不要 `git commit -a` / 不带路径的 `git commit`。
+提交前 `git status --short` 看索引里有没有别人暂存的东西；提交后 `git show --stat` 核对只有自己的文件。
+混入且未推送时用 `git reset --soft <基底>` 再按路径重建，别人的文件会回到已暂存状态。

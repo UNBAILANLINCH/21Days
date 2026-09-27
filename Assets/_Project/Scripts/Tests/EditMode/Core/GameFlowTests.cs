@@ -1,4 +1,5 @@
-// 职责：覆盖 GameFlow 的三条核心规则——先 Exit 再 Enter、切换中的请求排队、切换完成发事件。
+// 职责：覆盖 GameFlow 的核心规则——先 Exit 再 Enter、切换中的请求排队、切换完成发事件、
+//   Exit 前发 GameStateChangingEvent（顺序 Changing → Exit → Enter → Changed）。
 // 为什么新建：这三条是状态机最容易被后续改动破坏的约定，而且完全是纯逻辑，
 // 用 VContainer 建个最小容器就能测，不需要场景也不需要帧循环。
 
@@ -37,6 +38,7 @@ namespace Game.Tests.EditMode.Core
             var builder = new ContainerBuilder();
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<GameStateChangedEvent>(options);
+            builder.RegisterMessageBroker<GameStateChangingEvent>(options);
             builder.Register<TransitionLog>(Lifetime.Singleton);
 
             // GameFlow 波 2 起要埋点，容器里得有这几样它才建得出来。
@@ -107,6 +109,50 @@ namespace Game.Tests.EditMode.Core
             Assert.That(published[0].To, Is.EqualTo(typeof(StateA)));
             Assert.That(published[1].From, Is.EqualTo(typeof(StateA)));
             Assert.That(published[1].To, Is.EqualTo(typeof(StateB)));
+        }
+
+        [Test]
+        public void GoToAsync_WhenSwitchingStates_PublishesChangingBeforeExitAndChangedAfterEnter()
+        {
+            // 两个事件的订阅者往同一本流水账里记，和状态的 Enter / Exit 排在一条时间线上比先后。
+            var changing = new List<GameStateChangingEvent>();
+            using (container.Resolve<ISubscriber<GameStateChangingEvent>>().Subscribe(e =>
+                   {
+                       changing.Add(e);
+                       log.Add("Changing:" + (e.From == null ? "null" : e.From.Name) + "->" + e.To.Name);
+                   }))
+            using (container.Resolve<ISubscriber<GameStateChangedEvent>>().Subscribe(e =>
+                       log.Add("Changed:" + (e.From == null ? "null" : e.From.Name) + "->" + e.To.Name)))
+            {
+                flow.GoToAsync<StateA>().Forget();
+                flow.GoToAsync<StateB>().Forget();
+            }
+
+            Assert.That(log.Entries, Is.EqualTo(new[]
+            {
+                "Changing:null->StateA", "A.Enter", "Changed:null->StateA",
+                "Changing:StateA->StateB", "A.Exit", "B.Enter", "Changed:StateA->StateB",
+            }), "顺序必须是 Changing → 前一状态 Exit → 新状态 Enter → Changed；首次进入也发 Changing");
+            Assert.That(changing.Count, Is.EqualTo(2));
+            Assert.That(changing[0].From, Is.Null, "首次进入状态机时 Changing 的 From 为 null");
+            Assert.That(changing[1].From, Is.EqualTo(typeof(StateA)));
+            Assert.That(changing[1].To, Is.EqualTo(typeof(StateB)));
+        }
+
+        [Test]
+        public void GoToAsync_WhenChangingPublished_CurrentIsStillPreviousState()
+        {
+            flow.GoToAsync<StateA>().Forget();
+
+            // 订阅者在回调里同步抓现场时，前一状态还没开始 Exit、Current 仍是它——这是 Changing 存在的意义。
+            Type currentAtChanging = null;
+            using (container.Resolve<ISubscriber<GameStateChangingEvent>>()
+                       .Subscribe(_ => currentAtChanging = flow.Current == null ? null : flow.Current.GetType()))
+            {
+                flow.GoToAsync<StateB>().Forget();
+            }
+
+            Assert.That(currentAtChanging, Is.EqualTo(typeof(StateA)));
         }
 
         [Test]

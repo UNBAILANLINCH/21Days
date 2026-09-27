@@ -111,5 +111,133 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(field, Is.Not.Null);
             field.SetValue(view, value);
         }
+
+        // —— 两逻辑 tick 之间的渲染插值（EncounterProjection 纯函数）——
+
+        [Test]
+        public void InterpolationAlpha_HalfStep_ReturnsHalf()
+        {
+            Assert.That(EncounterProjection.InterpolationAlpha(0.5f / 60f, 1f / 60f), Is.EqualTo(0.5f).Within(1e-5f));
+        }
+
+        [Test]
+        public void InterpolationAlpha_ClampsToZeroAndOne()
+        {
+            Assert.That(EncounterProjection.InterpolationAlpha(-0.01f, 1f / 60f), Is.EqualTo(0f));
+            Assert.That(EncounterProjection.InterpolationAlpha(float.NaN, 1f / 60f), Is.EqualTo(0f));
+            Assert.That(EncounterProjection.InterpolationAlpha(0.5f, 1f / 60f), Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void InterpolationAlpha_NonPositiveStep_ReturnsOne()
+        {
+            Assert.That(EncounterProjection.InterpolationAlpha(0.01f, 0f), Is.EqualTo(1f));
+            Assert.That(EncounterProjection.InterpolationAlpha(0.01f, -1f), Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void InterpolatePosition_Midway_Lerps()
+        {
+            EncounterProjection.InterpolatePosition(0f, 0f, 0.1f, -0.2f, 0.25f, 1.5f, out float x, out float y);
+            Assert.That(x, Is.EqualTo(0.025f).Within(1e-6f));
+            Assert.That(y, Is.EqualTo(-0.05f).Within(1e-6f));
+        }
+
+        [Test]
+        public void InterpolatePosition_AlphaEdges_ReturnEndpointsExactly()
+        {
+            EncounterProjection.InterpolatePosition(0.1f, 0.7f, 0.3f, 0.9f, 1f, 1.5f, out float x1, out float y1);
+            Assert.That(x1, Is.EqualTo(0.3f));
+            Assert.That(y1, Is.EqualTo(0.9f));
+            EncounterProjection.InterpolatePosition(0.1f, 0.7f, 0.3f, 0.9f, 0f, 1.5f, out float x0, out float y0);
+            Assert.That(x0, Is.EqualTo(0.1f));
+            Assert.That(y0, Is.EqualTo(0.7f));
+        }
+
+        [Test]
+        public void InterpolatePosition_BeyondTeleportDistance_TakesCurrent()
+        {
+            EncounterProjection.InterpolatePosition(0f, 0f, 3f, 4f, 0.5f, 1.5f, out float x, out float y);
+            Assert.That(x, Is.EqualTo(3f));
+            Assert.That(y, Is.EqualTo(4f));
+        }
+
+        [Test]
+        public void ResolveBlockedAxis_BlockedTakesCorrected_FreeKeepsLogic()
+        {
+            // 被挡：扫掠结果偏离插值点超过容差 → 取修正值。
+            Assert.That(EncounterProjection.ResolveBlockedAxis(1.1f, 1.05f, 0.9f, 0.0001f), Is.EqualTo(0.9f));
+            // 没被挡（只差浮点舍入）→ 保留逻辑值，不把逻辑位置拉回插值点。
+            Assert.That(EncounterProjection.ResolveBlockedAxis(1.1f, 1.05f, 1.05f + 1e-6f, 0.0001f), Is.EqualTo(1.1f));
+        }
+
+        [Test]
+        public void CorrectPreviousAxis_ChangedTakesCorrected_UnchangedKeepsPrevious()
+        {
+            Assert.That(EncounterProjection.CorrectPreviousAxis(0f, 0.1f, 0.02f), Is.EqualTo(0.02f));
+            Assert.That(EncounterProjection.CorrectPreviousAxis(0f, 0.1f, 0.1f), Is.EqualTo(0f));
+        }
+
+        // 视图接线：Bind 给了 alpha 源就在上一 tick 与当前 tick 之间插值；不给时按 1，行为同旧版。
+        [Test]
+        public void LateUpdate_UsesAlphaSource_AndFallsBackToCurrentWithoutIt()
+        {
+            var cameraObject = new GameObject("Test Main Camera");
+            cameraObject.tag = "MainCamera";
+            cameraObject.AddComponent<Camera>();
+            var playerObject = new GameObject("Test Player");
+            var monsterObject = new GameObject("Test Monster");
+            Sprite sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+            var playerConfig = ScriptableObject.CreateInstance<Game.Player.PlayerConfig>();
+            var monsterConfig = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                SpriteRenderer playerRenderer = playerObject.AddComponent<SpriteRenderer>();
+                SpriteRenderer monsterRenderer = monsterObject.AddComponent<SpriteRenderer>();
+                playerRenderer.sprite = sprite;
+                monsterRenderer.sprite = sprite;
+                SetField("playerBody", playerObject.transform);
+                SetField("monsterBody", monsterObject.transform);
+                SetField("playerSprite", playerRenderer);
+                SetField("monsterSprite", monsterRenderer);
+
+                var playerModel = new Game.Player.PlayerModel();
+                var monsterModel = new MonsterModel();
+                var playerRules = new Game.Player.PlayerRules(playerConfig, playerModel,
+                    Game.Core.Telemetry.NullTelemetryScope.Instance);
+                var monsterRules = new MonsterRules(monsterConfig, monsterModel,
+                    new Game.Core.Simulation.RandomService(21ul), Game.Core.Telemetry.NullTelemetryScope.Instance);
+                playerRules.Reset(Vector2.zero);
+                monsterRules.Reset(new[] { new Vector2(10f, 0f) });
+                playerRules.Step(new Game.Player.PlayerIntent(Vector2.right, false, false, false, false), 0.1f);
+                Vector2 previous = playerModel.PreviousPosition;
+                Vector2 current = playerModel.Position;
+                Assert.That(current.x, Is.GreaterThan(previous.x));
+
+                MethodInfo lateUpdate = typeof(EncounterSceneView).GetMethod(
+                    "LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(lateUpdate, Is.Not.Null);
+
+                view.Bind(playerModel, monsterModel, () => 0.5f);
+                lateUpdate.Invoke(view, null);
+                Assert.That(playerObject.transform.position.x,
+                    Is.EqualTo((previous.x + current.x) * 0.5f).Within(1e-5f));
+                Assert.That(playerObject.transform.position.z, Is.EqualTo(current.y).Within(1e-5f));
+
+                view.Bind(playerModel, monsterModel);
+                lateUpdate.Invoke(view, null);
+                Assert.That(playerObject.transform.position.x, Is.EqualTo(current.x));
+            }
+            finally
+            {
+                view.Unbind();
+                Object.DestroyImmediate(monsterConfig);
+                Object.DestroyImmediate(playerConfig);
+                Object.DestroyImmediate(sprite);
+                Object.DestroyImmediate(monsterObject);
+                Object.DestroyImmediate(playerObject);
+                Object.DestroyImmediate(cameraObject);
+            }
+        }
     }
 }

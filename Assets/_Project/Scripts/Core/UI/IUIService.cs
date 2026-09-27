@@ -40,5 +40,21 @@ namespace Game.Core.UI
 
         /// <summary>拿已经打开的面板实例，没开返回 null。用来刷新界面，不要拿它当「开没开」的判定后自己 new。</summary>
         T Get<T>() where T : UIView;
+
+        /// <summary>
+        /// 整层显隐：给沉浸模式 / 过场这类「画面上暂时只剩世界」的场合用。
+        /// 只切该层 Canvas 的渲染与射线（看不见也不挡点击），<b>不进栈、不触发面板生命周期</b>，
+        /// 层里的面板实例与记账原样保留；再次传 true 即原样恢复。之后在该层新开的面板同样跟随这一层的显隐。
+        /// </summary>
+        void SetLayerVisible(UILayer layer, bool visible);
+
+        /// <summary>
+        /// 读回 <see cref="SetLayerVisible"/> 当前设的整层开关（服务自己记账，不回读 Canvas.enabled）。
+        /// 与沉浸模式、「被全屏面板盖住」这两套 Hud 显隐互不干扰：开着全屏面板或处于沉浸时，只要没人
+        /// SetLayerVisible(false)，Hud 照样读回 true。从没设过的层（含未初始化时）返回 true（默认可见）。
+        /// 临时藏层的调用方（对白、演出）在**打开自己的面板之前**读它、收尾按读到的值恢复，
+        /// 嵌套时（对白里插播演出）不会把外层藏掉的层重新亮出来。
+        /// </summary>
+        bool IsLayerVisible(UILayer layer);
     }
 }

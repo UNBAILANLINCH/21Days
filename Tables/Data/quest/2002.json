@@ -1,0 +1,16 @@
+{
+    "id": 2002,
+    "kind": "Side",
+    "title": "清点营地物资",
+    "description": "营地附近散落着几只物资箱，把它们都打开看看。",
+    "prerequisites": [],
+    "objectives": [
+        {
+            "text": "打开物资箱",
+            "kind": "Counter",
+            "key": "crate",
+            "count": 3,
+            "location": ""
+        }
+    ]
+}

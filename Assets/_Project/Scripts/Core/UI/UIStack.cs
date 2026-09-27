@@ -44,6 +44,27 @@ namespace Game.Core.UI
         public IReadOnlyList<IUIStackEntry> Popups => popups;
 
         /// <summary>
+        /// Panel 栈里是否有任一全屏面板。UIService 据此把整个 Hud 层盖住（全屏面板底下不该露出任务栏等常驻 UI）。
+        /// 只看 Panel 栈：Popup 永远不算全屏，Hud / Top 不进栈。
+        /// </summary>
+        public bool HasFullScreenPanel
+        {
+            get
+            {
+                for (int i = 0; i < panels.Count; i++)
+                {
+                    IUIStackEntry panel = panels[i];
+                    if (panel.Layer == UILayer.Panel && panel.IsFullScreen)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 最上面的条目：先看 Popup 再看 Panel（弹窗永远盖在面板上，所以「关掉最上面那个」先关弹窗）。
         /// 两条栈都空时返回 null。
         /// </summary>

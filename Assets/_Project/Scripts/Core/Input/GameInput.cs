@@ -100,6 +100,51 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Run"",
+                    ""type"": ""Button"",
+                    ""id"": ""f6125d36-d7fe-456b-8e56-2cb212472dd8"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Immersive"",
+                    ""type"": ""Button"",
+                    ""id"": ""44fa6659-2a52-471a-b7d5-7d7d24d67097"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Interact"",
+                    ""type"": ""Button"",
+                    ""id"": ""dadd8288-ddfd-48a9-870a-32df7fe1744f"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Journal"",
+                    ""type"": ""Button"",
+                    ""id"": ""9d53f1e9-a801-40d9-a614-b9bf24157ce0"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Inventory"",
+                    ""type"": ""Button"",
+                    ""id"": ""5ae5d94a-4408-4aec-ae0e-57c20000741f"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -239,17 +284,6 @@ namespace Game.Core.Input
                     ""name"": """",
                     ""id"": ""bed64b88-d099-41c0-94df-b6c589f4085c"",
                     ""path"": ""<Gamepad>/dpad"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""Move"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": ""TouchVirtualStick"",
-                    ""id"": ""62fc74af-8e38-4def-9267-488c03510dd5"",
-                    ""path"": """",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -408,6 +442,127 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Attack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""90d446fc-5b02-4a27-9919-1e74b357905c"",
+                    ""path"": ""<Keyboard>/leftCtrl"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Run"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""0acb8897-2fbd-4f58-b853-1c57c4128406"",
+                    ""path"": ""<Gamepad>/leftStickPress"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Run"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ef0cc8ca-3316-4cca-b0a6-592f0ab06161"",
+                    ""path"": ""<Keyboard>/h"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Immersive"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c930e902-f2c7-42a8-a587-798cc4117d85"",
+                    ""path"": ""<Gamepad>/rightStickPress"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Immersive"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""878d3dbd-d37d-4431-8ff3-b68a317c6bdf"",
+                    ""path"": ""<Keyboard>/e"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Interact"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""58061ed1-6100-40f4-bc05-e474011f4441"",
+                    ""path"": ""<Keyboard>/f"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Interact"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""416bbf63-75ca-4b30-8150-9e0424440691"",
+                    ""path"": ""<Gamepad>/buttonSouth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Interact"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e3027bc0-c85c-46be-adef-5f0240f93554"",
+                    ""path"": ""<Keyboard>/tab"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Journal"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""03151af1-5ff6-43d6-8599-1faac10ba5a3"",
+                    ""path"": ""<Gamepad>/select"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Journal"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""95653e5a-bc5e-40f8-9788-441f329f2afb"",
+                    ""path"": ""<Keyboard>/b"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Inventory"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7cccb1ac-9c1e-4621-ac7a-62f6dae96a73"",
+                    ""path"": ""<Gamepad>/rightShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Inventory"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -796,6 +951,326 @@ namespace Game.Core.Input
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""Dialogue"",
+            ""id"": ""79480116-61f5-4179-9410-70c962aea96b"",
+            ""actions"": [
+                {
+                    ""name"": ""Advance"",
+                    ""type"": ""Button"",
+                    ""id"": ""8e454e1a-a50b-441f-994f-0be754a55222"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Auto"",
+                    ""type"": ""Button"",
+                    ""id"": ""ad554668-19ea-4ccd-b1ef-5844d5fb7ad8"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Speed"",
+                    ""type"": ""Button"",
+                    ""id"": ""0445cf09-b407-4399-b5b2-59525a577a12"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Skip"",
+                    ""type"": ""Button"",
+                    ""id"": ""56cd6244-0ebf-43a0-b700-b53d1c53d6e3"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""History"",
+                    ""type"": ""Button"",
+                    ""id"": ""e872c881-e6bf-4319-913f-212ffd6b0b06"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Choice1"",
+                    ""type"": ""Button"",
+                    ""id"": ""e7012574-b766-4b75-98e7-66c81b261cc4"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Choice2"",
+                    ""type"": ""Button"",
+                    ""id"": ""be08d9c4-5fd2-40a4-bf80-72a04ba5fe3c"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Choice3"",
+                    ""type"": ""Button"",
+                    ""id"": ""80638dfe-0846-4ed5-9316-a4beab75c688"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Choice4"",
+                    ""type"": ""Button"",
+                    ""id"": ""abba05b2-afd7-467c-9248-4933b87e50c9"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""6652436a-3cda-43f8-86e7-ddac546f26bd"",
+                    ""path"": ""<Keyboard>/space"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Advance"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""fb7d0606-ec98-458d-9797-25b4f7196aa4"",
+                    ""path"": ""<Keyboard>/enter"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Advance"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b62d389e-9f7f-45a6-ae63-744c079018f4"",
+                    ""path"": ""<Keyboard>/numpadEnter"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Advance"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""4d649716-a248-4dd8-ad35-b63eeefbfdbb"",
+                    ""path"": ""<Gamepad>/buttonSouth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Advance"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5d07bf8a-4cbb-4fcb-af10-b2832a89cf00"",
+                    ""path"": ""<Keyboard>/a"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Auto"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ef0bc4e3-b1dc-4dc0-97df-dbbdb639a6fa"",
+                    ""path"": ""<Gamepad>/buttonNorth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Auto"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""76ead7be-1b55-402f-a39a-aadce12200be"",
+                    ""path"": ""<Keyboard>/s"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Speed"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5aad351e-826e-40b6-9d43-3e4a4bd21720"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Speed"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""4f51b80f-95c5-48cf-bb53-381c0ef492d7"",
+                    ""path"": ""<Keyboard>/leftCtrl"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Skip"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d0188dfa-5ea0-48c8-a9ef-81061f7696c4"",
+                    ""path"": ""<Keyboard>/rightCtrl"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Skip"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a5251c65-4c40-4ed8-8a74-6a6e92116a03"",
+                    ""path"": ""<Gamepad>/rightShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Skip"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""eeb6dcdb-e6c0-41b0-a686-00da0987e488"",
+                    ""path"": ""<Keyboard>/h"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""History"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""bdf9dfbe-d48e-441b-bdf3-4bf71f6dddc3"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""History"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b28d9679-8a8a-45ef-a287-d2293aa31228"",
+                    ""path"": ""<Keyboard>/1"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice1"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""9e1f2772-b777-4e11-8caa-2854da6ee658"",
+                    ""path"": ""<Keyboard>/numpad1"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice1"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""abaf74d7-dbad-492a-aa1a-a3c7f6d235be"",
+                    ""path"": ""<Keyboard>/2"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a16d42b0-df75-4f47-a0f9-f9755a52bfc3"",
+                    ""path"": ""<Keyboard>/numpad2"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""63536760-ba8e-412d-90ff-a4813bf12d43"",
+                    ""path"": ""<Keyboard>/3"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice3"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""2387881d-393d-47d1-a7a3-eaa5cc06e1b9"",
+                    ""path"": ""<Keyboard>/numpad3"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice3"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""51c6ea44-52cc-431e-8fab-53ceb47fa2a3"",
+                    ""path"": ""<Keyboard>/4"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice4"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7b388f96-170a-4655-b066-bed4c5188c05"",
+                    ""path"": ""<Keyboard>/numpad4"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Choice4"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": []
@@ -810,6 +1285,11 @@ namespace Game.Core.Input
             m_Gameplay_Disguise = m_Gameplay.FindAction("Disguise", throwIfNotFound: true);
             m_Gameplay_Tame = m_Gameplay.FindAction("Tame", throwIfNotFound: true);
             m_Gameplay_Attack = m_Gameplay.FindAction("Attack", throwIfNotFound: true);
+            m_Gameplay_Run = m_Gameplay.FindAction("Run", throwIfNotFound: true);
+            m_Gameplay_Immersive = m_Gameplay.FindAction("Immersive", throwIfNotFound: true);
+            m_Gameplay_Interact = m_Gameplay.FindAction("Interact", throwIfNotFound: true);
+            m_Gameplay_Journal = m_Gameplay.FindAction("Journal", throwIfNotFound: true);
+            m_Gameplay_Inventory = m_Gameplay.FindAction("Inventory", throwIfNotFound: true);
             // UI
             m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
             m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -822,12 +1302,24 @@ namespace Game.Core.Input
             m_UI_RightClick = m_UI.FindAction("RightClick", throwIfNotFound: true);
             m_UI_TrackedDevicePosition = m_UI.FindAction("TrackedDevicePosition", throwIfNotFound: true);
             m_UI_TrackedDeviceOrientation = m_UI.FindAction("TrackedDeviceOrientation", throwIfNotFound: true);
+            // Dialogue
+            m_Dialogue = asset.FindActionMap("Dialogue", throwIfNotFound: true);
+            m_Dialogue_Advance = m_Dialogue.FindAction("Advance", throwIfNotFound: true);
+            m_Dialogue_Auto = m_Dialogue.FindAction("Auto", throwIfNotFound: true);
+            m_Dialogue_Speed = m_Dialogue.FindAction("Speed", throwIfNotFound: true);
+            m_Dialogue_Skip = m_Dialogue.FindAction("Skip", throwIfNotFound: true);
+            m_Dialogue_History = m_Dialogue.FindAction("History", throwIfNotFound: true);
+            m_Dialogue_Choice1 = m_Dialogue.FindAction("Choice1", throwIfNotFound: true);
+            m_Dialogue_Choice2 = m_Dialogue.FindAction("Choice2", throwIfNotFound: true);
+            m_Dialogue_Choice3 = m_Dialogue.FindAction("Choice3", throwIfNotFound: true);
+            m_Dialogue_Choice4 = m_Dialogue.FindAction("Choice4", throwIfNotFound: true);
         }
 
         ~@GameInput()
         {
             UnityEngine.Debug.Assert(!m_Gameplay.enabled, "This will cause a leak and performance issues, GameInput.Gameplay.Disable() has not been called.");
             UnityEngine.Debug.Assert(!m_UI.enabled, "This will cause a leak and performance issues, GameInput.UI.Disable() has not been called.");
+            UnityEngine.Debug.Assert(!m_Dialogue.enabled, "This will cause a leak and performance issues, GameInput.Dialogue.Disable() has not been called.");
         }
 
         public void Dispose()
@@ -897,6 +1389,11 @@ namespace Game.Core.Input
         private readonly InputAction m_Gameplay_Disguise;
         private readonly InputAction m_Gameplay_Tame;
         private readonly InputAction m_Gameplay_Attack;
+        private readonly InputAction m_Gameplay_Run;
+        private readonly InputAction m_Gameplay_Immersive;
+        private readonly InputAction m_Gameplay_Interact;
+        private readonly InputAction m_Gameplay_Journal;
+        private readonly InputAction m_Gameplay_Inventory;
         public struct GameplayActions
         {
             private @GameInput m_Wrapper;
@@ -909,6 +1406,11 @@ namespace Game.Core.Input
             public InputAction @Disguise => m_Wrapper.m_Gameplay_Disguise;
             public InputAction @Tame => m_Wrapper.m_Gameplay_Tame;
             public InputAction @Attack => m_Wrapper.m_Gameplay_Attack;
+            public InputAction @Run => m_Wrapper.m_Gameplay_Run;
+            public InputAction @Immersive => m_Wrapper.m_Gameplay_Immersive;
+            public InputAction @Interact => m_Wrapper.m_Gameplay_Interact;
+            public InputAction @Journal => m_Wrapper.m_Gameplay_Journal;
+            public InputAction @Inventory => m_Wrapper.m_Gameplay_Inventory;
             public InputActionMap Get() { return m_Wrapper.m_Gameplay; }
             public void Enable() { Get().Enable(); }
             public void Disable() { Get().Disable(); }
@@ -942,6 +1444,21 @@ namespace Game.Core.Input
                 @Attack.started += instance.OnAttack;
                 @Attack.performed += instance.OnAttack;
                 @Attack.canceled += instance.OnAttack;
+                @Run.started += instance.OnRun;
+                @Run.performed += instance.OnRun;
+                @Run.canceled += instance.OnRun;
+                @Immersive.started += instance.OnImmersive;
+                @Immersive.performed += instance.OnImmersive;
+                @Immersive.canceled += instance.OnImmersive;
+                @Interact.started += instance.OnInteract;
+                @Interact.performed += instance.OnInteract;
+                @Interact.canceled += instance.OnInteract;
+                @Journal.started += instance.OnJournal;
+                @Journal.performed += instance.OnJournal;
+                @Journal.canceled += instance.OnJournal;
+                @Inventory.started += instance.OnInventory;
+                @Inventory.performed += instance.OnInventory;
+                @Inventory.canceled += instance.OnInventory;
             }
 
             private void UnregisterCallbacks(IGameplayActions instance)
@@ -970,6 +1487,21 @@ namespace Game.Core.Input
                 @Attack.started -= instance.OnAttack;
                 @Attack.performed -= instance.OnAttack;
                 @Attack.canceled -= instance.OnAttack;
+                @Run.started -= instance.OnRun;
+                @Run.performed -= instance.OnRun;
+                @Run.canceled -= instance.OnRun;
+                @Immersive.started -= instance.OnImmersive;
+                @Immersive.performed -= instance.OnImmersive;
+                @Immersive.canceled -= instance.OnImmersive;
+                @Interact.started -= instance.OnInteract;
+                @Interact.performed -= instance.OnInteract;
+                @Interact.canceled -= instance.OnInteract;
+                @Journal.started -= instance.OnJournal;
+                @Journal.performed -= instance.OnJournal;
+                @Journal.canceled -= instance.OnJournal;
+                @Inventory.started -= instance.OnInventory;
+                @Inventory.performed -= instance.OnInventory;
+                @Inventory.canceled -= instance.OnInventory;
             }
 
             public void RemoveCallbacks(IGameplayActions instance)
@@ -1105,6 +1637,116 @@ namespace Game.Core.Input
             }
         }
         public UIActions @UI => new UIActions(this);
+
+        // Dialogue
+        private readonly InputActionMap m_Dialogue;
+        private List<IDialogueActions> m_DialogueActionsCallbackInterfaces = new List<IDialogueActions>();
+        private readonly InputAction m_Dialogue_Advance;
+        private readonly InputAction m_Dialogue_Auto;
+        private readonly InputAction m_Dialogue_Speed;
+        private readonly InputAction m_Dialogue_Skip;
+        private readonly InputAction m_Dialogue_History;
+        private readonly InputAction m_Dialogue_Choice1;
+        private readonly InputAction m_Dialogue_Choice2;
+        private readonly InputAction m_Dialogue_Choice3;
+        private readonly InputAction m_Dialogue_Choice4;
+        public struct DialogueActions
+        {
+            private @GameInput m_Wrapper;
+            public DialogueActions(@GameInput wrapper) { m_Wrapper = wrapper; }
+            public InputAction @Advance => m_Wrapper.m_Dialogue_Advance;
+            public InputAction @Auto => m_Wrapper.m_Dialogue_Auto;
+            public InputAction @Speed => m_Wrapper.m_Dialogue_Speed;
+            public InputAction @Skip => m_Wrapper.m_Dialogue_Skip;
+            public InputAction @History => m_Wrapper.m_Dialogue_History;
+            public InputAction @Choice1 => m_Wrapper.m_Dialogue_Choice1;
+            public InputAction @Choice2 => m_Wrapper.m_Dialogue_Choice2;
+            public InputAction @Choice3 => m_Wrapper.m_Dialogue_Choice3;
+            public InputAction @Choice4 => m_Wrapper.m_Dialogue_Choice4;
+            public InputActionMap Get() { return m_Wrapper.m_Dialogue; }
+            public void Enable() { Get().Enable(); }
+            public void Disable() { Get().Disable(); }
+            public bool enabled => Get().enabled;
+            public static implicit operator InputActionMap(DialogueActions set) { return set.Get(); }
+            public void AddCallbacks(IDialogueActions instance)
+            {
+                if (instance == null || m_Wrapper.m_DialogueActionsCallbackInterfaces.Contains(instance)) return;
+                m_Wrapper.m_DialogueActionsCallbackInterfaces.Add(instance);
+                @Advance.started += instance.OnAdvance;
+                @Advance.performed += instance.OnAdvance;
+                @Advance.canceled += instance.OnAdvance;
+                @Auto.started += instance.OnAuto;
+                @Auto.performed += instance.OnAuto;
+                @Auto.canceled += instance.OnAuto;
+                @Speed.started += instance.OnSpeed;
+                @Speed.performed += instance.OnSpeed;
+                @Speed.canceled += instance.OnSpeed;
+                @Skip.started += instance.OnSkip;
+                @Skip.performed += instance.OnSkip;
+                @Skip.canceled += instance.OnSkip;
+                @History.started += instance.OnHistory;
+                @History.performed += instance.OnHistory;
+                @History.canceled += instance.OnHistory;
+                @Choice1.started += instance.OnChoice1;
+                @Choice1.performed += instance.OnChoice1;
+                @Choice1.canceled += instance.OnChoice1;
+                @Choice2.started += instance.OnChoice2;
+                @Choice2.performed += instance.OnChoice2;
+                @Choice2.canceled += instance.OnChoice2;
+                @Choice3.started += instance.OnChoice3;
+                @Choice3.performed += instance.OnChoice3;
+                @Choice3.canceled += instance.OnChoice3;
+                @Choice4.started += instance.OnChoice4;
+                @Choice4.performed += instance.OnChoice4;
+                @Choice4.canceled += instance.OnChoice4;
+            }
+
+            private void UnregisterCallbacks(IDialogueActions instance)
+            {
+                @Advance.started -= instance.OnAdvance;
+                @Advance.performed -= instance.OnAdvance;
+                @Advance.canceled -= instance.OnAdvance;
+                @Auto.started -= instance.OnAuto;
+                @Auto.performed -= instance.OnAuto;
+                @Auto.canceled -= instance.OnAuto;
+                @Speed.started -= instance.OnSpeed;
+                @Speed.performed -= instance.OnSpeed;
+                @Speed.canceled -= instance.OnSpeed;
+                @Skip.started -= instance.OnSkip;
+                @Skip.performed -= instance.OnSkip;
+                @Skip.canceled -= instance.OnSkip;
+                @History.started -= instance.OnHistory;
+                @History.performed -= instance.OnHistory;
+                @History.canceled -= instance.OnHistory;
+                @Choice1.started -= instance.OnChoice1;
+                @Choice1.performed -= instance.OnChoice1;
+                @Choice1.canceled -= instance.OnChoice1;
+                @Choice2.started -= instance.OnChoice2;
+                @Choice2.performed -= instance.OnChoice2;
+                @Choice2.canceled -= instance.OnChoice2;
+                @Choice3.started -= instance.OnChoice3;
+                @Choice3.performed -= instance.OnChoice3;
+                @Choice3.canceled -= instance.OnChoice3;
+                @Choice4.started -= instance.OnChoice4;
+                @Choice4.performed -= instance.OnChoice4;
+                @Choice4.canceled -= instance.OnChoice4;
+            }
+
+            public void RemoveCallbacks(IDialogueActions instance)
+            {
+                if (m_Wrapper.m_DialogueActionsCallbackInterfaces.Remove(instance))
+                    UnregisterCallbacks(instance);
+            }
+
+            public void SetCallbacks(IDialogueActions instance)
+            {
+                foreach (var item in m_Wrapper.m_DialogueActionsCallbackInterfaces)
+                    UnregisterCallbacks(item);
+                m_Wrapper.m_DialogueActionsCallbackInterfaces.Clear();
+                AddCallbacks(instance);
+            }
+        }
+        public DialogueActions @Dialogue => new DialogueActions(this);
         public interface IGameplayActions
         {
             void OnMove(InputAction.CallbackContext context);
@@ -1115,6 +1757,11 @@ namespace Game.Core.Input
             void OnDisguise(InputAction.CallbackContext context);
             void OnTame(InputAction.CallbackContext context);
             void OnAttack(InputAction.CallbackContext context);
+            void OnRun(InputAction.CallbackContext context);
+            void OnImmersive(InputAction.CallbackContext context);
+            void OnInteract(InputAction.CallbackContext context);
+            void OnJournal(InputAction.CallbackContext context);
+            void OnInventory(InputAction.CallbackContext context);
         }
         public interface IUIActions
         {
@@ -1128,6 +1775,18 @@ namespace Game.Core.Input
             void OnRightClick(InputAction.CallbackContext context);
             void OnTrackedDevicePosition(InputAction.CallbackContext context);
             void OnTrackedDeviceOrientation(InputAction.CallbackContext context);
+        }
+        public interface IDialogueActions
+        {
+            void OnAdvance(InputAction.CallbackContext context);
+            void OnAuto(InputAction.CallbackContext context);
+            void OnSpeed(InputAction.CallbackContext context);
+            void OnSkip(InputAction.CallbackContext context);
+            void OnHistory(InputAction.CallbackContext context);
+            void OnChoice1(InputAction.CallbackContext context);
+            void OnChoice2(InputAction.CallbackContext context);
+            void OnChoice3(InputAction.CallbackContext context);
+            void OnChoice4(InputAction.CallbackContext context);
         }
     }
 }

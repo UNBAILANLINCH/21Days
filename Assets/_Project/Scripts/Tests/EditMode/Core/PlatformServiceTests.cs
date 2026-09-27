@@ -43,5 +43,38 @@ namespace Game.Tests.EditMode.Core
 
             Assert.That(service.Kind, Is.EqualTo(PlatformKind.Standalone));
         }
+
+        /// <summary>
+        /// TearDown 必须清掉覆盖：它是静态状态，留着会污染同一次 Play/域里跑的其它用例
+        /// （包括本类自己后面几条、以及真实走 Boot 的 Showcase 回放）。
+        /// </summary>
+        [TearDown]
+        public void ClearOverride()
+        {
+            PlatformServiceBase.SaveRootOverride = null;
+        }
+
+        [Test]
+        public void SaveRoot_WhenOverrideSet_ReturnsOverrideValue()
+        {
+            IPlatformService service = new StandalonePlatformService();
+            string overridePath = System.IO.Path.Combine(Application.temporaryCachePath, "platform-service-tests-override");
+
+            PlatformServiceBase.SaveRootOverride = overridePath;
+
+            Assert.That(service.SaveRoot, Is.EqualTo(overridePath));
+        }
+
+        [Test]
+        public void SaveRoot_WhenOverrideCleared_RestoresPersistentDataPathValue()
+        {
+            IPlatformService service = new StandalonePlatformService();
+            PlatformServiceBase.SaveRootOverride = System.IO.Path.Combine(Application.temporaryCachePath, "platform-service-tests-override");
+
+            PlatformServiceBase.SaveRootOverride = null;
+
+            Assert.That(service.SaveRoot, Does.StartWith(Application.persistentDataPath));
+            Assert.That(service.SaveRoot, Does.EndWith("saves"));
+        }
     }
 }

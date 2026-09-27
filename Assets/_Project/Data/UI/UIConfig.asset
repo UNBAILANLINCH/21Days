@@ -13,5 +13,6 @@ MonoBehaviour:
   m_Name: UIConfig
   m_EditorClassIdentifier: 
   referenceResolution: {x: 1920, y: 1080}
-  matchWidthOrHeight: 0.5
+  matchWidthOrHeight: 1
   transitionSeconds: 0.15
+  notificationSeconds: 2.5

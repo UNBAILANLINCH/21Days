@@ -38,7 +38,20 @@ namespace Game.Core.Save
         SaveSnapshot Capture();
         void Commit(SaveSnapshot snapshot);
 
-        /// <summary>独立于槽位的玩家档案。名称只允许字母、数字、短横线及下划线。</summary>
+        /// <summary>
+        /// 丢弃内存里的全部分区（「新游戏」用），之后每个 <see cref="Get{T}"/> 都会新建默认实例；不碰磁盘上的任何槽位与档案。
+        /// <para>
+        /// 与 <see cref="LoadAsync"/> / <see cref="Commit"/> 一样是**整体替换**：之前 Get 出来的分区实例从此与存档脱钩，
+        /// 再改它们不会被存下来。所以调用方（各服务）不得把分区实例缓存在字段里，每次用时重新 <see cref="Get{T}"/>。
+        /// </para>
+        /// </summary>
+        void ResetAll();
+
+        /// <summary>
+        /// 独立于槽位的玩家档案。名称只允许字母、数字、短横线及下划线。
+        /// T 实现 <see cref="ISaveData"/> 时写成版本信封 <c>{ "version": N, "data": {...} }</c>，读时按版本迁移
+        /// （无信封的旧裸对象按版本 1；高于代码版本则拒绝读取、返回默认值）；其它 T 按裸对象读写。
+        /// </summary>
         UniTask<T> ReadProfileAsync<T>(string name, CancellationToken ct = default) where T : class, new();
         UniTask<T> ReadProfileAsync<T>(string name, Action<T> validate, CancellationToken ct = default) where T : class, new();
         UniTask WriteProfileAsync<T>(string name, T data, CancellationToken ct = default) where T : class;

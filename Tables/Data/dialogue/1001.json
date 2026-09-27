@@ -15,6 +15,7 @@
             "next": "l2",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -30,6 +31,7 @@
             "next": "l3",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -45,6 +47,7 @@
             "next": "c1",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -60,6 +63,7 @@
             "next": "",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": [
                 {
                     "id": "accept",
@@ -116,6 +120,7 @@
             "next": "end_accepted",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -131,6 +136,7 @@
             "next": "end_refused",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -146,6 +152,7 @@
             "next": "end_accepted",
             "outcome": "",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -161,6 +168,7 @@
             "next": "",
             "outcome": "Accepted",
             "blocking": true,
+            "performance": "",
             "choices": []
         },
         {
@@ -176,6 +184,7 @@
             "next": "",
             "outcome": "Refused",
             "blocking": true,
+            "performance": "",
             "choices": []
         }
     ]

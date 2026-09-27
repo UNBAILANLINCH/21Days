@@ -19,6 +19,8 @@ namespace Game.Dialogue
             this.settings = settings;
         }
 
+        /// <summary>构造时传入的播放设置快照（Controller 由此取标点停顿与面板动效参数）。</summary>
+        public DialoguePlaybackSettings Settings => settings;
         public int SpeedIndex { get; private set; }
         public float Speed => settings.SpeedSteps[SpeedIndex];
         public bool AutoPlay { get; private set; }

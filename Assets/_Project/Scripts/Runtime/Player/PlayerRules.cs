@@ -17,7 +17,7 @@ namespace Game.Player
             this.config = config == null ? throw new ArgumentNullException(nameof(config)) : config;
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
-            if (config.MoveSpeed <= 0f || config.SneakSpeed <= 0f || config.AttackRange <= 0f
+            if (config.MoveSpeed <= 0f || config.SneakSpeed <= 0f || config.RunSpeed <= 0f || config.AttackRange <= 0f
                 || config.AttackCooldown < 0f || config.MaxHealth <= 0 || config.AttackDamage <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(config), "PlayerConfig 数值必须为正，攻击冷却可为零");
@@ -31,13 +31,16 @@ namespace Game.Player
         public void Reset(Vector2 position)
         {
             model.Position = position;
+            model.SyncPreviousPosition();
             model.Facing = Vector2.right;
             model.IsSneaking = false;
+            model.IsRunning = false;
             model.IsDisguised = false;
             model.Health = config.MaxHealth;
             model.AttackCooldownLeft = 0f;
             model.PreviousDisguise = false;
             model.PreviousAttack = false;
+            model.PreviousRun = false;
         }
 
         public bool Step(in PlayerIntent intent, float deltaTime)
@@ -47,6 +50,8 @@ namespace Game.Player
                 throw new ArgumentOutOfRangeException(nameof(deltaTime));
             }
 
+            // 表现层插值的起点：放在任何提前返回之前，死亡 / 不动的 tick 也要对齐，否则视图会在旧两点间来回插。
+            model.SyncPreviousPosition();
             if (model.Health <= 0)
             {
                 return false;
@@ -54,6 +59,13 @@ namespace Game.Player
 
             model.AttackCooldownLeft = GameMath.Max(0f, model.AttackCooldownLeft - deltaTime);
             model.IsSneaking = intent.Sneak;
+            // 走 / 跑按下沿切换（写法同伪装）：长按只切一次；潜行不改奔跑模式，只在移动时临时压过它。
+            if (intent.Run && !model.PreviousRun)
+            {
+                model.IsRunning = !model.IsRunning;
+                telemetry.Track("run_changed", ("active", model.IsRunning));
+            }
+
             if (intent.Disguise && !model.PreviousDisguise)
             {
                 model.IsDisguised = !model.IsDisguised;
@@ -69,7 +81,9 @@ namespace Game.Player
             if (GameMath.SqrMagnitude(movement) > 0f)
             {
                 model.Facing = GameMath.Normalize(movement);
-                model.Position += movement * (intent.Sneak ? config.SneakSpeed : config.MoveSpeed) * deltaTime;
+                // 三档速度：潜行按住 > 奔跑模式 > 步行。
+                float speed = intent.Sneak ? config.SneakSpeed : (model.IsRunning ? config.RunSpeed : config.MoveSpeed);
+                model.Position += movement * speed * deltaTime;
             }
 
             bool attack = intent.Attack && !model.PreviousAttack && model.AttackCooldownLeft <= 0f;
@@ -81,6 +95,7 @@ namespace Game.Player
 
             model.PreviousDisguise = intent.Disguise;
             model.PreviousAttack = intent.Attack;
+            model.PreviousRun = intent.Run;
             return attack;
         }
 

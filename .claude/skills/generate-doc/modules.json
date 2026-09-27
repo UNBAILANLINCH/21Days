@@ -57,6 +57,31 @@
       "src": "Assets/_Project/Scripts/Runtime/Gameplay",
       "docs": "ai-docs/docs/modules/lailaface",
       "status": "seed"
+    },
+    "narrative": {
+      "src": "Assets/_Project/Scripts/Runtime/Narrative",
+      "docs": "ai-docs/docs/modules/narrative",
+      "status": "seed"
+    },
+    "loot": {
+      "src": "Assets/_Project/Scripts/Runtime/Loot",
+      "docs": "ai-docs/docs/modules/loot",
+      "status": "ready"
+    },
+    "inventory": {
+      "src": "Assets/_Project/Scripts/Runtime/Inventory",
+      "docs": "ai-docs/docs/modules/inventory",
+      "status": "seed"
+    },
+    "performance": {
+      "src": "Assets/_Project/Scripts/Runtime/Performance",
+      "docs": "ai-docs/docs/modules/performance",
+      "status": "ready"
+    },
+    "session": {
+      "src": "Assets/_Project/Scripts/Runtime/Session",
+      "docs": "ai-docs/docs/modules/session",
+      "status": "seed"
     }
   }
 }

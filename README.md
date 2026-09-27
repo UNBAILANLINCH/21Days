@@ -5,7 +5,7 @@
 Claude 从 [CLAUDE.md](CLAUDE.md)、Codex 从 [AGENTS.md](AGENTS.md) 读取 [共用项目约定](ai-docs/project-guide.md)。Codex MCP 配置在 [.codex/config.toml](.codex/config.toml)。
 下面的斜杠命令、模型派单和自动 hooks 描述属于 Claude；Codex 使用自然语言触发共用流程并主动执行检查。首次连接与验证见 [AI 接入说明](docs/ai-setup.md)。
 
-**当前状态**：框架层（`Game.Core`）已建成——启动与依赖注入、状态流、UI 分层与面板栈、音频、资源、配置表、存档、输入、定时器、对象池、日志、平台隔离，另有一个端到端的示例模块 `Sample` 供照抄。**玩法未定**，第一个真玩法模块用 `/new-feature` 起。设计定稿见 [`docs/architecture.md`](docs/architecture.md)。
+**当前状态**：框架层（`Game.Core`）已建成——启动与依赖注入、状态流、UI 分层与面板栈、音频、资源、配置表、存档、输入、定时器、对象池、日志、平台隔离，另有一个端到端的示例模块 `Sample` 供照抄。玩法层已有对话、任务、探索 HUD、物资箱等模块并接进 Boot；PC 优先，移动端移植后置；差距与路线见 `docs/roadmap.md`。设计定稿见 [`docs/architecture.md`](docs/architecture.md)。
 
 ## 你该读哪些文档
 
@@ -132,6 +132,9 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 - [`docs/ai-setup.md`](docs/ai-setup.md) —— Unity MCP 一次性接入与版本升级
 - [`docs/ci-setup.md`](docs/ci-setup.md) —— CI 一次性配置（三个 secret）、怎么触发、本机打包与 CI 的关系
 - [`docs/architecture.md`](docs/architecture.md) —— 框架层设计定稿：选型、asmdef 分层、目录、各服务契约
+- [`docs/roadmap.md`](docs/roadmap.md) —— 参考对标与补足路线图：对着参考游戏的差距矩阵、任务系统边界、六个波次
+- [`docs/modules/`](docs/modules/README.md) —— 模块总览：十个模块的成熟度、是否接入、给策划 / 美术看的逐模块说明与程序三件套入口
+- [`docs/design/`](docs/design/README.md) —— 策划正文：核心概念与设计支柱、世界观圣经、唐五代志怪素材库
 - [`docs/developer-guide.md`](docs/developer-guide.md) —— 程序的操作手册（15 章，从装环境到打包）
 - [`docs/designer-guide.md`](docs/designer-guide.md) —— 策划：改数值、加道具、加表、报错怎么查
 - [`docs/cultural-guide.md`](docs/cultural-guide.md) —— 文策：相关考据参考安置处

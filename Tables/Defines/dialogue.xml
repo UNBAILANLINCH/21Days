@@ -58,6 +58,7 @@
         <var name="next" type="string"/>
         <var name="outcome" type="string"/>
         <var name="blocking" type="bool" comment="Luban JSON 不允许缺字段，数据里显式写 true / false"/>
+        <var name="performance" type="string" comment="本节点展示前先播放的演出 id（Addressables 地址），空 = 不插播；JSON 里必须显式写 &quot;&quot;"/>
         <var name="choices" type="list,Choice"/>
     </bean>
 

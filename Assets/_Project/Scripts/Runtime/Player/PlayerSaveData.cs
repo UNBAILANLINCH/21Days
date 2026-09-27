@@ -15,6 +15,11 @@ namespace Game.Player
         public float AttackCooldownLeft { get; set; }
         public bool PreviousDisguise { get; set; }
         public bool PreviousAttack { get; set; }
+
+        // 走 / 跑切换：2026-09-26 追加；老数据缺这两项时按默认 false（步行）读入。
+        public bool IsRunning { get; set; }
+        public bool PreviousRun { get; set; }
+
         public void Validate()
         {
             if (float.IsNaN(PositionX) || float.IsInfinity(PositionX)) throw new ArgumentException("PositionX 非有限值");

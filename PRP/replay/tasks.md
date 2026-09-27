@@ -22,7 +22,7 @@
 
 ## 波 A — 确定性内核骨架（期 0）
 
-- [ ] **T1** 目录落位与双基线　`Assets/_Project/Scripts/Core/{Simulation,Replay}/`
+- [x] **T1** 目录落位与双基线　`Assets/_Project/Scripts/Core/{Simulation,Replay}/`
       — 建两个目录（随首个文件产生，不预建空目录）；**确认无需新增或修改任何 asmdef**
       （校验已实测：`Game.Tests.Showcase` 与 `Game.Editor` 均已引用 `Game.Core`）；
       跑 `python .claude/skills/evolution/invariants.py` 记依赖基线；
@@ -30,7 +30,7 @@
       `Editor/Tools/` 5 个新文件等**不属于本特性**的改动，T18 对账与最终提交要按内容排除它们。
       产出：两份基线贴进本文件末尾。（model: **sonnet**）
 
-- [ ] **T2** 逻辑时钟与推进器　`Core/Simulation/` 下 `ILogicClock.cs`、`LogicClock.cs`、
+- [x] **T2** 逻辑时钟与推进器　`Core/Simulation/` 下 `ILogicClock.cs`、`LogicClock.cs`、
       `ISimulationStep.cs`、`SimulationContext.cs`、`SimulationRunner.cs`、`SimulationConfig.cs`
       — 固定步长推进；`ITickable` 驱动（按 `TimerService` 先例 `RegisterEntryPoint`）；
       **双模式** `Live`（累积渲染帧自动推进）/ `Driven`（`Tick` 空操作，只响应 `AdvanceOneTick()`）；
@@ -38,7 +38,7 @@
       `SimulationConfig` 为 SO（tickRate 60、追帧 5、主种子 0=随机）。
       **不用 `FixedUpdate`**（理由见 prp.md A2）。（model: **opus**）
 
-- [ ] **T3** 确定性随机数　`Core/Simulation/` 下 `IRandomService.cs`、`IRandomStream.cs`、
+- [x] **T3** 确定性随机数　`Core/Simulation/` 下 `IRandomService.cs`、`IRandomStream.cs`、
       `RandomService.cs`、`XorShiftRandomStream.cs`
       — 纯整数 PRNG（**不用** `System.Random` / `UnityEngine.Random`）；`State` 可读可写；
       `Value01()` 由尾数位构造、**不经 libm**；`Stream(name)` 按主种子 + 流名哈希派生；
@@ -46,7 +46,7 @@
       配置里主种子为 0 时取一次性随机种子，用 `Guid.NewGuid()` 的哈希（`TelemetryService` 生成 sid 的先例），
       **不要用 `UnityEngine.Random` 取种子**——那正是本任务要禁的东西。种子一经确定即写入回放头部。（model: **opus**）
 
-- [ ] **T4** 输入命令与来源　`Core/Simulation/` 下 `InputCommand.cs`、`IInputSource.cs`、
+- [x] **T4** 输入命令与来源　`Core/Simulation/` 下 `InputCommand.cs`、`IInputSource.cs`、
       `LiveInputSource.cs`、`InputSourceSwitch.cs`
       — `InputCommand` 定长 `readonly struct`（2 轴 + 按钮位掩码 + 指针 + Flags + 2 字节 Reserved）；
       **映射按实测动作图**：`Axis0`=`Gameplay/Move`，`Buttons` bit0/1/2=`Confirm`/`Cancel`/`Pause`，
@@ -57,7 +57,7 @@
       `InputSourceSwitch` 注册进容器、内部切换 live/replay（**不重建容器**，见 prp.md A4）。
       `IInputService` 现有接口**一个字不改**。（model: **opus**）
 
-- [ ] **T5** 数学薄封装　`Core/Simulation/GameMath.cs`
+- [x] **T5** 数学薄封装　`Core/Simulation/GameMath.cs`
       — 转发 `Sqrt / Sin / Cos / Atan2 / Lerp / Normalize / Distance / Abs / Min / Max / Clamp`；
       本期**不改变任何数值行为**。文件头必须写清「这是定点数升级的唯一改动点」，
       否则后人会当无意义转发层删掉。（model: **sonnet**）
@@ -66,7 +66,7 @@
 
 ## 波 B — 期 0 收口
 
-- [ ] **T6** 容器接线与契约文档　`Core/Boot/GameLifetimeScope.cs`、`docs/architecture.md`
+- [x] **T6** 容器接线与契约文档　`Core/Boot/GameLifetimeScope.cs`、`docs/architecture.md`
       — 注册 `SimulationConfig` / `LogicClock` / `RandomService` / `SimulationRunner`(EntryPoint) /
       `InputSourceSwitch`，位置在 `LocalClock` 之后、`InputService` 之前，**仅追加，不动既有任何一行注册顺序**；
       `architecture.md` 改六处（5.8 输入补 `IInputSource`、5.8 时间补 `ILogicClock` 并写清与 `IClock` 分工、
@@ -74,13 +74,13 @@
       第 7 节补一行「确定性内核也是将来帧同步联机的地基」）。
       改既有 `*LifetimeScope.cs` **不触发** VContainer 模板覆盖，放心改。（model: **opus**）
 
-- [ ] **T7** 期 0 EditMode 测试　`Tests/EditMode/Simulation/` 下 `SimulationRunnerTests.cs`、
+- [x] **T7** 期 0 EditMode 测试　`Tests/EditMode/Simulation/` 下 `SimulationRunnerTests.cs`、
       `RandomStreamTests.cs`、`InputCommandTests.cs`
       — 覆盖：10 FPS 与 200 FPS 下推进同样 tick 数结果一致；`Driven` 模式不自动推进；追帧上限生效；
       同种子序列可重现；`State` 存取恢复后续序列与未中断时相同；`logic`/`view` 流互不干扰；
       `InputCommand` 序列化往返逐字段相等。（model: **opus**）
 
-- [ ] **T8** lint 护栏　`.claude/skills/project-lint/rules.json`
+- [x] **T8** lint 护栏　`.claude/skills/project-lint/rules.json`
       — 加 5 条规则，作用域一律 `Assets/_Project/Scripts/Runtime/**`：
       `gameplay-system-random`、`gameplay-render-time`、`gameplay-raw-math`、`gameplay-raw-input`（以上 BLOCK）、
       `gameplay-physics-query`（**WARN**，纯表现用途合法会误报，误报写 `// lint-ok: 纯表现，不参与判定`）。
@@ -90,25 +90,25 @@
 
 ## 波 C — 回放数据层（期 1）
 
-- [ ] **T9** 配置内容哈希　`Core/Config/IConfigService.cs`、`Core/Config/ConfigService.cs`
+- [x] **T9** 配置内容哈希　`Core/Config/IConfigService.cs`、`Core/Config/ConfigService.cs`
       — 加 `ulong ContentHash { get; }`，`InitializeAsync` 加载完表数据后对字节流做一次 FNV-1a。
       **这是本期唯一修改的既有框架服务**，理由见 prp.md A9.1（没有它，「配置改过」会伪装成一堆漂移 tick）。
       补一条 EditMode 断言：同数据两次加载哈希相同、数据变则哈希变。（model: **opus**）
 
-- [ ] **T10** 状态序列化与哈希　`Core/Replay/` 下 `IStateWriter.cs`、`IStateReader.cs`、`StateBuffer.cs`、
+- [x] **T10** 状态序列化与哈希　`Core/Replay/` 下 `IStateWriter.cs`、`IStateReader.cs`、`StateBuffer.cs`、
       `IReplayState.cs`、`IReplayStateProvider.cs`、`StateHasher.cs`
       — 定长基础类型读写，内部字节缓冲预分配；**哈希由框架对序列化字节算 FNV-1a**，模块不实现哈希；
       **浮点写入前规范化**（`-0.0`→`+0.0`、NaN 统一位模式），否则数值相等却哈希不同 = 误报漂移；
       注册顺序即序列化顺序，顺序变更要升格式版本（写进注释）。（model: **opus**）
 
-- [ ] **T11** 回放文件格式　`Core/Replay/` 下 `ReplayFormat.cs`、`ReplayHeader.cs`、`ReplayChunk.cs`、
+- [x] **T11** 回放文件格式　`Core/Replay/` 下 `ReplayFormat.cs`、`ReplayHeader.cs`、`ReplayChunk.cs`、
       `ReplayWriter.cs`、`ReplayReader.cs`
       — magic `21DR` + formatVersion + platform + unixUtc + buildVersion + seed + configHash（来自 T9）
       + fixedDeltaTime + startTick + 起始完整快照；chunk 为 `[type|tick|length|payload]`，
       **未知 type 按 length 跳过**（期 2 加类型不升版本）；版本不匹配 / 文件损坏给**可读报错**
       （说清坏在哪），不崩溃、不静默播错。（model: **opus**）
 
-- [ ] **T12** 录制器与配置　`Core/Replay/` 下 `ReplayRecorder.cs`、`ReplayConfig.cs`
+- [x] **T12** 录制器与配置　`Core/Replay/` 下 `ReplayRecorder.cs`、`ReplayConfig.cs`
       — 预分配定长环形缓冲（按 `缓冲秒数 × tickRate`），**禁用 `List<T>` / `MemoryStream`**（扩容分配违反 G3）；
       快照单独小环（默认留 30 个）；三种保存触发（`logMessageReceived` 收 Error/Exception 自动存、热键、API）；
       **重入防护**：保存期间置标志，标志期内的日志一律不触发保存，保存失败只埋一次点、不重试
@@ -120,7 +120,7 @@
 
 ## 波 D — 回放播放层（期 1）
 
-- [ ] **T13** 播放器与回放输入源　`Core/Replay/` 下 `ReplayPlayer.cs`、`ReplayInputSource.cs`
+- [x] **T13** 播放器与回放输入源　`Core/Replay/` 下 `ReplayPlayer.cs`、`ReplayInputSource.cs`
       — **`ReplayPlayer` 自己实现 `ITickable` 并 `RegisterEntryPoint` 注册**（与 `SimulationRunner` 同例），
       每渲染帧按播放状态决定调几次 `runner.AdvanceOneTick()`（暂停 0 / 单步 1 / 8× 推 8）——
       窗口与 Showcase 都只改播放状态、都不驱动推进，两者因此走同一条路径；
@@ -129,12 +129,12 @@
       `configHash` 不匹配时报「配置版本不匹配」而不是一堆漂移 tick。
       放**运行时**而非 Editor（期 2 真机自测与自动化回归要用）。（model: **opus**）
 
-- [ ] **T14** 配置资产　`Assets/_Project/Data/Simulation/SimulationConfig.asset`、
+- [x] **T14** 配置资产　`Assets/_Project/Data/Simulation/SimulationConfig.asset`、
       `Assets/_Project/Data/Replay/ReplayConfig.asset`
       — 优先走 Unity MCP 创建；**MCP 没连或编辑器没开时，改为把创建步骤列给用户在编辑器里做**，
       不直接写 `.asset` 文本。`menuName` 前缀 `21Days/Core/`；填默认值；确认 `.meta` 生成。（model: **sonnet**）
 
-- [ ] **T15** 编辑器回放窗口　`Assets/_Project/Scripts/Editor/Tools/ReplayWindow.cs`
+- [x] **T15** 编辑器回放窗口　`Assets/_Project/Scripts/Editor/Tools/ReplayWindow.cs`
       — 加载文件、播放/暂停、逐 tick 步进、变速（0.25×~8×）、显示当前 tick 与漂移状态；
       **不含任何回放逻辑**（只改 `ReplayPlayer` 的播放状态）；
       非 Play 状态下给明确提示，不静默失效。（model: **opus**）
@@ -143,7 +143,7 @@
 
 ## 波 E — 验证与收口
 
-- [ ] **T16** Showcase 示范世界　`Tests/Showcase/Replay/` 下 `DemoWorld.cs`、`ReplayShowcase.cs`
+- [x] **T16** Showcase 示范世界　`Tests/Showcase/Replay/` 下 `DemoWorld.cs`、`ReplayShowcase.cs`
       — `DemoWorld` 实现 `ISimulationStep` + `IReplayState`：若干实体随 tick 移动、用 `logic` 流决定转向、
       响应 `InputCommand`；`ReplayShowcase` 派生 `ShowcaseScenario`，**`ScenePath` 返回 `null`（代码里搭，不建场景文件）**；
       流程为录一段 → 重放 → 断言全程哈希一致 → 注入不确定源 → 断言报出首次漂移 tick → 断言从快照续跑不中断。
@@ -151,7 +151,7 @@
       （pitfall：空场景进 Play 什么都不发生）；确认 `runInBackground: 1`（pitfall：否则 MCP 下必假死，
       会被误判成回放器死锁）。（model: **opus**）
 
-- [ ] **T17** 期 1 EditMode 测试　`Tests/EditMode/Replay/` 下 `ReplayFormatTests.cs`、`StateHasherTests.cs`、
+- [x] **T17** 期 1 EditMode 测试　`Tests/EditMode/Replay/` 下 `ReplayFormatTests.cs`、`StateHasherTests.cs`、
       `DriftDetectionTests.cs`
       — 覆盖：chunk 读写往返、未知 chunk 跳过、头部版本不匹配给可读报错、损坏文件不崩溃、
       `-0.0`/NaN 规范化后哈希稳定、漏字段场景下哈希确实变化、哈希对不上能定位**首次**漂移 tick。（model: **opus**）
@@ -218,8 +218,8 @@
 | C | T9~T12 | ✅ 完成 | EditMode **150/150**（主窗口复核）；四件各有 `execute_code` 实测 |
 | D | T13~T15 | ✅ 完成 | **端到端闭环打通**：录 400 tick → 重放 → 世界终态逐位相同、零漂移 |
 | D | 追加修正 | ✅ 完成 | 补 `SeekClockTo` 正规入口 + `RandomService.Reseed`（负对照证明其必要性） |
-| E | T16 / T17 | 🔄 进行中 | — |
-| E | T18 | ⏸ | — |
+| E | T16 / T17 | ✅ 完成（代码已随 8595e7a 提交；本行 2026-09-26 补记） | `Tests/Showcase/Replay/{DemoWorld,ReplayShowcase}.cs`、`Tests/EditMode/Replay/{ReplayFormatTests,StateBufferTests,DriftDetectionTests}.cs` 五个文件均存在且已提交（`git log -- <路径>` 命中 8595e7a，工作区无未提交改动） |
+| E | T18 | ⚠️ 部分（本行 2026-09-26 补记） | 编译 / lint / EditMode / 依赖不变量已复核通过，`prd.md` 13 条验收标准 11 条 ✅、2 条 `[~]`（未捕获异常落盘后「被窗口加载」与「窗口 UI 真实交互」两步没有端到端验证，需人工跑一遍）；G1 体积已回填（**外推**约 690 KB，非真实 5 分钟连续录制实测）；**G3 的 0.2 ms/帧预算 `prd.md` 明确写着「未实测」，没有回填**，需要接真实玩法模块后用 Profiler 对比开关录制的逐帧耗时差 |
 
 **波 D 的端到端实测**（`execute_code`，最像真事故的形态：环形缓冲跑满绕圈 → 起点是中途快照 tick 200、
 重放侧全新一局且主种子不同、有一条 `logic.late` 流到 tick 250 才首次取用）：

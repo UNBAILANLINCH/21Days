@@ -11,8 +11,8 @@ namespace Game.Core.Audio
     /// 音频服务。玩法要出声只走这里，不自己建 AudioSource、不自己 <c>AudioSource.PlayClipAtPoint</c>。
     /// <para>
     /// 三路音量：<see cref="MasterVolume"/> 乘在另外两路之上，都是 0～1 的线性值。
-    /// setter 会**立刻生效并写回存档分区** <c>SettingsSaveData</c>，但**不落盘**——
-    /// 落盘由设置界面在关闭时调 <c>ISaveService.SaveAsync</c>，免得拖动音量滑块时每帧写一次文件。
+    /// setter 会**立刻生效并写回设置档案** <c>ISettingsService.Current</c>（跨存档槽的独立档案），但**不落盘**——
+    /// 落盘由设置界面在确认时调 <c>ISettingsService.SaveAsync</c>，免得拖动音量滑块时每帧写一次文件。
     /// </para>
     /// </summary>
     public interface IAudioService

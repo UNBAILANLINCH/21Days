@@ -3,6 +3,7 @@
 //
 // 做什么：把「进 Play → 加载场景 → 按节奏驱动模块 → 逐步停顿让人看清 → 检查点判定 → 截图 → 出报告」
 //         这条固定流程收敛成一个基类，每个模块的 Showcase 只剩一串 yield return Step/Check。
+//         SetUp 里还会先把键盘焦点切给 Game 视图（FocusGameView），否则焦点在别的窗口时真实按键用例的键盘事件会被丢。
 //
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— 回放引擎本身就是复用 Unity Test Framework（[UnityTest] + [UnitySetUp]/[UnityTearDown]），
@@ -15,6 +16,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using Game.Core.Platform;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -34,12 +36,26 @@ namespace Game.Tests.Showcase
 
         private readonly List<UnityEngine.Object> tracked = new List<UnityEngine.Object>();
 
+        // 本条用例「预期会出现」的错误日志判定（坏档回放故意读坏文件，框架层按约定打 Error）。命中的不计入异常。
+        private readonly List<Func<string, bool>> expectedErrors = new List<Func<string, bool>>();
+        private int expectedErrorHits;
+
         private ShowcaseReport report;
         private ShowcaseOverlay overlay;
         private float testStartTime;
         private int stepIndex;
         private bool capturing;
         private bool bootLoaded;
+
+        /// <summary>本条用例专用的存档根目录覆盖（临时缓存目录下），SetUp 里建、TearDown 里删。</summary>
+        private string showcaseSaveRoot;
+#if UNITY_EDITOR
+        // 回放期间锁住程序集重载（见 AcquireReloadLock）。静态计数 = 本类当前持有的锁数，防止嵌套 / 重复解锁；
+        // 实例标记保证一条用例最多加一次、解一次。
+        private static int reloadLockCount;
+        private static bool exitPlayHookInstalled;
+        private bool holdsReloadLock;
+#endif
 
         /// <summary>模块名，PascalCase（报告目录用它的小写形式）。</summary>
         protected abstract string Module { get; }
@@ -76,16 +92,36 @@ namespace Game.Tests.Showcase
         [UnitySetUp]
         public IEnumerator ShowcaseSetUp()
         {
+            string testName = TestContext.CurrentContext.Test.Name;
+
+            // 必须在加载 Boot 场景之前设置：容器建出的平台服务第一次读 SaveRoot 就要拿到这个值，
+            // 否则回放会把 slot1..N.json 写进玩家真实存档目录，几条用例跑下来就把真实存档槽写满
+            // （ai-docs/pitfalls.md「从『开始』进场景的回放把玩家真实存档写满了」）。
+            // 目录按模块 + 用例名区分，同一 Play 会话里连着跑同模块的多条用例也不会互相残留。
+            showcaseSaveRoot = Path.Combine(
+                Application.temporaryCachePath, "showcase-saves", Module.ToLowerInvariant() + "-" + testName);
+            if (Directory.Exists(showcaseSaveRoot))
+            {
+                // 上一次回放没清理成功（编辑器中途崩了），先清空再用，别让残留文件影响这一次的判定。
+                Directory.Delete(showcaseSaveRoot, true);
+            }
+
+            Directory.CreateDirectory(showcaseSaveRoot);
+            PlatformServiceBase.SaveRootOverride = showcaseSaveRoot;
+
+            AcquireReloadLock();
             stepIndex = 0;
             bootLoaded = false;
+            expectedErrors.Clear();
+            expectedErrorHits = 0;
             testStartTime = Time.realtimeSinceStartup;
 
-            string testName = TestContext.CurrentContext.Test.Name;
             report = ShowcaseReport.Open(Module);
             report.BeginTest(testName);
             Log($"开始回放「{testName}」，节奏 x{ShowcaseOptions.HoldScale.ToString("0.##", CultureInfo.InvariantCulture)}");
 
             BeginCapture();
+            FocusGameView();
             yield return LoadScenes();
 
             overlay = ShowcaseOverlay.Create(Module);
@@ -94,26 +130,165 @@ namespace Game.Tests.Showcase
         [UnityTearDown]
         public IEnumerator ShowcaseTearDown()
         {
-            EndCapture();
-
-            int failures = report == null ? 0 : report.CurrentTestFailureCount;
-            int exceptions = report == null ? 0 : report.CurrentTestExceptionCount;
-            string reportPath = report == null ? "(未生成)" : report.Write();
-
-            if (overlay != null)
+            // try/finally：写报告、销毁物体或 Assert.Fail 抛出时也要解锁，否则编辑器会一直不编译。
+            try
             {
-                UnityEngine.Object.Destroy(overlay.gameObject);
-                overlay = null;
+                EndCapture();
+                if (expectedErrors.Count > 0)
+                {
+                    Log($"预期内的错误日志 {expectedErrorHits} 条已按约定忽略");
+                    expectedErrors.Clear();
+                    LogAssert.ignoreFailingMessages = false;
+                }
+
+                int failures = report == null ? 0 : report.CurrentTestFailureCount;
+                int exceptions = report == null ? 0 : report.CurrentTestExceptionCount;
+                string reportPath = report == null ? "(未生成)" : report.Write();
+
+                if (overlay != null)
+                {
+                    UnityEngine.Object.Destroy(overlay.gameObject);
+                    overlay = null;
+                }
+
+                DestroyTracked();
+                yield return null;
+
+                Log($"回放结束：检查点失败 {failures} 个，异常 {exceptions} 条，报告 {reportPath}");
+                if (failures > 0 || exceptions > 0)
+                {
+                    Assert.Fail($"{failures} 个检查点失败，{exceptions} 条异常；报告：{reportPath}");
+                }
+            }
+            finally
+            {
+                // 存档根目录覆盖必须无条件清掉：留着的话下一条用例（甚至下一次 Play）会继续读到这次的临时目录。
+                PlatformServiceBase.SaveRootOverride = null;
+                if (!string.IsNullOrEmpty(showcaseSaveRoot) && Directory.Exists(showcaseSaveRoot))
+                {
+                    try
+                    {
+                        Directory.Delete(showcaseSaveRoot, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"{ShowcaseOptions.Prefix}[{Module}] 清理临时存档目录失败："
+                                         + $"{showcaseSaveRoot}，{e.GetType().Name}：{e.Message}");
+                    }
+                }
+
+                ReleaseReloadLock();
+            }
+        }
+
+        /// <summary>
+        /// 回放期间锁住程序集重载。回放在 Play 模式里跑，别的会话此时保存 .cs 会触发「Play 中重编译 + 域重载」，
+        /// UTF 的测试协程随域重载被丢掉，用例既不失败也不结束、进度永远卡住（2026-09-26 实测：Dialogue 回放卡 4 分钟）。
+        /// 锁住后改动只排队，回放结束解锁时再编译。只在编辑器里生效。
+        /// </summary>
+        private void AcquireReloadLock()
+        {
+#if UNITY_EDITOR
+            if (holdsReloadLock)
+            {
+                return;
             }
 
-            DestroyTracked();
-            yield return null;
+            holdsReloadLock = true;
+            reloadLockCount++;
+            UnityEditor.EditorApplication.LockReloadAssemblies();
 
-            Log($"回放结束：检查点失败 {failures} 个，异常 {exceptions} 条，报告 {reportPath}");
-            if (failures > 0 || exceptions > 0)
+            // 兜底：SetUp 中途抛异常、TearDown 没跑到时，退出 Play 模式把本类加的锁全部还掉。
+            if (!exitPlayHookInstalled)
             {
-                Assert.Fail($"{failures} 个检查点失败，{exceptions} 条异常；报告：{reportPath}");
+                exitPlayHookInstalled = true;
+                UnityEditor.EditorApplication.playModeStateChanged += ReleaseAllOnExitPlay;
             }
+#endif
+        }
+
+        /// <summary>与 <see cref="AcquireReloadLock"/> 对称；本实例没加过锁、或计数已归零时什么都不做（防重复解锁）。</summary>
+        private void ReleaseReloadLock()
+        {
+#if UNITY_EDITOR
+            if (!holdsReloadLock)
+            {
+                return;
+            }
+
+            holdsReloadLock = false;
+            if (reloadLockCount <= 0)
+            {
+                return;
+            }
+
+            reloadLockCount--;
+            UnityEditor.EditorApplication.UnlockReloadAssemblies();
+#endif
+        }
+
+        /// <summary>
+        /// 把键盘焦点给 Game 视图。Input System 在编辑器里只把「Game 视图有焦点」时的键盘事件送进队列，
+        /// 焦点停在 Console / Project 等窗口时，真实按键用例（InputSystem.QueueStateEvent 排进去的键盘事件）会被整批丢掉，
+        /// 用例红在「按了没反应」（2026-09-28 Taming / Disguise 迁到 SampleScene 首轮实测）。
+        /// 实现：EditorApplication.ExecuteMenuItem("Window/General/Game")——与手动点菜单同一路径，会激活并聚焦 Game 视图。
+        /// 只在编辑器且非批处理下做（批处理没有窗口）；失败只告警不中断，焦点问题会在对应用例里自己暴露。
+        /// </summary>
+        private static void FocusGameView()
+        {
+#if UNITY_EDITOR
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!UnityEditor.EditorApplication.ExecuteMenuItem("Window/General/Game"))
+                {
+                    Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点失败：菜单 Window/General/Game 不存在，"
+                                     + "真实按键用例可能收不到键盘事件");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点时抛出 {e.GetType().Name}：{e.Message}，"
+                                 + "真实按键用例可能收不到键盘事件");
+            }
+#endif
+        }
+
+#if UNITY_EDITOR
+        private static void ReleaseAllOnExitPlay(UnityEditor.PlayModeStateChange change)
+        {
+            if (change != UnityEditor.PlayModeStateChange.ExitingPlayMode)
+            {
+                return;
+            }
+
+            while (reloadLockCount > 0)
+            {
+                reloadLockCount--;
+                UnityEditor.EditorApplication.UnlockReloadAssemblies();
+            }
+        }
+#endif
+
+        /// <summary>
+        /// 声明本条用例会出现、且属于被测行为本身的错误日志（例如故意读坏档时存档服务打的 Error）。
+        /// 命中 <paramref name="match"/> 的 Error 不计入报告异常；其余 Error 照常计入并在 TearDown 判失败。
+        /// 同时打开 <c>LogAssert.ignoreFailingMessages</c>，否则 UTF 会在第一条 Error 处当场打断用例（TearDown 里恢复）。
+        /// </summary>
+        protected void ExpectErrorLogs(string reason, Func<string, bool> match)
+        {
+            if (match == null)
+            {
+                return;
+            }
+
+            expectedErrors.Add(match);
+            LogAssert.ignoreFailingMessages = true;
+            Log($"本条用例预期会出现错误日志：{reason}（命中的不计入异常）");
         }
 
         /// <summary>
@@ -536,10 +711,37 @@ namespace Game.Tests.Showcase
                 return;
             }
 
+            if (IsExpectedError(condition))
+            {
+                expectedErrorHits++;
+                return;
+            }
+
             if (report != null)
             {
                 report.AddException(condition, stackTrace);
             }
+        }
+
+        /// <summary>日志回调里调用：不打日志（会递归进回调），判定抛异常按「不是预期错误」算。</summary>
+        private bool IsExpectedError(string condition)
+        {
+            for (int i = 0; i < expectedErrors.Count; i++)
+            {
+                try
+                {
+                    if (expectedErrors[i](condition ?? string.Empty))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception)
+                {
+                    // 见方法注释。
+                }
+            }
+
+            return false;
         }
 
         private void DestroyTracked()

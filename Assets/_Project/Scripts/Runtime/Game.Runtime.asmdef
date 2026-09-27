@@ -11,7 +11,9 @@
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "LitMotion",
-        "LitMotion.Extensions"
+        "LitMotion.Extensions",
+        "Unity.Timeline",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

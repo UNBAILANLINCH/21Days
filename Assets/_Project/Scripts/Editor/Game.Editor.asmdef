@@ -10,7 +10,9 @@
         "Unity.Addressables",
         "Unity.ResourceManager",
         "VContainer",
-        "UniTask"
+        "UniTask",
+        "Unity.Timeline",
+        "Unity.Timeline.Editor"
     ],
     "includePlatforms": [
         "Editor"

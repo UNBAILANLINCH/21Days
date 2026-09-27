@@ -9,12 +9,16 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
+using Game.Core.Events;
 using Game.Core.Input;
 using Game.Core.UI;
+using MessagePipe;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Game.Tests.EditMode.Core
 {
@@ -34,6 +38,7 @@ namespace Game.Tests.EditMode.Core
     public sealed class UIServiceTests
     {
         private FakeAssetService assets;
+        private FakeHudPublisher hudChanged;
         private UIService service;
 
         [SetUp]
@@ -42,11 +47,17 @@ namespace Game.Tests.EditMode.Core
             assets = new FakeAssetService();
             assets.Register<ThrowingView>();
             assets.Register<PlainView>();
+            assets.Register<HudView>();
+            assets.Register<ImmersiveHudView>();
+            assets.Register<PopupView>();
+            assets.Register<LockedView>();
 
             // InputService 只有在 InitializeAsync 之后才会创建 GameInput；这里只是给构造函数一个非空依赖。
             // 埋点两个参数传 null：UIService 会换成空实现，开关面板的行为和接了埋点时完全一样，
             // 本文件要验的三条规则也就不受埋点影响。
-            service = new UIService(assets, new InputService(), null, null, null);
+            // 沉浸事件出口用计数假实现，沉浸用例断言「状态变化只发布一次」。
+            hudChanged = new FakeHudPublisher();
+            service = new UIService(assets, new InputService(), null, null, null, hudChanged);
         }
 
         [TearDown]
@@ -69,6 +80,47 @@ namespace Game.Tests.EditMode.Core
             Assert.That(service.Get<ThrowingView>(), Is.Null, "打开失败的面板不能留在记账里，否则下次会当成「已开着」复用");
             Assert.That(assets.ReleaseCount, Is.EqualTo(1), "失败路径要把实例还给资源服务，不能留在场景上");
             Assert.That(assets.LiveInstanceCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OpenAsync_WhenOnOpenAsyncThrows_LeavesNoUnobservedTaskException()
+        {
+            // 回归：失败路径曾对「并发等待者」用的 UniTaskCompletionSource 调 TrySetException 却无人读取，
+            // GC 时终结器把同一个异常当未观察异常再发布一遍，随机砸中后面某条无关用例（pitfalls.md）。
+            // 这里接住 UniTaskScheduler 的发布口、就地强制 GC 与终结，确认 ThrowingView 的异常不会再冒出来。
+            // Mono 是保守式 GC，对象未必本轮就被回收，所以这条只能「抓到就一定是回归」，抓不到不代表绝对干净。
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 ThrowingView"));
+
+            var unobserved = new List<Exception>();
+            Action<Exception> capture = e =>
+            {
+                lock (unobserved) unobserved.Add(e);
+            };
+            bool dispatchToMainThread = UniTaskScheduler.DispatchUnityMainThread;
+
+            // 终结器线程上发布时默认会投递回主线程（下一帧才执行），关掉投递才能在本用例内同步接住。
+            UniTaskScheduler.DispatchUnityMainThread = false;
+            UniTaskScheduler.UnobservedTaskException += capture;
+            try
+            {
+                Assert.Throws<InvalidOperationException>(
+                    () => service.OpenAsync<ThrowingView>().GetAwaiter().GetResult());
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+            finally
+            {
+                UniTaskScheduler.UnobservedTaskException -= capture;
+                UniTaskScheduler.DispatchUnityMainThread = dispatchToMainThread;
+            }
+
+            lock (unobserved)
+            {
+                Assert.That(unobserved.FindAll(e => e.Message == ThrowingView.Message), Is.Empty,
+                    "打开失败的异常已经抛给调用方，不能再以「未观察异常」的形式延迟发布一遍");
+            }
         }
 
         [Test]
@@ -105,6 +157,191 @@ namespace Game.Tests.EditMode.Core
             Assert.That(assets.ReleaseCount, Is.EqualTo(0), "不是自己开的就不能还给资源服务");
         }
 
+        [Test]
+        public void SetLayerVisible_BeforeInitialize_WarnsAndRemembers()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex(@"SetLayerVisible\(Hud\)"));
+
+            Assert.DoesNotThrow(() => service.SetLayerVisible(UILayer.Hud, false),
+                "还没建层就切显隐是时序问题，记 Warn 即可，不该把调用方炸掉");
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.False, "读回的是 SetLayerVisible 设的值，与层建没建好无关");
+            Assert.That(service.IsLayerVisible(UILayer.Popup), Is.True, "没设过的层默认可见");
+        }
+
+        [Test]
+        public void IsLayerVisible_FullScreenPanelOpenOrHudHidden_StillReportsLayerSwitchOnly()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            PlainView panel = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            Assert.That(panel.IsFullScreen, Is.True, "前提：Panel 层默认是全屏面板");
+
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.True,
+                "全屏面板盖住 Hud 是另一套机制，不能污染整层开关的读回值（否则演出 / 对白收尾会把 Hud 恢复成隐藏）");
+
+            service.SetHudHidden(true);
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.True, "沉浸模式同样不影响整层开关的读回值");
+
+            LogAssert.Expect(LogType.Warning, new Regex(@"SetLayerVisible\(Hud\)"));
+            service.SetLayerVisible(UILayer.Hud, false);
+            service.CloseAsync(panel).GetAwaiter().GetResult();
+            service.SetHudHidden(false);
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.False, "关掉全屏面板、退出沉浸都不会改动 SetLayerVisible 设的值");
+        }
+
+        [Test]
+        public void SetHudHidden_True_HidesHudPanelsButKeepsImmersiveOnes()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 HudView"));
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 ImmersiveHudView"));
+            HudView hud = service.OpenAsync<HudView>().GetAwaiter().GetResult();
+            ImmersiveHudView keep = service.OpenAsync<ImmersiveHudView>().GetAwaiter().GetResult();
+
+            service.SetHudHidden(true);
+
+            CanvasGroup hudGroup = hud.GetComponent<CanvasGroup>();
+            Assert.That(service.IsHudHidden, Is.True);
+            Assert.That(hudGroup.alpha, Is.EqualTo(0f), "沉浸时普通 Hud 面板要透明");
+            Assert.That(hudGroup.interactable, Is.False, "沉浸时普通 Hud 面板不可交互");
+            Assert.That(hudGroup.blocksRaycasts, Is.False, "沉浸时普通 Hud 面板不能挡点击");
+            CanvasGroup keepGroup = keep.GetComponent<CanvasGroup>();
+            Assert.That(keepGroup.alpha, Is.EqualTo(1f), "VisibleWhenHudHidden 的面板不受沉浸影响");
+            Assert.That(keepGroup.blocksRaycasts, Is.True);
+            Assert.That(hudChanged.Published.Count, Is.EqualTo(1), "进入沉浸发布一次事件");
+            Assert.That(hudChanged.Published[0].Hidden, Is.True);
+        }
+
+        [Test]
+        public void SetHudHidden_FalseAfterTrue_RestoresPanels()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 HudView"));
+            HudView hud = service.OpenAsync<HudView>().GetAwaiter().GetResult();
+
+            service.SetHudHidden(true);
+            service.SetHudHidden(false);
+
+            CanvasGroup group = hud.GetComponent<CanvasGroup>();
+            Assert.That(service.IsHudHidden, Is.False);
+            Assert.That(group.alpha, Is.EqualTo(1f), "退出沉浸后回到完全不透明");
+            Assert.That(group.interactable, Is.True);
+            Assert.That(group.blocksRaycasts, Is.True);
+            Assert.That(hudChanged.Published.Count, Is.EqualTo(2), "进、出各发布一次");
+            Assert.That(hudChanged.Published[1].Hidden, Is.False);
+        }
+
+        [Test]
+        public void SetHudHidden_SameStateTwice_PublishesOnce()
+        {
+            service.SetHudHidden(true);
+            service.SetHudHidden(true);
+
+            Assert.That(hudChanged.Published.Count, Is.EqualTo(1), "状态没变不重复发布");
+        }
+
+        [Test]
+        public void OpenAsync_HudPanelWhileHudHidden_OpensHidden()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 HudView"));
+            service.SetHudHidden(true);
+
+            HudView hud = service.OpenAsync<HudView>().GetAwaiter().GetResult();
+
+            CanvasGroup group = hud.GetComponent<CanvasGroup>();
+            Assert.That(group.alpha, Is.EqualTo(0f), "沉浸中新开的 Hud 面板也要套用隐藏");
+            Assert.That(group.blocksRaycasts, Is.False);
+        }
+
+        [Test]
+        public void TopView_AfterOpeningPanelWithDefaultSelected_ResolvesItsDefault()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            PlainView panel = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            Button button = AttachDefaultSelected(panel);
+
+            Assert.That(service.TopView, Is.SameAs(panel), "唯一开着的 Panel 就是栈顶");
+            Assert.That(UIService.ResolveDefaultSelection(service.TopView), Is.SameAs(button.gameObject),
+                "打开后 EventSystem 要选中栈顶面板的默认项");
+        }
+
+        [Test]
+        public void TopView_AfterClosingPopup_FallsBackToPanelDefault()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PopupView"));
+            PlainView panel = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            Button panelButton = AttachDefaultSelected(panel);
+            PopupView popup = service.OpenAsync<PopupView>().GetAwaiter().GetResult();
+            Button popupButton = AttachDefaultSelected(popup);
+
+            Assert.That(service.TopView, Is.SameAs(popup), "Popup 盖在 Panel 上，栈顶先看 Popup");
+            Assert.That(UIService.ResolveDefaultSelection(service.TopView), Is.SameAs(popupButton.gameObject));
+
+            service.CloseAsync(popup).GetAwaiter().GetResult();
+
+            Assert.That(service.TopView, Is.SameAs(panel), "关掉弹窗后栈顶回到下层面板");
+            Assert.That(UIService.ResolveDefaultSelection(service.TopView), Is.SameAs(panelButton.gameObject),
+                "关掉上层后要重新选中下层面板的默认项");
+        }
+
+        [Test]
+        public void ResolveDefaultSelection_NoTopOrNoDefault_ReturnsNull()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            Assert.That(UIService.ResolveDefaultSelection(null), Is.Null, "栈空时清空选中");
+
+            PlainView panel = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            Assert.That(UIService.ResolveDefaultSelection(panel), Is.Null, "没拖默认项的面板清空选中，不把焦点留在旧控件上");
+        }
+
+        [Test]
+        public void CancelRouter_Decide_CoversAllThreeOutcomes()
+        {
+            Assert.That(UICancelRouter.Decide(false, false), Is.EqualTo(UICancelRouter.Decision.NothingToClose));
+            Assert.That(UICancelRouter.Decide(false, true), Is.EqualTo(UICancelRouter.Decision.NothingToClose),
+                "没有栈顶时 CloseOnCancel 无意义");
+            Assert.That(UICancelRouter.Decide(true, true), Is.EqualTo(UICancelRouter.Decision.Close));
+            Assert.That(UICancelRouter.Decide(true, false), Is.EqualTo(UICancelRouter.Decision.Blocked),
+                "栈顶不让关时既不关、也不算「没东西可关」");
+        }
+
+        [Test]
+        public void CancelRouter_LockedPanelOnTop_IsNotClosed()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 LockedView"));
+            service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            LockedView locked = service.OpenAsync<LockedView>().GetAwaiter().GetResult();
+
+            UIView top = service.TopView;
+            Assert.That(top, Is.SameAs(locked));
+            Assert.That(UICancelRouter.Decide(top != null, top.CloseOnCancel), Is.EqualTo(UICancelRouter.Decision.Blocked));
+            Assert.That(service.Get<LockedView>(), Is.SameAs(locked), "CloseOnCancel 为 false 的面板不被路由关掉");
+        }
+
+        [Test]
+        public void CancelRouter_OnlyHudOpen_HasNothingToClose()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 HudView"));
+            HudView hud = service.OpenAsync<HudView>().GetAwaiter().GetResult();
+
+            Assert.That(service.TopView, Is.Null, "Hud 层不进栈，不会成为 Esc 的目标");
+            Assert.That(UICancelRouter.Decide(service.TopView != null, hud.CloseOnCancel),
+                Is.EqualTo(UICancelRouter.Decision.NothingToClose));
+            Assert.That(hud.CloseOnCancel, Is.False, "Hud 层默认不可被 Esc 关");
+        }
+
+        /// <summary>给面板挂一个子按钮并经序列化写进 defaultSelected（字段是 private，只走 Inspector 那条路）。</summary>
+        private static Button AttachDefaultSelected(UIView view)
+        {
+            var buttonObject = new GameObject("Default", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(view.transform, false);
+            var button = buttonObject.GetComponent<Button>();
+
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("defaultSelected").objectReferenceValue = button;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return button;
+        }
+
         /// <summary>OnOpenAsync 直接抛异常的面板，用来覆盖「打开到一半失败」这条路径。</summary>
         private sealed class ThrowingView : UIView
         {
@@ -123,6 +360,43 @@ namespace Game.Tests.EditMode.Core
         private sealed class PlainView : UIView
         {
             public override UILayer Layer => UILayer.Panel;
+        }
+
+        /// <summary>Popup 层面板：盖在 Panel 上，栈顶先看它。</summary>
+        private sealed class PopupView : UIView
+        {
+            public override UILayer Layer => UILayer.Popup;
+        }
+
+        /// <summary>不让 Esc 关的 Panel（标题、对白这类）。</summary>
+        private sealed class LockedView : UIView
+        {
+            public override UILayer Layer => UILayer.Panel;
+            public override bool CloseOnCancel => false;
+        }
+
+        /// <summary>普通 Hud 面板：沉浸时跟着隐藏。</summary>
+        private sealed class HudView : UIView
+        {
+            public override UILayer Layer => UILayer.Hud;
+        }
+
+        /// <summary>沉浸中仍显示的 Hud 面板（如沉浸开关按钮）。</summary>
+        private sealed class ImmersiveHudView : UIView
+        {
+            public override UILayer Layer => UILayer.Hud;
+            public override bool VisibleWhenHudHidden => true;
+        }
+
+        /// <summary>记下每次发布的沉浸事件。</summary>
+        private sealed class FakeHudPublisher : IPublisher<HudVisibilityChangedEvent>
+        {
+            public List<HudVisibilityChangedEvent> Published { get; } = new List<HudVisibilityChangedEvent>();
+
+            public void Publish(HudVisibilityChangedEvent message)
+            {
+                Published.Add(message);
+            }
         }
 
         /// <summary>

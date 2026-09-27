@@ -29,7 +29,7 @@ maturity: stable
 1. 材质：SpriteRenderer 用 `Assets/_Project/Art/Materials/Character/M_SpriteDepthClip.mat`
    （着色器 `SpriteDepthClip.shader`），不要用 URP 默认 Sprite-Lit/Unlit-Default——那套不写深度、
    没有 ShadowCaster/DepthNormals Pass，纸片不会被灰盒环境遮挡、不参与 SSAO。新纸片素材的导入
-   Pivot 必须是 **Bottom Center**（贴 `Chibi_Player.png` / `Chibi_Patrol.png` 的做法：96×160、PPU
+   Pivot 必须是 **Bottom Center**（早期纸片 `Chibi_Player.png` / `Chibi_Patrol.png` 的做法，二图已于 2026-09-28 删除：96×160、PPU
    100、Mesh Type FullRect），这样 `Visual` 挂在根节点原点时纸片底边正好落在脚底，不需要额外偏移。
 2. 贴地阴影：加 `BlobShadow` 子节点，SpriteRenderer 用 `Art/Sprites/Fx/Fx_BlobShadow.png`
    （`Sprite-Unlit-Default` 材质），`localPosition.y` 参考 `0.02`（避免与地面 z-fighting），世界直径
@@ -67,6 +67,37 @@ maturity: stable
    落差超过这个值时，角色会被视为「墙顶/家具」而不贴地，需要拆成更小的级差或调整该字段。
 6. 跑 IsometricExploration Showcase 做一遍视觉回归（含 `WalkOntoStairs_RaisesBody` 用例）；
    灰盒/正式环境的最终验收仍交人工过一遍。
+
+## 在探索 HUD 上加按钮（如走 / 跑）
+
+1. 按钮预制体或子物体挂到 `ExplorationHudView.RunSlot` 下，或新开一个槽位（在预制体里经 MCP / 编辑器改，不手改 YAML）；
+2. 需要新的 View 字段就加 `[SerializeField] private`（必填字段在 `Validate()` 里点名，可选字段全部容错为空操作，
+   照 `stick` / `touchButtons` / `resetButton` 的写法）；事件照 `OnImmersiveToggle` / `OnResetClicked` 的写法抛出，
+   逻辑放已有呈现器（`ExplorationHudPresenter` 管沉浸、`ExplorationControlsPresenter` 管走跑 / 摇杆 / 提示 / 重置）
+   或新建一个呈现器，View 不注入服务；
+3. 沉浸中默认行为不一致：整个 `ExplorationHudView` 留在画面上（`VisibleWhenHudHidden = true`），但
+   `ControlsRoot` 下的按钮会随 `SetControlsVisible(false)` 一起隐藏；`RunToggle` 因为不在 `ControlsRoot` 下，
+   用独立的 `runToggleGroup` 单独隐藏——新按钮想要「沉浸时隐藏」就挂进 `ControlsRoot`，想要「沉浸时也显示」
+   就挂在外面并自己接一个 `CanvasGroup`，同样交给驱动它的呈现器在 `HudVisibilityChangedEvent` 里切。
+4. 新增会挡视线的世界空间提示：读 `IHudVisibility.IsHudHidden` 或订阅 `HudVisibilityChangedEvent` 自行隐藏，不要每帧 Find。
+
+## 加一种新的兴趣点种类（万向标指引）
+
+1. `PoiKind` 加一个新枚举值；`ExplorationPointOfInterest.IsVisible` 按新种类加分支（默认 `true`，只有需要
+   「达成条件后不再指引」的种类才像 `Crate` 那样读同物体的其它组件状态）。
+2. 场景里给目标物体挂 `ExplorationPointOfInterest`，填 `label` 与新 `kind`；不需要改
+   `ExplorationCompassPresenter`——它只认 `ExplorationPointOfInterest` 这一个类型，不关心具体 `Kind`。
+3. 新种类若要引用别的模块的运行时状态（如 `Crate` 读 `Game.Loot.SupplyCrate`），依赖方向必须是
+   `Game.IsometricExploration → 目标模块`，不要反过来让目标模块认识 `PoiKind`。
+
+## 在探索 HUD 上加一个新控件（万向标之外，如小地图、状态条）
+
+1. 新控件的显示逻辑写进 `ExplorationHudView` 的可空字段 + `SetXxx` 方法，不注入服务；
+2. 驱动逻辑评估放进哪个呈现器：只依赖玩家 / 物资箱 / 任务状态且需要每帧刷新，跟 `ExplorationControlsPresenter`
+   同类，可以直接加进去；需要扫描场景物体（如 `ExplorationCompassPresenter` 扫 `ExplorationPointOfInterest`），
+   新建一个入口点，理由与两个呈现器的文件头注释一致——职责说不通就别硬塞进已有类；
+3. 新入口点在 `ExplorationInstaller.Install` 里按构造函数参数 `RegisterEntryPoint`，排在它依赖的模块
+   （Loot / Quest / Player）注册器之后。
 
 ## 验证
 

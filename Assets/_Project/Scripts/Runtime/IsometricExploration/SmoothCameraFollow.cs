@@ -1,10 +1,13 @@
 // 职责：保持初始构图偏移，并平滑跟随目标位置。
 // 为什么新建：工程内没有可复用的摄像机跟随组件，CameraBillboard 只负责视觉朝向。
+// 执行顺序：必须排在 EncounterSceneView（默认 0，LateUpdate 里把逻辑位置插值写成本帧的角色 Transform 位置）
+//   之后、ChibiPuppetMotion（100）之前，保证本组件跟随的是本帧刚投影好的位置，不早不晚。
 using UnityEngine;
 
 namespace Game.IsometricExploration
 {
     [RequireComponent(typeof(Camera))]
+    [DefaultExecutionOrder(50)]
     public sealed class SmoothCameraFollow : MonoBehaviour
     {
         [SerializeField] private Transform target;

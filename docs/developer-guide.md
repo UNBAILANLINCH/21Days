@@ -15,7 +15,7 @@
 | 要改表 / 存档 / 输入 / UI / 音频 | 8～12，按主题挑一章 |
 | 要跑测试、出包 | 13 测试 → 14 打包与 CI |
 | 要接 2.5D 场景美术（画质分档 / 角色纸片 / 贴地） | 6.13 |
-| 要接对话（代码拉起 / 场景放 NPC）或给角色换拼接小人 | 6.14 · 6.15 |
+| 要接对话（代码拉起 / 场景放 NPC）或给角色换序列帧小人 | 6.14 · 6.15 |
 | 卡住了、报了看不懂的错 | 15 常见问题（先在这儿搜一遍，八成有） |
 
 三份文档的分工：**本文**讲怎么做，[`architecture.md`](architecture.md) 讲为什么这么设计、各服务的契约长什么样，
@@ -124,6 +124,8 @@ python .claude/skills/onboard/check_env.py
 3. 打开 `Assets/_Project/Scenes/Boot.unity`（入口场景），按 Play 应该看到标题界面，点「开始」能进示例玩法场景再退回来。跑不起来先看第 15 章。
 4. **Input System 后端不用手动切**：工程里 `ProjectSettings/ProjectSettings.asset` 的 `activeInputHandler` 已经是 `2`（Both），装完 Input System 不会弹「切换输入后端需要重启编辑器」的对话框，新旧两套输入 API 都能用（新 API 走 Action Map 给玩法用，旧 API 留给 `IngameDebugConsole` 这类第三方调试台）。
 
+**Game 视图分辨率怎么设**（验收第 3 步用得上）：Game 视图的分辨率下拉不要用 Free Aspect 做验收；固定选 **Full HD (1920x1080)** 作为 1080p / 16:9 基准，再点「+」加三个 **Fixed Resolution**（不是 Aspect Ratio）类型的自定义项做适配检查：`1280x720`（最低支持，看小屏下 UI 会不会挤）、`2560x1080`（21:9，看两侧是否自然多看、UI 不缩放）、`1920x1200`（16:10，看两侧少看时布局是否完整）。Scale 滑条只影响显示缩放，不影响内容。画面全黑多半是没进 Play，从 Boot 场景 Play、标题「开始」进场景再看。基准来自 [`roadmap.md`](roadmap.md) E8 与 [`artist-guide.md`](artist-guide.md) 7.1。
+
 ## 3. 目录与程序集：我的代码该放哪
 
 依赖方向（细则见 [`../.claude/rules/project-root.md`](../.claude/rules/project-root.md)）：
@@ -171,7 +173,7 @@ Boot.unity 加载
 - **注册顺序就是初始化顺序**。要调整顺序，改 `GameLifetimeScope.Configure` 里的注册先后，不要在别处加调用。顺序按 `architecture.md` 5.1：Platform → Log → Assets → Config → Save → Input → Audio → UI。
 - **加一个新框架服务** = 实现 `IGameService` + 在 `GameLifetimeScope` 里 `.As<I你的接口, IGameService>()`，别的地方一行不用改。
 - **加一个玩法模块** = 写一个 `GameplayInstaller` 子类，把组件挂到 `GameBootstrap` 物体上。`Game.Core` 不认识任何玩法，所以玩法只能这样把自己接上来（第 7 章有完整流程）。**玩法状态必须注册进根作用域**，不能放玩法场景的子作用域——`GameFlow` 从根 `IObjectResolver` 解析状态类型，而且切进去之前那个场景还没加载。
-- 标题界面的「开始」按钮**不在框架里决定去哪**：`TitleView` 抛 `OnStartClicked` 事件 → `TitleState` 发布 `TitleStartClickedEvent` → 玩法侧的入口点订阅它并 `GoToAsync<自己的状态>()`。没有玩法接进来时点了只留一条日志，不是错误。
+- 标题界面的「开始」按钮**不在框架里决定去哪**：`TitleView` 抛 `OnStartClicked` 事件 → `TitleState` 发布 `TitleStartClickedEvent` → 玩法侧的入口点订阅它并 `GoToAsync<自己的状态>()`。没有玩法接进来时点了只留一条日志，不是错误。「继续」「选择存档」同理，分别发布 `TitleContinueClickedEvent` / `TitleLoadClickedEvent`；没有存档时隐藏「继续」调 `TitleView.SetContinueVisible(false)`（竖向布局组，其余按钮自动上移）。
 - 任何一步抛异常都会被 `BootAsync` 捕获、`Log.Error` 后**停止**启动，不会带着半初始化的状态往下跑。退出播放模式引起的 `OperationCanceledException` 不算错误。
 - 玩法场景走 Additive 加载，Boot 场景全程常驻。
 
@@ -253,7 +255,7 @@ string root = platform.SaveRoot;             // persistentDataPath/saves，启�
 await flow.GoToAsync<TitleState>(ct);
 ```
 
-切换串行：先 `ExitAsync` 当前状态，再 `EnterAsync` 目标状态；切换进行中再请求会**排队**按序执行，完成后发布 `GameStateChangedEvent(from, to)`。状态由容器解析，所以状态类可以构造注入服务。
+切换串行：先 `ExitAsync` 当前状态，再 `EnterAsync` 目标状态；切换进行中再请求会**排队**按序执行，完成后发布 `GameStateChangedEvent(from, to)`；前一状态 `ExitAsync` 之前还会发布一次 `GameStateChangingEvent(from, to)`（离开某状态前要同步抓现场就订阅它，按 `From` 过滤）。状态由容器解析，所以状态类可以构造注入服务。
 
 **状态要带一个场景就继承 `SceneGameState`**，别自己在 `EnterAsync` 里加载：
 
@@ -304,12 +306,14 @@ foreach (cfg.Item it in config.Tables.TbItem.DataList) { ... }
 
 ```csharp
 public sealed class Foo { public Foo(ISaveService saves) { ... } }
-SettingsSaveData s = saves.Get<SettingsSaveData>();   // 首次访问自动创建，之后恒是同一个实例
-s.MasterVolume = 0.5f;                                // 直接改，不用「标记为脏」
+PlayerProgressSaveData s = saves.Get<PlayerProgressSaveData>();   // 首次访问自动创建，之后恒是同一个实例
+s.Level = 3;                                                     // 直接改，不用「标记为脏」
 bool ok = await saves.SaveAsync(slot: 0, ct);         // 先写 .tmp 再原子替换
 bool loaded = await saves.LoadAsync(0, ct);           // 槽位不存在 / 文件损坏都返回 false，不抛
 if (saves.Exists(0)) { saves.Delete(0); }
 ```
+
+玩家设置（音量 / 显示 / 窗口）**不在存档槽里**，走 `ISettingsService`（独立档案 `settings`，见 9.1），不要 `saves.Get<SettingsSaveData>()`。
 
 JSON 文件在 `IPlatformService.SaveRoot` 下，一个槽位一个 `slot<N>.json`；每个分区各自带版本号，读回来时版本低于代码就调一次 `Migrate(旧版本)`。加分区、写迁移见第 9 章。
 **禁止**：自己拼 `Application.persistentDataPath`；在分区里放 `UnityEngine.Object` 引用（分区是纯 DTO，要存资源就存它的 Addressables key）；靠 `try/catch` 接读档异常（读档失败返回 `false`，不抛）；把大块运行期缓存塞进分区（存档要能人读能 diff）。
@@ -353,6 +357,8 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 
 **可站立的环境物体放 `Ground` 层**：`EncounterSceneView` 靠 `groundMask` 向下射线贴地（纯规则在 `Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`），只认 `Ground` 层（`ProjectSettings/TagManager.asset` 第 8 槽），没挂这个层的物体贴不上地。
 
+**渲染插值**：角色画面位置是两逻辑 tick 之间的插值（`EncounterSceneView.Bind` 按 `SimulationRunner.Accumulator / FixedDeltaTime` 算出的 alpha），最多比逻辑位置落后一个 tick（60 Hz 约 16 ms）；排查角色抖动先确认 `EncounterSceneView.Bind` 拿到了 alpha 源，不要先怀疑规则或输入。
+
 **Sprite 导入默认预设已经是高清手绘**（Bilinear / 压缩 / 生成 mipmap / PPU 100），不是像素风，见 `Assets/_Project/Art/Sprites/README.md`。
 
 ### 6.14 对话系统 — `DialogueService` / `DialogueInteractable`
@@ -380,26 +386,102 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 - 对话服务、焦点系统、EventSystem 都随 Boot 启动。**从 Boot → 标题「开始」进入才有对话**；直接 Play 玩法场景只会记 Warn。
 - 运行时 `Instantiate` 出来的 NPC 不会被自动扫描，要自己调 `interactable.Bind(service)`，且不参与焦点。
 
-验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（验证场景 `Assets/_Project/Scenes/Verify/Dialogue.unity`，编辑器须打开）。
+验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（回放在 `Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
 对话内容怎么配见 [`designer-guide.md` 第 11 章](designer-guide.md)。
 
-### 6.15 拼接小人 — `ChibiPuppet`
+### 6.15 角色小人 — `ChibiPuppet`
 
-模块 `Game.CharacterPuppet`（`Assets/_Project/Scripts/Runtime/CharacterPuppet/`），分件 Sprite + Animator 做 Q 版角色的待机 / 走路表现，
+模块 `Game.CharacterPuppet`（`Assets/_Project/Scripts/Runtime/CharacterPuppet/`），序列帧 Sprite + Animator 做 Q 版角色的待机 / 走路表现，
 **只管表现**：不读输入、不改位置，按角色根的位移自己判走 / 停与朝向。细节见
 [`characterpuppet-module-guide.md`](../ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md)。
 
 给一个角色换上小人：
-1. 把 `Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab`（或 `ChibiPuppet_Patrol.prefab`）实例化到角色的 `Visual` 下，
+1. 把 `Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`（如 `Chibi_amiya`，由下面的序列帧工具生成）实例化到角色的 `Visual` 下，
    localPosition `(0, 0, -0.01)`（略靠前，避免与原纸片同面）。`trackedRoot` 留空即可，自动取父链上第一个不叫 `Visual` 的节点。
-2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`：`EncounterSceneView` 仍往它上面写 sprite 和 `flipX`，
+2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`（sprite 可置空，`EncounterSceneView.EnsureSprite` 会补运行时占位图）：`EncounterSceneView` 仍往它上面写 `flipX`，
    它就是朝向的载体。把它拖进小人 `ChibiPuppetMotion` 的 `facingSource`。
-3. 没有纸片的场景（如验证场景）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
+3. 没有原纸片的情况（如回放运行时生成的独立小人）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
 
-手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、走路播放速率）。
-Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（`Assets/_Project/Scenes/Verify/CharacterPuppet.unity`）。
+手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、跑走切换阈值（runStart 4 / runStop 3.5）、播放速率夹取（0.8～1.6）；剪辑地速在各预制体 `ChibiPuppet.walkClipSpeed` / `runClipSpeed`）。
+Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（回放在 `Assets/Scenes/SampleScene.unity` 上跑）。
+
+**序列帧小人（现行唯一做法；早期分件拼接小人已于 2026-09-28 删除）**：美术按状态交序列帧（规范见 [`artist-guide.md` 3.4 节](artist-guide.md)），
+编辑器工具一键生成动画、控制器与预制体；运行时是 `ChibiPuppet` + `ChibiPuppetMotion`，`parts` 只有一个 `SpriteRenderer`。
+
+- **目录**：`Assets/_Project/Art/Sprites/Characters/<名字>/chr_<名字>_<状态>_<NN>.png` + 可选 `meta.json`（`fps`、`pivot`、`animations.walk/run.groundSpeed` 缺省 3 / 5），至少 `idle` + `walk`，`run` 可选。
+- **工具**：菜单 `21Days/角色/从序列帧生成小人…`（选帧目录、目标高度默认 1.5、帧率 0 = 取 meta 否则 24、美术默认朝左、建图集）；
+  脚本入口 `FramePuppetGenerator.Generate(new FramePuppetRequest { FrameDirectory = "...", TargetHeight = 1.6f })`，返回中文报告，
+  可用 MCP `execute_code` 批量跑。规则（命名解析、排序、缺态报错、PPU / pivot）在 `FramePuppetRules`，EditMode 测试
+  `Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs`。
+- **生成物**：帧贴图导入设置（PPU = 画布高 / 目标高度、pivot = meta.pivot，只改这个目录，不动 `SpriteImportProcessor`）；
+  `Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`（参数 `Moving` / `Running` / `Speed`；状态 `Idle` / `Walk` / `Run`，
+  过渡全 0、无退出时间；Walk / Run 乘 `Speed`；无 run 帧时 Run 复用 walk 剪辑）；`Prefabs/Characters/Chibi_<名字>.prefab`（根 Animator[UnscaledTime] +
+  ChibiPuppet（写入 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`） + ChibiPuppetMotion，子物体 `Sprite`）；
+  帧目录下 `<名字>.spriteatlasv2`（Sprite Packer 为 V2 时建，已存在不动）。**可重跑**：已有资产原地更新、GUID 不变，场景引用不用重接。
+- **替换美术**：同名目录换成新帧 → 重跑工具（目标高度与原来一致）→ 回放 `/verify-module Exploration` 看大小、贴地、翻面。
+- **接进场景**：玩家 / 巡逻者照上面三步（实例挂 `Visual` 下、`facingSource` 指隐藏纸片）。纯纸片 NPC 的 `Visual` 中心在半身高、还带缩放，
+  小人不能挂它下面：在 NPC 根下新建 `PuppetVisual`（原点、挂 `CameraBillboard`），实例挂其下 `(0, 0, -0.01)`；纸片 `SpriteRenderer`
+  取消 `enabled` 当朝向源（`flipX` 决定朝向），`trackedRoot` 指 NPC 根。SampleScene 的 `Npc_Elder` / `Npc_Traveler` / `Npc_Villager` 就是这样接的。
+- **占位素材**：现在五个角色（amiya / chen / skadi / texas / exusiai）是明日方舟基建小人，经 `scripts/ark-spine-frames/` 离线渲染，
+  **版权归上海鹰角网络，仅作开发期占位，正式包体不得包含**（`Art/Sprites/Characters/Ark/README.md`）。
+
+### 6.16 演出管线 — `IPerformanceService` / `PerformanceTrigger` / 演出编辑器
+
+模块 `Game.Performance`（`Assets/_Project/Scripts/Runtime/Performance/`）。三件套还没生成（跑 `/generate-doc Performance` 后见
+[`performance-module-guide.md`](../ai-docs/docs/modules/performance/performance-module-guide.md)），这里先给接入入口。
+
+**从代码拉起**：构造注入 `IPerformanceService`，`var result = await performance.PlayAsync("perf_sample_greeting", ct);`。
+它会暂停世界、整层隐藏 Hud / Popup、把舞台相机叠加到主相机上、跑完时间轴、播完恢复现场，返回 `PerformanceResult`
+（`Outcome` ∈ `Completed / Skipped / Cancelled / Failed`）。进行中重复调用抛 `InvalidOperationException`（先看 `IsRunning`，
+同 `DialogueService` 的规则）；要在回放 / 编辑器试播里模拟玩家操作，用 `Confirm()`（等价按确认）与 `Skip()`（等价长按跳过满）。
+
+**两种挂载点**：
+1. **场景触发器**：放一个 `PerformanceTrigger`（`isTrigger` 碰撞体 + `PerformanceId` + `Mode`：`OnEnter` 进区域自动播、
+   `OnSceneStart` 场景加载即播；`Once` 控制只播一次），玩家根挂 `PerformanceTriggerActor` 标记（同 Dialogue 的
+   `DialogueInteractionActor` 做法，但两者互不依赖）。运行时新生成的触发器要靠 `PerformanceSceneBinder` 扫描绑定，
+   不会自动生效。世界模式（小人站在 3D 场景里）示例见菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 与 SampleScene 的
+   `Trigger_VillageEntrance`（锚点 `anchor`、`hideActorVisual`、`hiddenDuringPlay`），细节见演出模块 guide「世界模式」。
+2. **对白节点前插播**：`Tables/Data/dialogue/<编号>.json` 节点的 `performance` 字段填演出 id（空串 `""` = 不插播，
+   JSON 不允许缺这个字段）。`DialogueController` 会在摆这句台词之前先播完这段演出，期间对话框隐藏、不推进、不收输入；
+   `IPerformanceService` 缺席（Boot 没挂 `PerformanceInstaller`）时只记 Warn，不阻塞对白。
+
+**Live2D 接入步骤**（SDK 未导入前工程照常编译运行，`Game.Live2D` 程序集直接不参与编译）：
+1. 下载 Cubism SDK for Unity，导入到 `Assets/Live2D/`（不进仓库，是否 `.gitignore` 由用户决定）。
+2. 编辑器检测到工程里出现 `Live2D.Cubism.asmdef` 后自动给当前平台加编译符号 `LIVE2D_CUBISM`
+   （`Live2DDefineSync`，`[InitializeOnLoad]`，只在状态变化时写一次 `ProjectSettings`；菜单
+   `21Days/演出/检查 Live2D 符号` 能手动核对当前状态）。
+3. 模型放 `Assets/_Project/Art/Live2D/<角色>/`。
+4. 演出预制体的演员组件从 `SpritePerformanceActor` 换成 `Live2DPerformanceActor`（挂在 Cubism 模型根上，和
+   `CubismExpressionController` / `CubismRenderController` 同一个物体）。
+5. 动作走时间轴的 **Animation 轨**：Cubism 导入器把 `.motion3.json` 转成的 `AnimationClip` 直接拖进这条轨绑定模型的
+   `Animator` 播放，不经过适配层。
+
+**注意事项**：
+- 场景主相机的剔除遮罩要**排除 `Performance` 层**，否则舞台内容会被主相机重复渲染一次；缺 URP 相机数据时服务会退回
+  Base 相机叠加并记 Warn + 埋点 `camera_stack_unavailable`。
+- `PlayableDirector` 必须和 `PerformanceStage` 挂在**同一个物体**（预制体根）上，否则 `HoldMarker` 通知与字幕轨道都收不到
+  （挂错位置 `PerformanceStage.Awake` 会检测并 `Log.Warn`）。
+- 演出复用 **Dialogue 的输入图**（确认 / 跳过键位与对白一致），本模块没有单独的 Action Map；服务只恢复「进来之前」的
+  输入图状态，不会关掉本来就开着的 Dialogue 图。
+- 演出预制体、时间轴一律用 `21Days/演出/演出编辑器`（菜单）的「新建」一步建齐，不要手工拼——手工漏一步（图层、
+  Overlay 相机、Addressables 登记）就播不出来；校验按钮能列出缺演员 / 空字幕 / 表情名不存在等问题。
+
+验证：`/unity-test EditMode Performance`；看回放 `/verify-module Performance`（回放在
+`Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
+
+### 6.17 任务系统 — QuestService / 任务编辑器
+
+玩法上报进度调 `QuestService.Report(kind, key)`（`kind` 是 `TalkTo` / `ReachLocation` / `Counter`），任务系统按当前
+目标自动判定推进。内容在 `Tables/Data/quest/<编号>.json`，策划配表用菜单 **`21Days` → `策划` → `任务编辑器`**（不用
+直接改 JSON，手改也行）。
+
+编辑期校验在 `Game.Editor.Quest.QuestTableValidator`：菜单 **`21Days` → `配置表` → `生成`** 前自动跑一遍，有错误
+拦生成；独立菜单 **`21Days` → `策划` → `校验任务表`** 只跑校验、不生成。详细字段与常见报错见
+[`quest-module-guide.md`](../ai-docs/docs/modules/quest/quest-module-guide.md) 与 [`designer-guide.md` 第 12 章](designer-guide.md)。
 
 ## 7. 新建玩法模块
+
+> 现有模块的清单、成熟度与接入状态见 [模块总览](modules/README.md)；给策划 / 美术看的逐模块说明也在那个目录，新模块落地后照 `player.md` 的骨架补一份。
 
 工程里有一个**端到端的样板模块 `Sample`**：`Assets/_Project/Scripts/Runtime/Sample/`，
 文档在 [`../ai-docs/docs/modules/sample/`](../ai-docs/docs/modules/sample/sample-module-guide.md)。
@@ -617,7 +699,8 @@ var rules = new SampleRules(config, telemetry.Scope("sample"));
 
 1. 改 `Tables/Data/<表>.xlsx`，保存关掉 Excel（占着文件会让生成失败）。
 2. 跑生成：编辑器里点菜单 **21Days → 配置表 → 生成**，或命令行
-   `powershell -ExecutionPolicy Bypass -File scripts/gen-tables.ps1`。
+   `powershell -ExecutionPolicy Bypass -File scripts/gen-tables.ps1`。生成前会先校验任务表，有错误不生成，
+   Console 是中文 `[配置表] 任务表：…`。
 3. 回 Unity 等刷新完，`/unity-test EditMode` 跑绿。
 4. 提交时**把生成物一起带上**（`Generated/` 的 `.cs` + `.meta`、`Data/Config/` 的 `.bytes` + `.meta`）。
 
@@ -657,6 +740,7 @@ var rules = new SampleRules(config, telemetry.Scope("sample"));
 | Excel 被占用 / IO 异常 | 表还开在 Excel 里，关掉重跑 |
 | 运行时 `配置表 "xxx" 的数据文件没找到` | 代码生成了但 `.bytes` 没进 Addressables 的 Config 组，或者压根没重新生成——重跑 8.2 |
 | 运行时 `标签 "config" 下一个资源都没有` | Addressables 里 `Assets/_Project/Data/Config` 这个条目丢了标签。打开 Window → Asset Management → Addressables → Groups，把 Config 组里那个条目的 Label 勾回 `config` |
+| `[配置表] 任务表：[错误] …` / `任务表有 N 处错误，未生成` | 任务表内容错，打开任务编辑器（`21Days/策划/任务编辑器`）看底部列表改，对照表在策划手册第 12.5 节 |
 
 ## 9. 存档
 
@@ -669,10 +753,14 @@ var rules = new SampleRules(config, telemetry.Scope("sample"));
 {
   "formatVersion": 1,
   "partitions": {
-    "Game.Core.Save.SettingsSaveData": { "version": 1, "data": { "MasterVolume": 1.0, "Language": "zh-CN" } }
+    "Game.Example.PlayerProgressSaveData": { "version": 1, "data": { "Level": 1 } }
   }
 }
 ```
+
+**设置不进存档槽**：`SettingsSaveData`（分区版本 2：音量三档、语言、分辨率宽高 0 = 原生、全屏模式 0 = 无边框全屏 / 1 = 窗口化、垂直同步、帧率上限 0 = 不限）由 `ISettingsService` 读写独立档案 `settings`，落盘为 `<SaveRoot>/profile-settings.json`，换档、删档都不影响设置。面板改 `ISettingsService.Current` 的字段，`ApplyDisplay()` / `ApplyAudio()` 生效，`SaveAsync()` 落盘，`Snapshot()` / `Restore()` 回滚。原生分辨率只从 `ISettingsService.NativeResolution` 取。
+
+**独立档案也走版本信封与 `Migrate`**：`ReadProfileAsync / WriteProfileAsync<T>` 的 `T` 实现 `ISaveData` 时，文件是 `{ "version": N, "data": {...} }`，规则与槽位分区相同（见 9.3）——没有信封的旧裸对象按版本 1 迁移，存的版本比代码新就记 Error、返回默认值、不动文件；`T` 不是 `ISaveData` 时仍是裸对象。决定（2026-09-26）：旧存档槽里的设置分区不做一次性搬运（尚无真实玩家存档）。
 
 键是分区类型的**全名**，所以给分区改命名空间或类名 = 换了一个分区，老数据会被当成「代码里已经没有的分区」跳过（只 Warn，不报错）。真要改名就把旧名当一个待迁移的老分区处理，或者别改。
 
@@ -704,13 +792,23 @@ var rules = new SampleRules(config, telemetry.Scope("sample"));
   }
   ```
   写成 `if (fromVersion < N)` 的阶梯而不是 `switch (fromVersion)`：玩家可能从很老的版本一步升上来。
-- `Migrate` 只在「存档里的版本 < 代码里的版本」时被调用**一次**。存档比代码新（玩家降级了）只 Warn 不迁，读进来的字段对不上的退回默认值。
+- `Migrate` 只在「存档里的版本 < 代码里的版本」时被调用**一次**。存档比代码新（玩家降级了）报 Error 并**拒绝读取**（该分区判为读档失败，返回 `false`/`null`），不做「凑合读进来」——高版本字段代码理解不了，硬读等于用旧代码语义误解新数据，比直接拒绝更危险。`ReadCandidateAsync`（快照候选读取）走的是同一段 `ReadPartitionsAsync`，版本过新同样拒绝。
 
 ### 9.4 规矩
 
 - 写盘先落 `.tmp` 再原子替换，所以断电最多留个 `.tmp`，正档不会半截。磁盘 IO 在线程池上，序列化留在主线程（分区对象是玩法在改的）。
 - `LoadAsync` 对「没有文件」「JSON 坏了」「信封版本太新」一律记日志返回 `false`，**不抛**——存档坏掉不该把游戏带崩，拿到 `false` 就当新档开。
 - 什么时候存由调用方决定（存档点、退出、设置改完）。别每帧存。
+
+### 9.5 存档会话怎么工作、怎么给模块加一个能参与读档重载的分区
+
+工程现在不是「什么时候存由调用方决定」这么简单：`Game.Session`（`Runtime/Session/`）统一管着「关键节点触发一次自动保存」，玩法模块不用、也不该自己决定什么时候调 `SaveAsync`。
+
+- **触发点**：任务状态变化、开箱、对白结束、场景切换完成走合并式请求（`GameSession.RequestSave(reason)`，同一稳定点内多次请求合并成一次）；离开玩法状态（`GameStateChangingEvent`）与退出游戏（`GameQuit.RegisterBeforeQuit`）直接调 `GameSession.SaveNowAsync`，不等合并。
+- **稳定边界**：不在玩法状态、对白进行中、任意面板 / 弹窗打开中、战斗终局待消费时都不落盘，请求继续挂着到下次边界满足。自己模块要新增触发点，看 `ai-docs/docs/modules/session/session-extension-guide.md`「加一个新的自动保存触发点」。
+- **`saves.Get<T>()` 每次取，不要缓存**：`ResetAll()`（新游戏）与 `LoadAsync()`（读档）都整体替换分区字典，跨帧持有旧分区实例的服务会把改动写进一份没人再读的对象。这条对所有分区都成立，不只是 Session 自己的分区。
+- **读档后重载**：分区所有者在自己的 `IGameService.InitializeAsync` 里订阅 `Game.Session.SessionStartedEvent`，收到后重新 `Get<T>()` 并把数据灌回运行时状态（参照 `QuestService.ReloadFromSave()`，`Runtime/Quest/QuestService.cs`）。`GameSession` 不知道有哪些模块，新模块接入只需要订阅这一个事件，不用改 `Game.Session` 里的任何代码。
+- **独立档案什么时候用**：这一局特有的进度（任务、拾取、遭遇……）进槽位分区；跨局都要保留、且与某一局无关的数据（设置、对白已读记录）走 `ReadProfileAsync` / `WriteProfileAsync` 的独立档案，不进槽——「新游戏」`ResetAll()` 不会碰独立档案，换槽 / 删槽也不影响它们。参照 `Runtime/Dialogue/DialogueReadStore.cs`（档案名 `dialogue-read`）。
 
 ## 10. 输入
 
@@ -720,12 +818,47 @@ var rules = new SampleRules(config, telemetry.Scope("sample"));
 - 它的导入器勾了 **Generate C# Class**，参数是：类名 `GameInput`、命名空间 `Game.Core.Input`、输出路径 `Assets/_Project/Scripts/Core/Input/GameInput.cs`。
 - `GameInput.cs` 是**生成物**：改了 `.inputactions` 保存，Unity 自动重新生成它。**不要手改这个文件**，改了下次保存资产就没了。
 
-### 10.2 两个 Action Map
+### 10.2 三个 Action Map
 
 | Map | 动作 | 绑定 |
 | --- | --- | --- |
-| `Gameplay` | `Move`(Vector2)、`Confirm`、`Cancel`、`Pause` | 键鼠（WASD / 方向键 / Enter / Esc / P）、手柄（左摇杆 / 十字键 / A / B / Start）、触屏（primaryTouch tap）。`Move` 上留了一条空路径的 `TouchVirtualStick` 绑定，等虚拟摇杆落地后在 Inspector 里补上 |
+| `Gameplay` | `Move`(Vector2)、`Confirm`、`Cancel`、`Pause`、`Sneak`、`Disguise`、`Tame`、`Attack`、`Run`、`Immersive`、`Interact`、`Journal`、`Inventory` | 见下表 |
+| `Dialogue` | `Advance`、`Auto`、`Speed`、`Skip`、`History`、`Choice1`~`Choice4` | 见下表 |
 | `UI` | Input System 默认的 UI 动作（Navigate / Submit / Cancel / Point / Click / ScrollWheel / MiddleClick / RightClick / TrackedDevice*） | 默认键鼠 + 手柄 + 触屏 |
+
+`Gameplay` 键位：
+
+| 动作 | 键盘 | 手柄 |
+| --- | --- | --- |
+| `Move` | WASD / 方向键 | 左摇杆、十字键 |
+| `Confirm` | Enter、Space | `buttonSouth` |
+| `Cancel` | Esc | `buttonEast` |
+| `Pause` | P | `start` |
+| `Sneak` | 左 Shift | `leftShoulder` |
+| `Disguise` | G | `buttonNorth` |
+| `Tame` | T | — |
+| `Attack` | J | `buttonWest` |
+| `Run` | 左 Ctrl | 左摇杆按下 |
+| `Immersive` | H | 右摇杆按下 |
+| `Interact` | E、F | `buttonSouth` |
+| `Journal` | Tab | `select` |
+| `Inventory` | B | `rightShoulder`（背包面板；与 Dialogue 图的 `Skip` 同键但两图互斥） |
+
+`Confirm` 是 UI 层确认，`Interact` 是场景内可交互物的触发；两者键位不同但手柄都用 `buttonSouth`（互斥场景下不冲突：Confirm 只在对话/菜单等 UI 语境响应，Interact 只在自由探索响应）。触屏目前只有 `Confirm`（`primaryTouch/tap`）一条 `.inputactions` 绑定；虚拟摇杆与走跑等按钮已在 `ExplorationHudView` 里实现并模拟同一套手柄路径，仅触屏平台显示（PC 阶段不显示，移植阶段启用）。
+
+`Dialogue` 键位（对话播放期间启用，与 `Gameplay` 互斥）：
+
+| 动作 | 键盘 | 手柄 |
+| --- | --- | --- |
+| `Advance` | Space、Enter、小键盘 Enter | `buttonSouth` |
+| `Auto` | A | `buttonNorth` |
+| `Speed` | S | `buttonWest` |
+| `Skip` | 左 Ctrl、右 Ctrl | `rightShoulder` |
+| `History` | H | `leftShoulder` |
+| `Choice1` | 1、小键盘 1 | — |
+| `Choice2` | 2、小键盘 2 | — |
+| `Choice3` | 3、小键盘 3 | — |
+| `Choice4` | 4、小键盘 4 | — |
 
 ### 10.3 玩法怎么用
 
@@ -785,11 +918,15 @@ public sealed class PlayerMovement          // 表现层 MonoBehaviour 或纯 C#
 | `Popup` | 确认框、飘窗 | 是，可叠加，互不隐藏，也不影响 Panel |
 | `Top` | 加载遮罩、转圈、调试台 | 否，永远在最上面 |
 
+Panel 栈里只要有全屏面板，整个 `Hud` 层就被盖住（`Canvas_Hud/SafeArea` 上的 CanvasGroup 置 alpha 0、不吃点击，Hud 面板本身不 `SetActive`），全屏面板全部关掉（淡出完成）后恢复；它和沉浸模式、`SetLayerVisible` 各管一套开关，互不干扰。
+
 `CloseTopAsync()` 先看 Popup 再看 Panel；`Hud` / `Top` 不进栈，所以返回键关不掉它们。规则本身写在纯 C# 的 `UIStack` 里，有 `UIStackTests` 钉着——改规则先改测试。
 
 ### 11.3 过渡动画
 
-`UIView` 默认用 LitMotion 做 `CanvasGroup.alpha` 的淡入淡出，时长取 `UIConfig.TransitionSeconds`（默认 0.15 秒，设 0 则跳过动画直接显隐），调度器是 `UpdateIgnoreTimeScale`——暂停菜单在 `timeScale = 0` 时也得能淡出来。要换成缩放、滑入就重写 `PlayOpenTransitionAsync(float seconds, CancellationToken ct)` / `PlayCloseTransitionAsync`。同一时刻只跑一个过渡，新的会掐断旧的（旧的 `await` 正常结束，不抛异常）。
+`UIView` 用 LitMotion 播开关过渡，时长取 `UIConfig.TransitionSeconds`（默认 0.15 秒，设 0 则跳过动画直接显隐），调度器是 `UpdateIgnoreTimeScale`——暂停菜单在 `timeScale = 0` 时也得能播出来。播哪种由 `[SerializeField] private UITransition transition` 决定（Inspector 上叫 Transition），四个预设：`Fade`（默认，CanvasGroup.alpha 淡入淡出）、`SlideUp` / `SlideDown`（alpha 淡入淡出的同时从下 / 上方滑入，偏移 40）、`Scale`（alpha 淡入淡出的同时 0.92→1 缩放）。Slide / Scale 的 alpha 与位置 / 缩放两段用 `LSequence` 拼成一条 `MotionHandle`，不是两条 motion 各自 `await`，所以打断规则和原来一样简单：同一时刻只跑一个过渡，新的会掐断旧的（旧的 `await` 正常结束，不抛异常）。四种预设之外的花样才需要重写 `PlayOpenTransitionAsync(float seconds, CancellationToken ct)` / `PlayCloseTransitionAsync`。
+
+按钮按压反馈：挂 `Core/UI/UIButtonFeedback.cs`（`[RequireComponent(typeof(RectTransform))]`），按下缩到 `pressedScale`（默认 0.94），抬起 / 移出弹回 1；同物体上的 `Selectable.interactable == false` 时按下不响应。和点击逻辑完全解耦，不接管 `Button.onClick`。
 
 ### 11.4 安全区
 
@@ -818,17 +955,28 @@ Dynamic 按需栅格化，首帧用到几个字就只烘几个。加字重或换
 （6 KB → 2 MB），在 `git status` 里冒出来。字体资产 Inspector 上点 **Clear Dynamic Data** 再提交。
 出包后运行时只在内存里加字，不写回资产。
 
+### 11.6 暂停菜单与设置面板（框架自带）
+
+两个面板都在 `Core/UI/Views/`，预制体 `Prefabs/UI/PauseMenuView.prefab`、`Prefabs/UI/SettingsView.prefab`（Addressables `UI` 组，地址 = 类名），会话逻辑在控制器里，面板本身只抛事件、不注入服务。
+
+- **暂停菜单**：`PauseMenuController`（根作用域入口点）自己接 Esc（`UICancelRouter.OnCancelWithNothingToClose`）与 P / 手柄 Start（`Gameplay/Pause`），**玩法不用写任何代码**。开着期间世界暂停（`IWorldPauseService` 令牌）、Gameplay 图关闭；「继续」/ Esc 关闭后恢复。按钮：继续、设置、回标题、退出游戏（手机上隐藏）。在标题 / 启动状态、沉浸模式、已有可关面板时不开。Esc 的完整优先级表见 `architecture.md` 5.6。
+- **设置面板**：任何地方要开设置就注入 `SettingsController` 调 `await settingsController.OpenAsync()`（标题界面的「设置」按钮就是这样调的）。音量滑条拖动实时生效；分辨率 / 全屏模式 / 垂直同步 / 帧率上限只记值，点「应用」才生效并存盘；「返回」或 Esc 时未应用的改动全部回滚（音量也回滚）。回滚规则在 `SettingsEditSession`，有 `SettingsEditSessionTests` 钉着。显示区在触屏为主的平台整块隐藏；语言下拉只有「简体中文」且禁用（占位）。
+- **自己的面板要让 Esc 能关**：保持 `CloseOnCancel` 为 true（Panel / Popup 默认），并照 `QuestPanelController` / `PauseMenuController` 的写法，在面板的 `OnCloseAsync` 里抛一个 `OnClosed` 事件，控制器收到后收尾（释放暂停令牌、恢复输入图）——被 Esc 从外部关掉时控制器不会走自己的 `CloseAsync`。
+- **退出游戏**：统一调 `GameQuit.Quit("来源")`（`Core/Boot/GameQuit.cs`），不要自己写 `Application.Quit()`。要在退出前做异步收尾（如最后一次存档）就 `GameQuit.RegisterBeforeQuit(async () => { ... })`，把返回的句柄在自己 `Dispose` 时释放；钩子按登记顺序执行，总共最多等 2 秒，抛异常只记 Error 不挡退出（直接关窗口不经过这里）。
+- **二次确认弹窗**：用 Core 的 `ConfirmView`：`var v = await ui.OpenAsync<ConfirmView>(new ConfirmRequest("正文", "确认", "取消"), ct); bool ok = await v.WaitAsync(ct); await ui.CloseAsync(v, ct);`，Esc / 被关都按取消返回 false。
+- **选槽面板**：`Game.Session.SaveSlotsView`（`Prefabs/UI/SaveSlotsView.prefab`）是标题「继续 / 选择存档 / 开始（无空槽时）」共用的面板，会话逻辑在 `SaveSlotsController`；面板本身只显示三行槽位信息与抛点击 / 删除 / 返回事件，覆盖与删除都经 `ConfirmView` 二次确认。
+
 ## 12. 音频
 
 ### 12.1 三路音量与存档的关系
 
-`MasterVolume` / `BgmVolume` / `SfxVolume` 三个属性**读写的就是 `SettingsSaveData` 分区**，不是服务自己的字段：
+`MasterVolume` / `BgmVolume` / `SfxVolume` 三个属性**读写的就是 `ISettingsService.Current`**（设置档案，不进存档槽），不是服务自己的字段：
 
 ```csharp
-audio.MasterVolume = 0.5f;     // ① 夹到 0～1 ② 写进 SettingsSaveData ③ 立刻应用到 AudioSource
+audio.MasterVolume = 0.5f;     // ① 夹到 0～1 ② 写进 ISettingsService.Current ③ 立刻应用到 AudioSource
 ```
 
-**服务不负责落盘**——设置界面拖滑块时每帧写一次文件是灾难。正确做法是设置面板关闭时调一次 `saves.SaveAsync(slot, ct)`。反过来，`LoadAsync` 读回存档后要让音量生效，重新赋一次 `audio.MasterVolume = settings.MasterVolume` 即可。
+**服务不负责落盘**——设置界面拖滑块时每帧写一次文件是灾难。正确做法是设置面板确认时调一次 `ISettingsService.SaveAsync(ct)`；放弃修改用 `Restore(snapshot)`，它会连音量一起回滚并推给音频服务。读档（`LoadAsync`）不再影响音量。
 
 音量怎么落到声音上：`AudioConfig.Mixer` 留空（现状）时用 AudioSource 音量相乘——BGM 源音量 = `Master × Bgm`，SFX 声部音量 = `Master × Sfx`，`PlaySfx` 的 `volume` 参数再乘一次。换算在纯函数 `AudioVolumeMath.Effective` 里，有测试钉着。
 
@@ -1024,8 +1172,27 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
   编辑器的 Play Mode Script 是 `Use Asset Database (fastest)`，它不看组，直接从工程里取。
   这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
+- 地址 `IsometricEncounter` 现在指向 `Assets/Scenes/SampleScene.unity`（功能 demo 示例场景），这是**临时**的；
+  正式内容落地后只改这一处指向 `Assets/_Project/Scenes/` 下的新场景。
 
-### 14.4 出错了怎么读
+### 14.4 占位素材闸门：Release 包不许带开发期占位图
+
+`Art/Sprites/Characters/Ark/` 下是明日方舟小人序列帧，版权归鹰角、**只许开发期占位**。
+为了不靠人记，`BuildScript` 在切平台之前先跑一遍 `PlaceholderAssetGuard`（`Scripts/Editor/Build/`）：
+
+- **查什么**：Build Settings 里启用的场景 + Addressables 各组条目（文件夹条目展开），
+  逐个取 `AssetDatabase.GetDependencies(递归)`，看有没有路径落在禁止前缀下。
+  前缀清单在 `PlaceholderAssetGuardRules.DefaultForbiddenPrefixes`，以后有别的占位目录往里加一行。
+- **Release（不带 `-Development`）命中**：每条引用链（`场景 / Addressables 条目 → 占位资产`）打一行错误，
+  末尾按根汇总，打包以退出码 1 结束，`build.ps1` 报失败。
+- **开发版（`-Development`）命中**：同样逐条列出但只是警告，照常出包。
+- **编辑器里手点 File > Build** 也拦：同一个类实现了 `IPreprocessBuildWithReport`，Release 命中抛 `BuildFailedException`。
+- **不出包也能查**：菜单 **21Days → 打包 → 检查占位素材引用**，报告打到控制台。
+
+眼下 `SampleScene`（既在 Build Settings 里、又是 Addressables 条目）引用了五个 Ark 小人，
+**Release 包必然被拦**——这是预期行为。正式美术到位、替换掉小人之前，出包请带 `-Development`。
+
+### 14.5 出错了怎么读
 
 `/build` 失败时会摘日志里的前几条错误。常见的三类：
 
@@ -1034,8 +1201,9 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
 | 拿不到工程锁 / `Temp/UnityLockfile` | 编辑器还开着 |
 | `Android SDK/NDK not found` | 装编辑器时没勾 Android Build Support 的子模块（见 1.2） |
 | 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.3） |
+| `[占位素材闸门] ... Release 出包已拦下` | 进包内容引用了开发期占位素材（见 14.4）；换正式美术，或自测改出开发版 |
 
-### 14.5 CI（已搁置）
+### 14.6 CI（已搁置）
 
 **2026-09-16 起工程里没有 CI**：两条 GitHub Actions 流水线已删除，许可证 secret 已清空，
 push 不再触发任何自动化。原因是 game-ci 激活 Unity 许可证时账号登录返回 **401**——

@@ -230,6 +230,17 @@ namespace Game.Core.Save
 
         public async UniTask<SaveSnapshot> ReadCandidateAsync(int slot, CancellationToken ct = default)
         {
+            // 候选里装的是已经迁移过的分区（SaveSnapshot 构造时再克隆一份隔离），Commit 不会再迁一次。
+            Dictionary<Type, ISaveData> loaded = await ReadPartitionsAsync(slot, ct);
+            return loaded == null ? null : new SaveSnapshot(loaded);
+        }
+
+        /// <summary>
+        /// 读盘、解析、逐分区反序列化并按需迁移（每个旧版本分区只调一次 <see cref="ISaveData.Migrate"/>）。
+        /// 失败返回 null，不碰内存里的当前存档。<see cref="ReadCandidateAsync"/> 与 <see cref="LoadAsync"/> 共用这一段。
+        /// </summary>
+        private async UniTask<Dictionary<Type, ISaveData>> ReadPartitionsAsync(int slot, CancellationToken ct)
+        {
             string path = GetSlotPath(slot);
             string json;
             long startMs = NowMs;
@@ -404,15 +415,20 @@ namespace Game.Core.Save
             }
 
             telemetry.Track(TelemetryKeys.SaveEvents.Load, (TelemetryKeys.Props.Slot, slot), (TelemetryKeys.Props.N, loaded.Count));
-            return new SaveSnapshot(loaded);
+            return loaded;
         }
 
         public async UniTask<bool> LoadAsync(int slot, CancellationToken ct = default)
         {
-            SaveSnapshot candidate = await ReadCandidateAsync(slot, ct);
-            if (candidate == null) return false;
+            Dictionary<Type, ISaveData> loaded = await ReadPartitionsAsync(slot, ct);
+            if (loaded == null) return false;
             ct.ThrowIfCancellationRequested();
-            Commit(candidate);
+
+            // 直接换上刚迁移完的那批实例，不走 SaveSnapshot：快照为隔离会做 JSON 往返克隆，
+            // 克隆只带得过「可读写的公开属性」，Migrate 里对其余状态的改动会在克隆里丢掉，
+            // 读档后 Get<T>() 拿到的就不再是 Migrate 作用过的那个对象（d5a9d12 引入的回归）。
+            partitions.Clear();
+            foreach (KeyValuePair<Type, ISaveData> pair in loaded) partitions.Add(pair.Key, pair.Value);
             return true;
         }
 
@@ -424,6 +440,16 @@ namespace Game.Core.Save
             Dictionary<Type, ISaveData> copy = snapshot.CopyPartitions();
             partitions.Clear();
             foreach (KeyValuePair<Type, ISaveData> pair in copy) partitions.Add(pair.Key, pair.Value);
+        }
+
+        /// <summary>
+        /// 清空内存分区，下次 <see cref="Get{T}"/> 建默认实例；磁盘不动。
+        /// 与 <see cref="LoadAsync"/> 一样是整体替换：旧实例从此脱钩，所以任何服务都不得缓存分区实例（见接口注释）。
+        /// 类型缓存（typeCache）保留：它只是「全名 → 类型」的反射结果，与存档内容无关。
+        /// </summary>
+        public void ResetAll()
+        {
+            partitions.Clear();
         }
 
         /// <summary>埋点层自己的时钟。拿不到时恒为 0（ms 记成 0），不影响任何业务路径。</summary>
@@ -479,7 +505,18 @@ namespace Game.Core.Save
             if (json == null) return new T();
             try
             {
-                T value = JsonConvert.DeserializeObject<T>(json, serializerSettings);
+                T value;
+                if (typeof(ISaveData).IsAssignableFrom(typeof(T)))
+                {
+                    // ISaveData 档案走版本信封，与槽位分区同一套迁移规则；高版本返回 null → 用默认值且不动文件。
+                    value = DeserializeVersionedProfile<T>(name, json);
+                    if (value == null) return new T();
+                }
+                else
+                {
+                    value = JsonConvert.DeserializeObject<T>(json, serializerSettings);
+                }
+
                 if (value == null) throw new JsonSerializationException("玩家档案为空");
                 validate?.Invoke(value);
                 return value;
@@ -506,10 +543,54 @@ namespace Game.Core.Save
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
             string path = ProfilePath(name);
-            string json = JsonConvert.SerializeObject(data, serializerSettings);
+            // ISaveData 档案写成带版本的信封 { "version": N, "data": {...} }，读回时才能按 Migrate 迁移；其余类型保持裸对象。
+            string json = data is ISaveData versioned
+                ? JsonConvert.SerializeObject(
+                    new SavePartition { Version = versioned.Version, Data = JObject.FromObject(data, serializer) },
+                    serializerSettings)
+                : JsonConvert.SerializeObject(data, serializerSettings);
             await IoGate.WaitAsync(ct);
             try { await UniTask.RunOnThreadPool(() => WriteAtomic(path, json), cancellationToken: ct); }
             finally { IoGate.Release(); }
+        }
+
+        /// <summary>
+        /// 解析 ISaveData 档案：有 <c>version</c> + <c>data</c> 两个键的是信封；没有的是版本信封之前写出的裸对象，按版本 1 处理。
+        /// 存的版本低于代码版本 → 调一次 <see cref="ISaveData.Migrate"/>（抛异常是代码 bug，照常往上抛）；
+        /// 高于代码版本 → 记 Error 返回 null，与槽位分区「高版本拒绝读取」一致，文件原样保留（不当损坏挪走）。
+        /// JSON 结构不对抛 JsonException，由调用方按损坏处理。
+        /// </summary>
+        private T DeserializeVersionedProfile<T>(string name, string json) where T : class, new()
+        {
+            JObject root = JObject.Parse(json);
+            int storedVersion = 1;
+            JToken dataToken = root;
+            if (root.TryGetValue("version", StringComparison.Ordinal, out JToken versionToken)
+                && versionToken.Type == JTokenType.Integer
+                && root.TryGetValue("data", StringComparison.Ordinal, out JToken envelopeData)
+                && envelopeData.Type == JTokenType.Object)
+            {
+                storedVersion = versionToken.Value<int>();
+                dataToken = envelopeData;
+            }
+
+            T value = dataToken.ToObject<T>(serializer);
+            if (value == null) throw new JsonSerializationException("玩家档案为空");
+
+            ISaveData data = (ISaveData)value;
+            if (storedVersion > data.Version)
+            {
+                Log.Error($"玩家档案 {name} 版本 {storedVersion} 高于当前支持的 {data.Version}，拒绝读取，改用默认值");
+                return null;
+            }
+
+            if (storedVersion < data.Version)
+            {
+                data.Migrate(storedVersion);
+                Log.Info($"玩家档案 {name} 已从版本 {storedVersion} 迁移到 {data.Version}");
+            }
+
+            return value;
         }
 
         private string ProfilePath(string name)

@@ -33,8 +33,9 @@ namespace Game.Tests.Showcase.Quest
         private const int SideQuestId = 2001;
         private const string UntrackedLabel = "未追踪任务";
 
-        /// <summary>支线 2001 目标瞭望点的 x 坐标（Verify/Quest.unity 的 QuestLocation_Lookout）。</summary>
-        private const float LookoutX = 24f;
+        /// <summary>回放舞台 SampleScene 里的任务地点物体名：营地（主线 1001 目标②）与瞭望点（支线 2001）。</summary>
+        private const string CampName = "QuestLocation_Camp";
+        private const string LookoutName = "QuestLocation_Lookout";
 
         private IUIService ui;
         private QuestService service;
@@ -46,7 +47,7 @@ namespace Game.Tests.Showcase.Quest
 
         protected override string Module => "Quest";
 
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Quest.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
 
         protected override bool LoadBootScene => true;
 
@@ -93,7 +94,9 @@ namespace Game.Tests.Showcase.Quest
             yield return Check("HUD 显示追踪中的主线「找到落脚处」，目标「与长者谈谈」",
                 () => service.TrackedId == MainQuestId && HudText("Root/Title").Contains("找到落脚处")
                       && HudText("Root/Objective").Contains("与长者谈谈"), 3f);
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            // 坐标从场景物体读，不写死：回放舞台（SampleScene）改布局时回放不用跟着改。
+            float lookoutX = FindRequired<Transform>(LookoutName).position.x;
             yield return Check("长者在画面内：HUD 不画指引，长者头顶出现世界空间任务标记",
                 () => !HudActive("Guidance") && MarkerActive()
                       && Marker().transform.position.y > elder.transform.position.y, 5f);
@@ -101,9 +104,9 @@ namespace Game.Tests.Showcase.Quest
 
             yield return Step("追踪支线 2001（目标瞭望点在画面外右侧）", () => service.Track(SideQuestId));
             yield return Check("HUD 换成「观察神秘生物」，指引贴屏幕边缘并显示箭头与距离「N m」，标记移到瞭望点",
-                () => HudText("Root/Title").Contains("观察神秘生物") && HudActive("Guidance") && HudActive("Guidance/Arrow")
-                      && HudText("Guidance/Distance").EndsWith("m")
-                      && Marker() != null && Math.Abs(Marker().transform.position.x - LookoutX) < 0.5f, 3f);
+                () => HudText("Root/Title").Contains("观察神秘生物") && HudActive("Guidance") && HudActive("Guidance/ArrowPivot/Arrow")
+                      && HudText("Guidance/ArrowPivot/Distance").EndsWith("m")
+                      && Marker() != null && Math.Abs(Marker().transform.position.x - lookoutX) < 0.5f, 3f);
             yield return Snapshot("支线追踪·屏外箭头");
 
             yield return Step("取消追踪", () => service.Untrack());
@@ -124,6 +127,8 @@ namespace Game.Tests.Showcase.Quest
             yield return CloseTitleIfOpen();
             yield return Check("任务 HUD 已打开", () => Hud() != null, 5f);
             var player = FindRequired<DialogueInteractionActor>("player");
+            Vector3 camp = FindRequired<Transform>(CampName).position;
+            Vector3 lookout = FindRequired<Transform>(LookoutName).position;
 
             yield return Step("拉起长者对白 1001", () => PlayDialogueAsync(1001).Forget());
             yield return Check("对白进行中，任务栏隐藏",
@@ -141,7 +146,7 @@ namespace Game.Tests.Showcase.Quest
                       && HudActive("Root") && HudText("Root/Objective").Contains("前往营地"), 3f);
             yield return Snapshot("目标推进·前往营地");
 
-            yield return Step("把玩家挪进营地", () => player.transform.position = new Vector3(0f, 0f, 6f));
+            yield return Step("把玩家挪进营地", () => MovePlayer(player, camp));
             yield return Check("主线 1001 完成，后续主线「与旅人叙旧」接取并被追踪",
                 () => service.TryGet(MainQuestId, out QuestProgress p) && p.State == QuestState.Completed
                       && service.TrackedId == 1002 && HudText("Root/Title").Contains("与旅人叙旧"), 3f);
@@ -151,7 +156,7 @@ namespace Game.Tests.Showcase.Quest
             yield return Step("上报一个无人匹配的计数", () => advanced = service.Report(QuestObjectiveKind.Counter, "nothing", 2));
             yield return Check("没有任何目标被推进（返回 0）", () => advanced == 0);
 
-            yield return Step("把玩家挪到瞭望点", () => player.transform.position = new Vector3(24f, 0f, 0f));
+            yield return Step("把玩家挪到瞭望点", () => MovePlayer(player, lookout));
             yield return Check("支线 2001 完成，HUD 仍追踪「与旅人叙旧」",
                 () => service.TryGet(SideQuestId, out QuestProgress s) && s.State == QuestState.Completed
                       && HudText("Root/Title").Contains("与旅人叙旧"), 3f);
@@ -194,6 +199,13 @@ namespace Game.Tests.Showcase.Quest
         }
 
         /// <summary>从根容器取本回放要用的服务；取不到留 null，由后续检查点记失败。</summary>
+        /// <summary>瞬移玩家到任务地点：player 根带运动学刚体，挪完同步一次物理变换，让地点判定当帧读到新位置。</summary>
+        private static void MovePlayer(DialogueInteractionActor player, Vector3 position)
+        {
+            player.transform.position = position;
+            Physics.SyncTransforms();
+        }
+
         private void Connect()
         {
             dialogueError = null;

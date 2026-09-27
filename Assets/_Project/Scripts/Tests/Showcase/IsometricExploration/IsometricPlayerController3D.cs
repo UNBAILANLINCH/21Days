@@ -11,6 +11,9 @@ namespace Game.Tests.Showcase.IsometricExploration
     {
         [SerializeField] private IsometricExplorationConfig config;
 
+        // 原型控制器专用，正式速度在 PlayerConfig（IsometricExplorationConfig.moveSpeed 已删，波 6）。
+        private const float PrototypeMoveSpeed = 3f;
+
         private Rigidbody body;
         private Vector2 moveInput;
 
@@ -22,7 +25,7 @@ namespace Game.Tests.Showcase.IsometricExploration
 
         private void FixedUpdate()
         {
-            float moveSpeed = config == null ? 0f : config.MoveSpeed;
+            float moveSpeed = config == null ? 0f : PrototypeMoveSpeed; // 未接配置时保持原行为：不动
             body.velocity = new Vector3(
                 moveInput.x * moveSpeed,
                 body.velocity.y,

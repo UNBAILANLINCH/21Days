@@ -42,6 +42,8 @@ namespace Game.Dialogue
             public string Next { get; set; } = string.Empty;
             public string Outcome { get; set; } = string.Empty;
             public bool Blocking { get; set; } = true;
+            /// <summary>本节点展示前先播放的演出 id（Addressables 地址）；空 = 不插播。</summary>
+            public string PerformanceId { get; set; } = string.Empty;
             public Portrait[] Portraits { get; set; } = Array.Empty<Portrait>();
             public Choice[] Choices { get; set; } = Array.Empty<Choice>();
         }

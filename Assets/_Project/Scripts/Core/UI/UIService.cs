@@ -8,9 +8,11 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
 using Game.Core.Boot;
+using Game.Core.Events;
 using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Telemetry;
+using MessagePipe;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -32,9 +34,11 @@ namespace Game.Core.UI
     ///   Canvas_Top   (sortingOrder 300) → SafeArea
     ///   EventSystem
     /// </code>
+    /// Hud 层的 SafeArea 上额外挂一个 CanvasGroup：Panel 栈里有任一全屏面板时整层被盖住（alpha 0、不吃点击），
+    /// 见 <see cref="RefreshHudCover"/>。
     /// </para>
     /// </summary>
-    public sealed class UIService : IUIService, IGameService, IDisposable
+    public sealed class UIService : IUIService, IHudVisibility, IGameService, IDisposable
     {
         /// <summary>相邻两层 Canvas 的 sortingOrder 间隔。留出空档给玩法临时插一层。</summary>
         private const int LayerSortingStep = 100;
@@ -58,27 +62,64 @@ namespace Game.Core.UI
         /// <summary>每层的内容根（挂 SafeAreaFitter 的那个 RectTransform），面板生在它下面。</summary>
         private readonly Dictionary<UILayer, Transform> layerRoots = new Dictionary<UILayer, Transform>();
 
+        /// <summary>每层的 Canvas_&lt;layer&gt;，<see cref="SetLayerVisible"/> 切它的 enabled。</summary>
+        private readonly Dictionary<UILayer, Canvas> layerCanvases = new Dictionary<UILayer, Canvas>();
+
+        /// <summary>
+        /// <see cref="SetLayerVisible"/> 设成隐藏的层（整层开关的唯一记账，<see cref="IsLayerVisible"/> 只读它）。
+        /// 单独记一份而不回读 Canvas.enabled：读回值必须只反映「谁调了 SetLayerVisible」，
+        /// 与全屏遮盖（<see cref="hudCoverGroup"/>）、沉浸模式（<see cref="SetHudHidden"/>）两套显隐彻底解耦，
+        /// 以后哪套机制改成也动 Canvas，这里的语义都不会被污染。建层前设过的值在建层时套用。
+        /// </summary>
+        private readonly HashSet<UILayer> hiddenLayers = new HashSet<UILayer>();
+
         private GameObject root;
         private bool disposed;
+
+        /// <summary>
+        /// 自己建的那个 EventSystem（<see cref="CreateEventSystem"/>）。默认选中项只往它身上设，
+        /// 不用 <c>EventSystem.current</c>：后者在多个 EventSystem 并存或切场景的瞬间可能指向别人。
+        /// 没初始化（EditMode 测试）时为 null，选中逻辑整体跳过。
+        /// </summary>
+        private EventSystem eventSystem;
 
         private readonly ITelemetryScope telemetry;
         private readonly ITelemetryClock clock;
 
+        /// <summary>沉浸模式切换的事件出口；EditMode 测试可传 null（只是不发布）。</summary>
+        private readonly IPublisher<HudVisibilityChangedEvent> hudChanged;
+
+        /// <summary>当前是否沉浸（<see cref="SetHudHidden"/>）。</summary>
+        private bool hudHidden;
+
         /// <summary>
-        /// 两个埋点参数允许为 null（EditMode 测试里直接 new 出来的 UIService 没有容器）：
-        /// 拿不到就整条埋点链路变空操作，开关面板的行为一个字节都不变。
+        /// 「被全屏面板盖住」的整层开关：挂在 Canvas_Hud/SafeArea 上的 CanvasGroup，由 <see cref="RefreshHudCover"/> 驱动。
+        /// 与另外两套 Hud 显隐互不干扰、可叠加：<see cref="SetLayerVisible"/> 切的是 Canvas.enabled（演出、对白在用，记账在 <see cref="hiddenLayers"/>），
+        /// 沉浸模式（<see cref="SetHudHidden"/>）动的是每个 Hud 面板自己根上的 CanvasGroup。
+        /// 没初始化（EditMode 测试）时为 null，盖住逻辑整体跳过。
+        /// </summary>
+        private CanvasGroup hudCoverGroup;
+
+        /// <summary><see cref="hudCoverGroup"/> 当前是否处于盖住状态，状态不变时不重复写。</summary>
+        private bool hudCovered;
+
+        /// <summary>
+        /// 两个埋点参数与 <paramref name="hudChanged"/> 允许为 null（EditMode 测试里直接 new 出来的 UIService 没有容器）：
+        /// 拿不到就整条埋点链路变空操作 / 沉浸切换不发布事件，开关面板的行为一个字节都不变。
         /// </summary>
         public UIService(
             IAssetService assets,
             IInputService input,
             UIConfig config,
             ITelemetryService telemetry,
-            ITelemetryClock clock)
+            ITelemetryClock clock,
+            IPublisher<HudVisibilityChangedEvent> hudChanged)
         {
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.input = input ?? throw new ArgumentNullException(nameof(input));
             this.config = config;
             this.clock = clock;
+            this.hudChanged = hudChanged;
             this.telemetry = telemetry == null
                 ? (ITelemetryScope)NullTelemetryScope.Instance
                 : telemetry.Scope(TelemetryKeys.Ui);
@@ -159,6 +200,12 @@ namespace Game.Core.UI
             {
                 completion.TrySetException(e);
 
+                // 排队的人（若有）在 TrySetException 里已同步收到异常；没人排队时，UniTaskCompletionSource
+                // 的 ExceptionHolder 终结器会在 GC 时把它当「未观察异常」再发布一遍，随机砸中别处（pitfalls.md）。
+                // 异常已由下面的 throw 交给本次调用方，这里读一次结果把它标记为已观察。
+                try { completion.Task.GetAwaiter().GetResult(); }
+                catch (Exception) { /* 就是本次的 e，已在下方原样抛出 */ }
+
                 // 开面板失败的头号原因是 Addressables 地址与类名对不上，所以 panel 必须写进属性；
                 // ms 说明是「一上来就炸」还是「等了很久才炸」，两者查的方向完全不同。
                 telemetry.TrackError(
@@ -223,7 +270,31 @@ namespace Game.Core.UI
             }
 
             ApplyVisibility(stack.Push(view), false);
+
+            // 全屏面板一压栈 Hud 立刻盖住，不等淡入。
+            RefreshHudCover();
+
+            // 沉浸中新开的 Hud 面板：不播淡入（淡入会把 alpha 拉回 1），直接套隐藏。
+            if (hudHidden && FollowsHud(view))
+            {
+                ApplyHudHidden(view, true);
+                return view;
+            }
+
             await view.PlayOpenTransitionAsync(TransitionSeconds, ct);
+
+            // 淡入途中进了沉浸：淡入收尾会把 alpha 写回 1，这里补一次。
+            if (hudHidden && FollowsHud(view))
+            {
+                ApplyHudHidden(view, true);
+            }
+
+            // 淡入完才选中：淡入途中又叠上来一个面板时，这里的栈顶已经不是它，不抢那个面板的焦点。
+            if (stack.Top() == view)
+            {
+                ApplySelection(view);
+            }
+
             return view;
         }
 
@@ -248,8 +319,19 @@ namespace Game.Core.UI
             await view.PlayCloseTransitionAsync(TransitionSeconds, ct);
             await view.OnCloseAsync(ct);
 
+            // 只有关的是栈顶才动选中：关一个被盖在下面的面板不该把玩家在上层面板里的焦点抢走。
+            bool wasTop = stack.Top() == view;
+
             opened.Remove(type);
             ApplyVisibility(stack.Remove(view), true);
+
+            // 放在淡出之后：面板淡出完成、出栈了 Hud 才恢复，不会在淡出途中透出任务栏。
+            RefreshHudCover();
+
+            if (wasTop)
+            {
+                ApplySelection(TopView);
+            }
 
             assets.ReleaseInstance(view.gameObject);
 
@@ -264,6 +346,28 @@ namespace Game.Core.UI
             return top == null ? UniTask.CompletedTask : CloseAsync(top, ct);
         }
 
+        /// <summary>
+        /// 当前栈顶面板（先 Popup 后 Panel），两条栈都空时为 null。Hud / Top 层不进栈，永远不会是它。
+        /// 给 <see cref="UICancelRouter"/> 判「Esc 该不该关它」用；不放进 IUIService——玩法只需要
+        /// 「关掉最上面那个」（<see cref="CloseTopAsync"/>），不该依赖栈里有谁。
+        /// </summary>
+        public UIView TopView => stack.Top() as UIView;
+
+        /// <summary>
+        /// 栈顶面板该让 EventSystem 选中谁：有 <see cref="UIView.DefaultSelected"/> 就是它的 GameObject，
+        /// 否则 null（清空选中，避免焦点留在已经关掉 / 被盖住的控件上）。纯函数，EditMode 可测。
+        /// </summary>
+        public static GameObject ResolveDefaultSelection(UIView top)
+        {
+            // UIView / Selectable 都是 UnityEngine.Object，判空只用 == null。
+            if (top == null || top.DefaultSelected == null)
+            {
+                return null;
+            }
+
+            return top.DefaultSelected.gameObject;
+        }
+
         public T Get<T>() where T : UIView
         {
             if (!opened.TryGetValue(typeof(T), out UIView view) || view == null)
@@ -272,6 +376,80 @@ namespace Game.Core.UI
             }
 
             return (T)view;
+        }
+
+        public bool IsLayerVisible(UILayer layer)
+        {
+            ThrowIfDisposed();
+            // 只读 SetLayerVisible 的记账，不看 Canvas.enabled / 全屏遮盖 / 沉浸；从没设过的层默认可见。
+            return !hiddenLayers.Contains(layer);
+        }
+
+        public void SetLayerVisible(UILayer layer, bool visible)
+        {
+            ThrowIfDisposed();
+            // 先记账：IsLayerVisible 读回的就是这里，与该层 Canvas 建没建好无关。
+            bool changed = visible ? hiddenLayers.Remove(layer) : hiddenLayers.Add(layer);
+            if (!layerCanvases.TryGetValue(layer, out Canvas canvas) || canvas == null)
+            {
+                Log.Warn($"SetLayerVisible({layer}) 时 UIService 还没初始化或该层不存在，只记下开关，建层时套用");
+                return;
+            }
+
+            if (!changed && canvas.enabled == visible)
+            {
+                return;
+            }
+
+            ApplyLayerCanvas(canvas, visible);
+
+            telemetry.Track(
+                TelemetryKeys.UiEvents.LayerVisible,
+                (TelemetryKeys.Props.Layer, layer.ToString()),
+                (TelemetryKeys.Props.Visible, visible));
+        }
+
+        /// <summary>
+        /// 把整层开关落到 Canvas 上。Canvas.enabled 只管渲染；射线器要一起关，否则层看不见了按钮照样吃点击。
+        /// </summary>
+        private static void ApplyLayerCanvas(Canvas canvas, bool visible)
+        {
+            canvas.enabled = visible;
+            var raycaster = canvas.GetComponent<GraphicRaycaster>();
+            if (raycaster != null)
+            {
+                raycaster.enabled = visible;
+            }
+        }
+
+        public bool IsHudHidden => hudHidden;
+
+        /// <summary>
+        /// 沉浸模式开关。只遍历自己记账里的 Hud 层面板，<see cref="UIView.VisibleWhenHudHidden"/> 为 true 的不动；
+        /// 不关面板、不进出栈、不触发生命周期。状态真正变化时才发布事件。
+        /// </summary>
+        public void SetHudHidden(bool hidden)
+        {
+            ThrowIfDisposed();
+            if (hudHidden == hidden)
+            {
+                return;
+            }
+
+            hudHidden = hidden;
+            foreach (KeyValuePair<Type, UIView> pair in opened)
+            {
+                UIView view = pair.Value;
+                if (FollowsHud(view))
+                {
+                    ApplyHudHidden(view, hidden);
+                }
+            }
+
+            if (hudChanged != null)
+            {
+                hudChanged.Publish(new HudVisibilityChangedEvent(hidden));
+            }
         }
 
         /// <summary>关掉全部面板并销毁 UIRoot。这里不再播过渡动画——作用域都在销毁了，没人看得到。</summary>
@@ -287,6 +465,10 @@ namespace Game.Core.UI
 
             ReleaseAllViews();
             layerRoots.Clear();
+            layerCanvases.Clear();
+            hiddenLayers.Clear();
+            eventSystem = null;
+            hudCoverGroup = null;
 
             if (root != null)
             {
@@ -370,13 +552,26 @@ namespace Game.Core.UI
 
             canvasObject.AddComponent<GraphicRaycaster>();
 
+            // 建层前就被 SetLayerVisible(false) 过（时序问题，已记 Warn）：按记账套上，保持读回值与画面一致。
+            if (hiddenLayers.Contains(layer))
+            {
+                ApplyLayerCanvas(canvas, false);
+            }
+
             var contentObject = new GameObject("SafeArea", typeof(RectTransform));
             contentObject.transform.SetParent(canvasObject.transform, false);
             contentObject.layer = canvasObject.layer;
             StretchToParent(contentObject.transform as RectTransform);
             contentObject.AddComponent<SafeAreaFitter>();
 
+            if (layer == UILayer.Hud)
+            {
+                // 整层盖住开关，含义见 hudCoverGroup 的注释。
+                hudCoverGroup = contentObject.AddComponent<CanvasGroup>();
+            }
+
             layerRoots[layer] = contentObject.transform;
+            layerCanvases[layer] = canvas;
         }
 
         private void CreateEventSystem()
@@ -389,7 +584,7 @@ namespace Game.Core.UI
             eventSystemObject.SetActive(false);
             eventSystemObject.transform.SetParent(root.transform, false);
 
-            eventSystemObject.AddComponent<EventSystem>();
+            eventSystem = eventSystemObject.AddComponent<EventSystem>();
             var module = eventSystemObject.AddComponent<InputSystemUIInputModule>();
 
             if (input.Actions == null)
@@ -500,6 +695,17 @@ namespace Game.Core.UI
             return layerRoots.TryGetValue(layer, out Transform transform) ? transform : null;
         }
 
+        /// <summary>把栈顶面板的默认选中项设给自己的 EventSystem（见 <see cref="ResolveDefaultSelection"/>）。</summary>
+        private void ApplySelection(UIView top)
+        {
+            if (eventSystem == null)
+            {
+                return;
+            }
+
+            eventSystem.SetSelectedGameObject(ResolveDefaultSelection(top));
+        }
+
         /// <summary>把 UIStack 返回的条目集合落到实际的显隐上。</summary>
         private void ApplyVisibility(IReadOnlyList<IUIStackEntry> entries, bool visible)
         {
@@ -510,6 +716,54 @@ namespace Game.Core.UI
                     view.gameObject.SetActive(visible);
                 }
             }
+        }
+
+        /// <summary>
+        /// 按 Panel 栈同步 Hud 层的整层盖住：有任一全屏面板就 alpha 0 且不吃点击，全关掉后恢复。
+        /// 只动 <see cref="hudCoverGroup"/>，不 SetActive 任何 Hud 面板，也不碰沉浸状态与 Canvas.enabled。
+        /// </summary>
+        private void RefreshHudCover()
+        {
+            // CanvasGroup 是 UnityEngine.Object，判空只用 == null。
+            if (hudCoverGroup == null)
+            {
+                return;
+            }
+
+            bool covered = stack.HasFullScreenPanel;
+            if (covered == hudCovered)
+            {
+                return;
+            }
+
+            hudCovered = covered;
+            hudCoverGroup.alpha = covered ? 0f : 1f;
+            hudCoverGroup.interactable = !covered;
+            hudCoverGroup.blocksRaycasts = !covered;
+        }
+
+        /// <summary>该面板是否随沉浸模式隐藏：Hud 层且没声明「沉浸中仍显示」。</summary>
+        private static bool FollowsHud(UIView view)
+        {
+            // UIView 是 UnityEngine.Object，判空只用 == null / != null。
+            return view != null && view.Layer == UILayer.Hud && !view.VisibleWhenHudHidden;
+        }
+
+        /// <summary>
+        /// 切一个面板的沉浸显隐：只动 CanvasGroup（alpha / interactable / blocksRaycasts），不 SetActive——
+        /// 面板自己的 root 显隐（如对白期间隐藏任务栏）不受影响，恢复时也不会被误开。
+        /// </summary>
+        private static void ApplyHudHidden(UIView view, bool hidden)
+        {
+            CanvasGroup group = view.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = view.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            group.alpha = hidden ? 0f : 1f;
+            group.interactable = !hidden;
+            group.blocksRaycasts = !hidden;
         }
 
         private static void StretchToParent(RectTransform rectTransform)

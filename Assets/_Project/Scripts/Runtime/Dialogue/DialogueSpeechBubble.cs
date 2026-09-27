@@ -87,6 +87,8 @@ namespace Game.Dialogue
         /// <summary>显示一句台词；显示中调用会直接换句、从头打字。</summary>
         public void Show(string line)
         {
+            // 沉浸模式下不弹气泡（世界空间提示一律隐藏）。
+            if (target != null && target.HiddenByHud) return;
             if (fade.IsActive()) fade.Cancel();
             CurrentText = line ?? string.Empty;
             if (root != null) root.SetActive(true);
@@ -113,6 +115,14 @@ namespace Game.Dialogue
 
         private void Update()
         {
+            // 显示中进了沉浸模式：立刻收起（只比较布尔，不分配）。
+            if (phase != Phase.Hidden && target != null && target.HiddenByHud)
+            {
+                if (fade.IsActive()) fade.Cancel();
+                HideImmediate();
+                return;
+            }
+
             switch (phase)
             {
                 case Phase.Typing:

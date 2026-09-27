@@ -74,7 +74,7 @@ Editor 代码混进包体）。两者从外面都看不出来，没有载体的�
 python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规时静默 exit 0
 ```
 
-查六条**跨文件 / 跨资产**的约束——每一条都是 `project-lint` 的逐行正则天生够不着的：
+查九条**跨文件 / 跨资产**的约束——每一条都是 `project-lint` 的逐行正则天生够不着的：
 
 | 查什么 | 依据 |
 | --- | --- |
@@ -84,6 +84,9 @@ python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规�
 | 命名空间与目录一致（`Core/<X>/` → `Game.Core.<X>`；`Runtime/<M>/` → `Game.<M>`） | `architecture.md` #4 |
 | `.meta` 配对（缺 meta 与孤儿 meta 两头都查） | `pitfalls.md` #.meta 没提交 |
 | UI 面板的 Addressables 地址等于类名 | `architecture.md` #5.6 |
+| Dynamic TMP 字体资产没带着 Play 期字形（> 200 KB 即报） | `Art/Fonts/README.md` · `pitfalls.md` #Dynamic 字体资产污染 git |
+| 正式场景 / 预制体（`Assets/Scenes/`、`_Project/Scenes/`、`_Project/Prefabs/`）的 `m_Script` 不指向 `Scripts/Tests/` 下的脚本（测试程序集不进包，出包即 missing script） | `project-root.md` #asmdef 依赖方向 · `pitfalls.md` #正式场景引用了测试程序集脚本 |
+| `Assets/` 根下没有 PlayMode 测试中断残留的 `InitTestScene*.unity` | `.gitignore` #InitTestScene 注释 · `pitfalls.md` #InitTestScene 残留堆积 |
 
 分工尺子：**一行之内判得完的归 `rules.json`，必须把整个仓库摊开才能判的归 `invariants.py`**，
 两边不重复。误报出现两次就改判据或删掉那条，**不要加白名单**。

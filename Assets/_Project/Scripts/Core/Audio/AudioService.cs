@@ -1,6 +1,6 @@
-// 职责：IAudioService 的唯一实现——建 AudioRoot（1 个 BGM 源 + SFX 声部池）、三路音量与存档同步、BGM 淡入淡出。
+// 职责：IAudioService 的唯一实现——建 AudioRoot（1 个 BGM 源 + SFX 声部池）、三路音量与设置档案同步、BGM 淡入淡出。
 // 为什么新建：IAudioService 是契约，实现必须分开放；音量换算已经拆到 AudioVolumeMath（纯函数、可测），
-//   这里只剩「跟 Unity 和存档打交道」的部分，工程内没有现成文件能承担。
+//   这里只剩「跟 Unity 和设置档案打交道」的部分，工程内没有现成文件能承担。
 
 using System;
 using System.Collections.Generic;
@@ -10,6 +10,7 @@ using Game.Core.Assets;
 using Game.Core.Boot;
 using Game.Core.Logging;
 using Game.Core.Save;
+using Game.Core.Settings;
 using Game.Core.Telemetry;
 using LitMotion;
 using LitMotion.Extensions;
@@ -26,8 +27,8 @@ namespace Game.Core.Audio
     /// 各 AudioSource 音量恒为 1，音量由 Mixer 的暴露参数控制。
     /// </para>
     /// <para>
-    /// **音量与存档**：三个属性读写的就是 <c>SettingsSaveData</c> 分区，setter 立刻生效但**不落盘**；
-    /// 落盘是设置界面的事（拖滑块时每帧写文件是灾难）。
+    /// **音量与设置档案**：三个属性读写的就是 <c>ISettingsService.Current</c>（独立档案 "settings"，不进存档槽），
+    /// setter 立刻生效但**不落盘**；落盘是设置界面调 <c>ISettingsService.SaveAsync</c> 的事（拖滑块时每帧写文件是灾难）。
     /// </para>
     /// </summary>
     public sealed class AudioService : IAudioService, IGameService, IDisposable
@@ -41,13 +42,14 @@ namespace Game.Core.Audio
         private const int DefaultSfxVoices = 8;
 
         private readonly IAssetService assets;
-        private readonly ISaveService saves;
+        private readonly ISettingsService settingsService;
         private readonly AudioConfig config;
 
         /// <summary>PlaySfxAsync 加载出来、还没播完的句柄。Dispose 时要兜底释放。</summary>
         private readonly HashSet<AssetHandle<AudioClip>> pendingSfxHandles = new HashSet<AssetHandle<AudioClip>>();
 
         private CancellationTokenSource lifetimeCts;
+        /// <summary>初始化之后才读写设置：初始化前 setter 是空操作，getter 返回 1（与改动前行为一致）。</summary>
         private SettingsSaveData settings;
         private GameObject root;
         private AudioSource bgmSource;
@@ -74,10 +76,10 @@ namespace Game.Core.Audio
         /// 拿不到就整条埋点链路变空操作，播放行为一个字节都不变。
         /// <para>这里不需要 <see cref="ITelemetryClock"/>：契约里 <c>core.audio</c> 两个事件都不带 <c>ms</c>。</para>
         /// </summary>
-        public AudioService(IAssetService assets, ISaveService saves, AudioConfig config, ITelemetryService telemetry)
+        public AudioService(IAssetService assets, ISettingsService settingsService, AudioConfig config, ITelemetryService telemetry)
         {
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
-            this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
+            this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             this.config = config;
             this.telemetry = telemetry == null
                 ? (ITelemetryScope)NullTelemetryScope.Instance
@@ -139,8 +141,9 @@ namespace Game.Core.Audio
 
             lifetimeCts = new CancellationTokenSource();
 
-            // 音量初值来自存档分区：Get<T> 首次访问会用默认值创建，所以这里不用判存档存不存在。
-            settings = saves.Get<SettingsSaveData>();
+            // 音量初值来自设置档案：SettingsService 注册在本服务之前，已读完档案（没有档案时就是默认值）。
+            // Current 在服务生命周期内是同一个实例（读档 / 回滚都原地覆盖），缓存引用不会读到旧值。
+            settings = settingsService.Current;
 
             root = new GameObject("AudioRoot");
             UnityEngine.Object.DontDestroyOnLoad(root);

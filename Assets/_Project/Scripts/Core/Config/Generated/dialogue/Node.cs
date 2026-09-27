@@ -31,6 +31,7 @@ public sealed partial class Node : Luban.BeanBase
         Next = _buf.ReadString();
         Outcome = _buf.ReadString();
         Blocking = _buf.ReadBool();
+        Performance = _buf.ReadString();
         {int n0 = _buf.ReadSize(); Choices = new System.Collections.Generic.List<dialogue.Choice>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { dialogue.Choice _e0;  _e0 = global::cfg.dialogue.Choice.DeserializeChoice(_buf); Choices.Add(_e0);}}
     }
 
@@ -69,6 +70,10 @@ public sealed partial class Node : Luban.BeanBase
     /// Luban JSON 不允许缺字段，数据里显式写 true / false
     /// </summary>
     public readonly bool Blocking;
+    /// <summary>
+    /// 本节点展示前先播放的演出 id（Addressables 地址），空 = 不插播；JSON 里必须显式写 &quot;&quot;
+    /// </summary>
+    public readonly string Performance;
     public readonly System.Collections.Generic.List<dialogue.Choice> Choices;
    
     public const int __ID__ = -1103894408;
@@ -94,6 +99,7 @@ public sealed partial class Node : Luban.BeanBase
         + "next:" + Next + ","
         + "outcome:" + Outcome + ","
         + "blocking:" + Blocking + ","
+        + "performance:" + Performance + ","
         + "choices:" + Luban.StringUtil.CollectionToString(Choices) + ","
         + "}";
     }

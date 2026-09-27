@@ -20,11 +20,22 @@ namespace Game.Core.Platform
 
         private string saveRoot;
 
+        /// <summary>
+        /// 存档根目录覆盖，只给编辑器内的测试 / 回放（Showcase）用，正式包不设。
+        /// 非空时 <see cref="SaveRoot"/> 每次都会现取这个值而不是拼 persistentDataPath——
+        /// 从「开始」进场景的回放会往真实存档目录写 slot1..N.json，几条用例跑下来就把玩家的
+        /// 真实存档槽写满（ai-docs/pitfalls.md「从『开始』进场景的回放把玩家真实存档写满了」）。
+        /// Showcase 在加载 Boot 场景之前（<see cref="Tests.Showcase.ShowcaseScenario.ShowcaseSetUp"/>）
+        /// 就把它设到一个临时目录，此时 PlatformServiceFactory.Create() 还没跑，容器建出的实例
+        /// 第一次读 SaveRoot 时覆盖已经生效，不存在「构造时缓存了旧值」的问题。
+        /// </summary>
+        public static string SaveRootOverride { get; set; }
+
         public abstract PlatformKind Kind { get; }
 
         public abstract bool IsTouchPrimary { get; }
 
-        public string SaveRoot => saveRoot ??= Path.Combine(Application.persistentDataPath, SaveFolderName);
+        public string SaveRoot => SaveRootOverride ?? (saveRoot ??= Path.Combine(Application.persistentDataPath, SaveFolderName));
 
         public abstract void Vibrate(VibrationKind kind);
 

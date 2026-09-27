@@ -1,4 +1,4 @@
-// 职责：Dialogue 模块回放——范围焦点与右下角对话按钮、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
+// 职责：Dialogue 模块回放——范围焦点与底部交互提示、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
 //   以及对白期间世界时停、结束后恢复（PRD 验收 A4–A6）。
 using System;
 using System.Collections;
@@ -23,8 +23,14 @@ namespace Game.Tests.Showcase.Dialogue
     {
         private const float BootTimeoutSeconds = 20f;
 
+        /// <summary>预制体 PortraitLeft 的原位 x（入场终点，与演出面板 Avatar 同位）；入场中 x 小于它（两槽都从左侧进）。</summary>
+        private const float PortraitLeftRestX = 80f;
+
         /// <summary>根作用域类型名：Boot 场景的 GameBootstrap 带 DontDestroyOnLoad，收尾时按名字找来销毁。</summary>
         private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
+
+        /// <summary>站位偏移：NPC 左侧 1 单位，落在交互半径 2 以内。</summary>
+        private static readonly Vector3 StandOffset = new Vector3(-1f, 0f, 0f);
 
         private IUIService ui;
         private DialogueService service;
@@ -36,7 +42,7 @@ namespace Game.Tests.Showcase.Dialogue
 
         protected override string Module => "Dialogue";
 
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Dialogue.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
 
         protected override bool LoadBootScene => true;
 
@@ -83,7 +89,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -104,19 +111,23 @@ namespace Game.Tests.Showcase.Dialogue
             yield return Check("第一句整句显示，停在 l1 等待推进",
                 () => rules.Phase == DialogueSaveData.Phase.AwaitAdvance && CurrentIs("l1"), 1f);
             yield return Snapshot("三连点补全");
-            yield return Check("世界时停（timeScale=0、逻辑暂停、Gameplay 输入图关闭）",
-                () => Time.timeScale == 0f && worldPause.IsPaused && !input.Actions.Gameplay.enabled);
+            yield return Check("世界时停（timeScale=0、逻辑暂停、Gameplay 输入图关闭），探索 HUD 层已隐藏",
+                () => Time.timeScale == 0f && worldPause.IsPaused && !input.Actions.Gameplay.enabled
+                    && !ui.IsLayerVisible(UILayer.Hud));
             yield return Snapshot("对话拉起·世界时停");
 
             yield return Step("单点一下对白区：推进到下一句", () => RequireButton("TapArea").onClick.Invoke());
             yield return Check("推进到第二句 l2", () => CurrentIs("l2"), 2f);
 
-            string[] expectedSpeeds = { "x2", "x4", "x1" };
+            // 期望值与 DialogueView 同源拼：主标签只写倍速文字，键位写进下方 Hint 小字（该动作第一条键盘绑定，不写死键位）。
+            string speedHint = DialogueKeyboardInput.KeyboardHint(input.Actions.Dialogue.Speed);
+            float[] expectedSpeeds = { 2f, 4f, 1f };
             for (int i = 0; i < expectedSpeeds.Length; i++)
             {
-                string expected = expectedSpeeds[i];
+                string expected = DialogueView.FormatSpeed(expectedSpeeds[i]);
                 yield return Step($"倍速循环：第 {i + 1} 次点倍速按钮", () => RequireButton("SpeedButton").onClick.Invoke());
-                yield return Check($"倍速标签显示 {expected}", () => LabelText("SpeedLabel") == expected, 2f);
+                yield return Check($"倍速标签显示 {expected}、键位小字显示「{speedHint}」",
+                    () => ButtonText("SpeedButton", "Label") == expected && ButtonText("SpeedButton", "Hint") == speedHint, 2f);
             }
 
             yield return Step("开自动：点自动按钮", () => RequireButton("AutoButton").onClick.Invoke());
@@ -131,7 +142,8 @@ namespace Game.Tests.Showcase.Dialogue
 
             yield return Check("自动推进到结束，结果 Outcome=Accepted、未跳过",
                 () => !service.IsRunning && hasResult && lastResult.Outcome == "Accepted" && !lastResult.Skipped, 15f);
-            yield return Check("世界恢复（timeScale=1、逻辑恢复、Gameplay 输入图打开）", WorldRestored, 2f);
+            yield return Check("世界恢复（timeScale=1、逻辑恢复、Gameplay 输入图打开），探索 HUD 层恢复可见",
+                () => WorldRestored() && ui.IsLayerVisible(UILayer.Hud), 2f);
             yield return Snapshot("结束·世界恢复");
             elder.OnCompleted -= RecordResult;
         }
@@ -142,7 +154,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -176,7 +189,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var traveler = FindRequired<DialogueInteractable>("Traveler");
+            var traveler = FindRequired<DialogueInteractable>("Npc_Traveler");
+            yield return Step("玩家站到旅人身边（交互半径内）", () => StandNextTo(traveler), hold: 0.5f);
             yield return Step("用指针点击旅人（走 EventSystem 点击路径）", () =>
             {
                 traveler.OnCompleted -= RecordResult;
@@ -203,7 +217,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -240,15 +255,19 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             DialogueInteractionFocus focus = ResolveService<DialogueInteractionFocus>();
-            yield return WaitUntil("右下角交互 HUD 已打开", () => ui != null && ui.Get<DialogueInteractHudView>() != null, 5f);
-            yield return Check("玩家在长者附近：焦点是长者，右下角「对话」按钮显示，长者头顶亮起「!」",
-                () => focus != null && focus.Current == elder && HudRootActive() && ChildActive(elder, "MarkerFocus")
+            yield return WaitUntil("交互提示 HUD 已打开", () => ui != null && ui.Get<DialogueInteractHudView>() != null, 5f);
+            yield return Check("玩家在长者附近：焦点是长者，底部「[E] 对话 · 老者」提示显示，长者头顶亮起「!」（任务标记接管时由任务标记代替）",
+                () => focus != null && focus.Current == elder && HudRootActive()
+                      && HudLabelText() == DialogueInteractHudView.FormatLabel(elder.DisplayName)
+                      // SampleScene 里长者是主线目标：任务标记接管头顶图标（MarkerOverridden），此时对话「!」让位、不叠显示。
+                      && ChildActive(elder, "MarkerFocus") != elder.MarkerOverridden
                       && ChildActive(elder, "NameLabel"), 3f);
             yield return Snapshot("焦点·对话按钮");
 
-            yield return Step("点右下角「对话」按钮", () =>
+            yield return Step("点底部交互提示", () =>
             {
                 elder.OnCompleted -= RecordResult;
                 elder.OnCompleted += RecordResult;
@@ -280,7 +299,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var villager = FindRequired<DialogueInteractable>("Villager");
+            var villager = FindRequired<DialogueInteractable>("Npc_Villager");
+            yield return Step("玩家站到村民身边（交互半径内）", () => StandNextTo(villager), hold: 0.5f);
             var bubble = FindRequired<DialogueSpeechBubble>("SpeechBubble");
             yield return Step("和村民交互（无对话树，只说常驻台词）", () => villager.Interact(), hold: 0f);
             yield return Check("头顶气泡出现第一句，世界没有暂停、没有拉起对白面板",
@@ -297,7 +317,118 @@ namespace Game.Tests.Showcase.Dialogue
             yield return Snapshot("气泡淡出");
         }
 
+        [UnityTest]
+        public IEnumerator Portraits_SpeakerAvatarSwapsAndCrossfades()
+        {
+            Connect();
+            yield return CloseTitleIfOpen();
+
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
+            yield return Step("点长者：拉起对白 1001，长者头像从左侧滑入白框", () =>
+            {
+                elder.OnCompleted -= RecordResult;
+                elder.OnCompleted += RecordResult;
+                elder.Interact();
+            }, hold: 0f);
+            // 入场只有 0.25 s：不停顿直接逐帧轮询「正在入场」的瞬态（半透明，或还在预制体原位 x=80 的左侧）；
+            // 超时给 3 s 是等面板与立绘加载，条件本身只在入场那几帧成立。
+            yield return Check("长者头像正在入场（透明度介于 0～1，或还没滑到原位）", () =>
+            {
+                Image left = FindInView<Image>("PortraitLeft");
+                if (left == null || !left.enabled || left.sprite == null) return false;
+                float alpha = left.color.a;
+                return (alpha > 0f && alpha < 1f) || left.rectTransform.anchoredPosition.x < PortraitLeftRestX - 0.5f;
+            }, 3f);
+            yield return Snapshot("长者入场中");
+
+            yield return AdvanceTo("l2");
+            yield return Check("只显示说话者：旅人头像在面板右侧显示且不透明，长者头像收起", () =>
+            {
+                Image left = FindInView<Image>("PortraitLeft");
+                Image right = FindInView<Image>("PortraitRight");
+                return right != null && right.enabled && right.sprite != null && right.color.a > 0.99f
+                       && right.rectTransform.anchoredPosition.x < 0f
+                       && left != null && IsCollapsed(left);
+            }, 2f);
+            yield return Snapshot("旅人说话·只显示旅人头像");
+
+            yield return AdvanceTo("l3");
+            yield return Check("反转：长者头像在面板左侧显示且不透明，旅人头像收起", () =>
+            {
+                Image left = FindInView<Image>("PortraitLeft");
+                Image right = FindInView<Image>("PortraitRight");
+                return left != null && left.enabled && left.sprite != null && left.color.a > 0.99f
+                       && left.rectTransform.anchoredPosition.x > 0f
+                       && right != null && IsCollapsed(right);
+            }, 2f);
+            yield return Snapshot("长者说话·只显示长者头像");
+
+            // 1001 的 l3 与 l1 同为 angry；c1（选项节点，expression 空 = 默认表情）才换表情，交叉淡化在这里验。
+            yield return AdvanceTo("c1");
+            yield return Check("左槽交叉淡化中：残影显示旧表情，主图已换新表情", () =>
+            {
+                Image ghost = FindInView<Image>("PortraitLeftGhost");
+                Image left = FindInView<Image>("PortraitLeft");
+                return ghost != null && ghost.enabled && ghost.sprite != null && left != null && left.sprite != null
+                       && ghost.sprite != left.sprite;
+            }, 2f);
+            yield return Snapshot("长者换表情·交叉淡化中");
+            yield return Check("交叉淡化结束：残影隐藏，主图不透明", () =>
+            {
+                Image ghost = FindInView<Image>("PortraitLeftGhost");
+                Image left = FindInView<Image>("PortraitLeft");
+                return ghost != null && !ghost.enabled && left != null && left.color.a > 0.99f;
+            }, 1f);
+            yield return Snapshot("长者新表情·选项");
+
+            yield return Step("开自动并选择第二项「拒绝」，自动播完收尾", () =>
+            {
+                RequireButton("AutoButton").onClick.Invoke();
+                ClickChoice(1);
+            });
+            yield return Check("对白结束，世界恢复",
+                () => !service.IsRunning && hasResult && WorldRestored(), 15f);
+            elder.OnCompleted -= RecordResult;
+        }
+
+        /// <summary>把当前句补全（打字中连点三下）再单点推进，直到进入 <paramref name="nodeId"/>；推进那一步不停顿，好抓入场 / 淡化瞬态。</summary>
+        private IEnumerator AdvanceTo(string nodeId)
+        {
+            if (rules.Phase == DialogueSaveData.Phase.Typing)
+            {
+                yield return Step("连点三下补全当前句", () =>
+                {
+                    Button tap = RequireButton("TapArea");
+                    tap.onClick.Invoke();
+                    tap.onClick.Invoke();
+                    tap.onClick.Invoke();
+                }, hold: 0f);
+            }
+
+            yield return Check("当前句已整句显示", () => rules.Phase == DialogueSaveData.Phase.AwaitAdvance, 3f);
+            yield return Step($"单点推进到 {nodeId}", () => RequireButton("TapArea").onClick.Invoke(), hold: 0f);
+            yield return Check($"进入 {nodeId}", () => CurrentIs(nodeId), 2f);
+        }
+
+        /// <summary>头像槽已收起：Image 停用，或透明度已淡到接近 0。</summary>
+        private static bool IsCollapsed(Image image)
+        {
+            return !image.enabled || image.color.a < 0.01f;
+        }
+
         /// <summary>从根容器取本回放要用的服务；取不到留 null，由后续检查点记失败。</summary>
+        /// <summary>
+        /// 回放舞台是 SampleScene：NPC 的交互半径 2、actor 指向 player，玩家出生点离 NPC 超出半径时 Interact 会被忽略。
+        /// 每条用例先把玩家挪到目标 NPC 左侧 1 单位（半径内且最近的就是它），再发起交互。
+        /// </summary>
+        private void StandNextTo(DialogueInteractable npc)
+        {
+            var actor = FindRequired<DialogueInteractionActor>("player");
+            actor.transform.position = npc.transform.position + StandOffset;
+            Physics.SyncTransforms();
+        }
+
         private void Connect()
         {
             hasResult = false;
@@ -341,6 +472,12 @@ namespace Game.Tests.Showcase.Dialogue
         }
 
         /// <summary>交互 HUD 上的整卡按钮；HUD 没开或找不到就抛异常，让 Step 记失败。</summary>
+        private string HudLabelText()
+        {
+            DialogueInteractHudView hud = ui == null ? null : ui.Get<DialogueInteractHudView>();
+            return hud == null ? string.Empty : hud.LabelText;
+        }
+
         private Button RequireHudButton()
         {
             DialogueInteractHudView hud = ui == null ? null : ui.Get<DialogueInteractHudView>();
@@ -464,9 +601,12 @@ namespace Game.Tests.Showcase.Dialogue
             return image != null && image.sprite != null;
         }
 
-        private string LabelText(string objectName)
+        /// <summary>控件按钮下某个子文字（Label / Hint / LabelShadow）的内容；按钮或子物体找不到返回 null。</summary>
+        private string ButtonText(string buttonName, string childName)
         {
-            TMP_Text label = FindInView<TMP_Text>(objectName);
+            Button button = FindInView<Button>(buttonName);
+            Transform child = button == null ? null : button.transform.Find(childName);
+            TMP_Text label = child == null ? null : child.GetComponent<TMP_Text>();
             return label == null ? null : label.text;
         }
 

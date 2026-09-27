@@ -8,7 +8,7 @@ Unity 版本以 `ProjectSettings/ProjectVersion.txt` 为准。
 1. **生成物不手改**：`Library/ Temp/ Logs/ obj/ UserSettings/`、`*.meta`、`*.csproj/*.sln`、`packages-lock.json`。Claude 钩子会拒绝，被拒就换做法，不绕。
 2. **不带本地标识**：工程内任何文件不出现本机用户名、绝对路径、邮箱。公司名保持 `DefaultCompany`。
 3. **改 `ProjectSettings/`、`Packages/manifest.json` 先说明为什么**，Claude 钩子会弹确认。
-4. **提交前必审**：改动攒在工作区，收敛后 按审查流程列清单，用户逐次明确授权才 `git commit`；不 push 除非明说。提交信息按 `docs/commit-convention.md`，不带任何 AI 署名（Claude 钩子会拒）。
+4. **提交前必审**：改动攒在工作区，收敛后 按审查流程列清单，用户逐次明确授权才 `git commit`；不 push 除非明说。提交信息按 `docs/commit-convention.md`，不带任何 AI 署名（Claude 钩子会拒）。多会话共用工作区时按路径提交（`git commit -- <路径>`），不把别人暂存的文件带进去，做法见 commit-convention。
 5. **护栏挡住时不拆护栏**：lint / 钩子拦下来先看理由；确属误报，在那一行写 `// lint-ok: <理由>` 放行，理由必须写。
 
 ## 工作纪律（对 AI，违反即返工）
@@ -29,8 +29,8 @@ Assets/_Project/
   Scripts/Editor/             编辑器工具      asmdef Game.Editor
   Scripts/Tests/EditMode/     纯逻辑测试      asmdef Game.Tests.EditMode
   Scripts/Tests/PlayMode/     运行时测试      asmdef Game.Tests.PlayMode
-  Scripts/Tests/Showcase/<Module>/   回放验证场景   asmdef Game.Tests.Showcase
-  Prefabs/ Scenes/(Verify/ 放验证场景) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
+  Scripts/Tests/Showcase/<Module>/   回放脚本   asmdef Game.Tests.Showcase
+  Prefabs/ Scenes/(正式场景，与 Boot 对齐) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
 ```
 
 框架层结构与 asmdef 已建立（设计见 docs/architecture.md）；玩法模块目录随新玩法模块流程落地时再建。加能力的顺序：**先复用 → 再扩展已有文件 → 最后才新建**，新建要在文件头写明前两步为何不行。

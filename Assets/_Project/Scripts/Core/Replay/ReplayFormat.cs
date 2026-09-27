@@ -43,7 +43,8 @@ namespace Game.Core.Replay
     /// ③ **已有** chunk type 的 payload 布局变了（比如 <see cref="ChunkType.Input"/> 的
     /// <c>InputCommand</c> 字节布局改了）；
     /// ④ <see cref="IReplayStateProvider"/> 的注册顺序变了——那是快照的字节布局本身变了
-    /// （理由见 IReplayStateProvider 文件注释）。
+    /// （理由见 IReplayStateProvider 文件注释）；
+    /// ⑤ 任一已注册回放状态的 Serialize / Deserialize 增删字段或改顺序（同样改了快照字节布局）。
     /// </para>
     /// <para>
     /// <b>不用升版本</b>：**新增一个 chunk type**（埋点引用、相机轨迹、音频标记……）。
@@ -73,8 +74,10 @@ namespace Game.Core.Replay
 
         /// <summary>
         /// 当前写出去的格式版本。什么改动要升它、什么不用，见类文档那一段——**不要凭感觉改这个数字**。
+        /// <para>升到 4（2026-09-26）：某个已注册回放状态的 Serialize 字段变了同样改变快照字节布局——
+        /// 玩家状态在流末尾追加了奔跑模式与上 tick 奔跑键两项，v3 快照按新布局读会错位，故拒收。</para>
         /// </summary>
-        public const ushort CurrentFormatVersion = 3;
+        public const ushort CurrentFormatVersion = 4;
 
         /// <summary>
         /// 当前代码还能正确解读的最老格式版本。比它更老的文件会被明确拒掉（报「哪个版本」），
@@ -85,7 +88,7 @@ namespace Game.Core.Replay
         /// 抬到 2 就意味着 v1 回放一律拒收。到那一刻再做决定，但别让代码在那天才第一次长出这个概念。
         /// </para>
         /// </summary>
-        public const ushort MinimumReadableFormatVersion = 3;
+        public const ushort MinimumReadableFormatVersion = 4;
 
         /// <summary>
         /// 回放文件的推荐扩展名。**只是约定，不是格式的一部分**：

@@ -2,7 +2,7 @@
 //   没有对话树（dialogueId == 0）但配了常驻台词时，按顺序抛出一句给头顶气泡（不暂停世界、不切输入图、不开面板）。
 // 为什么新建：DialogueService 是纯 C# 服务，场景物体需要一个 MonoBehaviour 承载「对白 id / 交互半径 / 点击入口」；
 //   现有 Dialogue 目录里没有挂在场景物体上的组件可扩展（DialogueView 是 UI 面板，职责不同）。
-//   常驻台词加在这里而不是另起组件：它和对话树共用同一个交互入口（点击 / 焦点确认键 / 范围判定），拆开会有两套入口。
+//   常驻台词加在这里而不是另起组件：它和对话树共用同一个交互入口（点击 / 焦点交互键 / 范围判定），拆开会有两套入口。
 // 点击路径依赖：场景相机上挂 PhysicsRaycaster（3D 碰撞体）或 Physics2DRaycaster（Collider2D），本物体带对应碰撞体；
 //   EventSystem 由 UIService 创建（UI 动作图已显式绑定），DialogueService 由 Boot 场景的 DialogueSceneBinder 注入。
 //   直接 Play 玩法场景（不经 Boot）时二者都不存在：点击不会被派发，有对话树的物体在 Start 时记一条 Warn 提示。
@@ -54,6 +54,19 @@ namespace Game.Dialogue
         public bool Focused { get; internal set; }
 
         /// <summary>
+        /// 是否被沉浸模式隐藏（由 <see cref="DialogueSceneBinder"/> 按 HudVisibilityChangedEvent 统一设置）。
+        /// 为 true 时头顶标记、名字与台词气泡都隐藏，点击本物体不响应。
+        /// </summary>
+        public bool HiddenByHud { get; private set; }
+
+        /// <summary>
+        /// 头顶图标是否被外部世界标记接管（如任务目标标记摆到本 NPC 头顶）。为 true 时头顶标记组件隐藏自己的「…/!」图标，
+        /// 名字与台词气泡不受影响。setter（<see cref="SetMarkerOverridden"/>）只供接管方调用；
+        /// 本组件不在 OnDisable 里清它——接管方只在目标引用变化时写一次，这里擅自清掉会与接管方失同步。
+        /// </summary>
+        public bool MarkerOverridden { get; private set; }
+
+        /// <summary>
         /// 现在能否交互：在范围内、没有对白在进行，且「有树已绑定」或「无树但有台词」。
         /// </summary>
         public bool CanInteract => InRange && !(service != null && service.IsRunning) && (HasTree ? IsBound : HasBubble);
@@ -91,6 +104,21 @@ namespace Game.Dialogue
         internal void SetSceneActor(Transform sceneActorTransform)
         {
             sceneActor = sceneActorTransform;
+        }
+
+        /// <summary>沉浸模式显隐。只供 <see cref="DialogueSceneBinder"/> 调用；表现组件每帧读 <see cref="HiddenByHud"/>。</summary>
+        internal void SetHiddenByHud(bool hidden)
+        {
+            HiddenByHud = hidden;
+        }
+
+        /// <summary>
+        /// 头顶图标接管开关：只供接管方（程序集内驱动外部世界标记的代码，如任务 HUD）调用，接管传 true、让出传 false；
+        /// 表现组件每帧读 <see cref="MarkerOverridden"/>。本模块不认识接管方是谁。
+        /// </summary>
+        internal void SetMarkerOverridden(bool overridden)
+        {
+            MarkerOverridden = overridden;
         }
 
         // 场景加载时 DialogueSceneBinder 已在 sceneLoaded 里绑定，早于 Start；到这里还没绑定多半是直接 Play 了玩法场景。
@@ -145,7 +173,11 @@ namespace Game.Dialogue
             PlayAsync().Forget();
         }
 
-        public void OnPointerClick(PointerEventData eventData) => Interact();
+        // 沉浸模式下世界里的交互标记都已隐藏，点击 NPC 不再拉起对白；代码直接调 Interact() 不受影响。
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (!HiddenByHud) Interact();
+        }
 
         public void OnPointerEnter(PointerEventData eventData) => Hovered = true;
 

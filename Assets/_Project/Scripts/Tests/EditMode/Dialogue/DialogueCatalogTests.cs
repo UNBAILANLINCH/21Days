@@ -1,4 +1,4 @@
-// 职责：内容检查——用真实生成的对话表 .bytes 钉住 DialogueCatalog 的翻译结果与验证内容（1001 / 1002 / 角色立绘地址）。
+// 职责：内容检查——用真实生成的对话表 .bytes 钉住 DialogueCatalog 的翻译结果与验证内容（1001 / 1002 / 1003 / 角色立绘地址）。
 // 为什么新建：DialogueCatalog 是新类；同目录的 DialogueRulesTests 测的是对白状态机，职责不同，塞进去说不通。
 using System;
 using System.Collections.Generic;
@@ -37,6 +37,36 @@ namespace Game.Tests.EditMode.Dialogue
         {
             Assert.That(catalog.TryGet(1002, out DialogueContent content), Is.True);
             Assert.That(content.Nodes.Count(), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void TryGet_WhenIdIs1003_ReturnsThreeLinesAndEnd()
+        {
+            Assert.That(catalog.TryGet(1003, out DialogueContent content), Is.True);
+            Assert.That(content.Nodes.Count(), Is.EqualTo(4));
+            Assert.That(content.Nodes.Count(n => n.Kind == DialogueContent.NodeKind.Line), Is.EqualTo(3));
+            Assert.That(content.Nodes.Count(n => n.Kind == DialogueContent.NodeKind.End), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TryGet_1003SecondLine_TranslatesPerformanceId()
+        {
+            catalog.TryGet(1003, out DialogueContent content);
+            DialogueContent.Node second = content.Get(content.Get(content.Entry).Next);
+
+            Assert.That(second.SpeakerId, Is.EqualTo("traveler"));
+            Assert.That(second.PerformanceId, Is.EqualTo("perf_sample_greeting"));
+        }
+
+        [Test]
+        public void TryGet_NodesWithEmptyPerformance_TranslateToEmptyString()
+        {
+            catalog.TryGet(1003, out DialogueContent content);
+            DialogueContent.Node entry = content.Get(content.Entry);
+            Assert.That(entry.PerformanceId, Is.Not.Null.And.Empty, "表里空串 = 不插播");
+
+            catalog.TryGet(1001, out DialogueContent elder);
+            Assert.That(elder.Nodes.All(n => n.PerformanceId == string.Empty), Is.True, "1001 全部节点不插播");
         }
 
         [Test]

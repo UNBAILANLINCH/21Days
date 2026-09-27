@@ -37,7 +37,27 @@ namespace Game.Tests.EditMode.Simulation
             Assert.That(InputCommand.ButtonConfirm, Is.EqualTo(1u << 0));
             Assert.That(InputCommand.ButtonCancel, Is.EqualTo(1u << 1));
             Assert.That(InputCommand.ButtonPause, Is.EqualTo(1u << 2));
+            Assert.That(InputCommand.ButtonRun, Is.EqualTo(1u << 6), "奔跑位追加在攻击位之后，老录像的位含义不变");
             Assert.That(InputCommand.ButtonQaMarker, Is.EqualTo(1u << 31), "QA 打点位固定在最高位，与动作位拉开最大距离");
+        }
+
+        [Test]
+        public void ButtonConstants_AreSingleBitsThatNeverOverlap()
+        {
+            uint[] all =
+            {
+                InputCommand.ButtonConfirm, InputCommand.ButtonCancel, InputCommand.ButtonPause,
+                InputCommand.ButtonSneak, InputCommand.ButtonDisguise, InputCommand.ButtonAttack,
+                InputCommand.ButtonRun, InputCommand.ButtonQaMarker,
+            };
+
+            uint seen = 0u;
+            foreach (uint mask in all)
+            {
+                Assert.That(mask != 0u && (mask & (mask - 1u)) == 0u, Is.True, $"0x{mask:X8} 不是单一位");
+                Assert.That(seen & mask, Is.EqualTo(0u), $"0x{mask:X8} 与已有按钮位重叠");
+                seen |= mask;
+            }
         }
 
         [Test]

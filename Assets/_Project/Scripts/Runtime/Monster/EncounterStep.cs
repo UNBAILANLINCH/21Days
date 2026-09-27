@@ -76,10 +76,35 @@ namespace Game.Monster
 
         public void End() => IsActive = false;
 
+        /// <summary>
+        /// 把玩家逻辑位置改成表现层碰撞解算后的结果（PRP/exploration-whitebox 波 9）。
+        /// 只允许 EncounterSceneView.OnPlayerBlocked 的回写调用：它是白盒阶段「障碍不在确定性内核里」的补丁，
+        /// 其他玩法不要借它挪人（挪人用 PlayerRules.Reset）。未激活时忽略。
+        /// <para>
+        /// 视图传来的是分轴合成值：被挡的轴是插值点扫掠后的修正值，没被挡的轴原样是逻辑值。
+        /// 被改写的轴同时把 PreviousPosition 设成同一值（下一帧不会从墙里倒插回来）；
+        /// 没改写的轴保留 PreviousPosition，贴墙滑动时沿墙那一轴继续平滑插值、不损失速度。
+        /// </para>
+        /// </summary>
+        public void CorrectPlayerPosition(Vector2 logicPosition)
+        {
+            if (!IsActive) return;
+            PlayerModel model = player.Model;
+            Vector2 current = model.Position;
+            Vector2 previous = model.PreviousPosition;
+            model.PreviousPosition = new Vector2(
+                EncounterProjection.CorrectPreviousAxis(previous.x, current.x, logicPosition.x),
+                EncounterProjection.CorrectPreviousAxis(previous.y, current.y, logicPosition.y));
+            model.Position = logicPosition;
+        }
+
         public void Step(in SimulationContext context)
         {
             if (!IsActive || (PendingResult != Result.None && !ResultConsumed))
             {
+                // 本 tick 双方规则都不推进：仍把上一 tick 位置对齐，否则视图会在结算前最后一步的两点间来回插值。
+                player.Model.SyncPreviousPosition();
+                monster.Model.SyncPreviousPosition();
                 return;
             }
 
@@ -88,7 +113,8 @@ namespace Game.Monster
                 command.Axis0,
                 command.HasButton(InputCommand.ButtonSneak),
                 command.HasButton(InputCommand.ButtonDisguise),
-                command.HasButton(InputCommand.ButtonAttack));
+                command.HasButton(InputCommand.ButtonAttack),
+                command.HasButton(InputCommand.ButtonRun));
             bool attacked = player.Step(in playerIntent, context.DeltaTime);
             PlayerSnapshot target = player.Model.Snapshot;
             MonsterModel enemy = monster.Model;

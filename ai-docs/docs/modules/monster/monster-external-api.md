@@ -24,18 +24,25 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 ## 场景契约
 
 `MonsterRules.MoveControlled(Vector2 movement, float deltaTime)`：驯服模块直接控制存活敌人，按巡逻速度移动；调用方不能同时推进敌人 AI，负步长抛出异常。
-`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs:51`）
-只读暴露玩家纸片当前场景坐标（含贴地后的 Y），供 Showcase 与跨模块读取而不碰私有字段；
+`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs:84`）
+只读暴露玩家纸片当前场景坐标（含贴地后的 Y；是两 tick 间插值后的渲染位置），供 Showcase 与跨模块读取而不碰私有字段；
+`MonsterModel.PreviousPosition` / `PlayerModel.PreviousPosition`：上一逻辑 tick 的位置，只读，仅供渲染插值；不进存档与快照。
 `StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。
 
-`EncounterProjection`（静态纯函数）：`ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:10`）
+`EncounterProjection`（静态纯函数，不依赖 UnityEngine）：`ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:13`）
 是贴地高度裁决的纯函数（下落不限、上抬超过阈值保持原高度）；`ResolveFlipX(previousX, currentX, currentFlipX, threshold)`
-（`EncounterProjection.cs:14`）是翻转纯规则；均可在测试或其它表现脚本中直接复用。
+（`EncounterProjection.cs:17`）是翻转纯规则；`InterpolationAlpha(accumulator, fixedDeltaTime)`（`:37`，钳到 [0,1]，步长非正返回 1）、
+`InterpolatePosition(...)`（`:58`，超过瞬移距离直接取当前位置）、`ResolveBlockedAxis` / `CorrectPreviousAxis`（`:85` / `:95`，
+碰撞回写分轴裁决）；均可在测试或其它表现脚本中直接复用。
 
-`EncounterSceneView` 见 `EncounterSceneView.cs:9`。
+`EncounterSceneView` 见 `EncounterSceneView.cs:10`。
 场景应配置 `playerSpawn` 与至少一个 `patrolPoints`；未配置巡逻点时 `PatrolPositions` 抛错。
 `ConfigureXZ` 显式接入现有角色和 SpriteRenderer，并把逻辑 XY 坐标映射到场景 XZ。
 视图在绑定后只显示模型，不推进规则；`OnBackClicked` 由遭遇状态订阅。
+`Bind(PlayerModel, MonsterModel, Func<float> alphaSource = null)`（`EncounterSceneView.cs:126`）：`alphaSource` 每帧给两 tick 间的插值比例；
+正式流程由 `MonsterEncounterState` 读 `SimulationRunner.Accumulator / FixedDeltaTime`（`Driven` 模式按 1），为空按 1（不插值）。
+`OnPlayerBlocked(Vector2)` 的参数是分轴合成的逻辑位置（被挡轴取修正值、其余轴为当前逻辑值），订阅方原样交给
+`EncounterStep.CorrectPlayerPosition`（`EncounterStep.cs:89`），后者同时对齐被改写轴的 `PreviousPosition`。
 场景 Addressables 地址是 `IsometricEncounter`，与状态类名不同。
 
 ## 回放契约

@@ -1,4 +1,4 @@
-// 职责：把任务模块的事件 broker、配置、内容目录、服务、面板控制器、场景绑定、目标驱动与 HUD 入口点注册进根作用域。
+// 职责：把任务模块的事件 broker、配置、内容目录、服务、面板控制器、场景绑定、目标驱动、HUD 与通知入口点注册进根作用域。
 // 为什么新建：Game.Core 不许引用 Game.Runtime，玩法类型只能经 GameplayInstaller 缝注册；DialogueInstaller 只服务对白，塞进去会让模块互相耦合。
 using Game.Core.Assets;
 using Game.Core.Boot;
@@ -11,6 +11,7 @@ using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Session;
 using MessagePipe;
 using UnityEngine;
 using VContainer;
@@ -26,7 +27,7 @@ namespace Game.Quest
     {
         private const string TelemetryModule = "quest";
 
-        [Tooltip("任务表现参数（指引边缘留白、悬浮偏移、距离刷新间隔、HUD / 面板固定文案）。拖 Data/Quest/QuestConfig.asset。")]
+        [Tooltip("任务表现参数（贴边留白、距离刷新间隔、标记高度、标记预制体地址、HUD / 面板固定文案、接取与完成通知文案）。拖 Data/Quest/QuestConfig.asset。")]
         [SerializeField] private QuestConfig config;
 
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)
@@ -46,6 +47,9 @@ namespace Game.Quest
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
             // 同一条注册上 AsSelf + As<IGameService>：参与启动串行，又能被按具体类型注入；
             // 另起一条同实现类型的注册会在 VContainer 注册表里撞键（见 GameLifetimeScope.RegisterSimulationDriver）。
+            // 多一个 ISubscriber<SessionStartedEvent>：读档 / 新游戏后重载进度（QuestService.ReloadFromSave）。
+            // broker 由 Session 模块的 SessionInstaller.InstallEvents 注册；VContainer 的 Register 是延迟工厂，
+            // 真正 Resolve 发生在整个容器建完之后，跟 Session/Quest 两个 GameplayInstaller 谁先谁后无关。
             builder.Register<QuestService>(resolver => new QuestService(
                     resolver.Resolve<QuestCatalog>(),
                     resolver.Resolve<ISaveService>(),
@@ -53,6 +57,7 @@ namespace Game.Quest
                     resolver.Resolve<IPublisher<QuestObjectiveProgressedEvent>>(),
                     resolver.Resolve<IPublisher<QuestCompletedEvent>>(),
                     resolver.Resolve<IPublisher<QuestTrackingChangedEvent>>(),
+                    resolver.Resolve<ISubscriber<SessionStartedEvent>>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
                 .AsSelf()
                 .As<IGameService>();
@@ -83,6 +88,8 @@ namespace Game.Quest
                     resolver.Resolve<QuestConfig>(),
                     resolver.Resolve<DialogueService>(),
                     resolver.Resolve<IUIService>(),
+                    resolver.Resolve<IHudVisibility>(),
+                    resolver.Resolve<IInputService>(),
                     resolver.Resolve<IAssetService>(),
                     resolver.Resolve<IClock>(),
                     resolver.Resolve<ISubscriber<BootCompletedEvent>>(),
@@ -90,6 +97,15 @@ namespace Game.Quest
                     resolver.Resolve<ISubscriber<QuestObjectiveProgressedEvent>>(),
                     resolver.Resolve<ISubscriber<QuestCompletedEvent>>(),
                     resolver.Resolve<ISubscriber<QuestTrackingChangedEvent>>(),
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
+            // 接取 / 完成通知：事件 → INotificationService（Core 根作用域已注册）。工厂注册理由同上（要 ITelemetryScope）。
+            builder.RegisterEntryPoint(resolver => new QuestNotificationPresenter(
+                    resolver.Resolve<QuestService>(),
+                    resolver.Resolve<QuestConfig>(),
+                    resolver.Resolve<INotificationService>(),
+                    resolver.Resolve<ISubscriber<BootCompletedEvent>>(),
+                    resolver.Resolve<ISubscriber<QuestActivatedEvent>>(),
+                    resolver.Resolve<ISubscriber<QuestCompletedEvent>>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
         }
 

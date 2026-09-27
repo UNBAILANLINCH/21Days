@@ -5,10 +5,12 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
+using Game.Core.Logging;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Narrative;
+using Game.Performance;
 using UnityEngine;
 
 namespace Game.Dialogue
@@ -17,6 +19,10 @@ namespace Game.Dialogue
     /// 对白表现控制器：逐帧驱动打字、自动播放、跳过（先经确认弹窗）与历史面板，把 View 的点击翻译成规则意图。
     /// <para>
     /// 「覆盖中」：历史面板或跳过确认弹窗开着时不打字、不自动、不跳过，主面板输入关闭。
+    /// </para>
+    /// <para>
+    /// 「演出中」（<see cref="Performing"/>）：节点带 <c>PerformanceId</c> 时，摆台词之前先 await 演出服务播完；
+    /// 期间语义同「覆盖中」，且点击 / 按键 / 自动 / 倍速 / 跳过全部忽略。时停与输入图由两边服务各自持令牌，本类不碰。
     /// </para>
     /// <para>
     /// 角色表不在构造时取：<see cref="DialogueCatalog.Characters"/> 惰性依赖 <c>IConfigService</c> 初始化完成，
@@ -36,7 +42,13 @@ namespace Game.Dialogue
         private readonly IAssetService assets;
         private readonly IClock clock;
         private readonly ITelemetryScope telemetry;
+        // 可为 null：Boot 没挂 PerformanceInstaller 时节点插播跳过（记 Warn + 埋点），不阻塞对白。
+        private readonly IPerformanceService performance;
         private readonly AssetHandle<Sprite>[] handles = new AssetHandle<Sprite>[DialogueContent.SlotCount];
+        // 上一节点的立绘句柄：换节点时不立刻释放，留到再下一次换节点 / 收尾——退场滑出与表情交叉淡化的残影还在显示旧图。
+        private readonly AssetHandle<Sprite>[] retiring = new AssetHandle<Sprite>[DialogueContent.SlotCount];
+        // 新节点立绘先全部加载到这里，再一次性交给 View，免得「先清槽再逐个加载」把每句都演成退场 + 入场。
+        private readonly AssetHandle<Sprite>[] loading = new AssetHandle<Sprite>[DialogueContent.SlotCount];
         // 选项图标：地址 → 句柄。键存在而值为 null 表示加载中或加载失败（不重复请求）；换节点 / 收尾时整体释放。
         private readonly Dictionary<string, AssetHandle<Sprite>> choiceIcons =
             new Dictionary<string, AssetHandle<Sprite>>(StringComparer.Ordinal);
@@ -55,17 +67,29 @@ namespace Game.Dialogue
         private bool skipConfirmRequested;
         private bool skipConfirmed;
         private bool skipCancelled;
+        private bool performing;
+        // 演出服务缺席的 Log.Warn 每个控制器只打一次（埋点每次都埋），免得每句插播刷屏。
+        private bool performanceWarned;
         // 每次释放选项图标自增；异步加载完成时对不上说明节点已换或对白已收尾，句柄直接释放。
         private int choiceIconEpoch;
         private CancellationToken presentToken;
         private bool inputConsumed;
         private bool ready;
-        private float characterProgress;
+        // 打字节奏（标点停顿）：每段对白按播放设置建一个，每句 Reset。
+        private TypingCadence cadence;
         private float lastChoiceRefresh;
         private bool[] availability;
+        // 当前显示的选项行（顺序同界面，隐藏的不可用选项不在其中）：可用性与选项 id，供数字键按行号选择。
+        private readonly List<bool> choiceRowAvailable = new List<bool>(4);
+        private readonly List<string> choiceRowIds = new List<string>(4);
+        // 按钮上的键位提示（由 DialogueKeyboardInput 首次拿到动作集时传入），打开面板时交给 View。
+        private string autoKeyHint = string.Empty;
+        private string speedKeyHint = string.Empty;
+        private string skipKeyHint = string.Empty;
+        private string historyKeyHint = string.Empty;
 
         public DialogueController(DialogueRules rules, DialogueCatalog catalog, IUIService ui, IAssetService assets,
-            IClock clock, ITelemetryScope telemetry)
+            IClock clock, ITelemetryScope telemetry, IPerformanceService performance = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -73,6 +97,7 @@ namespace Game.Dialogue
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
+            this.performance = performance;
         }
 
         /// <summary>外部挂起（如存档中）：挂起期间不推进、不收输入。</summary>
@@ -80,6 +105,8 @@ namespace Game.Dialogue
         public bool IsRunning => running;
         /// <summary>未展示，或当前节点已准备完毕（可存档的稳定点）。</summary>
         public bool IsStable => !running || ready;
+        /// <summary>正在播放节点前插播的演出：不打字、不自动、不推进，点击与按键全部忽略（语义同覆盖中）。</summary>
+        public bool Performing => performing;
 
         /// <summary>
         /// 展示当前对白直到完成，返回出口。调用方须先 <c>rules.Start(content)</c>（或 Restore），本方法只负责表现。
@@ -108,6 +135,10 @@ namespace Game.Dialogue
                 view.OnAuto += ToggleAuto;
                 view.OnSpeed += CycleSpeed;
                 view.OnSkip += RequestSkip;
+                view.SetKeyHints(autoKeyHint, speedKeyHint, skipKeyHint, historyKeyHint);
+                view.SetMotion(policy.Settings.Motion);
+                cadence = new TypingCadence(policy.Settings.CharactersPerSecond, policy.Settings.PunctuationPauseSeconds,
+                    policy.Settings.PunctuationChars);
                 long visit = -1;
                 while (generation == rules.Generation && rules.Phase != DialogueSaveData.Phase.Completed &&
                     rules.Phase != DialogueSaveData.Phase.Closed)
@@ -124,6 +155,9 @@ namespace Game.Dialogue
                         ready = false;
                         visit = rules.Visit;
                         policy.OnNodeChanged();
+                        // 插播点：节点前演出（跳过快进中不插播）；演出期间对白可能被外部中断，回来先比对身份。
+                        await PerformBeforeNodeAsync(ct);
+                        if (generation != rules.Generation || visit != rules.Visit) continue;
                         await PrepareAsync(generation, visit, ct);
                         if (generation != rules.Generation || visit != rules.Visit) continue;
                         ready = true;
@@ -144,6 +178,7 @@ namespace Game.Dialogue
                         await ui.CloseAsync(history, ct);
                         history = null;
                         historyOpen = false;
+                        view.SelectChoice(); // 面板关掉后把选中还给选项（没有选项时 View 忽略）
                     }
                     if (skipConfirmRequested && !Suspended)
                     {
@@ -168,6 +203,7 @@ namespace Game.Dialogue
                         skipConfirm = null;
                         skipConfirmOpen = false;
                         if (confirmed) policy.BeginSkip();
+                        view.SelectChoice(); // 弹窗关掉后把选中还给选项（没有选项时 View 忽略）
                     }
                     if (!Suspended && !Overlaid)
                     {
@@ -175,14 +211,17 @@ namespace Game.Dialogue
                         float delta = clock.UnscaledDeltaTime;
                         if (rules.Phase == DialogueSaveData.Phase.Typing)
                         {
-                            characterProgress += policy.CharactersPerSecond * delta;
-                            rules.RevealTo((int)characterProgress);
+                            // 预算已乘倍速；标点停顿按字符预算扣，倍速下同比缩短（见 TypingCadence）。
+                            rules.RevealTo(cadence.Advance(view.VisibleText, rules.VisibleCharacters,
+                                policy.CharactersPerSecond * delta));
                         }
                         if (policy.TickAuto(delta, rules.Phase))
                             Submit(new DialogueIntent(DialogueIntent.Action.Advance, generation, visit));
                     }
                     view.SetVisible(rules.VisibleCharacters);
                     view.SetControls(policy.AutoPlay, policy.Speed, policy.Skipping);
+                    // 历史面板 / 跳过确认弹窗盖着时主面板输入已关，不显示「▼ 点击或按空格继续」，免得误导。
+                    view.SetAdvancePrompt(rules.Phase == DialogueSaveData.Phase.AwaitAdvance && !Overlaid);
                     view.SetInput(!Suspended && !Overlaid && ready);
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     inputConsumed = false;
@@ -195,6 +234,7 @@ namespace Game.Dialogue
             finally
             {
                 ready = false;
+                performing = false;
                 if (view != null)
                 {
                     view.OnIntent -= Submit;
@@ -218,9 +258,12 @@ namespace Game.Dialogue
                 }
                 finally
                 {
-                    foreach (AssetHandle<Sprite> handle in handles) handle?.Dispose();
-                    Array.Clear(handles, 0, handles.Length);
+                    ReleaseAll(handles);
+                    ReleaseAll(retiring);
+                    ReleaseAll(loading);
                     ReleaseChoiceIcons();
+                    choiceRowAvailable.Clear();
+                    choiceRowIds.Clear();
                     view = null;
                     history = null;
                     skipConfirm = null;
@@ -229,6 +272,7 @@ namespace Game.Dialogue
                     presentToken = CancellationToken.None;
                     conditions = null;
                     policy = null;
+                    cadence = null;
                     targetId = null;
                 }
             }
@@ -245,7 +289,92 @@ namespace Game.Dialogue
             else RefreshChoices(true);
         }
 
-        private bool Overlaid => historyOpen || skipConfirmOpen;
+        /// <summary>
+        /// 键位提示（按钮文字后缀，如「A」「S」「Ctrl」「H」）；空串表示不显示。展示中调用会立即刷新当前面板。
+        /// </summary>
+        public void SetKeyHints(string autoKey, string speedKey, string skipKey, string historyKey)
+        {
+            autoKeyHint = autoKey ?? string.Empty;
+            speedKeyHint = speedKey ?? string.Empty;
+            skipKeyHint = skipKey ?? string.Empty;
+            historyKeyHint = historyKey ?? string.Empty;
+            if (view != null) view.SetKeyHints(autoKeyHint, speedKeyHint, skipKeyHint, historyKeyHint);
+        }
+
+        /// <summary>键位映射用的状态快照；未展示时 <c>Active</c> 为 false。</summary>
+        internal DialogueKeyboardInput.State KeyState => new DialogueKeyboardInput.State(
+            running && !Suspended, ready, running && rules.Phase == DialogueSaveData.Phase.AwaitChoice,
+            historyOpen, skipConfirmOpen, choiceRowAvailable);
+
+        /// <summary>
+        /// 处理一次按键：经 <see cref="DialogueKeyboardInput.Map"/> 判定后，调用与点击完全相同的处理函数
+        /// （推进 = 点对话框 <see cref="Tap"/>，自动 / 倍速 / 跳过 / 历史 = 点对应按钮，数字键 = 点第 N 行选项）。
+        /// </summary>
+        internal void HandleKey(DialogueKeyboardInput.Key key)
+        {
+            if (performing) return; // 演出中按键归演出服务（确认 / 长按跳过），对白一律不响应
+            DialogueKeyboardInput.Command command = DialogueKeyboardInput.Map(key, KeyState);
+            switch (command.Kind)
+            {
+                case DialogueKeyboardInput.CommandKind.Tap: Tap(); break;
+                case DialogueKeyboardInput.CommandKind.ToggleAuto: ToggleAuto(); break;
+                case DialogueKeyboardInput.CommandKind.CycleSpeed: CycleSpeed(); break;
+                case DialogueKeyboardInput.CommandKind.RequestSkip: RequestSkip(); break;
+                case DialogueKeyboardInput.CommandKind.OpenHistory: RequestHistory(); break;
+                case DialogueKeyboardInput.CommandKind.CloseHistory: DismissHistory(); break;
+                case DialogueKeyboardInput.CommandKind.CancelSkip: CancelSkip(); break;
+                case DialogueKeyboardInput.CommandKind.Choose:
+                    Submit(new DialogueIntent(DialogueIntent.Action.Choose, rules.Generation, rules.Visit,
+                        choiceRowIds[command.Row]));
+                    break;
+            }
+        }
+
+        // 覆盖中：历史 / 跳过确认弹窗开着，或正在插播演出——三者都不打字、不自动、不跳过、不收主面板输入。
+        private bool Overlaid => historyOpen || skipConfirmOpen || performing;
+
+        // 节点前插播演出。只在新进节点（Preparing）时播：跳过快进中略过，存档恢复到已就绪的句子也不重播。
+        // 服务缺席记 Warn 后照常摆台词；演出失败记 Error 后照常摆台词；取消原样抛出。
+        private async UniTask PerformBeforeNodeAsync(CancellationToken ct)
+        {
+            DialogueContent.Node node = rules.Current;
+            if (string.IsNullOrEmpty(node.PerformanceId) || policy.Skipping ||
+                rules.Phase != DialogueSaveData.Phase.Preparing) return;
+            if (performance == null)
+            {
+                if (!performanceWarned)
+                {
+                    performanceWarned = true;
+                    Log.Warn("对白节点配置了插播演出，但演出服务未注册（Boot 没挂 PerformanceInstaller？），已跳过演出：" +
+                             node.PerformanceId);
+                }
+                telemetry.TrackWarn("performance_unavailable",
+                    TelemetryProps.Of(("node", node.Id), ("performance", node.PerformanceId)));
+                return;
+            }
+            performing = true;
+            view.SetInput(false);
+            try
+            {
+                await performance.PlayAsync(node.PerformanceId, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                Log.Error($"对白节点 {node.Id} 的插播演出 {node.PerformanceId} 播放失败，跳过演出继续对白：{e.Message}");
+                telemetry.TrackError("performance_failed", e,
+                    TelemetryProps.Of(("node", node.Id), ("performance", node.PerformanceId)));
+            }
+            finally
+            {
+                performing = false;
+            }
+            // 演出期间对白可能已被外部 Cancel / Restore（generation / visit 变了）：由调用方比对后 continue，这里只处理取消。
+            ct.ThrowIfCancellationRequested();
+        }
 
         private void EnsureCharacters()
         {
@@ -274,25 +403,55 @@ namespace Game.Dialogue
             // 恢复时使用已解析文本及姓名；内容更新不能改写旧记录。
             bool preparing = rules.Phase == DialogueSaveData.Phase.Preparing;
             int count = view.SetLine(generation, visit, preparing ? speaker : rules.Speaker, rules.Text);
-            characterProgress = 0;
+            cadence.Reset();
             availability = null;
+            choiceRowAvailable.Clear(); // SetLine 已清掉界面上的选项行，这里同步清
+            choiceRowIds.Clear();
             ReleaseChoiceIcons();
-            for (int slot = 0; slot < handles.Length; slot++)
-            {
-                view.SetPortrait(slot, null, false);
-                handles[slot]?.Dispose();
-                handles[slot] = null;
-            }
+            // 先把本节点的立绘全部加载完（旧图在此期间照常显示），再逐槽交给 View：
+            // View 只显示说话者那一槽，按「空 → 有 / 有 → 空 / 换图」自己决定播入场、退场还是交叉淡化；非说话者收起。
+            ReleaseAll(loading);
             foreach (DialogueContent.Portrait portrait in rules.Portraits)
             {
                 AssetHandle<Sprite> handle = await LoadPortraitAsync(portrait, ct);
                 if (generation != rules.Generation || visit != rules.Visit || ct.IsCancellationRequested)
-                { handle?.Dispose(); ct.ThrowIfCancellationRequested(); return; }
-                handles[portrait.Slot] = handle;
-                view.SetPortrait(portrait.Slot, handle?.Asset, portrait.CharacterId == node.SpeakerId || string.IsNullOrEmpty(node.SpeakerId));
+                { handle?.Dispose(); ReleaseAll(loading); ct.ThrowIfCancellationRequested(); return; }
+                loading[portrait.Slot]?.Dispose();
+                loading[portrait.Slot] = handle;
+            }
+            // 存档恢复进来的立绘直接置终态，不播入场。台词节点正常进入必经 Preparing，此刻已是 Typing / AwaitAdvance
+            // 只可能是 Restore；选项节点进入即 AwaitChoice，不能拿「非 Preparing」判恢复，否则选项节点的换表情会被吞掉。
+            bool instant = rules.Phase == DialogueSaveData.Phase.Typing || rules.Phase == DialogueSaveData.Phase.AwaitAdvance;
+            for (int slot = 0; slot < handles.Length; slot++)
+            {
+                AssetHandle<Sprite> handle = loading[slot];
+                // 旁白（节点无 speakerId）时两侧都不是说话者，一并收起。
+                bool speaking = handle != null && !string.IsNullOrEmpty(node.SpeakerId) &&
+                    SlotCharacter(slot) == node.SpeakerId;
+                view.SetPortrait(slot, handle?.Asset, speaking, instant);
+                retiring[slot]?.Dispose();
+                retiring[slot] = handles[slot];
+                handles[slot] = handle;
+                loading[slot] = null;
             }
             if (preparing) rules.Ready(generation, visit, count, rules.Text, speaker);
             RefreshChoices(true);
+        }
+
+        private string SlotCharacter(int slot)
+        {
+            foreach (DialogueContent.Portrait portrait in rules.Portraits)
+                if (portrait.Slot == slot) return portrait.CharacterId;
+            return null;
+        }
+
+        private static void ReleaseAll(AssetHandle<Sprite>[] slots)
+        {
+            for (int i = 0; i < slots.Length; i++)
+            {
+                slots[i]?.Dispose();
+                slots[i] = null;
+            }
         }
 
         private async UniTask<AssetHandle<Sprite>> LoadPortraitAsync(DialogueContent.Portrait portrait, CancellationToken ct)
@@ -335,12 +494,18 @@ namespace Game.Dialogue
             if (!any) throw new InvalidOperationException("当前选择没有可用出口：" + rules.Current.Id);
             if (!changed) return;
             view.ClearChoices();
+            choiceRowAvailable.Clear();
+            choiceRowIds.Clear();
             for (int i = 0; i < choices.Length; i++)
             {
                 DialogueContent.Choice choice = choices[i];
                 bool shown = availability[i] || !choice.HideWhenUnavailable;
                 view.AddChoice(choice, availability[i], shown ? ResolveChoiceIcon(choice.IconKey) : null);
+                if (!shown) continue; // 与 View.AddChoice 的隐藏判定一致：隐藏的不占行号
+                choiceRowAvailable.Add(availability[i]);
+                choiceRowIds.Add(choice.Id);
             }
+            view.SelectChoice();
         }
 
         // 已加载返回图标；未请求过就发起异步加载并先返回 null（无图标显示，加载完回填），不阻塞选项出现。
@@ -392,8 +557,8 @@ namespace Game.Dialogue
             Submit(new DialogueIntent(DialogueIntent.Action.Advance, rules.Generation, rules.Visit));
         }
 
-        private void ToggleAuto() { if (running) policy.ToggleAuto(); }
-        private void CycleSpeed() { if (running) policy.CycleSpeed(); }
+        private void ToggleAuto() { if (running && !performing) policy.ToggleAuto(); }
+        private void CycleSpeed() { if (running && !performing) policy.CycleSpeed(); }
         // 点跳过只请求确认弹窗，确认后才 BeginSkip；已在跳过中或覆盖中则忽略。
         private void RequestSkip() { if (running && !policy.Skipping && !Overlaid) skipConfirmRequested = true; }
         private void ConfirmSkip() => skipConfirmed = true;

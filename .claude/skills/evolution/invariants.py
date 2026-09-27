@@ -14,7 +14,7 @@
 静默失效没人发现，才是最贵的。
 
 所以分工是：**能在一行里判完的归 lint，必须把整个仓库摊开才能判的归这里**。
-本文件六条检查没有一条能写成 `rules.json` 里的正则。
+本文件九条检查没有一条能写成 `rules.json` 里的正则。
 
 ## 载体锚定（`.claude/rules/harness-authoring.md`）
 
@@ -29,7 +29,7 @@
   整份文件的退场条件是 `Assets/_Project/Scripts/` 不再是这个形状（换结构 / 换引擎），
   届时连同 `gc_scan.py` 第 5 项一起删，而不是留着让它一直报。
 
-## 查六条（每条都注明依据，便于以后判断该不该删）
+## 查九条（每条都注明依据，便于以后判断该不该删）
 
     1. asmdef 依赖方向        Game.Core 不引用 Runtime/Editor/Tests；Game.Runtime 不引用 Editor/Tests
     2. 平台宏只在 Core/Platform/   Core（除 Platform/）与 Runtime 下不出现 #if UNITY_ANDROID 等平台宏
@@ -37,6 +37,9 @@
     4. 命名空间与目录一致      Core/<X>/ -> Game.Core.<X>；Runtime/<M>/ -> Game.<M>
     5. .meta 配对             Assets/_Project/ 下每个实体有 .meta，每个 .meta 有实体
     6. UI 面板地址等于类名     Prefabs/UI/*.prefab 在 Addressables 里有条目且 address == 文件名
+    7. Dynamic 字体未清数据    Dynamic TMP 字体资产超过 200 KB（带着 Play 期字形）
+    8. 正式资产不引测试脚本    正式场景 / 预制体的 m_Script 不指向 Scripts/Tests/ 下的脚本
+    9. InitTestScene 残留      Assets/ 根下没有 PlayMode 测试中断留下的 InitTestScene*.unity
 
 第 2 条**放行 `#if UNITY_EDITOR`**：`project-root.md` 明确允许 Runtime 里用它包
 调试 / Gizmos。把它一起报了就是误报，而误报会逼人整条关掉。
@@ -78,6 +81,8 @@ REF_META = "project-root.md #生成物边界 · pitfalls.md #.meta 没提交"
 REF_UI_ADDRESS = "architecture.md #5.6 UI（预制体 Addressables key 等于类名）"
 FONT_ASSET_MAX_BYTES = 200 * 1024   # Dynamic 字体资产的干净基线是几 KB；超过这个数说明带着运行时字形
 REF_FONT_BLOAT = "Art/Fonts/README.md · pitfalls.md #Dynamic 字体资产污染 git"
+REF_TEST_SCRIPT_IN_ASSET = "project-root.md #目录与 asmdef 依赖方向 · pitfalls.md #正式场景引用了测试程序集脚本"
+REF_INIT_TEST_SCENE = ".gitignore #InitTestScene 注释 · pitfalls.md #InitTestScene 残留堆积"
 
 Problem = namedtuple("Problem", "path line symptom fix ref")
 
@@ -542,6 +547,93 @@ def check_dynamic_font_bloat(root: Path) -> list:
     return problems
 
 
+# ------------------------------------------------------------------ 8. 正式资产不引测试脚本
+# 依据：project-root.md「Game.Runtime 不引用 Editor / Tests」在资产侧的对应——
+#   测试程序集（Game.Tests.*）不进包，正式场景 / 预制体挂了它的脚本，出包后就是 missing script。
+# 为什么 lint 做不了：场景 YAML 里只有 m_Script 的 GUID，要和 Tests 目录下的 .cs.meta 对上
+#   才知道它是谁；check_asmdef_direction 只拦代码层引用，资产层没人拦。
+# 只扫正式资产目录（Assets/Scenes/、_Project/Scenes/、_Project/Prefabs/）；
+#   Tests/Showcase/ 下的回放场景本来就该引测试脚本，不在扫描范围。
+
+TESTS_DIR = SCRIPTS_DIR + "/Tests"
+FORMAL_ASSET_GLOBS = (
+    ("Assets/Scenes", "*.unity"),
+    (PROJECT_DIR + "/Scenes", "*.unity"),
+    (PROJECT_DIR + "/Prefabs", "*.prefab"),
+)
+M_SCRIPT_RE = re.compile(
+    r"m_Script:\s*\{fileID:\s*11500000,\s*guid:\s*([0-9a-fA-F]{32}),\s*type:\s*3\s*\}"
+)
+
+
+def _test_script_guid_map(root: Path) -> dict:
+    """GUID（小写）-> Tests 目录下脚本的相对路径。直接读 .cs.meta，不依赖 asmdef。"""
+    out = {}
+    base = root / TESTS_DIR
+    if not base.is_dir():
+        return out
+    for meta in sorted(base.rglob("*.cs.meta")):
+        m = re.search(r"^guid:\s*([0-9a-fA-F]{32})\s*$", _read(meta), re.MULTILINE)
+        if m:
+            out[m.group(1).lower()] = _rel(root, meta.with_suffix(""))  # 去掉 .meta
+    return out
+
+
+def check_test_script_in_formal_asset(root: Path) -> list:
+    problems = []
+    guid2script = _test_script_guid_map(root)
+    if not guid2script:
+        return problems
+    for rel_dir, pattern in FORMAL_ASSET_GLOBS:
+        base = root / rel_dir
+        if not base.is_dir():
+            continue
+        for asset in sorted(base.rglob(pattern)):
+            rel = _rel(root, asset)
+            seen = set()
+            for i, line in enumerate(_read(asset).splitlines(), 1):
+                m = M_SCRIPT_RE.search(line)
+                if not m:
+                    continue
+                script = guid2script.get(m.group(1).lower())
+                if not script or script in seen:
+                    continue  # 同一文件同一脚本只报一次
+                seen.add(script)
+                cls = script.rsplit("/", 1)[-1][: -len(".cs")]
+                problems.append(Problem(
+                    rel, i,
+                    f"引用了测试程序集脚本 `{cls}`（`{script}`），测试程序集不进包，出包后是 missing script",
+                    f"把脚本搬到 `{RUNTIME_DIR}/<模块>/`，或把这个组件从正式资产上拿掉",
+                    REF_TEST_SCRIPT_IN_ASSET,
+                ))
+    return problems
+
+
+# ------------------------------------------------------------------ 9. InitTestScene 残留
+# 依据：.gitignore 的 InitTestScene 注释——Unity Test Framework 跑 PlayMode 测试时在 Assets/ 根
+#   建 InitTestScene<时间戳>.unity 临时场景，中断就残留；git 看不见，Project 窗口里却堆成一片。
+# 只看 Assets/ 根这一层、不递归；刻意不走 _unity_ignored（那是 .meta 配对用的过滤）。
+# 每个文件一条，条数即残留数量。
+
+INIT_TEST_SCENE_RE = re.compile(r"^InitTestScene.*\.unity(\.meta)?$")
+
+
+def check_init_test_scene_leftovers(root: Path) -> list:
+    problems = []
+    assets = root / "Assets"
+    if not assets.is_dir():
+        return problems
+    for f in sorted(assets.iterdir()):
+        if not f.is_file() or not INIT_TEST_SCENE_RE.match(f.name):
+            continue
+        problems.append(Problem(
+            _rel(root, f), 0,
+            "PlayMode 测试中断残留的临时场景",
+            "编辑器不在 Play 时直接删：`rm Assets/InitTestScene*.unity Assets/InitTestScene*.unity.meta`",
+            REF_INIT_TEST_SCENE,
+        ))
+    return problems
+
 # ------------------------------------------------------------------ 汇总
 
 CHECKS = (
@@ -552,6 +644,8 @@ CHECKS = (
     (".meta 配对", check_meta_pairing),
     ("UI 面板地址等于类名", check_ui_addressable_address),
     ("Dynamic 字体资产未清动态数据", check_dynamic_font_bloat),
+    ("正式资产不引测试脚本", check_test_script_in_formal_asset),
+    ("InitTestScene 残留", check_init_test_scene_leftovers),
 )
 
 

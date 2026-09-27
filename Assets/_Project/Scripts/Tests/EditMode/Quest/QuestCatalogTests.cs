@@ -33,10 +33,10 @@ namespace Game.Tests.EditMode.Quest
         }
 
         [Test]
-        public void Content_RealTable_BuildsThreeQuests()
+        public void Content_RealTable_BuildsFourQuests()
         {
             QuestContent content = catalog.Content;
-            Assert.That(content.All.Count, Is.EqualTo(3));
+            Assert.That(content.All.Count, Is.EqualTo(4));
 
             Assert.That(content.TryGet(1001, out QuestDefinition first), Is.True);
             Assert.That(first.Kind, Is.EqualTo(QuestKind.Main));
@@ -60,6 +60,14 @@ namespace Game.Tests.EditMode.Quest
             Assert.That(side.Objectives.Count, Is.EqualTo(1));
             Assert.That(side.Objectives[0].Kind, Is.EqualTo(QuestObjectiveKind.ReachLocation));
             Assert.That(side.Objectives[0].Key, Is.EqualTo("lookout"));
+
+            Assert.That(content.TryGet(2002, out QuestDefinition crates), Is.True);
+            Assert.That(crates.Kind, Is.EqualTo(QuestKind.Side));
+            Assert.That(crates.Prerequisites, Is.Empty);
+            Assert.That(crates.Objectives.Count, Is.EqualTo(1));
+            Assert.That(crates.Objectives[0].Kind, Is.EqualTo(QuestObjectiveKind.Counter));
+            Assert.That(crates.Objectives[0].Key, Is.EqualTo("crate"));
+            Assert.That(crates.Objectives[0].RequiredCount, Is.EqualTo(3));
         }
 
         [Test]

@@ -110,7 +110,7 @@ namespace Game.Quest
                     int dialogueId = int.Parse(objective.Key, NumberStyles.Integer, CultureInfo.InvariantCulture);
                     if (!dialogues.ContainsKey(dialogueId))
                     {
-                        throw new ArgumentException($"任务 {quest.Id}：第 {i} 个目标引用的对话 {dialogueId} 不在对话表里");
+                        throw new ArgumentException($"任务 {quest.Id}：第 {i + 1} 个目标引用的对话 {dialogueId} 不在对话表里");
                     }
                 }
             }

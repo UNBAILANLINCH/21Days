@@ -9,6 +9,9 @@
 **命名**：全小写 + 下划线，`类别_对象_动作`，例如 `chr_player_idle.anim`、`chr_player_run.controller`。
 不用空格、不用中文。
 
+**`Characters/<名字>/`**：序列帧小人的 `chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`，由菜单 **21Days → 角色 → 从序列帧生成小人…** 生成，
+不要手改——换图后重跑工具即可原地更新（见 `docs/developer-guide.md` 6.15）。
+
 **不要放**：源图（放 `../Sprites/`）、UI 面板的开关动画——面板的淡入淡出由框架统一做，
 自己加 Animator 会和框架打架。
 

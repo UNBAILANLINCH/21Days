@@ -15,6 +15,7 @@ maturity: stable
 | 要加什么 | 扩展点 | 改代码吗 |
 | --- | --- | --- |
 | 一棵新对话树 | `Tables/Data/dialogue/<id>.json` | 否 |
+| 某句台词前插播演出 | 节点 `performance` 字段（见「给一句台词插播演出」） | 否 |
 | 新角色 / 新表情 | `Tables/Data/dialogue_character.json` + Addressables + 立绘 PNG | 否 |
 | 真实条件来源 | 实现 `IDialogueConditionSource`，在 `DialogueInstaller` 替换注册 | 是 |
 | 新的触发方式 | 调 `DialogueService.PlayAsync` 或 `DialogueInteractable.Interact` | 调用方侧 |
@@ -31,6 +32,14 @@ maturity: stable
 4. 场景里按下文「加一个带树 NPC」摆物体；在 `DialogueCatalogTests.cs` 补结构断言，跑 `/unity-test EditMode Dialogue`。
 
 改已上线台词的文字时把该节点 `revision` +1：存档恢复会拒绝版本不符的快照，已读键也按版本区分。
+
+## 给一句台词插播演出
+
+1. 在该节点的 JSON 里把 `"performance": ""` 改成演出 id，如 `"performance": "perf_sample_greeting"`；只改这一个字段，跑 `scripts/gen-tables.ps1`。
+2. 演出 id 就是演出预制体（舞台 + 时间轴）在 Addressables 的地址，由动画师在演出编辑器里建好并登记（见 `PRP/performance-pipeline/prp.md` 2.2 / 2.8）；地址不存在时演出服务报错，对白埋 `performance_failed` 后照常显示这一句。
+3. 语义：进入该节点、摆台词**之前**先播完演出；玩家确认跳过对白后的快进句不插播；`End` 节点上的演出不会播（进入即结束）。
+   Boot 没挂 `PerformanceInstaller` 时埋 `performance_unavailable` 并直接显示台词。
+4. 时停与输入图不用管：对白与演出两边服务各自持令牌、只恢复进来前的状态。参照 `Tables/Data/dialogue/1003.json`。
 
 ## 加一个带树 NPC 并配头顶标记
 
@@ -55,6 +64,8 @@ maturity: stable
 | 头顶气泡 | `Prefabs/World/DialogueSpeechBubble.prefab` 的 `Frame`（`Art/Sprites/Dialogue/Bubble_Frame`）、字体 | `Content` / `Name` / `Body` / `Arrow` 与根 `CanvasGroup` 接线；两级 `VerticalLayoutGroup` + 根 `ContentSizeFitter`（高度随文字自适应，别写死高度） |
 | 头顶标记 | 替换 `Marker_Idle.png` / `Marker_Focus.png` | 子物体名与标记字段接线 |
 | 选项胶囊 | `DialogueView.prefab` 的 `ChoiceTemplate` 背景与 `Label` | 子物体名 `Icon`（写死）；`ChoiceRoot` 锚点 |
+| 头像框位置 / 尺寸 | `DialogueView.prefab` 的 `PortraitLeft` / `PortraitRight` 的 RectTransform（`PortraitLeft` ↔ `PerformanceView.prefab` 的 `Avatar`/`AvatarFrame` 同位，`PortraitRight` ↔ `AvatarRight`/`AvatarFrameRight` 同位） | 它们的 `anchoredPosition` 即入场终点；别在其下挂子物体（换表情时会被整块复制成 `…Ghost` 残影）；左槽从左侧进出、右槽从右侧进出，没有压暗也没有缩放，改这两个位置务必同步 `PerformanceView.prefab`，否则 `TalkPanelConsistencyTests` 会挂 |
+| 名牌样式 | `DialogueView.prefab` 的 `Speaker`（TMP） | punch 动效直接改它的 `localScale` 与 `alpha`，别把它放进会被布局组件改缩放的父物体 |
 
 同名替换 PNG 不用改预制体；改了结构跑 Showcase 兜底（`Validate()` 会点名漏接字段）。
 
@@ -90,6 +101,15 @@ maturity: stable
 | `charactersPerSecond`（35） | x1 档打字速度（字 / 秒） | `revealTapCount`（3） | 打字中连点几次补全 |
 | `historyLimit`（500） | 历史上限，超出丢最早并提示「已省略」 | `tapWindowSeconds`（0.5） | 相邻两次点击最大间隔 |
 | `speedSteps`（1, 2, 4） | 倍速循环表，非空、全 > 0 | `autoAdvanceSeconds`（1.5） | 自动模式停留（再除以倍速） |
+| `punctuationPauseSeconds`（0.12） | 标点后停顿（x1 秒，倍速下同比缩短），≥ 0 | `punctuationChars`（`，。！？…；：、,.!?`） | 算标点的字符；空 = 不停 |
+| `portraitSlideDistance`（24） | 头像入场 / 退场水平滑动距离（px），≥ 0；左槽从左侧进出、右槽从右侧进出，头像在白框内宜小，主要靠淡入 | `portraitSlideSeconds`（0.25） | 入场 / 退场时长；0 = 直接到位 |
+| `portraitCrossfadeSeconds`（0.15） | 同槽换表情交叉淡化时长 | `nameTagPunchSeconds`（0.15） | 说话者变化时名牌 punch 时长；0 = 不做 |
+| `nameTagPunchScale`（1.15） | punch 起始缩放，> 0 | | |
+
+**已删除**：`portraitDimSeconds` / `portraitDimColor` / `portraitDimScale`（非说话者压暗）——现在只显示说话者那一槽，非说话者直接收起，没有压暗态。
+
+动效参数经 `ToPlaybackSettings()` → `DialoguePlaybackSettings.Motion`（`DialogueMotionSettings`）→ Controller `view.SetMotion` 下发；View 不读 Config。
+要换对话框开合方式改预制体 `DialogueView` 的 Transition（现为 `SlideUp`），要预设之外的花样重写 `PlayOpenTransitionAsync` / `PlayCloseTransitionAsync`。
 
 非法值在首次 `PlayAsync` 时抛 `ArgumentException`，不影响启动。
 

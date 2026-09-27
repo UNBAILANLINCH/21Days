@@ -109,6 +109,9 @@ namespace Game.Core.Telemetry
 
             /// <summary>面板关闭。</summary>
             public const string Close = "close";
+
+            /// <summary>整层显隐切换（沉浸模式 / 过场），属性 <c>layer</c> <c>visible</c>。只在状态真的变了时记。</summary>
+            public const string LayerVisible = "layer_visible";
         }
 
         /// <summary>存档事件名。</summary>
@@ -186,6 +189,12 @@ namespace Game.Core.Telemetry
 
             /// <summary>层数：<c>core.ui</c> 里是这条事件发生之后还开着几个面板。</summary>
             public const string Depth = "depth";
+
+            /// <summary>UI 层名（<c>core.ui</c> 的 layer_visible 用，取值 Hud / Panel / Popup / Top）。</summary>
+            public const string Layer = "layer";
+
+            /// <summary>显隐结果（<c>core.ui</c> 的 layer_visible 用）。</summary>
+            public const string Visible = "visible";
 
             /// <summary>存档槽位号。</summary>
             public const string Slot = "slot";

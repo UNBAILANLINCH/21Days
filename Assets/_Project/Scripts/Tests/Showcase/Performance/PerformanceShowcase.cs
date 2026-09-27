@@ -1,5 +1,5 @@
 // 职责：Performance 模块回放——代码按 id 拉起演出（黑边、字幕、世界时停、停顿确认、结束恢复）、长按跳过提前结束、
-//   场景触发区进入即播且只播一次、对白节点前插播演出（PRD 验收 A2–A5）。
+//   场景触发区（SampleScene 村口）进入即播、按触发器 Once 开关判定是否重播、对白节点前插播演出（PRD 验收 A2–A5）。
 // 确认 / 跳过一律走 IPerformanceService.Confirm() / Skip()（等价玩家按确认 / 长按满），用例 1 的第一次确认点面板 TapArea；不读输入、不碰规则与舞台。
 using System;
 using System.Collections;
@@ -44,7 +44,7 @@ namespace Game.Tests.Showcase.Performance
 
         protected override string Module => "Performance";
 
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Performance.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
 
         protected override bool LoadBootScene => true;
 
@@ -132,14 +132,19 @@ namespace Game.Tests.Showcase.Performance
             yield return Snapshot("跳过后恢复");
         }
 
+        /// <summary>
+        /// 回放舞台 SampleScene 的村口触发区：播世界舞台对白（id 从触发器读，不写死），配置为「每次进入都播」（once = false）。
+        /// 用例按触发器的 Once 开关断言：一次性的再次进入不重播；非一次性的再次进入会再拉起一次。
+        /// </summary>
         [UnityTest]
-        public IEnumerator Trigger_PlaysOnceOnEnter()
+        public IEnumerator Trigger_PlaysOnEnter_FollowsOnceFlag()
         {
             Connect();
             yield return CloseTitleIfOpen();
 
-            var player = FindRequired<Transform>("Player");
-            var trigger = FindRequired<PerformanceTrigger>("Trigger_Intro");
+            var player = FindRequired<Transform>("player");
+            var trigger = FindRequired<PerformanceTrigger>("Trigger_VillageEntrance");
+            string id = trigger.PerformanceId;
             Vector3 home = player.position;
             yield return Step("清空「已播演出」存档，保证起点干净", () =>
             {
@@ -148,33 +153,49 @@ namespace Game.Tests.Showcase.Performance
                     save.Get<PerformanceSaveData>().PlayedIds.Clear();
                 }
             });
-            yield return Check($"{SampleId} 尚未播过", () => performance != null && !performance.HasPlayed(SampleId));
+            yield return Check($"{id} 尚未播过", () => performance != null && !performance.HasPlayed(id));
 
-            yield return Step("玩家走进触发区 Trigger_Intro", () => Teleport(player, trigger.transform.position), hold: 0f);
+            yield return Step("玩家走进村口触发区 Trigger_VillageEntrance", () => Teleport(player, trigger.transform.position), hold: 0f);
             yield return WaitPhysicsFrames();
-            yield return Check("进入触发区即拉起演出", () => performance.IsRunning && performance.CurrentId == SampleId, 3f);
-            yield return WaitPanelShown();
+            yield return Check($"进入触发区即拉起演出 {id}", () => performance.IsRunning && performance.CurrentId == id, 3f);
+            // 村口是世界舞台演出（舞台相机 + 底部对白面板），不一定有黑边：只等面板打开再截图，构图细节归 ScenePerformanceShowcase。
+            yield return Check("演出面板打开", () => View() != null, 5f);
+            yield return Wait(0.6f);
             yield return Snapshot("触发区拉起演出");
 
             yield return Step("跳过这段演出", () => performance.Skip());
-            yield return Check("演出结束，已记为播过", () => !performance.IsRunning && performance.HasPlayed(SampleId), 5f);
+            yield return Check("演出结束，已记为播过", () => !performance.IsRunning && performance.HasPlayed(id), 5f);
 
             yield return Step("玩家离开触发区", () => Teleport(player, home));
             yield return WaitPhysicsFrames();
             yield return Step("玩家再次走进触发区", () => Teleport(player, trigger.transform.position), hold: 0f);
             yield return WaitPhysicsFrames();
 
-            // 「2 秒内一直没拉起」要按真实时间观察整段窗口，不能用带超时的 Check（它只等「变真」）。
-            bool retriggered = false;
-            float until = Time.realtimeSinceStartup + 2f;
-            while (Time.realtimeSinceStartup < until)
+            if (trigger.Once)
             {
-                retriggered |= performance.IsRunning;
-                yield return null;
+                // 「2 秒内一直没拉起」要按真实时间观察整段窗口，不能用带超时的 Check（它只等「变真」）。
+                bool retriggered = false;
+                float until = Time.realtimeSinceStartup + 2f;
+                while (Time.realtimeSinceStartup < until)
+                {
+                    retriggered |= performance.IsRunning;
+                    yield return null;
+                }
+
+                yield return Check("一次性触发区：再次进入 2 秒内没有再拉起演出", () => !retriggered && !performance.IsRunning);
+                yield return Snapshot("再次进入不重播");
+            }
+            else
+            {
+                yield return Check($"非一次性触发区：再次进入又拉起演出 {id}",
+                    () => performance.IsRunning && performance.CurrentId == id, 3f);
+                yield return Check("演出面板再次打开", () => View() != null, 5f);
+                yield return Wait(0.6f);
+                yield return Snapshot("再次进入重播");
+                yield return Step("跳过重播的演出", () => performance.Skip());
+                yield return Check("演出结束，世界恢复", () => !performance.IsRunning && View() == null, 5f);
             }
 
-            yield return Check("只播一次：再次进入 2 秒内没有再拉起演出", () => !retriggered && !performance.IsRunning);
-            yield return Snapshot("再次进入不重播");
             Teleport(player, home);
         }
 
@@ -313,6 +334,8 @@ namespace Game.Tests.Showcase.Performance
         private static void Teleport(Transform target, Vector3 position)
         {
             target.position = position;
+            // 回放舞台 SampleScene 是 3D 场景（触发区是 BoxCollider）；2D 同步保留给代码搭的 2D 场景。
+            Physics.SyncTransforms();
             Physics2D.SyncTransforms();
         }
 

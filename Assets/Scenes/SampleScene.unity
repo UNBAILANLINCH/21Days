@@ -5414,7 +5414,6 @@ GameObject:
   - component: {fileID: 1126675778}
   - component: {fileID: 1126675777}
   - component: {fileID: 1126675776}
-  - component: {fileID: 1126675775}
   m_Layer: 0
   m_Name: enerme
   m_TagString: Untagged
@@ -5422,19 +5421,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1126675775
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1126675774}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: de74a87f00f6e194696c6edcddf9c086, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  config: {fileID: 11400000, guid: 8d4d22e78c47b6d408742f6eddb42fa1, type: 2}
 --- !u!136 &1126675776
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -8893,7 +8879,6 @@ GameObject:
   - component: {fileID: 1682945200}
   - component: {fileID: 1682945203}
   - component: {fileID: 1682945202}
-  - component: {fileID: 1682945201}
   - component: {fileID: 1682945204}
   - component: {fileID: 1682945205}
   m_Layer: 0
@@ -9004,19 +8989,6 @@ MonoBehaviour:
   m_DefaultActionMap: Gameplay
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!114 &1682945201
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1682945195}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: de74a87f00f6e194696c6edcddf9c086, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  config: {fileID: 11400000, guid: 8d4d22e78c47b6d408742f6eddb42fa1, type: 2}
 --- !u!136 &1682945202
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -9091,6 +9063,55 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e4e3d25b18fec94bad175f419e5c209, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1688964739
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1688964740}
+  - component: {fileID: 1688964741}
+  m_Layer: 0
+  m_Name: TamingDemo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1688964740
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1688964739}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2040267745}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1688964741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1688964739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1cb3b9c48c3c47a4ab59a7362fda4c72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  view: {fileID: 2040267744}
+  inputActions: {fileID: -944628639613478452, guid: 44bc93a0606489d4ebff7a8ab9a1fc3a, type: 3}
+  playerConfig: {fileID: 11400000, guid: c535ab6d45277b849914086bbbb3c80a, type: 2}
+  monsterConfig: {fileID: 11400000, guid: e074ad7ceacbc42428e5db941035406b, type: 2}
+  cameraFollow: {fileID: 519420033}
 --- !u!1 &1692854212
 GameObject:
   m_ObjectHideFlags: 0
@@ -12096,6 +12117,7 @@ Transform:
   - {fileID: 2140015310}
   - {fileID: 1977767372}
   - {fileID: 404441810}
+  - {fileID: 1688964740}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2040267746

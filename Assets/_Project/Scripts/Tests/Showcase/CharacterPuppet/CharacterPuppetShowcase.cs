@@ -1,8 +1,12 @@
 // 职责：回放小人（验证场景挂序列帧小人 Chibi_amiya）的待机 → 向右走 → 向左走 → 停下 → 走路 3 → 奔跑 5 → 停下，看动画切换、翻面与走跑步频差别。
 //   Chibi_amiya 没有 run 帧：奔跑仍停在 Walk 态，只是 walk 剪辑提速到上限；换成有 run 帧的小人时奔跑一步应改断言 Run 态、Speed ≈ 1。
 // 新建原因：CharacterPuppet 是新模块，按 module-verify.md 每模块一份 Showcase。
+// 舞台是 SampleScene（不加载 Boot）：场景里现成的 amiya 挂在 player 下、由遭遇控制器每帧驱动，推它的根会和控制器打架；
+//   所以回放自己从预制体实例化一只独立小人（根 → Visual（CameraBillboard）→ Chibi_amiya，与 player 同构），
+//   放在玩家左前方的镜头内，Track() 交给收尾销毁，不动场景里的任何物体。
 using System.Collections;
 using Game.CharacterPuppet;
+using Game.IsometricExploration;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -24,10 +28,17 @@ namespace Game.Tests.Showcase.CharacterPuppet
         private const float ExpectedWalkRate = 1f;
         private const float ExpectedRunRate = 1.6f;
         private const float RateTolerance = 0.1f;
+        private const string PuppetPrefabPath = "Assets/_Project/Prefabs/Characters/Chibi_amiya.prefab";
+
+        /// <summary>
+        /// 独立小人相对玩家的站位：左 1.5、靠镜头 1.5。各步累计位移最远向右 3 单位（走到玩家右前方）再回原点，
+        /// 全程在跟随玩家的主相机画面里，也不和玩家纸片重叠。
+        /// </summary>
+        private static readonly Vector3 PuppetOffsetFromPlayer = new Vector3(-1.5f, 0f, -1.5f);
         private static readonly int SpeedParamHash = Animator.StringToHash("Speed");
 
         protected override string Module => "CharacterPuppet";
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/CharacterPuppet.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
         protected override bool LoadBootScene => false;
 
         private bool moveDone;
@@ -35,8 +46,9 @@ namespace Game.Tests.Showcase.CharacterPuppet
         [UnityTest]
         public IEnumerator IdleWalkTurnStop_PlaysMatchingAnimation()
         {
-            var root = FindRequired<Transform>("Puppet");
-            var puppet = FindRequired<ChibiPuppet>("Chibi_amiya");
+            var player = FindRequired<Transform>("player");
+            ChibiPuppet puppet = SpawnPuppet(player.position + PuppetOffsetFromPlayer);
+            Transform root = puppet.transform.parent.parent;
             Coroutine move = null;
             try
             {
@@ -109,6 +121,37 @@ namespace Game.Tests.Showcase.CharacterPuppet
                     puppet.StopCoroutine(move);
                 }
             }
+        }
+
+        /// <summary>
+        /// 造独立小人：根（被推的角色根）→ Visual（CameraBillboard 让纸片正对透视镜头）→ Chibi_amiya 预制体实例。
+        /// ChibiPuppetMotion 沿父级跳过 Visual 取到根，读根的位移反推动画，与 player 下的结构一致。
+        /// </summary>
+        private ChibiPuppet SpawnPuppet(Vector3 position)
+        {
+            GameObject prefab = null;
+#if UNITY_EDITOR
+            prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(PuppetPrefabPath);
+#endif
+            if (prefab == null)
+            {
+                Assert.Fail($"加载不到小人预制体 {PuppetPrefabPath}。");
+            }
+
+            var root = Track(new GameObject("ShowcasePuppet"));
+            root.transform.position = position;
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(root.transform, false);
+            visual.AddComponent<CameraBillboard>();
+            GameObject instance = Object.Instantiate(prefab, visual.transform, false);
+            instance.name = "ShowcasePuppet_amiya";
+            var puppet = instance.GetComponent<ChibiPuppet>();
+            if (puppet == null)
+            {
+                Assert.Fail($"预制体 {PuppetPrefabPath} 根上没有 ChibiPuppet。");
+            }
+
+            return puppet;
         }
 
         private static bool IsState(ChibiPuppet puppet, string state) =>

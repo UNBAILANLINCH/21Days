@@ -29,6 +29,9 @@ namespace Game.Tests.Showcase.Dialogue
         /// <summary>根作用域类型名：Boot 场景的 GameBootstrap 带 DontDestroyOnLoad，收尾时按名字找来销毁。</summary>
         private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
 
+        /// <summary>站位偏移：NPC 左侧 1 单位，落在交互半径 2 以内。</summary>
+        private static readonly Vector3 StandOffset = new Vector3(-1f, 0f, 0f);
+
         private IUIService ui;
         private DialogueService service;
         private DialogueRules rules;
@@ -39,7 +42,7 @@ namespace Game.Tests.Showcase.Dialogue
 
         protected override string Module => "Dialogue";
 
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Dialogue.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
 
         protected override bool LoadBootScene => true;
 
@@ -86,7 +89,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -147,7 +151,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -181,7 +186,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var traveler = FindRequired<DialogueInteractable>("Traveler");
+            var traveler = FindRequired<DialogueInteractable>("Npc_Traveler");
+            yield return Step("玩家站到旅人身边（交互半径内）", () => StandNextTo(traveler), hold: 0.5f);
             yield return Step("用指针点击旅人（走 EventSystem 点击路径）", () =>
             {
                 traveler.OnCompleted -= RecordResult;
@@ -208,7 +214,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -245,13 +252,15 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             DialogueInteractionFocus focus = ResolveService<DialogueInteractionFocus>();
             yield return WaitUntil("交互提示 HUD 已打开", () => ui != null && ui.Get<DialogueInteractHudView>() != null, 5f);
-            yield return Check("玩家在长者附近：焦点是长者，底部「[E] 对话 · 老者」提示显示，长者头顶亮起「!」",
+            yield return Check("玩家在长者附近：焦点是长者，底部「[E] 对话 · 老者」提示显示，长者头顶亮起「!」（任务标记接管时由任务标记代替）",
                 () => focus != null && focus.Current == elder && HudRootActive()
                       && HudLabelText() == DialogueInteractHudView.FormatLabel(elder.DisplayName)
-                      && ChildActive(elder, "MarkerFocus")
+                      // SampleScene 里长者是主线目标：任务标记接管头顶图标（MarkerOverridden），此时对话「!」让位、不叠显示。
+                      && ChildActive(elder, "MarkerFocus") != elder.MarkerOverridden
                       && ChildActive(elder, "NameLabel"), 3f);
             yield return Snapshot("焦点·对话按钮");
 
@@ -287,7 +296,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var villager = FindRequired<DialogueInteractable>("Villager");
+            var villager = FindRequired<DialogueInteractable>("Npc_Villager");
+            yield return Step("玩家站到村民身边（交互半径内）", () => StandNextTo(villager), hold: 0.5f);
             var bubble = FindRequired<DialogueSpeechBubble>("SpeechBubble");
             yield return Step("和村民交互（无对话树，只说常驻台词）", () => villager.Interact(), hold: 0f);
             yield return Check("头顶气泡出现第一句，世界没有暂停、没有拉起对白面板",
@@ -310,7 +320,8 @@ namespace Game.Tests.Showcase.Dialogue
             Connect();
             yield return CloseTitleIfOpen();
 
-            var elder = FindRequired<DialogueInteractable>("Elder");
+            var elder = FindRequired<DialogueInteractable>("Npc_Elder");
+            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
             yield return Step("点长者：拉起对白 1001，长者立绘从左侧滑入", () =>
             {
                 elder.OnCompleted -= RecordResult;
@@ -401,6 +412,17 @@ namespace Game.Tests.Showcase.Dialogue
         }
 
         /// <summary>从根容器取本回放要用的服务；取不到留 null，由后续检查点记失败。</summary>
+        /// <summary>
+        /// 回放舞台是 SampleScene：NPC 的交互半径 2、actor 指向 player，玩家出生点离 NPC 超出半径时 Interact 会被忽略。
+        /// 每条用例先把玩家挪到目标 NPC 左侧 1 单位（半径内且最近的就是它），再发起交互。
+        /// </summary>
+        private void StandNextTo(DialogueInteractable npc)
+        {
+            var actor = FindRequired<DialogueInteractionActor>("player");
+            actor.transform.position = npc.transform.position + StandOffset;
+            Physics.SyncTransforms();
+        }
+
         private void Connect()
         {
             hasResult = false;

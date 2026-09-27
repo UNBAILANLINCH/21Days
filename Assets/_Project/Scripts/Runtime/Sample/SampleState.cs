@@ -75,7 +75,8 @@ namespace Game.Sample
         }
 
         /// <summary>
-        /// 场景的 Addressables 地址（Scenes 组里 <c>Assets/_Project/Scenes/Sample.unity</c> 的 address）。
+        /// 场景的 Addressables 地址。原先登记的 <c>Assets/_Project/Scenes/Sample.unity</c> 已删除，
+        /// 需要时新建一个场景登记为该地址。
         /// 故意不叫 <c>Sample</c>：地址是全局唯一的命名空间，和类名 / 预制体地址撞车最难查。
         /// </summary>
         protected override string SceneKey => "SampleScene_Game";

@@ -5,7 +5,7 @@
 //         跑不通就是框架的问题，不是模块的问题——排查时先跑 /verify-module SelfTest。
 //
 // 当模板用：复制本文件到 Showcase/<Module>/<Module>Showcase.cs，改命名空间为 Game.Tests.Showcase.<Module>、
-//         类名为 <Module>Showcase、Module 返回模块名、ScenePath 指向 Scenes/Verify/<Module>.unity（或保持 null 在代码里搭），
+//         类名为 <Module>Showcase、Module 返回模块名、ScenePath 返回 ShowcaseOptions.DemoScenePath（回放统一舞台；或保持 null 在代码里搭），
 //         然后把下面的步骤换成「调模块公开接口 + 检查看得见的变化」。
 //
 // 为什么新建：框架必须有一条不依赖玩法的自检用例，否则第一个模块出问题时分不清是模块坏了还是框架坏了；

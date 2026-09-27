@@ -3,6 +3,7 @@
 //
 // 做什么：把「进 Play → 加载场景 → 按节奏驱动模块 → 逐步停顿让人看清 → 检查点判定 → 截图 → 出报告」
 //         这条固定流程收敛成一个基类，每个模块的 Showcase 只剩一串 yield return Step/Check。
+//         SetUp 里还会先把键盘焦点切给 Game 视图（FocusGameView），否则焦点在别的窗口时真实按键用例的键盘事件会被丢。
 //
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— 回放引擎本身就是复用 Unity Test Framework（[UnityTest] + [UnitySetUp]/[UnityTearDown]），
@@ -120,6 +121,7 @@ namespace Game.Tests.Showcase
             Log($"开始回放「{testName}」，节奏 x{ShowcaseOptions.HoldScale.ToString("0.##", CultureInfo.InvariantCulture)}");
 
             BeginCapture();
+            FocusGameView();
             yield return LoadScenes();
 
             overlay = ShowcaseOverlay.Create(Module);
@@ -222,6 +224,37 @@ namespace Game.Tests.Showcase
 
             reloadLockCount--;
             UnityEditor.EditorApplication.UnlockReloadAssemblies();
+#endif
+        }
+
+        /// <summary>
+        /// 把键盘焦点给 Game 视图。Input System 在编辑器里只把「Game 视图有焦点」时的键盘事件送进队列，
+        /// 焦点停在 Console / Project 等窗口时，真实按键用例（InputSystem.QueueStateEvent 排进去的键盘事件）会被整批丢掉，
+        /// 用例红在「按了没反应」（2026-09-28 Taming / Disguise 迁到 SampleScene 首轮实测）。
+        /// 实现：EditorApplication.ExecuteMenuItem("Window/General/Game")——与手动点菜单同一路径，会激活并聚焦 Game 视图。
+        /// 只在编辑器且非批处理下做（批处理没有窗口）；失败只告警不中断，焦点问题会在对应用例里自己暴露。
+        /// </summary>
+        private static void FocusGameView()
+        {
+#if UNITY_EDITOR
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!UnityEditor.EditorApplication.ExecuteMenuItem("Window/General/Game"))
+                {
+                    Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点失败：菜单 Window/General/Game 不存在，"
+                                     + "真实按键用例可能收不到键盘事件");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点时抛出 {e.GetType().Name}：{e.Message}，"
+                                 + "真实按键用例可能收不到键盘事件");
+            }
 #endif
         }
 

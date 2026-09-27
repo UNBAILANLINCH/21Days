@@ -2,7 +2,7 @@
 //   五个方舟小人站在 3D 灰盒里、舞台相机接管画面、底部对白面板带头像；逐句确认走完 / 长按跳过，两条路径都要把主相机、
 //   HUD 层、玩家渲染器恢复原样。截图给人看构图（对标《明日方舟》活动探索截图）。
 // 为什么新建（project-root.md「加能力的顺序」）：
-//   复用 —— PerformanceShowcase 加载的是 Verify/Performance（2D 验证场景、叠加模式），拍不到 3D 灰盒与世界舞台；
+//   复用 —— PerformanceShowcase 停在标题、把 SampleScene 叠加加载，不走「开始」进场的真实流程（玩家规则、存档、相机接管都不齐）；
 //   扩展 —— 往它里面加用例要改 ScenePath，四条旧用例会跟着换场景，职责说不通。进场方式照抄 ExplorationShowcase（sealed，不能继承）。
 // 确认 / 跳过走 IPerformanceService.Confirm() / Skip()（等价玩家按确认 / 长按满），不读输入。
 using System;

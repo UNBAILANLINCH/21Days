@@ -41,6 +41,8 @@ namespace Game.Monster
             this.flow = flow;
         }
 
+        // 该地址目前指向 Assets/Scenes/SampleScene.unity（功能 demo 示例场景），是临时指向；
+        // 正式内容落地后改 Addressables 条目指向 Assets/_Project/Scenes/ 下的正式场景，代码不用动。
         protected override string SceneKey => "IsometricEncounter";
 
         protected override UniTask OnSceneReadyAsync(CancellationToken ct)

@@ -63,6 +63,7 @@ namespace Game.Dialogue
                     resolver.Resolve<IDialogueConditionSource>(),
                     resolver.Resolve<IWorldPauseService>(),
                     resolver.Resolve<IInputService>(),
+                    resolver.Resolve<IUIService>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
             // 已读档案存取：排在 DialogueService 之后。AsSelf + As<IGameService> 同一条注册：参与启动串行读档，
             // 又能按具体类型解析（验收要从真实容器取到它）；工厂注册是因为它有一条测试用的第二构造。实现 IDisposable，容器托管释放。

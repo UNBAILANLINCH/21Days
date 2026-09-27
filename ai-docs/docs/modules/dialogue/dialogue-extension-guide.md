@@ -64,8 +64,8 @@ maturity: stable
 | 头顶气泡 | `Prefabs/World/DialogueSpeechBubble.prefab` 的 `Frame`（`Art/Sprites/Dialogue/Bubble_Frame`）、字体 | `Content` / `Name` / `Body` / `Arrow` 与根 `CanvasGroup` 接线；两级 `VerticalLayoutGroup` + 根 `ContentSizeFitter`（高度随文字自适应，别写死高度） |
 | 头顶标记 | 替换 `Marker_Idle.png` / `Marker_Focus.png` | 子物体名与标记字段接线 |
 | 选项胶囊 | `DialogueView.prefab` 的 `ChoiceTemplate` 背景与 `Label` | 子物体名 `Icon`（写死）；`ChoiceRoot` 锚点 |
-| 立绘框位置 / 尺寸 | `DialogueView.prefab` 的 `PortraitLeft` / `PortraitRight` 的 RectTransform | 它们的 `anchoredPosition` 即入场终点；别在其下挂子物体（换表情时会被整块复制成 `…Ghost` 残影）；pivot 决定压暗缩小的收缩中心 |
-| 名牌样式 | `DialogueView.prefab` 的 `SpeakerName`（TMP） | punch 动效直接改它的 `localScale` 与 `alpha`，别把它放进会被布局组件改缩放的父物体 |
+| 头像框位置 / 尺寸 | `DialogueView.prefab` 的 `PortraitLeft` / `PortraitRight` 的 RectTransform（`PortraitLeft` ↔ `PerformanceView.prefab` 的 `Avatar`/`AvatarFrame` 同位，`PortraitRight` ↔ `AvatarRight`/`AvatarFrameRight` 同位） | 它们的 `anchoredPosition` 即入场终点；别在其下挂子物体（换表情时会被整块复制成 `…Ghost` 残影）；左槽从左侧进出、右槽从右侧进出，没有压暗也没有缩放，改这两个位置务必同步 `PerformanceView.prefab`，否则 `TalkPanelConsistencyTests` 会挂 |
+| 名牌样式 | `DialogueView.prefab` 的 `Speaker`（TMP） | punch 动效直接改它的 `localScale` 与 `alpha`，别把它放进会被布局组件改缩放的父物体 |
 
 同名替换 PNG 不用改预制体；改了结构跑 Showcase 兜底（`Validate()` 会点名漏接字段）。
 
@@ -102,10 +102,11 @@ maturity: stable
 | `historyLimit`（500） | 历史上限，超出丢最早并提示「已省略」 | `tapWindowSeconds`（0.5） | 相邻两次点击最大间隔 |
 | `speedSteps`（1, 2, 4） | 倍速循环表，非空、全 > 0 | `autoAdvanceSeconds`（1.5） | 自动模式停留（再除以倍速） |
 | `punctuationPauseSeconds`（0.12） | 标点后停顿（x1 秒，倍速下同比缩短），≥ 0 | `punctuationChars`（`，。！？…；：、,.!?`） | 算标点的字符；空 = 不停 |
-| `portraitSlideDistance`（80） | 立绘入场 / 退场水平滑动距离（px），≥ 0 | `portraitSlideSeconds`（0.25） | 入场 / 退场时长；0 = 直接到位 |
-| `portraitCrossfadeSeconds`（0.15） | 同槽换表情交叉淡化时长 | `portraitDimSeconds`（0.15） | 高亮 / 压暗过渡时长 |
-| `portraitDimColor`（0.55, 0.55, 0.6） | 非说话者颜色，只用 RGB，分量 0～1 | `portraitDimScale`（0.96） | 非说话者缩放，> 0 |
-| `nameTagPunchSeconds`（0.15） | 说话者变化时名牌 punch 时长；0 = 不做 | `nameTagPunchScale`（1.15） | punch 起始缩放，> 0 |
+| `portraitSlideDistance`（24） | 头像入场 / 退场水平滑动距离（px），≥ 0；左槽从左侧进出、右槽从右侧进出，头像在白框内宜小，主要靠淡入 | `portraitSlideSeconds`（0.25） | 入场 / 退场时长；0 = 直接到位 |
+| `portraitCrossfadeSeconds`（0.15） | 同槽换表情交叉淡化时长 | `nameTagPunchSeconds`（0.15） | 说话者变化时名牌 punch 时长；0 = 不做 |
+| `nameTagPunchScale`（1.15） | punch 起始缩放，> 0 | | |
+
+**已删除**：`portraitDimSeconds` / `portraitDimColor` / `portraitDimScale`（非说话者压暗）——现在只显示说话者那一槽，非说话者直接收起，没有压暗态。
 
 动效参数经 `ToPlaybackSettings()` → `DialoguePlaybackSettings.Motion`（`DialogueMotionSettings`）→ Controller `view.SetMotion` 下发；View 不读 Config。
 要换对话框开合方式改预制体 `DialogueView` 的 Transition（现为 `SlideUp`），要预设之外的花样重写 `PlayOpenTransitionAsync` / `PlayCloseTransitionAsync`。

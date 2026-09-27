@@ -158,12 +158,34 @@ namespace Game.Tests.EditMode.Core
         }
 
         [Test]
-        public void SetLayerVisible_BeforeInitialize_WarnsAndDoesNothing()
+        public void SetLayerVisible_BeforeInitialize_WarnsAndRemembers()
         {
             LogAssert.Expect(LogType.Warning, new Regex(@"SetLayerVisible\(Hud\)"));
 
             Assert.DoesNotThrow(() => service.SetLayerVisible(UILayer.Hud, false),
-                "还没建层就切显隐是时序问题，记 Warn 忽略，不该把沉浸模式的调用方炸掉");
+                "还没建层就切显隐是时序问题，记 Warn 即可，不该把调用方炸掉");
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.False, "读回的是 SetLayerVisible 设的值，与层建没建好无关");
+            Assert.That(service.IsLayerVisible(UILayer.Popup), Is.True, "没设过的层默认可见");
+        }
+
+        [Test]
+        public void IsLayerVisible_FullScreenPanelOpenOrHudHidden_StillReportsLayerSwitchOnly()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            PlainView panel = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            Assert.That(panel.IsFullScreen, Is.True, "前提：Panel 层默认是全屏面板");
+
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.True,
+                "全屏面板盖住 Hud 是另一套机制，不能污染整层开关的读回值（否则演出 / 对白收尾会把 Hud 恢复成隐藏）");
+
+            service.SetHudHidden(true);
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.True, "沉浸模式同样不影响整层开关的读回值");
+
+            LogAssert.Expect(LogType.Warning, new Regex(@"SetLayerVisible\(Hud\)"));
+            service.SetLayerVisible(UILayer.Hud, false);
+            service.CloseAsync(panel).GetAwaiter().GetResult();
+            service.SetHudHidden(false);
+            Assert.That(service.IsLayerVisible(UILayer.Hud), Is.False, "关掉全屏面板、退出沉浸都不会改动 SetLayerVisible 设的值");
         }
 
         [Test]

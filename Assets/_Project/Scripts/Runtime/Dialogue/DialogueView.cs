@@ -1,6 +1,10 @@
-// 职责：复用 UIView 展示文字、左右两槽立绘、选项与自动 / 倍速 / 跳过控件；只显示与抛事件，不注入服务，不拥有剧情进度。
-//   键盘 / 手柄：按钮文字后缀键位提示（由 Controller 传入）、选项前缀序号、选项出现后默认选中第一个可用项（UI Submit 可直接选）。
-//   动效（roadmap D1 / D2）：立绘入场 / 退场 / 交叉淡化 / 压暗交给每槽一个 DialoguePortraitSlot；说话者名字变化时名牌 punch。
+// 职责：复用 UIView 展示文字、说话者头像、选项与自动 / 倍速 / 跳过控件；只显示与抛事件，不注入服务，不拥有剧情进度。
+//   视觉与演出对白面板（PerformanceView.prefab）同一套：白色圆角面板 + 左右各一个头像框 + 深灰字 + 右下 ▼ 继续提示 + 右上白字投影控件；
+//   样式全在预制体，代码只填文字与显隐（一致性由 EditMode TalkPanelConsistencyTests 钉住）。
+//   头像：内容按左右两槽下发，槽 0 在面板左侧头像位、从左侧进出，槽 1 在右侧头像位、从右侧进出；
+//   只显示说话者那一槽，非说话者与旁白收起，不压暗不缩放；每侧头像白框跟随该槽头像的实际显隐（由槽管，退场滑完才收）。
+//   键盘 / 手柄：键位提示写进各控件的 Hint 小字（未接 Hint 时后缀在主标签上），选项前缀序号、选项出现后默认选中第一个可用项（UI Submit 可直接选）。
+//   动效（roadmap D1 / D2）：头像入场 / 退场 / 交叉淡化交给每槽一个 DialoguePortraitSlot；说话者名字变化时名牌 punch。
 //   参数由 Controller 经 SetMotion 传入（View 拿不到 DialogueConfig）；全部 unscaled，对白期间时停也照常播。
 using System;
 using System.Collections.Generic;
@@ -34,8 +38,14 @@ namespace Game.Dialogue
 
         [SerializeField] private TMP_Text speaker;
         [SerializeField] private TMP_Text body;
-        [Tooltip("长度 2：0 左、1 右")]
+        [Tooltip("长度 2：0 左、1 右（内容槽位）。槽 0 在面板左侧头像位，槽 1 在右侧头像位；只显示说话者那一槽。")]
         [SerializeField] private Image[] portraits;
+        [Tooltip("可选：左侧头像白框，跟随槽 0（左）头像的实际显隐（退场动画播完才隐藏）。")]
+        [SerializeField] private GameObject avatarFrame;
+        [Tooltip("可选：右侧头像白框，跟随槽 1（右）头像的实际显隐（退场动画播完才隐藏）。")]
+        [SerializeField] private GameObject avatarFrameRight;
+        [Tooltip("可选：右下「▼ 点击或按空格继续」提示（含子 HoldHint），等待推进时显示。")]
+        [SerializeField] private GameObject holdPrompt;
         [SerializeField] private Button tapArea;
         [SerializeField] private Button history;
         [SerializeField] private Button auto;
@@ -43,10 +53,22 @@ namespace Game.Dialogue
         [SerializeField] private Button skip;
         [SerializeField] private TMP_Text autoLabel;
         [SerializeField] private TMP_Text speedLabel;
-        [Tooltip("跳过按钮的文字；运行时写「跳过 + 键位」。")]
+        [Tooltip("跳过按钮的文字；接了 skipHintLabel 时保留预制体固定文案，否则运行时写「跳过 + 键位」。")]
         [SerializeField] private TMP_Text skipLabel;
-        [Tooltip("历史按钮的文字；运行时写「LOG + 键位」。")]
+        [Tooltip("历史按钮的文字；接了 historyHintLabel 时保留预制体固定文案，否则运行时写「LOG + 键位」。")]
         [SerializeField] private TMP_Text historyLabel;
+        [Tooltip("可选：自动按钮的键位小字；接了则键位写这里、主标签只写文案。")]
+        [SerializeField] private TMP_Text autoHintLabel;
+        [Tooltip("可选：倍速按钮的键位小字；接了则键位写这里、主标签只写文案。")]
+        [SerializeField] private TMP_Text speedHintLabel;
+        [Tooltip("可选：跳过按钮的键位小字；接了则键位写这里、主标签保留预制体固定文案。")]
+        [SerializeField] private TMP_Text skipHintLabel;
+        [Tooltip("可选：LOG 按钮的键位小字；接了则键位写这里、主标签保留预制体固定文案。")]
+        [SerializeField] private TMP_Text historyHintLabel;
+        [Tooltip("可选：自动按钮主标签的投影文字，镜像主标签文案。")]
+        [SerializeField] private TMP_Text autoLabelShadow;
+        [Tooltip("可选：倍速按钮主标签的投影文字，镜像主标签文案。")]
+        [SerializeField] private TMP_Text speedLabelShadow;
         [SerializeField] private Transform choiceRoot;
         [SerializeField] private Button choiceTemplate;
         private readonly List<Button> rows = new List<Button>();
@@ -66,6 +88,7 @@ namespace Game.Dialogue
         private float shownSpeed = -1f;
         private bool shownSkipping;
         private bool controlsShown;
+        private bool advancePromptShown;
         // 键位提示（空串 = 不显示），由 Controller 经 SetKeyHints 传入；View 不读输入。
         private string autoHint = string.Empty;
         private string speedHint = string.Empty;
@@ -117,6 +140,9 @@ namespace Game.Dialogue
             EnsureSlots();
             // 面板可能被复用：上一段对白的立绘与名牌动画直接清到终态，第一句从空槽入场、名牌必 punch。
             foreach (DialoguePortraitSlot slot in slots) slot.Clear();
+            // 强制写一次：预制体默认值不可信，打开时一律先藏起继续提示。
+            advancePromptShown = true;
+            SetAdvancePrompt(false);
             FinishNamePunch();
             shownSpeaker = null;
             VisibleText = string.Empty;
@@ -181,13 +207,22 @@ namespace Game.Dialogue
         public void SetInput(bool enabled) => Group.interactable = enabled;
 
         /// <summary>
-        /// 设置一槽立绘：空 → 有滑入淡入，有 → 空滑出淡出，同槽换图交叉淡化，<paramref name="speaking"/> 为 false 时压暗缩小。
+        /// 设置一槽头像。只显示说话者：<paramref name="speaking"/> 为 false（非说话者、旁白）时该槽收起（同传 null）。
+        /// 空 → 有从本槽那一侧（槽 0 左、槽 1 右）滑入淡入，有 → 空滑出淡出，同槽换图交叉淡化；白框由槽跟随头像实际显隐一起开关。
         /// <paramref name="instant"/> = true 时直接置终态不播动画（存档恢复路径）。
         /// </summary>
         public void SetPortrait(int slot, Sprite sprite, bool speaking, bool instant = false)
         {
             EnsureSlots();
-            slots[slot].Set(sprite, speaking, instant);
+            slots[slot].Set(speaking ? sprite : null, instant);
+        }
+
+        /// <summary>切换右下「▼ 点击或按空格继续」提示（等待推进时显示）；<c>holdPrompt</c> 没接则不做事，值没变不重写。</summary>
+        public void SetAdvancePrompt(bool visible)
+        {
+            if (holdPrompt == null || advancePromptShown == visible) return;
+            advancePromptShown = visible;
+            holdPrompt.SetActive(visible);
         }
 
         /// <summary>刷新控件：自动标签「自动」/「自动中」，倍速标签 x1 / x2 / x4，跳过中禁用跳过按钮。值没变不重写。</summary>
@@ -200,8 +235,8 @@ namespace Game.Dialogue
             shownAuto = autoPlay;
             shownSpeed = speedValue;
             shownSkipping = skipping;
-            autoLabel.text = WithHint(autoPlay ? AutoOnLabel : AutoOffLabel, autoHint);
-            speedLabel.text = WithHint(FormatSpeed(speedValue), speedHint);
+            SetLabel(autoLabel, autoLabelShadow, autoHintLabel, autoPlay ? AutoOnLabel : AutoOffLabel, autoHint);
+            SetLabel(speedLabel, speedLabelShadow, speedHintLabel, FormatSpeed(speedValue), speedHint);
             skip.interactable = !skipping;
         }
 
@@ -278,15 +313,15 @@ namespace Game.Dialogue
         {
             if (slots != null || portraits == null || portraits.Length != DialogueContent.SlotCount) return;
             slots = new DialoguePortraitSlot[portraits.Length];
-            // 槽 0 在左、从左侧进出；其余（槽 1）在右、从右侧进出。
+            // 槽 0 在面板左侧头像位、从左侧进出，槽 1 在右侧头像位、从右侧进出；同一时刻只有说话者那一槽有图。
             for (int i = 0; i < portraits.Length; i++)
             {
-                slots[i] = new DialoguePortraitSlot(portraits[i], i > 0);
+                slots[i] = new DialoguePortraitSlot(portraits[i], i > 0, i == 0 ? avatarFrame : avatarFrameRight);
                 slots[i].Configure(motion);
             }
         }
 
-        // 名牌 punch：从放大 + 透明回落到原样。说话者名 TMP 本身就是名牌（预制体 SpeakerName），不另找底板。
+        // 名牌 punch：从放大 + 透明回落到原样。说话者名 TMP 本身就是名牌（预制体 Speaker），不另找底板。
         private void PunchName()
         {
             if (namePunch.IsActive()) namePunch.Cancel();
@@ -372,10 +407,22 @@ namespace Game.Dialogue
             if (target != null) eventSystem.SetSelectedGameObject(target.gameObject);
         }
 
+        // 跳过 / LOG：接了 Hint 小字就只写键位、主标签保留预制体固定文案（如「跳过 ▶」）；没接则主标签写「文案 + 键位」。
         private void ApplyStaticLabels()
         {
-            if (skipLabel != null) skipLabel.text = WithHint(SkipBaseLabel, skipHint);
-            if (historyLabel != null) historyLabel.text = WithHint(HistoryBaseLabel, historyHint);
+            if (skipHintLabel != null) skipHintLabel.text = skipHint;
+            else if (skipLabel != null) skipLabel.text = WithHint(SkipBaseLabel, skipHint);
+            if (historyHintLabel != null) historyHintLabel.text = historyHint;
+            else if (historyLabel != null) historyLabel.text = WithHint(HistoryBaseLabel, historyHint);
+        }
+
+        // 自动 / 倍速：接了 Hint 小字则主标签只写文案、键位写小字；否则主标签拼键位。投影接了就镜像主标签。
+        private static void SetLabel(TMP_Text label, TMP_Text shadow, TMP_Text hintLabel, string text, string hint)
+        {
+            string shown = hintLabel != null ? text : WithHint(text, hint);
+            label.text = shown;
+            if (shadow != null) shadow.text = shown;
+            if (hintLabel != null) hintLabel.text = hint;
         }
 
         /// <summary>倍速档的显示文字（x1 / x2 / x4）；回放与测试拼期望值用同一个方法。</summary>

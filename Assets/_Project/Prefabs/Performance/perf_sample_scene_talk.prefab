@@ -106,14 +106,19 @@ MonoBehaviour:
   cast:
   - speaker: "\u963F\u7C73\u5A05"
     avatar: {fileID: 21300000, guid: 0d02a28928cff21468525a9aae3a29ce, type: 3}
+    side: 0
   - speaker: "\u9648"
     avatar: {fileID: 21300000, guid: 6d5e096527c564441a0ebf2eb36ad305, type: 3}
+    side: 1
   - speaker: "\u65AF\u5361\u8482"
     avatar: {fileID: 21300000, guid: 45e06b902250dea4ca3fe32ca781df1d, type: 3}
+    side: 1
   - speaker: "\u5FB7\u514B\u8428\u65AF"
     avatar: {fileID: 21300000, guid: 8340620af198fcf4a9203de7f76e6eb1, type: 3}
+    side: 0
   - speaker: "\u80FD\u5929\u4F7F"
     avatar: {fileID: 21300000, guid: 926840636bcc47843b64bb8280bb1dcb, type: 3}
+    side: 1
   skippable: 1
   pauseWorld: 1
   hideHud: 1

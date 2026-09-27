@@ -1,6 +1,7 @@
-// 职责：对白面板一个立绘槽的表现状态机——入场 / 退场滑动 + 淡入淡出、同槽换表情交叉淡化（运行时残影 Image）、说话者高亮与非说话者压暗。
-//   只改自己那张 Image 与它的残影，不碰剧情状态；由 DialogueView 持有（每槽一个），不是组件。
-// 新建原因：复用——没有现成的立绘动效组件；扩展——每槽要独立持有 3 条补间句柄、起讫值与残影，
+// 职责：对白面板一个头像槽的表现状态机——入场 / 退场滑动 + 淡入淡出、同槽换表情交叉淡化（运行时残影 Image）。
+//   只改自己那张 Image、它的残影与（可选的）头像白框，不碰剧情状态；白框跟随头像 Image 的实际显隐（退场滑完才收），由 DialogueView 持有（每槽一个），不是组件。
+//   说话者 / 非说话者的区分由 View 决定（非说话者直接收起），本类不做压暗或缩放。
+// 新建原因：复用——没有现成的立绘动效组件；扩展——每槽要独立持有 2 条补间句柄、起讫值与残影，
 //   平铺进 DialogueView 会变成一组按槽下标的平行数组，且 View 的职责（显示 + 抛事件）被动效细节淹没，所以抽成 View 私用的普通类。
 using System;
 using LitMotion;
@@ -15,6 +16,8 @@ namespace Game.Dialogue
     {
         private readonly Image image;
         private readonly RectTransform rect;
+        // 可选头像白框：跟随 image.enabled 的实际显隐；可为 null。
+        private readonly GameObject frame;
         // -1 = 左槽（从屏幕左侧进出），+1 = 右槽。
         private readonly float side;
         // 预制体里的原位：只在构造时取一次，动画中途开关面板也不会越跑越偏。
@@ -26,24 +29,19 @@ namespace Game.Dialogue
         private Image ghost;
         private MotionHandle move;
         private MotionHandle fade;
-        private MotionHandle dim;
         // 逻辑目标（动画终态）：null = 该槽为空。
         private Sprite sprite;
-        private bool speaking;
         private Vector2 moveFrom;
         private Vector2 moveTo;
         private float alphaFrom;
         private float alphaTo;
         private bool hideAfterMove;
         private float ghostAlphaFrom;
-        private Color dimFrom;
-        private Color dimTo;
-        private float scaleFrom;
-        private float scaleTo;
 
-        public DialoguePortraitSlot(Image image, bool rightSide)
+        public DialoguePortraitSlot(Image image, bool rightSide, GameObject frame = null)
         {
             this.image = image;
+            this.frame = frame;
             rect = image.rectTransform;
             side = rightSide ? 1f : -1f;
             rest = rect.anchoredPosition;
@@ -57,14 +55,13 @@ namespace Game.Dialogue
         public void Configure(in DialogueMotionSettings settings) => motion = settings;
 
         /// <summary>
-        /// 设置本槽立绘。空 → 有：滑入 + 淡入；有 → 空：滑出 + 淡出后隐藏；换图：交叉淡化；说话状态变化：压暗 / 高亮过渡。
+        /// 设置本槽立绘。空 → 有：滑入 + 淡入；有 → 空：滑出 + 淡出后隐藏；换图：交叉淡化。
         /// <paramref name="instant"/> 或物体未激活时直接置终态，不播动画（存档恢复路径）。
         /// </summary>
-        public void Set(Sprite next, bool speakingNext, bool instant)
+        public void Set(Sprite next, bool instant)
         {
             Sprite previous = sprite;
             sprite = next;
-            speaking = speakingNext;
             if (instant || !image.gameObject.activeInHierarchy)
             {
                 Finish();
@@ -81,14 +78,12 @@ namespace Game.Dialogue
                 return;
             }
             if (previous != next) Crossfade(previous, next);
-            Dim();
         }
 
         /// <summary>清空本槽并直接置终态（打开面板时用，免得上一段对白的立绘残留）。</summary>
         public void Clear()
         {
             sprite = null;
-            speaking = false;
             Finish();
         }
 
@@ -100,10 +95,8 @@ namespace Game.Dialogue
             rect.anchoredPosition = rest;
             image.sprite = sprite;
             image.enabled = sprite != null;
+            SetFrameVisible(sprite != null);
             SetAlpha(image, 1f);
-            dimTo = TargetColor();
-            scaleTo = TargetScale();
-            ApplyDim(dimTo, scaleTo);
         }
 
         private void Enter(Sprite next)
@@ -111,14 +104,11 @@ namespace Game.Dialogue
             if (fade.IsActive()) fade.Cancel();
             HideGhost();
             if (move.IsActive()) move.Cancel();
-            if (dim.IsActive()) dim.Cancel();
             // 正在退场的又被叫回：从当前位置 / 透明度接着滑回原位，而不是跳到屏幕外重来。
             bool midExit = image.enabled && image.sprite != null;
             image.sprite = next;
             image.enabled = true;
-            dimTo = TargetColor();
-            scaleTo = TargetScale();
-            ApplyDim(dimTo, scaleTo);
+            SetFrameVisible(true);
             moveFrom = midExit ? rect.anchoredPosition : Hidden();
             alphaFrom = midExit ? image.color.a : 0f;
             moveTo = rest;
@@ -170,6 +160,7 @@ namespace Game.Dialogue
             if (!hideAfterMove) return;
             hideAfterMove = false;
             image.enabled = false;
+            SetFrameVisible(false);
             image.sprite = null;
             rect.anchoredPosition = rest;
         }
@@ -188,6 +179,8 @@ namespace Game.Dialogue
             ghost.enabled = true;
             ghostAlphaFrom = image.color.a;
             image.sprite = next;
+            image.enabled = true;
+            SetFrameVisible(true);
             float seconds = motion.PortraitCrossfadeSeconds;
             if (seconds <= 0f)
             {
@@ -208,51 +201,6 @@ namespace Game.Dialogue
             SetAlpha(image, t);
             SetAlpha(ghost, ghostAlphaFrom * (1f - t));
         }
-
-        private void Dim()
-        {
-            Color target = TargetColor();
-            float targetScale = TargetScale();
-            if (dim.IsActive())
-            {
-                if (SameRgb(dimTo, target) && Mathf.Approximately(scaleTo, targetScale)) return; // lint-ok: 立绘动效是纯表现，不参与判定与快照
-                dim.Cancel();
-            }
-            Color current = image.color;
-            float currentScale = rect.localScale.x;
-            if (SameRgb(current, target) && Mathf.Approximately(currentScale, targetScale)) return; // lint-ok: 立绘动效是纯表现，不参与判定与快照
-            dimFrom = current;
-            dimTo = target;
-            scaleFrom = currentScale;
-            scaleTo = targetScale;
-            float seconds = motion.PortraitDimSeconds;
-            if (seconds <= 0f)
-            {
-                ApplyDim(dimTo, scaleTo);
-                return;
-            }
-            dim = LMotion.Create(0f, 1f, seconds)
-                .WithEase(Ease.OutQuad)
-                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
-                .Bind(this, (t, slot) => slot.ApplyDimProgress(t))
-                .AddTo(image.gameObject);
-        }
-
-        private void ApplyDimProgress(float t) =>
-            ApplyDim(Color.LerpUnclamped(dimFrom, dimTo, t), Mathf.LerpUnclamped(scaleFrom, scaleTo, t)); // lint-ok: 立绘动效是纯表现，不参与判定与快照
-
-        // 只改 RGB 与缩放，透明度归入场 / 退场 / 交叉淡化管。
-        private void ApplyDim(Color color, float scale)
-        {
-            color.a = image.color.a;
-            image.color = color;
-            rect.localScale = new Vector3(scale, scale, 1f);
-        }
-
-        private Color TargetColor() =>
-            speaking ? Color.white : new Color(motion.DimRed, motion.DimGreen, motion.DimBlue, 1f);
-
-        private float TargetScale() => speaking ? 1f : motion.PortraitDimScale;
 
         private Vector2 Hidden() => rest + new Vector2(side * motion.PortraitSlideDistance, 0f);
 
@@ -275,16 +223,18 @@ namespace Game.Dialogue
             ghost.sprite = null;
         }
 
+        // 白框与头像 Image 同显同隐；没接不做事，值没变不重写。
+        private void SetFrameVisible(bool visible)
+        {
+            if (frame != null && frame.activeSelf != visible) frame.SetActive(visible);
+        }
+
         private void CancelAll()
         {
             if (move.IsActive()) move.Cancel();
             if (fade.IsActive()) fade.Cancel();
-            if (dim.IsActive()) dim.Cancel();
             hideAfterMove = false;
         }
-
-        private static bool SameRgb(Color a, Color b) =>
-            Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b); // lint-ok: 立绘动效是纯表现，不参与判定与快照
 
         private static void SetAlpha(Graphic graphic, float alpha)
         {

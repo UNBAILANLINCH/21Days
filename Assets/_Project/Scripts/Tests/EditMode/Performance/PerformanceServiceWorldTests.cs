@@ -1,5 +1,6 @@
 // 职责：钉住 PerformanceService 的世界模式与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
-//   结束（跳过 / 取消）后主相机与舞台相机原样恢复；世界模式按摆放值摆实例；叠加模式忽略摆放并告警；主相机缺失走退路并告警。
+//   结束（跳过 / 取消）后主相机与舞台相机原样恢复；世界模式按摆放值摆实例；叠加模式忽略摆放并告警；主相机缺失走退路并告警；
+//   HideHud 时 Hud / Popup 层演出中隐藏、结束按进来前的显隐恢复（对白里插播时 Hud 不被重新亮出来）。
 // 为什么新建（复用 → 扩展 → 新建）：现有 Performance 测试都是纯逻辑类（规则 / 策略 / 存档 / 触发判定），没有服务级用例可扩展；
 //   DialogueServiceTests 的假服务是对白专用的私有嵌套类，拿不过来。服务要走真实的相机与舞台组件，只能新建。
 using System;
@@ -54,6 +55,7 @@ namespace Game.Tests.EditMode.Performance
         private Camera stageCamera;
         private UniversalAdditionalCameraData stageData;
         private Camera providedMain;
+        private FakeUI ui;
 
         [SetUp]
         public void SetUp()
@@ -77,7 +79,8 @@ namespace Game.Tests.EditMode.Performance
             BuildStage();
             assets = new FakeAssets(stage.gameObject);
             var view = BuildView();
-            service = new PerformanceService(config, new PerformanceRules(telemetry), assets, new FakeUI(view),
+            ui = new FakeUI(view);
+            service = new PerformanceService(config, new PerformanceRules(telemetry), assets, ui,
                 new FakeInput(), new FakeWorldPause(), new FakeSave(),
                 new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
                 telemetry, () => providedMain);
@@ -202,6 +205,58 @@ namespace Game.Tests.EditMode.Performance
             AssertStageCameraRestored();
         }
 
+        [UnityTest]
+        public IEnumerator PlayAsync_HideHud_WhenHudWasVisible_RestoresVisibleAfterSkip()
+        {
+            SetHideHud(true);
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.False, "演出中 Hud 层应隐藏");
+            Assert.That(ui.IsLayerVisible(UILayer.Popup), Is.False, "演出中 Popup 层应隐藏");
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.True, "进来前可见 → 结束恢复可见");
+            Assert.That(ui.IsLayerVisible(UILayer.Popup), Is.True, "进来前可见 → 结束恢复可见");
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_HideHud_WhenHudWasHidden_KeepsHudHiddenAfterSkip()
+        {
+            SetHideHud(true);
+            ui.SetLayerVisible(UILayer.Hud, false); // 对白里插播：Hud 层已被 DialogueService 藏掉
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.False, "进来前隐藏 → 演出结束仍隐藏");
+            Assert.That(ui.IsLayerVisible(UILayer.Popup), Is.True, "对白框所在的 Popup 层应恢复可见");
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_HideHud_ReadsLayerStateBeforeOpeningPanel()
+        {
+            SetHideHud(true);
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            int open = ui.Calls.IndexOf("Open:" + nameof(PerformanceView));
+            int readHud = ui.Calls.IndexOf("IsLayerVisible:" + UILayer.Hud);
+            int readPopup = ui.Calls.IndexOf("IsLayerVisible:" + UILayer.Popup);
+            Assert.That(open, Is.GreaterThanOrEqualTo(0), "演出应打开 PerformanceView");
+            Assert.That(readHud, Is.InRange(0, open - 1), "Hud 层进来前的状态要在开演出面板之前记");
+            Assert.That(readPopup, Is.InRange(0, open - 1), "Popup 层进来前的状态要在开演出面板之前记");
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+        }
+
         // 假服务同步完成，调用返回时应停在播放循环里；提前结束就把异常带进失败信息。
         private void AssertRunning(UniTask<PerformanceResult> play)
         {
@@ -273,6 +328,15 @@ namespace Game.Tests.EditMode.Performance
             return view;
         }
 
+        private void SetHideHud(bool hide)
+        {
+            using (var so = new SerializedObject(stage))
+            {
+                so.FindProperty("hideHud").boolValue = hide;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
         private void SetMode(PerformanceStageMode mode)
         {
             using (var so = new SerializedObject(stage))
@@ -335,7 +399,10 @@ namespace Game.Tests.EditMode.Performance
                 throw new NotSupportedException("假资源服务不加载场景");
         }
 
-        /// <summary>打开面板直接交出预先搭好的面板；关闭空操作。</summary>
+        /// <summary>
+        /// 打开面板直接交出预先搭好的面板；关闭空操作；按层记 SetLayerVisible 设的值（初始全可见，语义同 UIService：
+        /// 只反映整层开关）。<see cref="Calls"/> 按顺序记打开与读层，用来钉住「先记层状态、再开面板」。
+        /// </summary>
         private sealed class FakeUI : IUIService
         {
             private readonly UIView view;
@@ -345,13 +412,30 @@ namespace Game.Tests.EditMode.Performance
                 this.view = view;
             }
 
-            public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView =>
-                UniTask.FromResult((T)view);
+            public List<string> Calls { get; } = new List<string>();
+
+            public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView
+            {
+                Calls.Add("Open:" + typeof(T).Name);
+                return UniTask.FromResult((T)view);
+            }
 
             public UniTask CloseAsync(UIView closed, CancellationToken ct = default) => UniTask.CompletedTask;
             public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
             public T Get<T>() where T : UIView => null;
-            public void SetLayerVisible(UILayer layer, bool visible) { }
+            private readonly HashSet<UILayer> hiddenLayers = new HashSet<UILayer>();
+
+            public void SetLayerVisible(UILayer layer, bool visible)
+            {
+                if (visible) hiddenLayers.Remove(layer);
+                else hiddenLayers.Add(layer);
+            }
+
+            public bool IsLayerVisible(UILayer layer)
+            {
+                Calls.Add("IsLayerVisible:" + layer);
+                return !hiddenLayers.Contains(layer);
+            }
         }
 
         /// <summary>未初始化的输入服务：Actions 为 null，服务跳过全部输入图操作。</summary>

@@ -65,6 +65,14 @@ namespace Game.Core.UI
         /// <summary>每层的 Canvas_&lt;layer&gt;，<see cref="SetLayerVisible"/> 切它的 enabled。</summary>
         private readonly Dictionary<UILayer, Canvas> layerCanvases = new Dictionary<UILayer, Canvas>();
 
+        /// <summary>
+        /// <see cref="SetLayerVisible"/> 设成隐藏的层（整层开关的唯一记账，<see cref="IsLayerVisible"/> 只读它）。
+        /// 单独记一份而不回读 Canvas.enabled：读回值必须只反映「谁调了 SetLayerVisible」，
+        /// 与全屏遮盖（<see cref="hudCoverGroup"/>）、沉浸模式（<see cref="SetHudHidden"/>）两套显隐彻底解耦，
+        /// 以后哪套机制改成也动 Canvas，这里的语义都不会被污染。建层前设过的值在建层时套用。
+        /// </summary>
+        private readonly HashSet<UILayer> hiddenLayers = new HashSet<UILayer>();
+
         private GameObject root;
         private bool disposed;
 
@@ -86,7 +94,7 @@ namespace Game.Core.UI
 
         /// <summary>
         /// 「被全屏面板盖住」的整层开关：挂在 Canvas_Hud/SafeArea 上的 CanvasGroup，由 <see cref="RefreshHudCover"/> 驱动。
-        /// 与另外两套 Hud 显隐互不干扰、可叠加：<see cref="SetLayerVisible"/> 切的是 Canvas.enabled（演出模块在用），
+        /// 与另外两套 Hud 显隐互不干扰、可叠加：<see cref="SetLayerVisible"/> 切的是 Canvas.enabled（演出、对白在用，记账在 <see cref="hiddenLayers"/>），
         /// 沉浸模式（<see cref="SetHudHidden"/>）动的是每个 Hud 面板自己根上的 CanvasGroup。
         /// 没初始化（EditMode 测试）时为 null，盖住逻辑整体跳过。
         /// </summary>
@@ -370,32 +378,48 @@ namespace Game.Core.UI
             return (T)view;
         }
 
+        public bool IsLayerVisible(UILayer layer)
+        {
+            ThrowIfDisposed();
+            // 只读 SetLayerVisible 的记账，不看 Canvas.enabled / 全屏遮盖 / 沉浸；从没设过的层默认可见。
+            return !hiddenLayers.Contains(layer);
+        }
+
         public void SetLayerVisible(UILayer layer, bool visible)
         {
             ThrowIfDisposed();
+            // 先记账：IsLayerVisible 读回的就是这里，与该层 Canvas 建没建好无关。
+            bool changed = visible ? hiddenLayers.Remove(layer) : hiddenLayers.Add(layer);
             if (!layerCanvases.TryGetValue(layer, out Canvas canvas) || canvas == null)
             {
-                Log.Warn($"SetLayerVisible({layer}) 时 UIService 还没初始化或该层不存在，忽略");
+                Log.Warn($"SetLayerVisible({layer}) 时 UIService 还没初始化或该层不存在，只记下开关，建层时套用");
                 return;
             }
 
-            if (canvas.enabled == visible)
+            if (!changed && canvas.enabled == visible)
             {
                 return;
             }
 
-            // Canvas.enabled 只管渲染；射线器要一起关，否则层看不见了按钮照样吃点击。
+            ApplyLayerCanvas(canvas, visible);
+
+            telemetry.Track(
+                TelemetryKeys.UiEvents.LayerVisible,
+                (TelemetryKeys.Props.Layer, layer.ToString()),
+                (TelemetryKeys.Props.Visible, visible));
+        }
+
+        /// <summary>
+        /// 把整层开关落到 Canvas 上。Canvas.enabled 只管渲染；射线器要一起关，否则层看不见了按钮照样吃点击。
+        /// </summary>
+        private static void ApplyLayerCanvas(Canvas canvas, bool visible)
+        {
             canvas.enabled = visible;
             var raycaster = canvas.GetComponent<GraphicRaycaster>();
             if (raycaster != null)
             {
                 raycaster.enabled = visible;
             }
-
-            telemetry.Track(
-                TelemetryKeys.UiEvents.LayerVisible,
-                (TelemetryKeys.Props.Layer, layer.ToString()),
-                (TelemetryKeys.Props.Visible, visible));
         }
 
         public bool IsHudHidden => hudHidden;
@@ -442,6 +466,7 @@ namespace Game.Core.UI
             ReleaseAllViews();
             layerRoots.Clear();
             layerCanvases.Clear();
+            hiddenLayers.Clear();
             eventSystem = null;
             hudCoverGroup = null;
 
@@ -526,6 +551,12 @@ namespace Game.Core.UI
             scaler.matchWidthOrHeight = match;
 
             canvasObject.AddComponent<GraphicRaycaster>();
+
+            // 建层前就被 SetLayerVisible(false) 过（时序问题，已记 Warn）：按记账套上，保持读回值与画面一致。
+            if (hiddenLayers.Contains(layer))
+            {
+                ApplyLayerCanvas(canvas, false);
+            }
 
             var contentObject = new GameObject("SafeArea", typeof(RectTransform));
             contentObject.transform.SetParent(canvasObject.transform, false);

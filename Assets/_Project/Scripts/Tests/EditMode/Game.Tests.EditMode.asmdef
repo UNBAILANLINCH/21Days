@@ -15,6 +15,7 @@
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.InputSystem",
         "Unity.Timeline",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

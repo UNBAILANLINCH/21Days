@@ -151,15 +151,12 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void MotionSettings_WhenArgumentsInvalid_Throws()
         {
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(-1f, 0.25f, 0.15f, 0.15f, 0.96f, 0.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, -0.1f, 0.15f, 0.15f, 0.96f, 0.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, -0.1f, 0.15f, 0.96f, 0.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, 0.15f, -0.1f, 0.96f, 0.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, 0.15f, 0.15f, 0f, 0.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, 0.15f, 0.15f, 0.96f, 1.5f, 0.5f, 0.5f, 0.15f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, 0.15f, 0.15f, 0.96f, 0.5f, 0.5f, 0.5f, -0.1f, 1.15f));
-            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(80f, 0.25f, 0.15f, 0.15f, 0.96f, 0.5f, 0.5f, 0.5f, 0.15f, 0f));
-            Assert.DoesNotThrow(() => new DialogueMotionSettings(0f, 0f, 0f, 0f, 1f, 0f, 1f, 0f, 0f, 1f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(-1f, 0.25f, 0.15f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, -0.1f, 0.15f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, -0.1f, 0.15f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, 0.15f, -0.1f, 1.15f));
+            Assert.Throws<ArgumentException>(() => new DialogueMotionSettings(24f, 0.25f, 0.15f, 0.15f, 0f));
+            Assert.DoesNotThrow(() => new DialogueMotionSettings(0f, 0f, 0f, 0f, 1f));
         }
     }
 }

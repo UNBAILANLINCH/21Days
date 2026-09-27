@@ -205,6 +205,9 @@ namespace Game.Editor.Performance.Samples
                         SerializedProperty entry = cast.GetArrayElementAtIndex(i);
                         entry.FindPropertyRelative("speaker").stringValue = spec.Speaker;
                         entry.FindPropertyRelative("avatar").objectReferenceValue = LoadAvatar(spec.Key);
+                        // 头像侧按站位：站在锚点左边（x < 0）的头像显示在面板左侧，其余在右侧。
+                        entry.FindPropertyRelative("side").enumValueIndex =
+                            (int)(spec.X < 0f ? PerformanceAvatarSide.Left : PerformanceAvatarSide.Right);
                     }
                     so.ApplyModifiedPropertiesWithoutUndo();
                 }

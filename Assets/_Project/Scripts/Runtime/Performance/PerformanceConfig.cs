@@ -1,4 +1,4 @@
-// 职责：演出管线的全局参数——长按跳过秒数、黑边高度、进出场黑场时长、停顿提示与跳过提示文案、默认策略开关。
+// 职责：演出管线的全局参数——长按跳过秒数、黑边高度、进出场黑场时长、停顿提示与跳过提示文案、字幕逐字节奏、默认策略开关。
 // 为什么新建（复用 → 扩展 → 新建）：数值配置按规则进 ScriptableObject；DialogueConfig 是对白专用，
 //   塞进去会让 Performance 依赖 Dialogue（方向禁止），只能新建本模块的配置。
 using UnityEngine;
@@ -27,6 +27,17 @@ namespace Game.Performance
         [Tooltip("跳过键位提示的格式串（显示在「跳过 ▶」下方的小字），{0} 会替换成跳过键的键位名（取不到时替换成「跳过」）。")]
         [SerializeField] private string skipHintFormat = "长按 {0}";
 
+        [Tooltip("字幕逐字显示速度（字 / 秒，unscaled）。0 = 不逐字，整句直出。")]
+        [Min(0f)]
+        [SerializeField] private float subtitleCharactersPerSecond = 35f;
+
+        [Tooltip("字幕打出标点后停顿多少秒再继续出字；0 = 不停。连续标点只在最后一个后停，句末不停。")]
+        [Min(0f)]
+        [SerializeField] private float subtitlePunctuationPauseSeconds = 0.12f;
+
+        [Tooltip("字幕逐字时哪些字符算标点（打出后短停顿）；空 = 不停。")]
+        [SerializeField] private string subtitlePunctuationChars = "，。！？…；：、,.!?";
+
         [Tooltip("新建演出时「暂停世界」开关的默认值（模板工厂用；每段演出以舞台上的开关为准）。")]
         [SerializeField] private bool defaultPauseWorld = true;
 
@@ -43,6 +54,11 @@ namespace Game.Performance
         public float FadeSeconds => fadeSeconds;
         public string HoldPromptText => holdPromptText;
         public string SkipHintFormat => skipHintFormat;
+        /// <summary>字幕逐字速度（字 / 秒）；0 或负数 = 整句直出。</summary>
+        public float SubtitleCharactersPerSecond => subtitleCharactersPerSecond;
+        /// <summary>字幕标点后停顿秒数；负数按 0 兜底。</summary>
+        public float SubtitlePunctuationPauseSeconds => subtitlePunctuationPauseSeconds > 0f ? subtitlePunctuationPauseSeconds : 0f;
+        public string SubtitlePunctuationChars => subtitlePunctuationChars;
         public bool DefaultPauseWorld => defaultPauseWorld;
         public bool DefaultHideHud => defaultHideHud;
         public bool DefaultLetterbox => defaultLetterbox;

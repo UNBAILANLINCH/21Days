@@ -18,7 +18,7 @@ maturity: stable
 | `HasPlayed` | `bool HasPlayed(string id)` | 该 id 是否已完整播过或被跳过（读存档分区，用于「只播一次」判断） |
 | `PlayAsync` | `UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default)` | 按 Addressables 地址拉起一段演出并等它结束（成功 / 跳过 / 取消 / 失败见下）；等价于传 `PerformancePlacement.None` |
 | `PlayAsync`（摆放重载） | `UniTask<PerformanceResult> PlayAsync(string id, PerformancePlacement placement, CancellationToken ct = default)` | 同上，世界模式演出实例化后 `SetPositionAndRotation` 到 `placement`；叠加模式忽略摆放并埋 W 级 `placement_ignored(id, reason=placement_ignored_overlay)` |
-| `Confirm` | `void Confirm()` | 代码确认继续：正在停顿（Holding）时等价于玩家按确认，否则无事；**下一帧播放循环才生效** |
+| `Confirm` | `void Confirm()` | 代码确认继续：正在停顿（Holding）时等价于玩家按确认，否则无事；**不会补全逐字显示中的字幕**（补全只发生在玩家点击 / 按 Advance 键，走 `HandlePlayerAdvance`）；**下一帧播放循环才生效** |
 | `Skip` | `void Skip()` | 代码跳过：正在播放（Playing/Holding）时等价于长按满，结果记为 Skipped；**不看舞台的 `skippable` 开关**（那只约束玩家长按输入）；**下一帧播放循环才生效** |
 
 ### `PlayAsync` 的语义
@@ -76,11 +76,12 @@ maturity: stable
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
 | `Mode` | `PerformanceStageMode Mode { get; }` | `Overlay`（默认，旧演出）/ `World`（演员站在世界里、舞台相机接管画面），语义见 module-guide「渲染」 |
-| `Cast` | `IReadOnlyList<PerformanceCastEntry> Cast { get; }` | 演员名单：`Speaker`（与字幕片段说话者严格相等）→ `Avatar`（Sprite） |
-| `TryGetAvatar` | `bool TryGetAvatar(string speaker, out Sprite avatar)` | 严格相等匹配、重名取第一条；空串 / 未登记 / 该条头像为空返回 `false` |
+| `Cast` | `IReadOnlyList<PerformanceCastEntry> Cast { get; }` | 演员名单：`Speaker`（与字幕片段说话者严格相等）→ `Avatar`（Sprite）+ `Side`（`PerformanceAvatarSide`，头像在对白面板左槽还是右槽，按演员站位配，默认 `Left`） |
+| `TryGetAvatar` | `bool TryGetAvatar(string speaker, out Sprite avatar, out PerformanceAvatarSide side)` | 严格相等匹配、重名取第一条；空串 / 未登记 / 该条头像为空返回 `false`（此时 `side = Left`） |
+| `PerformanceAvatarSide` | 枚举 `{ Left, Right }` | 决定该说话者头像出现在对白面板左槽还是右槽 |
 
-字幕输出端契约 `IPerformanceSubtitleSink.ShowSubtitle(string speaker, string text, Sprite avatar)`（`avatar` 可为 `null`），
-由字幕轨道混合器在片段切换边沿调用；实现者目前只有 `PerformanceView`。
+字幕输出端契约 `IPerformanceSubtitleSink.ShowSubtitle(string speaker, string text, Sprite avatar, PerformanceAvatarSide side)`（`avatar` 可为 `null`），
+由字幕轨道混合器在片段切换边沿调用；实现者目前只有 `PerformanceView`，只显示说话者那一侧的头像 + 框，另一侧隐藏。
 
 ## `[PerformanceId]`（`Game.Performance.PerformanceIdAttribute`）
 

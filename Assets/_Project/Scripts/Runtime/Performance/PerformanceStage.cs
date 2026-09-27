@@ -1,6 +1,6 @@
 // 职责：演出预制体的根组件（舞台）——持有 PlayableDirector 与舞台相机、给出本段演出的策略开关；
 //   播放 / 继续 / 停止时间轴，收到 HoldMarker 就暂停并通知，时间轴停下就通知结束；挂字幕输出端供字幕轨道找到面板；
-//   声明舞台渲染模式（叠加 / 世界）与演员名单（说话者 → 头像）。
+//   声明舞台渲染模式（叠加 / 世界）与演员名单（说话者 → 头像与头像侧）。
 // 为什么新建（复用 → 扩展 → 新建）：工程里没有「一段按时间轴编排的演出」的场景组件；PlayableDirector 本身不认识
 //   停顿标记、策略与字幕输出端，需要一个预制体根把它们装在一起（prp 2.2「一段演出 = 一个预制体」）。
 using System;
@@ -34,7 +34,7 @@ namespace Game.Performance
         [Tooltip("舞台相机。Overlay 模式：URP Overlay、剔除遮罩只含 Performance 层、正交；World 模式：透视 Base 相机（剔除遮罩运行时从主相机拷贝）。")]
         [SerializeField] private Camera stageCamera;
 
-        [Tooltip("演员名单：字幕说话者显示名 → 对白面板头像。说话者须与字幕片段一字不差；重名只取第一条。")]
+        [Tooltip("演员名单：字幕说话者显示名 → 对白面板头像与头像侧（左 / 右）。说话者须与字幕片段一字不差；重名只取第一条。")]
         [SerializeField] private List<PerformanceCastEntry> cast = new List<PerformanceCastEntry>();
 
         [Tooltip("玩家能否长按跳过。")]
@@ -82,17 +82,20 @@ namespace Game.Performance
         }
 
         /// <summary>
-        /// 按说话者显示名查头像：严格相等匹配，重名取第一条。说话者为空串（旁白）、名单里没有、或该条头像为空时返回 false。
+        /// 按说话者显示名查头像与头像侧：严格相等匹配，重名取第一条。说话者为空串（旁白）、名单里没有、或该条头像为空时返回 false。
+        /// <paramref name="side"/> 取命中那一条的 <see cref="PerformanceCastEntry.Side"/>；没命中时为 <see cref="PerformanceAvatarSide.Left"/>。
         /// </summary>
-        public bool TryGetAvatar(string speaker, out Sprite avatar)
+        public bool TryGetAvatar(string speaker, out Sprite avatar, out PerformanceAvatarSide side)
         {
             avatar = null;
+            side = PerformanceAvatarSide.Left;
             if (string.IsNullOrEmpty(speaker) || cast == null) return false;
             for (int i = 0; i < cast.Count; i++)
             {
                 PerformanceCastEntry entry = cast[i];
                 if (entry == null || !string.Equals(entry.Speaker, speaker, StringComparison.Ordinal)) continue;
                 avatar = entry.Avatar;
+                side = entry.Side;
                 // Sprite 是 UnityEngine.Object，判空只用 != null。
                 return avatar != null;
             }

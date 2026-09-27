@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   charactersPerSecond: 35
   historyLimit: 500
-  slotCount: 10
   speedSteps:
   - 1
   - 2
@@ -22,3 +21,10 @@ MonoBehaviour:
   revealTapCount: 3
   tapWindowSeconds: 0.5
   autoAdvanceSeconds: 1.5
+  punctuationPauseSeconds: 0.12
+  punctuationChars: "\uFF0C\u3002\uFF01\uFF1F\u2026\uFF1B\uFF1A\u3001,.!?"
+  portraitSlideDistance: 24
+  portraitSlideSeconds: 0.25
+  portraitCrossfadeSeconds: 0.15
+  nameTagPunchSeconds: 0.15
+  nameTagPunchScale: 1.15

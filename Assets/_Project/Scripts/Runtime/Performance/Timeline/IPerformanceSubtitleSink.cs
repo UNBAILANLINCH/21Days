@@ -10,10 +10,10 @@ namespace Game.Performance.Timeline
     public interface IPerformanceSubtitleSink
     {
         /// <summary>
-        /// 显示一句字幕。<paramref name="speaker"/> 可为空串（旁白）；<paramref name="avatar"/> 为 null 表示不显示头像
-        /// （由字幕轨道按 <see cref="PerformanceStage.TryGetAvatar"/> 从舞台演员名单取）。
+        /// 显示一句字幕。<paramref name="speaker"/> 可为空串（旁白）；<paramref name="avatar"/> 为 null 表示不显示头像；
+        /// <paramref name="side"/> 是头像显示在面板哪一侧（两者都由字幕轨道按 <see cref="PerformanceStage.TryGetAvatar"/> 从舞台演员名单取）。
         /// </summary>
-        void ShowSubtitle(string speaker, string text, Sprite avatar);
+        void ShowSubtitle(string speaker, string text, Sprite avatar, PerformanceAvatarSide side);
 
         /// <summary>收起字幕（当前没有活动的字幕片段）。</summary>
         void HideSubtitle();

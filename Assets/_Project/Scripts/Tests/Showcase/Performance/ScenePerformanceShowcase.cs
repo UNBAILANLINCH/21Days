@@ -126,8 +126,16 @@ namespace Game.Tests.Showcase.Performance
             yield return EnterSampleScene();
             yield return WalkIntoTrigger();
 
-            yield return Check("面板显示第一句：说话者「阿米娅」、左侧头像已显示",
-                () => SpeakerText() == "阿米娅" && AvatarShown(), 5f);
+            // 逐字只持续约一秒：不停顿直接逐帧轮询「正在打字」的瞬态；超时给 5 s 是等演出加载与面板打开，条件本身只在打字那几帧成立。
+            yield return Check("第一句逐字显示中（0 < 已显示字数 < 总字数）", () =>
+            {
+                TMP_Text body = FindInView<TMP_Text>("Body");
+                if (body == null || !body.gameObject.activeInHierarchy || string.IsNullOrEmpty(body.text)) return false;
+                int shown = body.maxVisibleCharacters;
+                return shown > 0 && shown < body.textInfo.characterCount;
+            }, 5f);
+            yield return Check("面板显示第一句：说话者「阿米娅」、头像在左侧",
+                () => SpeakerText() == "阿米娅" && AvatarShownOn(false), 5f);
             yield return Check("舞台相机接管画面：它是深度最高的启用相机，主相机遮罩清零",
                 () => StageCameraOnTop(Stage()) && mainCamera != null && mainCamera.cullingMask == 0, 3f);
             yield return Check("玩家渲染器与名牌全部隐藏（舞台上的阿米娅是替身，不出重影）",
@@ -139,12 +147,12 @@ namespace Game.Tests.Showcase.Performance
             yield return Snapshot("01-第一句·阿米娅");
 
             yield return ConfirmAtHold();
-            yield return Check("第二句：说话者「陈」", () => SpeakerText() == "陈" && AvatarShown(), LineTimeoutSeconds);
+            yield return Check("第二句：说话者「陈」、头像在右侧", () => SpeakerText() == "陈" && AvatarShownOn(true), LineTimeoutSeconds);
             yield return Wait(0.4f);
             yield return Snapshot("02-第二句·陈");
 
             yield return ConfirmAtHold();
-            yield return Check("第三句：说话者「德克萨斯」", () => SpeakerText() == "德克萨斯" && AvatarShown(), LineTimeoutSeconds);
+            yield return Check("第三句：说话者「德克萨斯」、头像在左侧", () => SpeakerText() == "德克萨斯" && AvatarShownOn(false), LineTimeoutSeconds);
             yield return Wait(0.4f);
             yield return Snapshot("03-第三句·德克萨斯");
 
@@ -214,6 +222,11 @@ namespace Game.Tests.Showcase.Performance
 
         private IEnumerator WalkIntoTrigger()
         {
+            // 环境守卫：before 快照必须拍在演出介入之前。静置期里玩家若被外部输入带进触发区（曾因卡键复现），
+            // 快照会记下「已被演出隐藏」的状态，后面三条恢复检查全部误报；这里先红，报告一眼看出是环境问题。
+            yield return Check("回放环境干净：演出尚未运行、玩家存活",
+                () => performance != null && !performance.IsRunning
+                      && playerRules != null && playerRules.Model.Snapshot.IsAlive, 1f);
             mainCamera = Camera.main;
             mainMaskBefore = mainCamera == null ? 0 : mainCamera.cullingMask;
             var actor = UnityEngine.Object.FindObjectOfType<PerformanceTriggerActor>();
@@ -415,10 +428,17 @@ namespace Game.Tests.Showcase.Performance
             return speaker == null || !speaker.gameObject.activeInHierarchy ? null : speaker.text;
         }
 
-        private bool AvatarShown()
+        // 头像只显示在指定一侧：该侧可见、另一侧不可见。
+        private bool AvatarShownOn(bool right)
         {
-            Image avatar = FindInView<Image>("Avatar");
-            return avatar != null && avatar.gameObject.activeInHierarchy && avatar.sprite != null;
+            bool leftShown = ImageShown(FindInView<Image>("Avatar"));
+            bool rightShown = ImageShown(FindInView<Image>("AvatarRight"));
+            return right ? rightShown && !leftShown : leftShown && !rightShown;
+        }
+
+        private static bool ImageShown(Image image)
+        {
+            return image != null && image.enabled && image.sprite != null && image.gameObject.activeInHierarchy;
         }
 
         private T FindInView<T>(string objectName) where T : Component

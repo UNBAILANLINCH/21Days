@@ -52,8 +52,8 @@ namespace Game.Performance.Timeline
             var input = (ScriptPlayable<SubtitleBehaviour>)playable.GetInput(best);
             SubtitleBehaviour data = input.GetBehaviour();
             // 只在片段变化的边沿查一次头像（名单很短，线性查找），不每帧查。
-            Stage.TryGetAvatar(data.Speaker, out Sprite avatar);
-            sink.ShowSubtitle(data.Speaker, data.Text, avatar);
+            Stage.TryGetAvatar(data.Speaker, out Sprite avatar, out PerformanceAvatarSide side);
+            sink.ShowSubtitle(data.Speaker, data.Text, avatar, side);
         }
 
         public override void OnPlayableDestroy(Playable playable)

@@ -76,7 +76,7 @@ namespace Game.Dialogue
         private bool inputConsumed;
         private bool ready;
         // 打字节奏（标点停顿）：每段对白按播放设置建一个，每句 Reset。
-        private DialogueTypingCadence cadence;
+        private TypingCadence cadence;
         private float lastChoiceRefresh;
         private bool[] availability;
         // 当前显示的选项行（顺序同界面，隐藏的不可用选项不在其中）：可用性与选项 id，供数字键按行号选择。
@@ -137,7 +137,8 @@ namespace Game.Dialogue
                 view.OnSkip += RequestSkip;
                 view.SetKeyHints(autoKeyHint, speedKeyHint, skipKeyHint, historyKeyHint);
                 view.SetMotion(policy.Settings.Motion);
-                cadence = new DialogueTypingCadence(policy.Settings);
+                cadence = new TypingCadence(policy.Settings.CharactersPerSecond, policy.Settings.PunctuationPauseSeconds,
+                    policy.Settings.PunctuationChars);
                 long visit = -1;
                 while (generation == rules.Generation && rules.Phase != DialogueSaveData.Phase.Completed &&
                     rules.Phase != DialogueSaveData.Phase.Closed)
@@ -210,7 +211,7 @@ namespace Game.Dialogue
                         float delta = clock.UnscaledDeltaTime;
                         if (rules.Phase == DialogueSaveData.Phase.Typing)
                         {
-                            // 预算已乘倍速；标点停顿按字符预算扣，倍速下同比缩短（见 DialogueTypingCadence）。
+                            // 预算已乘倍速；标点停顿按字符预算扣，倍速下同比缩短（见 TypingCadence）。
                             rules.RevealTo(cadence.Advance(view.VisibleText, rules.VisibleCharacters,
                                 policy.CharactersPerSecond * delta));
                         }
@@ -219,6 +220,8 @@ namespace Game.Dialogue
                     }
                     view.SetVisible(rules.VisibleCharacters);
                     view.SetControls(policy.AutoPlay, policy.Speed, policy.Skipping);
+                    // 历史面板 / 跳过确认弹窗盖着时主面板输入已关，不显示「▼ 点击或按空格继续」，免得误导。
+                    view.SetAdvancePrompt(rules.Phase == DialogueSaveData.Phase.AwaitAdvance && !Overlaid);
                     view.SetInput(!Suspended && !Overlaid && ready);
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     inputConsumed = false;
@@ -406,7 +409,7 @@ namespace Game.Dialogue
             choiceRowIds.Clear();
             ReleaseChoiceIcons();
             // 先把本节点的立绘全部加载完（旧图在此期间照常显示），再逐槽交给 View：
-            // View 按「空 → 有 / 有 → 空 / 换图 / 说话状态」自己决定播入场、退场、交叉淡化还是压暗。
+            // View 只显示说话者那一槽，按「空 → 有 / 有 → 空 / 换图」自己决定播入场、退场还是交叉淡化；非说话者收起。
             ReleaseAll(loading);
             foreach (DialogueContent.Portrait portrait in rules.Portraits)
             {
@@ -422,7 +425,7 @@ namespace Game.Dialogue
             for (int slot = 0; slot < handles.Length; slot++)
             {
                 AssetHandle<Sprite> handle = loading[slot];
-                // 旁白（节点无 speakerId）时两侧都不是说话者，一并压暗。
+                // 旁白（节点无 speakerId）时两侧都不是说话者，一并收起。
                 bool speaking = handle != null && !string.IsNullOrEmpty(node.SpeakerId) &&
                     SlotCharacter(slot) == node.SpeakerId;
                 view.SetPortrait(slot, handle?.Asset, speaking, instant);

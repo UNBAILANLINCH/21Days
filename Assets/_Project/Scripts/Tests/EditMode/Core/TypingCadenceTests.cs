@@ -1,13 +1,13 @@
 // 职责：锁定打字节奏——无标点时与旧的「累加预算取整」一致、标点后停顿、停顿为 0 退化、倍速下停顿同比缩短、连续标点只停一次、句末不停。
-// 新建原因：DialogueTypingCadence 是独立的纯 C# 类型，按「被测类 + Tests」单独成文件。
+// 新建原因：TypingCadence 是独立的纯 C# 类型，按「被测类 + Tests」单独成文件。
 using System;
 using System.Collections.Generic;
-using Game.Dialogue;
+using Game.Core.UI;
 using NUnit.Framework;
 
-namespace Game.Tests.EditMode.Dialogue
+namespace Game.Tests.EditMode.Core
 {
-    public sealed class DialogueTypingCadenceTests
+    public sealed class TypingCadenceTests
     {
         // 基础速度 16 字 / 秒、帧长 1/32 秒：x1 每帧预算 0.5 字、x2 每帧 1 字，都是二进制精确值，避免浮点边界抖动。
         private const float Cps = 16f;
@@ -17,7 +17,7 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Advance_WhenNoPunctuation_MatchesFloorOfAccumulatedBudget()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             const string text = "abcdefghij";
             float[] budgets = { 0.25f, 0.5f, 0.75f, 1.5f, 0.25f, 2f, 0.125f, 0.875f, 3f, 5f };
             float progress = 0f;
@@ -41,7 +41,7 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Advance_AfterPunctuation_HoldsVisibleCountDuringPause()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             int visible = cadence.Advance("a，bc", 0, 2f);
             Assert.That(visible, Is.EqualTo(2), "打出「a，」");
             Assert.That(cadence.Pausing, Is.True);
@@ -61,7 +61,7 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Advance_WhenPunctuationCharsEmpty_NeverPauses()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, null);
+            var cadence = new TypingCadence(Cps, 0.5f, null);
             Assert.That(cadence.Advance("a，bc", 0, 4f), Is.EqualTo(4));
         }
 
@@ -82,7 +82,7 @@ namespace Game.Tests.EditMode.Dialogue
         public void Advance_WhenConsecutivePunctuation_PausesOnceAfterRun()
         {
             // 「a……b」共 4 个字（… 是单字符）：4 字 + 一次停顿 8 = 12 字预算；逐个停会是 4 + 8 × 2 = 20。
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             int visible = cadence.Advance("a……b", 0, 11.5f);
             Assert.That(visible, Is.EqualTo(3), "11.5 预算：打出「a……」，停顿还差 0.5");
             cadence.Reset();
@@ -92,7 +92,7 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Advance_WhenPunctuationEndsLine_DoesNotPause()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             Assert.That(cadence.Advance("ab。", 0, 3f), Is.EqualTo(3));
             Assert.That(cadence.Pausing, Is.False);
         }
@@ -100,14 +100,14 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Advance_WhenBudgetLargeInOneFrame_ConsumesPauseAndContinues()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             Assert.That(cadence.Advance("a，b", 0, 100f), Is.EqualTo(3));
         }
 
         [Test]
         public void Reset_ClearsCarryAndPause()
         {
-            var cadence = new DialogueTypingCadence(Cps, 0.5f, Punctuation);
+            var cadence = new TypingCadence(Cps, 0.5f, Punctuation);
             cadence.Advance("a，bc", 0, 2.75f);
             cadence.Reset();
             Assert.That(cadence.Pausing, Is.False);
@@ -117,21 +117,20 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void Constructor_WhenArgumentsInvalid_Throws()
         {
-            Assert.Throws<ArgumentException>(() => new DialogueTypingCadence(0f, 0.1f, Punctuation));
-            Assert.Throws<ArgumentException>(() => new DialogueTypingCadence(10f, -0.1f, Punctuation));
+            Assert.Throws<ArgumentException>(() => new TypingCadence(0f, 0.1f, Punctuation));
+            Assert.Throws<ArgumentException>(() => new TypingCadence(10f, -0.1f, Punctuation));
         }
 
         [Test]
-        public void Constructor_FromSettings_UsesPauseAndChars()
+        public void Constructor_WithPauseAndChars_UsesThem()
         {
-            var settings = new DialoguePlaybackSettings(Cps, new[] { 1f }, 3, 0.5f, 1f, 0.5f, "，");
-            var cadence = new DialogueTypingCadence(settings);
+            var cadence = new TypingCadence(Cps, 0.5f, "，");
             Assert.That(cadence.Advance("a，b", 0, 9.5f), Is.EqualTo(2), "2 字 + 停顿 8 未耗完（差 0.5）");
         }
 
         private static int FramesToFinish(string text, float pauseSeconds, float speed)
         {
-            var cadence = new DialogueTypingCadence(Cps, pauseSeconds, Punctuation);
+            var cadence = new TypingCadence(Cps, pauseSeconds, Punctuation);
             var trace = new List<int>();
             int visible = 0;
             for (int frame = 1; frame <= 1000; frame++)

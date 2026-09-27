@@ -1,4 +1,5 @@
-// 职责：钉住 DialogueService 的会话级保护——重入拒绝、未知 id 不碰任何资源、展示异常时暂停令牌 / 规则状态 / 结束事件都收干净。
+// 职责：钉住 DialogueService 的会话级保护——重入拒绝、未知 id 不碰任何资源、展示异常时暂停令牌 / 规则状态 / 结束事件都收干净、
+//   对白期间藏 Hud 层且结束按进来前的值恢复。
 // 为什么新建：DialogueRulesTests 测状态机、DialogueCatalogTests 测内容翻译，二者都不涉及暂停令牌与输入图这类会话资源，
 //   塞进去职责说不通；DialogueService 是新类，按「一个被测类一个测试类」新建。
 using System;
@@ -54,7 +55,7 @@ namespace Game.Tests.EditMode.Dialogue
             catalog = new DialogueCatalog(new FakeConfigService(ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes())));
             controller = new DialogueController(rules, catalog, ui, new FakeAssetService(), new FakeClock(), null);
             service = new DialogueService(catalog, rules, controller, config, new DefaultDialogueConditionSource(),
-                pause, input, null);
+                pause, input, ui, null);
         }
 
         [TearDown]
@@ -119,6 +120,41 @@ namespace Game.Tests.EditMode.Dialogue
             Assert.That(recording.Calls, Has.No.Member("Enable:" + InputService.GameplayMap));
         }
 
+        [Test]
+        public void PlayAsync_WhileRunning_HidesHudLayerOnly_AndRestoresVisibleAfterEnd()
+        {
+            ui.Mode = FakeUIService.OpenMode.Pending;
+            using var cts = new CancellationTokenSource();
+
+            UniTask<DialogueResult> play = service.PlayAsync(KnownId, cts.Token);
+
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.False, "对白期间 Hud 层应隐藏");
+            Assert.That(ui.IsLayerVisible(UILayer.Popup), Is.True, "对白框在 Popup 层，不能藏");
+
+            cts.Cancel();
+            Assert.That(Capture(play), Is.InstanceOf<OperationCanceledException>());
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.True, "进来前可见 → 结束后恢复可见");
+        }
+
+        [Test]
+        public void PlayAsync_WhenHudWasHidden_KeepsHudHiddenAfterEnd()
+        {
+            ui.SetLayerVisible(UILayer.Hud, false); // 调用方本来藏着 Hud（如过场中）
+            ui.Mode = FakeUIService.OpenMode.Throw;
+
+            Capture(service.PlayAsync(KnownId));
+
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.False, "进来前隐藏的 Hud 层不应被亮出来");
+        }
+
+        [Test]
+        public void PlayAsync_WhenIdIsUnknown_DoesNotTouchHudLayer()
+        {
+            Capture(service.PlayAsync(UnknownId));
+
+            Assert.That(ui.LayerCalls, Is.EqualTo(0), "未知 id 不该动 Hud 层");
+        }
+
         // 换成带真实动作集的输入服务（InputService 同步初始化、启用 Gameplay 图），并重建 Service 使用它。
         private RecordingInput UseRealInput()
         {
@@ -127,7 +163,7 @@ namespace Game.Tests.EditMode.Dialogue
             var recording = new RecordingInput(realInput);
             service.Dispose();
             service = new DialogueService(catalog, rules, controller, config, new DefaultDialogueConditionSource(),
-                pause, recording, null);
+                pause, recording, ui, null);
             return recording;
         }
 
@@ -265,7 +301,7 @@ namespace Game.Tests.EditMode.Dialogue
             }
         }
 
-        /// <summary>打开面板要么挂起直到取消，要么直接抛；关闭一律空操作。</summary>
+        /// <summary>打开面板要么挂起直到取消，要么直接抛；关闭一律空操作；按层记显隐（初始全可见）。</summary>
         private sealed class FakeUIService : IUIService
         {
             public const string OpenFailure = "假 UI 打不开对白面板";
@@ -287,7 +323,17 @@ namespace Game.Tests.EditMode.Dialogue
             public UniTask CloseAsync(UIView view, CancellationToken ct = default) => UniTask.CompletedTask;
             public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
             public T Get<T>() where T : UIView => null;
-            public void SetLayerVisible(UILayer layer, bool visible) { }
+            public int LayerCalls { get; private set; }
+            private readonly HashSet<UILayer> hiddenLayers = new HashSet<UILayer>();
+
+            public void SetLayerVisible(UILayer layer, bool visible)
+            {
+                LayerCalls++;
+                if (visible) hiddenLayers.Remove(layer);
+                else hiddenLayers.Add(layer);
+            }
+
+            public bool IsLayerVisible(UILayer layer) => !hiddenLayers.Contains(layer);
         }
 
         /// <summary>本文件的用例走不到立绘加载；被调到就说明流程不对。</summary>

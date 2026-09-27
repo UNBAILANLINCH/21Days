@@ -21,18 +21,12 @@ namespace Game.Dialogue
         [SerializeField] private string punctuationChars = "，。！？…；：、,.!?";
 
         [Header("立绘动效")]
-        [Tooltip("立绘入场 / 退场的水平滑动距离（参考分辨率像素）；左槽从左侧进出，右槽从右侧进出。")]
-        [SerializeField, Min(0)] private float portraitSlideDistance = 80f;
+        [Tooltip("头像入场 / 退场的水平滑动距离（参考分辨率像素），两槽都从左侧进出；头像在白框内，宜小，主要靠淡入。")]
+        [SerializeField, Min(0)] private float portraitSlideDistance = 24f;
         [Tooltip("立绘入场 / 退场时长（秒，不受时停影响）；0 = 直接出现 / 消失。")]
         [SerializeField, Min(0)] private float portraitSlideSeconds = 0.25f;
         [Tooltip("同一槽换表情时新旧立绘交叉淡化的时长（秒）；0 = 直接换图。")]
         [SerializeField, Min(0)] private float portraitCrossfadeSeconds = 0.15f;
-        [Tooltip("说话者高亮 / 非说话者压暗的过渡时长（秒）；0 = 直接切换。")]
-        [SerializeField, Min(0)] private float portraitDimSeconds = 0.15f;
-        [Tooltip("非说话者（含旁白时的两侧）立绘的颜色，只用 RGB，透明度忽略。")]
-        [SerializeField] private Color portraitDimColor = new Color(0.55f, 0.55f, 0.6f, 1f);
-        [Tooltip("非说话者立绘的缩放（说话者为 1）。")]
-        [SerializeField, Min(0.01f)] private float portraitDimScale = 0.96f;
 
         [Header("名牌")]
         [Tooltip("说话者名字变化时名牌从放大 + 透明回落到原样的时长（秒）；同名连续两句不动。0 = 不做动效。")]
@@ -51,9 +45,6 @@ namespace Game.Dialogue
         public float PortraitSlideDistance => portraitSlideDistance;
         public float PortraitSlideSeconds => portraitSlideSeconds;
         public float PortraitCrossfadeSeconds => portraitCrossfadeSeconds;
-        public float PortraitDimSeconds => portraitDimSeconds;
-        public Color PortraitDimColor => portraitDimColor;
-        public float PortraitDimScale => portraitDimScale;
         public float NameTagPunchSeconds => nameTagPunchSeconds;
         public float NameTagPunchScale => nameTagPunchScale;
 
@@ -62,7 +53,6 @@ namespace Game.Dialogue
             new DialoguePlaybackSettings(charactersPerSecond, speedSteps, revealTapCount, tapWindowSeconds, autoAdvanceSeconds,
                 punctuationPauseSeconds, punctuationChars,
                 new DialogueMotionSettings(portraitSlideDistance, portraitSlideSeconds, portraitCrossfadeSeconds,
-                    portraitDimSeconds, portraitDimScale, portraitDimColor.r, portraitDimColor.g, portraitDimColor.b,
                     nameTagPunchSeconds, nameTagPunchScale));
     }
 }

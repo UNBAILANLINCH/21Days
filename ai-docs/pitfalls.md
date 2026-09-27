@@ -413,6 +413,12 @@
 - 正确做法：新模块的头顶标记用自己目录下的专属图（如 `Art/Sprites/Loot/marker_crate.png`），**形状与颜色都要区分**，不靠同一张图换染色；加新标记前把现有三种（NPC 可对话、任务目标、可拾取箱子）放一起比一眼。
 - 关联：`docs/artist-guide.md` 6.8 节、`ai-docs/docs/modules/loot/loot-module-guide.md #接线要求`；2026-09-28。
 
+## 同一类面板在不同会话里各自对标参考图，视觉漂移
+- 现象：NPC 交互对白框（`DialogueView.prefab`）做成深色底 + 左右两侧立绘压暗，同期时间轴演出对白框（`PerformanceView.prefab`）做成白色圆角 + 头像位与样式；玩家在同一场景里连续碰到两种对白框，风格明显不一致。
+- 根因：两处面板分别在不同时间、由不同会话对标不同参考图搭出来，各自都符合自己那份需求，但没人比对过「这两个面板在玩家看来是不是同一套视觉语言」；样式散落在预制体与 `DialogueConfig` 的压暗 / 缩放参数里，代码侧也没有任何东西能提醒「另一份面板已经不一样了」。
+- 正确做法：**后建的面板照先有的那份规范来**，不各自另起参考图；确定「同一视觉语言」的一组面板要有**一致性测试**锁住共用节点名与样式值（本例是 `Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`，逐节点比对 `DialogueView.prefab` 与 `PerformanceView.prefab` 的 Rect / Image / TMP 属性），改任一份不同步另一份就挂测试；样式全放预制体，代码只填文字与显隐，不要把「压暗」「缩放」这类视觉差异编码进表现层参数（`DialogueMotionSettings` 一度带了三个压暗 float，后来发现这本身就是两套视觉语言各自演化出的产物，直接删掉）。
+- 关联：`ai-docs/docs/modules/dialogue/dialogue-module-guide.md #对白面板视觉与演出面板共用规范`、`ai-docs/docs/modules/performance/performance-module-guide.md #对白面板`、`Assets/_Project/Scripts/Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`；2026-09-28。
+
 ## 正式场景引用了测试程序集脚本
 - 现象：`Assets/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
 - 根因：asmdef 依赖方向只在代码层有 `invariants.py` 拦（Runtime 不引用 Tests），资产层（场景 / 预制体挂了哪个脚本）没人查；回放用的临时控制器顺手挂进了正式场景。
@@ -424,6 +430,12 @@
 - 根因：Unity Test Framework 跑 PlayMode 测试时在 `Assets/` 根建临时启动场景，正常结束会自删；手动停 Play、跑测试时触发重编译、进程被杀、多会话共用编辑器互相打断，都会残留。`.gitignore` 已忽略，所以 git 看不见，只在编辑器里堆。
 - 正确做法：编辑器不在 Play 时直接 `rm Assets/InitTestScene*.unity Assets/InitTestScene*.unity.meta`，零风险；`invariants.py` 新增残留检查，`/gc` 会报数量。少残留的办法：PlayMode 测试跑的时候别停 Play、别改代码触发编译。
 - 关联：`.gitignore` 里 InitTestScene 注释、`.claude/skills/evolution/invariants.py`；2026-09-28。
+
+## 回放静置期玩家自走提前触发演出，恢复检查伪装成代码故障
+- 现象：2026-09-28 两次演出回放（`ScenePerformanceShowcase`）「结束后恢复」的三项检查连续失败；反复复跑同一份代码却能通过，看起来像间歇性 bug。
+- 根因：回放拍 before 快照前有一段静置等待，这段时间里玩家自己走动了（疑似卡键 / 外部输入落到了 Game 视图），提前走进了触发区，before 快照拍在演出已经开始运行之后，之后的所有「恢复」断言自然和预期对不上；代码本身没有问题。
+- 正确做法：排查回放失败先看 Editor.log 里的埋点时间线（`performance/trigger_fired`、`dialogue/focus_changed` 等），比对时间戳能不能对上用例预期的顺序，别一上来就改代码；回放在拍 before 快照前加「环境干净」守卫（演出尚未运行、玩家存活），环境不干净就直接报环境问题而不是走进断言失败。`ScenePerformanceShowcase.WalkIntoTrigger()` 已加上这道守卫（`Check("回放环境干净：演出尚未运行、玩家存活", …)`）。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Performance/ScenePerformanceShowcase.cs:223`–`228`（`WalkIntoTrigger`）；2026-09-28 字幕逐字 / HUD 恢复那轮。
 
 ## 共用一台编辑器的并发会话互相干扰
 - 现象：一个会话在跑对白回放、开着 MonsterEncounter 场景；另一个会话的 agent 为了改 SampleScene 把当前场景切走、又把回放节奏（EditorPrefs，全局）切成「快速」，对方的回放节奏和打开的场景都变了。

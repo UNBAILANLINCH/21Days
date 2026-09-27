@@ -1,22 +1,23 @@
-// 职责：打字机节奏——把「本帧可揭示的字符预算」换算成新的显示字数，打出标点后先停顿再继续；纯 C#，不引 UnityEngine。
-// 新建原因：复用——DialoguePlaybackPolicy 管点击 / 倍速 / 自动，是按帧无状态的判定，逐字的停顿进度与之无关；
-//   扩展——塞进 DialogueRules 违反「表现参数不进规则」，塞进 Controller 又做不了 EditMode 测试，所以单独成类。
+// 职责：逐字揭示节奏——把「本帧可揭示的字符预算」换算成新的显示字数，打出标点后先停顿再继续；纯 C#，不引 UnityEngine。
+//   对白与演出字幕共用：调用方每句 Reset、每帧 Advance，自己决定预算（速度 × 倍速 × Δt）与何时整句补全。
+// 放在框架层的原因：复用——节奏与具体玩法无关，多个模块都要逐字显示文字，各抄一份会让节奏手感漂移；
+//   扩展——塞进某个面板类做不了 EditMode 测试，塞进规则类又违反「表现参数不进规则」，所以单独成类。
 using System;
 
-namespace Game.Dialogue
+namespace Game.Core.UI
 {
     /// <summary>
     /// 逐字节奏。每句开始时 <see cref="Reset"/>，每帧 <see cref="Advance"/> 一次。
     /// <para>
     /// 停顿以「字符预算」计：停顿 <c>pauseSeconds</c> 等价于 <c>pauseSeconds × 基础打字速度</c> 个字符的预算。
     /// 调用方给的预算已乘倍速（<c>基础速度 × 倍速 × Δt</c>），所以倍速下停顿的实际秒数同比缩短，
-    /// 与自动推进间隔（<c>autoAdvanceSeconds / 倍速</c>）语义一致。
+    /// 与「按倍速缩短的等待」语义一致。
     /// </para>
     /// <para>
-    /// 连续标点（「……」「！？」）只在最后一个之后停一次；句末标点不停（已经打完，后面交给自动推进的计时）。
+    /// 连续标点（「……」「！？」）只在最后一个之后停一次；句末标点不停（已经打完，后面的等待交给调用方）。
     /// </para>
     /// </summary>
-    public sealed class DialogueTypingCadence
+    public sealed class TypingCadence
     {
         private readonly float pauseCharacters;
         private readonly string punctuation;
@@ -28,18 +29,12 @@ namespace Game.Dialogue
         /// <param name="charactersPerSecond">x1 档打字速度（字 / 秒），用来把停顿秒数换成字符预算。</param>
         /// <param name="pauseSeconds">打出标点后停顿多少秒（x1 档）；0 = 不停。</param>
         /// <param name="punctuationChars">哪些字符算标点；null / 空串 = 不停。</param>
-        public DialogueTypingCadence(float charactersPerSecond, float pauseSeconds, string punctuationChars)
+        public TypingCadence(float charactersPerSecond, float pauseSeconds, string punctuationChars)
         {
             if (!(charactersPerSecond > 0f)) throw new ArgumentException("打字速度必须大于 0", nameof(charactersPerSecond));
             if (!(pauseSeconds >= 0f)) throw new ArgumentException("标点停顿不可为负", nameof(pauseSeconds));
             pauseCharacters = pauseSeconds * charactersPerSecond;
             punctuation = punctuationChars ?? string.Empty;
-        }
-
-        /// <summary>从播放设置快照建（基础打字速度、标点停顿、标点字符）。</summary>
-        public DialogueTypingCadence(in DialoguePlaybackSettings settings)
-            : this(settings.CharactersPerSecond, settings.PunctuationPauseSeconds, settings.PunctuationChars)
-        {
         }
 
         /// <summary>当前是否处在标点停顿中（测试与调试用）。</summary>

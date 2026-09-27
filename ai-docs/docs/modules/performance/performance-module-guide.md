@@ -39,26 +39,27 @@ Live2D 适配层：SDK 不在时整个程序集不参与编译，在时表情走
 | `PerformanceRules` | **纯 C#** 阶段机：`Idle → Playing ⇄ Holding → Finished`；停顿确认、长按跳过计时、结果归类、埋点（`PerformanceRules.cs:19`） | `PerformanceService` 持有单例，`Start/Tick/EnterHold/Confirm/TickSkip/Complete/Skip/Cancel/Fail` |
 | `PerformancePolicy` | `readonly struct`：校验后的播放策略快照（可跳过 / 长按秒数 / 时停 / 藏 HUD / 黑边），构造即校验 | 由 `PerformanceStage.BuildPolicy(config)` 产出 |
 | `PerformanceSaveData` | 存档分区：`PlayedIds`，版本 1 | `ISaveService.Get<PerformanceSaveData>()` 产出，`HasPlayed`/`MarkPlayed` |
-| `PerformanceService` | **对外门面** + `IGameService`：见「数据流」；持时停令牌、输入图、相机叠加、面板、埋点、事件（`PerformanceService.cs:35`） | 根作用域单例；其余模块注入 `IPerformanceService` |
-| `PerformanceStage` | 预制体根组件：持 `PlayableDirector` 与舞台相机、渲染模式 `mode`（`Overlay`/`World`）、演员名单 `cast`（说话者 → 头像，`TryGetAvatar`）；`Play/Resume/Stop`；收 `HoldMarker` 通知 → 暂停并 `OnHold`；`director.stopped` → `OnFinished` | 演出预制体根；服务播放时调用 |
-| `PerformanceStageMode` / `PerformanceCastEntry` / `PerformancePlacement` | 舞台渲染模式枚举 / 演员名单一行（`speaker`、`avatar`）/ 世界摆放值（`None` = 不摆） | 舞台字段 / `PlayAsync` 摆放重载 |
+| `PerformanceService` | **对外门面** + `IGameService`：见「数据流」；持时停令牌、输入图、相机叠加、面板、埋点、事件（`PerformanceService.cs:35`）；播放循环每帧 `view.TickTyping(dt)`；`HandlePlayerAdvance`（面板点击与 Advance 键共用）打字中整句补全、否则等同 `Confirm()` | 根作用域单例；其余模块注入 `IPerformanceService` |
+| `PerformanceStage` | 预制体根组件：持 `PlayableDirector` 与舞台相机、渲染模式 `mode`（`Overlay`/`World`）、演员名单 `cast`（说话者 → 头像 + 站位，`TryGetAvatar(speaker, out avatar, out side)`）；`Play/Resume/Stop`；收 `HoldMarker` 通知 → 暂停并 `OnHold`；`director.stopped` → `OnFinished` | 演出预制体根；服务播放时调用 |
+| `PerformanceStageMode` / `PerformanceCastEntry` / `PerformancePlacement` | 舞台渲染模式枚举 / 演员名单一行（`speaker`、`avatar`、`side`，3 参构造 `(speaker, avatar, side)`）/ 世界摆放值（`None` = 不摆） | 舞台字段 / `PlayAsync` 摆放重载 |
+| `PerformanceAvatarSide` | 枚举 `{ Left, Right }`：决定该说话者的头像出现在对白面板左槽还是右槽 | `PerformanceCastEntry.Side`（Inspector 按演员站位配，默认 `Left`）；`TryGetAvatar` 未命中时 `side = Left` |
 | `PerformanceActor` | 抽象基类：`ExpressionNames`（校验用）、`SetExpression`、`SetVisible`、`GatherPreviewProperties`（编辑器预览属性登记） | 表情轨道绑定它 |
 | `SpritePerformanceActor` | 占位演员：`SpriteRenderer` + 「表情名 → Sprite」列表 | 模板工厂默认建的演员 |
-| `PerformanceView` | `UIView`（**Panel 层全屏**，`CloseOnCancel = false`），实现 `IPerformanceSubtitleSink`：黑边 / 字幕 / ▼ / 跳过进度环 / 黑场，全 LitMotion unscaled；全屏透明 `tapArea` 被点抛 `OnTap`（`PerformanceView.cs:28`） | `IUIService` 按地址 `PerformanceView` 实例化；服务订阅 `OnTap` 转 `Confirm()` |
-| `PerformanceViewArgs` | 打开面板的参数快照（策略、跳过提示文案、黑边高度、黑场时长、停顿提示符） | 服务组装后传给 `ui.OpenAsync<PerformanceView>` |
+| `PerformanceView` | `UIView`（**Panel 层全屏**，`CloseOnCancel = false`），实现 `IPerformanceSubtitleSink`：黑边 / 字幕逐字揭示 / ▼（打完才出现）/ 跳过进度环 / 黑场，全 LitMotion unscaled；全屏透明 `tapArea` 被点抛 `OnTap`（`PerformanceView.cs:28`）；`IsTyping`（当前句是否还在逐字揭示）、`TickTyping(unscaledDelta)`（服务每帧推进）、`CompleteTyping()`（整句补全）三个成员配合服务驱动打字，见下「字幕逐字显示」 | `IUIService` 按地址 `PerformanceView` 实例化；服务订阅 `OnTap` 转 `HandlePlayerAdvance`，每帧调 `TickTyping` |
+| `PerformanceViewArgs` | 打开面板的参数快照（策略、跳过提示文案、黑边高度、黑场时长、停顿提示符、字幕逐字三参数 `CharactersPerSecond`/`PunctuationPauseSeconds`/`PunctuationChars`） | 服务组装后传给 `ui.OpenAsync<PerformanceView>` |
 | `PerformanceTrigger` | 场景挂载点：`performanceId`（`[PerformanceId]`）、`mode`（`OnEnter`/`OnSceneStart`）、`once`、`anchor`（世界模式摆放锚点，空 = 不摆）、`hideActorVisual`（默认关；演出期间藏触发者的 Renderer 与 Canvas）、`hiddenDuringPlay`（演出期间要藏的场景物体根：NPC、巡逻怪、任务 / 物资标记）；`OnTriggerEnter(2D)` 只认带 `PerformanceTriggerActor` 的对象 | 场景物体；服务由 `PerformanceSceneBinder` 注入 |
 | `PerformanceTriggerActor` | 空标记，挂玩家根（同 `DialogueInteractionActor` 的做法，但不依赖 Dialogue） | 场景玩家物体 |
 | `PerformanceTriggerRules` | 静态判定：`ShouldFire(once, hasPlayed, serviceRunning, out reason)`，已播过优先于忙碌；`HideVisuals(roots)` / `RestoreVisuals(snapshot)` 成对隐藏 / 恢复一批根下的 Renderer 与 Canvas（组件去重；只切 enabled 不 SetActive）；底层 `HideRenderers` / `HideBehaviours` 与对应 Restore | `PerformanceTrigger.TryFire` 调 |
 | `PerformanceSceneBinder` | 入口点（`IStartable`）：启动与 `sceneLoaded` 扫描 `PerformanceTrigger`（含未激活）并 `Bind`；`BootCompletedEvent` 后触发 `OnSceneStart` 的（`PerformanceSceneBinder.cs:21`） | 根作用域入口点 |
 | `PerformanceInstaller` | `GameplayInstaller`：事件 broker、配置、规则（工厂式注入 `ITelemetryScope`）、服务、场景绑定（`PerformanceInstaller.cs:26`） | Boot 场景 `GameBootstrap` 物体 |
-| `PerformanceConfig` | SO：长按跳过秒数、黑边高度、黑场时长、停顿 / 跳过提示文案、默认策略三开关 | `Data/Performance/PerformanceConfig.asset` |
+| `PerformanceConfig` | SO：长按跳过秒数、黑边高度、黑场时长、停顿 / 跳过提示文案、字幕逐字三参数（`SubtitleCharactersPerSecond` 默认 35，0 = 整句直出；`SubtitlePunctuationPauseSeconds` 默认 0.12；`SubtitlePunctuationChars` 默认「，。！？…；：、,.!?」）、默认策略三开关 | `Data/Performance/PerformanceConfig.asset` |
 | Timeline 子命名空间 `Game.Performance.Timeline` | 见下「时间轴轨道」 | — |
 
 ### 时间轴轨道（`Runtime/Performance/Timeline/`）
 
 | 类 | 做什么 |
 | --- | --- |
-| `SubtitleTrack` / `SubtitleClip` / `SubtitleBehaviour` / `SubtitleMixerBehaviour` | 字幕轨。**无绑定**：输出端从 `PlayableDirector` 所在物体上的 `PerformanceStage.SubtitleSink` 取（所以 Director 必须和 `PerformanceStage` 挂同一物体）；混合器只在权重最大片段变化时调 `ShowSubtitle(speaker, text, avatar)`/`HideSubtitle`，头像在同一边沿用 `stage.TryGetAvatar(speaker)` 取 |
+| `SubtitleTrack` / `SubtitleClip` / `SubtitleBehaviour` / `SubtitleMixerBehaviour` | 字幕轨。**无绑定**：输出端从 `PlayableDirector` 所在物体上的 `PerformanceStage.SubtitleSink` 取（所以 Director 必须和 `PerformanceStage` 挂同一物体）；混合器只在权重最大片段变化时调 `ShowSubtitle(speaker, text, avatar, side)`/`HideSubtitle`，头像与站位经 `stage.TryGetAvatar(speaker, out avatar, out side)` 取（未命中 `side = Left`） |
 | `ExpressionTrack` / `ExpressionClip` / `ExpressionBehaviour` / `ExpressionMixerBehaviour` | 表情轨，`[TrackBindingType(typeof(PerformanceActor))]`；片段变化的边沿调一次 `SetExpression`，片段之间空白保持上一个表情不回默认 | 
 | `HoldMarker` | 「等待输入」标记：`Marker, INotification`，`NotificationFlags.TriggerOnce`，不设 `TriggerInEditMode`（拖时间线预览不触发） |
 | `IPerformanceSubtitleSink` | 字幕轨道到 UI 的契约接口，运行时由 `PerformanceView` 实现 |
@@ -79,10 +80,12 @@ PerformanceService.PlayAsync(id, ct)：
   AttachCamera（叠到主相机 / Base 退路，见「渲染」）；stage.SetSubtitleSink(view)；订阅 OnHold / OnFinished
   发布 PerformanceStartedEvent；stage.Play()
   每帧（unscaled）：
+    rules.Tick(dt) → view.TickTyping(dt)（字幕逐字与规则同一个 dt；停顿期间也推进，打到一半停下时继续打完）
     finishedPending（时间轴自然停）→ rules.Complete()，跳出循环
     pendingSkip（代码 Skip()）→ rules.Skip() → 停时间轴、清进度环
-    confirmRequested（Dialogue/Advance 按下 或 代码 Confirm() 或 面板 TapArea 点击 → OnTap → Confirm()）且 Holding → rules.Confirm() → 收 ▼、Resume()
-    holdPending（收到 HoldMarker 通知）→ rules.EnterHold() → 显示 ▼
+    Dialogue/Advance 按下 或 面板 TapArea 点击 → OnTap → HandlePlayerAdvance（打字中 = view.CompleteTyping() 补全，本次输入消费；否则走 Confirm()）
+    confirmRequested（代码 Confirm() 或 HandlePlayerAdvance 走到 Confirm()）且 Holding → rules.Confirm() → 收 ▼、Resume()
+    holdPending（收到 HoldMarker 通知）→ rules.EnterHold() → 请求显示 ▼（实际显隐 = 请求显示 且 不在打字中，打完才真正出现）
     policy.Skippable → rules.TickSkip(Dialogue/Skip 按住, dt) → view.SetSkipProgress；满 → 结束
   直到 rules.Phase == Finished
   收尾（finally）：摘回调 → stage.Stop() → 拆相机 → 关面板 → 恢复 Hud/Popup 层 → 输入图恢复到进来前 → pause.Dispose()
@@ -105,9 +108,9 @@ PerformanceService.PlayAsync(id, ct)：
 
 ## 玩家操作
 
-- **继续**（停顿 ▼ 时）：鼠标点击画面任意处（`PerformanceView.tapArea`）/ 空格 / 回车 / 小键盘回车 / 手柄 A（South），即 Dialogue 图 `Advance`；点击经 `OnTap` → `Confirm()`，非停顿期间点击无效果、不触发跳过。
+- **继续 / 补全**：鼠标点击画面任意处（`PerformanceView.tapArea`）/ 空格 / 回车 / 小键盘回车 / 手柄 A（South），即 Dialogue 图 `Advance`，两者共用 `PerformanceService.HandlePlayerAdvance`——**打字中点击 = 整句补全**（`view.CompleteTyping()`，本次输入就此消费，不同时继续）；**停顿（▼）时点击 = 继续**（等同 `Confirm()`）；其余（非打字、非停顿）点击无事，不触发跳过。
 - **跳过**：长按左 / 右 Ctrl 或手柄 RB（Dialogue 图 `Skip`）满 `SkipHoldSeconds`。
-- 停顿提示符取 `PerformanceConfig.holdPromptText`（默认「▼」），显示在对白面板右下角；左侧「点击或按空格继续」是预制体里 `HoldHint` 的固定小字。
+- 停顿提示符取 `PerformanceConfig.holdPromptText`（默认「▼」），显示在对白面板右下角；**当前句字幕逐字打完才会出现**（`SetHoldPromptVisible` 只记请求，`PerformanceView` 内部按「请求显示 且 不在打字中」门控实际显隐）；左侧「点击或按空格继续」（`HoldHint`）随 ▼ 一起显隐。
 - 跳过提示：右上「跳过 ▶」是预制体固定文案，下方键位小字取 `PerformanceConfig.skipHintFormat`（默认「长按 {0}」）。
 
 ## 依赖方向
@@ -150,6 +153,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
   不开黑边（`letterbox` 关）。
 - 构图常量（builder 顶部）：舞台相机局部 (0, 3.9, −10.6)、俯角 17°、垂直 FOV 29；站位局部 x = −1.75 / −0.4 / 0.5 / 1.4 / 2.3
   （阿米娅与德克萨斯之间留空给前景锥筒 `Cone_3`）。
+- 演员名单 `cast` 按站位配 `side`：阿米娅 (x=−1.75) `Left`、德克萨斯 (x=−0.4) `Left`、能天使 (x=0.5) `Right`、陈 (x=1.4) `Right`、斯卡蒂 (x=2.3) `Right`；`SceneTalkSampleBuilder.cs` 生成 cast 时按 `x < 0 → Left` 写。
 - 场景接线：`SampleScene` 的 `Trigger_VillageEntrance`：`performanceId = perf_sample_scene_talk`、`once` 关、`hideActorVisual` 开、
   子物体 `StageAnchor`（世界 (10.5, 4.888, 7.0)，旋转 0）接 `anchor`、`hiddenDuringPlay = Npc_Elder / Npc_Traveler / Npc_Villager /
   enerme / Crates/Crate_A/Marker`。
@@ -165,14 +169,31 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | --- | --- | --- | --- |
 | `SubtitleRoot` | 根 | min(0,0) max(1,0) pivot(0.5,0)；左 80 右 70 底 65 高 280 | 自身 Image 已停用，只做容器 |
 | `PanelBackground` | SubtitleRoot（最底） | 全拉伸 | 9 切圆角白底 `Art/Sprites/UI/Performance/ui_perf_panel_round.png`，#FFFFFF α0.86 |
-| `AvatarFrame` / `Avatar` | SubtitleRoot | 锚 (0,0.5) pivot(0,0.5)；(74,0) 232² / (80,0) 220² | 头像组，`avatar == null` 时两者都隐藏；`Avatar` 保持比例 |
-| `Speaker` | SubtitleRoot | 锚 (0,1) pivot(0,1)；(340,-40) 1200×48 | 40 号粗体 #2B2B2B |
-| `Body` | SubtitleRoot | 全拉伸；left 340 right 100 top 100 bottom 30 | 34 号 #333333、行距 +12、左上、换行 |
-| `HoldPrompt` / `HoldHint` | SubtitleRoot / HoldPrompt | 锚 (1,0) pivot(1,0) (-60,24) 40² / 在 ▼ 左侧 | 「▼」32 号 #555555（文案取 `PerformanceConfig.holdPromptText`）；「点击或按空格继续」22 号灰字固定在预制体 |
+| `AvatarFrame` / `Avatar` | SubtitleRoot | 锚 (0,0.5) pivot(0,0.5)；(74,0) 232² / (80,0) 220² | 左头像组，默认隐藏；`Avatar` 保持比例 |
+| `AvatarFrameRight` / `AvatarRight` | SubtitleRoot | 锚 (1,0.5) pivot(1,0.5)；(-74,0) 232² / (-80,0) 220² | 右头像组，默认隐藏；`AvatarRight` 保持比例。只显示说话者那一侧的头像 + 框，另一侧隐藏，旁白两侧都隐藏 |
+| `Speaker` | SubtitleRoot | 锚 (0,1) pivot(0,1)；(340,-40) 1090×48 | 40 号粗体 #2B2B2B |
+| `Body` | SubtitleRoot | 全拉伸；left 340 right 340 top 100 bottom 30 | 34 号 #333333、行距 +12、左上、换行；左右对称留边，避免说话者切换时正文跟着跳动（代价：说话者在左侧时右边留白、在右侧时左边留白） |
+| `HoldPrompt` / `HoldHint` | SubtitleRoot / HoldPrompt | 锚 (0.5,0) pivot(1,0) (184,16) 40² / 在 ▼ 左侧 | 「▼」32 号 #555555（文案取 `PerformanceConfig.holdPromptText`）；「点击或按空格继续」22 号灰字固定在预制体；从右下角挪到**底部居中**，给两侧头像让位 |
 | `SkipRoot` | 根 | 锚 (1,1) pivot(1,1) (-60,-50) 360×90 | 含 `SkipLabelShadow`（2px 深色投影）、`SkipLabel`「跳过 ▶」38 号白、`SkipHint`（键位，取 `skipHintFormat`「长按 {0}」）22 号、`SkipFill` 进度环 |
 | `LetterboxTop/Bottom`、`Fade`、`TapArea` | 根 | 未改 | `TapArea` 仍是根的最后一个子物体 |
 
-`PerformanceView` 新增可选字段 `avatar` / `avatarFrame` / `skipHint`（不接也能跑：无头像槽、键位写进 `skipLabel`）。样式全在预制体，代码只填文字与显隐。
+子节点顺序：`PanelBackground` → `AvatarFrame` → `AvatarFrameRight` → 左头像（`Avatar`）→ 右头像（`AvatarRight`）→ `Speaker` → `Body` → `HoldPrompt`。
+
+`PerformanceView` 可选字段现为 5 个：`avatar` / `avatarFrame`（左）、`avatarRight` / `avatarFrameRight`（右）、`skipHint`（本预制体全接；不接也能跑：无对应头像槽、键位写进 `skipLabel`）。显隐规则：只显示说话者那一侧的头像 + 框，另一侧隐藏，旁白两侧都隐藏；右侧字段没接线（老预制体）退回左侧。样式全在预制体，代码只填文字与显隐。
+
+这份节点 / 锚点 / 颜色表同时是 `Prefabs/UI/DialogueView.prefab`（NPC 交互对白）的基准：两边共用节点名（`SubtitleRoot`/`PanelBackground`/`AvatarFrame`/`Speaker`/`Body`/`HoldPrompt`/`HoldHint` 等）与样式值，2026-09-28 起对白面板照本节重做。`Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs` 读两份真实预制体逐节点比对 Rect、Image、TMP 属性；改这里的样式必须同步改 `DialogueView.prefab`，否则那组测试会挂。
+
+## 字幕逐字显示
+
+参数在 `PerformanceConfig`：`SubtitleCharactersPerSecond`（默认 35 字/秒，unscaled；**0 = 不逐字，整句直出**）、`SubtitlePunctuationPauseSeconds`（默认 0.12 秒，标点后短停）、`SubtitlePunctuationChars`（默认「，。！？…；：、,.!?」）。三者随 `PerformanceViewArgs` 传给 `PerformanceView`，`OnOpenAsync` 里按 `charactersPerSecond > 0f` 决定建不建 `Game.Core.UI.TypingCadence`（`PerformanceView.cs:134`）——速度 ≤ 0 时 `cadence` 为 null，`ShowSubtitle` 直接整句可见。
+
+语义：
+
+- `ShowSubtitle` 起句：解析 TMP 富文本后的可见字符序列，`maxVisibleCharacters` 从 0 开始（`BeginTyping`，`PerformanceView.cs:262`）。
+- `PerformanceService` 播放循环每帧调 `view.TickTyping(dt)`（与 `rules.Tick` 同一个 unscaled dt，**Holding 期间也 tick**——已经进入停顿但字还没打完时继续打完，不会被停顿截断）。
+- 玩家点击 / 按 Advance：打字中 → `CompleteTyping()` 整句补全，本次输入就此消费，不同时触发继续；非打字中 → 等同 `Confirm()`，只在 Holding 时生效（见「玩家操作」）。
+- ▼ 显隐门控：`SetHoldPromptVisible(bool)` 只记「服务要求显示」，实际显隐 = 请求显示 且 当前句已打完（`ApplyHoldPrompt`，`PerformanceView.cs:337`）；`HoldHint` 固定小字随 ▼ 一起显隐。
+- 示例演出核对：`perf_sample_scene_talk` 每句字幕结尾都落了 `HoldMarker`，停顿期间即使字还没打完也会继续打完不被截断；`perf_sample_greeting` 后两句虽无停顿，但片段时长足够打完全句。新增 / 改字幕节奏时留意这条（片段太短、又没有停顿会让字幕被切断）。
 
 ## 世界时停与输入图：责任归属
 
@@ -183,7 +204,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | 世界暂停令牌 | `PerformanceService.RunAsync`（`policy.PauseWorld` 时才 `Acquire`） | 会话级资源，可单段关掉（策略开关） |
 | 动作图 | 复用 **Dialogue** 图（常量 `InputMap = "Dialogue"`），不新开 Performance 图 | `GameInput.inputactions` 正被另一会话改动，且确认 / 跳过键位语义与对白一致；只恢复进来前的状态，对白里插播时 Dialogue 图本来就开着 |
 | Gameplay 图 | 只在进来前是开的才恢复 | 调用方本来关着（如对白插播、过场）就不擅自打开 |
-| HUD / Popup 层 | `HideHud` 时两层一起关（对白框 `DialogueView` 在 Popup 层，Panel 层的演出面板盖不住它） | 目前工程没有别的 `SetLayerVisible` 调用方，收尾直接恢复为可见，不记录进来前状态 |
+| HUD / Popup 层 | `HideHud` 时两层一起关（对白框 `DialogueView` 在 Popup 层，Panel 层的演出面板盖不住它） | 开面板**之前**读 `IsLayerVisible(Hud)` / `IsLayerVisible(Popup)` 记进来前的值，`OpenAsync<PerformanceView>` 完再各自 `SetLayerVisible(false)`；收尾按读到的值恢复，不再一律恢复为可见。嵌套（对白里插播演出）：对白先藏 Hud → 演出读到 Hud=false、Popup=true，藏 Popup（对白框随之隐）→ 演出结束 Hud 仍隐、Popup 恢复、对白框重现 → 对白结束 Hud 才恢复 |
 | 重入保护 | `running` 标志 + `rules` 的 `IsActive` | 同一时刻只允许一段演出（同 DialogueService） |
 
 `PerformanceRules` / `PerformanceStage` / `PerformanceView` 一律不碰 `Time.timeScale` 或输入图，只在 `PerformanceService`。
@@ -235,7 +256,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | 项 | 要求 | 缺了会怎样 |
 | --- | --- | --- |
 | Installer | `Boot.unity` 的 `GameBootstrap` 挂 `PerformanceInstaller`，排在 `DialogueInstaller` 之后；**Config** 拖 `Data/Performance/PerformanceConfig.asset` | 没挂：解析不到 `IPerformanceService`（对白插播记 Warn 跳过）；没拖：记 Error 用默认值顶上 |
-| 面板地址 | Addressables UI 组 `PerformanceView` → `Prefabs/UI/PerformanceView.prefab`，11 个字段全接（`letterboxTop`/`letterboxBottom`/`fade`/`subtitleRoot`/`speaker`/`body`/`holdPrompt`/`skipRoot`/`skipLabel`/`skipFill`/`tapArea`，`skipFill` 的 Image Type 须为 Filled；`tapArea` 是层级最后的全屏透明 Button，其余 Graphic 关 `raycastTarget`）；可选 `avatar`/`avatarFrame`/`skipHint` 三个（本预制体已接） | `ui.OpenAsync<PerformanceView>()` 找不到预制体；漏接字段 `Validate()` 逐个点名抛出；可选字段漏接只是没有头像 / 键位写回 `skipLabel` |
+| 面板地址 | Addressables UI 组 `PerformanceView` → `Prefabs/UI/PerformanceView.prefab`，11 个字段全接（`letterboxTop`/`letterboxBottom`/`fade`/`subtitleRoot`/`speaker`/`body`/`holdPrompt`/`skipRoot`/`skipLabel`/`skipFill`/`tapArea`，`skipFill` 的 Image Type 须为 Filled；`tapArea` 是层级最后的全屏透明 Button，其余 Graphic 关 `raycastTarget`）；可选 `avatar`/`avatarFrame`/`avatarRight`/`avatarFrameRight`/`skipHint` 五个（本预制体已接） | `ui.OpenAsync<PerformanceView>()` 找不到预制体；漏接字段 `Validate()` 逐个点名抛出；可选字段漏接只是没有对应头像 / 键位写回 `skipLabel` |
 | 演出资产 | Addressables **Performance** 组：地址 = 预制体名 = 演出 id；预制体 `Prefabs/Performance/<id>.prefab`；时间轴 `Data/Performance/Timelines/<id>.playable`；两者由 `PerformanceTemplateFactory` 一步建齐 | 地址查不到：`InstantiateAsync` 抛出，埋 `load_failed` |
 | 图层 | `Performance`（第 9 槽，`TagManager.asset`）；主相机剔除遮罩要**排除**它 | 层不存在：舞台相机剔不到任何东西，画面全黑；主相机没排除：场景内容被舞台相机重叠渲染 |
 | 玩家标记 | 玩家根挂 `PerformanceTriggerActor`（一个场景一个） | 场景触发器 `OnTriggerEnter(2D)` 永远不认玩家，不会触发 |
@@ -269,12 +290,13 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | EditMode | `.../PerformanceSaveDataTests.cs` | 默认空、去重记录、大小写敏感、旧存档 `PlayedIds` 为 null 时的恢复 |
 | EditMode | `.../PerformanceTriggerRulesTests.cs` | once/played/busy 判定与原因优先级（已播过优先于忙碌）；渲染器隐藏 / 恢复 |
 | EditMode | `.../PerformanceStageCastTests.cs`、`PerformancePlacementTests.cs` | 头像查找（命中 / 旁白 / 未登记 / 重名取第一 / 头像为空）、默认叠加模式；摆放值语义 |
-| EditMode | `.../PerformanceServiceWorldTests.cs` | 世界模式相机接管与收尾恢复（跳过 / 取消）、摆放生效、叠加模式忽略摆放告警、主相机缺失退路 |
+| EditMode | `.../PerformanceServiceWorldTests.cs` | 世界模式相机接管与收尾恢复（跳过 / 取消）、摆放生效、叠加模式忽略摆放告警、主相机缺失退路；新增「读 Hud/Popup 层状态发生在开面板之前」（读的时间点早于 `OpenAsync` 调用）、进来前隐藏 → 结束仍隐藏（对白里插播不误亮） |
+| EditMode | `.../PerformanceViewTypingTests.cs`（8 条） | EditMode 下建 Canvas 实例化真实预制体：逐字揭示按 cps 推进、0 速整句直出、标点停顿、`CompleteTyping` 立即补全、▼ 门控（打字中不出现、打完才出现）、`HideSubtitle`/`OnCloseAsync` 重置逐字状态 |
 | EditMode | `.../PerformanceTriggerTests.cs` | 锚点位姿传递、默认不隐藏、隐藏触发者并在结束 / 异常后恢复；`hiddenDuringPlay` 的 Renderer 与 Canvas 隐藏、空 / 重复 / 嵌套引用、取消后恢复 |
 | EditMode | `Tests/EditMode/Editor/Performance/PerformanceTemplateFactoryTests.cs`、`PerformanceValidatorTests.cs` | 模板工厂建齐资产（临时目录，`TearDown` 删干净）、校验器逐条问题码 |
 | EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | `performance` 字段翻译（去空白、空串 = 不插播） |
 | Showcase | `Tests/Showcase/Performance/PerformanceShowcase.cs`（4 条） | 代码拉起演出（黑边/字幕/时停/停顿确认/结束恢复，PRD A2）、长按跳过（A3）、场景触发只播一次（A4）、对白节点前插播（A5） |
-| Showcase | `Tests/Showcase/Performance/ScenePerformanceShowcase.cs`（2 条） | SampleScene 村口触发世界舞台示例：头像 / 说话者逐句、舞台相机接管、玩家与 NPC / 巡逻怪 / 标记隐藏、五人在画内；逐句走完 / 跳过后全部恢复 |
+| Showcase | `Tests/Showcase/Performance/ScenePerformanceShowcase.cs`（2 条） | SampleScene 村口触发世界舞台示例：头像 / 说话者逐句、舞台相机接管、玩家与 NPC / 巡逻怪 / 标记隐藏、五人在画内；「面板显示第一句」前新增瞬态检查「第一句逐字显示中（0 < 已显示字数 < 总字数）」；逐句走完 / 跳过后全部恢复；`WalkIntoTrigger()` 拍 before 快照前先检查「回放环境干净：演出尚未运行、玩家存活」（见 `ai-docs/pitfalls.md`） |
 | 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 见「接线要求」示例 |
 
 跑 `/unity-test EditMode Performance`；视觉验收跑 `/verify-module Performance`（编辑器须打开）。

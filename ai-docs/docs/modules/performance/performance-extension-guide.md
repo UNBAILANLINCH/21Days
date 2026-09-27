@@ -19,7 +19,7 @@ maturity: stable
 
 **世界模式（演员站在 3D 场景里）的差异**：模板工厂只建叠加模式，世界模式照 `Editor/Performance/Samples/SceneTalkSampleBuilder.cs`
 的做法建——`PerformanceStage.mode = World`、舞台相机透视 Base 且不打 MainCamera 标签、演员是 `PuppetVisual`（`CameraBillboard`）下嵌套的
-小人预制体、`cast` 填说话者 → 头像；场景里给 `PerformanceTrigger` 接 `anchor`，勾 `hideActorVisual`，同形象的 NPC / 怪与标记拖进
+小人预制体、`cast` 填说话者 → 头像 → 站位（`side: Left/Right`，按演员在舞台上的实际站位配，决定头像出现在对白面板左槽还是右槽）；场景里给 `PerformanceTrigger` 接 `anchor`，勾 `hideActorVisual`，同形象的 NPC / 怪与标记拖进
 `hiddenDuringPlay`。构图按 `/verify-module Performance` 的截图调相机局部位姿与站位。
 
 ## 接入一个 Live2D 模型
@@ -67,6 +67,8 @@ maturity: stable
   `PerformanceStage` / `PerformanceService` 里写死数字，新增参数照抄现有字段的 `[Tooltip]` + `[Min]` 写法。
 - 单段演出想跟全局默认不一样：改该演出预制体上 `PerformanceStage` 的四个开关（`skippable`/`pauseWorld`/`hideHud`/`letterbox`），
   不要改 `PerformanceConfig`（那是全局默认值）。
+- 调字幕节奏：改 `PerformanceConfig` 三个字段——`subtitleCharactersPerSecond`（字/秒，**0 = 整句直出**）、
+  `subtitlePunctuationPauseSeconds`（标点后停顿秒数）、`subtitlePunctuationChars`（哪些字符算标点）；这三项是全局默认，没有像四开关那样的单段覆盖。
 
 ## 依赖方向约束
 

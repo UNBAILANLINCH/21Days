@@ -26,7 +26,7 @@ namespace Game.Performance
     /// 演出服务。其他模块注入 <see cref="IPerformanceService"/> 直接 <c>await PlayAsync(id)</c>；场景里走 <see cref="PerformanceTrigger"/>。
     /// <para>同一时刻只允许一段演出；演出期间表现层一律用 unscaled 时间。</para>
     /// <para>
-    /// 策略 HideHud 为 true 时隐藏 HUD 层与弹窗层（对白框在弹窗层），结束后两层恢复可见；演出面板自身在 Panel 层不受影响。
+    /// 策略 HideHud 为 true 时隐藏 HUD 层与弹窗层（对白框在弹窗层），结束后两层各自恢复进来前的显隐（对白里插播时 Hud 层保持隐藏）；演出面板自身在 Panel 层不受影响。
     /// </para>
     /// <para>
     /// 取消语义：<c>ct</c> 取消时规则置 Cancelled、照常收尾并广播 Ended(Cancelled)，然后抛 <see cref="OperationCanceledException"/>
@@ -111,6 +111,10 @@ namespace Game.Performance
 
         public bool HasPlayed(string id) => save.Get<PerformanceSaveData>().HasPlayed(id);
 
+        /// <summary>
+        /// 代码确认：只在停顿（Holding）时置确认请求，下一帧继续时间轴；其余时候无事。
+        /// 与玩家点击 / 按确认键不同：玩家输入在字幕逐字显示中会先整句补全，本方法不补全、也不因打字而被吞掉。
+        /// </summary>
         public void Confirm()
         {
             if (running && rules.Phase == PerformancePhase.Holding) pendingConfirm = true;
@@ -233,13 +237,16 @@ namespace Game.Performance
             IDisposable pause = null;
             PerformanceView view = null;
             bool hudHidden = false;
+            bool hudWasVisible = true;
+            bool popupWasVisible = true;
             var camera = new CameraStackState();
             bool holdPending = false;
             bool finishedPending = false;
             Action onHold = () => holdPending = true;
             Action onFinished = () => finishedPending = true;
-            // 面板点击直接走 Confirm()：只在 Holding 时置确认请求，循环里经 HandleConfirm 继续；非停顿期间点击无事，不触发跳过。
-            Action onTap = Confirm;
+            // 面板点击与 Advance 键共用 HandlePlayerAdvance：打字中 = 整句补全；否则走 Confirm()（只在 Holding 时置确认请求，
+            // 循环里经 HandleConfirm 继续）；非打字、非停顿期间点击无事，不触发跳过。view 打开后才赋值。
+            Action onTap = null;
             bool subscribed = false;
             try
             {
@@ -249,10 +256,20 @@ namespace Game.Performance
                     input.EnableMap(InputMap);
                 }
                 if (policy.PauseWorld) pause = worldPause.Acquire(this);
+                if (policy.HideHud)
+                {
+                    // 先记进来前的整层开关、再开面板：读回值只反映 SetLayerVisible 的记账，放在开面板之前是为了
+                    // 记录的一定是「演出介入之前」的状态。对白里插播时 Hud 层已被 DialogueService 藏掉，收尾不能把它亮出来。
+                    hudWasVisible = ui.IsLayerVisible(UILayer.Hud);
+                    popupWasVisible = ui.IsLayerVisible(UILayer.Popup);
+                }
 
                 var args = new PerformanceViewArgs(policy, BuildSkipHint(actions), config.LetterboxHeight,
-                    config.FadeSeconds, config.HoldPromptText);
+                    config.FadeSeconds, config.HoldPromptText, config.SubtitleCharactersPerSecond,
+                    config.SubtitlePunctuationPauseSeconds, config.SubtitlePunctuationChars);
                 view = await ui.OpenAsync<PerformanceView>(args, ct);
+                PerformanceView openedView = view;
+                onTap = () => HandlePlayerAdvance(openedView);
                 view.OnTap += onTap;
                 if (policy.HideHud)
                 {
@@ -275,6 +292,8 @@ namespace Game.Performance
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     float dt = Time.unscaledDeltaTime;
                     rules.Tick(dt);
+                    // 字幕逐字与规则同一个 unscaled dt；停顿期间也推进，停下时正在打的字继续打完。
+                    view.TickTyping(dt);
 
                     if (finishedPending)
                     {
@@ -293,8 +312,10 @@ namespace Game.Performance
                         }
                     }
                     // 先处理本帧的确认、再处理新到的停顿：停顿出现的同一帧按下的键不算确认，免得玩家看不到 ▼ 就被带过去。
-                    bool confirmRequested = pendingConfirm
-                        || (hasInput && actions.Dialogue.Advance.WasPressedThisFrame()); // lint-ok: 演出表现层读动作，不进确定性模拟
+                    // Advance 键与面板点击同一条：打字中只补全，不同时继续（一次按键只消费一次）。
+                    if (hasInput && actions.Dialogue.Advance.WasPressedThisFrame()) // lint-ok: 演出表现层读动作，不进确定性模拟
+                        HandlePlayerAdvance(view);
+                    bool confirmRequested = pendingConfirm;
                     pendingConfirm = false;
                     if (confirmRequested && rules.Phase == PerformancePhase.Holding) HandleConfirm(stage, view);
                     if (holdPending)
@@ -340,16 +361,16 @@ namespace Game.Performance
                 DetachCamera(ref camera);
                 if (view != null)
                 {
-                    view.OnTap -= onTap;
+                    if (onTap != null) view.OnTap -= onTap;
                     await CloseViewAsync(view, id);
                 }
                 pendingConfirm = false;
                 pendingSkip = false;
                 if (hudHidden)
                 {
-                    // 目前工程里没有别的调用方用 SetLayerVisible，直接恢复为可见，不记录进来前状态。
-                    ui.SetLayerVisible(UILayer.Hud, true);
-                    ui.SetLayerVisible(UILayer.Popup, true);
+                    // 按进来前的显隐恢复：对白里插播时 Hud 层本来就藏着（DialogueService 藏的），原样保留。
+                    ui.SetLayerVisible(UILayer.Hud, hudWasVisible);
+                    ui.SetLayerVisible(UILayer.Popup, popupWasVisible);
                 }
                 if (hasInput)
                 {
@@ -359,6 +380,17 @@ namespace Game.Performance
                 }
                 pause?.Dispose();
             }
+        }
+
+        // 玩家输入（面板点击 / Advance 键）：字幕还在逐字显示 → 整句补全，本次输入就此消费；否则按确认处理（仅停顿时生效）。
+        private void HandlePlayerAdvance(PerformanceView view)
+        {
+            if (view.IsTyping)
+            {
+                view.CompleteTyping();
+                return;
+            }
+            Confirm();
         }
 
         // 玩家按确认与代码 Confirm 共用：规则回到 Playing 才继续时间轴、收起 ▼。

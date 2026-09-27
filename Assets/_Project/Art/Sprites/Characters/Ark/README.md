@@ -2,6 +2,9 @@
 
 > **版权声明**：本目录全部图片是《明日方舟》基建小人，**版权归上海鹰角网络（Hypergryph）所有**，
 > **仅作开发期占位**。**正式包体、宣传物料不得包含本目录的任何内容**；正式美术到位后必须整体替换。
+>
+> **有机械闸门**：Release 出包（不带 `-Development`）时 `PlaceholderAssetGuard` 会查进包场景与 Addressables 条目的依赖，
+> 引用到本目录任何文件就直接失败并列出引用链；开发版只警告。不出包也能查：菜单 **21Days → 打包 → 检查占位素材引用**。
 
 - **来源**：模型取自开源仓库 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)，
   经仓库内 `scripts/ark-spine-frames/`（Spine → 透明 PNG 离线渲染）渲成序列帧：

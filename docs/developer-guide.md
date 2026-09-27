@@ -1169,7 +1169,24 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
   这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
 
-### 14.4 出错了怎么读
+### 14.4 占位素材闸门：Release 包不许带开发期占位图
+
+`Art/Sprites/Characters/Ark/` 下是明日方舟小人序列帧，版权归鹰角、**只许开发期占位**。
+为了不靠人记，`BuildScript` 在切平台之前先跑一遍 `PlaceholderAssetGuard`（`Scripts/Editor/Build/`）：
+
+- **查什么**：Build Settings 里启用的场景 + Addressables 各组条目（文件夹条目展开），
+  逐个取 `AssetDatabase.GetDependencies(递归)`，看有没有路径落在禁止前缀下。
+  前缀清单在 `PlaceholderAssetGuardRules.DefaultForbiddenPrefixes`，以后有别的占位目录往里加一行。
+- **Release（不带 `-Development`）命中**：每条引用链（`场景 / Addressables 条目 → 占位资产`）打一行错误，
+  末尾按根汇总，打包以退出码 1 结束，`build.ps1` 报失败。
+- **开发版（`-Development`）命中**：同样逐条列出但只是警告，照常出包。
+- **编辑器里手点 File > Build** 也拦：同一个类实现了 `IPreprocessBuildWithReport`，Release 命中抛 `BuildFailedException`。
+- **不出包也能查**：菜单 **21Days → 打包 → 检查占位素材引用**，报告打到控制台。
+
+眼下 `SampleScene`（既在 Build Settings 里、又是 Addressables 条目）引用了五个 Ark 小人，
+**Release 包必然被拦**——这是预期行为。正式美术到位、替换掉小人之前，出包请带 `-Development`。
+
+### 14.5 出错了怎么读
 
 `/build` 失败时会摘日志里的前几条错误。常见的三类：
 
@@ -1178,8 +1195,9 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
 | 拿不到工程锁 / `Temp/UnityLockfile` | 编辑器还开着 |
 | `Android SDK/NDK not found` | 装编辑器时没勾 Android Build Support 的子模块（见 1.2） |
 | 运行包体时面板 / 场景加载不出来 | 资源没进 Addressables 组（见 14.3） |
+| `[占位素材闸门] ... Release 出包已拦下` | 进包内容引用了开发期占位素材（见 14.4）；换正式美术，或自测改出开发版 |
 
-### 14.5 CI（已搁置）
+### 14.6 CI（已搁置）
 
 **2026-09-16 起工程里没有 CI**：两条 GitHub Actions 流水线已删除，许可证 secret 已清空，
 push 不再触发任何自动化。原因是 game-ci 激活 Unity 许可证时账号登录返回 **401**——

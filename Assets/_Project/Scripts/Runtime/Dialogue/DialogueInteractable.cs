@@ -60,6 +60,13 @@ namespace Game.Dialogue
         public bool HiddenByHud { get; private set; }
 
         /// <summary>
+        /// 头顶图标是否被外部世界标记接管（如任务目标标记摆到本 NPC 头顶）。为 true 时头顶标记组件隐藏自己的「…/!」图标，
+        /// 名字与台词气泡不受影响。setter（<see cref="SetMarkerOverridden"/>）只供接管方调用；
+        /// 本组件不在 OnDisable 里清它——接管方只在目标引用变化时写一次，这里擅自清掉会与接管方失同步。
+        /// </summary>
+        public bool MarkerOverridden { get; private set; }
+
+        /// <summary>
         /// 现在能否交互：在范围内、没有对白在进行，且「有树已绑定」或「无树但有台词」。
         /// </summary>
         public bool CanInteract => InRange && !(service != null && service.IsRunning) && (HasTree ? IsBound : HasBubble);
@@ -103,6 +110,15 @@ namespace Game.Dialogue
         internal void SetHiddenByHud(bool hidden)
         {
             HiddenByHud = hidden;
+        }
+
+        /// <summary>
+        /// 头顶图标接管开关：只供接管方（程序集内驱动外部世界标记的代码，如任务 HUD）调用，接管传 true、让出传 false；
+        /// 表现组件每帧读 <see cref="MarkerOverridden"/>。本模块不认识接管方是谁。
+        /// </summary>
+        internal void SetMarkerOverridden(bool overridden)
+        {
+            MarkerOverridden = overridden;
         }
 
         // 场景加载时 DialogueSceneBinder 已在 sceneLoaded 里绑定，早于 Start；到这里还没绑定多半是直接 Play 了玩法场景。

@@ -49,6 +49,7 @@ maturity: stable
 | `InRange` | `bool InRange { get; }` | 测距角色（Inspector `actor`，否则场景 `DialogueInteractionActor`）为空或半径 ≤ 0 恒 true；否则三维距离 |
 | `CanInteract` | `bool CanInteract { get; }` | 在范围内、无对白进行，且「有树已绑定」或「无树有台词」 |
 | `Focused` | `bool Focused { get; internal set; }` | 是否当前交互焦点；**只读**，仅焦点系统写 |
+| `MarkerOverridden` | `bool MarkerOverridden { get; }` | 头顶「…/!」图标是否被外部世界空间标记接管（当前接管方：任务目标标记）；为 true 时头顶标记只隐图标，名字、气泡、点击与交互不受影响。写入口 `internal SetMarkerOverridden(bool)` 只供同程序集的接管方调用，接管方负责成对交还；`OnDisable` 不清它 |
 | `DisplayName` / `DialogueId` / `IsBound` / `HasTree` / `HasBubble` | 只读属性 | `DialogueId == 0` 即 `HasTree == false` |
 
 `Interact()` 不抛异常、不返回结果；要结果就订阅 `OnCompleted`，或直接调 `DialogueService.PlayAsync`。

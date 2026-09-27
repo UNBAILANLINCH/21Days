@@ -58,7 +58,7 @@ maturity: stable
 | `DialogueInteractionActor` | 玩家根上的空标记：测距原点 | 场景玩家物体 |
 | `DialogueInteractionFocus` | `ITickable` 入口点：每帧在 `Bound` 里选最近且 `CanInteract` 的为焦点（`SelectNearest` 静态纯函数，无分配）；交互键（`Gameplay.Interact`）/ HUD 点击 → `Current.Interact()`；驱动 HUD 显隐，打开后给 HUD 赋一次键位显示串 | 根作用域入口点（`AsSelf`） |
 | `DialogueInteractHudView` | `UIView`（Hud 层）：底部居中 48 px 高胶囊「[键位] 对话 · NPC 名」，常驻打开，显隐只切 `root`；整条是按钮，抛 `OnInteract`；拼字符串是静态纯函数 `FormatKeyText` / `FormatLabel` | 焦点系统在 `BootCompletedEvent` 后打开 |
-| `DialogueInteractableMarker` | NPC 头顶三态标记：不可交互全隐 / 可交互灰「…」/ 焦点白「!」+ 名字；气泡显示中让位 | 场景 NPC（取代已删除的 `DialogueInteractableHint`） |
+| `DialogueInteractableMarker` | NPC 头顶三态标记：不可交互全隐 / 可交互灰「…」/ 焦点白「!」+ 名字；气泡显示中让位；被外部标记接管（`DialogueInteractable.MarkerOverridden`，如任务目标标记）时「…/!」图标隐藏、名字照常；`TryGetIconAnchor(out Vector3)` 公开图标世界锚点（焦点图优先、其次可交互图，都没配返回 false；每帧可调、无分配），供接管方摆到同一位置 | 场景 NPC（取代已删除的 `DialogueInteractableHint`） |
 | `DialogueSpeechBubble` | 世界空间气泡：订阅 `OnBubbleRequested`，逐字 → ▼ → 停留 `holdSeconds` → 淡出，全程 unscaled；高度随正文行数自适应 | 预制体 `Prefabs/World/DialogueSpeechBubble.prefab` 根上，实例挂 NPC 子物体 |
 | `DialogueInstaller` | `GameplayInstaller`：注册以上全部 | Boot 场景 `GameBootstrap` 物体 |
 | `DialogueConfig` | SO：打字速度、历史上限、倍速档、三连点、自动间隔 | `Data/Dialogue/DialogueConfig.asset` |
@@ -188,7 +188,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 交互焦点 | 候选 = `Bound` 里激活、启用且 `CanInteract` 的；按到 Actor 的三维距离取最近 | `DialogueInteractionFocus.cs:80` |
 | `CanInteract` | 在范围内、没有对白进行，且「有树已绑定」或「无树有台词」 | `DialogueInteractable.cs:59` |
 | 范围 | Inspector `actor` 优先，否则场景 Actor（Binder 注入）；两者皆空或半径 ≤ 0 恒在范围；三维距离 | `DialogueInteractable.cs:62`–`74` |
-| 头顶标记 | 焦点优先于可交互；气泡 `IsShowing` 时标记与名字全隐；名字只在焦点时显示 | `DialogueInteractableMarker.cs:33` |
+| 头顶标记 | 焦点优先于可交互；气泡 `IsShowing` 时标记与名字全隐；名字只在焦点时显示；`MarkerOverridden` 时只隐「…/!」两张图、名字仍随焦点（判定在纯静态 `ResolveVisibility`） | `DialogueInteractableMarker.cs:53` |
 | 气泡 | 逐字（TMP 可见字符）→ ▼ → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs:88`、`108`、`114`、`136` |
 
 ### 为什么这样设计（源码读不出来的部分）
@@ -244,7 +244,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 交互 HUD / 跳过确认地址 | `DialogueInteractHudView` → `Prefabs/UI/DialogueInteractHudView.prefab`；`DialogueSkipConfirmView` → `Prefabs/UI/DialogueSkipConfirmView.prefab`（UI 组，地址等于类名） | HUD：记 Error，无底部交互提示；弹窗：点跳过时对白抛异常收尾 |
 | 选项图标地址 | 表里 `icon` 非空时 Addressables 有同名地址（现为 `Dialogue/ChoiceIcon_Go` / `_Leave`，UI 组） | 埋 `choice_icon_failed`，该选项无图标 |
 | 玩家标记 | 玩家根挂 `DialogueInteractionActor`（场景里一个） | 没有焦点、没有 HUD、交互键无效；NPC 未配 `actor` 时不限距离 |
-| NPC | 根上 `BoxCollider`（3D）或 `Collider2D`（2D）+ `DialogueInteractable` + `DialogueInteractableMarker`；子物体 `MarkerIdle` / `MarkerFocus`（SpriteRenderer）/ `NameLabel`（TMP 3D），3D 场景子物体再挂 `CameraBillboard` | 缺碰撞体：点不中；缺标记：无头顶提示（交互照常） |
+| NPC | 根上 `BoxCollider`（3D）或 `Collider2D`（2D）+ `DialogueInteractable` + `DialogueInteractableMarker`；子物体 `MarkerIdle` / `MarkerFocus`（SpriteRenderer）/ `NameLabel`（TMP 3D），3D 场景子物体再挂 `CameraBillboard` | 缺碰撞体：点不中；缺标记：无头顶提示（交互照常）；被任务目标标记接管时「…/!」隐藏、名字照常，属预期 |
 | 无树 NPC | `dialogueId = 0`、`bubbleLines` 非空，再放一个 `DialogueSpeechBubble.prefab` 实例作子物体，并拖进标记的 `speechBubble` | 缺气泡实例：交互只抛事件没人显示；没拖进标记：「!」与气泡重叠 |
 | 点击拉起 | 场景相机挂 `PhysicsRaycaster`（3D 碰撞体）或 `Physics2DRaycaster`（`Collider2D`）；EventSystem 由 `UIService` 创建 | `OnPointerClick` 静默不触发（仍可交互键 / HUD / 代码调 `Interact()`） |
 | Boot 相机 | Boot 的 `Main Camera` 挂 `FallbackCamera`；玩法场景自带启用的相机 | Boot 相机在玩法相机之上重画，灰底 |
@@ -317,7 +317,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialoguePlaybackPolicyTests.cs`（14 条） | 三连点窗口、倍速循环、自动计时、重置、非法参数（含标点停顿为负、标点字符 null、动效参数缺省 / 未初始化 / 越界） |
 | EditMode | `.../DialogueTypingCadenceTests.cs`（12 条） | 无标点时与旧「累加取整」一致、标点后停顿、停顿中显示字数不变、停顿 0 / 标点表空退化、x2 下停顿减半、连续标点只停一次、句末不停、单帧大预算、Reset、非法参数 |
 | EditMode | `.../DialogueCatalogTests.cs`（8 条） | 读真实 `.bytes`：1001 / 1002 结构、立绘指令、每个表情有地址、条件选项、选项图标键 |
-| EditMode | `.../DialogueInteractableTests.cs`（14 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接 |
+| EditMode | `.../DialogueInteractableTests.cs`（17 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接；`TryGetIconAnchor` 焦点图优先 / 只配可交互图 / 都没配 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueServiceTests.cs`（6 条） | 进行中重入抛 `InvalidOperationException`；未知 id 抛 `ArgumentException` 且不碰暂停 / 输入；Present 异常时清理并发 `OnEnded`；对白期间 Dialogue 图开、Gameplay 图关，取消 / 异常后对称恢复，进来前关着的 Gameplay 不被打开 |
 | EditMode | `.../DialogueReadStoreTests.cs`（3 条） | 空档案读入为空；写 3 个键后新 store 读回一致且原地填充同一实例；同帧两次对白结束只写一次（计数 `ISaveService` 装饰器包临时目录 `JsonSaveService`） |
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |

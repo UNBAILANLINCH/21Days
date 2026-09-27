@@ -1,8 +1,11 @@
 // 职责：钉住 DialogueInteractable 的范围判定（三维距离）、无对话树时的常驻台词轮换与可交互判定，
-//   以及交互焦点的「选最近可交互者」纯选择逻辑（DialogueInteractionFocus.SelectNearest）、交互提示 HUD 的拼字符串（键位回退「E」、「对话 · 名字」）。
+//   以及交互焦点的「选最近可交互者」纯选择逻辑（DialogueInteractionFocus.SelectNearest）、交互提示 HUD 的拼字符串（键位回退「E」、「对话 · 名字」），
+//   头顶图标接管开关（MarkerOverridden）的往返，以及头顶标记三个显隐结果的纯判定（DialogueInteractableMarker.ResolveVisibility）
+//   与图标世界锚点（DialogueInteractableMarker.TryGetIconAnchor）。
 // 为什么新建：现有 Dialogue 测试各测一个类（Rules / Catalog / Policy / Service），都不涉及场景组件；
 //   按「一个被测类一个测试类」新建。
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Dialogue;
 using NUnit.Framework;
 using UnityEditor;
@@ -92,6 +95,98 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         [Test]
+        public void MarkerOverridden_Default_IsFalse()
+        {
+            Assert.That(interactable.MarkerOverridden, Is.False, "未被接管时应为 false");
+        }
+
+        [Test]
+        public void SetMarkerOverridden_TrueThenFalse_RoundTrips()
+        {
+            SetMarkerOverridden(interactable, true);
+            Assert.That(interactable.MarkerOverridden, Is.True, "接管后应为 true");
+
+            SetMarkerOverridden(interactable, false);
+            Assert.That(interactable.MarkerOverridden, Is.False, "交还后应为 false");
+        }
+
+        [Test]
+        public void SetMarkerOverridden_ThenDisable_KeepsValue()
+        {
+            SetMarkerOverridden(interactable, true);
+            interactable.enabled = false;
+
+            // 接管方只在引用变化时写一次，组件自己在 OnDisable 里清掉会失同步。
+            Assert.That(interactable.MarkerOverridden, Is.True, "禁用组件不应清掉接管状态");
+        }
+
+        [Test]
+        public void ResolveVisibility_NotOverridden_MatchesThreeStates()
+        {
+            AssertVisibility(canInteract: false, focused: false, speech: false, hidden: false, overridden: false,
+                expectFocused: false, expectIdle: false, expectName: false, "不可交互时全隐");
+            AssertVisibility(canInteract: true, focused: false, speech: false, hidden: false, overridden: false,
+                expectFocused: false, expectIdle: true, expectName: false, "可交互未聚焦只显灰「…」");
+            AssertVisibility(canInteract: true, focused: true, speech: false, hidden: false, overridden: false,
+                expectFocused: true, expectIdle: false, expectName: true, "焦点显白「!」+ 名字");
+        }
+
+        [Test]
+        public void ResolveVisibility_Overridden_HidesIconsButKeepsNameOnFocus()
+        {
+            AssertVisibility(canInteract: true, focused: false, speech: false, hidden: false, overridden: true,
+                expectFocused: false, expectIdle: false, expectName: false, "接管时未聚焦：两张图都隐");
+            AssertVisibility(canInteract: true, focused: true, speech: false, hidden: false, overridden: true,
+                expectFocused: false, expectIdle: false, expectName: true, "接管时焦点：图隐、名字仍显示");
+        }
+
+        [Test]
+        public void ResolveVisibility_SpeechShowingOrHiddenByHud_HidesAll()
+        {
+            AssertVisibility(canInteract: true, focused: true, speech: true, hidden: false, overridden: false,
+                expectFocused: false, expectIdle: false, expectName: false, "气泡显示中焦点也全隐");
+            AssertVisibility(canInteract: true, focused: false, speech: true, hidden: false, overridden: false,
+                expectFocused: false, expectIdle: false, expectName: false, "气泡显示中未聚焦也全隐");
+            AssertVisibility(canInteract: true, focused: true, speech: true, hidden: false, overridden: true,
+                expectFocused: false, expectIdle: false, expectName: false, "气泡显示中且被接管：全隐");
+            AssertVisibility(canInteract: true, focused: true, speech: false, hidden: true, overridden: false,
+                expectFocused: false, expectIdle: false, expectName: false, "沉浸模式全隐");
+        }
+
+        [Test]
+        public void TryGetIconAnchor_WithFocusedIcon_ReturnsFocusedPosition()
+        {
+            npc.transform.position = new Vector3(1f, 0f, 2f);
+            SpriteRenderer idle = CreateIcon("MarkerIdle", new Vector3(0f, 2.15f, 0f));
+            SpriteRenderer focused = CreateIcon("MarkerFocus", new Vector3(0.1f, 2.2f, 0f));
+            focused.gameObject.SetActive(false);
+            DialogueInteractableMarker marker = CreateMarker(idle, focused);
+
+            Assert.That(marker.TryGetIconAnchor(out Vector3 anchor), Is.True);
+            AssertNear(anchor, new Vector3(1.1f, 2.2f, 2f), "两张图都配时取焦点图的世界位置（隐藏也照取）");
+        }
+
+        [Test]
+        public void TryGetIconAnchor_OnlyIdleIcon_ReturnsIdlePosition()
+        {
+            npc.transform.position = new Vector3(-1f, 0.5f, 0f);
+            SpriteRenderer idle = CreateIcon("MarkerIdle", new Vector3(0f, 2.15f, 0f));
+            DialogueInteractableMarker marker = CreateMarker(idle, null);
+
+            Assert.That(marker.TryGetIconAnchor(out Vector3 anchor), Is.True);
+            AssertNear(anchor, new Vector3(-1f, 2.65f, 0f), "只配灰「…」时取它的世界位置");
+        }
+
+        [Test]
+        public void TryGetIconAnchor_NoIcons_ReturnsFalse()
+        {
+            DialogueInteractableMarker marker = CreateMarker(null, null);
+
+            Assert.That(marker.TryGetIconAnchor(out Vector3 anchor), Is.False, "两张图都没配应返回 false");
+            Assert.That(anchor, Is.EqualTo(Vector3.zero));
+        }
+
+        [Test]
         public void SelectNearest_PicksClosestInteractable_SkippingOutOfRange()
         {
             var far = new GameObject("Far");
@@ -162,6 +257,51 @@ namespace Game.Tests.EditMode.Dialogue
                 array.GetArrayElementAtIndex(i).stringValue = lines[i];
             }
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssertVisibility(bool canInteract, bool focused, bool speech, bool hidden, bool overridden,
+            bool expectFocused, bool expectIdle, bool expectName, string because)
+        {
+            DialogueInteractableMarker.ResolveVisibility(canInteract, focused, speech, hidden, overridden,
+                out bool iconFocused, out bool iconIdle, out bool nameShown);
+            Assert.That(iconFocused, Is.EqualTo(expectFocused), because + "（白「!」）");
+            Assert.That(iconIdle, Is.EqualTo(expectIdle), because + "（灰「…」）");
+            Assert.That(nameShown, Is.EqualTo(expectName), because + "（名字）");
+        }
+
+        // 图标子物体挂在 npc 下，随 TearDown 一起销毁。
+        private SpriteRenderer CreateIcon(string name, Vector3 localPosition)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(npc.transform, false);
+            go.transform.localPosition = localPosition;
+            return go.AddComponent<SpriteRenderer>();
+        }
+
+        private DialogueInteractableMarker CreateMarker(SpriteRenderer idle, SpriteRenderer focused)
+        {
+            var marker = npc.AddComponent<DialogueInteractableMarker>();
+            var so = new SerializedObject(marker);
+            so.FindProperty("target").objectReferenceValue = interactable;
+            so.FindProperty("bubbleIdle").objectReferenceValue = idle;
+            so.FindProperty("bubbleFocused").objectReferenceValue = focused;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return marker;
+        }
+
+        // SetMarkerOverridden 是 internal（只供同程序集的接管方调用），Game.Runtime 未对测试程序集开 InternalsVisibleTo，经反射调。
+        private static void SetMarkerOverridden(DialogueInteractable target, bool overridden)
+        {
+            MethodInfo method = typeof(DialogueInteractable).GetMethod(
+                "SetMarkerOverridden", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "找不到 DialogueInteractable.SetMarkerOverridden");
+            method.Invoke(target, new object[] { overridden });
+        }
+
+        // Vector3 的 == 带 1e-5 容差；NUnit Is.EqualTo 走 Equals 逐位比较，浮点加法（如 0.8 + 0.8 + 0.3）会差最后一位。
+        private static void AssertNear(Vector3 actual, Vector3 expected, string because)
+        {
+            Assert.That(actual == expected, Is.True, $"{because}：期望 {expected:F4}，实际 {actual:F4}");
         }
     }
 }

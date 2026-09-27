@@ -1,5 +1,7 @@
 // 职责：驱动任务 HUD 与世界空间目标标记——启动后打开常驻 HUD 并实例化头顶标记，任务事件驱动刷新标题 / 目标文本；
 //   每帧：目标在画面内只摆头顶标记，画面外才画 HUD 贴边箭头与节流后的距离；对白期间隐藏，点击或按任务键（Gameplay/Journal）打开任务面板。
+//   标记摆到 NPC 头顶时接管该 NPC 的对话标记图标（DialogueInteractable.SetMarkerOverridden），替代而不是叠在「…/!」上；
+//   标记隐藏 / 换目标 / Dispose 时交还。
 // 为什么新建：QuestHudView 只显示不注入服务；QuestSceneBinder 只管场景目标解析，QuestPanelController 只管面板会话，逐帧指引与 HUD 生命周期无处可放。
 using System;
 using Cysharp.Threading.Tasks;
@@ -58,6 +60,8 @@ namespace Game.Quest
         private QuestHudView hud;
         private QuestTargetMarker marker;
         private GameObject markerInstance;
+        /// <summary>当前被任务标记接管了头顶图标的 NPC；没有接管时为 null。</summary>
+        private DialogueInteractable overriddenInteractable;
         private bool disposed;
         private bool dialogueHooked;
         private int lastTrackedId = -1;
@@ -170,6 +174,8 @@ namespace Game.Quest
             cameraMissingReported = false;
             // 头顶标记每帧跟着锚点走（NPC 可能在动）；画面外时标记也留在世界里，被相机裁掉即可。
             if (marker != null) marker.Show(target.Anchor);
+            // 标记实例化失败（marker == null）时不接管，否则 NPC 头顶什么都没有。
+            SetOverridden(marker != null ? target.Interactable : null);
 
             Vector3 viewport = camera.WorldToViewportPoint(target.Anchor);
             QuestGuidance guidance = QuestGuidanceMath.Solve(viewport, hud.CanvasSize, config.EdgeMargin, config.HoverOffset);
@@ -228,6 +234,8 @@ namespace Game.Quest
             }
 
             hud = null;
+            // 先交还被接管的 NPC 图标，再释放标记实例。
+            SetOverridden(null);
             ReleaseMarker();
         }
 
@@ -272,9 +280,30 @@ namespace Game.Quest
             lastMeters = -1;
         }
 
+        // 对白中（Tick 与 OnStarted）、沉浸模式、目标解析失败 / 缺相机或玩家锚点都经这里：标记藏起来的同时把 NPC 图标交还。
         private void HideMarker()
         {
             if (marker != null) marker.Hide();
+            SetOverridden(null);
+        }
+
+        /// <summary>切换被接管图标的 NPC；规则见 <see cref="SwitchIconOverride"/>。每帧路径只做引用比较，无分配。</summary>
+        private void SetOverridden(DialogueInteractable next)
+        {
+            overriddenInteractable = SwitchIconOverride(overriddenInteractable, next);
+        }
+
+        /// <summary>
+        /// 成对接管 / 交还的纯切换逻辑，返回新的「当前接管对象」：与 current 相同（引用相等）则什么都不做；
+        /// 否则先交还 current（场景卸载后可能已伪空，用 != null 判，已销毁的不再调），再接管 next（null 表示不接管）。
+        /// 公开是为了测试程序集可调（Game.Runtime 未对测试开 InternalsVisibleTo），同 <see cref="ShouldOpenOnJournal"/>。
+        /// </summary>
+        public static DialogueInteractable SwitchIconOverride(DialogueInteractable current, DialogueInteractable next)
+        {
+            if (ReferenceEquals(current, next)) return current;
+            if (current != null) current.SetMarkerOverridden(false);
+            if (next != null) next.SetMarkerOverridden(true);
+            return next;
         }
 
         private void HandleDialogueStarted(DialogueStartedEvent e)

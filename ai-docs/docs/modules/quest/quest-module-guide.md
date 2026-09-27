@@ -28,9 +28,9 @@ maturity: seed
 | `QuestCatalog` | Luban 表 → `QuestContent` 的翻译与缓存，首次访问才读表，额外校验 TalkTo 对话存在 | 根作用域单例 |
 | `QuestProgress` | 单条任务运行时进度（状态 / 当前目标 / 计数 / 激活序号），仅 `QuestRules` 能改 | `QuestRules` 持有 |
 | `QuestService` | **对外门面**：转发上报 / 追踪、写回存档、按固定顺序发布事件 | 根作用域单例 + `IGameService` |
-| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；解析目标世界坐标（`QuestTarget`） | 根作用域入口点（`AsSelf`） |
-| `QuestTarget` | 只读结构体：测距用 `Position`（脚底/地点）+ 标记与投影用 `Anchor`（头顶） | `QuestSceneBinder.TryResolveTarget` 产出 |
-| `QuestTargetMarker` | 世界空间标记 MonoBehaviour：`Show(Vector3)/Hide()`，朝向相机由预制体自带 `CameraBillboard` 负责 | `QuestHudPresenter` 实例化并驱动；沉浸模式（`IHudVisibility.IsHudHidden`）下与对白期间一样隐藏，贴边箭头随 Hud 面板由 UIService 隐藏 |
+| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；解析目标世界坐标（`QuestTarget`）。NPC 头顶锚点三级（纯静态 `ResolveNpcAnchor`）：① NPC 根上 `DialogueInteractableMarker.TryGetIconAnchor` → 与对话「…/!」图标同位；② 根 Collider 顶部 + `MarkerLift`；③ 位置上方 `LocationMarkerHeight`。Collider 与标记组件首次遇到时各 `GetComponent` 一次并缓存（含 null），场景卸载清已销毁项 | 根作用域入口点（`AsSelf`） |
+| `QuestTarget` | 只读结构体：测距用 `Position`（脚底/地点）+ 标记与投影用 `Anchor`（头顶）+ `Interactable`（TalkTo 目标的 NPC 交互组件，有无碰撞体都带；地点目标为 null） | `QuestSceneBinder.TryResolveTarget` 产出 |
+| `QuestTargetMarker` | 世界空间标记 MonoBehaviour：`Show(Vector3)/Hide()`，朝向相机由预制体自带 `CameraBillboard` 负责；摆到 NPC 头顶时替代该 NPC 的对话「…/!」图标（由 `QuestHudPresenter` 接管，不叠加） | `QuestHudPresenter` 实例化并驱动；沉浸模式（`IHudVisibility.IsHudHidden`）下与对白期间一样隐藏，贴边箭头随 Hud 面板由 UIService 隐藏 |
 | `QuestLocation` | 场景组件：地点键 + 半径，供到达判定与指引 | 场景物体 |
 | `QuestObjectiveDriver` | 入口点：订阅对话结束 → 上报 TalkTo；每帧对到达型当前目标测距 → 上报 ReachLocation | 根作用域入口点 |
 | `QuestGuidanceMath` | 静态纯函数：视口坐标 → 屏内悬浮 / 屏外贴边+箭头；直线距离取整 | `QuestHudPresenter` 调 |
@@ -57,9 +57,12 @@ maturity: seed
 
 场景侧：QuestObjectiveDriver.Tick 测距 InProgress 里的 ReachLocation 当前目标 → service.Report
         DialogueService.OnEnded → service.Report(TalkTo, dialogueId.ToString())
-表现：QuestHudPresenter.Tick → binder.TryResolveTarget（得 Position 测距 / Anchor 标记）→ marker.Show(Anchor) 常驻摆位
+表现：QuestHudPresenter.Tick → binder.TryResolveTarget（得 Position 测距 / Anchor 标记；NPC 的 Anchor 优先取其对话图标锚点，
+      次选碰撞体顶部 + MarkerLift，再次位置上方 LocationMarkerHeight）→ marker.Show(Anchor) 常驻摆位
       → SceneCamera.WorldToViewportPoint(Anchor) → QuestGuidanceMath.Solve
       → 屏内：hud.HideGuidance，只留世界标记；屏外：hud.SetGuidance 贴边箭头 + 距离，标记仍留在目标处（被相机裁掉）；
+      NPC 目标：marker.Show 之后 SetOverridden(target.Interactable) 接管其对话「…/!」图标（marker 实例化失败时不接管）；
+      HideMarker（对白 / 沉浸 / 解析失败 / 缺相机）与 Dispose 交还，换目标时先还旧再接新；
       对白中两者都隐藏；HUD 点击 / 任务键 Gameplay/Journal → QuestPanelController.OpenAsync → SetList/SetDetail
       关闭：面板返回按钮 → QuestPanelController.CloseAsync；Esc（UI/Cancel）→ UICancelRouter → IUIService.CloseTopAsync → QuestPanelView.OnClosed → 控制器收尾
 ```
@@ -102,7 +105,16 @@ maturity: seed
   先摘掉这个监听，避免同一次关闭收尾两次（`PRP/quest-system/prp.md` 第 7 节）。
 - **屏内不用屏幕空间指引标识，改用世界空间头顶标记**：一是要跟 NPC 头顶气泡（对话模块）表现语言一致，玩家已经认
   「头顶浮标记」这个语言（参考明日方舟的目标 / 敌人头顶标）；二是纸片角色体积大，固定像素偏移的屏幕空间标识在
-  近距离时会被脸挡住或叠脸上，世界空间标记锚定在头顶碰撞体顶部就没有这问题（`QuestSceneBinder.NpcTarget`）。
+  近距离时会被脸挡住或叠脸上，世界空间标记锚定在头顶就没有这问题（`QuestSceneBinder.NpcTarget`）。
+  **锚点与尺寸对齐被替代的对话图标**：最初锚在「碰撞体顶部 + `MarkerLift`」（y 1.9）、`Icon` 缩放 0.6，比对话图标
+  （`MarkerIdle` / `MarkerFocus` 局部 y 2.15、缩放 0.45）低 0.25、大 33%，接管时像换了个东西、还压头发。现在锚点优先取
+  `DialogueInteractableMarker.TryGetIconAnchor`（焦点图优先，其次可交互图），预制体 `Icon` 缩放改为 0.45，贴图同一张，
+  看起来就是同一个气泡换成黄色；碰撞体规则只作没有对话标记时的降级，`MarkerLift` 因此保留。
+  标记摆到 NPC 头顶时**替代**而不是叠在对话模块的「…/!」图标上：`QuestHudPresenter.SetOverridden` 调
+  `DialogueInteractable.SetMarkerOverridden(true)`，NPC 的 `DialogueInteractableMarker` 只隐两张图、焦点名字与台词气泡照常；
+  标记隐藏、换目标、Dispose 时成对交还（切换逻辑是纯静态 `QuestHudPresenter.SwitchIconOverride`，已销毁的旧 NPC 跳过）。
+  **标记实例化失败（`marker == null`）时不接管**，否则 NPC 头顶什么都没有。依赖方向不变：Quest 认识 Dialogue，
+  Dialogue 只暴露与任务无关的「图标被外部标记接管」开关（同 asmdef 内 `internal`，同 `SetHiddenByHud` 模式）。
 
 ## 接线要求
 
@@ -112,8 +124,8 @@ maturity: seed
 | --- | --- | --- |
 | Installer | `Boot.unity` 的 `GameBootstrap` 挂 `QuestInstaller`（排在 `DialogueInstaller` 之后），**Config** 拖 `Data/Quest/QuestConfig.asset` | 没挂：解析不到 `QuestService`；没拖：记 Error 并用默认值顶上 |
 | 预制体地址 | Addressables（UI 组）`QuestHudView` → `Prefabs/UI/QuestHudView.prefab`；`QuestPanelView` → `Prefabs/UI/QuestPanelView.prefab`。**地址等于类名** | `ui.OpenAsync<T>()` 找不到预制体 |
-| 目标标记预制体 | Addressables（UI 组）`QuestTargetMarker` → `Prefabs/World/QuestTargetMarker.prefab`（根 `QuestTargetMarker`，子 `Icon`：SpriteRenderer + `CameraBillboard`） | 找不到 / 根上无组件：画面内标记不显示，记 Error 并埋 `marker_missing`；画面外箭头不受影响 |
-| `QuestConfig` 标记字段 | `MarkerLift`(0.3)、`LocationMarkerHeight`(1.5)、`TargetMarkerAddress`("QuestTargetMarker") 需与预制体地址一致 | 地址对不上：走上一行的降级；高度 / 抬升值用默认值不影响编译 |
+| 目标标记预制体 | Addressables（UI 组）`QuestTargetMarker` → `Prefabs/World/QuestTargetMarker.prefab`（根 `QuestTargetMarker`，子 `Icon`：SpriteRenderer + `CameraBillboard`，缩放 0.45 与 NPC 对话标记 `MarkerIdle` / `MarkerFocus` 一致，贴图同为 `Marker_Focus.png` 染黄；改对话标记尺寸要同步改这里） | 找不到 / 根上无组件：画面内标记不显示，记 Error 并埋 `marker_missing`；画面外箭头不受影响 |
+| `QuestConfig` 标记字段 | `MarkerLift`(0.3，仅 NPC 没有对话标记图标时的降级)、`LocationMarkerHeight`(1.5)、`TargetMarkerAddress`("QuestTargetMarker") 需与预制体地址一致 | 地址对不上：走上一行的降级；高度 / 抬升值用默认值不影响编译 |
 | 场景地点 | 场景里 `QuestLocation` 的 `locationKey` 要与表里 `ReachLocation` 目标的 `key`（`location` 留空时兜底用 `key`）对应 | 找不到地点：驱动器不判定、指引不显示，`QuestSceneBinder` 记 Warn |
 | 玩家标记 | 玩家根挂 `DialogueInteractionActor`（复用对话模块） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
 | 入口 | 从 Boot → 标题「开始」进场景才有任务服务 | 直接 Play 玩法场景：服务未初始化，`IsReady == false`，查询返回空、上报被忽略 |

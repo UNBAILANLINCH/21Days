@@ -53,6 +53,11 @@
       "docs": "ai-docs/docs/modules/quest",
       "status": "ready"
     },
+    "lailaface": {
+      "src": "Assets/_Project/Scripts/Runtime/Gameplay",
+      "docs": "ai-docs/docs/modules/lailaface",
+      "status": "seed"
+    },
     "narrative": {
       "src": "Assets/_Project/Scripts/Runtime/Narrative",
       "docs": "ai-docs/docs/modules/narrative",

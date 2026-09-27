@@ -40,9 +40,9 @@
 | --- | --- | --- | --- | --- |
 | 镜头跟随的「黏手感」 | Inspector 里选 `Assets/_Project/Data/IsometricExploration/IsometricExplorationConfig.asset` | `Camera Smooth Time`，现值 0.2 秒 | 越小镜头越紧贴玩家，越大停下时缓动越明显 | 最小 0.01 |
 | 角色走路速度 | 不在这里改 | — | 无 | 走 / 潜行 / 奔跑速度在 Player 模块的 `Assets/_Project/Data/Player/PlayerConfig.asset`，见 [player.md](player.md)；探索配置里原来的速度字段已删 |
-| 镜头构图（俯角、远近、视野） | 程序在 SampleScene 里调 `Main Camera` | 现值：俯角 38°、FOV 28、镜头在玩家上方 11、后方 14 | 整个画面构图 | 场景物体，找程序改；角色纸片的「俯视 3/4」画法按俯角 38° 定，改俯角要同步告诉美术 |
+| 镜头构图（俯角、远近、视野） | 程序在 SampleScene 里调 `Main Camera` | 现值：俯角 38°、FOV 28、镜头在玩家上方 11、后方 14 | 整个画面构图 | 场景物体，找程序改；角色纸片正对镜头原样显示、按正面平视画，改俯角不用改角色图 |
 | 环境灰盒 → 正式模型 | SampleScene 的 `Environment_Graybox` 节点下 | 3D 低模 + 手绘贴图、模块化 Prefab、普通不透明材质 | 地图外观 | 按 [美术手册 3.1](../artist-guide.md) 做；可站立的物体必须放 `Ground` 层；每级台阶落差不超过 0.32，否则角色不贴上去 |
-| 角色整张纸片（非拼接小人时） | `Assets/_Project/Art/Sprites/Characters/` | 命名 `Chibi_<角色名>.png`，Pivot 底边中点，PPU 100，按俯视 3/4 画 | 角色外观 | 规格见 [美术手册 3.2](../artist-guide.md)；目前玩家和巡逻者显示的是拼接小人，整张纸片隐藏 |
+| 角色整张纸片（非拼接小人时） | `Assets/_Project/Art/Sprites/Characters/` | 命名 `Chibi_<角色名>.png`，Pivot 底边中点，PPU 100，按正面平视画 | 角色外观 | 规格见 [美术手册 3.2](../artist-guide.md)；目前玩家和巡逻者显示的是拼接小人，整张纸片隐藏 |
 | 脚下影子、状态环 | `Assets/_Project/Art/Sprites/Fx/` | `Fx_BlobShadow.png`（直径约 0.9）、`Fx_SelectRing.png`（直径约 1.1） | 角色脚下贴片 | 状态环颜色由状态决定，贴图画成白 / 浅色 |
 | 光照、雾、后处理 | 程序在编辑器里调 | 场景里的 `Directional Light`、场景雾；后处理 `Assets/Settings/ExplorationVolumeProfile.asset` | 全场景明暗与色调 | 现值见第 5 节；不加 Bloom 是刻意的 |
 | 高 / 低画质差异 | 程序调 URP 资产 | `Assets/Settings/UniversalRP.asset`（高）、`UniversalRP_Mobile.asset`（手游） | 阴影、抗锯齿、环境遮蔽 | 不在玩法里按平台改 |

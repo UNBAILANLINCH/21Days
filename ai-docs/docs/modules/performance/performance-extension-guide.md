@@ -17,6 +17,11 @@ maturity: stable
 3. 点 Inspector 或编辑器窗口的「校验」，看 `PerformanceValidator` 列出的问题（红色 Error 必须清零，黄色 Warning 视情况）。
 4. Play 模式下从 Boot 进游戏，回到演出编辑器窗口点「试播」验证效果；也可以直接用 `PerformanceTrigger` 挂进验证场景走完整流程。
 
+**世界模式（演员站在 3D 场景里）的差异**：模板工厂只建叠加模式，世界模式照 `Editor/Performance/Samples/SceneTalkSampleBuilder.cs`
+的做法建——`PerformanceStage.mode = World`、舞台相机透视 Base 且不打 MainCamera 标签、演员是 `PuppetVisual`（`CameraBillboard`）下嵌套的
+小人预制体、`cast` 填说话者 → 头像；场景里给 `PerformanceTrigger` 接 `anchor`，勾 `hideActorVisual`，同形象的 NPC / 怪与标记拖进
+`hiddenDuringPlay`。构图按 `/verify-module Performance` 的截图调相机局部位姿与站位。
+
 ## 接入一个 Live2D 模型
 
 1. 人工把 Live2D Cubism SDK for Unity 导入到 `Assets/Live2D/`（授权协议要人点，不进仓库）；`Live2DDefineSync` 会自动检测到

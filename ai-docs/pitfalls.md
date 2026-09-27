@@ -383,6 +383,18 @@
 - 正确做法：播放速率 = 角色实际速度 ÷ 剪辑制作时的地速（`ChibiPuppet.walkClipSpeed` / `runClipSpeed`，来自序列帧 `meta.json` 的 `groundSpeed`），算出来的比值再夹到 `[0.8, 1.6]`；需要角色跑得更快就出专门的 run 帧，不要靠调高上限去让 walk 剪辑硬撑。
 - 关联：`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs`（`PlaybackRate`）、`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs`（`walkClipSpeed` / `runClipSpeed`）；2026-09-28。
 
+## MCP `execute_code` 改预制体可能被重复执行，非幂等脚本会把新节点加出好几份
+- 现象：用 `execute_code` 走 `LoadPrefabContents → 加子物体 → SaveAsPrefabAsset` 给 `PerformanceView.prefab` 加面板节点，只调了一次、返回 `saved=True`；磁盘 YAML 里 `PanelBackground`、`Avatar`、`SkipHint` 等每个新节点都有 4 份，`get_history` 里同一段代码记了 2 次执行。
+- 根因：同 `execute_menu_item` 执行两遍那条，MCP 这一侧会重放请求（未定位到具体原因）；「加子物体」类脚本不幂等，每多跑一次就多一份。
+- 正确做法：改资产的 `execute_code` 脚本开头先查「是否已改过」（如 `if (find("PanelBackground") != null) return "already-applied";`），做成幂等；改完照「预制体舞台改动可能不落盘」那条用 `grep "m_Name:" | sort | uniq -c` 核对节点没有重复。已经加重了就用 `git show HEAD:<路径> > <路径>` 只恢复这一个文件再重跑（不要整目录 checkout，共用工作区）。
+- 关联：`ai-docs/pitfalls.md #MCP execute_menu_item 会把菜单项执行两遍`、`#MCP 预制体舞台改动可能不落盘`；2026-09-28 演出世界模式 / 对白面板那轮。
+
+## 服务里懒建 `DontDestroyOnLoad` 根，EditMode 测试里一调就抛
+- 现象：给 `PerformanceService` 写 EditMode 服务级测试，`PlayAsync` 一调就同步结束，断言「应在播放」失败；主相机、摆放都没被动过。
+- 根因：`EnsureRoot` 里 `Object.DontDestroyOnLoad(go)` 在非 Play 模式直接抛 `InvalidOperationException`（「can only be used in play mode」，已实测），异常被 `PlayAsync` 包进任务里，测试不 `GetResult` 就看不到。
+- 正确做法：运行时代码里的 `DontDestroyOnLoad` 用 `if (Application.isPlaying)` 包住（EditMode 下根物体留在当前场景，测试 `TearDown` 按名字删掉）；测试断言「在播放」时顺手把已完成任务的异常带进失败信息，别只报 `Expected: True`。
+- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`EnsureRoot`）、`Tests/EditMode/Performance/PerformanceServiceWorldTests.cs`；2026-09-28 同一轮。
+
 ## 世界空间头顶标记跨模块复用同一张图，不同含义撞脸
 - 现象：SampleScene 里物资箱头顶标记和任务目标标记长得一模一样，玩家分不清「这里能开箱」还是「这里是任务目标」。
 - 根因：箱子 `Marker` 直接借了对白模块的 `Art/Sprites/Dialogue/Marker_Focus.png`（白「!」气泡）并染黄 (1, 0.85, 0.3)，恰好与 `Prefabs/World/QuestTargetMarker.prefab` 的图和颜色完全相同；各模块各自「顺手借图」时没人看全局。

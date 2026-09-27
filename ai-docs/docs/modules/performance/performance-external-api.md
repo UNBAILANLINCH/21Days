@@ -16,7 +16,8 @@ maturity: stable
 | `IsRunning` | `bool IsRunning { get; }` | 是否有演出正在播放（同一时刻只允许一段） |
 | `CurrentId` | `string CurrentId { get; }` | 正在播放的演出 id；空闲时为 `null` |
 | `HasPlayed` | `bool HasPlayed(string id)` | 该 id 是否已完整播过或被跳过（读存档分区，用于「只播一次」判断） |
-| `PlayAsync` | `UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default)` | 按 Addressables 地址拉起一段演出并等它结束（成功 / 跳过 / 取消 / 失败见下） |
+| `PlayAsync` | `UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default)` | 按 Addressables 地址拉起一段演出并等它结束（成功 / 跳过 / 取消 / 失败见下）；等价于传 `PerformancePlacement.None` |
+| `PlayAsync`（摆放重载） | `UniTask<PerformanceResult> PlayAsync(string id, PerformancePlacement placement, CancellationToken ct = default)` | 同上，世界模式演出实例化后 `SetPositionAndRotation` 到 `placement`；叠加模式忽略摆放并埋 W 级 `placement_ignored(id, reason=placement_ignored_overlay)` |
 | `Confirm` | `void Confirm()` | 代码确认继续：正在停顿（Holding）时等价于玩家按确认，否则无事；**下一帧播放循环才生效** |
 | `Skip` | `void Skip()` | 代码跳过：正在播放（Playing/Holding）时等价于长按满，结果记为 Skipped；**不看舞台的 `skippable` 开关**（那只约束玩家长按输入）；**下一帧播放循环才生效** |
 
@@ -37,6 +38,15 @@ maturity: stable
 | `PerformanceResult`（`readonly struct`） | `Id`、`Outcome`、`DurationSeconds` | `PlayAsync` 的返回值；`DurationSeconds` 取 `PerformanceRules.ElapsedSeconds`（含停顿等待时间） |
 | `PerformanceOutcome`（枚举） | `Completed` / `Skipped` / `Cancelled` / `Failed` | `Completed`=自然播完；`Skipped`=玩家长按满或代码 `Skip()`；`Cancelled`=外部 `ct` 取消；`Failed`=加载失败 / 预制体缺舞台 / 播放异常 |
 
+### `PerformancePlacement`（`readonly struct`）
+
+| 成员 | 说明 |
+| --- | --- |
+| `PerformancePlacement(Vector3 position, Quaternion rotation)` | 指定摆放（摆到原点也算指定，`HasValue = true`） |
+| `static None` / `default` | 不摆放，实例保持预制体自身位姿 |
+| `Position` / `Rotation` / `HasValue` | 世界位置 / 朝向 / 是否指定 |
+| `static FromTransform(Transform anchor)` | 取锚点世界位姿；`null` 返回 `None` |
+
 ## 事件（MessagePipe，`IPublisher<T>`/`ISubscriber<T>` 注入，一文件一个 `readonly struct`）
 
 | 事件 | 字段 | 何时发布 |
@@ -54,9 +64,23 @@ maturity: stable
 | `Mode` | `PerformanceTriggerMode Mode { get; }` | `OnEnter`（进入触发区）/ `OnSceneStart`（场景开始，由 `PerformanceSceneBinder` 调用） |
 | `Once` | `bool Once { get; }` | 是否只播一次（存档已播过就不再触发） |
 | `TryFire` | `void TryFire()` | 按判定规则尝试触发；未绑定服务 / id 为空 / 已播过 / 服务忙时不触发（各记一次 Warn 或埋 `trigger_skipped`） |
+| `TryFire`（指定触发者） | `void TryFire(PerformanceTriggerActor actor)` | 同上；`actor` 是要在演出期间隐藏的触发者，传 `null` 时按场景里的 `PerformanceTriggerActor` 查一次 |
+| `Anchor` | `Transform Anchor { get; }` | 世界模式摆放锚点；非空时触发用它的世界位姿构造 `PerformancePlacement` 传给摆放重载，空 = 不传摆放 |
+| `HideActorVisual` | `bool HideActorVisual { get; }` | 默认 `false`；为真时演出期间关掉触发者根下全部 `Renderer`，结束（含取消 / 异常）按原 `enabled` 值恢复 |
 
 `Bind(IPerformanceService, ITelemetryScope)` 由 `PerformanceSceneBinder` 在场景加载时调用；运行时 `Instantiate` 出的触发器
 要手动 `Bind`，否则 `TryFire` 只记 Warn 不生效，也不会被 `OnSceneStart` 扫到。
+
+## `Game.Performance.PerformanceStage`（演出预制体根，给编写演出 / 编辑器工具的人看）
+
+| 成员 | 签名 | 说明 |
+| --- | --- | --- |
+| `Mode` | `PerformanceStageMode Mode { get; }` | `Overlay`（默认，旧演出）/ `World`（演员站在世界里、舞台相机接管画面），语义见 module-guide「渲染」 |
+| `Cast` | `IReadOnlyList<PerformanceCastEntry> Cast { get; }` | 演员名单：`Speaker`（与字幕片段说话者严格相等）→ `Avatar`（Sprite） |
+| `TryGetAvatar` | `bool TryGetAvatar(string speaker, out Sprite avatar)` | 严格相等匹配、重名取第一条；空串 / 未登记 / 该条头像为空返回 `false` |
+
+字幕输出端契约 `IPerformanceSubtitleSink.ShowSubtitle(string speaker, string text, Sprite avatar)`（`avatar` 可为 `null`），
+由字幕轨道混合器在片段切换边沿调用；实现者目前只有 `PerformanceView`。
 
 ## `[PerformanceId]`（`Game.Performance.PerformanceIdAttribute`）
 

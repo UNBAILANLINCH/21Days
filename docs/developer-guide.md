@@ -439,7 +439,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 1. **场景触发器**：放一个 `PerformanceTrigger`（`isTrigger` 碰撞体 + `PerformanceId` + `Mode`：`OnEnter` 进区域自动播、
    `OnSceneStart` 场景加载即播；`Once` 控制只播一次），玩家根挂 `PerformanceTriggerActor` 标记（同 Dialogue 的
    `DialogueInteractionActor` 做法，但两者互不依赖）。运行时新生成的触发器要靠 `PerformanceSceneBinder` 扫描绑定，
-   不会自动生效。
+   不会自动生效。世界模式（小人站在 3D 场景里）示例见菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 与 SampleScene 的
+   `Trigger_VillageEntrance`（锚点 `anchor`、`hideActorVisual`、`hiddenDuringPlay`），细节见演出模块 guide「世界模式」。
 2. **对白节点前插播**：`Tables/Data/dialogue/<编号>.json` 节点的 `performance` 字段填演出 id（空串 `""` = 不插播，
    JSON 不允许缺这个字段）。`DialogueController` 会在摆这句台词之前先播完这段演出，期间对话框隐藏、不推进、不收输入；
    `IPerformanceService` 缺席（Boot 没挂 `PerformanceInstaller`）时只记 Warn，不阻塞对白。

@@ -1,4 +1,4 @@
-// 职责：回放拼接小人的待机 → 向右走 → 向左走 → 停下 → 走路 3 → 奔跑 5 → 停下，看动画切换、翻面与走跑步频差别。
+// 职责：回放小人（验证场景挂序列帧小人 Chibi_amiya）的待机 → 向右走 → 向左走 → 停下 → 走路 3 → 奔跑 5 → 停下，看动画切换、翻面与走跑步频差别。
 // 新建原因：CharacterPuppet 是新模块，按 module-verify.md 每模块一份 Showcase。
 using System.Collections;
 using Game.CharacterPuppet;
@@ -34,12 +34,12 @@ namespace Game.Tests.Showcase.CharacterPuppet
         public IEnumerator IdleWalkTurnStop_PlaysMatchingAnimation()
         {
             var root = FindRequired<Transform>("Puppet");
-            var puppet = FindRequired<ChibiPuppet>("ChibiPuppet_Player");
+            var puppet = FindRequired<ChibiPuppet>("Chibi_amiya");
             Coroutine move = null;
             try
             {
                 yield return Step("原地站 2 秒", null, 2f);
-                yield return Check("播放待机动画（呼吸起伏）", () => IsState(puppet, "Idle"), 1f);
+                yield return Check("播放待机动画", () => IsState(puppet, "Idle"), 1f);
                 yield return Snapshot("待机");
 
                 yield return Step("以 1.5 单位/秒向右移动 2 秒", () =>
@@ -79,7 +79,7 @@ namespace Game.Tests.Showcase.CharacterPuppet
                 yield return Step("停下", null, 1f);
                 yield return Check("回到待机动画", () => IsState(puppet, "Idle"), 1.5f);
 
-                // 世界时停（对话期间 Time.timeScale = 0）：Animator 走 unscaled time，待机呼吸应继续播放而不是定格。
+                // 世界时停（对话期间 Time.timeScale = 0）：Animator 走 unscaled time，待机动画应继续播放而不是定格。
                 yield return Step("触发世界时停（模拟对话）", () => Time.timeScale = 0f, 0f);
                 try
                 {
@@ -90,7 +90,7 @@ namespace Game.Tests.Showcase.CharacterPuppet
                         yield return null;
                     }
 
-                    yield return Check("时停期间待机呼吸动画仍在播放（未定格）",
+                    yield return Check("时停期间待机动画仍在播放（未定格）",
                         () => IsState(puppet, "Idle") && GetIdleNormalizedTime(puppet) > idleTimeBefore, 1f);
                     yield return Snapshot("时停待机");
                 }

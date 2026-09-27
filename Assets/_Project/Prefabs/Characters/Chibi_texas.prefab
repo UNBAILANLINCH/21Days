@@ -155,6 +155,9 @@ MonoBehaviour:
   animator: {fileID: 1809365596794815493}
   parts:
   - {fileID: 4219235686608643874}
+  walkClipSpeed: 3
+  runClipSpeed: 5
+  hasRunClip: 0
 --- !u!114 &8967072255111608211
 MonoBehaviour:
   m_ObjectHideFlags: 0

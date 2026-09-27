@@ -210,7 +210,8 @@ def main():
     ap = argparse.ArgumentParser(description="Spine 3.8 模型 → 透明 PNG 序列帧")
     ap.add_argument("--model", action="append", required=True, help="名字=模型目录（含 .skel/.atlas/.png），可重复")
     ap.add_argument("--out", type=Path, help="输出根目录，每个角色一个子目录")
-    ap.add_argument("--fps", type=int, default=12)
+    ap.add_argument("--fps", type=int, default=24,
+                    help="采样帧率；走 / 跑建议 24（12 时步态发顿），待机 24 或 12 皆可")
     ap.add_argument("--margin", type=int, default=4, help="包围盒外扩像素")
     ap.add_argument("--max-height", type=int, default=512, help="画布高超过此值时整体缩小")
     ap.add_argument("--anims", default="",

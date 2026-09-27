@@ -1,7 +1,7 @@
 {
   "name": "amiya",
-  "fps": 12,
-  "scale": 0.811728,
+  "fps": 24,
+  "scale": 0.811667,
   "frameWidth": 344,
   "frameHeight": 384,
   "pivot": {
@@ -15,20 +15,20 @@
   "texturePremultiplied": true,
   "nativeBounds": {
     "minX": -206.498,
-    "minY": -10.091,
+    "minY": -10.892,
     "maxX": 111.61,
-    "maxY": 451.73
+    "maxY": 451.889
   },
   "animations": {
     "idle": {
       "source": "Relax",
-      "frames": 12,
+      "frames": 24,
       "duration": 1,
       "loop": true
     },
     "walk": {
       "source": "Move",
-      "frames": 14,
+      "frames": 27,
       "duration": 1.1333,
       "loop": true
     }

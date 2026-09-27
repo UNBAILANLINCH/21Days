@@ -43,7 +43,7 @@ python scripts/ark-spine-frames/check_frames.py <输出根目录> --sheets <输�
 | --- | --- | --- |
 | `--model 名字=目录` | 必填 | 角色名（用于文件名）与模型目录，可重复 |
 | `--out` | — | 输出根目录，每个角色一个子目录 |
-| `--fps` | 12 | 采样帧率 |
+| `--fps` | 24 | 采样帧率；走 / 跑建议 24（12 fps 时步态发顿），待机 24 或 12 皆可 |
 | `--margin` | 4 | 包围盒四周外扩像素 |
 | `--max-height` | 512 | 画布高超过此值时整体缩小，缩放写进 meta |
 | `--anims` | 全部 | 只渲这些 Spine **源动画名**（逗号分隔、区分大小写，如 `Relax,Move`）；模型里没有的直接报错。画布与锚点只按选中动画的包围盒并集算，所以比全动画紧凑 |
@@ -71,7 +71,7 @@ python scripts/ark-spine-frames/check_frames.py <输出根目录> --sheets <输�
 
 ```json
 {
-  "name": "amiya", "fps": 12, "scale": 0.915949,
+  "name": "amiya", "fps": 24, "scale": 0.915949,
   "frameWidth": 514, "frameHeight": 512,
   "pivot": {"x": 0.5, "y": 0.183594},      // 骨骼原点在画布中的归一化位置，y 以底边为 0
   "pivotPx": {"x": 257, "y": 94},           // 同上，像素，y 自底边向上
@@ -85,6 +85,10 @@ python scripts/ark-spine-frames/check_frames.py <输出根目录> --sheets <输�
 ```
 
 导入 Unity 时把 Sprite 的 Pivot 设为 Custom = `pivot`，所有状态脚底即对齐同一点。
+
+脚本不写 `animations.<状态>.groundSpeed`（Spine 动画本身不带地速）。需要时手工补进 `meta.json`：
+`"walk": {..., "groundSpeed": 3}`、`"run": {..., "groundSpeed": 5}`，表示该剪辑按每秒多少单位的移动速度制作；
+缺省时生成工具按走 3 / 跑 5 处理（字段说明见 `docs/artist-guide.md` 3.4 节）。
 
 ## 透明与 PMA
 

@@ -1,6 +1,6 @@
 {
   "name": "chen",
-  "fps": 12,
+  "fps": 24,
   "scale": 0.90266,
   "frameWidth": 332,
   "frameHeight": 384,
@@ -16,19 +16,19 @@
   "nativeBounds": {
     "minX": -178.35,
     "minY": -6.167,
-    "maxX": 107.405,
+    "maxX": 107.418,
     "maxY": 409.547
   },
   "animations": {
     "idle": {
       "source": "Relax",
-      "frames": 24,
+      "frames": 48,
       "duration": 2,
       "loop": true
     },
     "walk": {
       "source": "Move",
-      "frames": 12,
+      "frames": 24,
       "duration": 1,
       "loop": true
     }

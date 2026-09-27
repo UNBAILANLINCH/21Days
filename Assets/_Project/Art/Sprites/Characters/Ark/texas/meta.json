@@ -1,34 +1,34 @@
 {
   "name": "texas",
-  "fps": 12,
-  "scale": 0.891993,
+  "fps": 24,
+  "scale": 0.88945,
   "frameWidth": 244,
   "frameHeight": 384,
   "pivot": {
     "x": 0.5,
-    "y": 0.026042
+    "y": 0.028646
   },
   "pivotPx": {
     "x": 122,
-    "y": 10
+    "y": 11
   },
   "texturePremultiplied": true,
   "nativeBounds": {
     "minX": -130.768,
-    "minY": -6.126,
+    "minY": -6.899,
     "maxX": 108.215,
-    "maxY": 414.559
+    "maxY": 414.568
   },
   "animations": {
     "idle": {
       "source": "Relax",
-      "frames": 32,
+      "frames": 64,
       "duration": 2.6667,
       "loop": true
     },
     "walk": {
       "source": "Move",
-      "frames": 11,
+      "frames": 22,
       "duration": 0.9333,
       "loop": true
     }

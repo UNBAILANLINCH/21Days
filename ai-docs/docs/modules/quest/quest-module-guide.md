@@ -69,7 +69,7 @@ maturity: seed
 
 ## 重置进度（ResetProgress）
 
-`QuestService.ResetProgress()`（`QuestService.cs:161`）把全部任务打回「新开局」：清空待发布的事件缓冲 →
+`QuestService.ResetProgress()`（`QuestService.cs:192`，与读档共用 `RestoreAndBroadcast`）把全部任务打回「新开局」：清空待发布的事件缓冲 →
 `rules.Restore(new QuestSaveData())`（一份全新的空分区）→ `rules.ActivateAvailable()` → 写回存档分区 →
 补发事件（每条重新激活的任务一条 `Activated`，进行中任务各一条计数归零的 `Progressed`，至少一条
 `TrackingChanged` 让 HUD 与面板整体刷新）。`IsReady == false` 时记 Warn 并忽略，不抛异常。这是**内存重置**，
@@ -86,7 +86,7 @@ maturity: seed
 ## 为什么这样设计（源码读不出来的部分）
 
 - **`QuestRules` 不持有存档分区引用**：`ISaveService.Commit` 会整体替换分区实例，长期持有旧引用会把进度写进一份没人读的对象；
-  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs:189`）。
+  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs:302`）。
 - **事件走 MessagePipe，Core 因此新增 `GameplayInstaller.InstallEvents`**：`Install` 拿不到根作用域的
   `MessagePipeOptions`，Dialogue 因此退回 C# `event`（违反 `EventConventions.cs` 第 1 条）。Quest 不想再开这个例外，
   于是给 `GameplayInstaller` 加一个默认空实现的虚方法，在 `Install` 之前把 `options` 递进来，既有注册器零改动
@@ -161,8 +161,11 @@ maturity: seed
 ## 已知约束 / 未做
 
 - 读档 / 新游戏：`GameSession` 发布 `Game.Session.SessionStartedEvent`（分区已就位之后），`QuestService`
-  在 `InitializeAsync` 里内部订阅，收到后调用 `ReloadFromSave()`（`rules.Restore(saves.Get<QuestSaveData>())` →
-  `ActivateAvailable()` → `Flush()`，`QuestService.cs:135` 附近）；不另起入口点，重载就是门面自己的职责。
+  在 `InitializeAsync` 里内部订阅，收到后调用 `ReloadFromSave()`；它与 `ResetProgress()` 共用私有的
+  `RestoreAndBroadcast`（`QuestService.cs:215`）：清掉未发布事件 → `rules.Restore(saves.Get<QuestSaveData>())` →
+  `ActivateAvailable()` → 补发进行中任务的 `Progressed` 与至少一条 `TrackingChanged` → `Flush()`。必须补发：
+  `Restore` 不抛事件，`ActivateAvailable` 在已初始化的档上不改追踪，不补发 HUD 会停在读档前的文本。
+  不另起入口点，重载就是门面自己的职责。
 - `Report` 键统一为字符串：TalkTo 的 int → string 只在对白结束时发生一次，不在每帧路径上。
 - 指引依赖 `Camera.main`：相机为空时 `HideGuidance` 并只埋一次 Warn。
 

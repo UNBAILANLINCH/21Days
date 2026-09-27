@@ -1,5 +1,5 @@
-// 职责：钉住 QuestService.ResetProgress——推进若干任务后重置，进度回到新开局（主线 1001 追踪、计数清零），
-//   存档分区同步写回，并补发 HUD / 面板刷新所需的事件。
+// 职责：钉住 QuestService.ResetProgress / ReloadFromSave——重置回新开局或换入分区后，进度与分区一致、
+//   存档分区同步写回，并补发 HUD / 面板刷新所需的事件（含读档后规则层静默时的追踪事件）。
 // 为什么新建：QuestService 此前没有测试文件（QuestRulesTests 测纯规则，不经过门面的存档写回与事件发布），
 //   按「测试类 = <被测类>Tests」单独成文件。数据用真实生成的任务表（与 QuestCatalogTests 同一来源）。
 using System;
@@ -21,9 +21,12 @@ namespace Game.Tests.EditMode.Quest
     public sealed class QuestServiceTests
     {
         private const int MainQuest = 1001;
+        private const int SecondMainQuest = 1002;
+        private const int LookoutQuest = 2001;
         private const int CrateQuest = 2002;
 
         private FakeSaveService saves;
+        private FakePublisher<QuestActivatedEvent> activated;
         private FakePublisher<QuestObjectiveProgressedEvent> progressed;
         private FakePublisher<QuestTrackingChangedEvent> tracking;
         private FakeSubscriber<SessionStartedEvent> sessionStarted;
@@ -35,13 +38,14 @@ namespace Game.Tests.EditMode.Quest
             global::cfg.Tables tables = ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes());
             var catalog = new QuestCatalog(new FakeConfigService(tables), NullTelemetryScope.Instance);
             saves = new FakeSaveService();
+            activated = new FakePublisher<QuestActivatedEvent>();
             progressed = new FakePublisher<QuestObjectiveProgressedEvent>();
             tracking = new FakePublisher<QuestTrackingChangedEvent>();
             sessionStarted = new FakeSubscriber<SessionStartedEvent>();
             service = new QuestService(
                 catalog,
                 saves,
-                new FakePublisher<QuestActivatedEvent>(),
+                activated,
                 progressed,
                 new FakePublisher<QuestCompletedEvent>(),
                 tracking,
@@ -131,6 +135,45 @@ namespace Game.Tests.EditMode.Quest
         }
 
         [Test]
+        public void ReloadFromSave_InitializedPartitionWithNothingToActivate_PublishesTrackingOfSavedQuest()
+        {
+            // 开机即新开局：追踪默认主线 1001。换入的档是「1001 已完成、1002 追踪中」，两者追踪 id 不同。
+            Assert.That(service.TrackedId, Is.EqualTo(MainQuest), "前置：新开局追踪默认主线");
+
+            // 模拟读档：表里全部四条任务都已在分区里（1001 完成，1002 / 2001 / 2002 进行中），
+            // Initialized = true，ActivateAvailable 既没有可新激活的任务，也不会自动改追踪——规则层一个事件都不发。
+            saves.ResetAll();
+            QuestSaveData swapped = saves.Get<QuestSaveData>();
+            swapped.Initialized = true;
+            swapped.TrackedId = SecondMainQuest;
+            swapped.NextAcceptOrder = 4;
+            swapped.Quests.Add(new QuestProgressData
+                { Id = MainQuest, State = (int)QuestState.Completed, ObjectiveIndex = 1, Count = 1, AcceptOrder = 1 });
+            swapped.Quests.Add(new QuestProgressData
+                { Id = LookoutQuest, State = (int)QuestState.InProgress, ObjectiveIndex = 0, Count = 0, AcceptOrder = 2 });
+            swapped.Quests.Add(new QuestProgressData
+                { Id = CrateQuest, State = (int)QuestState.InProgress, ObjectiveIndex = 0, Count = 1, AcceptOrder = 3 });
+            swapped.Quests.Add(new QuestProgressData
+                { Id = SecondMainQuest, State = (int)QuestState.InProgress, ObjectiveIndex = 0, Count = 0, AcceptOrder = 4 });
+
+            int activatedBefore = activated.Received.Count;
+            tracking.Received.Clear();
+            progressed.Received.Clear();
+
+            service.ReloadFromSave();
+
+            Assert.That(service.TrackedId, Is.EqualTo(SecondMainQuest), "前置核对：重载后追踪应与换入的分区一致");
+            Assert.That(activated.Received.Count, Is.EqualTo(activatedBefore),
+                "换入分区里没有需要新激活的任务，刷新事件不能是靠新激活顺带发出的");
+            Assert.That(tracking.Received.Count, Is.GreaterThanOrEqualTo(1),
+                "Restore 静默、ActivateAvailable 在已初始化的档上不改追踪，门面必须补发追踪事件让 HUD 刷新");
+            Assert.That(tracking.Received[tracking.Received.Count - 1].QuestId, Is.EqualTo(SecondMainQuest),
+                "最后一条追踪事件应指向换入分区的追踪任务，HUD 才不会停在读档前的文本");
+            Assert.That(progressed.Received.Exists(e => e.QuestId == CrateQuest && e.Count == 1), Is.True,
+                "进行中任务各补一条反映分区计数的进度事件");
+        }
+
+        [Test]
         public void SessionStartedEvent_Received_TriggersReload()
         {
             service.Report(QuestObjectiveKind.TalkTo, MainQuest.ToString());
@@ -145,10 +188,13 @@ namespace Game.Tests.EditMode.Quest
             swapped.Quests.Add(new QuestProgressData
                 { Id = MainQuest, State = (int)QuestState.InProgress, ObjectiveIndex = 0, Count = 0, AcceptOrder = 1 });
 
+            tracking.Received.Clear();
             sessionStarted.Publish(new SessionStartedEvent(1, false));
 
             Assert.That(service.TrackedId, Is.EqualTo(MainQuest),
                 "QuestService 在 InitializeAsync 里订阅了 SessionStartedEvent，收到后应自动 ReloadFromSave");
+            Assert.That(tracking.Received.Count, Is.GreaterThanOrEqualTo(1), "事件触发的重载同样要补发追踪事件");
+            Assert.That(tracking.Received[tracking.Received.Count - 1].QuestId, Is.EqualTo(MainQuest));
         }
 
         /// <summary>只记录收到的消息。</summary>

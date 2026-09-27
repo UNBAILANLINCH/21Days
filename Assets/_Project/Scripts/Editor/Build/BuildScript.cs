@@ -39,7 +39,7 @@ using UnityEngine;
 namespace Game.Editor
 {
     /// <summary>
-    /// 批处理打包流程：取场景 → 读命令行参数 → 平台专属检查 → 切平台 → 出包 → 汇报。
+    /// 批处理打包流程：取场景 → 占位素材闸门 → 读命令行参数 → 平台专属检查 → 切平台 → 出包 → 汇报。
     /// </summary>
     public static class BuildScript
     {
@@ -86,6 +86,16 @@ namespace Game.Editor
 
             Log($"目标平台 {target}，进包场景 {scenes.Length} 个：{string.Join(", ", scenes)}");
 
+            // 占位素材闸门放在切平台、构建 Addressables 之前：只读依赖、秒级完成，命中了就别白等后面几分钟。
+            // Release 命中 → 失败退出（build.ps1 拿到非零退出码）；开发版命中 → 逐条警告后继续。
+            bool development = HasFlag("-development");
+            if (!PlaceholderAssetGuard.CheckBeforeBuild(scenes, development))
+            {
+                Fail("占位素材闸门未通过：进包内容引用了仅限开发期的占位素材（引用链见上方日志），Release 包中止。"
+                     + "换成正式美术或移出进包内容后重试；只是自测可加 -Development 出开发版。");
+                return;
+            }
+
             string outputPath = GetArg("-outputPath");
             if (string.IsNullOrWhiteSpace(outputPath))
             {
@@ -126,7 +136,7 @@ namespace Game.Editor
             }
 
             BuildOptions options = BuildOptions.None;
-            if (HasFlag("-development"))
+            if (development)
             {
                 options |= BuildOptions.Development;
                 Log("开发版构建：带 Development 标记（可连 Profiler、允许调试，体积更大，别用来发版）");
@@ -194,10 +204,14 @@ namespace Game.Editor
                     LogAndroidConfiguration(releaseBuild);
                 }
 
+                // 上面已经跑过占位素材闸门，BuildPlayer 期间让它的预处理回调别再查一遍
+                PlaceholderAssetGuard.SetPreprocessSkipped(true);
                 report = BuildPipeline.BuildPlayer(playerOptions);
             }
             finally
             {
+                PlaceholderAssetGuard.SetPreprocessSkipped(false);
+
                 if (settingsTouched)
                 {
                     RestoreAndroidSettings(originalBackend, originalArchitectures, originalProjectSettings);

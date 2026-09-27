@@ -15,7 +15,7 @@
 | 要改表 / 存档 / 输入 / UI / 音频 | 8～12，按主题挑一章 |
 | 要跑测试、出包 | 13 测试 → 14 打包与 CI |
 | 要接 2.5D 场景美术（画质分档 / 角色纸片 / 贴地） | 6.13 |
-| 要接对话（代码拉起 / 场景放 NPC）或给角色换拼接小人 | 6.14 · 6.15 |
+| 要接对话（代码拉起 / 场景放 NPC）或给角色换序列帧小人 | 6.14 · 6.15 |
 | 卡住了、报了看不懂的错 | 15 常见问题（先在这儿搜一遍，八成有） |
 
 三份文档的分工：**本文**讲怎么做，[`architecture.md`](architecture.md) 讲为什么这么设计、各服务的契约长什么样，
@@ -387,21 +387,40 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（验证场景 `Assets/_Project/Scenes/Verify/Dialogue.unity`，编辑器须打开）。
 对话内容怎么配见 [`designer-guide.md` 第 11 章](designer-guide.md)。
 
-### 6.15 拼接小人 — `ChibiPuppet`
+### 6.15 角色小人 — `ChibiPuppet`
 
-模块 `Game.CharacterPuppet`（`Assets/_Project/Scripts/Runtime/CharacterPuppet/`），分件 Sprite + Animator 做 Q 版角色的待机 / 走路表现，
+模块 `Game.CharacterPuppet`（`Assets/_Project/Scripts/Runtime/CharacterPuppet/`），序列帧 Sprite + Animator 做 Q 版角色的待机 / 走路表现，
 **只管表现**：不读输入、不改位置，按角色根的位移自己判走 / 停与朝向。细节见
 [`characterpuppet-module-guide.md`](../ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md)。
 
 给一个角色换上小人：
-1. 把 `Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab`（或 `ChibiPuppet_Patrol.prefab`）实例化到角色的 `Visual` 下，
+1. 把 `Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`（如 `Chibi_amiya`，由下面的序列帧工具生成）实例化到角色的 `Visual` 下，
    localPosition `(0, 0, -0.01)`（略靠前，避免与原纸片同面）。`trackedRoot` 留空即可，自动取父链上第一个不叫 `Visual` 的节点。
-2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`：`EncounterSceneView` 仍往它上面写 sprite 和 `flipX`，
+2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`（sprite 可置空，`EncounterSceneView.EnsureSprite` 会补运行时占位图）：`EncounterSceneView` 仍往它上面写 `flipX`，
    它就是朝向的载体。把它拖进小人 `ChibiPuppetMotion` 的 `facingSource`。
 3. 没有纸片的场景（如验证场景）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
 
 手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、走路播放速率）。
 Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（`Assets/_Project/Scenes/Verify/CharacterPuppet.unity`）。
+
+**序列帧小人（现行唯一做法；早期分件拼接小人已于 2026-09-28 删除）**：美术按状态交序列帧（规范见 [`artist-guide.md` 3.4 节](artist-guide.md)），
+编辑器工具一键生成动画、控制器与预制体；运行时是 `ChibiPuppet` + `ChibiPuppetMotion`，`parts` 只有一个 `SpriteRenderer`。
+
+- **目录**：`Assets/_Project/Art/Sprites/Characters/<名字>/chr_<名字>_<状态>_<NN>.png` + 可选 `meta.json`（`fps`、`pivot`），至少 `idle` + `walk`。
+- **工具**：菜单 `21Days/角色/从序列帧生成小人…`（选帧目录、目标高度默认 1.5、帧率 0 = 取 meta 否则 12、美术默认朝左、建图集）；
+  脚本入口 `FramePuppetGenerator.Generate(new FramePuppetRequest { FrameDirectory = "...", TargetHeight = 1.6f })`，返回中文报告，
+  可用 MCP `execute_code` 批量跑。规则（命名解析、排序、缺态报错、PPU / pivot）在 `FramePuppetRules`，EditMode 测试
+  `Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs`。
+- **生成物**：帧贴图导入设置（PPU = 画布高 / 目标高度、pivot = meta.pivot，只改这个目录，不动 `SpriteImportProcessor`）；
+  `Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`（`Moving` / `Speed`，Idle ⇄ Walk 过渡 0、无退出时间，
+  Walk 速度乘 `Speed`）；`Prefabs/Characters/Chibi_<名字>.prefab`（根 Animator[UnscaledTime] + ChibiPuppet + ChibiPuppetMotion，子物体 `Sprite`）；
+  帧目录下 `<名字>.spriteatlasv2`（Sprite Packer 为 V2 时建，已存在不动）。**可重跑**：已有资产原地更新、GUID 不变，场景引用不用重接。
+- **替换美术**：同名目录换成新帧 → 重跑工具（目标高度与原来一致）→ 回放 `/verify-module Exploration` 看大小、贴地、翻面。
+- **接进场景**：玩家 / 巡逻者照上面三步（实例挂 `Visual` 下、`facingSource` 指隐藏纸片）。纯纸片 NPC 的 `Visual` 中心在半身高、还带缩放，
+  小人不能挂它下面：在 NPC 根下新建 `PuppetVisual`（原点、挂 `CameraBillboard`），实例挂其下 `(0, 0, -0.01)`；纸片 `SpriteRenderer`
+  取消 `enabled` 当朝向源（`flipX` 决定朝向），`trackedRoot` 指 NPC 根。SampleScene 的 `Npc_Elder` / `Npc_Traveler` / `Npc_Villager` 就是这样接的。
+- **占位素材**：现在五个角色（amiya / chen / skadi / texas / exusiai）是明日方舟基建小人，经 `scripts/ark-spine-frames/` 离线渲染，
+  **版权归上海鹰角网络，仅作开发期占位，正式包体不得包含**（`Art/Sprites/Characters/Ark/README.md`）。
 
 ### 6.16 演出管线 — `IPerformanceService` / `PerformanceTrigger` / 演出编辑器
 

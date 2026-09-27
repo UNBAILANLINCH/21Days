@@ -16,7 +16,7 @@ maturity: stable
 
 | 做 | 不做 |
 | --- | --- |
-| 明日方舟风格 Q 版「拼接小人」的**待机 / 走路**表现：分件 Sprite + Animator | 真骨骼形变（无 2D Animation / Spine / Live2D 包） |
+| 明日方舟风格 Q 版小人的**待机 / 走路**表现：序列帧 Sprite + Animator（编辑器工具生成） | 真骨骼形变（无 2D Animation / Spine / Live2D 包） |
 | 从角色根的**位移**反推走 / 停与播放速率，写 Animator 参数 | 攻击 / 受击 / 死亡等其他动作 |
 | 朝向：读外部纸片的 `flipX`，或按位移在相机右方向的投影 | 读输入、改角色位置、参与任何玩法判定 |
 | 整体染色（`SetTint`，以预制体基底色相乘） | 换装系统、状态色（状态色仍染 `SelectRing`） |
@@ -27,7 +27,7 @@ maturity: stable
 
 | 类型 | 文件 | 职责 |
 | --- | --- | --- |
-| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs:10` | 表现门面：持有 `Animator` 与分件 `SpriteRenderer[] parts`；唯一写 Animator 参数与根 `localScale.x` 的地方 |
+| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs:10` | 表现门面：持有 `Animator` 与 `SpriteRenderer[] parts`（序列帧小人只有一个）；唯一写 Animator 参数与根 `localScale.x` 的地方 |
 | `ChibiPuppetMotion`（MonoBehaviour，同根，`RequireComponent(ChibiPuppet)`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotion.cs:12` | 驱动层：`LateUpdate` 读 `trackedRoot` 位移，攒满采样窗口后调规则，结果写给 `ChibiPuppet` |
 | `ChibiPuppetMotionRules`（纯 C# 静态类，不依赖 UnityEngine） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs:7` | 判定规则：速度与滞回、朝向死区、走路播放速率夹取；EditMode 穷举 |
 | `ChibiPuppetConfig`（ScriptableObject，运行时只读） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetConfig.cs:8` | 阈值与换算参数；资产 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset` |
@@ -48,33 +48,14 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 - 反过来也没有模块在代码里引用 `Game.CharacterPuppet`，只有 Showcase（`Game.Tests.Showcase`）与 EditMode 测试引用。
 - 不订阅事件、不注册 DI 服务、不走 Addressables；预制体以场景实例存在。
 
-## 预制体层级
+## 预制体
 
-`Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab`、`ChibiPuppet_Patrol.prefab`：两个独立预制体，结构相同，只差分件染色。
+`Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`（现有 amiya / chen / skadi / texas / exusiai），全部由
+`FramePuppetGenerator` 生成，结构与约定见下文「序列帧小人」。早期的分件拼接小人（`ChibiPuppet_Player` / `ChibiPuppet_Patrol`、
+`Art/Sprites/Characters/Puppet/`、`chr_chibi_*` 动画）已于 2026-09-28 删除，要追溯看 git 历史与 `PRP/character-puppet/`。
 
-```text
-ChibiPuppet_*（Animator[chr_chibi_puppet, UnscaledTime] + ChibiPuppet + ChibiPuppetMotion；脚底为原点，整体高 ≈ 1.6）
-└─ Body（localScale 1.32；动画只动 localPosition.y）
-   ├─ LegL / LegR（(∓0.07, 0.34, 0)）
-   └─ Torso（(0, 0.30, -0.002)）
-      ├─ Head（(0, 0.37, -0.004)）
-      │  └─ Hair（(0, 0.20, -0.002)）
-      └─ ArmL / ArmR（(∓0.19, 0.34, -0.002)；ArmR 用 flipX 镜像共用臂图）
-```
-
-| 分件 | 图 | pivot（sprite alignment） | sortingOrder |
-| --- | --- | --- | --- |
-| LegL / LegR | `Puppet_Leg.png` | 顶中（=髋） | 0 |
-| Torso | `Puppet_Torso.png` | 底中（=腰） | 1 |
-| ArmL / ArmR | `Puppet_Arm.png` | 顶中（=肩） | 2 |
-| Head | `Puppet_Head.png` | 底中（=颈） | 3 |
-| Hair | `Puppet_Hair.png` | 底中（随头） | 4 |
-
-- 分件图在 `Assets/_Project/Art/Sprites/Characters/Puppet/`：白底 + 深色描边，PPU 100，靠 `SpriteRenderer.color` 染色。
 - 材质 `Art/Materials/Character/M_SpriteDepthClip`（与原纸片一致，可被灰盒遮挡），sortingLayer `Default`。
-- 子节点逐级 0.002 的局部 z 前移：深度写入的材质下，仅靠 sortingOrder 不够保证同平面前后次序，z 偏移兜底。
-- 分件图须**左右对称**（五官居中）：翻面只改小人根 `localScale.x`，不对称会穿帮。
-- `parts` 数组在预制体里挂全 7 个 `SpriteRenderer`，`SetTint` 只作用于数组里的分件。
+- `parts` 数组挂唯一的 `Sprite` 渲染器，`SetTint` 只作用于数组里的渲染器。
 
 ## 驱动数据流
 
@@ -128,14 +109,14 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 逻辑 tick 固定 60 Hz，渲染帧率可能更高（120 / 144 Hz）。角色根的位置只在逻辑 tick 推进，
 于是按渲染帧看，位移是「有、无、有、无」交替的；逐帧判定会在没推进的帧读到速度 0，
 触发停步阈值，走路时不停闪回待机。攒够 0.1 s 再判，窗口里必然包含若干次推进，速度稳定。
-代价是起步 / 停步最多滞后约一个窗口，叠加 0.12 s 过渡，肉眼不可察。
+代价是起步 / 停步最多滞后约一个窗口（序列帧 Idle ⇄ Walk 无过渡），肉眼不可察。
 窗口长度在 `ChibiPuppetConfig.sampleWindow`（`ChibiPuppetConfig.cs:16`），调小会重新引入闪烁。
 
 ## 时间口径
 
 | 对象 | 用什么时间 | 理由 |
 | --- | --- | --- |
-| Animator | **unscaled**（预制体 `m_UpdateMode: 2` = `UnscaledTime`） | 对话时停（`Time.timeScale = 0`）期间待机呼吸继续播放，不定格，画面不「死」 |
+| Animator | **unscaled**（预制体 `m_UpdateMode: 2` = `UnscaledTime`） | 对话时停（`Time.timeScale = 0`）期间待机动画继续播放，不定格，画面不「死」 |
 | `ChibiPuppetMotion` 采样 | **scaled** `Time.deltaTime`（`ChibiPuppetMotion.cs:58`，带 `// lint-ok`） | 纯表现层，只反推动画状态，不参与逻辑推进与重放；用 scaled 恰好能识别「时停」 |
 
 **时停强制待机**（`ChibiPuppetMotion.cs:60`）：`Time.deltaTime ≤ 0` 时写 `SetMoving(false, 1)`，
@@ -151,47 +132,68 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 
 ## 动画资产
 
-| 资产 | 内容 |
-| --- | --- |
-| `Assets/_Project/Art/Animations/chr_chibi_idle.anim` | 2.0 s 循环：Body y 呼吸、Torso scaleY、Head z 轻摆、双臂 z 反相轻摆 |
-| `Assets/_Project/Art/Animations/chr_chibi_walk.anim` | 0.6 s 循环：双腿 z 反相大摆、双臂与同侧腿反相、Body y 每步一次起伏、Torso 前倾、Head 轻摆 |
-| `Assets/_Project/Art/Animations/chr_chibi_puppet.controller` | 参数 `Moving`（bool，默认 false）、`Speed`（float，默认 1）；Idle（默认）⇄ Walk，过渡 0.12 s、无退出时间；Walk 的速度乘数绑 `Speed`，Idle 不绑 |
+每个角色一套：`Assets/_Project/Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`，
+由生成工具写出，参数与过渡约定见下文「序列帧小人」。
 
-- 曲线绑定路径是**相对小人根的层级路径**：`Body`、`Body/LegL`、`Body/LegR`、`Body/Torso`、`Body/Torso/Head`、
-  `Body/Torso/ArmL`、`Body/Torso/ArmR`。改节点名或层级会让曲线静默失效（不报错，只是不动）。
-- 两段剪辑覆盖同一组属性，切状态时不残留上一段的值。
-- 动画与控制器用 Unity MCP `execute_code`（`AnimatorController` / `AnimationClip.SetCurve`）生成，不手写 YAML。
+- 剪辑绑定路径是**相对小人根的层级路径** `Sprite`（`SpriteRenderer.m_Sprite`）。改子物体名会让剪辑静默失效（不报错，只是不换帧）。
+- 不手改，换帧后重跑工具原地更新（GUID 不变）。
 - 命名遵循 `Art/Animations/README.md`。
 
 ## 与 EncounterSceneView 的关系
 
 `EncounterSceneView`（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:9`）**没改**，小人是在它之外叠上去的：
 
-- SampleScene 里 `player/Visual`、`enerme/Visual` 的纸片 `SpriteRenderer` 设为 `enabled = false`，sprite 保留，
-  仍是 `EnsureSprite`（`EncounterSceneView.cs:136`）与 `ApplyFlip` 写 `flipX`（`EncounterSceneView.cs:255`）的载体。
+- SampleScene 里 `player/Visual`、`enerme/Visual` 的纸片 `SpriteRenderer` 设为 `enabled = false`，sprite 已置空
+  （`EnsureSprite`（`EncounterSceneView.cs:162`）运行时补 1×1 占位图，组件停用看不见），仍是 `ApplyFlip` 写 `flipX`（`EncounterSceneView.cs:310`）的载体。
 - 小人实例挂在 `Visual` 下（localPosition `(0, 0, -0.01)`，略靠前避免与隐藏纸片同面），随 `CameraBillboard` 朝向相机。
 - `ChibiPuppetMotion.facingSource` 指向该隐藏纸片；`trackedRoot` 留空，自动解析到 `player` / `enerme` 根。
 - 执行次序 100 排在 `EncounterSceneView`（默认 0）之后，读到的是本帧已投影的位置与已翻好的 `flipX`。
 - 状态色仍染 `SelectRing`，小人不参与；`BlobShadow` / `NameTag` 不动。
+
+## 序列帧小人（编辑器工具生成，现行唯一的皮）
+
+整帧换 Sprite 的序列帧动画，由编辑器工具从帧目录生成；运行时组件与早期分件小人共用，**运行时代码没改**。
+
+| 类型 | 文件 | 职责 |
+| --- | --- | --- |
+| `FramePuppetGenerator`（EditorWindow + 静态 `Generate(FramePuppetRequest)`） | `Assets/_Project/Scripts/Editor/CharacterPuppet/FramePuppetGenerator.cs` | 菜单 `21Days/角色/从序列帧生成小人…`；改帧贴图导入设置、写 `.anim` / `.controller` / 预制体 / 图集；可重跑、保 GUID |
+| `FramePuppetRules`（静态纯规则） | `Assets/_Project/Scripts/Editor/CharacterPuppet/FramePuppetRules.cs` | `chr_<名字>_<状态>_<NN>.png` 解析、按状态分组与数值排序、缺 idle / walk 报错文案、PPU / pivot / fps 解析、画布尺寸一致性 |
+| `FramePuppetMeta` / `FramePuppetRequest` | 同目录 | 可选 `meta.json` 的只读视图（缺字段用哨兵 -1）；生成参数（目标高度、fps、默认朝左、建图集） |
+
+| 生成物 | 位置 / 约定 |
+| --- | --- |
+| 帧图 | `Art/Sprites/Characters/<名字>/`；Sprite Single，PPU = 画布高 / 目标高度，pivot = meta.pivot（Custom）。只由工具改，`SpriteImportProcessor` 的全局首次导入规则不动 |
+| 剪辑 | `Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim`：绑定路径 `Sprite`、`SpriteRenderer.m_Sprite`，末尾补一个与末帧相同的键（长度 = 帧数 / fps），`loopTime` |
+| 控制器 | 同目录 `chr_<名字>.controller`：参数 `Moving`（bool，默认 false）、`Speed`（float，默认 1）；Idle ⇄ Walk **过渡 0**（整帧换图不能混合）、无退出时间；Walk 绑 `Speed`；其它状态孤立加入 |
+| 预制体 | `Prefabs/Characters/Chibi_<名字>.prefab`：根 Animator[UnscaledTime, AlwaysAnimate] + ChibiPuppet（`parts` = 唯一的 `Sprite` 渲染器）+ ChibiPuppetMotion（config 同上，`trackedRoot` / `facingSource` 空）；子物体 `Sprite`（材质 `M_SpriteDepthClip`，sortingOrder 0） |
+| 图集 | 帧目录下 `<名字>.spriteatlasv2`（Sprite Packer = V2 时建；已存在不动；tight、padding 4、mipmap） |
+
+- **默认朝右**：帧按朝右画，根 `localScale.x > 0` = 朝右。美术画成朝左时勾「默认朝左」，工具给 `Sprite` 子物体开 `flipX`，
+  **不**把根缩放取负（`ChibiPuppet.Awake` 以根缩放符号当初始朝向，取负会让朝向语义反掉）。
+- **NPC 接法**：纯纸片 NPC 的 `Visual` 在半身高（y 0.8、缩放 0.625），而 `CameraBillboard` 会连俯仰一起转，小人挂它下面脚底会偏。
+  SampleScene 的三个 NPC 在根下另建 `PuppetVisual`（原点 + `CameraBillboard`），小人挂其下；纸片停用、`flipX` 当朝向源、`trackedRoot` 指 NPC 根。
+- **占位素材**：`Art/Sprites/Characters/Ark/{amiya,chen,skadi,texas,exusiai}` 是明日方舟基建小人（`scripts/ark-spine-frames/` 渲染，版权归鹰角），
+  只作开发期占位。SampleScene：玩家 amiya、巡逻 chen、`Npc_Elder` skadi、`Npc_Traveler` texas、`Npc_Villager` exusiai；目标高度 1.6（与早期分件小人实测高度 1.597 一致）。
 
 ## 测试与验证
 
 | 类别 | 路径 | 覆盖 |
 | --- | --- | --- |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetMotionRulesTests.cs` | 无位移静止、起步阈值、走动中阈值上保持、停步阈值、dt ≤ 0、朝向死区保持与符号、播放速率夹取 |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs` | 帧名解析（合法 / 各类非法）、分组与数值排序、重复序号报错、缺号与陌生文件告警、缺态文案、PPU、pivot 回退链、fps 优先级、meta 解析失败、画布尺寸不一致 |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs` | 待机 → 右走（Walk、`localScale.x > 0`）→ 左走翻面 → 停下回 Idle → 3 单位/秒走路（Animator `Speed` ≈ 1.59）→ 5 单位/秒奔跑（≈ 2.65 且高于走路）→ 停下回 Idle → 时停期间 Idle 的 normalizedTime 仍增长 |
-| 验证场景 | `Assets/_Project/Scenes/Verify/CharacterPuppet.unity` | 正交相机 + 空物体 `Puppet` 下挂 `ChibiPuppet_Player`，无 `facingSource`（走位移投影分支） |
+| 验证场景 | `Assets/_Project/Scenes/Verify/CharacterPuppet.unity` | 正交相机 + 空物体 `Puppet` 下挂 `Chibi_amiya`，无 `facingSource`（走位移投影分支） |
 
 - Showcase 不加载 Boot 场景（`LoadBootScene => false`），由协程逐帧推根节点；时停检查在 `finally` 里恢复 `timeScale = 1`。
 - 跑法：`/verify-module CharacterPuppet`；规则改动先跑 `/unity-test EditMode CharacterPuppet`。
-- SampleScene 冒烟：玩家出生静止为 Idle；巡逻者巡逻时 Walk、朝向随移动翻转；对话时停时回到待机呼吸。
+- SampleScene 冒烟：玩家出生静止为 Idle；巡逻者巡逻时 Walk、朝向随移动翻转；对话时停时回到待机。
 
 ## 已知约束
 
-- **占位美术**：7 张分件图是程序画的白底描边占位，染色靠 `SpriteRenderer.color`；正式美术替换见 extension-guide。
+- **占位美术**：五套小人都是明日方舟基建小人渲出的占位（版权归鹰角，正式包体不得包含）；正式美术替换见 extension-guide。
 - **只有待机 / 走路**：没有攻击、受击、交互动作；控制器只有两个状态、两个参数。
-- **无 Spine / 骨骼形变**：分件刚体旋转，关节处靠 pivot 与遮挡掩盖接缝。
-- 两个预制体是独立资产而非 Prefab Variant，改结构要两个都改。
-- 分件必须左右对称；`ArmR` 的镜像靠 `flipX`，与根的 `localScale.x` 翻面叠加后仍正确。
+- **无 Spine / 骨骼形变**：整帧换图，动作细腻程度取决于帧数。
+- 各角色预制体是独立资产而非 Prefab Variant；结构统一由生成工具维护，改结构改工具后重跑。
+- 翻面是整张镜像：不对称的挂件镜像后会换边；「默认朝左」素材靠子物体 `Sprite.flipX`，与根 `localScale.x` 翻面叠加后仍正确。
 - 朝向在 `facingSource` 模式下完全由纸片决定，`facingDeadZone` 不生效。
 - 同一小人只允许一个驱动者写 `Moving` / `Speed`（目前是 `ChibiPuppetMotion`）；再加一处写参数会互相覆盖。

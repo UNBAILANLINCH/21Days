@@ -2,6 +2,7 @@
 
 > 日期：2026-09-25。用户诉求：把示例角色换成「像明日方舟角色小人」的简单 Live2D 风格小人，看运动表现，带移动与待机动画，简单即可。
 > 决定：不引入 Spine / Live2D / 2D Animation 包，用 Unity 自带的分件 Sprite + Animator 做**拼接小人**；占位美术，以后换件不改动画与驱动。
+> **已于 2026-09-28 被序列帧小人替换并删除**（本文所述分件图、`chr_chibi_*` 动画与 `ChibiPuppet_*` 预制体已不存在；运行时组件仍在用，现状见 `ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`）。
 
 ## 1. 范围
 

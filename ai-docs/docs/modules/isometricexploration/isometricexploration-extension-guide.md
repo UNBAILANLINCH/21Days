@@ -29,7 +29,7 @@ maturity: stable
 1. 材质：SpriteRenderer 用 `Assets/_Project/Art/Materials/Character/M_SpriteDepthClip.mat`
    （着色器 `SpriteDepthClip.shader`），不要用 URP 默认 Sprite-Lit/Unlit-Default——那套不写深度、
    没有 ShadowCaster/DepthNormals Pass，纸片不会被灰盒环境遮挡、不参与 SSAO。新纸片素材的导入
-   Pivot 必须是 **Bottom Center**（贴 `Chibi_Player.png` / `Chibi_Patrol.png` 的做法：96×160、PPU
+   Pivot 必须是 **Bottom Center**（早期纸片 `Chibi_Player.png` / `Chibi_Patrol.png` 的做法，二图已于 2026-09-28 删除：96×160、PPU
    100、Mesh Type FullRect），这样 `Visual` 挂在根节点原点时纸片底边正好落在脚底，不需要额外偏移。
 2. 贴地阴影：加 `BlobShadow` 子节点，SpriteRenderer 用 `Art/Sprites/Fx/Fx_BlobShadow.png`
    （`Sprite-Unlit-Default` 材质），`localPosition.y` 参考 `0.02`（避免与地面 z-fighting），世界直径

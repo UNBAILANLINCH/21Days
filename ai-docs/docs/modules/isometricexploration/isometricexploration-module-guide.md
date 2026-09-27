@@ -153,7 +153,7 @@ Y = 地面高度 `4.8884`（`Assets/Scenes/SampleScene.unity:4581`，`CapsuleCol
 player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
 ├─ Rigidbody / CapsuleCollider(center 0,0.8,0 / height 1.6 / radius 0.3) / PlayerInput / IsometricPlayerController3D
 ├─ Visual
-│  ├─ SpriteRenderer（Chibi_Player.png，96×160，Pivot BottomCenter，PPU 100，世界尺寸 0.96×1.6，材质 M_SpriteDepthClip）
+│  ├─ SpriteRenderer（停用，sprite 为空，只当 flipX 朝向源；材质 M_SpriteDepthClip）
 │  └─ CameraBillboard
 ├─ BlobShadow（贴地阴影纸片，localPosition.y 0.02，世界直径 0.9）
 ├─ SelectRing（状态指示环纸片，localPosition.y 0.02，世界直径 1.1，已启用，赋给
@@ -162,7 +162,7 @@ player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
    localScale 0.007，世界高 0.35）
 ```
 
-`enerme` 同构，Visual 用 `Chibi_Patrol.png`；`SelectRing` 同样已启用并赋给
+`enerme` 同构（Visual 纸片同样停用、sprite 为空）；`SelectRing` 同样已启用并赋给
 `monsterStateIndicator`；`NameTag` 文字为「巡逻者」；`enerme/Visual` 的 `localPosition.z` 仍为
 `0.05`，避免两角色重合时与 `player/Visual` 发生 z-fighting。
 
@@ -170,8 +170,8 @@ player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
 根缩放换算的问题已不存在；新角色若根节点仍做非等比缩放，才需要按对应轴换算。新增角色纸片的完整
 步骤见 `isometricexploration-extension-guide.md`。
 
-`Visual` 的纸片 `SpriteRenderer` 隐藏但保留（`enabled = false`，sprite 不删：仍是 `EncounterSceneView` 的
-`EnsureSprite` 与 `flipX` 载体），小人预制体 `ChibiPuppet_Player` / `ChibiPuppet_Patrol` 挂在其下，
+`Visual` 的纸片 `SpriteRenderer` 隐藏但保留（`enabled = false`，sprite 已置空，运行时由 `EncounterSceneView.EnsureSprite`
+补 1×1 占位图；组件仍是 `flipX` 载体），序列帧小人预制体 `Chibi_amiya`（玩家）/ `Chibi_chen`（巡逻者）挂在其下，
 见 characterpuppet 模块（`ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`）。
 
 `Visual` 是只负责显示的子节点。纸片倾斜只发生在这个节点上；`Rigidbody` 和 3D Collider 留在根节点。

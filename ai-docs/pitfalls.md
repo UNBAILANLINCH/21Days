@@ -357,3 +357,15 @@
 - 根因：URP 资产里有多个渲染器（0 号 Renderer2D、1 号 UniversalRenderer），舞台相机 `rendererIndex = -1` 落到默认的 0 号，主相机用 1 号；`UniversalRenderPipeline` 对渲染器类型不同的叠加相机直接跳过并每帧告警 `Only cameras with compatible renderer types can be stacked`，MCP 的 `read_console` 读不到这条原文。
 - 正确做法：叠加前把 Overlay 相机的渲染器对齐到主相机（URP 14 没有公开的索引 getter，反射读 `UniversalAdditionalCameraData.m_RendererIndex` 再 `SetRenderer`，收尾还原），叠加后再比一次 `scriptableRenderer.GetType()`，不一致就走 Base 退路并埋点；验证场景与正式场景用的渲染器不同时，两边都要冒烟一次。
 - 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。
+
+## 序列帧画布宽不是 4 的倍数，出包时块压缩退回不压缩；编辑器里看不出来
+- 现象：方舟小人第一次渲出的画布宽 242 / 318 / 330 px，导入后 Inspector 显示正常；但这台机器编辑器里所有贴图（连现有纸片）`Texture2D.format` 都是 `RGBA32`，从编辑器里根本判断不了出包是否压缩。
+- 根因：DXT / ETC2 / ASTC 都是 4×4 块压缩，宽高不是 4 的倍数时 Unity 出包会退回不压缩（体积 ×4～×8）；本机编辑器不在导入时压缩，所以没有任何提示。
+- 正确做法：序列帧画布宽高一律取 4 的倍数（`scripts/ark-spine-frames/render_frames.py` 已按此补边：宽两侧对称、高只补顶，脚底原点不变）；美术交付规范写进了 `docs/artist-guide.md` 3.4。验证压缩结果看 `TextureImporter.GetAutomaticFormat("Standalone")` 或出包报告，不看编辑器里的 `format`。
+- 关联：`Assets/_Project/Scripts/Editor/Importers/SpriteImportProcessor.cs`（首次导入默认压缩）；2026-09-28 序列帧小人那轮。
+
+## 纯纸片 NPC 的 `Visual` 在半身高，小人挂它下面脚底会随相机俯仰偏移
+- 现象：想照玩家的接法把小人实例挂到 NPC 的 `Visual` 下，位置、缩放怎么抵消都不贴地。
+- 根因：NPC 纸片 pivot 在中心，`Visual` 摆在 y 0.8、缩放 0.625；`CameraBillboard` 把整个 `rotation` 设成相机旋转（含 38° 俯仰），子物体绕半身高的点转，脚底被甩离地面。玩家 / 巡逻者的 `Visual` 原点就在脚底，所以没这个问题。
+- 正确做法：NPC 根下另建 `PuppetVisual`（原点 + `CameraBillboard`），小人挂其下；纸片停用当朝向源（`flipX`），`trackedRoot` 指 NPC 根。步骤见 `docs/developer-guide.md` 6.15。
+- 关联：`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs`、`ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`；2026-09-28 序列帧小人那轮。

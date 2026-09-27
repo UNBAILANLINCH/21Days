@@ -7,16 +7,15 @@ maturity: stable
 
 # CharacterPuppet 外部接口
 
-> 别的模块 / 场景要用拼接小人时查这份。内部结构见 [`characterpuppet-module-guide.md`](characterpuppet-module-guide.md)。
+> 别的模块 / 场景要用小人时查这份。内部结构见 [`characterpuppet-module-guide.md`](characterpuppet-module-guide.md)。
 > 常规用法不需要写代码：把预制体实例挂到角色 `Visual` 下，小人自己看位移演动画。
 
 ## 预制体（场景实例，不走 Addressables）
 
 | 资产路径 | 用途 |
 | --- | --- |
-| `Assets/_Project/Prefabs/Characters/ChibiPuppet_Player.prefab` | 玩家小人（蓝衣、棕发） |
-| `Assets/_Project/Prefabs/Characters/ChibiPuppet_Patrol.prefab` | 巡逻者小人（灰衣、深灰发），结构同上 |
-| `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset` | 共用驱动参数，两个预制体都引用它 |
+| `Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab` | 序列帧小人，由 `FramePuppetGenerator` 生成；现有 `amiya`（玩家）、`chen`（巡逻者）、`skadi` / `texas` / `exusiai`（NPC），均为占位 |
+| `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset` | 共用驱动参数，所有小人预制体都引用它 |
 
 ## `Game.CharacterPuppet.ChibiPuppet`（预制体根，表现门面）
 
@@ -24,7 +23,7 @@ maturity: stable
 | --- | --- | --- |
 | `SetFacing` | `void SetFacing(bool left)` | 根 `localScale.x` 取 ±原幅值，保留实例整体缩放（`ChibiPuppet.cs:48`） |
 | `SetMoving` | `void SetMoving(bool isMoving, float playbackRate)` | 写 Animator `Moving`（bool）与 `Speed`（float，Walk 播放速率）（`ChibiPuppet.cs:57`） |
-| `SetTint` | `void SetTint(Color tint)` | 各分件颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs:70`） |
+| `SetTint` | `void SetTint(Color tint)` | `parts` 里各渲染器颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs:70`） |
 | `Animator` / `FaceLeft` / `IsMoving` | 只读属性 | 测试与调试读状态用 |
 
 前提：`Awake` 之后才能调（基底色与原始缩放在 `Awake` 里记下）。挂了 `ChibiPuppetMotion` 的小人，
@@ -43,7 +42,7 @@ maturity: stable
 
 - 角色根的位置由别人推（移动系统 / AI / 协程），小人不改位置。
 - 执行次序 100：推位置、翻纸片的脚本须在默认次序（0）或更早，本帧才读得到。
-- `facingSource` 模式下纸片应 `enabled = false` 但保留 sprite，让原翻转逻辑照常写 `flipX`。
+- `facingSource` 模式下纸片应 `enabled = false`（sprite 可为空），让原翻转逻辑照常写 `flipX`。
 - 组件禁用再启用会重置采样并强制待机。
 
 ## `Game.CharacterPuppet.ChibiPuppetMotionRules`（纯 C# 静态）
@@ -71,6 +70,6 @@ maturity: stable
 
 - **不要在别处写 Animator 参数 `Moving` / `Speed`**，也不要直接 `Animator.Play` 切状态：唯一写入口是 `ChibiPuppet.SetMoving`，驱动者只有 `ChibiPuppetMotion`，多处写会互相覆盖、闪烁。
 - **不要用 scaled 时间做小人动画**：Animator 必须保持 `UnscaledTime`，否则对话时停时画面定格。
-- 不要在运行时改 `ChibiPuppetConfig` 资产（两个预制体共用，改了全局生效且会写回磁盘）。
-- 不要直接改分件 `SpriteRenderer.color` 做染色，走 `SetTint`，否则基底色丢失。
-- 不要改预制体内节点名或层级：动画曲线按路径绑定，改名会静默失效。
+- 不要在运行时改 `ChibiPuppetConfig` 资产（所有小人预制体共用，改了全局生效且会写回磁盘）。
+- 不要直接改 `parts` 里 `SpriteRenderer.color` 做染色，走 `SetTint`，否则基底色丢失。
+- 不要改预制体内节点名或层级（序列帧小人的子物体 `Sprite`）：动画曲线按路径绑定，改名会静默失效。

@@ -27,7 +27,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Taming | 独立驯服原型；尚未接正式遭遇 | [`modules/taming/`](modules/taming/taming-module-guide.md) |
 | IsometricExploration | 三件套齐备；确定性潜行战斗接入等距纸片场景 | [`modules/isometricexploration/`](modules/isometricexploration/isometricexploration-module-guide.md) |
 | Dialogue | 三件套齐备；Unity 接线已完成，视觉验收待开发者跑 /verify-module | [`modules/dialogue/`](modules/dialogue/dialogue-module-guide.md) |
-| CharacterPuppet | 三件套齐备；拼接小人待机 / 走路表现，已替换 SampleScene 玩家与巡逻者纸片 | [`modules/characterpuppet/`](modules/characterpuppet/characterpuppet-module-guide.md) |
+| CharacterPuppet | 三件套齐备；序列帧小人待机 / 走路表现（编辑器工具生成），已替换 SampleScene 玩家、巡逻者与 NPC 纸片 | [`modules/characterpuppet/`](modules/characterpuppet/characterpuppet-module-guide.md) |
 | Quest | 三件套齐备；Unity 接线完成；策划侧有任务编辑器与编辑期校验（`Scripts/Editor/Quest/`）；回放 3 条 PASS，视觉验收由开发者持续跟进 | [`modules/quest/`](modules/quest/quest-module-guide.md) |
 | Narrative | 纯规则层（seed），未接 Unity；三件套已生成 | [`modules/narrative/`](modules/narrative/narrative-module-guide.md) |
 | Loot | 三件套齐备；物资箱拾取 / 奖励 / 背包分区，SampleScene 已接三只箱子，回放见波 4 | [`modules/loot/`](modules/loot/loot-module-guide.md) |

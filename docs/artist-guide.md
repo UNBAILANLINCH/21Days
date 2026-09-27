@@ -164,6 +164,11 @@
 | 单帧高度 | 建议画布高 **384 px**：场景里约 1.6 个单位，1080p 下显示高约 180 px；画得再大只是浪费包体 |
 | 视角 | 按 3.2 节（正面平视），全部状态同一视角；方舟占位是右前方 3/4 画法，只作占位，不作风格依据 |
 
+**不出 `run` 时的效果**：跑步会复用 walk 剪辑，播放速率顶到程序允许的上限 1.6 倍
+（速率 = 地速 5 ÷ walk 剪辑地速 3 ≈ 1.67，夹到 1.6），只是「走得快」——腿摆快一点，没有前倾、摆臂、步幅变化，不是真正的跑步姿态。
+方舟占位小人（amiya / chen / texas / exusiai / skadi）就在这个状态：源 Spine 模型没有跑步动画，渲不出 run 帧。
+程序侧已就绪，交一套 `run` 帧、重跑生成工具即可自动切换到真正的跑步动作。
+
 **可选 `meta.json`**（放在同一目录，没有就按默认值）：
 
 | 字段 | 含义 | 缺省 |
@@ -372,6 +377,7 @@ Window → Asset Management → **Addressables** → **Groups**，把你的预�
 
 选项左边的小图标同理：`Art/Sprites/Dialogue/ChoiceIcon_*.png`，登记地址 `Dialogue/ChoiceIcon_*`。
 NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，气泡底框是 `Bubble_Frame.png`，同目录，直接换图即可（不走 Addressables）。
+物资箱头顶标记是 `Art/Sprites/Loot/marker_crate.png`，同样直接换图（不走 Addressables）；三种头顶标记（NPC 可对话、任务目标、可拾取箱子）必须各用各的图，不共用。
 
 **对话相关预制体目前都是占位纯色**：
 

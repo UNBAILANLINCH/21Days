@@ -471,19 +471,5 @@ namespace Game.Tests.Showcase.Performance
 
             return button;
         }
-
-        private static T FindDeep<T>(Transform root, string objectName) where T : Component
-        {
-            T[] all = root.GetComponentsInChildren<T>(true);
-            for (int i = 0; i < all.Length; i++)
-            {
-                if (all[i].name == objectName)
-                {
-                    return all[i];
-                }
-            }
-
-            return null;
-        }
     }
 }

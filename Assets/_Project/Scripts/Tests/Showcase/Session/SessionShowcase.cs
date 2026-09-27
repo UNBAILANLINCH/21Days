@@ -6,8 +6,8 @@
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— ExplorationShowcase 覆盖的是探索 HUD / 箱子 / 碰撞，没有「退出再读回」这条链路，也不认识存档槽；
 //   扩展 —— 把存读档塞进它会让 Exploration 回放认识 Session 模块，职责说不通。
-// 骨架照抄 ExplorationShowcase：Boot 就绪等待、收尾先经流程退回标题再销毁根作用域、反射取服务、测试手柄推摇杆；
-//   对白推进照 DialogueShowcase 点 TapArea / 选项按钮。
+// 进场（标题「开始」）、中途回标题、收尾（退回标题 + 销毁根作用域）、摇杆走路、按 UI/Cancel 都走 ShowcaseScenario 的公共能力
+//   （EnterWorldFromTitle / BeginLeaveToTitle / ShutdownBootFlow / Walk / Input.Press）；对白推进照 DialogueShowcase 点 TapArea / 选项按钮。
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -17,6 +17,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using Game.Core.Flow;
+using Game.Core.Input;
 using Game.Core.Platform;
 using Game.Core.UI;
 using Game.Core.UI.Views;
@@ -29,8 +30,6 @@ using Game.Session;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
@@ -49,9 +48,6 @@ namespace Game.Tests.Showcase.Session
 
         /// <summary>选槽面板默认槽数；取不到 SessionConfig 时用它。</summary>
         private const int DefaultSlotCount = 3;
-
-        /// <summary>根作用域类型名：Boot 场景的 GameBootstrap 带 DontDestroyOnLoad，收尾时按名字找来销毁。</summary>
-        private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
 
         private const string UnavailableText = "不可用";
         private const string EmptyText = "新游戏";
@@ -76,8 +72,6 @@ namespace Game.Tests.Showcase.Session
         private DialogueService dialogue;
         private DialogueRules dialogueRules;
         private DialogueReadData readData;
-        private Gamepad testPad;
-        private Keyboard testKeyboard;
 
         private string saveRoot;
         private int slotCount = DefaultSlotCount;
@@ -130,66 +124,19 @@ namespace Game.Tests.Showcase.Session
         }
 
         /// <summary>
-        /// 先经流程退回标题（让遭遇状态自己卸载场景、释放 Addressables 句柄，同 ExplorationShowcase），
-        /// 再销毁根作用域。本方法先于基类收尾执行；槽文件本身在覆盖目录里，
-        /// 基类 <c>ShowcaseTearDown</c> 随后会连同整个覆盖目录一起删掉，这里不用再动它、也不碰真实存档目录。
+        /// 基类收尾（经流程退回标题 → 销毁根作用域）之后多等 0.5 秒：离场保存是 Forget 出去的异步写盘，
+        /// 免得它落在基类删除临时存档目录之后再落盘报错。槽文件都在覆盖目录里，随基类一起删，不碰真实存档目录。
         /// </summary>
-        [UnityTearDown]
-        public IEnumerator DestroyBootScope()
-        {
-            if (testPad != null)
-            {
-                InputSystem.RemoveDevice(testPad);
-                testPad = null;
-            }
-
-            if (testKeyboard != null)
-            {
-                InputSystem.RemoveDevice(testKeyboard);
-                testKeyboard = null;
-            }
-
-            IGameFlow currentFlow = ResolveService<IGameFlow>();
-            if (currentFlow != null && !(currentFlow.Current is TitleState))
-            {
-                bool left = false;
-                LeaveToTitleAsync(currentFlow, () => left = true).Forget();
-                float deadline = Time.realtimeSinceStartup + EnterTimeoutSeconds;
-                while (!left && Time.realtimeSinceStartup < deadline)
-                {
-                    yield return null;
-                }
-            }
-
-            Type scopeType = Type.GetType(ScopeTypeName);
-            if (scopeType != null)
-            {
-                UnityEngine.Object[] scopes = UnityEngine.Object.FindObjectsOfType(scopeType);
-                for (int i = 0; i < scopes.Length; i++)
-                {
-                    if (scopes[i] is Component component && component != null)
-                    {
-                        UnityEngine.Object.Destroy(component.gameObject);
-                    }
-                }
-            }
-
-            // 离场保存是 Forget 出去的异步写盘：多等一会儿，免得它落在基类删除覆盖目录之后再落盘报错。
-            yield return new WaitForSecondsRealtime(0.5f);
-            yield return null;
-        }
+        protected override float BootShutdownSettleSeconds => 0.5f;
 
         // ───────────────────────── 用例一：存 → 退 → 读一致（A3，顺带量 A8） ─────────────────────────
 
         [UnityTest]
         public IEnumerator SaveQuitContinue_RestoresSameProgress()
         {
-            yield return WaitUntil("流程进入标题状态", () => flow != null && flow.Current is TitleState, BootTimeoutSeconds);
-            yield return Step("点标题「开始」（三个槽都空：新游戏应落在槽 1）",
-                () => RequireTitleButton("StartButton").onClick.Invoke(), 0f);
+            yield return EnterWorldFromTitle(BootTimeoutSeconds, EnterTimeoutSeconds, "点标题「开始」（三个槽都空：新游戏应落在槽 1）");
             yield return WaitUntil("进入遭遇状态且会话用的是槽 1（标题关闭、物资箱已登记、遭遇逻辑在跑）",
                 () => InGameplay() && session.CurrentSlot == 1, EnterTimeoutSeconds);
-            yield return Step("等相机跟到玩家", null, 1f);
 
             // ① 对白：走到长者身边拉起对白，一路点过去直到结束（照 DialogueShowcase 的 TapArea / 选项推进）。
             DialogueInteractable elder = FindRequired<DialogueInteractable>("Npc_Elder");
@@ -228,8 +175,7 @@ namespace Game.Tests.Showcase.Session
             // ④ 移动：用遭遇输入（测试手柄左摇杆 → Gameplay/Move）把玩家推离开箱点。
             Vector2 beforeMove = playerModel.Position;
             yield return Step("摇杆向右推 1 秒，把玩家走到新位置", null, 0f);
-            yield return PushStick(Vector2.right, StickSeconds);
-            yield return WaitStable();
+            yield return Walk(Vector2.right, StickSeconds);
             EncounterSceneView sceneView = UnityEngine.Object.FindObjectOfType<EncounterSceneView>();
             Vector2 spawn = sceneView == null ? Vector2.zero : sceneView.PlayerStart;
             yield return Check("玩家走出了明显距离（离开箱点 > 1 m、离出生点 > 1 m）",
@@ -258,7 +204,7 @@ namespace Game.Tests.Showcase.Session
             yield return Step("记下期望快照，回到标题（触发离场保存）", () =>
             {
                 expected = Capture();
-                LeaveToTitleAsync(flow, () => leftToTitle = true).Forget();
+                BeginLeaveToTitle(flow, () => leftToTitle = true);
             }, 0f);
             yield return WaitUntil("回到标题界面", () => leftToTitle && flow.Current is TitleState && ui.Get<TitleView>() != null,
                 EnterTimeoutSeconds);
@@ -310,7 +256,7 @@ namespace Game.Tests.Showcase.Session
             yield return Snapshot("选槽面板·坏档不可用");
 
             yield return Step("按 Esc 关闭面板", null, 0f);
-            yield return PressEscape();
+            yield return Input.Press(UICancelAction());
             yield return Check("面板关闭，回到标题", () => SlotsView() == null && ui.Get<TitleView>() != null && flow.Current is TitleState, 3f);
             yield return Check("坏档文件原样留在磁盘上（只读候选不挪动、不覆盖）",
                 () => File.Exists(SlotPath(2)) && File.Exists(SlotPath(3)) && !File.Exists(SlotPath(1)));
@@ -342,35 +288,6 @@ namespace Game.Tests.Showcase.Session
                    && sessionState != null && sessionState.IsGameplayState
                    && ui != null && ui.Get<TitleView>() == null
                    && GameObject.Find("Crates") != null;
-        }
-
-        /// <summary>后台切回标题；异常只记 Warning（LogError 会被 UTF 当未预期错误），无论成败都回调 done。</summary>
-        private static async UniTaskVoid LeaveToTitleAsync(IGameFlow target, Action done)
-        {
-            try
-            {
-                await target.GoToAsync<TitleState>();
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"{ShowcaseOptions.Prefix}[Session] 切回标题失败：{e.GetType().Name}：{e.Message}");
-            }
-            finally
-            {
-                done();
-            }
-        }
-
-        private Button RequireTitleButton(string objectName)
-        {
-            TitleView title = ui == null ? null : ui.Get<TitleView>();
-            Button button = title == null ? null : FindDeep<Button>(title.transform, objectName);
-            if (button == null)
-            {
-                throw new InvalidOperationException($"标题界面没开，或找不到「{objectName}」");
-            }
-
-            return button;
         }
 
         // ───────────────────────── 保存计时（A8） ─────────────────────────
@@ -637,54 +554,11 @@ namespace Game.Tests.Showcase.Session
 
         // ───────────────────────── 输入驱动 ─────────────────────────
 
-        /// <summary>测试手柄持续推左摇杆驱动 Gameplay/Move，结束后回中（同 ExplorationShowcase.PushStick）。</summary>
-        private IEnumerator PushStick(Vector2 direction, float seconds)
+        /// <summary>UI 图上的 Cancel（Esc / 手柄 B，走 UICancelRouter → CloseTopAsync）；输入服务没就绪返回 null（Press 会告警跳过）。</summary>
+        private UnityEngine.InputSystem.InputAction UICancelAction()
         {
-            if (testPad == null)
-            {
-                testPad = InputSystem.AddDevice<Gamepad>("ShowcaseGamepad");
-            }
-
-            float deadline = Time.realtimeSinceStartup + seconds;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                InputSystem.QueueStateEvent(testPad, new GamepadState { leftStick = direction });
-                yield return null;
-            }
-
-            InputSystem.QueueStateEvent(testPad, new GamepadState());
-            yield return null;
-            yield return null;
-        }
-
-        /// <summary>松杆后等玩家停稳（连续几帧位置不变，最多 2 秒），免得快照拍在滑行途中。</summary>
-        private IEnumerator WaitStable()
-        {
-            Vector2 last = playerModel.Position;
-            int still = 0;
-            float deadline = Time.realtimeSinceStartup + 2f;
-            while (still < 5 && Time.realtimeSinceStartup < deadline)
-            {
-                yield return null;
-                Vector2 now = playerModel.Position;
-                still = (now - last).sqrMagnitude < 1e-8f ? still + 1 : 0;
-                last = now;
-            }
-        }
-
-        /// <summary>测试键盘按一下 Esc（UI/Cancel 绑的是 &lt;Keyboard&gt;/escape，走 UICancelRouter → CloseTopAsync）。</summary>
-        private IEnumerator PressEscape()
-        {
-            if (testKeyboard == null)
-            {
-                testKeyboard = InputSystem.AddDevice<Keyboard>("ShowcaseKeyboard");
-            }
-
-            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState(Key.Escape));
-            yield return null;
-            yield return null;
-            InputSystem.QueueStateEvent(testKeyboard, new KeyboardState());
-            yield return null;
+            IInputService service = ResolveService<IInputService>();
+            return service == null || service.Actions == null ? null : service.Actions.UI.Cancel;
         }
 
         // ───────────────────────── 选槽面板查询 ─────────────────────────
@@ -755,21 +629,6 @@ namespace Game.Tests.Showcase.Session
         private void WriteSlot(int slot, string content)
         {
             File.WriteAllText(SlotPath(slot), content, new UTF8Encoding(false));
-        }
-
-        /// <summary>在 root 下按物体名递归找组件（含未激活）；找不到返回 null。</summary>
-        private static T FindDeep<T>(Transform root, string objectName) where T : Component
-        {
-            T[] candidates = root.GetComponentsInChildren<T>(true);
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                if (candidates[i].name == objectName)
-                {
-                    return candidates[i];
-                }
-            }
-
-            return null;
         }
     }
 }

@@ -6,12 +6,11 @@
 //   复用 —— IsometricExplorationShowcase 不走 Boot、自己 new 规则对象，验不到容器接线与 HUD；QuestShowcase 用的是 Verify/Quest 场景，
 //           没有物资箱与探索 HUD。
 //   扩展 —— 塞进上面任一个都会让它们的职责说不通（一个是纸片场景适配，一个是任务模块）。
-// 骨架照抄 QuestShowcase：Boot 就绪等待、每条用例收尾销毁根作用域、反射取服务、HUD 物体按名字查找。
+// 进场（标题「开始」）、收尾（退回标题 + 销毁根作用域）、虚拟手柄推摇杆都走 ShowcaseScenario 的公共能力
+//   （EnterWorldFromTitle / ShutdownBootFlow / Input）；本文件只留探索特有的就绪条件、HUD 查询与走跑按钮（PulseRun）。
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
-using Game.Core.Flow;
 using Game.Core.Simulation;
 using Game.Core.UI;
 using Game.Core.UI.Views;
@@ -23,8 +22,6 @@ using Game.Quest;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
@@ -35,9 +32,6 @@ namespace Game.Tests.Showcase.Exploration
     {
         private const float BootTimeoutSeconds = 20f;
         private const float EnterTimeoutSeconds = 20f;
-
-        /// <summary>根作用域类型名：Boot 场景的 GameBootstrap 带 DontDestroyOnLoad，收尾时按名字找来销毁。</summary>
-        private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
 
         private const int MainQuestId = 1001;
         private const int CrateQuestId = 2002;
@@ -67,7 +61,6 @@ namespace Game.Tests.Showcase.Exploration
         private LootService loot;
         private SupplyCrateFocus focus;
         private QuestService quest;
-        private Gamepad testPad;
 
         protected override string Module => "Exploration";
 
@@ -89,46 +82,16 @@ namespace Game.Tests.Showcase.Exploration
                 BootTimeoutSeconds);
         }
 
-        /// <summary>每条用例都重新加载 Boot：不销毁上一条的根作用域会叠出多套容器 / UIRoot / EventSystem（同 QuestShowcase）。</summary>
+        /// <summary>
+        /// PulseRun 软件置的走跑位要清掉，不然会带进下一条用例。先于基类收尾执行；
+        /// 虚拟手柄、退回标题与销毁根作用域由基类 <c>ShowcaseTearDown</c> 统一处理。
+        /// </summary>
         [UnityTearDown]
-        public IEnumerator DestroyBootScope()
+        public IEnumerator ClearRunButton()
         {
             if (liveInput != null)
             {
                 liveInput.HeldButtons = 0u;
-            }
-
-            if (testPad != null)
-            {
-                InputSystem.RemoveDevice(testPad);
-                testPad = null;
-            }
-
-            // 先经流程退回标题，让遭遇状态自己卸载探索场景、释放 Addressables 场景句柄。
-            // 直接销毁根作用域会留下一个被强制释放的场景句柄，下一条用例再点「开始」时场景加载不出来（实测）。
-            IGameFlow flow = ResolveService<IGameFlow>();
-            if (flow != null && !(flow.Current is TitleState))
-            {
-                bool left = false;
-                LeaveToTitleAsync(flow, () => left = true).Forget();
-                float deadline = Time.realtimeSinceStartup + EnterTimeoutSeconds;
-                while (!left && Time.realtimeSinceStartup < deadline)
-                {
-                    yield return null;
-                }
-            }
-
-            Type scopeType = Type.GetType(ScopeTypeName);
-            if (scopeType != null)
-            {
-                UnityEngine.Object[] scopes = UnityEngine.Object.FindObjectsOfType(scopeType);
-                for (int i = 0; i < scopes.Length; i++)
-                {
-                    if (scopes[i] is Component component && component != null)
-                    {
-                        UnityEngine.Object.Destroy(component.gameObject);
-                    }
-                }
             }
 
             yield return null;
@@ -153,7 +116,7 @@ namespace Game.Tests.Showcase.Exploration
                 playerRules.Reset(spawn);
                 start = spawn;
             }, 0f);
-            yield return PushStick(Vector2.right, StickSeconds);
+            yield return Input.HoldStick(Vector2.right, StickSeconds);
             walked = Vector2.Distance(start, playerModel.Position);
             yield return Check($"散步有位移（{walked:0.00} m）", () => walked > 0.3f);
 
@@ -165,7 +128,7 @@ namespace Game.Tests.Showcase.Exploration
 
             float ran = 0f;
             yield return Step("同样向右推摇杆 0.6 秒（奔跑）", () => start = playerModel.Position, 0f);
-            yield return PushStick(Vector2.right, StickSeconds);
+            yield return Input.HoldStick(Vector2.right, StickSeconds);
             ran = Vector2.Distance(start, playerModel.Position);
             yield return Check($"奔跑位移（{ran:0.00} m）明显大于散步（{walked:0.00} m）", () => ran > walked * 1.3f);
 
@@ -398,24 +361,20 @@ namespace Game.Tests.Showcase.Exploration
         }
 
         /// <summary>
-        /// 同 <see cref="PushStick"/>，但每帧回调 <paramref name="onFrame"/> 采样，<paramref name="stopWhen"/> 为真时提前松手。
+        /// 同 <see cref="ShowcaseInputDriver.HoldStick"/>，但每帧回调 <paramref name="onFrame"/> 采样，
+        /// <paramref name="stopWhen"/> 为真时提前松手；松手后再采三帧。
         /// </summary>
         private IEnumerator PushStickSampling(Vector2 direction, float maxSeconds, Func<bool> stopWhen, Action onFrame)
         {
-            if (testPad == null)
-            {
-                testPad = InputSystem.AddDevice<Gamepad>("ShowcaseGamepad");
-            }
-
             float deadline = Time.realtimeSinceStartup + maxSeconds;
             while (Time.realtimeSinceStartup < deadline && (stopWhen == null || !stopWhen()))
             {
-                InputSystem.QueueStateEvent(testPad, new GamepadState { leftStick = direction });
+                Input.SetStick(direction);
                 yield return null;
                 onFrame?.Invoke();
             }
 
-            InputSystem.QueueStateEvent(testPad, new GamepadState());
+            Input.ReleaseStick();
             for (int i = 0; i < 3; i++)
             {
                 yield return null;
@@ -423,38 +382,17 @@ namespace Game.Tests.Showcase.Exploration
             }
         }
 
-        /// <summary>后台切回标题；异常只记 Warning（LogError 会被 UTF 当未预期错误），无论成败都回调 done。</summary>
-        private static async UniTaskVoid LeaveToTitleAsync(IGameFlow flow, Action done)
-        {
-            try
-            {
-                await flow.GoToAsync<TitleState>();
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"{ShowcaseOptions.Prefix}[Exploration] 收尾切回标题失败：{e.GetType().Name}：{e.Message}");
-            }
-            finally
-            {
-                done();
-            }
-        }
-
         // ───────────────────────── 进入与服务 ─────────────────────────
 
-        /// <summary>取服务 → 点标题「开始」→ 等探索场景与 HUD 就绪。</summary>
+        /// <summary>取服务 → 基类 EnterWorldFromTitle（点标题「开始」进世界）→ 等探索场景与 HUD 就绪。</summary>
         private IEnumerator EnterExploration()
         {
             Connect();
-            IGameFlow flow = ResolveService<IGameFlow>();
-            yield return WaitUntil("流程进入标题状态（标题面板已接上「开始」按钮）",
-                () => flow != null && flow.Current is TitleState, BootTimeoutSeconds);
-            yield return Step("点标题界面「开始」", () => RequireTitleStart(ui.Get<TitleView>()).onClick.Invoke(), 0f);
+            yield return EnterWorldFromTitle(BootTimeoutSeconds, EnterTimeoutSeconds);
             yield return WaitUntil("进入探索场景：标题关闭、物资箱登记、探索 HUD 已打开",
                 () => ui != null && ui.Get<TitleView>() == null && GameObject.Find("Crates") != null
                       && Hud() != null && focus != null,
                 EnterTimeoutSeconds);
-            yield return Step("等相机跟到玩家", null, 1f);
         }
 
         /// <summary>从根容器取本回放要用的服务；取不到留 null，由后续检查点记失败。</summary>
@@ -470,41 +408,7 @@ namespace Game.Tests.Showcase.Exploration
             quest = ResolveService<QuestService>();
         }
 
-        private static Button RequireTitleStart(TitleView title)
-        {
-            Button button = title == null ? null : FindDeep<Button>(title.transform, "StartButton");
-            if (button == null)
-            {
-                throw new InvalidOperationException("标题界面没开，或找不到「StartButton」");
-            }
-
-            return button;
-        }
-
         // ───────────────────────── 输入驱动 ─────────────────────────
-
-        /// <summary>
-        /// 用一只测试手柄持续推左摇杆驱动 Gameplay/Move（与屏上摇杆绑的是同一个 &lt;Gamepad&gt;/leftStick），
-        /// 结束后回中。每帧重新入队一次状态，防止被其它设备的回中事件覆盖。
-        /// </summary>
-        private IEnumerator PushStick(Vector2 direction, float seconds)
-        {
-            if (testPad == null)
-            {
-                testPad = InputSystem.AddDevice<Gamepad>("ShowcaseGamepad");
-            }
-
-            float deadline = Time.realtimeSinceStartup + seconds;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                InputSystem.QueueStateEvent(testPad, new GamepadState { leftStick = direction });
-                yield return null;
-            }
-
-            InputSystem.QueueStateEvent(testPad, new GamepadState());
-            yield return null;
-            yield return null;
-        }
 
         /// <summary>
         /// 走跑键按一下：软件按住位置 Run，保持到模拟采样到按下沿（IsRunning 翻转）或 0.5 秒，再清位。
@@ -770,21 +674,6 @@ namespace Game.Tests.Showcase.Exploration
             }
 
             return total;
-        }
-
-        /// <summary>在 root 下按物体名递归找组件（含未激活）；找不到返回 null。</summary>
-        private static T FindDeep<T>(Transform root, string objectName) where T : Component
-        {
-            T[] candidates = root.GetComponentsInChildren<T>(true);
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                if (candidates[i].name == objectName)
-                {
-                    return candidates[i];
-                }
-            }
-
-            return null;
         }
     }
 }

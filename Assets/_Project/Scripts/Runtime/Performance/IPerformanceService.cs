@@ -22,6 +22,12 @@ namespace Game.Performance
         UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default);
 
         /// <summary>
+        /// 同上，并指定摆放：世界模式（<see cref="PerformanceStageMode.World"/>）的演出实例化后摆到 <paramref name="placement"/> 的世界位姿；
+        /// 传 <see cref="PerformancePlacement.None"/> 等价于两参重载。叠加模式忽略摆放并埋一条告警。
+        /// </summary>
+        UniTask<PerformanceResult> PlayAsync(string id, PerformancePlacement placement, CancellationToken ct = default);
+
+        /// <summary>
         /// 代码确认继续：正在停顿（Holding）时等价于玩家按了确认（继续播放、收起 ▼），否则无事。
         /// 给回放 / 编辑器试播 / 将来触屏按钮用；在下一帧的播放循环里生效。
         /// </summary>

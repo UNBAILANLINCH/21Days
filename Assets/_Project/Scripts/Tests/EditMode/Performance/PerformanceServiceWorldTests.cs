@@ -1,0 +1,436 @@
+// 职责：钉住 PerformanceService 的世界模式与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
+//   结束（跳过 / 取消）后主相机与舞台相机原样恢复；世界模式按摆放值摆实例；叠加模式忽略摆放并告警；主相机缺失走退路并告警。
+// 为什么新建（复用 → 扩展 → 新建）：现有 Performance 测试都是纯逻辑类（规则 / 策略 / 存档 / 触发判定），没有服务级用例可扩展；
+//   DialogueServiceTests 的假服务是对白专用的私有嵌套类，拿不过来。服务要走真实的相机与舞台组件，只能新建。
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Game.Core.Assets;
+using Game.Core.Input;
+using Game.Core.Save;
+using Game.Core.Telemetry;
+using Game.Core.Timing;
+using Game.Core.UI;
+using Game.Performance;
+using MessagePipe;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Playables;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
+using UnityEngine.Timeline;
+using UnityEngine.UI;
+using Object = UnityEngine.Object;
+
+namespace Game.Tests.EditMode.Performance
+{
+    /// <summary>
+    /// <see cref="PerformanceService"/> 世界模式 / 摆放的 EditMode 测试。
+    /// <para>
+    /// 主相机经构造参数注入（不走 <c>Camera.main</c>），编辑器里打开的场景有没有主相机都不影响用例。
+    /// 假资源服务直接交出预先搭好的舞台物体、归还时只记录不销毁（TearDown 统一销毁），用来核对收尾后舞台相机也被改回。
+    /// 播放循环每帧 <c>await UniTask.Yield</c>，所以用 <c>[UnityTest]</c> 等编辑器帧推进，用 <see cref="PerformanceService.Skip"/> 或取消收尾。
+    /// </para>
+    /// </summary>
+    public sealed class PerformanceServiceWorldTests
+    {
+        private const string Id = "perf_world_test";
+        private const int MaxFrames = 600;
+        private const int MainMask = (1 << 0) | (1 << 2) | (1 << 4);
+        private const int AuthorStageMask = 1 << 3;
+
+        private readonly List<Object> created = new List<Object>();
+        private RecordingTelemetry telemetry;
+        private PerformanceConfig config;
+        private FakeAssets assets;
+        private PerformanceService service;
+        private Camera main;
+        private UniversalAdditionalCameraData mainData;
+        private PerformanceStage stage;
+        private Camera stageCamera;
+        private UniversalAdditionalCameraData stageData;
+        private Camera providedMain;
+
+        [SetUp]
+        public void SetUp()
+        {
+            telemetry = new RecordingTelemetry();
+            config = Track(ScriptableObject.CreateInstance<PerformanceConfig>());
+
+            var mainGo = Track(new GameObject("perf_test_main_camera"));
+            main = mainGo.AddComponent<Camera>();
+            main.depth = -1f;
+            main.cullingMask = MainMask;
+            main.clearFlags = CameraClearFlags.SolidColor;
+            main.backgroundColor = Color.red;
+            mainData = mainGo.GetComponent<UniversalAdditionalCameraData>();
+            if (mainData == null) mainData = mainGo.AddComponent<UniversalAdditionalCameraData>();
+            mainData.renderType = CameraRenderType.Base;
+            mainData.renderPostProcessing = true;
+            mainData.volumeLayerMask = 1 << 6;
+            providedMain = main;
+
+            BuildStage();
+            assets = new FakeAssets(stage.gameObject);
+            var view = BuildView();
+            service = new PerformanceService(config, new PerformanceRules(telemetry), assets, new FakeUI(view),
+                new FakeInput(), new FakeWorldPause(), new FakeSave(),
+                new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
+                telemetry, () => providedMain);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            for (int i = created.Count - 1; i >= 0; i--)
+            {
+                if (created[i] != null) Object.DestroyImmediate(created[i]);
+            }
+            created.Clear();
+            // 服务第一次播放时懒建的挂载根（EditMode 下不进 DontDestroyOnLoad，留在当前场景里），一并清掉。
+            GameObject serviceRoot = GameObject.Find("PerformanceRoot");
+            if (serviceRoot != null) Object.DestroyImmediate(serviceRoot);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_WorldMode_TakesOverWithBaseCameraAndRestoresAfterSkip()
+        {
+            SetMode(PerformanceStageMode.World);
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+
+            AssertRunning(play);
+            Assert.That(stageData.renderType, Is.EqualTo(CameraRenderType.Base), "世界模式舞台相机应为 Base");
+            Assert.That(stageCamera.depth, Is.EqualTo(main.depth + 1f), "深度 = 主相机 + 1");
+            Assert.That(stageCamera.cullingMask & MainMask, Is.EqualTo(MainMask), "舞台相机遮罩应包含主相机遮罩");
+            int performanceLayer = LayerMask.NameToLayer("Performance");
+            if (performanceLayer >= 0)
+                Assert.That(stageCamera.cullingMask & (1 << performanceLayer), Is.Not.EqualTo(0), "舞台相机遮罩应包含 Performance 层");
+            Assert.That(stageCamera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor), "清屏方式从主相机拷贝");
+            Assert.That(stageCamera.backgroundColor, Is.EqualTo(Color.red), "背景色从主相机拷贝");
+            Assert.That(stageData.renderPostProcessing, Is.True, "后处理开关从主相机拷贝");
+            Assert.That((int)stageData.volumeLayerMask, Is.EqualTo(1 << 6), "Volume 遮罩从主相机拷贝");
+            Assert.That(stageCamera.fieldOfView, Is.EqualTo(35f), "透视参数保留作者设的值");
+            Assert.That(main.cullingMask, Is.EqualTo(0), "演出中主相机遮罩应清零");
+            Assert.That(main.enabled, Is.True, "主相机必须保持 enabled，Camera.main 不能变空");
+            Assert.That(telemetry.Events, Has.Member("world_stage_attached"));
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Assert.That(Capture(play), Is.Null);
+
+            Assert.That(main.cullingMask, Is.EqualTo(MainMask), "跳过后主相机遮罩应恢复");
+            AssertStageCameraRestored();
+            Assert.That(assets.Released, Is.EqualTo(1), "实例应已归还");
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_WorldMode_RestoresMainCameraAfterCancel()
+        {
+            SetMode(PerformanceStageMode.World);
+            using var cts = new CancellationTokenSource();
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id, cts.Token);
+            AssertRunning(play);
+            Assert.That(main.cullingMask, Is.EqualTo(0));
+
+            cts.Cancel();
+            yield return WaitCompleted(play);
+
+            Assert.That(Capture(play), Is.InstanceOf<OperationCanceledException>());
+            Assert.That(main.cullingMask, Is.EqualTo(MainMask), "取消后主相机遮罩应恢复");
+            AssertStageCameraRestored();
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_WorldModeWithPlacement_MovesInstanceToPlacement()
+        {
+            SetMode(PerformanceStageMode.World);
+            var position = new Vector3(3f, 0.5f, -7f);
+            Quaternion rotation = Quaternion.Euler(0f, 45f, 0f);
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id, new PerformancePlacement(position, rotation));
+            AssertRunning(play);
+
+            Assert.That(Vector3.Distance(stage.transform.position, position), Is.LessThan(1e-4f));
+            Assert.That(Quaternion.Angle(stage.transform.rotation, rotation), Is.LessThan(0.01f));
+            Assert.That(telemetry.Warnings, Has.No.Member("placement_ignored"));
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_OverlayModeWithPlacement_IgnoresPlacementAndWarns()
+        {
+            var original = new Vector3(100f, 0f, 0f);
+            stage.transform.position = original;
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id, new PerformancePlacement(Vector3.zero, Quaternion.identity));
+            AssertRunning(play);
+
+            Assert.That(stage.transform.position, Is.EqualTo(original), "叠加模式不该挪实例");
+            Assert.That(telemetry.Warnings, Has.Member("placement_ignored"));
+            Assert.That(main.cullingMask, Is.EqualTo(MainMask), "叠加模式不动主相机遮罩");
+            Assert.That(telemetry.Events, Has.No.Member("world_stage_attached"));
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_WorldModeWithoutMainCamera_FallsBackAndWarns()
+        {
+            SetMode(PerformanceStageMode.World);
+            providedMain = null;
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+
+            Assert.That(telemetry.Warnings, Has.Member("world_camera_fallback"));
+            Assert.That(stageData.renderType, Is.EqualTo(CameraRenderType.Base));
+            Assert.That(stageCamera.cullingMask & AuthorStageMask, Is.EqualTo(AuthorStageMask), "退路保留作者设的遮罩");
+
+            service.Skip();
+            yield return WaitCompleted(play);
+            Capture(play);
+            AssertStageCameraRestored();
+        }
+
+        // 假服务同步完成，调用返回时应停在播放循环里；提前结束就把异常带进失败信息。
+        private void AssertRunning(UniTask<PerformanceResult> play)
+        {
+            if (play.Status.IsCompleted()) Assert.Fail("演出提前结束：" + Capture(play));
+            Assert.That(service.IsRunning, Is.True);
+        }
+
+        private void AssertStageCameraRestored()
+        {
+            Assert.That(stageCamera.cullingMask, Is.EqualTo(AuthorStageMask), "舞台相机遮罩应改回作者的值");
+            Assert.That(stageCamera.depth, Is.EqualTo(5f), "舞台相机深度应改回");
+            Assert.That(stageCamera.clearFlags, Is.EqualTo(CameraClearFlags.Depth), "舞台相机清屏方式应改回");
+            Assert.That(stageData.renderPostProcessing, Is.False, "舞台相机后处理开关应改回");
+        }
+
+        private void BuildStage()
+        {
+            var root = Track(new GameObject(Id));
+            var director = root.AddComponent<PlayableDirector>();
+            stage = root.AddComponent<PerformanceStage>();
+            var cameraGo = new GameObject("StageCamera");
+            cameraGo.transform.SetParent(root.transform, false);
+            stageCamera = cameraGo.AddComponent<Camera>();
+            stageCamera.orthographic = false;
+            stageCamera.fieldOfView = 35f;
+            stageCamera.depth = 5f;
+            stageCamera.cullingMask = AuthorStageMask;
+            stageCamera.clearFlags = CameraClearFlags.Depth;
+            stageData = cameraGo.GetComponent<UniversalAdditionalCameraData>();
+            if (stageData == null) stageData = cameraGo.AddComponent<UniversalAdditionalCameraData>();
+            stageData.renderType = CameraRenderType.Base;
+            stageData.renderPostProcessing = false;
+
+            var timeline = Track(ScriptableObject.CreateInstance<TimelineAsset>());
+            timeline.durationMode = TimelineAsset.DurationMode.FixedLength;
+            timeline.fixedDuration = 30d;
+            director.playableAsset = timeline;
+
+            using (var so = new SerializedObject(stage))
+            {
+                so.FindProperty("director").objectReferenceValue = director;
+                so.FindProperty("stageCamera").objectReferenceValue = stageCamera;
+                so.FindProperty("pauseWorld").boolValue = false;
+                so.FindProperty("hideHud").boolValue = false;
+                so.FindProperty("letterbox").boolValue = false;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        // 最小可用的演出面板：服务在播放循环里只调 SetSkipProgress / SetHoldPromptVisible，接上这两个字段即可（不走 OnOpenAsync）。
+        private PerformanceView BuildView()
+        {
+            var go = Track(new GameObject("perf_test_view", typeof(RectTransform)));
+            var view = go.AddComponent<PerformanceView>();
+            var fillGo = new GameObject("SkipFill", typeof(RectTransform));
+            fillGo.transform.SetParent(go.transform, false);
+            var fill = fillGo.AddComponent<Image>();
+            fill.type = Image.Type.Filled;
+            var holdGo = new GameObject("HoldPrompt", typeof(RectTransform));
+            holdGo.transform.SetParent(go.transform, false);
+            // 测试程序集不引用 TMP（本波不改 asmdef），按类型名加组件，经 SerializedObject 接线。
+            Component hold = holdGo.AddComponent(Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro", true));
+            using (var so = new SerializedObject(view))
+            {
+                so.FindProperty("skipFill").objectReferenceValue = fill;
+                so.FindProperty("holdPrompt").objectReferenceValue = hold;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            return view;
+        }
+
+        private void SetMode(PerformanceStageMode mode)
+        {
+            using (var so = new SerializedObject(stage))
+            {
+                so.FindProperty("mode").enumValueIndex = (int)mode;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private static IEnumerator WaitCompleted(UniTask<PerformanceResult> task)
+        {
+            for (int i = 0; i < MaxFrames && !task.Status.IsCompleted(); i++) yield return null;
+            Assert.That(task.Status.IsCompleted(), Is.True, $"{MaxFrames} 帧内演出没有收尾");
+        }
+
+        // 观察已完成的任务：返回它抛出的异常（成功返回 null），不留未观察异常（见 pitfalls）。
+        private static Exception Capture(UniTask<PerformanceResult> task)
+        {
+            try
+            {
+                task.GetAwaiter().GetResult();
+                return null;
+            }
+            catch (Exception e)
+            {
+                return e;
+            }
+        }
+
+        private T Track<T>(T obj) where T : Object
+        {
+            created.Add(obj);
+            return obj;
+        }
+
+        /// <summary>交出预先搭好的舞台；归还只计数不销毁（TearDown 统一销毁，以便核对收尾后的相机状态）。</summary>
+        private sealed class FakeAssets : IAssetService
+        {
+            private readonly GameObject instance;
+
+            public FakeAssets(GameObject instance)
+            {
+                this.instance = instance;
+            }
+
+            public int Released { get; private set; }
+
+            public UniTask<GameObject> InstantiateAsync(string key, Transform parent = null, CancellationToken ct = default) =>
+                UniTask.FromResult(instance);
+
+            public void ReleaseInstance(GameObject released) => Released++;
+
+            public UniTask<AssetHandle<T>> LoadAsync<T>(string key, CancellationToken ct = default) where T : Object =>
+                throw new NotSupportedException("假资源服务不加载");
+
+            public UniTask<IReadOnlyList<AssetHandle<T>>> LoadAllAsync<T>(string label, CancellationToken ct = default)
+                where T : Object => throw new NotSupportedException("假资源服务不加载");
+
+            public UniTask<SceneHandle> LoadSceneAsync(string key, LoadSceneMode mode, CancellationToken ct = default) =>
+                throw new NotSupportedException("假资源服务不加载场景");
+        }
+
+        /// <summary>打开面板直接交出预先搭好的面板；关闭空操作。</summary>
+        private sealed class FakeUI : IUIService
+        {
+            private readonly UIView view;
+
+            public FakeUI(UIView view)
+            {
+                this.view = view;
+            }
+
+            public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView =>
+                UniTask.FromResult((T)view);
+
+            public UniTask CloseAsync(UIView closed, CancellationToken ct = default) => UniTask.CompletedTask;
+            public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
+            public T Get<T>() where T : UIView => null;
+            public void SetLayerVisible(UILayer layer, bool visible) { }
+        }
+
+        /// <summary>未初始化的输入服务：Actions 为 null，服务跳过全部输入图操作。</summary>
+        private sealed class FakeInput : IInputService
+        {
+            public GameInput Actions => null;
+            public void EnableMap(string map) { }
+            public void DisableMap(string map) { }
+        }
+
+        private sealed class FakeWorldPause : IWorldPauseService
+        {
+            public bool IsPaused => false;
+            public IDisposable Acquire(object owner) => new Token();
+
+            private sealed class Token : IDisposable
+            {
+                public void Dispose() { }
+            }
+        }
+
+        /// <summary>只支持按类型取分区；其余存读操作本文件走不到。</summary>
+        private sealed class FakeSave : ISaveService
+        {
+            private readonly Dictionary<Type, object> parts = new Dictionary<Type, object>();
+
+            public T Get<T>() where T : class, ISaveData, new()
+            {
+                if (!parts.TryGetValue(typeof(T), out object part))
+                {
+                    part = new T();
+                    parts[typeof(T)] = part;
+                }
+                return (T)part;
+            }
+
+            public UniTask<bool> SaveAsync(int slot, CancellationToken ct = default) => throw new NotSupportedException();
+            public UniTask<bool> LoadAsync(int slot, CancellationToken ct = default) => throw new NotSupportedException();
+            public UniTask<SaveSnapshot> ReadCandidateAsync(int slot, CancellationToken ct = default) => throw new NotSupportedException();
+            public SaveSnapshot Capture() => throw new NotSupportedException();
+            public void Commit(SaveSnapshot snapshot) => throw new NotSupportedException();
+            public void ResetAll() => parts.Clear();
+            public UniTask<T> ReadProfileAsync<T>(string name, CancellationToken ct = default) where T : class, new() =>
+                throw new NotSupportedException();
+            public UniTask<T> ReadProfileAsync<T>(string name, Action<T> validate, CancellationToken ct = default)
+                where T : class, new() => throw new NotSupportedException();
+            public UniTask WriteProfileAsync<T>(string name, T data, CancellationToken ct = default) where T : class =>
+                throw new NotSupportedException();
+            public bool Exists(int slot) => false;
+            public void Delete(int slot) { }
+        }
+
+        private sealed class FakePublisher<T> : IPublisher<T>
+        {
+            public void Publish(T message) { }
+        }
+
+        /// <summary>只记事件名：I 级进 Events，W 级进 Warnings。</summary>
+        private sealed class RecordingTelemetry : ITelemetryScope
+        {
+            public List<string> Events { get; } = new List<string>();
+            public List<string> Warnings { get; } = new List<string>();
+            public string Module => "performance";
+            public bool Enabled => true;
+            public void Track(string evt) => Events.Add(evt);
+            public void Track(string evt, (string Key, PropValue Value) p0) => Events.Add(evt);
+            public void Track(string evt, (string Key, PropValue Value) p0, (string Key, PropValue Value) p1) => Events.Add(evt);
+
+            public void Track(string evt, (string Key, PropValue Value) p0, (string Key, PropValue Value) p1,
+                (string Key, PropValue Value) p2) => Events.Add(evt);
+
+            public void Track(string evt, (string Key, PropValue Value) p0, (string Key, PropValue Value) p1,
+                (string Key, PropValue Value) p2, (string Key, PropValue Value) p3) => Events.Add(evt);
+
+            public void TrackWarn(string evt, in TelemetryProps props = default) => Warnings.Add(evt);
+            public void TrackLevel(TelemetryLevel level, string evt, in TelemetryProps props = default) => Events.Add(evt);
+            public void TrackError(string evt, Exception error, in TelemetryProps props = default) => Events.Add(evt);
+            public void TrackError(string evt, string message, in TelemetryProps props = default) => Events.Add(evt);
+            public TelemetrySpan BeginSpan(string name) => default;
+        }
+    }
+}

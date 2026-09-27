@@ -1,5 +1,6 @@
 // 职责：字幕轨道的混合器——每帧找权重最大的字幕片段，变化时通知输出端显示 / 收起。
 // 为什么新建（复用 → 扩展 → 新建）：Timeline 的混合器与轨道一一对应，字幕轨道是新建的，混合器也只能新建。
+using UnityEngine;
 using UnityEngine.Playables;
 
 namespace Game.Performance.Timeline
@@ -50,7 +51,9 @@ namespace Game.Performance.Timeline
             }
             var input = (ScriptPlayable<SubtitleBehaviour>)playable.GetInput(best);
             SubtitleBehaviour data = input.GetBehaviour();
-            sink.ShowSubtitle(data.Speaker, data.Text);
+            // 只在片段变化的边沿查一次头像（名单很短，线性查找），不每帧查。
+            Stage.TryGetAvatar(data.Speaker, out Sprite avatar);
+            sink.ShowSubtitle(data.Speaker, data.Text, avatar);
         }
 
         public override void OnPlayableDestroy(Playable playable)

@@ -20,7 +20,7 @@ namespace Game.Performance
         /// <summary>本段演出的策略（决定是否显示跳过提示、是否上黑边）。</summary>
         public PerformancePolicy Policy { get; }
 
-        /// <summary>已格式化好的跳过提示（如「按住 Ctrl 跳过」）。</summary>
+        /// <summary>已格式化好的跳过键位提示（如「长按 Ctrl」）。</summary>
         public string SkipHint { get; }
 
         /// <summary>黑边目标高度（参考分辨率像素）。</summary>

@@ -15,8 +15,8 @@ MonoBehaviour:
   skipHoldSeconds: 1
   letterboxHeight: 90
   fadeSeconds: 0.25
-  holdPromptText: "\u25BC \u70B9\u51FB\u6216\u6309\u7A7A\u683C\u7EE7\u7EED"
-  skipHintFormat: "\u6309\u4F4F {0} \u8DF3\u8FC7"
+  holdPromptText: "\u25BC"
+  skipHintFormat: "\u957F\u6309 {0}"
   defaultPauseWorld: 1
   defaultHideHud: 1
   defaultLetterbox: 1

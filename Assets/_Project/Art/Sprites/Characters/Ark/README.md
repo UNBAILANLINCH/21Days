@@ -26,3 +26,11 @@
 **替换方式**：把同名目录里的图换成美术交的序列帧（命名与规范见 `docs/artist-guide.md`「角色序列帧交付规范」），
 然后菜单 **21Days → 角色 → 从序列帧生成小人…** 选该目录重跑生成工具。动画、控制器、预制体原地更新（GUID 不变），
 场景里的引用不用重接。换成正式美术后建议改到 `Characters/<名字>/` 并删掉本目录。
+
+## Avatars/ — 对白面板头像（同样仅开发期占位）
+
+- **来源**：开源仓库 [yuanyan3060/ArknightsGameResource](https://github.com/yuanyan3060/ArknightsGameResource) 的 `avatar/` 目录，
+  180×180 RGBA 原图直接入库，未做处理。版权同样归鹰角网络，**正式包体不得包含**（在本目录下，占位素材闸门一并覆盖）。
+- **文件**：`avatar_<名字>.png`，名字与上表子目录一致；`avatar_exusiai.png` 取自原仓库的 `char_103_angel.png`。
+- **导入**：Sprite / PPU 100 / Bilinear / 不生成 mipmap（UI 用，不进序列帧图集）；由演出舞台 `PerformanceStage` 的演员名单（cast）引用。
+- **替换方式**：同名覆盖即可（GUID 不变，演出里的引用不用重接）。

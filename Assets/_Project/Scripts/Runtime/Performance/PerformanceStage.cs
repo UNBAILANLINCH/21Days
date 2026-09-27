@@ -1,8 +1,10 @@
 // 职责：演出预制体的根组件（舞台）——持有 PlayableDirector 与舞台相机、给出本段演出的策略开关；
-//   播放 / 继续 / 停止时间轴，收到 HoldMarker 就暂停并通知，时间轴停下就通知结束；挂字幕输出端供字幕轨道找到面板。
+//   播放 / 继续 / 停止时间轴，收到 HoldMarker 就暂停并通知，时间轴停下就通知结束；挂字幕输出端供字幕轨道找到面板；
+//   声明舞台渲染模式（叠加 / 世界）与演员名单（说话者 → 头像）。
 // 为什么新建（复用 → 扩展 → 新建）：工程里没有「一段按时间轴编排的演出」的场景组件；PlayableDirector 本身不认识
 //   停顿标记、策略与字幕输出端，需要一个预制体根把它们装在一起（prp 2.2「一段演出 = 一个预制体」）。
 using System;
+using System.Collections.Generic;
 using Game.Core.Logging;
 using Game.Performance.Timeline;
 using UnityEngine;
@@ -13,7 +15,12 @@ namespace Game.Performance
     /// <summary>
     /// 演出舞台。**接线要求**：挂在演出预制体根上，且 <c>director</c> 必须是同一物体上的 PlayableDirector——
     /// 时间轴 Markers 区的 <see cref="HoldMarker"/> 通知发给 Director 所在物体，字幕轨道也从 Director 所在物体取舞台。
-    /// 舞台相机须为 URP Overlay、只渲染 Performance 层；服务播放时把它叠到主相机的 stack 上。
+    /// <para>
+    /// 舞台相机按 <see cref="Mode"/> 分两种：
+    /// <see cref="PerformanceStageMode.Overlay"/>（默认）须为 URP Overlay、正交、只渲染 Performance 层，服务播放时把它叠到主相机的 stack 上；
+    /// <see cref="PerformanceStageMode.World"/> 须为透视 Base 相机，服务播放时让它渲染主相机能看到的全部图层 + Performance 层并接管画面，
+    /// 预制体子物体就是站在世界里的演员（实例按 <see cref="PerformancePlacement"/> 摆到世界位姿上）。舞台相机不要打 MainCamera 标签。
+    /// </para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PerformanceStage : MonoBehaviour, INotificationReceiver
@@ -21,8 +28,14 @@ namespace Game.Performance
         [Tooltip("本段演出的 PlayableDirector；必须挂在本物体上（预制体根）。")]
         [SerializeField] private PlayableDirector director;
 
-        [Tooltip("舞台相机：URP Overlay、剔除遮罩只含 Performance 层、正交。")]
+        [Tooltip("舞台渲染模式。Overlay：叠加在游戏画面上的独立小舞台；World：演员站在世界里，舞台相机接管整个画面。")]
+        [SerializeField] private PerformanceStageMode mode = PerformanceStageMode.Overlay;
+
+        [Tooltip("舞台相机。Overlay 模式：URP Overlay、剔除遮罩只含 Performance 层、正交；World 模式：透视 Base 相机（剔除遮罩运行时从主相机拷贝）。")]
         [SerializeField] private Camera stageCamera;
+
+        [Tooltip("演员名单：字幕说话者显示名 → 对白面板头像。说话者须与字幕片段一字不差；重名只取第一条。")]
+        [SerializeField] private List<PerformanceCastEntry> cast = new List<PerformanceCastEntry>();
 
         [Tooltip("玩家能否长按跳过。")]
         [SerializeField] private bool skippable = true;
@@ -47,6 +60,10 @@ namespace Game.Performance
 
         public PlayableDirector Director => director;
         public Camera StageCamera => stageCamera;
+        public PerformanceStageMode Mode => mode;
+
+        /// <summary>演员名单（只读视图）；校验器与编辑器读它。</summary>
+        public IReadOnlyList<PerformanceCastEntry> Cast => cast;
         public bool Skippable => skippable;
         public bool PauseWorld => pauseWorld;
         public bool HideHud => hideHud;
@@ -62,6 +79,24 @@ namespace Game.Performance
         public void SetSubtitleSink(IPerformanceSubtitleSink sink)
         {
             SubtitleSink = sink;
+        }
+
+        /// <summary>
+        /// 按说话者显示名查头像：严格相等匹配，重名取第一条。说话者为空串（旁白）、名单里没有、或该条头像为空时返回 false。
+        /// </summary>
+        public bool TryGetAvatar(string speaker, out Sprite avatar)
+        {
+            avatar = null;
+            if (string.IsNullOrEmpty(speaker) || cast == null) return false;
+            for (int i = 0; i < cast.Count; i++)
+            {
+                PerformanceCastEntry entry = cast[i];
+                if (entry == null || !string.Equals(entry.Speaker, speaker, StringComparison.Ordinal)) continue;
+                avatar = entry.Avatar;
+                // Sprite 是 UnityEngine.Object，判空只用 != null。
+                return avatar != null;
+            }
+            return false;
         }
 
         /// <summary>用本舞台的开关 + 配置的长按秒数组装策略。</summary>

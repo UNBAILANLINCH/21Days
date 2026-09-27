@@ -21,11 +21,11 @@ namespace Game.Performance
         [Min(0f)]
         [SerializeField] private float fadeSeconds = 0.25f;
 
-        [Tooltip("时间轴停在「等待输入」标记上时显示的提示符。")]
-        [SerializeField] private string holdPromptText = "▼ 点击或按空格继续";
+        [Tooltip("时间轴停在「等待输入」标记上时显示的提示符（对白面板右下角）；操作说明小字在面板预制体的 HoldHint 里。")]
+        [SerializeField] private string holdPromptText = "▼";
 
-        [Tooltip("跳过提示的格式串，{0} 会替换成跳过键的键位名（取不到时替换成「跳过」）。")]
-        [SerializeField] private string skipHintFormat = "按住 {0} 跳过";
+        [Tooltip("跳过键位提示的格式串（显示在「跳过 ▶」下方的小字），{0} 会替换成跳过键的键位名（取不到时替换成「跳过」）。")]
+        [SerializeField] private string skipHintFormat = "长按 {0}";
 
         [Tooltip("新建演出时「暂停世界」开关的默认值（模板工厂用；每段演出以舞台上的开关为准）。")]
         [SerializeField] private bool defaultPauseWorld = true;

@@ -1,4 +1,4 @@
-// 职责：演出面板——上下黑边、字幕（说话者 + 正文）、停顿提示符、跳过提示与长按进度环、进场黑场淡出；
+// 职责：演出面板——上下黑边、对白面板（头像 + 说话者 + 正文）、停顿提示符、跳过提示与长按进度环、进场黑场淡出；
 //   实现字幕输出端供时间轴字幕轨道调用。只显示，不注入服务、不读输入、不持有播放进度，全部由 PerformanceService 调方法。
 // 为什么新建（复用 → 扩展 → 新建）：DialogueView 是对白主面板（Popup 层、带选项与控件），演出要的是 Panel 层全屏、
 //   Esc 关不掉、只有一块全屏透明点击区（停顿时点击继续）的覆盖层；塞进 DialogueView 会让 Performance 依赖 Dialogue（方向禁止）。
@@ -24,6 +24,11 @@ namespace Game.Performance
     /// <c>fade</c> 是全屏黑色 Image（不挡射线）；<c>skipFill</c> 的 Image Type 须为 Filled；
     /// <c>tapArea</c> 是全屏透明 Button，放在层级最后（最上层），其余 Graphic 一律关 raycastTarget。
     /// </para>
+    /// <para>
+    /// 可选字段（不接也能用，旧预制体兼容）：<c>avatar</c> + <c>avatarFrame</c> 是对白面板左侧头像组，无头像时整组隐藏；
+    /// <c>skipHint</c> 接了时键位提示（「长按 Ctrl」）写进它、<c>skipLabel</c> 保留预制体里的固定文案（「跳过 ▶」），
+    /// 没接时键位提示仍写进 <c>skipLabel</c>。样式（颜色 / 字号 / 位置）全在预制体里，代码只填文字与显隐。
+    /// </para>
     /// </summary>
     public sealed class PerformanceView : UIView, IPerformanceSubtitleSink
     {
@@ -39,6 +44,12 @@ namespace Game.Performance
         [Tooltip("字幕根节点；没有字幕时隐藏。")]
         [SerializeField] private GameObject subtitleRoot;
 
+        [Tooltip("头像（Image，preserveAspect）；可空。无头像时与头像底框一起隐藏。")]
+        [SerializeField] private Image avatar;
+
+        [Tooltip("头像底框（垫在头像下面的白框物体）；可空。与头像一起显隐。")]
+        [SerializeField] private GameObject avatarFrame;
+
         [Tooltip("说话者名字；旁白（空名字）时隐藏。")]
         [SerializeField] private TMP_Text speaker;
 
@@ -51,8 +62,11 @@ namespace Game.Performance
         [Tooltip("跳过提示根节点；不可跳过的演出整个隐藏。")]
         [SerializeField] private GameObject skipRoot;
 
-        [Tooltip("跳过提示文字（「按住 X 跳过」）。")]
+        [Tooltip("跳过标签。接了 skipHint 时保留预制体里的固定文案（「跳过 ▶」）；没接时写入键位提示（旧行为）。")]
         [SerializeField] private TMP_Text skipLabel;
+
+        [Tooltip("跳过键位小字（「长按 Ctrl」）；可空。")]
+        [SerializeField] private TMP_Text skipHint;
 
         [Tooltip("长按进度环（Image Type = Filled）；进度为 0 时隐藏。")]
         [SerializeField] private Image skipFill;
@@ -93,7 +107,9 @@ namespace Game.Performance
             holdPrompt.text = args.HoldPrompt;
             holdPrompt.gameObject.SetActive(false);
             skipRoot.SetActive(args.Policy.Skippable);
-            skipLabel.text = args.SkipHint;
+            // TMP_Text 是 UnityEngine.Object，判空只用 != null。
+            if (skipHint != null) skipHint.text = args.SkipHint;
+            else skipLabel.text = args.SkipHint;
             shownSkipProgress = -1f;
             SetSkipProgress(0f);
 
@@ -158,13 +174,14 @@ namespace Game.Performance
             if (tapArea != null) tapArea.onClick.RemoveListener(HandleTap);
         }
 
-        /// <summary>显示一句字幕；说话者为空时隐藏名字栏（旁白）。</summary>
-        public void ShowSubtitle(string speakerName, string text)
+        /// <summary>显示一句字幕；说话者为空时隐藏名字栏（旁白），头像为 null 时隐藏头像组。</summary>
+        public void ShowSubtitle(string speakerName, string text, Sprite avatarSprite)
         {
             bool hasSpeaker = !string.IsNullOrEmpty(speakerName);
             speaker.gameObject.SetActive(hasSpeaker);
             speaker.text = hasSpeaker ? speakerName : string.Empty;
             body.text = text ?? string.Empty;
+            SetAvatar(avatarSprite);
             subtitleRoot.SetActive(true);
         }
 
@@ -175,6 +192,19 @@ namespace Game.Performance
             subtitleRoot.SetActive(false);
             if (speaker != null) speaker.text = string.Empty;
             if (body != null) body.text = string.Empty;
+            SetAvatar(null);
+        }
+
+        // 头像组显隐：有图才显示头像与底框；字段没接（旧预制体）时什么都不做。
+        private void SetAvatar(Sprite sprite)
+        {
+            bool visible = sprite != null && avatar != null;
+            if (avatar != null)
+            {
+                avatar.sprite = sprite;
+                if (avatar.gameObject.activeSelf != visible) avatar.gameObject.SetActive(visible);
+            }
+            if (avatarFrame != null && avatarFrame.activeSelf != visible) avatarFrame.SetActive(visible);
         }
 
         /// <summary>设置长按跳过进度（0–1）；0 时隐藏进度环。值没变不重写。</summary>

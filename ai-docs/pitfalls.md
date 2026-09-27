@@ -54,6 +54,18 @@
 - 正确做法：钩子脚本里**显式指定 UTF-8**——读 stdin 用 `sys.stdin.buffer.read().decode("utf-8")` 而不是 `input()` / `sys.stdin.read()`；输出前 `sys.stdout.reconfigure(encoding="utf-8")`、`sys.stderr.reconfigure(encoding="utf-8")`；读写文件一律带 `encoding="utf-8"`。另外 JSON 里的 Windows 路径含反斜杠，解析出来后 `replace("\\", "/")` 归一化再做匹配。
 - 关联：`.claude/hooks/README.md`、`.gitattributes`（行尾统一 LF）。
 
+## Showcase 真实按键用例红：Game 视图没焦点，键盘事件被丢
+- 现象：Taming / Disguise 这类用真实 Input System 按键（而非 Simulate）的回放用例第一轮跑红，检查点显示按键没生效；同样的回放重跑一次、或手动在编辑器里按同一个键却是好的。
+- 根因：Unity 编辑器只把键盘事件路由给当前有焦点的窗口。跑测试时 Game 视图未必在前台，Input System 的事件队列直接丢弃了这些按键，与场景、代码逻辑无关。
+- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。
+- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #FocusGameView`。日期：2026-09-28。
+
+## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
+- 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
+- 根因：Showcase 从独立验证场景迁到 `Assets/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
+- 正确做法：回放先用 `StandNextTo` / `Approach` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体（如 `QuestLocation_Camp` / `QuestLocation_Lookout`）读 transform，不写死数字。
+- 关联：`.claude/rules/module-verify.md`、`docs/module-dev-spec.md`。日期：2026-09-28。
+
 ## MCP for Unity 两侧传输方式不一致，服务端永远报 0 个实例
 - 现象：`/mcp` 里 `UnityMCP` 是 connected，读 `mcpforunity://instances` 却返回 `instance_count: 0`；任何工具调用都报 `No Unity Editor instances found`。而 Unity 的 `Window → MCP for Unity` 窗口里明明显示绿灯 `Session Active (project1)`。
 - 根因：Unity 侧窗口的 `Transport` 被设成了 `HTTPLocal`（它自己在 127.0.0.1:8080 起了个本地服务），而本工程 `.mcp.json` 用的是 `--transport stdio`。stdio 模式的服务端靠 Unity 桥接写在 `~/.unity-mcp/unity-mcp-status-<hash>.json` 的状态文件发现实例；HTTP 模式的桥接不写这个文件，所以两边各自「运行中」却互相看不见。首次装包、或有人点过窗口里的 `Configure All Detected Clients`，都可能把传输方式改掉。
@@ -400,3 +412,21 @@
 - 根因：箱子 `Marker` 直接借了对白模块的 `Art/Sprites/Dialogue/Marker_Focus.png`（白「!」气泡）并染黄 (1, 0.85, 0.3)，恰好与 `Prefabs/World/QuestTargetMarker.prefab` 的图和颜色完全相同；各模块各自「顺手借图」时没人看全局。
 - 正确做法：新模块的头顶标记用自己目录下的专属图（如 `Art/Sprites/Loot/marker_crate.png`），**形状与颜色都要区分**，不靠同一张图换染色；加新标记前把现有三种（NPC 可对话、任务目标、可拾取箱子）放一起比一眼。
 - 关联：`docs/artist-guide.md` 6.8 节、`ai-docs/docs/modules/loot/loot-module-guide.md #接线要求`；2026-09-28。
+
+## 正式场景引用了测试程序集脚本
+- 现象：`Assets/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
+- 根因：asmdef 依赖方向只在代码层有 `invariants.py` 拦（Runtime 不引用 Tests），资产层（场景 / 预制体挂了哪个脚本）没人查；回放用的临时控制器顺手挂进了正式场景。
+- 正确做法：正式场景、预制体只挂 `Scripts/Core/`、`Scripts/Runtime/` 下的脚本；回放需要的控制器由 Showcase 运行时 `AddComponent` / 实例化并 `Track()`。`invariants.py` 新增「正式场景 / 预制体不引用测试程序集脚本」检查，`/gc` 会报。
+- 关联：`.claude/rules/project-root.md #目录与 asmdef 依赖方向`、`.claude/skills/evolution/invariants.py`；2026-09-28。
+
+## InitTestScene 残留堆积
+- 现象：Project 窗口 `Assets/` 根下出现一排 `InitTestScene6392…unity`，2026-09-28 一次清掉 41 个。
+- 根因：Unity Test Framework 跑 PlayMode 测试时在 `Assets/` 根建临时启动场景，正常结束会自删；手动停 Play、跑测试时触发重编译、进程被杀、多会话共用编辑器互相打断，都会残留。`.gitignore` 已忽略，所以 git 看不见，只在编辑器里堆。
+- 正确做法：编辑器不在 Play 时直接 `rm Assets/InitTestScene*.unity Assets/InitTestScene*.unity.meta`，零风险；`invariants.py` 新增残留检查，`/gc` 会报数量。少残留的办法：PlayMode 测试跑的时候别停 Play、别改代码触发编译。
+- 关联：`.gitignore` 里 InitTestScene 注释、`.claude/skills/evolution/invariants.py`；2026-09-28。
+
+## 共用一台编辑器的并发会话互相干扰
+- 现象：一个会话在跑对白回放、开着 MonsterEncounter 场景；另一个会话的 agent 为了改 SampleScene 把当前场景切走、又把回放节奏（EditorPrefs，全局）切成「快速」，对方的回放节奏和打开的场景都变了。
+- 根因：Unity 编辑器状态（当前场景、EditorPrefs、Play 状态、选中物体）是单例全局的，MCP 谁都能改，没有隔离；agent 只顾自己的任务，不知道别人在用。
+- 正确做法：用 MCP 改场景前先 `manage_scene get_hierarchy` / 读 `mcpforunity://editor/state` 记下当前打开的场景，改完存盘后切回去；改 EditorPrefs 这类全局设置（回放节奏）先读旧值，跑完还原；派单 prompt 里明确写「共用编辑器，跑完还原场景与节奏」。看到别人的场景在 Play 就等，不抢。
+- 关联：`.claude/skills/unity-mcp/SKILL.md #改场景 / 预制体的纪律`、`.claude/skills/verify-module/SKILL.md`、记忆 `shared-worktree-commit-discipline`；2026-09-28。

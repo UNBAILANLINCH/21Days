@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: QuestConfig
   m_EditorClassIdentifier: 
   edgeMargin: 72
-  hoverOffset: 80
   distanceRefreshInterval: 0.2
   markerLift: 0.3
   locationMarkerHeight: 1.5

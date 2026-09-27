@@ -27,7 +27,7 @@ namespace Game.Quest
     {
         private const string TelemetryModule = "quest";
 
-        [Tooltip("任务表现参数（指引边缘留白、悬浮偏移、距离刷新间隔、HUD / 面板固定文案）。拖 Data/Quest/QuestConfig.asset。")]
+        [Tooltip("任务表现参数（贴边留白、距离刷新间隔、标记高度、标记预制体地址、HUD / 面板固定文案、接取与完成通知文案）。拖 Data/Quest/QuestConfig.asset。")]
         [SerializeField] private QuestConfig config;
 
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)

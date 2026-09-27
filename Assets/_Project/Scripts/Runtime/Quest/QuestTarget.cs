@@ -20,7 +20,8 @@ namespace Game.Quest
         /// <summary>测距用：NPC 根物体位置（脚底）或地点位置。</summary>
         public Vector3 Position { get; }
 
-        /// <summary>头顶标记与屏幕投影用：NPC 碰撞体顶部再抬高一点，或地点上方固定高度。</summary>
+        /// <summary>头顶标记与屏幕投影用：三级锚点降级——① NPC 根上 <see cref="Game.Dialogue.DialogueInteractableMarker"/> 的对话图标锚点；
+        /// ② 根碰撞体顶部 + MarkerLift；③ 位置上方固定高度 LocationMarkerHeight（地点目标直接用这一级）。</summary>
         public Vector3 Anchor { get; }
 
         /// <summary>TalkTo 目标对应的 NPC 交互组件，任务标记摆到其头顶时接管它的「…/!」图标；地点目标为 null。</summary>

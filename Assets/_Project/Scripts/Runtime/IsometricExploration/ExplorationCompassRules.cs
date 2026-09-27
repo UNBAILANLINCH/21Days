@@ -2,7 +2,7 @@
 //   同边多个标记按最小间距错开，避免文字互相压住（PRP/exploration-whitebox 波 8）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用：贴边与翻转算法直接复用 QuestGuidanceMath.Solve，不重写。
-//   2. 扩展不行：QuestGuidanceMath 属于 Quest 模块，「屏内不画」是万向标的规则（任务指引屏内要画悬浮标记），
+//   2. 扩展不行：QuestGuidanceMath 属于 Quest 模块，「屏内不画」是万向标的规则（任务指引屏内要画头顶标记），
 //      塞进去会让任务模块认识探索 HUD。这里只包一层判定，EditMode 可测。
 using System;
 using System.Collections.Generic;
@@ -58,7 +58,7 @@ namespace Game.IsometricExploration
             Vector3 point = viewportPoint.z == 0f
                 ? new Vector3(viewportPoint.x, viewportPoint.y, -1f)
                 : viewportPoint;
-            QuestGuidance guidance = QuestGuidanceMath.Solve(point, canvasSize, edgeMargin, 0f);
+            QuestGuidance guidance = QuestGuidanceMath.Solve(point, canvasSize, edgeMargin);
             anchoredPosition = guidance.AnchoredPosition;
             angleDeg = guidance.ArrowAngleDeg;
             return true;

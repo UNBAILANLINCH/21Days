@@ -178,7 +178,7 @@ namespace Game.Quest
             SetOverridden(marker != null ? target.Interactable : null);
 
             Vector3 viewport = camera.WorldToViewportPoint(target.Anchor);
-            QuestGuidance guidance = QuestGuidanceMath.Solve(viewport, hud.CanvasSize, config.EdgeMargin, config.HoverOffset);
+            QuestGuidance guidance = QuestGuidanceMath.Solve(viewport, hud.CanvasSize, config.EdgeMargin);
             if (guidance.OnScreen)
             {
                 // 画面内由头顶标记提示，HUD 不画标识；下次出画面时立刻重算距离。

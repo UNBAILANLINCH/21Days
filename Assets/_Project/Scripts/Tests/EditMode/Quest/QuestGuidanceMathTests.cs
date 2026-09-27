@@ -1,5 +1,5 @@
-// 职责：QuestGuidanceMath 纯函数的 EditMode 回归测试（屏内悬浮 / 屏外贴边 + 箭头、直线距离取整）。
-// 为什么新建：框架里没有「世界目标 → 屏幕指示（屏内悬浮 / 屏外贴边 + 箭头）」的现成组件，任务系统首次落地（PRP/quest-system 3.8）。
+// 职责：QuestGuidanceMath 纯函数的 EditMode 回归测试（屏内投影点 / 屏外贴边 + 箭头、直线距离取整）。
+// 为什么新建：框架里没有「世界目标 → 屏幕指示（屏内投影点 / 屏外贴边 + 箭头）」的现成组件，任务系统首次落地（PRP/quest-system 3.8）。
 using Game.Quest;
 using NUnit.Framework;
 using UnityEngine;
@@ -11,19 +11,18 @@ namespace Game.Tests.EditMode.Quest
         private const float CanvasWidth = 1920f;
         private const float CanvasHeight = 1080f;
         private const float EdgeMargin = 48f;
-        private const float HoverOffset = 80f;
 
         private static readonly Vector2 CanvasSize = new Vector2(CanvasWidth, CanvasHeight);
 
         [Test]
-        public void Solve_CenterOnScreen_HoversAboveTarget()
+        public void Solve_CenterOnScreen_ReturnsProjectedPoint()
         {
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(0.5f, 0.5f, 10f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(0.5f, 0.5f, 10f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.OnScreen, Is.True);
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(0f).Within(0.5f));
-            Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(80f).Within(0.5f));
+            Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(0f).Within(0.5f));
             Assert.That(guidance.ShowArrow, Is.False);
         }
 
@@ -31,18 +30,18 @@ namespace Game.Tests.EditMode.Quest
         public void Solve_TopLeftCorner_IsStillOnScreen()
         {
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(0f, 1f, 5f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(0f, 1f, 5f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.OnScreen, Is.True);
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(-960f).Within(0.5f));
-            Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(620f).Within(0.5f));
+            Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(540f).Within(0.5f));
         }
 
         [Test]
         public void Solve_OffScreenRight_ClampsToRightEdge()
         {
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(1.5f, 0.5f, 5f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(1.5f, 0.5f, 5f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.OnScreen, Is.False);
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(912f).Within(0.5f));
@@ -55,7 +54,7 @@ namespace Game.Tests.EditMode.Quest
         public void Solve_OffScreenTop_ClampsToTopEdgeArrowUp()
         {
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(0.5f, 2f, 5f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(0.5f, 2f, 5f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(0f).Within(0.5f));
             Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(492f).Within(0.5f));
@@ -72,7 +71,7 @@ namespace Game.Tests.EditMode.Quest
             // 是按公式 dir.x = (x - 0.5) * (w/2) 算的（x 分量少乘了一半的画布宽度）；
             // 本实现严格按任务书写明的公式 dir = ((x - 0.5) * w, (y - 0.5) * h) 计算，用上面的修正值断言。
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(-1f, -1f, 5f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(-1f, -1f, 5f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.OnScreen, Is.False);
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(-874.67f).Within(0.5f));
@@ -88,7 +87,7 @@ namespace Game.Tests.EditMode.Quest
             // dir = (0.25 * 1920, 0.25 * 1080) = (480, 270)；t = min(912/480, 492/270) ≈ 1.822。
             // 位置 = dir * t ≈ (874.7, 492)。
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(0.25f, 0.25f, -3f), CanvasSize, EdgeMargin, HoverOffset);
+                new Vector3(0.25f, 0.25f, -3f), CanvasSize, EdgeMargin);
 
             Assert.That(guidance.OnScreen, Is.False);
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(874.67f).Within(0.5f));
@@ -100,7 +99,7 @@ namespace Game.Tests.EditMode.Quest
         public void Solve_ZeroMargin_ClampsToCanvasEdge()
         {
             QuestGuidance guidance = QuestGuidanceMath.Solve(
-                new Vector3(1.5f, 0.5f, 5f), CanvasSize, 0f, HoverOffset);
+                new Vector3(1.5f, 0.5f, 5f), CanvasSize, 0f);
 
             Assert.That(guidance.AnchoredPosition.x, Is.EqualTo(960f).Within(0.5f));
             Assert.That(guidance.AnchoredPosition.y, Is.EqualTo(0f).Within(0.5f));

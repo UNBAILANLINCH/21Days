@@ -1,4 +1,4 @@
-// 职责：任务系统的表现参数（屏幕边缘指引留白、悬浮偏移、距离刷新间隔、头顶标记高度与预制体地址、HUD 与面板的固定文案、接取 / 完成通知文案）。
+// 职责：任务系统的表现参数（屏幕边缘指引留白、距离刷新间隔、头顶标记高度与预制体地址、HUD 与面板的固定文案、接取 / 完成通知文案）。
 // 为什么新建：任务系统首次落地（PRP/quest-system）；DialogueConfig / UIConfig 管的是对白与通用 UI，职责不同不能塞。
 using UnityEngine;
 
@@ -11,13 +11,10 @@ namespace Game.Quest
                  "否则箭头转到朝外一侧时被屏幕边裁掉；距离文本总在箭头对面（朝屏内），不参与这个下限。")]
         [SerializeField, Min(0)] private float edgeMargin = 72f;
 
-        [Tooltip("目标在屏幕内时，指引标记相对目标屏幕点向上的偏移（参考分辨率像素）。")]
-        [SerializeField] private float hoverOffset = 80f;
-
         [Tooltip("指引上距离数字的刷新间隔（秒），避免每帧改文本。")]
         [SerializeField, Min(0.02f)] private float distanceRefreshInterval = 0.2f;
 
-        [Tooltip("NPC 目标的头顶标记在其碰撞体顶部之上再抬高多少（米）。")]
+        [Tooltip("NPC 目标的头顶标记在其碰撞体顶部之上再抬高多少（米）；只在 NPC 没有对话图标锚点时作为降级使用。")]
         [SerializeField, Min(0)] private float markerLift = 0.3f;
 
         [Tooltip("地点目标（或没有碰撞体的 NPC）的头顶标记离地高度（米）。")]
@@ -42,7 +39,6 @@ namespace Game.Quest
         [SerializeField] private string completedNotificationFormat = "任务完成：{0}";
 
         public float EdgeMargin => edgeMargin;
-        public float HoverOffset => hoverOffset;
         public float DistanceRefreshInterval => distanceRefreshInterval;
         public float MarkerLift => markerLift;
         public float LocationMarkerHeight => locationMarkerHeight;

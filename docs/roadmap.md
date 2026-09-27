@@ -279,7 +279,7 @@ H0（前置，已完成 2026-09-26）：`GameInput.inputactions` 一次性加齐
 
 | 波 | 目标 | 任务 | 只能人做的 | 进度 |
 | --- | --- | --- | --- | --- |
-| **W0 收尾与修正** | 把已完成的两个模块真正交付，清掉已知小问题 | 复跑协作者两条失败测试并处理（2.5 第 4 条）；C4 Narrative 文档登记；E7 Sample 去留；replay / quest tasks.md 补记；SampleScene 命名残留清理；任务面板透底定位 | `/verify-module Dialogue` 与 `/verify-module Quest` 视觉验收点头；字体资产 Clear Dynamic Data；删除另一会话留下的 ToastView 三件（权限拒绝了自动删除） | 机器可做项已完成（2026-09-26），余下只能人做 |
+| **W0 收尾与修正** | 把已完成的两个模块真正交付，清掉已知小问题 | 复跑协作者两条失败测试并处理（2.5 第 4 条）；C4 Narrative 文档登记；E7 Sample 去留；replay / quest tasks.md 补记；SampleScene 命名残留清理；任务面板透底定位 | `/verify-module Dialogue` 与 `/verify-module Quest` 视觉验收点头；字体资产 Clear Dynamic Data；ToastView 已删（2026-09-28），由 `NotificationView` 承接 | 机器可做项已完成（2026-09-26），余下只能人做 |
 | **W1 探索层闭环** | 对着「旅行小记」把探索层补齐：走跑、沉浸、交互、拾取、通知 | A1、A2、A5、B2、D4、D5 各自独立派单；A3 + B1 合为一个 PRP「interaction-inventory」 | 策划先定 B1「奖励是信息还是物品」；有人看第二个视频回填 1.3 表 | 进行中：A1 / A2 / B2 / D4 / D5 已完成待视觉验收；A5 延后到移动端移植；A3 / B1（Runtime/Loot）由 21days-46 会话接手 |
 | **W2 叙事与存档** | 对话说了什么能改世界，进度能存能读能继续 | 修订 `PRP/narrative-dialogue/prp.md` 后执行 C1、C2、C3、B3；E1 单独 PRP「game-session」 | 策划给第一章剧情阶段表的样例内容 | E1（`PRP/save-session/`）白盒完成（2026-09-26）待视觉验收，回放见 T6；C1/C2/C3/B3 待做 |
 | **W3 系统 UI 与演出** | 有一个像游戏的外壳，对话像参考那样动起来 | E2、E3、E4、E5、B4；D1、D2；D3 单独 PRP | 美术给对话框 / 立绘 / 插图规格 | E2 部分完成（标题页转正式），其余待做；D3 已由演出管线 PRP 落地（待验收） |

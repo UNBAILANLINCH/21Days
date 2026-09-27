@@ -22,7 +22,7 @@ maturity: seed
 中途状态（`DialogueSaveData` / `NarrativeSaveData` 本期不进槽）。
 
 **谁负责**：各分区所有者自己 `Capture` / `Restore` 自己的数据，Session 只在稳定点统一喊「存」，不知道分区内部
-字段；读档后各所有者自己订阅 [`SessionStartedEvent`](SessionStartedEvent.cs) 重载运行时状态，Session 不枚举模块。
+字段；读档后各所有者自己订阅 [`SessionStartedEvent`](../../../../Assets/_Project/Scripts/Runtime/Session/SessionStartedEvent.cs) 重载运行时状态，Session 不枚举模块。
 
 ## 内部结构
 

@@ -1,0 +1,36 @@
+{
+  "name": "skadi",
+  "fps": 12,
+  "scale": 0.939546,
+  "frameWidth": 416,
+  "frameHeight": 384,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.018229
+  },
+  "pivotPx": {
+    "x": 208,
+    "y": 7
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -216.588,
+    "minY": -3.123,
+    "maxX": 150.922,
+    "maxY": 396.67
+  },
+  "animations": {
+    "idle": {
+      "source": "Relax",
+      "frames": 12,
+      "duration": 1,
+      "loop": true
+    },
+    "walk": {
+      "source": "Move",
+      "frames": 29,
+      "duration": 2.4,
+      "loop": true
+    }
+  }
+}

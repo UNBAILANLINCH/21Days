@@ -1,0 +1,36 @@
+{
+  "name": "chen",
+  "fps": 12,
+  "scale": 0.90266,
+  "frameWidth": 332,
+  "frameHeight": 384,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.026042
+  },
+  "pivotPx": {
+    "x": 166,
+    "y": 10
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -178.35,
+    "minY": -6.167,
+    "maxX": 107.405,
+    "maxY": 409.547
+  },
+  "animations": {
+    "idle": {
+      "source": "Relax",
+      "frames": 24,
+      "duration": 2,
+      "loop": true
+    },
+    "walk": {
+      "source": "Move",
+      "frames": 12,
+      "duration": 1,
+      "loop": true
+    }
+  }
+}

@@ -29,7 +29,6 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | `CameraBillboard` | `Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs:7` | 旋转纸片，并可校准竖直 `BoxCollider` 的前表面；本次升级中 `NameTag` 子节点也复用它保持朝向摄像机 |
 | `SmoothCameraFollow` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:8` | 保持初始偏移并平滑跟随目标 |
 | `IsometricExplorationConfig` | `Assets/_Project/Scripts/Runtime/IsometricExploration/IsometricExplorationConfig.cs:8` | 保存移动速度、排序兼容参数和相机缓动时间 |
-| `IsometricPlayerController3D` | `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricPlayerController3D.cs:10` | 把 `Gameplay/Move` 输入应用到 3D `Rigidbody` |
 | `ExplorationInstaller` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationInstaller.cs:20` | 本模块的 GameplayInstaller：注册 `ExplorationHudPresenter` / `ExplorationControlsPresenter` / `ExplorationCompassPresenter` 三个入口点与 `IsometricExplorationConfig` |
 | `ExplorationHudView` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationHudView.cs:21` | 探索常驻 Hud：右上角「沉浸」切换按钮 + 走跑 / 摇杆 / 触屏三键 / 重置 / 交互提示 / 万向标（全部可空容错），`VisibleWhenHudHidden = true` |
 | `ExplorationHudPresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationHudPresenter.cs:23` | 启动后打开探索 HUD，驱动沉浸模式的进入 / 退出与埋点 `immersive_changed` |
@@ -42,13 +41,13 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | `OccluderFadePresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/OccluderFadePresenter.cs` | 入口点（波 9）：每帧相机→玩家胸口射线，命中的 `SceneOccluder` 淡出、离开恢复 |
 | `StandaloneEncounterController` | `Assets/_Project/Scripts/Runtime/Monster/StandaloneEncounterController.cs:12` | 直接播放场景时，用现有遭遇规则读取 Gameplay 输入并推进角色、敌人与战斗 |
 
-`IsometricPlayerController3D` 位于 Showcase 程序集，只用于当前原型。
-不要把它当作正式玩家控制器，也不要让它写入正式玩法状态。
-场景停用该物理控制器、重力和刚体推进；位置只由 `EncounterStep` 推进，
+位置只由 `EncounterStep` 推进，不存在写入 3D `Rigidbody` 的物理控制器
+（历史原型 `IsometricPlayerController3D` 已于 2026-09-28 删除，回放改走 Boot 真实流程，见下文「历史记录：3D 物理移动验证」）。
 `EncounterSceneView` 负责把逻辑位置投影到场景：每个渲染帧先在上一 tick 与当前 tick 之间插值
 （`Lerp(PreviousPosition, Position, SimulationRunner.Accumulator / FixedDeltaTime)`，细则见 Monster 模块指南「两逻辑 tick 之间的渲染插值」），
 所以角色 Transform 每帧连续移动，相机 `SmoothCameraFollow` 追的也是连续目标，渲染帧率 ≠ 60 Hz 时不再一帧动一帧不动。直接播放场景时由
-`StandaloneEncounterController` 驱动；从 Boot 加载时它会自行停用，改由正式 `SimulationRunner` 驱动。
+`StandaloneEncounterController` 驱动（它读场景内 `PlayerInput` 推进同一套 `EncounterStep`，不经过任何 3D 物理控制器）；
+从 Boot 加载时它会自行停用，改由正式 `SimulationRunner` 驱动。
 
 ## 场景结构
 
@@ -153,7 +152,7 @@ Y = 地面高度 `4.8884`（`Assets/Scenes/SampleScene.unity:4581`，`CapsuleCol
 
 ```text
 player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
-├─ Rigidbody / CapsuleCollider(center 0,0.8,0 / height 1.6 / radius 0.3) / PlayerInput / IsometricPlayerController3D
+├─ Rigidbody / CapsuleCollider(center 0,0.8,0 / height 1.6 / radius 0.3) / PlayerInput
 ├─ Visual
 │  ├─ SpriteRenderer（停用，sprite 为空，只当 flipX 朝向源；材质 M_SpriteDepthClip）
 │  └─ CameraBillboard
@@ -301,26 +300,20 @@ Pass）；`BlobShadow`/`SelectRing` 这类贴地特效纸片用普通 `Sprite-Un
 高清手绘预设（Bilinear / mipmap / Compressed / PPU 100），新角色/环境纸片素材导入时按这份预设走，
 不要手改单张贴图的导入设置。
 
-## 历史 3D 移动验证（当前遭遇停用）
+## 历史记录：3D 物理移动验证（已删除）
 
-角色根节点必须同时具备：
+早期原型曾在角色根节点挂一套 `Rigidbody` + 3D `CapsuleCollider` + `PlayerInput` + `IsometricPlayerController3D`
+（`FixedUpdate` 里把 `Gameplay/Move` 映射成 XZ 速度、保留 `Rigidbody.velocity.y` 交给 Unity 3D 物理管落地），
+只用来验证「3D 物理体能不能带着纸片走」这件事，从不参与正式位移、感知或命中判定。
+`IsometricPlayerController3D.cs`（原 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`）已于
+2026-09-28 删除；要追溯实现看 git 历史。
 
-- `Rigidbody`；
-- 3D `CapsuleCollider`；
-- `PlayerInput`；
-- `IsometricPlayerController3D`；
-- `IsometricExplorationConfig` 引用。
-
-地面和障碍必须使用 3D Collider。`Collider2D` 与 `Rigidbody` 不属于同一套物理系统，二者不会产生碰撞。
-
-控制器在 `FixedUpdate` 中只覆盖 XZ 速度，保留 `Rigidbody.velocity.y`，因此重力和落地仍由 Unity 3D 物理处理。
-`Awake` 会冻结刚体旋转，防止角色因碰撞侧翻。
-
-`PlayerInput` 继续复用现有 `GameInput.inputactions` 的 `Gameplay/Move`，通过 `OnMove(InputValue)` 接收输入。
-不要在此脚本里直接读取具体键盘按键。
-
-上述物理控制器只服务历史物理验证。直接播放当前场景由 `PlayerInput → StandaloneEncounterController → EncounterStep` 推进；J/G 按下事件会缓存到下一个物理帧，避免短按丢失。正式遭遇输入由 `LiveInputSource → InputCommand → EncounterStep`
-推进，Unity 物理只保留为环境表现，不参与位移、感知或命中判定。
+角色根节点现在仍保留 `Rigidbody` / 3D `CapsuleCollider` / `PlayerInput`（`obstacleMask` 碰撞判定与
+`StandaloneEncounterController` 读键要用），但没有任何组件驱动 `Rigidbody` 位移——直接播放场景由
+`PlayerInput → StandaloneEncounterController → EncounterStep` 推进；正式遭遇输入由
+`LiveInputSource → InputCommand → EncounterStep` 推进；Showcase 回放走 Boot 真实流程，虚拟手柄/键盘经
+`ShowcaseInputDriver` 驱动同一条 `LiveInputSource → InputCommand → EncounterStep` 路径。Unity 3D 物理只保留为
+环境表现（重力、地面碰撞体），不参与位移、感知或命中判定。
 
 ## 纸片朝向
 
@@ -397,22 +390,18 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 | `ResetMessage` / `ResetConfirmText` / `ResetCancelText` | 见资产 | 重置确认弹窗正文与两个按钮文案 |
 
 移动速度归 `PlayerConfig`；原 `MoveSpeed` / `SortingScale` 两个无人读取的字段已在波 6 删除
-（Showcase 原型控制器 `IsometricPlayerController3D` 改用本地常量 3）。
+（当时的 Showcase 原型控制器 `IsometricPlayerController3D` 改用本地常量 3；该类已于 2026-09-28 整个删除）。
 
 ## 依赖方向
 
 运行时代码只依赖 UnityEngine 和项目的 Runtime 程序集。
-Showcase 控制器额外依赖 Unity Input System，因此 `Game.Tests.Showcase.asmdef` 必须引用 `Unity.InputSystem`。
+`Game.Tests.Showcase.asmdef` 引用 `Unity.InputSystem`：框架的虚拟输入驱动
+（`ShowcaseInputDriver`，见 `Assets/_Project/Scripts/Tests/Showcase/Framework/`）要建虚拟 `Gamepad` / `Keyboard`
+并往 Input System 事件队列写状态事件，回放借它像玩家一样操作场景里的真实角色。
 
 数据流如下：
 
 ```text
-Gameplay/Move
-  → PlayerInput
-  → IsometricPlayerController3D
-  → Rigidbody.velocity（XZ）
-  → Unity 3D Physics
-
 Player Transform
   → SmoothCameraFollow
   → Main Camera position
@@ -488,11 +477,13 @@ ResetButton
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterSceneViewTests.cs`
   （含 `EncounterProjection` 的 5 条 `ResolveGroundY` + 4 条 `ResolveFlipX` 用例）。
 - 渲染分档守卫：`Assets/_Project/Scripts/Tests/EditMode/Rendering/RenderPipelineTiersTests.cs`
-- Showcase：`Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricExplorationShowcase.cs`，
-  公共绑定逻辑抽到 `BindEncounter()`；除原有 `SneakApproach_ThenAttack_KillsMonster`，新增
-  `WalkOntoStairs_RaisesBody`：逐级把玩家 `Reset` 到 `Stairs_Step_1..3`，检查
-  `EncounterSceneView.PlayerScenePosition.y` 相对地面抬升 ≥0.55，再 `Reset` 回平地确认落回地面高度。
-- Showcase 通过 `ShowcaseOptions.DemoScenePath` 加载 SampleScene，这就是定案做法，不再建固定验证场景。
+- Showcase（2026-09-28 重写，走 Boot 真实流程）：`Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/IsometricExplorationShowcase.cs`
+  只留一条纸片场景适配用例 `WalkUpStairs_BodyRisesStepByStepThenLandsBack`：标题「开始」进 SampleScene
+  （`EnterDemoWorld`），切跑绕开村口演出触发区走到楼梯口，虚拟摇杆真走上楼梯（不再 `Reset` 瞬移），
+  检查 `EncounterSceneView.PlayerScenePosition.y` 逐级只升不降、抬升量与台阶顶高度对得上，再走回平地确认落回地面高度。
+  原有的潜行接近 / 攻击击杀用例已挪到 Player / Monster 两份回放（每个行为只演一次），本文件不再覆盖。
+- Showcase 通过 `ShowcaseOptions.DemoScenePath` 推出的场景名加载 SampleScene（走 Boot 真实流程时由标题「开始」触发同一次加载），
+  这就是定案做法，不再建固定验证场景。
 - Showcase（波 9）：`ExplorationShowcase` 追加 `Collision_FenceBlocksPlayer`（摇杆顶围栏，z 不越过 −0.7）、
   `MultiLevel_RampLeadsToDeck`（沿坡道走上甲板，高度单调不降、终点 y ≥ 7.8）、
   `Occluder_FadesBridgeWhenPlayerBeneath`（人在桥后侧时桥变 `M_Graybox_Faded`，离开恢复），共 7 条。
@@ -501,7 +492,7 @@ ResetButton
 
 ## 修改时检查
 
-- 改移动：确认唯一位置来源仍为遭遇规则，旧物理控制器保持停用；
+- 改移动：确认唯一位置来源仍为遭遇规则；不要新增任何写 `Rigidbody` 速度的移动控制器（历史原型已删除，见「历史记录」）；
 - 改输入：继续使用 Input Action，不直接读取设备键；
 - 改 Visual：确认 Rigidbody 与 Collider 没有被移动到倾斜节点；
 - 改 Billboard：同时验证纸片朝向和 Collider 前表面对齐；

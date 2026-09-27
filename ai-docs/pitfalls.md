@@ -57,14 +57,32 @@
 ## Showcase 真实按键用例红：Game 视图没焦点，键盘事件被丢
 - 现象：Taming / Disguise 这类用真实 Input System 按键（而非 Simulate）的回放用例第一轮跑红，检查点显示按键没生效；同样的回放重跑一次、或手动在编辑器里按同一个键却是好的。
 - 根因：Unity 编辑器只把键盘事件路由给当前有焦点的窗口。跑测试时 Game 视图未必在前台，Input System 的事件队列直接丢弃了这些按键，与场景、代码逻辑无关。
-- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。
+- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。实测还要求 **Unity 窗口在系统前台**（`isApplicationActive`）：编辑器整体失焦（切到别的应用）时 Input System 会 `ResetAndDisableNonBackgroundDevices`，把键盘复位并停用，虚拟手柄不受影响，只有键盘类用例会红；`get_test_job` 结果里的 `editor_is_focused` 字段可以直接判断是不是这个原因。
 - 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #FocusGameView`。日期：2026-09-28。
 
 ## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
 - 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
 - 根因：Showcase 从独立验证场景迁到 `Assets/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
-- 正确做法：回放先用 `StandNextTo` / `Approach` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体（如 `QuestLocation_Camp` / `QuestLocation_Lookout`）读 transform，不写死数字。
+- 正确做法：回放先用 `WalkTo` / `GoToPatrolLookout` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体或 `ShowcaseScenario.DemoScene.cs` 的坐标常量读，不写死数字。
 - 关联：`.claude/rules/module-verify.md`、`docs/module-dev-spec.md`。日期：2026-09-28。
+
+## Showcase 虚拟设备中途加入，会把已按住的动作复位
+- 现象：回放里先按住潜行键（这时才建虚拟键盘），再推摇杆走动（这时才建虚拟手柄），潜行状态在推摇杆那一刻莫名掉线；单独测潜行或单独测移动都是好的，凑在一起才复现。
+- 根因：Input System 每次 `InputSystem.AddDevice` 建新设备都会重新解析全部动作的绑定并复位动作状态；先建键盘、按住潜行，再建手柄时这次重新解析把潜行的按住状态冲掉了。
+- 正确做法：`ShowcaseInputDriver` 第一次用任一设备就把手柄和键盘一起建出来（`EnsureDevices`），不要等到某个动作真正要用某只设备才建；`EnterWorldFromTitle` 点「开始」之前也会先调一次 `Input.Prime()`，回放作者不用自己操心建设备的时机。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseInputDriver.cs`（文件头坑①、`Prime`/`EnsureDevices`）、`.claude/rules/module-verify.md`。日期：2026-09-28。
+
+## Showcase 按键短于一个逻辑 tick 会被吞
+- 现象：`Input.Press` 只按住一两帧就松开时，伪装 / 攻击等动作有时按下没反应，同一条回放重跑又是好的，看起来像间歇性 bug。
+- 根因：`LiveInputSource` 只在 60 Hz 逻辑 tick 上读一次 `IsPressed`，没有按下沿锁存；编辑器渲染帧率明显高于 60 Hz 时，按住一两帧（几毫秒）的按键完全可能整段落在两次逻辑 tick 采样之间，被直接漏掉。这是运行时的**现状**而不是回放的 bug——真人手指按键的时长远长于一个逻辑 tick（约 16.7 ms），不影响实际游玩。
+- 正确做法：`Input.Press` 保证按住至少 `MinPressFrames`（2 帧）且至少 `MinPressSeconds`（25 ms），跨过一次逻辑 tick 采样；要验「按到某个状态生效为止」用 `Input.PressUntil`，不要自己拼一个更短的按住时长。这条现状记进报告，不在回放里想办法掩盖过去。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseInputDriver.cs`（文件头坑②、`Press`/`PressUntil`）、`Assets/_Project/Scripts/Tests/Showcase/Disguise/DisguiseShowcase.cs`（`ShortKeyboardPress_ReachesDisguiseAndAttack` 的文件头说明）。日期：2026-09-28。
+
+## Showcase 界面刚打开就点按钮，会被控制器吞掉
+- 现象：跳过对白弹出的确认弹窗，回放紧接着点「确认」按钮却一直不关，`WaitUntil` 超时判失败；界面截图看着弹窗明明已经打开了。
+- 根因：界面一登记进 `IUIService` 就能被 `ResolveService` / `FindDeep` 取到按钮组件，但对应的控制器要等打开流程（`OpenAsync` 之后的初始化）走完才订阅 `onClick`；这中间有一小段窗口，太早调 `onClick.Invoke()` 点了个还没人听的按钮，点击就静默丢了。
+- 正确做法：用 `ClickWhenReady(what, () => button, () => effective)` 代替一次性 `onClick.Invoke()`：它按固定间隔（默认 0.3 秒）重新取按钮再点一次，直到 `effective()` 判定生效，不用回放作者自己猜控制器什么时候订阅完。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.PlayerDrive.cs`（`ClickWhenReady`）、`Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs`（跳过确认弹窗用例）。日期：2026-09-28。
 
 ## MCP for Unity 两侧传输方式不一致，服务端永远报 0 个实例
 - 现象：`/mcp` 里 `UnityMCP` 是 connected，读 `mcpforunity://instances` 却返回 `instance_count: 0`；任何工具调用都报 `No Unity Editor instances found`。而 Unity 的 `Window → MCP for Unity` 窗口里明明显示绿灯 `Session Active (project1)`。

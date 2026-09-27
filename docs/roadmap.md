@@ -318,5 +318,5 @@ W5 不必等 W4：只要 W2 的 Narrative 接线通了，自家机制就有挂�
 - 美术与策划：[`artist-guide.md`](artist-guide.md)、[`designer-guide.md`](designer-guide.md)
 - 模块三件套：[`../ai-docs/docs/modules/`](../ai-docs/docs/modules/)
 - PRP：[`../PRP/dialogue-system/`](../PRP/dialogue-system/)、[`../PRP/quest-system/`](../PRP/quest-system/)、[`../PRP/narrative-dialogue/`](../PRP/narrative-dialogue/)、[`../PRP/monster-ai/`](../PRP/monster-ai/)、[`../PRP/replay/`](../PRP/replay/)、[`../PRP/character-puppet/`](../PRP/character-puppet/)
-- 建设纪要：[`history/2026-09-15-框架与harness建设.md`](history/2026-09-15-框架与harness建设.md)、[`history/2026-09-25-对话系统与拼接小人.md`](history/2026-09-25-对话系统与拼接小人.md)
+- 建设纪要：[`history/2026-09-15-框架与harness建设.md`](history/2026-09-15-框架与harness建设.md)、[`history/2026-09-25-对话系统与拼接小人.md`](history/2026-09-25-对话系统与拼接小人.md)、[`history/2026-09-28-回放舞台统一与harness迭代.md`](history/2026-09-28-回放舞台统一与harness迭代.md)
 - 踩坑：[`../ai-docs/pitfalls.md`](../ai-docs/pitfalls.md)

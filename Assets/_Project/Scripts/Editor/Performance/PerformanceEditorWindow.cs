@@ -275,7 +275,7 @@ namespace Game.Editor.Performance
 
             foreach (PerformanceIssue issue in issues)
             {
-                MessageType type = issue.IsError ? MessageType.Error : MessageType.Warning;
+                MessageType type = issue.IsError ? MessageType.Error : issue.IsInfo ? MessageType.Info : MessageType.Warning;
                 EditorGUILayout.HelpBox($"{issue.Message}（{issue.Code}）", type);
                 Rect rect = GUILayoutUtility.GetLastRect();
                 if (issue.Context != null && Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
@@ -406,7 +406,7 @@ namespace Game.Editor.Performance
             foreach (PerformanceIssue issue in issues)
             {
                 if (issue.IsError) return new Color(0.9f, 0.3f, 0.3f);
-                warning = true;
+                if (!issue.IsInfo) warning = true;
             }
             return warning ? new Color(0.95f, 0.75f, 0.2f) : new Color(0.35f, 0.8f, 0.4f);
         }

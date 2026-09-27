@@ -230,7 +230,8 @@ namespace Game.Editor.Performance
             if (count > 0) spriteRenderer.sprite = actorSprites[0].Sprite;
         }
 
-        private static bool RegisterAddressable(string prefabPath, string id)
+        /// <summary>把预制体登记进 Addressables Performance 组（地址 = id）；组不存在时照抄 UI 组 schema 新建。示例 builder 共用。</summary>
+        internal static bool RegisterAddressable(string prefabPath, string id)
         {
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null)

@@ -17,6 +17,11 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: ffd641cea70680e429e6413208155227
   m_SerializeEntries:
+  - m_GUID: 5e57bb1d34e3e594d9abaadd145ec21c
+    m_Address: perf_sample_scene_talk
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ea0e9ab08d087ff4fb68fe23791591a8
     m_Address: perf_sample_greeting
     m_ReadOnly: 0

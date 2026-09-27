@@ -19,6 +19,10 @@ namespace Game.Editor.Performance
     /// <summary>
     /// 演出校验器。规则见 PRP/performance-pipeline/prp.md 2.8：
     /// 舞台 / Director / 时间轴 / 时长、舞台相机（Overlay、只剔 Performance 层）、图层、字幕正文、表情绑定与表情名、停顿标记位置、Addressables 地址。
+    /// <para>
+    /// 世界模式（<see cref="PerformanceStageMode.World"/>）：舞台相机只要求是透视 Base 相机（剔除遮罩运行时从主相机拷贝，不查），
+    /// 演员站在世界里、不要求在 Performance 层；另查演员名单（说话者重名 / 空名 / 头像为空报 Warning）与字幕说话者是否登记（Info，旁白除外）。
+    /// </para>
     /// </summary>
     public static class PerformanceValidator
     {
@@ -66,10 +70,17 @@ namespace Game.Editor.Performance
                 issues.Add(Error("duration_zero", "时间轴总时长是 0 秒，播出来一闪就结束。", timeline));
 
             int layer = LayerMask.NameToLayer(PerformanceLayerName);
-            if (stage != null) CheckCamera(stage, layer, issues);
-            CheckLayers(stageRoot, layer, issues);
+            bool world = stage != null && stage.Mode == PerformanceStageMode.World;
+            if (stage != null)
+            {
+                if (world) CheckWorldCamera(stage, issues);
+                else CheckCamera(stage, layer, issues);
+                CheckCast(stage, issues);
+            }
+            // 世界模式的演员就站在世界图层上、由舞台相机按主相机遮罩渲染，不要求 Performance 层。
+            if (!world) CheckLayers(stageRoot, layer, issues);
 
-            if (timeline != null) CheckTracks(timeline, director, issues);
+            if (timeline != null) CheckTracks(timeline, director, stage, issues);
 
             if (!string.IsNullOrEmpty(expectedAddress)) CheckAddress(stageRoot, expectedAddress, issues);
 
@@ -121,6 +132,44 @@ namespace Game.Editor.Performance
                 issues.Add(Warning("camera_culling_extra", "舞台相机的剔除遮罩（Culling Mask）除了 Performance 还勾了别的层，会把游戏场景再画一遍。", camera));
         }
 
+        private static void CheckWorldCamera(PerformanceStage stage, List<PerformanceIssue> issues)
+        {
+            Camera camera = stage.StageCamera;
+            if (camera == null)
+            {
+                issues.Add(Error("camera_missing", "PerformanceStage 的舞台相机（Stage Camera）没接，演出画面出不来。", stage));
+                return;
+            }
+
+            if (IsOverlayCamera(camera))
+                issues.Add(Warning("camera_world_not_base", "世界模式的舞台相机应为 URP Base（Render Type 改成 Base）：它要接管整个画面，而不是叠在主相机上。", camera));
+            if (camera.orthographic)
+                issues.Add(Warning("camera_world_orthographic", "世界模式的舞台相机应为透视相机（Projection 改成 Perspective），否则看不出纵深。", camera));
+            if (camera.CompareTag("MainCamera"))
+                issues.Add(Warning("camera_tagged_main", "舞台相机打了 MainCamera 标签：演出期间 Camera.main 可能取到它，服务就找不到真正的主相机。", camera));
+        }
+
+        private static void CheckCast(PerformanceStage stage, List<PerformanceIssue> issues)
+        {
+            IReadOnlyList<PerformanceCastEntry> cast = stage.Cast;
+            if (cast == null) return;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < cast.Count; i++)
+            {
+                PerformanceCastEntry entry = cast[i];
+                if (entry == null) continue;
+                if (string.IsNullOrEmpty(entry.Speaker))
+                {
+                    issues.Add(Warning("cast_speaker_empty", $"演员名单第 {i + 1} 条没填说话者，这一条永远匹配不上字幕。", stage));
+                    continue;
+                }
+                if (!seen.Add(entry.Speaker))
+                    issues.Add(Warning("cast_speaker_duplicate", $"演员名单里「{entry.Speaker}」出现了不止一次，只有第一条生效。", stage));
+                if (entry.Avatar == null)
+                    issues.Add(Warning("cast_avatar_missing", $"演员名单里「{entry.Speaker}」没拖头像，对白面板不会显示头像。", stage));
+            }
+        }
+
         private static void CheckLayers(GameObject stageRoot, int layer, List<PerformanceIssue> issues)
         {
             if (layer < 0)
@@ -138,7 +187,8 @@ namespace Game.Editor.Performance
             }
         }
 
-        private static void CheckTracks(TimelineAsset timeline, PlayableDirector director, List<PerformanceIssue> issues)
+        private static void CheckTracks(TimelineAsset timeline, PlayableDirector director, PerformanceStage stage,
+            List<PerformanceIssue> issues)
         {
             double duration = timeline.duration;
             var visited = new HashSet<TrackAsset>();
@@ -155,13 +205,13 @@ namespace Game.Editor.Performance
                 CheckHoldMarkers(track, duration, issues);
 
                 if (track is SubtitleTrack)
-                    CheckSubtitleClips(track, issues);
+                    CheckSubtitleClips(track, stage, issues);
                 else if (track is ExpressionTrack)
                     CheckExpressionTrack(track, director, issues);
             }
         }
 
-        private static void CheckSubtitleClips(TrackAsset track, List<PerformanceIssue> issues)
+        private static void CheckSubtitleClips(TrackAsset track, PerformanceStage stage, List<PerformanceIssue> issues)
         {
             foreach (TimelineClip clip in track.GetClips())
             {
@@ -169,7 +219,24 @@ namespace Game.Editor.Performance
                 if (subtitle == null) continue;
                 if (string.IsNullOrWhiteSpace(subtitle.Text))
                     issues.Add(Warning("subtitle_empty", $"字幕轨「{track.name}」在 {clip.start:0.##} 秒处的字幕片段没有写正文。", subtitle));
+                // 旁白（说话者为空）不需要登记；其余说话者不在名单里只是没有头像，给个提示。
+                if (stage != null && !string.IsNullOrEmpty(subtitle.Speaker) && !InCast(stage, subtitle.Speaker))
+                    issues.Add(Info(
+                        "subtitle_speaker_not_in_cast",
+                        $"字幕轨「{track.name}」在 {clip.start:0.##} 秒处的说话者「{subtitle.Speaker}」不在演员名单里，这句不会显示头像。",
+                        subtitle));
             }
+        }
+
+        private static bool InCast(PerformanceStage stage, string speaker)
+        {
+            IReadOnlyList<PerformanceCastEntry> cast = stage.Cast;
+            if (cast == null) return false;
+            for (int i = 0; i < cast.Count; i++)
+            {
+                if (cast[i] != null && string.Equals(cast[i].Speaker, speaker, StringComparison.Ordinal)) return true;
+            }
+            return false;
         }
 
         private static void CheckExpressionTrack(TrackAsset track, PlayableDirector director, List<PerformanceIssue> issues)
@@ -237,5 +304,8 @@ namespace Game.Editor.Performance
 
         private static PerformanceIssue Warning(string code, string message, UnityEngine.Object context) =>
             new PerformanceIssue(PerformanceIssueSeverity.Warning, code, message, context);
+
+        private static PerformanceIssue Info(string code, string message, UnityEngine.Object context) =>
+            new PerformanceIssue(PerformanceIssueSeverity.Info, code, message, context);
     }
 }

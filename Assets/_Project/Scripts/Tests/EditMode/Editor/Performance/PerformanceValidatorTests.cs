@@ -267,6 +267,109 @@ namespace Game.Tests.EditMode.Editor.Performance
             Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Not.Contain("address_missing"));
         }
 
+        [Test]
+        public void Validate_WorldStageWithPerspectiveBaseCamera_NoCameraOrLayerIssues()
+        {
+            MakeWorldStage();
+            stageCamera.cullingMask = ~0;
+            actor.gameObject.layer = 0;
+
+            List<string> codes = Codes(PerformanceValidator.Validate(root));
+
+            Assert.That(codes, Does.Not.Contain("camera_not_overlay"));
+            Assert.That(codes, Does.Not.Contain("camera_culling_extra"));
+            Assert.That(codes, Does.Not.Contain("camera_world_not_base"));
+            Assert.That(codes, Does.Not.Contain("camera_world_orthographic"));
+            Assert.That(codes, Does.Not.Contain("layer_mismatch"), "世界模式的演员站在世界图层上，不要求 Performance 层");
+            Assert.That(codes, Does.Not.Contain("layer_missing"));
+        }
+
+        [Test]
+        public void Validate_WorldStageWithOverlayOrthographicCamera_Warns()
+        {
+            MakeWorldStage();
+            stageCamera.GetComponent<UniversalAdditionalCameraData>().renderType = CameraRenderType.Overlay;
+            stageCamera.orthographic = true;
+
+            List<PerformanceIssue> issues = PerformanceValidator.Validate(root);
+
+            Assert.That(issues.Single(i => i.Code == "camera_world_not_base").Severity, Is.EqualTo(PerformanceIssueSeverity.Warning));
+            Assert.That(Codes(issues), Does.Contain("camera_world_orthographic"));
+        }
+
+        [Test]
+        public void Validate_CastDuplicateOrMissingAvatar_Warns()
+        {
+            Sprite sprite = MakeSprite();
+            SetCast(("阿米娅", sprite), ("阿米娅", sprite), ("陈", null));
+
+            List<PerformanceIssue> issues = PerformanceValidator.Validate(root);
+
+            Assert.That(issues.Single(i => i.Code == "cast_speaker_duplicate").Severity, Is.EqualTo(PerformanceIssueSeverity.Warning));
+            Assert.That(issues.Single(i => i.Code == "cast_avatar_missing").Severity, Is.EqualTo(PerformanceIssueSeverity.Warning));
+        }
+
+        [Test]
+        public void Validate_SubtitleSpeakerNotInCast_ReportsInfoExceptNarration()
+        {
+            SetCast(("阿米娅", MakeSprite()));
+            AddSubtitle("在名单里。", "阿米娅");
+            AddSubtitle("不在名单里。", "陈");
+            AddSubtitle("旁白。", string.Empty);
+
+            List<PerformanceIssue> infos = PerformanceValidator.Validate(root)
+                .Where(i => i.Code == "subtitle_speaker_not_in_cast").ToList();
+
+            Assert.That(infos.Count, Is.EqualTo(1), "只有「陈」该提示，旁白与已登记的不提示");
+            Assert.That(infos[0].Severity, Is.EqualTo(PerformanceIssueSeverity.Info));
+            Assert.That(infos[0].IsError, Is.False);
+        }
+
+        private void MakeWorldStage()
+        {
+            stageCamera.GetComponent<UniversalAdditionalCameraData>().renderType = CameraRenderType.Base;
+            stageCamera.orthographic = false;
+            using (var so = new SerializedObject(stage))
+            {
+                so.FindProperty("mode").enumValueIndex = (int)PerformanceStageMode.World;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private void SetCast(params (string speaker, Sprite avatar)[] entries)
+        {
+            using (var so = new SerializedObject(stage))
+            {
+                SerializedProperty list = so.FindProperty("cast");
+                list.arraySize = entries.Length;
+                for (int i = 0; i < entries.Length; i++)
+                {
+                    SerializedProperty element = list.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("speaker").stringValue = entries[i].speaker;
+                    element.FindPropertyRelative("avatar").objectReferenceValue = entries[i].avatar;
+                }
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private Sprite MakeSprite()
+        {
+            var texture = Track(new Texture2D(4, 4));
+            return Track(Sprite.Create(texture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f)));
+        }
+
+        private void AddSubtitle(string text, string speaker)
+        {
+            TimelineClip clip = subtitleTrack.CreateClip<SubtitleClip>();
+            var asset = Track((Object)clip.asset);
+            using (var so = new SerializedObject(asset))
+            {
+                so.FindProperty("text").stringValue = text;
+                so.FindProperty("speaker").stringValue = speaker;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
         private void SetStage(PlayableDirector directorValue, Camera cameraValue)
         {
             using (var so = new SerializedObject(stage))

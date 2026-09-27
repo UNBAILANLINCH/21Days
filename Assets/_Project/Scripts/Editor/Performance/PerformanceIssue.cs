@@ -5,11 +5,12 @@ using UnityEngine;
 
 namespace Game.Editor.Performance
 {
-    /// <summary>校验问题的严重度。Error = 播出来一定错；Warning = 可能不对，需要人看一眼。</summary>
+    /// <summary>校验问题的严重度。Error = 播出来一定错；Warning = 可能不对，需要人看一眼；Info = 提示，不影响状态灯。</summary>
     public enum PerformanceIssueSeverity
     {
         Error,
         Warning,
+        Info,
     }
 
     /// <summary>一条演出校验问题。不可变。</summary>
@@ -35,6 +36,7 @@ namespace Game.Editor.Performance
         public Object Context { get; }
 
         public bool IsError => Severity == PerformanceIssueSeverity.Error;
+        public bool IsInfo => Severity == PerformanceIssueSeverity.Info;
 
         public override string ToString() => $"[{Severity}] {Code}: {Message}";
     }

@@ -10,6 +10,7 @@
 
 **子目录**：`Characters/` 角色纸片，贴图 **Pivot 设为 Bottom**（根节点对齐脚底），配套材质见
 `Art/Materials/Character/`；`Fx/` 脚下贴片（`BlobShadow`、`SelectRing` 等）与其它特效图；`Dialogue/` 对话相关立绘/图标；
+`Loot/` 物资箱相关图标（`marker_crate.png` 是箱子头顶标记）；
 `UI/` 界面切图（导入后手动关 mipmap；`UI/Title/` 是标题页占位图，替换清单见美术手册 6.10）。
 序列帧小人一个角色一个目录 `Characters/<名字>/chr_<名字>_<状态>_<NN>.png`（规范见美术手册 3.4），pivot / PPU 由生成工具统一设，不用手调；
 `Characters/Ark/` 是明日方舟占位小人，正式包体不得包含（见该目录 README）。

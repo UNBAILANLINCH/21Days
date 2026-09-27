@@ -234,6 +234,7 @@
 - 根因：UTF 跑 PlayMode 前会记下场景布局、跑完按**它开始时的磁盘版本**恢复；它开始时 `SampleScene` 的改动还没落盘，或它根本不恢复 Additive 打开的场景。多会话共用一个编辑器时，场景的「脏状态」不是你独占的。
 - 正确做法：场景改动**在同一次 MCP 调用里建完就 `EditorSceneManager.SaveScene`**，调用开头先判 `EditorApplication.isPlayingOrWillChangePlaymode`，是 Play 就退出等待，不要改；改前把场景文件复制一份到 scratchpad，保存后 `diff` 复核只增不删。
 - 关联：`.claude/skills/unity-mcp/SKILL.md` 改场景纪律、`PRP/exploration-whitebox/tasks.md` 波 9。
+- **补充（2026-09-28 换箱子标记那轮）**：两个会话的子代理在同一个编辑器里、同一个打开的 `SampleScene` 实例上各改各的物体，最后由一次保存一起写进磁盘（两组改动都在，没有覆盖）；但期间另一会话的 `.cs` 触发域重载，MCP 桥重启后 `batch_execute` 返回「0 成功、load 拒绝：当前场景有未保存改动」，磁盘却已带着全部改动落盘——**返回值失败不等于没保存，判定以磁盘 diff 为准**。`manage_scene load` 遇到脏场景会拒绝，但编辑态直接 `EditorSceneManager.OpenScene(Boot, Single)`（`execute_code` / 菜单）不会，会把别人内存里的改动悄悄丢掉：切场景前先 `manage_scene get_active` 看 `isDirty`，脏了就等对方保存，不要硬切。
 
 ## 等距相机下「人在桥下」不等于「桥挡住人」
 - 现象：遮挡半透明回放把玩家放在桥正中下方 (17.25, 10.25)，桥始终不淡出；以为射线或层写错了。
@@ -381,3 +382,9 @@
 - 根因：0.53 是按旧循环（0.6 秒一圈）反算出来的系数；套到时长不同的新剪辑（方舟 Move 循环 1.13 秒）上就失效——常数背后隐含的是「剪辑本身按什么速度做的」，剪辑变了常数就要跟着变，不是一个能通用的系数。
 - 正确做法：播放速率 = 角色实际速度 ÷ 剪辑制作时的地速（`ChibiPuppet.walkClipSpeed` / `runClipSpeed`，来自序列帧 `meta.json` 的 `groundSpeed`），算出来的比值再夹到 `[0.8, 1.6]`；需要角色跑得更快就出专门的 run 帧，不要靠调高上限去让 walk 剪辑硬撑。
 - 关联：`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs`（`PlaybackRate`）、`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs`（`walkClipSpeed` / `runClipSpeed`）；2026-09-28。
+
+## 世界空间头顶标记跨模块复用同一张图，不同含义撞脸
+- 现象：SampleScene 里物资箱头顶标记和任务目标标记长得一模一样，玩家分不清「这里能开箱」还是「这里是任务目标」。
+- 根因：箱子 `Marker` 直接借了对白模块的 `Art/Sprites/Dialogue/Marker_Focus.png`（白「!」气泡）并染黄 (1, 0.85, 0.3)，恰好与 `Prefabs/World/QuestTargetMarker.prefab` 的图和颜色完全相同；各模块各自「顺手借图」时没人看全局。
+- 正确做法：新模块的头顶标记用自己目录下的专属图（如 `Art/Sprites/Loot/marker_crate.png`），**形状与颜色都要区分**，不靠同一张图换染色；加新标记前把现有三种（NPC 可对话、任务目标、可拾取箱子）放一起比一眼。
+- 关联：`docs/artist-guide.md` 6.8 节、`ai-docs/docs/modules/loot/loot-module-guide.md #接线要求`；2026-09-28。

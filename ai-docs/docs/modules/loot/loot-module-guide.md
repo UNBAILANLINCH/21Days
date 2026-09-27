@@ -72,7 +72,7 @@ maturity: stable
 | 项 | 要求 | 缺了会怎样 |
 | --- | --- | --- |
 | Installer | `Boot.unity` 的 `GameBootstrap` 挂 `LootInstaller`，排在 `QuestInstaller` 之后、`ExplorationInstaller` 之前；**Config** 拖 `Data/Loot/LootConfig.asset` | 没挂：解析不到 `LootService`；没拖：记 Error 并用默认值顶上 |
-| 场景箱子 | 根物体挂 `SupplyCrate` + `SupplyCrateMarker` + `BoxCollider`（Trigger 不强制），子物体 `Closed` / `Opened`（两套外观）+ `Marker`（头顶标记，子物体 SpriteRenderer + `CameraBillboard`）；可选再挂 `ExplorationPointOfInterest`（`kind = Crate`）供探索 HUD 万向标指引 | `crateKey` 空：`LootSceneBinder` 记 Warn，开箱不会被记录；无 `ExplorationPointOfInterest`：不影响开箱，只是万向标不指这只箱子 |
+| 场景箱子 | 根物体挂 `SupplyCrate` + `SupplyCrateMarker` + `BoxCollider`（Trigger 不强制），子物体 `Closed` / `Opened`（两套外观）+ `Marker`（头顶标记，子物体 SpriteRenderer + `CameraBillboard`；贴图 `Art/Sprites/Loot/marker_crate.png`，颜色白不染色，缩放 0.45 与 NPC / 任务标记齐平；**不得复用对白的 `Marker_Focus.png`**，否则与任务目标标记撞脸）；可选再挂 `ExplorationPointOfInterest`（`kind = Crate`）供探索 HUD 万向标指引 | `crateKey` 空：`LootSceneBinder` 记 Warn，开箱不会被记录；无 `ExplorationPointOfInterest`：不影响开箱，只是万向标不指这只箱子 |
 | 奖励 | `SupplyCrate.itemId` / `count` 对应 `Tables/Defines/item.xml` 的 tbitem 主键 | id 查不到：通知正文用 `"#" + id` 顶上，不阻断开箱（`LootService.ItemName`） |
 | 玩家标记 | 玩家根挂 `DialogueInteractionActor`（复用对话模块） | 无标记：`SupplyCrateFocus` 永远没有焦点 |
 | 入口 | 从 Boot → 标题「开始」进场景才有 `LootService` | 直接 Play 玩法场景：任务上报会跳过并记 Warn（`quest.IsReady == false`） |

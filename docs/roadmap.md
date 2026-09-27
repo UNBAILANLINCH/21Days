@@ -12,7 +12,7 @@
 | [BV1cQ3m6PE4j](https://www.bilibili.com/video/BV1cQ3m6PE4j/) | 「安洁莉娜的旅行小记」小活动全剧情录屏（32 分钟） | 探索小游戏本体 + 剧情演出的完整形态 |
 | [BV1mQ4R6gEfj](https://www.bilibili.com/video/BV1mQ4R6gEfj/) | 同活动的 UI / 交互 / 动效归档（UP 主「UI归档·明日方舟」合集） | 界面结构、面板进出、按钮反馈、对话框动效 |
 
-设计支柱（[`task/product/1_核心概念与设计支柱.md`](task/product/1_核心概念与设计支柱.md)）已定调：
+设计支柱（[`design/product/1_核心概念与设计支柱.md`](design/product/1_核心概念与设计支柱.md)）已定调：
 **学《明日方舟》的 2.5D 表现，不学塔防与养成体量。** 所以下面所有对标只看「探索 + 剧情演出 + UI 动效」三层，
 活动里的关卡战斗、卡池、商店、材料掉率一律不进清单。
 
@@ -313,7 +313,7 @@ W5 不必等 W4：只要 W2 的 Narrative 接线通了，自家机制就有挂�
 - 官方说明原文（PRTS）：「点击屏幕呼出虚拟摇杆，或是在PC端使用移动键/上下左右键移动安洁莉娜」「点击右下角按钮，可以切换移动速度（散步/奔跑）」「点击左下角按钮，可以隐藏所有UI和交互，进入沉浸模式」「在左上角的便签处确认心愿任务，前往带有标志的NPC处推进故事」「记得确认画面四周的万向标」「寻找物资箱并打开，或是完成特定探索任务，也可以获取报酬」「完成所有故事后，可以点击左上角按钮重置故事进度，但已获得的报酬和物资箱无法重复获取」
 
 **工程内相关文档**
-- 设计：[`task/product/1_核心概念与设计支柱.md`](task/product/1_核心概念与设计支柱.md)、[`task/product/2_世界观圣经.md`](task/product/2_世界观圣经.md)
+- 设计：[`design/product/1_核心概念与设计支柱.md`](design/product/1_核心概念与设计支柱.md)、[`design/product/2_世界观圣经.md`](design/product/2_世界观圣经.md)
 - 框架：[`architecture.md`](architecture.md)、[`developer-guide.md`](developer-guide.md)、[`module-dev-spec.md`](module-dev-spec.md)
 - 美术与策划：[`artist-guide.md`](artist-guide.md)、[`designer-guide.md`](designer-guide.md)
 - 模块三件套：[`../ai-docs/docs/modules/`](../ai-docs/docs/modules/)

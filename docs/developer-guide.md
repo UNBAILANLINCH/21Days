@@ -357,6 +357,8 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 
 **可站立的环境物体放 `Ground` 层**：`EncounterSceneView` 靠 `groundMask` 向下射线贴地（纯规则在 `Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`），只认 `Ground` 层（`ProjectSettings/TagManager.asset` 第 8 槽），没挂这个层的物体贴不上地。
 
+**渲染插值**：角色画面位置是两逻辑 tick 之间的插值（`EncounterSceneView.Bind` 按 `SimulationRunner.Accumulator / FixedDeltaTime` 算出的 alpha），最多比逻辑位置落后一个 tick（60 Hz 约 16 ms）；排查角色抖动先确认 `EncounterSceneView.Bind` 拿到了 alpha 源，不要先怀疑规则或输入。
+
 **Sprite 导入默认预设已经是高清手绘**（Bilinear / 压缩 / 生成 mipmap / PPU 100），不是像素风，见 `Assets/_Project/Art/Sprites/README.md`。
 
 ### 6.14 对话系统 — `DialogueService` / `DialogueInteractable`
@@ -400,20 +402,21 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
    它就是朝向的载体。把它拖进小人 `ChibiPuppetMotion` 的 `facingSource`。
 3. 没有纸片的场景（如验证场景）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
 
-手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、走路播放速率）。
+手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、跑走切换阈值（runStart 4 / runStop 3.5）、播放速率夹取（0.8～1.6）；剪辑地速在各预制体 `ChibiPuppet.walkClipSpeed` / `runClipSpeed`）。
 Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（`Assets/_Project/Scenes/Verify/CharacterPuppet.unity`）。
 
 **序列帧小人（现行唯一做法；早期分件拼接小人已于 2026-09-28 删除）**：美术按状态交序列帧（规范见 [`artist-guide.md` 3.4 节](artist-guide.md)），
 编辑器工具一键生成动画、控制器与预制体；运行时是 `ChibiPuppet` + `ChibiPuppetMotion`，`parts` 只有一个 `SpriteRenderer`。
 
-- **目录**：`Assets/_Project/Art/Sprites/Characters/<名字>/chr_<名字>_<状态>_<NN>.png` + 可选 `meta.json`（`fps`、`pivot`），至少 `idle` + `walk`。
-- **工具**：菜单 `21Days/角色/从序列帧生成小人…`（选帧目录、目标高度默认 1.5、帧率 0 = 取 meta 否则 12、美术默认朝左、建图集）；
+- **目录**：`Assets/_Project/Art/Sprites/Characters/<名字>/chr_<名字>_<状态>_<NN>.png` + 可选 `meta.json`（`fps`、`pivot`、`animations.walk/run.groundSpeed` 缺省 3 / 5），至少 `idle` + `walk`，`run` 可选。
+- **工具**：菜单 `21Days/角色/从序列帧生成小人…`（选帧目录、目标高度默认 1.5、帧率 0 = 取 meta 否则 24、美术默认朝左、建图集）；
   脚本入口 `FramePuppetGenerator.Generate(new FramePuppetRequest { FrameDirectory = "...", TargetHeight = 1.6f })`，返回中文报告，
   可用 MCP `execute_code` 批量跑。规则（命名解析、排序、缺态报错、PPU / pivot）在 `FramePuppetRules`，EditMode 测试
   `Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs`。
 - **生成物**：帧贴图导入设置（PPU = 画布高 / 目标高度、pivot = meta.pivot，只改这个目录，不动 `SpriteImportProcessor`）；
-  `Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`（`Moving` / `Speed`，Idle ⇄ Walk 过渡 0、无退出时间，
-  Walk 速度乘 `Speed`）；`Prefabs/Characters/Chibi_<名字>.prefab`（根 Animator[UnscaledTime] + ChibiPuppet + ChibiPuppetMotion，子物体 `Sprite`）；
+  `Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`（参数 `Moving` / `Running` / `Speed`；状态 `Idle` / `Walk` / `Run`，
+  过渡全 0、无退出时间；Walk / Run 乘 `Speed`；无 run 帧时 Run 复用 walk 剪辑）；`Prefabs/Characters/Chibi_<名字>.prefab`（根 Animator[UnscaledTime] +
+  ChibiPuppet（写入 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`） + ChibiPuppetMotion，子物体 `Sprite`）；
   帧目录下 `<名字>.spriteatlasv2`（Sprite Packer 为 V2 时建，已存在不动）。**可重跑**：已有资产原地更新、GUID 不变，场景引用不用重接。
 - **替换美术**：同名目录换成新帧 → 重跑工具（目标高度与原来一致）→ 回放 `/verify-module Exploration` 看大小、贴地、翻面。
 - **接进场景**：玩家 / 巡逻者照上面三步（实例挂 `Visual` 下、`facingSource` 指隐藏纸片）。纯纸片 NPC 的 `Visual` 中心在半身高、还带缩放，

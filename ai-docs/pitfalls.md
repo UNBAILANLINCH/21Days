@@ -369,3 +369,15 @@
 - 根因：NPC 纸片 pivot 在中心，`Visual` 摆在 y 0.8、缩放 0.625；`CameraBillboard` 把整个 `rotation` 设成相机旋转（含 38° 俯仰），子物体绕半身高的点转，脚底被甩离地面。玩家 / 巡逻者的 `Visual` 原点就在脚底，所以没这个问题。
 - 正确做法：NPC 根下另建 `PuppetVisual`（原点 + `CameraBillboard`），小人挂其下；纸片停用当朝向源（`flipX`），`trackedRoot` 指 NPC 根。步骤见 `docs/developer-guide.md` 6.15。
 - 关联：`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs`、`ai-docs/docs/modules/characterpuppet/characterpuppet-module-guide.md`；2026-09-28 序列帧小人那轮。
+
+## 逻辑 tick 与渲染帧脱节导致拖影 / 抖动
+- 现象：遭遇场景里角色纸片看起来顿一下再跳一下，转向和贴墙滑动时最明显；直接把逻辑 `Position` 抄给 Transform 时数值本身没错，但同一逻辑值会连续渲染好几帧，下一次 tick 到达时又整段跳过去。
+- 根因：逻辑位置只在固定 tick（`SimulationRunner` 的固定步长）推进，渲染却是每帧都刷新；视图如果直接读当前 tick 的 `Position`，帧率与 tick 率脱节的部分就会表现成拖影 / 抖动。
+- 正确做法：视图按 `SimulationRunner.Accumulator / FixedDeltaTime` 算出的 alpha，在 `PreviousPosition` 与 `Position` 之间插值（纯函数 `EncounterProjection.InterpolationAlpha` / `InterpolatePosition`），不要直接抄 `Position`。凡是整体改写 `Position` 的新入口（传送、剧情挪人）都要同步 `PreviousPosition`（调 `SyncPreviousPosition` 或走 `Rules.Reset`），否则插值会把角色从旧位置「拉」过来一次。表现层把碰撞修正写回逻辑位置时只改被挡的那一根轴，另一根轴保留逻辑值——两根轴都改会把逻辑位置往回拉，插值点因此变慢，贴墙滑动会跟着变慢。
+- 关联：`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs`（`Bind` / `Interpolate`）、`Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs`（`InterpolationAlpha` / `InterpolatePosition`）、`ai-docs/docs/modules/isometricexploration/isometricexploration-module-guide.md #修改时检查`；2026-09-28。
+
+## 序列帧走路播放速率不能用「速度 × 常数」
+- 现象：给方舟序列帧小人接走路速率时套用旧的「速度 × 0.53」，跑步状态下动画播放成了约 2.65 倍快放，脚步和位移完全对不上。
+- 根因：0.53 是按旧循环（0.6 秒一圈）反算出来的系数；套到时长不同的新剪辑（方舟 Move 循环 1.13 秒）上就失效——常数背后隐含的是「剪辑本身按什么速度做的」，剪辑变了常数就要跟着变，不是一个能通用的系数。
+- 正确做法：播放速率 = 角色实际速度 ÷ 剪辑制作时的地速（`ChibiPuppet.walkClipSpeed` / `runClipSpeed`，来自序列帧 `meta.json` 的 `groundSpeed`），算出来的比值再夹到 `[0.8, 1.6]`；需要角色跑得更快就出专门的 run 帧，不要靠调高上限去让 walk 剪辑硬撑。
+- 关联：`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs`（`PlaybackRate`）、`Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs`（`walkClipSpeed` / `runClipSpeed`）；2026-09-28。

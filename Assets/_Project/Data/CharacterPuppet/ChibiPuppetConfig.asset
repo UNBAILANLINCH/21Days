@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveStartSpeed: 0.15
   moveStopSpeed: 0.05
-  sampleWindow: 0.1
+  runStartSpeed: 4
+  runStopSpeed: 3.5
+  sampleWindow: 0.05
   facingDeadZone: 0.01
-  walkCycleSpeedPerUnit: 0.53
-  walkRateMin: 0.8
-  walkRateMax: 2.8
+  rateMin: 0.8
+  rateMax: 1.6

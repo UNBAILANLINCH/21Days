@@ -1,4 +1,4 @@
-// 职责：锁定序列帧小人生成规则——文件名解析、状态分组与帧排序、缺态报错、meta 解析、PPU / pivot / fps / 画布尺寸校验。
+// 职责：锁定序列帧小人生成规则——文件名解析、状态分组与帧排序、缺态报错（run 可选）、meta 解析、PPU / pivot / fps / 剪辑地速 / 画布尺寸校验。
 // 新建原因：FramePuppetRules 是新增的纯规则类，按「被测类 + Tests」单独成文件。
 using System.Collections.Generic;
 using Game.Editor.CharacterPuppet;
@@ -98,6 +98,69 @@ namespace Game.Tests.EditMode.CharacterPuppet
         }
 
         [Test]
+        public void MissingStatesError_WithOrWithoutRun_OnlyRequiresIdleAndWalk()
+        {
+            Assert.That(FramePuppetRules.MissingStatesError("a", new[] { "idle", "walk" }), Is.Null);
+            Assert.That(FramePuppetRules.MissingStatesError("a", new[] { "idle", "walk", "run" }), Is.Null);
+            string error = FramePuppetRules.MissingStatesError("a", new[] { "idle" });
+            Assert.That(error, Does.Not.Contain("run"), "缺 walk 的报错不该连带要求 run");
+        }
+
+        [Test]
+        public void GroupFrames_WhenRunFramesPresent_NoWarnings()
+        {
+            var errors = new List<string>();
+            var warnings = new List<string>();
+            SortedDictionary<string, List<string>> groups = FramePuppetRules.GroupFrames("a",
+                new[] { "chr_a_idle_01.png", "chr_a_walk_01.png", "chr_a_run_01.png", "chr_a_run_02.png" }, errors, warnings);
+            Assert.That(errors, Is.Empty);
+            Assert.That(warnings, Is.Empty);
+            Assert.That(FramePuppetRules.HasRunState(groups.Keys), Is.True);
+        }
+
+        [Test]
+        public void HasRunState_WhenRunGroupPresent_ReturnsTrue()
+        {
+            Assert.That(FramePuppetRules.HasRunState(new[] { "idle", "walk" }), Is.False);
+            Assert.That(FramePuppetRules.HasRunState(new[] { "idle", "walk", "run" }), Is.True);
+            Assert.That(FramePuppetRules.HasRunState(null), Is.False);
+        }
+
+        [Test]
+        public void ResolveGroundSpeed_WhenMetaHasGroundSpeed_ReadsIt()
+        {
+            FramePuppetMeta meta = FramePuppetRules.ParseMeta(
+                "{\"animations\":{\"idle\":{\"frames\":12},\"walk\":{\"source\":\"Move\",\"groundSpeed\":2.5},"
+                + "\"run\":{\"groundSpeed\":6}}}");
+            Assert.That(FramePuppetRules.ResolveWalkGroundSpeed(meta), Is.EqualTo(2.5f).Within(1e-5f));
+            Assert.That(FramePuppetRules.ResolveRunGroundSpeed(meta), Is.EqualTo(6f).Within(1e-5f));
+        }
+
+        [Test]
+        public void ResolveGroundSpeed_WhenMissing_DefaultsToThreeAndFive()
+        {
+            // animations 有 walk 条目但没写 groundSpeed（现有方舟 meta 就是这样）、没有 run 条目、没有 animations、没有 meta。
+            FramePuppetMeta noSpeed = FramePuppetRules.ParseMeta(
+                "{\"fps\":12,\"animations\":{\"walk\":{\"source\":\"Move\",\"frames\":14}}}");
+            Assert.That(FramePuppetRules.ResolveWalkGroundSpeed(noSpeed), Is.EqualTo(3f));
+            Assert.That(FramePuppetRules.ResolveRunGroundSpeed(noSpeed), Is.EqualTo(5f));
+            FramePuppetMeta empty = FramePuppetRules.ParseMeta("{}");
+            Assert.That(FramePuppetRules.ResolveWalkGroundSpeed(empty), Is.EqualTo(3f));
+            Assert.That(FramePuppetRules.ResolveRunGroundSpeed(empty), Is.EqualTo(5f));
+            Assert.That(FramePuppetRules.ResolveWalkGroundSpeed(null), Is.EqualTo(3f));
+            Assert.That(FramePuppetRules.ResolveRunGroundSpeed(null), Is.EqualTo(5f));
+        }
+
+        [Test]
+        public void ResolveGroundSpeed_WhenNotPositive_FallsBackToDefault()
+        {
+            FramePuppetMeta meta = FramePuppetRules.ParseMeta(
+                "{\"animations\":{\"walk\":{\"groundSpeed\":0},\"run\":{\"groundSpeed\":-2}}}");
+            Assert.That(FramePuppetRules.ResolveWalkGroundSpeed(meta), Is.EqualTo(3f));
+            Assert.That(FramePuppetRules.ResolveRunGroundSpeed(meta), Is.EqualTo(5f));
+        }
+
+        [Test]
         public void MissingStatesError_WhenWalkMissing_NamesStateAndExampleFile()
         {
             string error = FramePuppetRules.MissingStatesError("amiya", new[] { "idle" });
@@ -141,13 +204,13 @@ namespace Game.Tests.EditMode.CharacterPuppet
         }
 
         [Test]
-        public void ResolveFps_RequestedThenMetaThenTwelve()
+        public void ResolveFps_RequestedThenMetaThenTwentyFour()
         {
-            FramePuppetMeta meta = FramePuppetRules.ParseMeta("{\"fps\":24}");
+            FramePuppetMeta meta = FramePuppetRules.ParseMeta("{\"fps\":12}");
             Assert.That(FramePuppetRules.ResolveFps(10f, meta), Is.EqualTo(10f));
-            Assert.That(FramePuppetRules.ResolveFps(0f, meta), Is.EqualTo(24f));
-            Assert.That(FramePuppetRules.ResolveFps(0f, FramePuppetRules.ParseMeta("{}")), Is.EqualTo(12f));
-            Assert.That(FramePuppetRules.ResolveFps(0f, null), Is.EqualTo(12f));
+            Assert.That(FramePuppetRules.ResolveFps(0f, meta), Is.EqualTo(12f));
+            Assert.That(FramePuppetRules.ResolveFps(0f, FramePuppetRules.ParseMeta("{}")), Is.EqualTo(24f));
+            Assert.That(FramePuppetRules.ResolveFps(0f, null), Is.EqualTo(24f));
         }
 
         [Test]
@@ -168,10 +231,11 @@ namespace Game.Tests.EditMode.CharacterPuppet
         }
 
         [Test]
-        public void AnimatorStateName_MapsIdleWalkAndKeepsOthers()
+        public void AnimatorStateName_MapsIdleWalkRunAndKeepsOthers()
         {
             Assert.That(FramePuppetRules.AnimatorStateName("idle"), Is.EqualTo("Idle"));
             Assert.That(FramePuppetRules.AnimatorStateName("walk"), Is.EqualTo("Walk"));
+            Assert.That(FramePuppetRules.AnimatorStateName("run"), Is.EqualTo("Run"));
             Assert.That(FramePuppetRules.AnimatorStateName("sit"), Is.EqualTo("sit"));
         }
     }

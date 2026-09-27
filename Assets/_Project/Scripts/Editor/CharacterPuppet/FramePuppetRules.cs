@@ -1,4 +1,4 @@
-// 职责：序列帧小人生成工具的纯规则——帧文件名解析、按状态分组排序、缺态报错、meta.json 解析、pivot / PPU / fps 计算。
+// 职责：序列帧小人生成工具的纯规则——帧文件名解析、按状态分组排序、缺态报错、meta.json 解析、pivot / PPU / fps / 剪辑地速计算。
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   1. 复用不行：SpriteImportProcessor 只管首次导入的全局默认值，不懂「一个角色一组帧、同一锚点」；
 //   2. 扩展不行：这些规则要 EditMode 穷举测试，塞进 FramePuppetGenerator（资产读写、EditorWindow）就测不了，所以单独成类。
@@ -15,8 +15,18 @@ namespace Game.Editor.CharacterPuppet
     {
         public const string IdleState = "idle";
         public const string WalkState = "walk";
+
+        /// <summary>可选已知状态：有就接成 Run 态的剪辑，没有时 Run 态复用 walk 剪辑；缺了不报错、不告警。</summary>
+        public const string RunState = "run";
+
         public const string MetaFileName = "meta.json";
-        public const float DefaultFps = 12f;
+        public const float DefaultFps = 24f;
+
+        /// <summary>meta 没写 animations.walk.groundSpeed 时的走路剪辑制作地速（单位/秒），与玩家走路档一致。</summary>
+        public const float DefaultWalkGroundSpeed = 3f;
+
+        /// <summary>meta 没写 animations.run.groundSpeed 时的奔跑剪辑制作地速（单位/秒），与玩家奔跑档一致。</summary>
+        public const float DefaultRunGroundSpeed = 5f;
         public const float DefaultTargetHeight = 1.5f;
 
         private static readonly Regex NamePattern = new Regex("^[a-z0-9]+(?:_[a-z0-9]+)*$");
@@ -140,7 +150,7 @@ namespace Game.Editor.CharacterPuppet
             return result;
         }
 
-        /// <summary>缺 idle / walk 时返回报错文案（给美术看的），齐全返回 null。</summary>
+        /// <summary>缺 idle / walk 时返回报错文案（给美术看的），齐全返回 null。run 是可选状态，不在检查之列。</summary>
         public static string MissingStatesError(string characterName, ICollection<string> states)
         {
             var missing = new List<string>();
@@ -203,7 +213,7 @@ namespace Game.Editor.CharacterPuppet
             return new Vector2(0.5f, 0f);
         }
 
-        /// <summary>帧率：显式指定（&gt; 0）优先，其次 meta.fps，都没有取 12。</summary>
+        /// <summary>帧率：显式指定（&gt; 0）优先，其次 meta.fps，都没有取 24。</summary>
         public static float ResolveFps(float requested, FramePuppetMeta meta)
         {
             if (requested > 0f)
@@ -217,6 +227,24 @@ namespace Game.Editor.CharacterPuppet
             }
 
             return DefaultFps;
+        }
+
+        /// <summary>是否有独立的 run 剪辑（决定 Run 态用 run 剪辑还是复用 walk，以及预制体 hasRunClip）。</summary>
+        public static bool HasRunState(ICollection<string> states)
+        {
+            return states != null && states.Contains(RunState);
+        }
+
+        /// <summary>走路剪辑的制作地速：meta.animations.walk.groundSpeed（&gt; 0）优先，否则 3。</summary>
+        public static float ResolveWalkGroundSpeed(FramePuppetMeta meta)
+        {
+            return meta != null && meta.WalkGroundSpeed > 0f ? meta.WalkGroundSpeed : DefaultWalkGroundSpeed;
+        }
+
+        /// <summary>奔跑剪辑的制作地速：meta.animations.run.groundSpeed（&gt; 0）优先，否则 5。</summary>
+        public static float ResolveRunGroundSpeed(FramePuppetMeta meta)
+        {
+            return meta != null && meta.RunGroundSpeed > 0f ? meta.RunGroundSpeed : DefaultRunGroundSpeed;
         }
 
         /// <summary>同一角色所有帧须同一画布尺寸；不一致返回报错文案，一致返回 null。</summary>
@@ -240,7 +268,7 @@ namespace Game.Editor.CharacterPuppet
             return null;
         }
 
-        /// <summary>Animator 状态名：idle → Idle、walk → Walk，其余原样（与已删除的分件小人控制器命名一致，Showcase 按此名断言）。</summary>
+        /// <summary>Animator 状态名：idle → Idle、walk → Walk、run → Run，其余原样（与已删除的分件小人控制器命名一致，Showcase 按此名断言）。</summary>
         public static string AnimatorStateName(string state)
         {
             if (state == IdleState)
@@ -248,7 +276,12 @@ namespace Game.Editor.CharacterPuppet
                 return "Idle";
             }
 
-            return state == WalkState ? "Walk" : state;
+            if (state == WalkState)
+            {
+                return "Walk";
+            }
+
+            return state == RunState ? "Run" : state;
         }
 
         /// <summary>解析 meta.json；空串或解析失败返回 null（meta 可选，缺了走默认值）。</summary>

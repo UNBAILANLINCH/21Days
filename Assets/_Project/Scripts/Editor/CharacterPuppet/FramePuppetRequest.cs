@@ -18,7 +18,7 @@ namespace Game.Editor.CharacterPuppet
         /// <summary>整张画布在场景里的高度（世界单位），PPU = 画布高像素 / 它。</summary>
         public float TargetHeight { get; set; } = FramePuppetRules.DefaultTargetHeight;
 
-        /// <summary>帧率；≤ 0 表示取 meta.json 的 fps，没有 meta 用 12。</summary>
+        /// <summary>帧率；≤ 0 表示取 meta.json 的 fps，没有 meta 用 24。</summary>
         public float Fps { get; set; }
 
         /// <summary>

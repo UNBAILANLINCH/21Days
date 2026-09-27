@@ -1,4 +1,5 @@
-// 职责：每帧读角色根的位移，经 ChibiPuppetMotionRules 判定走 / 停与朝向，写给同根的 ChibiPuppet。
+// 职责：每帧读角色根的位移，经 ChibiPuppetMotionRules 判定停 / 走 / 跑、播放速率与朝向，写给同根的 ChibiPuppet。
+//   只看位移，不读输入、不读玩家状态：谁推的、推的人认为自己在「跑」还是「走」，它一概不知。
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   1. 复用不行：没有现成组件从 Transform 位移反推动画状态；EncounterSceneView 只算 flipX；
 //   2. 扩展不行：放进 ChibiPuppet 会让表现门面依赖驱动来源——以后改由输入 / AI 直接驱动时只换这个组件。
@@ -26,6 +27,7 @@ namespace Game.CharacterPuppet
         private Vector3 pendingDelta;
         private float pendingTime;
         private bool moving;
+        private bool running;
         private bool faceLeft;
 
         public Transform TrackedRoot => trackedRoot;
@@ -49,8 +51,9 @@ namespace Game.CharacterPuppet
             pendingDelta = Vector3.zero;
             pendingTime = 0f;
             moving = false;
+            running = false;
             faceLeft = puppet.FaceLeft;
-            puppet.SetMoving(false, IdlePlaybackRate);
+            puppet.SetMoving(false, false, IdlePlaybackRate);
         }
 
         private void LateUpdate()
@@ -65,16 +68,17 @@ namespace Game.CharacterPuppet
                 pendingDelta = Vector3.zero;
                 pendingTime = 0f;
                 lastPosition = position;
-                if (moving)
+                if (moving || running)
                 {
                     moving = false;
-                    puppet.SetMoving(false, IdlePlaybackRate);
+                    running = false;
+                    puppet.SetMoving(false, false, IdlePlaybackRate);
                 }
 
                 return;
             }
 
-            // 位移与时间攒到采样窗口再判：逻辑 tick 慢于渲染帧时，单帧位移会时有时无。
+            // 位移与时间攒到采样窗口再判：视图已做 tick 间插值，窗口只抹平单帧噪声。
             pendingDelta += position - lastPosition;
             pendingTime += dt;
             lastPosition = position;
@@ -91,11 +95,14 @@ namespace Game.CharacterPuppet
             float speed;
             moving = ChibiPuppetMotionRules.Evaluate(delta.magnitude, window, config.MoveStartSpeed,
                 config.MoveStopSpeed, moving, out speed);
+            running = moving && ChibiPuppetMotionRules.ResolveRunning(speed, config.RunStartSpeed,
+                config.RunStopSpeed, running, puppet.HasRunClip);
+            // 播放速率按当前态的剪辑地速标定：实际速度 = 剪辑制作地速时原速播放；没有 run 剪辑时奔跑也按 walk 地速换算再夹取。
             float rate = moving
-                ? ChibiPuppetMotionRules.WalkPlaybackRate(speed, config.WalkCycleSpeedPerUnit, config.WalkRateMin,
-                    config.WalkRateMax)
+                ? ChibiPuppetMotionRules.PlaybackRate(speed, running ? puppet.RunClipSpeed : puppet.WalkClipSpeed,
+                    config.RateMin, config.RateMax)
                 : IdlePlaybackRate;
-            puppet.SetMoving(moving, rate);
+            puppet.SetMoving(moving, running, rate);
 
             bool nextFaceLeft = ResolveFacing(delta, window);
             if (nextFaceLeft != faceLeft)

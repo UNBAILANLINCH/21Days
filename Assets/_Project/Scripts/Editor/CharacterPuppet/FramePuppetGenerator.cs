@@ -5,9 +5,12 @@
 //   · 帧贴图导入设置：Sprite / Single、PPU = 画布高 / 目标高度、pivot = meta.pivot（Custom）。只改这一个目录，
 //     不碰 SpriteImportProcessor 的全局首次导入规则。
 //   · Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim：Sprite 子物体 SpriteRenderer.m_Sprite 的关键帧序列，循环。
-//   · 同目录 chr_<名字>.controller：参数 Moving(bool) / Speed(float=1)，Idle ⇄ Walk（无退出时间、过渡 0），Walk 速度乘 Speed；
+//   · 同目录 chr_<名字>.controller：参数 Moving(bool) / Running(bool) / Speed(float=1)；状态 Idle / Walk / Run，
+//     过渡全部 0 时长、无退出时间（Idle→Walk/Run 按 Running 分流、Walk⇄Run 按 Running、Walk/Run→Idle 按 !Moving）；
+//     Walk / Run 速度乘 Speed。有 run 帧时 Run 用 run 剪辑，没有时 Run 复用 walk 剪辑（控制器形状统一，驱动层不分支）。
 //     其它状态作孤立状态加入。
-//   · Prefabs/Characters/Chibi_<名字>.prefab：根 Animator(UnscaledTime) + ChibiPuppet + ChibiPuppetMotion，子物体 Sprite。
+//   · Prefabs/Characters/Chibi_<名字>.prefab：根 Animator(UnscaledTime) + ChibiPuppet（含 walkClipSpeed / runClipSpeed /
+//     hasRunClip，地速取 meta.json animations.<walk|run>.groundSpeed，缺省 3 / 5）+ ChibiPuppetMotion，子物体 Sprite。
 //   · 可选 Sprite Atlas（V2）：Art/Sprites/.../<名字>/<名字>.spriteatlasv2，包含帧目录；已存在不动；Sprite Packer 关着时跳过。
 //
 // 副作用说明：只写上面列出的资产，逐个 SaveAssetIfDirty，不调 AssetDatabase.SaveAssets（免得顺手保存别人未保存的改动）；
@@ -42,6 +45,7 @@ namespace Game.Editor.CharacterPuppet
         public const string MaterialPath = "Assets/_Project/Art/Materials/Character/M_SpriteDepthClip.mat";
         public const string SpriteChildName = "Sprite";
         public const string MovingParameter = "Moving";
+        public const string RunningParameter = "Running";
         public const string SpeedParameter = "Speed";
 
         private const string MenuPath = "21Days/角色/从序列帧生成小人…";
@@ -74,14 +78,14 @@ namespace Game.Editor.CharacterPuppet
         private void OnGUI()
         {
             EditorGUILayout.HelpBox(
-                "帧目录里放 chr_<名字>_<状态>_<NN>.png（至少 idle + walk，同一画布尺寸）与可选 meta.json。\n" +
+                "帧目录里放 chr_<名字>_<状态>_<NN>.png（至少 idle + walk，可选 run，同一画布尺寸）与可选 meta.json。\n" +
                 "生成动画、控制器、Chibi_<名字>.prefab；可重跑，已有资产原地更新。规范见 docs/artist-guide.md「角色序列帧交付规范」。",
                 MessageType.Info);
             frameFolder = (DefaultAsset)EditorGUILayout.ObjectField("帧目录", frameFolder, typeof(DefaultAsset), false);
             characterName = EditorGUILayout.TextField(new GUIContent("角色名（空 = 目录名）"), characterName);
             targetHeight = EditorGUILayout.FloatField(new GUIContent("目标高度（单位）", "整张画布在场景里的高度；PPU = 画布高像素 / 它"),
                 targetHeight);
-            fps = EditorGUILayout.FloatField(new GUIContent("帧率（0 = 取 meta，无则 12）"), fps);
+            fps = EditorGUILayout.FloatField(new GUIContent("帧率（0 = 取 meta，无则 24）"), fps);
             defaultFacesLeft = EditorGUILayout.Toggle(new GUIContent("美术默认朝左", "勾上则 Sprite 子物体 flipX，预制体仍按「默认朝右」工作"),
                 defaultFacesLeft);
             createAtlas = EditorGUILayout.Toggle("建 Sprite Atlas", createAtlas);
@@ -177,13 +181,20 @@ namespace Game.Editor.CharacterPuppet
             FramePuppetMeta meta = File.Exists(metaPath) ? FramePuppetRules.ParseMeta(File.ReadAllText(metaPath)) : null;
             if (File.Exists(metaPath) && meta == null)
             {
-                warnings.Add("meta.json 解析失败，按默认值处理（pivot 底边正中、fps 12）");
+                warnings.Add(string.Format("meta.json 解析失败，按默认值处理（pivot 底边正中、fps {0}、走 / 跑地速 {1} / {2}）",
+                    FramePuppetRules.DefaultFps, FramePuppetRules.DefaultWalkGroundSpeed, FramePuppetRules.DefaultRunGroundSpeed));
             }
 
             Vector2Int canvas = ReadCanvasSize(directory, groups);
             float ppu = FramePuppetRules.PixelsPerUnit(canvas.y, request.TargetHeight);
             Vector2 pivot = FramePuppetRules.ResolvePivot(meta, canvas.x, canvas.y);
             float frameRate = FramePuppetRules.ResolveFps(request.Fps, meta);
+            var clipMotion = new ClipMotion
+            {
+                WalkClipSpeed = FramePuppetRules.ResolveWalkGroundSpeed(meta),
+                RunClipSpeed = FramePuppetRules.ResolveRunGroundSpeed(meta),
+                HasRunClip = FramePuppetRules.HasRunState(groups.Keys),
+            };
 
             ApplyImportSettings(directory, groups, ppu, pivot);
 
@@ -210,9 +221,11 @@ namespace Game.Editor.CharacterPuppet
             string controllerPath = string.Format("{0}/chr_{1}.controller", animationDir, name);
             AnimatorController controller = WriteController(controllerPath, clips);
             report.AppendLine("  控制器 → " + controllerPath);
+            report.AppendLine(string.Format("  Run 态：{0}；剪辑地速 走 {1:0.###} / 跑 {2:0.###} 单位/秒",
+                clipMotion.HasRunClip ? "run 剪辑" : "无 run 帧，复用 walk 剪辑", clipMotion.WalkClipSpeed, clipMotion.RunClipSpeed));
 
             string prefabPath = string.Format("{0}/Chibi_{1}.prefab", PrefabRoot, name);
-            WritePrefab(prefabPath, controller, firstIdleSprite, request.DefaultFacesLeft);
+            WritePrefab(prefabPath, controller, firstIdleSprite, request.DefaultFacesLeft, clipMotion);
             report.AppendLine("  预制体 → " + prefabPath);
 
             if (request.CreateAtlas)
@@ -383,10 +396,18 @@ namespace Game.Editor.CharacterPuppet
                 existing[child.state.name] = child.state;
             }
 
+            // 状态 → 剪辑：每组帧一个状态；没有 run 帧时补一个复用 walk 剪辑的 run 状态，控制器形状统一。
+            var motions = new SortedDictionary<string, AnimationClip>(clips, StringComparer.Ordinal);
+            if (!motions.ContainsKey(FramePuppetRules.RunState))
+            {
+                motions.Add(FramePuppetRules.RunState, clips[FramePuppetRules.WalkState]);
+            }
+
+            // 已有状态按名字复用（控制器 GUID 与状态对象不变），缺的才新建；旧过渡全部清掉后按约定重建，重跑不会重复。
             var wanted = new HashSet<string>(StringComparer.Ordinal);
             var states = new Dictionary<string, AnimatorState>(StringComparer.Ordinal);
             int row = 0;
-            foreach (KeyValuePair<string, AnimationClip> pair in clips)
+            foreach (KeyValuePair<string, AnimationClip> pair in motions)
             {
                 string stateName = FramePuppetRules.AnimatorStateName(pair.Key);
                 wanted.Add(stateName);
@@ -400,9 +421,9 @@ namespace Game.Editor.CharacterPuppet
                 state.motion = pair.Value;
                 state.speed = 1f;
                 state.writeDefaultValues = true;
-                bool isWalk = pair.Key == FramePuppetRules.WalkState;
-                state.speedParameterActive = isWalk;
-                state.speedParameter = isWalk ? SpeedParameter : string.Empty;
+                bool locomotion = pair.Key == FramePuppetRules.WalkState || pair.Key == FramePuppetRules.RunState;
+                state.speedParameterActive = locomotion;
+                state.speedParameter = locomotion ? SpeedParameter : string.Empty;
                 foreach (AnimatorStateTransition transition in state.transitions)
                 {
                     state.RemoveTransition(transition);
@@ -421,8 +442,16 @@ namespace Game.Editor.CharacterPuppet
 
             AnimatorState idle = states[FramePuppetRules.IdleState];
             AnimatorState walk = states[FramePuppetRules.WalkState];
-            AddInstantTransition(idle, walk, AnimatorConditionMode.If);
-            AddInstantTransition(walk, idle, AnimatorConditionMode.IfNot);
+            AnimatorState run = states[FramePuppetRules.RunState];
+            // 同一状态的过渡按添加顺序求值：回 Idle 放第一条，停步优先于走跑互切。
+            AddInstantTransition(idle, walk, Cond(AnimatorConditionMode.If, MovingParameter),
+                Cond(AnimatorConditionMode.IfNot, RunningParameter));
+            AddInstantTransition(idle, run, Cond(AnimatorConditionMode.If, MovingParameter),
+                Cond(AnimatorConditionMode.If, RunningParameter));
+            AddInstantTransition(walk, idle, Cond(AnimatorConditionMode.IfNot, MovingParameter));
+            AddInstantTransition(walk, run, Cond(AnimatorConditionMode.If, RunningParameter));
+            AddInstantTransition(run, idle, Cond(AnimatorConditionMode.IfNot, MovingParameter));
+            AddInstantTransition(run, walk, Cond(AnimatorConditionMode.IfNot, RunningParameter));
             machine.defaultState = idle;
 
             // AnimatorController 的编辑 API 会往 Undo 栈推记录；别的测试运行器收尾回滚 Undo 时会把刚建好的状态机打回去
@@ -443,6 +472,7 @@ namespace Game.Editor.CharacterPuppet
         {
             var parameters = new List<AnimatorControllerParameter>(controller.parameters);
             UpsertParameter(parameters, MovingParameter, AnimatorControllerParameterType.Bool, 0f);
+            UpsertParameter(parameters, RunningParameter, AnimatorControllerParameterType.Bool, 0f);
             UpsertParameter(parameters, SpeedParameter, AnimatorControllerParameterType.Float, 1f);
             controller.parameters = parameters.ToArray();
         }
@@ -463,7 +493,12 @@ namespace Game.Editor.CharacterPuppet
             parameter.defaultFloat = defaultFloat;
         }
 
-        private static void AddInstantTransition(AnimatorState from, AnimatorState to, AnimatorConditionMode mode)
+        private static AnimatorCondition Cond(AnimatorConditionMode mode, string parameter)
+        {
+            return new AnimatorCondition { mode = mode, parameter = parameter, threshold = 0f };
+        }
+
+        private static void AddInstantTransition(AnimatorState from, AnimatorState to, params AnimatorCondition[] conditions)
         {
             // 整帧换图没法混合，过渡给 0：切状态立刻换到目标剪辑的第一帧。
             AnimatorStateTransition transition = from.AddTransition(to);
@@ -472,11 +507,16 @@ namespace Game.Editor.CharacterPuppet
             transition.hasFixedDuration = true;
             transition.duration = 0f;
             transition.offset = 0f;
-            transition.AddCondition(mode, 0f, MovingParameter);
+            foreach (AnimatorCondition condition in conditions)
+            {
+                transition.AddCondition(condition.mode, condition.threshold, condition.parameter);
+            }
+
             Undo.ClearUndo(transition);
         }
 
-        private static void WritePrefab(string path, AnimatorController controller, Sprite firstIdle, bool facesLeft)
+        private static void WritePrefab(string path, AnimatorController controller, Sprite firstIdle, bool facesLeft,
+            ClipMotion clipMotion)
         {
             var config = AssetDatabase.LoadAssetAtPath<ChibiPuppetConfig>(ConfigPath);
             var material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
@@ -532,6 +572,9 @@ namespace Game.Editor.CharacterPuppet
                 SerializedProperty parts = puppetSo.FindProperty("parts");
                 parts.arraySize = 1;
                 parts.GetArrayElementAtIndex(0).objectReferenceValue = renderer;
+                puppetSo.FindProperty("walkClipSpeed").floatValue = clipMotion.WalkClipSpeed;
+                puppetSo.FindProperty("runClipSpeed").floatValue = clipMotion.RunClipSpeed;
+                puppetSo.FindProperty("hasRunClip").boolValue = clipMotion.HasRunClip;
                 puppetSo.ApplyModifiedPropertiesWithoutUndo();
 
                 var motionSo = new SerializedObject(motion);
@@ -674,6 +717,14 @@ namespace Game.Editor.CharacterPuppet
         private static bool Approximately(float a, float b)
         {
             return Math.Abs(a - b) < 1e-4f;
+        }
+
+        /// <summary>写进预制体 ChibiPuppet 的剪辑运动标定（仅生成过程内部传参）。</summary>
+        private struct ClipMotion
+        {
+            public float WalkClipSpeed; // lint-ok: 私有嵌套结构体的内部传参字段，不序列化、不进 Inspector
+            public float RunClipSpeed; // lint-ok: 同上
+            public bool HasRunClip; // lint-ok: 同上
         }
     }
 }

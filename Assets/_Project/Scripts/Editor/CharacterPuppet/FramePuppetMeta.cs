@@ -1,4 +1,4 @@
-// 职责：序列帧目录里可选的 meta.json 的只读视图（fps、画布尺寸、脚底锚点）。
+// 职责：序列帧目录里可选的 meta.json 的只读视图（fps、画布尺寸、脚底锚点、走 / 跑剪辑的制作地速）。
 // 为什么新建（project-root.md「加能力的顺序」）：JsonUtility 要一个带序列化字段的类型来承接，
 //   FramePuppetRules 是静态规则类放不下字段；一个文件一个类，所以单独成文件。
 // 字段名与 scripts/ark-spine-frames/render_frames.py 写出的 meta.json 一致；缺哪个字段就当没给（哨兵 -1）。
@@ -18,6 +18,7 @@ namespace Game.Editor.CharacterPuppet
         [SerializeField] private int frameHeight = -1;
         [SerializeField] private Point pivot = new Point();
         [SerializeField] private Point pivotPx = new Point();
+        [SerializeField] private StateSet animations = new StateSet();
 
         public float Fps => fps;
         public int FrameWidth => frameWidth;
@@ -29,12 +30,37 @@ namespace Game.Editor.CharacterPuppet
         public float PivotPxX => pivotPx.X;
         public float PivotPxY => pivotPx.Y;
 
+        /// <summary>animations.walk.groundSpeed：走路剪辑按每秒多少单位制作；没给为 -1。</summary>
+        public float WalkGroundSpeed => animations == null || animations.Walk == null ? Missing : animations.Walk.GroundSpeed;
+
+        /// <summary>animations.run.groundSpeed：奔跑剪辑按每秒多少单位制作；没给为 -1。</summary>
+        public float RunGroundSpeed => animations == null || animations.Run == null ? Missing : animations.Run.GroundSpeed;
+
         /// <summary>解析 JSON；格式错误抛 <see cref="ArgumentException"/>（JsonUtility 的行为）。</summary>
         public static FramePuppetMeta FromJson(string json)
         {
             var meta = new FramePuppetMeta();
             JsonUtility.FromJsonOverwrite(json, meta);
             return meta;
+        }
+
+        // animations 在 JSON 里是以状态名为键的对象；JsonUtility 不认字典，只按固定字段名承接关心的状态，其余键忽略。
+        [Serializable]
+        private sealed class StateSet
+        {
+            [SerializeField] private StateEntry walk = new StateEntry();
+            [SerializeField] private StateEntry run = new StateEntry();
+
+            public StateEntry Walk => walk;
+            public StateEntry Run => run;
+        }
+
+        [Serializable]
+        private sealed class StateEntry
+        {
+            [SerializeField] private float groundSpeed = Missing;
+
+            public float GroundSpeed => groundSpeed;
         }
 
         [Serializable]

@@ -82,5 +82,69 @@ namespace Game.Tests.EditMode.Monster
             }
             finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
         }
+
+        // 渲染插值 × 碰撞回写：被挡的轴（值被改写）把 PreviousPosition 也设成同一值，下一帧不从墙里倒插；
+        // 没改写的轴保留 PreviousPosition，贴墙滑动时沿墙那一轴继续平滑插值。
+        [Test]
+        public void CorrectPlayerPosition_AlignsPreviousOnlyOnCorrectedAxis()
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var model = new PlayerModel();
+                var player = new PlayerRules(pc, model, NullTelemetryScope.Instance);
+                var enemy = new MonsterRules(mc, new MonsterModel(), new RandomService(21ul), NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, enemy);
+                step.Begin(Vector2.zero, new[] { new Vector2(10f, 0f) });
+                var random = new RandomService(21ul);
+                var command = new InputCommand(new Vector2(1f, 1f), Vector2.zero, 0u, Vector2.zero, 0);
+                var context = new SimulationContext(0, 0.1f, in command, random);
+                step.Step(in context);
+                Vector2 previous = model.PreviousPosition;
+                Vector2 current = model.Position;
+                Assert.That(current.x, Is.GreaterThan(previous.x));
+
+                // 视图的分轴合成：X 被墙挡回到 0.02，Y 没被挡、原样是逻辑值。
+                step.CorrectPlayerPosition(new Vector2(0.02f, current.y));
+
+                Assert.That(model.Position, Is.EqualTo(new Vector2(0.02f, current.y)));
+                Assert.That(model.PreviousPosition.x, Is.EqualTo(0.02f));
+                Assert.That(model.PreviousPosition.y, Is.EqualTo(previous.y));
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
+
+        // 双方规则都不推进的 tick（未激活 / 结果待结算）也要对齐上一 tick 位置，否则视图在最后一步的两点间来回插值。
+        [Test]
+        public void Step_WhenInactive_AlignsPreviousPositions()
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var model = new PlayerModel();
+                var monsterModel = new MonsterModel();
+                var player = new PlayerRules(pc, model, NullTelemetryScope.Instance);
+                var enemy = new MonsterRules(mc, monsterModel, new RandomService(21ul), NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, enemy);
+                step.Begin(Vector2.zero, new[] { new Vector2(10f, 0f), new Vector2(20f, 0f) });
+                Assert.That(model.PreviousPosition, Is.EqualTo(model.Position), "Begin 后对齐");
+                Assert.That(monsterModel.PreviousPosition, Is.EqualTo(monsterModel.Position), "Begin 后对齐");
+
+                var random = new RandomService(21ul);
+                var command = new InputCommand(Vector2.up, Vector2.zero, 0u, Vector2.zero, 0);
+                var context = new SimulationContext(0, 0.1f, in command, random);
+                step.Step(in context);
+                Assert.That(model.PreviousPosition, Is.Not.EqualTo(model.Position));
+                Assert.That(monsterModel.PreviousPosition, Is.Not.EqualTo(monsterModel.Position));
+
+                step.End();
+                step.Step(in context);
+                Assert.That(model.PreviousPosition, Is.EqualTo(model.Position));
+                Assert.That(monsterModel.PreviousPosition, Is.EqualTo(monsterModel.Position));
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
     }
 }

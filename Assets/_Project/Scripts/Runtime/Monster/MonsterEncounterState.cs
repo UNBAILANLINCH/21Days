@@ -7,6 +7,7 @@ using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
 using Game.Core.Flow;
 using Game.Core.Logging;
+using Game.Core.Simulation;
 using UnityEngine;
 
 namespace Game.Monster
@@ -17,6 +18,7 @@ namespace Game.Monster
         private readonly Game.Player.PlayerModel player;
         private readonly MonsterModel monster;
         private readonly IGameFlow flow;
+        private readonly SimulationRunner runner;
         private EncounterSceneView view;
         private EncounterSaveData restore;
         public bool NavigationBlocked { get; set; }
@@ -30,8 +32,9 @@ namespace Game.Monster
         public void ClearPreparedRestore() => restore = null;
 
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
-            MonsterModel monster, IGameFlow flow) : base(assets)
+            MonsterModel monster, IGameFlow flow, SimulationRunner runner) : base(assets)
         {
+            this.runner = runner;
             this.step = step;
             this.player = player;
             this.monster = monster;
@@ -59,7 +62,7 @@ namespace Game.Monster
                 if (restore != null) step.Restore(restore);
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
-                view.Bind(player, monster);
+                view.Bind(player, monster, ReadInterpolationAlpha);
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
             }
@@ -85,6 +88,18 @@ namespace Game.Monster
             }
 
             return UniTask.CompletedTask;
+        }
+
+        // 渲染插值比例：实时模式取推进器余量 / 步长；重放（Driven）由播放器逐 tick 推进、余量恒为 0，
+        // 此时直接显示当前 tick 位置（alpha = 1），与接入插值前一致；拿不到推进器同样按 1。
+        private float ReadInterpolationAlpha()
+        {
+            if (runner == null || runner.CurrentMode != SimulationRunner.Mode.Live)
+            {
+                return 1f;
+            }
+
+            return EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime);
         }
 
         private void HandleBackClicked()

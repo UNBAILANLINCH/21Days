@@ -31,6 +31,7 @@ namespace Game.Player
         public void Reset(Vector2 position)
         {
             model.Position = position;
+            model.SyncPreviousPosition();
             model.Facing = Vector2.right;
             model.IsSneaking = false;
             model.IsRunning = false;
@@ -49,6 +50,8 @@ namespace Game.Player
                 throw new ArgumentOutOfRangeException(nameof(deltaTime));
             }
 
+            // 表现层插值的起点：放在任何提前返回之前，死亡 / 不动的 tick 也要对齐，否则视图会在旧两点间来回插。
+            model.SyncPreviousPosition();
             if (model.Health <= 0)
             {
                 return false;

@@ -45,7 +45,9 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 `IsometricPlayerController3D` 位于 Showcase 程序集，只用于当前原型。
 不要把它当作正式玩家控制器，也不要让它写入正式玩法状态。
 场景停用该物理控制器、重力和刚体推进；位置只由 `EncounterStep` 推进，
-`EncounterSceneView` 负责把逻辑位置投影到场景。直接播放场景时由
+`EncounterSceneView` 负责把逻辑位置投影到场景：每个渲染帧先在上一 tick 与当前 tick 之间插值
+（`Lerp(PreviousPosition, Position, SimulationRunner.Accumulator / FixedDeltaTime)`，细则见 Monster 模块指南「两逻辑 tick 之间的渲染插值」），
+所以角色 Transform 每帧连续移动，相机 `SmoothCameraFollow` 追的也是连续目标，渲染帧率 ≠ 60 Hz 时不再一帧动一帧不动。直接播放场景时由
 `StandaloneEncounterController` 驱动；从 Boot 加载时它会自行停用，改由正式 `SimulationRunner` 驱动。
 
 ## 场景结构
@@ -370,6 +372,9 @@ offset = camera.position - target.position
 `CameraSmoothTime` 越小，跟随越紧；越大，停下后的缓动越明显。
 当前默认值为 `0.2` 秒。
 
+`SmoothCameraFollow` 标了 `[DefaultExecutionOrder(50)]`：必须排在 `EncounterSceneView`（默认 0，LateUpdate 里把逻辑位置
+插值写成本帧的角色 Transform 位置）之后、`ChibiPuppetMotion`（100）之前，保证本组件跟随的是本帧刚投影好的位置。
+
 当前 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 28、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
 `Start` 记录的 `offset` 落地为 `player 根 + (0, 11, -14)`；`UniversalAdditionalCameraData.rendererIndex`
 = 1（对应表现层里的 `UniversalRenderer` / `UniversalRenderer_Mobile`，不是索引 0 的 `Renderer2D`），
@@ -416,8 +421,8 @@ Player Transform
 
 InputCommand
   → EncounterStep
-  → PlayerModel / MonsterModel（XY）
-  → EncounterSceneView（XY → XZ）
+  → PlayerModel / MonsterModel（XY，含上一 tick 位置 PreviousPosition）
+  → EncounterSceneView（按 SimulationRunner.Accumulator 插值 → XY → XZ 贴地 / 障碍滑动）
   → player / enerme Transform
 
 PlayerModel.IsRunning
@@ -456,6 +461,7 @@ ResetButton
   贴墙滑动）解算玩家纸片位移，被挡时经 `OnPlayerBlocked` → `EncounterStep.CorrectPlayerPosition` 回写逻辑位置。
   取舍：障碍不在确定性内核里，同机同场景可复现，跨机 / 跨平台回放不保证逐位一致；正式版要把关卡障碍数据放进内核。
   怪物不解算碰撞（巡逻路线本身避开障碍）；单帧位移超过 `obstacleTeleportDistance`（1.5 m）视为瞬移，不解算只贴地；
+  碰撞按本帧插值后的位置解算，回写逻辑位置时只改被挡的轴（沿墙那一轴保留逻辑值，贴墙滑动不减速）；
 - 当前没有专门的 PlayMode 自动化测试，场景接线仍需在 Unity 中试玩确认；
 - 贴地投影是表现层：`groundMask` 只影响 `EncounterSceneView` 里纸片的世界 Y，逻辑层没有高度、
   不做视线判定，玩法规则依旧不读取贴地结果（怪物感知不会被桥 / 墙挡住）；
@@ -501,7 +507,8 @@ ResetButton
 - 改 Visual：确认 Rigidbody 与 Collider 没有被移动到倾斜节点；
 - 改 Billboard：同时验证纸片朝向和 Collider 前表面对齐；
 - 改 Collider：通过 Unity 编辑器修改并保存场景，不手改 `.unity` YAML；
-- 改相机缓动：在角色持续移动和突然停止两种状态下检查构图；
+- 改相机缓动：在角色持续移动和突然停止两种状态下检查构图；角色位置已在视图里按 tick 余量插值，
+  相机不要再自己做一层 tick 对齐；排查抖动先确认 `EncounterSceneView.Bind` 收到了 alpha 源（正式流程由 `MonsterEncounterState` 传）；
 - 改配置字段：同步配置资产和本指南；
 - 改渲染分档 / 光影 / 后处理：高低档一起改（`UniversalRP*.asset` 与对应 `UniversalRenderer*.asset`、
   `QualitySettings.asset` 映射），跑 `RenderPipelineTiersTests`；

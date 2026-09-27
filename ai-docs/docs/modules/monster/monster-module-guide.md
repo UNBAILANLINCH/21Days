@@ -18,11 +18,11 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 配置 | `MonsterConfig` | 可调原型半径、速度、时间、战斗数值 |
 | 状态名 | `MonsterMode` | 巡逻走、巡逻停、警戒、敌对、死亡 |
 | 固定输入 | `MonsterIntent` | 本 tick 玩家快照及固定步长 |
-| 运行数据 | `MonsterModel` | 位置、朝向、生命、警戒值与计时器 |
+| 运行数据 | `MonsterModel` | 位置、上一 tick 位置（渲染插值用，不进快照）、朝向、生命、警戒值与计时器 |
 | 规则 | `MonsterRules` | 纯 C# 巡逻、感知、转态、战斗与快照 |
 | 同 tick 调度 | `EncounterStep` | 先 Player 后 Monster，处理双方命中 |
 | 场景状态 | `MonsterEncounterState` | 加载和退出遭遇场景 |
-| 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面、XZ 贴地投影、玩家白盒遮挡碰撞、状态色染色、按移动方向翻转纸片 |
+| 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面、两 tick 间渲染插值、XZ 贴地投影、玩家白盒遮挡碰撞、状态色染色、按移动方向翻转纸片 |
 | 白盒碰撞 | `EncounterCollision` | 静态：玩家场景位移先 X 后 Z 胶囊扫掠（贴墙滑动），表现层用，不进确定性内核 |
 | 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
 | 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线 |
@@ -79,6 +79,7 @@ Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 
 | 状态、生命、巡逻点索引 | `MonsterModel` | 是 |
 | 警戒值与升降、失目标计时 | `MonsterModel` | 是 |
 | 攻击冷却、停步剩余与下次停步时间 | `MonsterModel` | 是 |
+| 上一 tick 位置 `PreviousPosition` | `MonsterModel` / `PlayerModel` | **否**（纯表现辅助，恢复快照 / 读档后对齐为 `Position`） |
 | 巡逻随机流状态 | `MonsterRules` | 是 |
 | 当前巡逻点数组 | `MonsterRules` | 是 |
 | 遭遇是否激活 | `EncounterStep` | 是 |
@@ -107,13 +108,34 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 生命与警戒条。
 标题「开始」由存档会话路由（`Game.Session`）接管。
 
-`EncounterSceneView.ToScenePosition`（`EncounterSceneView.cs:227`）在 XZ 模式下额外做贴地投影：
+### 两逻辑 tick 之间的渲染插值
+
+逻辑位置只在 60 Hz 固定 tick 里跳变（`SimulationRunner` 累加器推进），而相机 `SmoothCameraFollow` 每个渲染帧都在追；
+视图若直接抄 `Position`，渲染帧率 ≠ 60 时角色会一帧动一帧不动（拖影 / 抖动）。因此 `EncounterSceneView.LateUpdate`
+（`EncounterSceneView.cs:220`）先算本帧逻辑位置 `Lerp(PreviousPosition, Position, alpha)`，再走下面的贴地 / 障碍滑动流程。
+
+- **上一 tick 位置**：`PlayerModel.PreviousPosition`（`PlayerModel.cs:16`）/ `MonsterModel.PreviousPosition`（`MonsterModel.cs:15`），
+  由 `PlayerRules.Step` / `MonsterRules.Step` / `MonsterRules.MoveControlled` 在推进位置**之前**（且在死亡等提前返回之前）写入；
+  `EncounterStep.Step` 未激活或结果待结算、双方都不推进时也对齐。**不进存档、不进回放快照**；
+  `PlayerRules.Reset`、`MonsterRules.Reset`、两者的 `Restore`（读档）与 `Deserialize`（快照恢复）都把它对齐为 `Position`，不跨瞬移插值。
+- **alpha 从哪来**：`Bind(player, monster, Func<float> alphaSource = null)`（`EncounterSceneView.cs:126`）。
+  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:95`）取
+  `EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime)`；`SimulationRunner` 处于 `Driven`
+  （重放播放器逐 tick 推进、余量恒 0）时返回 1，直接显示当前 tick。独立场景 `StandaloneEncounterController` 用
+  FixedUpdate 相位（`Time.time − Time.fixedTime`）/ `Time.fixedDeltaTime`，`ManualSimulation` 时返回 1。
+  不传 `alphaSource`（Taming、各 Showcase）按 1，行为与接入插值前一致。
+- **时停 / 暂停**：`timeScale = 0` 或 `SimulationRunner.IsPaused` 时余量不变、alpha 恒定，画面静止不抖。
+- **传送保护**：`|Position − PreviousPosition|` 超过 `obstacleTeleportDistance`（1.5）不插值，直接取 `Position`（漏同步时的兜底）。
+- 纯函数在 `EncounterProjection`：`InterpolationAlpha`（`EncounterProjection.cs:37`）、`InterpolatePosition`（`:58`），
+  碰撞回写分轴裁决 `ResolveBlockedAxis`（`:85`）、`CorrectPreviousAxis`（`:95`）。
+
+`EncounterSceneView.ToScenePosition` 在 XZ 模式下额外做贴地投影：
 `groundMask` 非 0 时，从 `当前 Y + groundProbeHeight` 向下 Raycast（`QueryTriggerInteraction.Ignore`），
 最大探测距离 `groundProbeHeight + groundProbeDepth`；命中后交给
-`public static float ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:10`）
+`public static float ResolveGroundY(currentY, groundY, maxStepHeight)`（`EncounterProjection.cs:13`）
 裁决：`groundY - currentY <= maxStepHeight` 才采用新高度，否则保留当前高度（视为墙顶/家具）；
 下落方向不受该上限约束。`groundMask` 为 0 时完全不贴地，行为与旧版一致。
-同文件的 `ResolveFlipX(previousX, currentX, currentFlipX, threshold)`（`EncounterProjection.cs:14`）
+同文件的 `ResolveFlipX(previousX, currentX, currentFlipX, threshold)`（`EncounterProjection.cs:17`）
 是纯翻转规则，供 `flipByMoveDirection` 复用。
 
 | 字段 | 默认值 | 作用 |
@@ -127,18 +149,24 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 
 ### 白盒遮挡碰撞（PRP/exploration-whitebox 波 9）
 
-`EncounterSceneView.LateUpdate` 的玩家投影改走 `ResolvePlayerScenePosition`：先按逻辑位置贴地得到 `desired`；
+`EncounterSceneView.LateUpdate` 的玩家投影改走 `ResolvePlayerScenePosition`：先按本帧（插值后）逻辑位置贴地得到 `desired`；
 `obstacleMask` 非 0、XZ 模式、且本帧场景位移不超过 `obstacleTeleportDistance` 时，调
 `EncounterCollision.Slide(上一帧场景位置, desired, obstacleRadius, obstacleBottomOffset, obstacleTopOffset, obstacleMask)`：
 沿 X、再沿 Z 各做一次 `Physics.CapsuleCast`（`QueryTriggerInteraction.Ignore`），撞到就停在 `hit.distance − 0.02`。
 胶囊竖直覆盖「脚底 + bottomOffset」到「脚底 + topOffset」（端点球心各往里收一个半径），所以 0.3 的台阶 / 坡面不算障碍，
 离地 1.5 m 以上的桥底 / 甲板底不挡人。XZ 有修正时对修正后的 XZ 重新贴地，写回纸片，并发
-`event Action<Vector2> OnPlayerBlocked`（参数 = 修正后的逻辑 XY）。怪物不解算。
+`event Action<Vector2> OnPlayerBlocked`（参数 = 修正后的逻辑 XY，**分轴合成**：扫掠后偏离插值点超过 0.0001 的轴取修正值，
+其余轴原样是当前逻辑值）。怪物不解算。
+
+分轴的原因：插值点落后逻辑位置最多一个 tick，整点回写会把沿墙那一轴也拉回插值点，贴墙滑动每 tick 丢一截速度
+（首帧 alpha 越小丢得越多，高刷屏上接近停住）。`EncounterStep.CorrectPlayerPosition` 对被改写的轴把
+`PreviousPosition` 设成同一值（下一帧不从墙里倒插），没改写的轴保留 `PreviousPosition`，沿墙方向继续平滑插值。
 
 回写：`MonsterEncounterState.OnSceneReadyAsync`（`view.Bind` 之后）与 `StandaloneEncounterController.Awake` 都订阅
 `view.OnPlayerBlocked += step.CorrectPlayerPosition`，离场 / 销毁时退订。`EncounterStep.CorrectPlayerPosition(Vector2)`
 只在 `IsActive` 时写 `player.Model.Position`，只给这条回写用（挪人仍用 `PlayerRules.Reset`）；
-EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPlayerPosition` / `_WhenInactive_IsIgnored` 覆盖。
+EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPlayerPosition` / `_WhenInactive_IsIgnored` /
+`_AlignsPreviousOnlyOnCorrectedAxis` 覆盖。
 
 **取舍**：逻辑层只有 XY、没有障碍数据，碰撞在表现层用 Unity 物理解算再回写——同机同场景可复现，
 跨机 / 跨平台回放不保证逐位一致（PhysX 浮点）。正式版要把关卡障碍放进确定性内核，届时删掉这条回写。
@@ -149,7 +177,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 | `obstacleBottomOffset` | 0.35 | 胶囊下沿离脚底高度；须高于单级台阶 |
 | `obstacleTopOffset` | 1.5 | 胶囊上沿离脚底高度；更高的悬空几何不挡人 |
 | `obstacleRadius` | 0.3 | 胶囊半径，与 player 的 CapsuleCollider 一致 |
-| `obstacleTeleportDistance` | 1.5 | 单帧场景位移超过它视为瞬移（读档 / 重置 / 回放挪位），不解算只贴地 |
+| `obstacleTeleportDistance` | 1.5 | 单帧场景位移超过它视为瞬移（读档 / 重置 / 回放挪位），不解算只贴地；两 tick 逻辑位置相距超过它时也不插值 |
 
 调试块（`OnGUI`，返回标题按钮 + 玩家 / 怪物状态两行 + 警戒条）波 12 起挪到**左下角**、左对齐、像素坐标
 （不随画布缩放）：按钮 `Rect(16, Screen.height − 56, 114, 40)`，两行状态文字在按钮上方
@@ -159,8 +187,8 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 「探索 HUD 与沉浸模式」）。`Time.timeScale <= 0f`（对白 / 面板暂停期间）整块不画，避免压在对话框
 或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。
 
-`PlayerScenePosition`（`EncounterSceneView.cs:51`）暴露玩家纸片贴地后的场景坐标，供 Showcase 与
-跨模块只读取用，不需要碰视图私有字段。
+`PlayerScenePosition`（`EncounterSceneView.cs:84`）暴露玩家纸片贴地后的场景坐标（插值后的渲染位置，
+正式流程下最多落后逻辑位置一个 tick），供 Showcase 与跨模块只读取用，不需要碰视图私有字段。
 
 ## 已知集成状态
 
@@ -185,6 +213,10 @@ Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检�
 - 改贴地/状态色/翻转字段：跑 `EncounterSceneViewTests.cs` 里 `EncounterProjection` 的 `ResolveGroundY` /
   `ResolveFlipX` 用例与 IsometricExploration Showcase 的 `WalkOntoStairs_RaisesBody`，确认逻辑坐标（XY）
   没有被贴地投影反向影响。
+- 改渲染插值或新增「整体改写 `Position`」的入口（传送、剧情挪人等）：新入口必须同步 `PreviousPosition`
+  （调模型的 `SyncPreviousPosition`，或走 `PlayerRules.Reset` / `MonsterRules.Reset`）；跑 `EncounterSceneViewTests` 的
+  `InterpolationAlpha_*` / `InterpolatePosition_*` / `LateUpdate_UsesAlphaSource_*`、`PlayerRulesTests` / `MonsterRulesTests` 的
+  `PreviousPosition` 用例与 `EncounterStepTests`，并在 60 Hz 以外的刷新率下目测跑动与贴墙滑动。
 - 改遮挡碰撞字段或 `EncounterCollision`：跑 `EncounterStepTests` 与 Exploration Showcase 的
   `Collision_FenceBlocksPlayer` / `MultiLevel_RampLeadsToDeck`，并跑 IsometricExploration Showcase 确认潜行走廊（z 3.4）没被挡。
 - 完成场景接线后：跑 Monster Showcase、资产体检、lint、文档检查并让开发者看画面。

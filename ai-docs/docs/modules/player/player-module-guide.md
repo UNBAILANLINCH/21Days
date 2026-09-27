@@ -53,8 +53,12 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动（走 / �
 | 攻击剩余冷却 | `PlayerModel` | 是 |
 | 上 tick 伪装、攻击与奔跑按钮（`PreviousRun`） | `PlayerModel` | 是 |
 | 移动速度、伤害等常量 | `PlayerConfig` | 否 |
+| `PreviousPosition`（渲染插值用） | `PlayerModel` | 否 |
 
 按钮边缘也进入快照，恢复后长按不会被误判为一次新攻击。
+`PreviousPosition` 不进存档、不进快照、不进回放，只供 `EncounterSceneView` 做两逻辑 tick 之间的渲染插值；
+`Reset` / `Restore` / 快照 `Deserialize` 之后都会调 `SyncPreviousPosition` 把它对齐到当前 `Position`，
+避免读档或重置瞬间被插值从旧位置拉一下。
 运行数据不写回 ScriptableObject，也不增加 JSON 存档分区；`PlayerSaveData` 同步带 `IsRunning` / `PreviousRun`。
 Player 回放状态由 `MonsterInstaller` 在固定顺序中首先注册，然后才是 Monster 与遭遇步骤。
 2026-09-26 快照末尾追加 `IsRunning`、`PreviousRun`，`ReplayFormat` 当前与最低可读版本升至 4；v3 及更早的回放会被拒读。

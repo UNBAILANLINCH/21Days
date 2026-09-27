@@ -82,6 +82,7 @@ namespace Game.Monster
             var restoredPoints = new Vector2[saved.WaypointX.Length];
             for (int i = 0; i < restoredPoints.Length; i++) restoredPoints[i] = new Vector2(saved.WaypointX[i], saved.WaypointY[i]);
             model.Position = new Vector2(saved.PositionX, saved.PositionY);
+            model.SyncPreviousPosition();
             model.Facing = new Vector2(saved.FacingX, saved.FacingY);
             model.LastKnownTarget = new Vector2(saved.TargetX, saved.TargetY);
             model.Mode = saved.Mode;
@@ -108,6 +109,7 @@ namespace Game.Monster
 
             waypoints = (Vector2[])patrolPoints.Clone();
             model.Position = waypoints[0];
+            model.SyncPreviousPosition();
             model.Facing = waypoints.Length > 1
                 ? GameMath.Normalize(waypoints[1] - waypoints[0]) : Vector2.right;
             if (model.Facing == Vector2.zero)
@@ -137,6 +139,8 @@ namespace Game.Monster
                 throw new ArgumentOutOfRangeException(nameof(intent), "固定步长不可为负");
             }
 
+            // 表现层插值的起点：放在任何提前返回之前，死亡 / 停步的 tick 也要对齐，否则视图会在旧两点间来回插。
+            model.SyncPreviousPosition();
             if (model.Health <= 0 || waypoints.Length == 0)
             {
                 return false;
@@ -249,6 +253,7 @@ namespace Game.Monster
         public void MoveControlled(Vector2 movement, float deltaTime)
         {
             if (deltaTime < 0f) throw new ArgumentOutOfRangeException(nameof(deltaTime));
+            model.SyncPreviousPosition();
             if (model.Health <= 0) return;
             if (GameMath.SqrMagnitude(movement) > 1f) movement = GameMath.Normalize(movement);
             if (GameMath.SqrMagnitude(movement) > 0f)

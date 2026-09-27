@@ -136,5 +136,40 @@ namespace Game.Tests.EditMode.Monster
 
         private static PlayerSnapshot Target(Vector2 position, bool sneaking = false, bool disguised = false) =>
             new PlayerSnapshot(position, Vector2.left, sneaking, disguised, 3);
+
+        // 渲染插值：每 tick 推进前记下上一 tick 位置；Reset / 快照恢复 / 存档恢复时对齐，不跨瞬移插值。
+        [Test]
+        public void Step_RecordsPreviousPosition_AndResetRestoreAlignIt()
+        {
+            Assert.That(rules.Model.PreviousPosition, Is.EqualTo(rules.Model.Position), "Reset 后对齐");
+            Vector2 before = rules.Model.Position;
+            Step(NoTarget(), 1f);
+            Assert.That(rules.Model.PreviousPosition, Is.EqualTo(before));
+            Assert.That(rules.Model.Position, Is.Not.EqualTo(before));
+
+            MonsterSaveData saved = rules.Capture();
+            var buffer = new StateBuffer();
+            rules.Serialize(buffer);
+
+            MonsterRules restored = NewRules();
+            buffer.SeekToStart();
+            restored.Deserialize(buffer);
+            Assert.That(buffer.Remaining, Is.Zero, "PreviousPosition 不进快照，字节布局不变");
+            Assert.That(restored.Model.PreviousPosition, Is.EqualTo(restored.Model.Position));
+
+            MonsterRules loaded = NewRules();
+            loaded.Restore(saved);
+            Assert.That(loaded.Model.PreviousPosition, Is.EqualTo(loaded.Model.Position));
+        }
+
+        // 驯服接管的移动入口同样先记上一 tick 位置。
+        [Test]
+        public void MoveControlled_RecordsPreviousPositionBeforeMoving()
+        {
+            Vector2 before = rules.Model.Position;
+            rules.MoveControlled(Vector2.up, 1f);
+            Assert.That(rules.Model.PreviousPosition, Is.EqualTo(before));
+            Assert.That(rules.Model.Position.y, Is.GreaterThan(before.y));
+        }
     }
 }

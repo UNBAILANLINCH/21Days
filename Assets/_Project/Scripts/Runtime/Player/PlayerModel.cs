@@ -7,6 +7,14 @@ namespace Game.Player
     public sealed class PlayerModel : IReplayState
     {
         public Vector2 Position { get; internal set; }
+
+        /// <summary>
+        /// 上一个逻辑 tick 结束时的位置，只供表现层在两 tick 之间插值渲染位置（见 EncounterSceneView）。
+        /// 纯表现辅助：不进存档（Capture/Restore）、不进回放快照（Serialize/Deserialize）；
+        /// 凡是整体改写 Position 的地方（出生、读档、快照恢复、碰撞回写）都要同步它，避免跨瞬移插值。
+        /// </summary>
+        public Vector2 PreviousPosition { get; internal set; }
+
         public Vector2 Facing { get; internal set; } = Vector2.right;
         public bool IsSneaking { get; internal set; }
 
@@ -58,7 +66,11 @@ namespace Game.Player
             PreviousAttack = saved.PreviousAttack;
             IsRunning = saved.IsRunning;
             PreviousRun = saved.PreviousRun;
+            SyncPreviousPosition();
         }
+
+        /// <summary>把 <see cref="PreviousPosition"/> 对齐到当前位置：每 tick 推进前、以及瞬移 / 读档后调用。</summary>
+        internal void SyncPreviousPosition() => PreviousPosition = Position;
 
         public void Serialize(IStateWriter writer)
         {
@@ -87,6 +99,8 @@ namespace Game.Player
             PreviousAttack = reader.ReadBool();
             IsRunning = reader.ReadBool();
             PreviousRun = reader.ReadBool();
+            // PreviousPosition 不进快照：恢复快照等同瞬移，对齐到恢复后的位置。
+            SyncPreviousPosition();
         }
     }
 }

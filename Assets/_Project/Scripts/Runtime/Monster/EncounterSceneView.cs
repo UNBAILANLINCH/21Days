@@ -1,4 +1,5 @@
 // 职责：场景中的巡逻点和占位视觉；把逻辑位置投影到场景（XZ 模式可贴地爬台阶）、状态色与朝向翻转；规则数据仍由 PlayerModel / MonsterModel 持有。
+// 渲染位置在两逻辑 tick 之间插值（Lerp(PreviousPosition, Position, alpha)），alpha 由 Bind 的调用方给；不给时 alpha = 1，行为同旧版。
 // 为什么新建：SampleView 是示例商品面板，现有场景中没有角色表现组件可复用。
 using System;
 using Game.Player;
@@ -9,6 +10,8 @@ namespace Game.Monster
     public sealed class EncounterSceneView : MonoBehaviour
     {
         private const float MinFlipDelta = 0.0001f;
+        // 碰撞回写分轴判定的容差：扫掠只在浮点舍入层面偏离期望值时不算被挡，避免把没被挡的轴拉回插值点。
+        private const float BlockedAxisTolerance = 0.0001f;
         // 波 12：调试面板挪到左下角像素坐标（不随画布缩放），让出右上角给沉浸 / 重置按钮与对话三键。
         private const float DebugPanelMargin = 16f;
         private const float DebugPanelWidth = 480f;
@@ -53,11 +56,12 @@ namespace Game.Monster
         [SerializeField, Min(0f)] private float obstacleTopOffset = 1.5f;
         [Tooltip("碰撞胶囊半径，与 player 根节点 CapsuleCollider 一致")]
         [SerializeField, Min(0f)] private float obstacleRadius = 0.3f;
-        [Tooltip("单帧场景位移超过这个距离视为瞬移（读档 / 重置 / 回放挪位），不做碰撞解算，只贴地")]
+        [Tooltip("单帧场景位移超过这个距离视为瞬移（读档 / 重置 / 回放挪位），不做碰撞解算，只贴地；两 tick 逻辑位置相距超过它时也不插值")]
         [SerializeField, Min(0f)] private float obstacleTeleportDistance = 1.5f;
 
         private PlayerModel player;
         private MonsterModel monster;
+        private Func<float> interpolationAlpha;
         private Sprite placeholderSprite;
         private string playerStatus;
         private string monsterStatus;
@@ -69,7 +73,10 @@ namespace Game.Monster
 
         public event Action OnBackClicked;
 
-        /// <summary>玩家这一帧被遮挡物挡住时发出，参数是修正后的逻辑 XY；由持有 EncounterStep 的一方回写（CorrectPlayerPosition）。</summary>
+        /// <summary>
+        /// 玩家这一帧被遮挡物挡住时发出，参数是修正后的逻辑 XY；由持有 EncounterStep 的一方回写（CorrectPlayerPosition）。
+        /// 分轴合成：被挡的轴取插值点扫掠后的修正值，没被挡的轴原样是当前逻辑值（不往回拉到插值点）。
+        /// </summary>
         public event Action<Vector2> OnPlayerBlocked;
 
         public Transform PlayerBody => playerBody;
@@ -112,10 +119,15 @@ namespace Game.Monster
             return result;
         }
 
-        public void Bind(PlayerModel playerModel, MonsterModel monsterModel)
+        /// <summary>
+        /// 绑定要显示的模型。<paramref name="alphaSource"/> 每个渲染帧取一次两 tick 之间的插值比例 [0, 1]
+        /// （正式流程读 SimulationRunner.Accumulator，独立场景读 FixedUpdate 相位）；为空时按 1，直接显示当前 tick 位置。
+        /// </summary>
+        public void Bind(PlayerModel playerModel, MonsterModel monsterModel, Func<float> alphaSource = null)
         {
             player = playerModel;
             monster = monsterModel;
+            interpolationAlpha = alphaSource;
             EnsureBodies();
             EnsureCamera();
         }
@@ -124,6 +136,7 @@ namespace Game.Monster
         {
             player = null;
             monster = null;
+            interpolationAlpha = null;
         }
 
         private void EnsureBodies()
@@ -211,10 +224,15 @@ namespace Game.Monster
                 return;
             }
 
+            // 逻辑位置只在固定 tick 里跳变；按余量比例在上一 tick 与当前 tick 之间插值，每个渲染帧的位移才连续。
+            // 时停 / 暂停时余量不变，alpha 恒定，画面静止不抖。
+            float alpha = interpolationAlpha == null ? 1f : interpolationAlpha();
+            Vector2 playerLogic = Interpolate(player.PreviousPosition, player.Position, alpha);
+            Vector2 monsterLogic = Interpolate(monster.PreviousPosition, monster.Position, alpha);
             Vector3 lastPlayerScene = playerBody.position;
             Vector3 lastMonsterScene = monsterBody.position;
-            playerBody.position = ResolvePlayerScenePosition(lastPlayerScene);
-            monsterBody.position = ToScenePosition(monster.Position, lastMonsterScene);
+            playerBody.position = ResolvePlayerScenePosition(playerLogic, lastPlayerScene);
+            monsterBody.position = ToScenePosition(monsterLogic, lastMonsterScene);
             if (flipByMoveDirection)
             {
                 ApplyFlip(playerSprite, lastPlayerScene.x, playerBody.position.x);
@@ -250,10 +268,18 @@ namespace Game.Monster
         private Vector2 ToLogicPosition(Vector3 position) =>
             useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
 
-        // 玩家投影：先按逻辑位置贴地；开了 obstacleMask 且不是瞬移时，再做 XZ 扫掠，被挡就对修正后的 XZ 重新贴地并回写逻辑位置。
-        private Vector3 ResolvePlayerScenePosition(Vector3 lastScene)
+        private Vector2 Interpolate(Vector2 previous, Vector2 current, float alpha)
         {
-            Vector3 desired = ToScenePosition(player.Position, lastScene);
+            EncounterProjection.InterpolatePosition(previous.x, previous.y, current.x, current.y, alpha,
+                obstacleTeleportDistance, out float x, out float y);
+            return new Vector2(x, y);
+        }
+
+        // 玩家投影：先按本帧（插值后）逻辑位置贴地；开了 obstacleMask 且不是瞬移时，再做 XZ 扫掠，
+        // 被挡就对修正后的 XZ 重新贴地，并按轴回写逻辑位置（只改被挡的轴，见 OnPlayerBlocked）。
+        private Vector3 ResolvePlayerScenePosition(Vector2 logicPosition, Vector3 lastScene)
+        {
+            Vector3 desired = ToScenePosition(logicPosition, lastScene);
             if (!useXZPlane || obstacleMask.value == 0)
             {
                 return desired;
@@ -275,7 +301,15 @@ namespace Game.Monster
 
             var corrected = new Vector2(slid.x, slid.z);
             Vector3 final = new Vector3(slid.x, ResolveGroundY(corrected, lastScene.y), slid.z);
-            OnPlayerBlocked?.Invoke(ToLogicPosition(final));
+            // 分轴回写：插值点落后逻辑位置最多一个 tick，整点回写会把沿墙那一轴也往回拉，贴墙滑动每 tick 都丢一截速度。
+            Vector2 logic = player.Position;
+            float logicX = EncounterProjection.ResolveBlockedAxis(logic.x, desired.x, slid.x, BlockedAxisTolerance);
+            float logicY = EncounterProjection.ResolveBlockedAxis(logic.y, desired.z, slid.z, BlockedAxisTolerance);
+            if (logicX != logic.x || logicY != logic.y)
+            {
+                OnPlayerBlocked?.Invoke(new Vector2(logicX, logicY));
+            }
+
             return final;
         }
 

@@ -47,7 +47,7 @@ namespace Game.Monster
             var monsterRules = new MonsterRules(monsterConfig, Enemy, random, NullTelemetryScope.Instance);
             step = new EncounterStep(playerRules, monsterRules);
             step.Begin(view.PlayerStart, view.PatrolPositions());
-            view.Bind(Player, Enemy);
+            view.Bind(Player, Enemy, ReadInterpolationAlpha);
             view.OnPlayerBlocked += step.CorrectPlayerPosition;
 
             playerInput.enabled = true;
@@ -76,6 +76,12 @@ namespace Game.Monster
             var command = new InputCommand(move.ReadValue<Vector2>(), Vector2.zero, buttons, Vector2.zero, 0);
             Simulate(in command, Time.fixedDeltaTime); // lint-ok: 独立场景原型以 FixedUpdate 作为唯一逻辑 tick，不参与正式回放
         }
+
+        // 独立场景以 FixedUpdate 为逻辑 tick：LateUpdate 时「当前时间 − 最近一次固定步时间」就是未满一步的余量。
+        // 时停（timeScale = 0）两者都不走，alpha 恒定；Showcase 手动单步（ManualSimulation）时不插值，直接显示当前 tick。
+        private float ReadInterpolationAlpha() => ManualSimulation
+            ? 1f
+            : EncounterProjection.InterpolationAlpha(Time.time - Time.fixedTime, Time.fixedDeltaTime); // lint-ok: 表现层插值相位，只影响渲染位置，不进逻辑
 
         public void Simulate(in InputCommand command, float deltaTime)
         {

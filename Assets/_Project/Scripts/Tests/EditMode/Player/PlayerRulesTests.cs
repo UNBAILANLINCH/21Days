@@ -165,5 +165,55 @@ namespace Game.Tests.EditMode.Player
             Assert.That(model.IsRunning, Is.True);
             Assert.That(model.PreviousRun, Is.True);
         }
+
+        // 渲染插值：每 tick 推进前记下上一 tick 位置，视图在两者之间 Lerp。
+        [Test]
+        public void Step_RecordsPreviousPositionBeforeMoving()
+        {
+            rules.Step(Intent(Vector2.right), 1f);
+            Assert.That(model.PreviousPosition, Is.EqualTo(Vector2.zero));
+            Vector2 first = model.Position;
+            Assert.That(first.x, Is.GreaterThan(0f));
+
+            rules.Step(Intent(Vector2.right), 1f);
+            Assert.That(model.PreviousPosition, Is.EqualTo(first));
+        }
+
+        // 停下或死亡的 tick 也要对齐，否则视图会在最后一步的两点之间随余量来回插值（抖动）。
+        [Test]
+        public void Step_WhenIdleOrDead_AlignsPreviousPosition()
+        {
+            rules.Step(Intent(Vector2.right), 1f);
+            rules.Step(Intent(Vector2.zero), 1f);
+            Assert.That(model.PreviousPosition, Is.EqualTo(model.Position));
+
+            rules.Step(Intent(Vector2.right), 1f);
+            rules.ApplyDamage(new DamageIntent(config.MaxHealth));
+            rules.Step(Intent(Vector2.right), 1f);
+            Assert.That(model.PreviousPosition, Is.EqualTo(model.Position), "死亡后 Step 提前返回前也要对齐");
+        }
+
+        // 出生 / 读档 / 快照恢复都等同瞬移：PreviousPosition 与 Position 对齐，不跨瞬移插值；快照不携带它。
+        [Test]
+        public void ResetRestoreAndDeserialize_AlignPreviousPosition()
+        {
+            rules.Step(Intent(Vector2.right), 1f);
+            Assert.That(model.PreviousPosition, Is.Not.EqualTo(model.Position));
+            PlayerSaveData saved = model.Capture();
+            var buffer = new StateBuffer();
+            model.Serialize(buffer);
+
+            rules.Reset(new Vector2(5f, 5f));
+            Assert.That(model.PreviousPosition, Is.EqualTo(new Vector2(5f, 5f)));
+
+            model.Restore(saved);
+            Assert.That(model.PreviousPosition, Is.EqualTo(model.Position));
+
+            var restored = new PlayerModel();
+            buffer.SeekToStart();
+            restored.Deserialize(buffer);
+            Assert.That(buffer.Remaining, Is.Zero, "PreviousPosition 不进快照，字节布局不变");
+            Assert.That(restored.PreviousPosition, Is.EqualTo(restored.Position));
+        }
     }
 }

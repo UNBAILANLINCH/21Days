@@ -1,0 +1,8 @@
+# spine-ts 运行时：受 Spine Runtimes License 约束，只作本机离线工具，不提交
+vendor/
+# 渲染输出（默认应放仓库外；万一放进本目录也不提交）
+frames/
+out/
+output/
+*.png
+__pycache__/

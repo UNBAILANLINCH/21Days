@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ark-spine-frames 离线渲染页</title>
+<!-- 离线工具页：由 render_frames.py 用 Playwright 打开，经 page.route 喂文件，不直接在浏览器双击打开（file:// 会撞 CORS）。
+     spine-webgl.js 放在 vendor/，不提交（见 README 的许可说明）。 -->
+<script src="vendor/spine-webgl.js"></script>
+<style>body{margin:0;background:#808080}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="c" width="16" height="16"></canvas>
+<script>
+"use strict";
+// 页面状态：一次只装一个模型
+const S = { ctx: null, gl: null, batcher: null, shader: null, renderer: null,
+            skeleton: null, data: null, texPma: true, view: null };
+
+function initGL() {
+  if (S.gl) return;
+  const canvas = document.getElementById("c");
+  // 透明画布：alpha + 预乘输出 + 保留绘制缓冲以便 toDataURL
+  S.ctx = new spine.webgl.ManagedWebGLRenderingContext(canvas,
+      { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
+  S.gl = S.ctx.gl;
+  if (!S.gl) throw new Error("WebGL 不可用");
+  S.shader = spine.webgl.Shader.newTwoColoredTextured(S.ctx);
+  S.batcher = new spine.webgl.PolygonBatcher(S.ctx, true);
+  S.renderer = new spine.webgl.SkeletonRenderer(S.ctx, true);
+  // 帧缓冲里一律存预乘颜色（ONE, ONE_MINUS_SRC_ALPHA），这样 alpha 通道才正确
+  S.renderer.premultipliedAlpha = true;
+}
+
+/**
+ * 装载模型。texPma = 贴图本身是否已预乘：
+ *   true  → 原样上传；
+ *   false → 上传时让 WebGL 预乘（UNPACK_PREMULTIPLY_ALPHA_WEBGL）。
+ * 两种情况渲染管线都走预乘混合，差别只在贴图是否再乘一次 alpha。
+ * 返回 { animations: [{name, duration}], skins, width, height, version }
+ */
+window.loadModel = function (skelUrl, atlasUrl, texPma) {
+  initGL();
+  S.texPma = !!texPma;
+  const gl = S.gl;
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !S.texPma);
+  return new Promise((resolve, reject) => {
+    const am = new spine.AssetManager(img => new spine.webgl.GLTexture(S.ctx, img));
+    am.loadBinary(skelUrl);
+    am.loadTextureAtlas(atlasUrl);
+    const poll = () => {
+      if (am.hasErrors()) { reject(new Error(JSON.stringify(am.getErrors()))); return; }
+      if (!am.isLoadingComplete()) { setTimeout(poll, 20); return; }
+      try {
+        const atlas = am.get(atlasUrl);
+        const bin = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas));
+        bin.scale = 1;
+        const data = bin.readSkeletonData(am.get(skelUrl)); // 3.8 读 Uint8Array
+        S.data = data;
+        S.skeleton = new spine.Skeleton(data);
+        S.skeleton.setToSetupPose();
+        S.skeleton.updateWorldTransform();
+        resolve({
+          version: data.version,
+          width: data.width, height: data.height,
+          skins: data.skins.map(s => s.name),
+          animations: data.animations.map(a => ({ name: a.name, duration: a.duration })),
+        });
+      } catch (e) { reject(e); }
+    };
+    poll();
+  });
+};
+
+function frameCount(anim, fps) {
+  return Math.max(1, Math.round(anim.duration * fps));
+}
+
+// 把骨骼摆到第 i 帧：每帧都从 setup pose 起按绝对时间 apply，结果与起点无关、可分批
+function poseAt(anim, i, fps) {
+  const sk = S.skeleton;
+  const t = i / fps;
+  sk.setToSetupPose();
+  anim.apply(sk, t, t, true, [], 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
+  sk.updateWorldTransform();
+}
+
+/** 所有指定动画、所有帧的骨骼包围盒并集（骨骼空间，未缩放） */
+window.computeBounds = function (animNames, fps) {
+  const off = new spine.Vector2(), size = new spine.Vector2(), tmp = [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const perAnim = {};
+  for (const name of animNames) {
+    const anim = S.data.findAnimation(name);
+    const n = frameCount(anim, fps);
+    let a = [Infinity, Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < n; i++) {
+      poseAt(anim, i, fps);
+      S.skeleton.getBounds(off, size, tmp);
+      if (!isFinite(off.x) || !isFinite(size.x)) continue;
+      a = [Math.min(a[0], off.x), Math.min(a[1], off.y),
+           Math.max(a[2], off.x + size.x), Math.max(a[3], off.y + size.y)];
+    }
+    perAnim[name] = { frames: n, minX: a[0], minY: a[1], maxX: a[2], maxY: a[3] };
+    minX = Math.min(minX, a[0]); minY = Math.min(minY, a[1]);
+    maxX = Math.max(maxX, a[2]); maxY = Math.max(maxY, a[3]);
+  }
+  return { minX, minY, maxX, maxY, perAnim };
+};
+
+/**
+ * 设置输出画布。width/height 为像素；originX/originY 为骨骼原点 (0,0) 在画布里的像素位置
+ * （originY 从底边往上量）；scale 为骨骼单位 → 像素的缩放。
+ */
+window.setupView = function (width, height, originX, originY, scale) {
+  const canvas = S.ctx.canvas;
+  canvas.width = width; canvas.height = height;
+  S.view = { width, height, originX, originY, scale };
+  const m = new spine.webgl.Matrix4();
+  // 世界坐标 → 像素：x_px = originX + x*scale，y_px = originY + y*scale
+  m.ortho2d(-originX / scale, -originY / scale, width / scale, height / scale);
+  S.mvp = m;
+  return true;
+};
+
+function drawCurrent() {
+  const gl = S.gl;
+  gl.viewport(0, 0, S.view.width, S.view.height);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  S.shader.bind();
+  S.shader.setUniformi(spine.webgl.Shader.SAMPLER, 0);
+  S.shader.setUniform4x4f(spine.webgl.Shader.MVP_MATRIX, S.mvp.values);
+  S.batcher.begin(S.shader);
+  S.renderer.draw(S.batcher, S.skeleton);
+  S.batcher.end();
+  S.shader.unbind();
+}
+
+/**
+ * 渲染 animName 的第 [start, start+count) 帧，返回 PNG dataURL 数组。
+ * 帧 i 取时间 i/fps；循环动画最后一帧不重复第一帧（最后一帧时间 < duration）。
+ */
+window.renderFrames = function (animName, fps, start, count) {
+  const anim = S.data.findAnimation(animName);
+  if (!anim) throw new Error("没有动画 " + animName);
+  const n = frameCount(anim, fps);
+  const end = Math.min(n, start + (count == null ? n : count));
+  const out = [];
+  for (let i = start; i < end; i++) {
+    poseAt(anim, i, fps);
+    drawCurrent();
+    out.push(S.ctx.canvas.toDataURL("image/png"));
+  }
+  return { total: n, frames: out };
+};
+
+window.spineReady = typeof spine !== "undefined";
+</script>
+</body>
+</html>

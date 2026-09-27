@@ -81,10 +81,15 @@ Assets/_Project/
     <Module>/             各模块 ScriptableObject
   Scenes/
     Boot.unity            唯一常驻场景，挂 GameBootstrap；玩法场景 Additive 加载
+                          （正式资源场景放这里，与 Boot.unity 对齐）
   Prefabs/UI/             UIView 预制体，Addressables key 等于类名
 Tables/                   Excel 源表与 Luban 配置（不是 Unity 资产，放仓库根）
 scripts/gen-tables.ps1    生成配置表
 ```
+
+`Assets/Scenes/SampleScene.unity`（模板自带目录，不在 `_Project/` 下）是**功能 demo 示例场景**，
+同时也是模块回放（Showcase）统一跑的舞台；Addressables 地址 `IsometricEncounter` 现在临时指向它，
+正式内容落地后会改指向 `Assets/_Project/Scenes/` 下的新场景。
 
 ## 5. 启动流程与核心契约
 

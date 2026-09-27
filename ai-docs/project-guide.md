@@ -29,8 +29,8 @@ Assets/_Project/
   Scripts/Editor/             编辑器工具      asmdef Game.Editor
   Scripts/Tests/EditMode/     纯逻辑测试      asmdef Game.Tests.EditMode
   Scripts/Tests/PlayMode/     运行时测试      asmdef Game.Tests.PlayMode
-  Scripts/Tests/Showcase/<Module>/   回放验证场景   asmdef Game.Tests.Showcase
-  Prefabs/ Scenes/(Verify/ 放验证场景) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
+  Scripts/Tests/Showcase/<Module>/   回放脚本   asmdef Game.Tests.Showcase
+  Prefabs/ Scenes/(正式场景，与 Boot 对齐) Art/(Sprites Animations Materials) Audio/ Data/(ScriptableObject)
 ```
 
 框架层结构与 asmdef 已建立（设计见 docs/architecture.md）；玩法模块目录随新玩法模块流程落地时再建。加能力的顺序：**先复用 → 再扩展已有文件 → 最后才新建**，新建要在文件头写明前两步为何不行。

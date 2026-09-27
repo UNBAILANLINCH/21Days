@@ -102,11 +102,11 @@
 | --- | --- | --- |
 | UI（`Core/UI/`） | 四层 Hud / Panel / Popup / Top，各一个 Canvas；`OpenAsync` / `CloseAsync` / `CloseTopAsync` / `Get`；`UIView` 三段生命周期 + LitMotion 淡入淡出（两个虚方法可重写）；`UIConfig` 1920×1080、match 0.5、0.15 秒；安全区适配 | 通用确认弹窗、toast / 通知、暂停菜单、设置面板、加载黑场（Top 层至今没有任何 View）、通用屏幕边缘指示器、虚拟摇杆预制体 |
 | 存档（`Core/Save/`） | `ISaveService`：`Get<T>` 分区、`SaveAsync/LoadAsync(slot)`、`ReadCandidateAsync` + `Capture` + `Commit` 两段式、`Exists/Delete`、独立档案 `Read/WriteProfileAsync`；原子写；分区版本迁移。现有分区 5 个：Settings、Dialogue、Quest、Encounter、Narrative | 没有任何游戏代码在存档时机上调 `SaveAsync`；没有槽位界面；没有元数据（时间戳、章节、时长） |
-| 状态流（`Core/Flow/`） | `GameFlow` 串行切换；`BootState` → `TitleState` → 玩法状态；`SceneGameState` 基类 Additive 加载 / 卸载 | 无场景间传送、无加载过渡、无嵌套状态。标题「开始 / 继续 / 选择存档」现由 `Game.Session` 的 `SessionTitleRouter` 接管，跳 `MonsterEncounterState`（地址 `IsometricEncounter` = SampleScene）；`MonsterTitleRouter` 已删除 |
+| 状态流（`Core/Flow/`） | `GameFlow` 串行切换；`BootState` → `TitleState` → 玩法状态；`SceneGameState` 基类 Additive 加载 / 卸载 | 无场景间传送、无加载过渡、无嵌套状态。标题「开始 / 继续 / 选择存档」现由 `Game.Session` 的 `SessionTitleRouter` 接管，跳 `MonsterEncounterState`（地址 `IsometricEncounter` = SampleScene，临时指向，正式内容落地后指向 `Assets/_Project/Scenes/` 下新场景）；`MonsterTitleRouter` 已删除 |
 | 输入（`Core/Input/` + `Data/Input/GameInput.inputactions`） | Gameplay 图：Move / Confirm / Cancel / Pause / Sneak / Disguise / Tame / Attack；UI 图标准动作；`EnableMap/DisableMap` | Run / Interact / Journal / Immersive 动作与 Dialogue 图已加；`Pause` 由暂停菜单订阅；触屏摇杆与三键已随探索 HUD 落地，仅触屏平台显示；`EncounterTouchControls` 已删除 |
 | 时间与暂停（`Core/Timing/`） | `IWorldPauseService.Acquire(owner)` 引用计数，同时冻结 `Time.timeScale` 与逻辑 tick；Dialogue、Quest 面板在用 | 没有「玩家主动暂停」的使用者 |
 | 音频（`Core/Audio/`） | `PlaySfx / PlaySfxAsync / PlayBgmAsync / StopBgm`、三路音量写回 Settings 分区 | `Assets/_Project/Audio/` 零文件；无环境音层、无导入规则、Addressables 无音频条目 |
-| 资源与配置 | Addressables：Scenes 组 `IsometricEncounter` / `MonsterEncounter`，UI 组 9 个面板 + 6 张对话图，Config 组一条；Luban 表 dialogue / dialogue_character / quest / item | `Sample.unity` 地址未登记（Sample 模块也未挂 Boot，见 2.5） |
+| 资源与配置 | Addressables：Scenes 组 `IsometricEncounter` / `MonsterEncounter`，UI 组 9 个面板 + 6 张对话图，Config 组一条；Luban 表 dialogue / dialogue_character / quest / item | `Sample.unity` 已删（2026-09-28，Sample 模块也未挂 Boot，见 2.5） |
 | 事件（`Core/Events/`） | MessagePipe，`readonly struct`；核心 3 个，Quest 模块 4 个 | 各模块事件清单只核对了 Quest |
 | 平台（`Core/Platform/`） | `Kind / SaveRoot / IsTouchPrimary / Vibrate` | 够用 |
 | 确定性内核与回放（`Core/Simulation/`、`Core/Replay/`） | 固定步长、确定性随机、输入命令化、录制回放、漂移检测、编辑器回放窗口，已提交（`8595e7a`） | `PRP/replay/tasks.md` 进度表停在波 E，需补记 |
@@ -116,20 +116,20 @@
 
 | 模块 | 成熟度 | 挂 Boot | 场景 | EditMode 测试 | Showcase | 三件套 | 一句话状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Dialogue | stable | 是 | SampleScene、Verify/Dialogue、Verify/Quest | 33 | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
-| Quest | seed | 是 | SampleScene、Verify/Quest | 50 | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
-| Monster | stable | 是 | SampleScene、MonsterEncounter、Verify/Disguise、Verify/Taming | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
+| Dialogue | stable | 是 | SampleScene | 33 | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
+| Quest | seed | 是 | SampleScene | 50 | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
+| Monster | stable | 是 | SampleScene、MonsterEncounter | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
 | Player | stable | 是 | 无场景挂件 | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
-| CharacterPuppet | stable | 不需要 | SampleScene、Verify/CharacterPuppet | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
+| CharacterPuppet | stable | 不需要 | SampleScene | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
 | IsometricExploration | stable | 不需要 | SampleScene 等 | 挂在 Monster 测试里 | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
-| Disguise | stable | 不需要 | Verify/Disguise | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
-| Taming | seed | 按要求不接 | Verify/Taming | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
+| Disguise | stable | 不需要 | SampleScene（回放） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
+| Taming | seed | 按要求不接 | SampleScene（回放） | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
 | Narrative | 无 | 无 Installer | 无（纯 C# 库） | 4 | 无 | **无，也未登记 `modules.json`** | 阶段迁移 / 条件 / 遭遇仲裁 / 存档 DTO 全是纯逻辑，未接 Unity |
 | Sample | stable | **否** | 无 | 7 | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
 
-- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`、`Sample`、`Verify/{CharacterPuppet, Dialogue, Disguise, Quest, Taming}`。
+- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`（`Sample.unity` 与 `Verify/` 已于 2026-09-28 删除，回放统一在 SampleScene 上跑）。
 - **预制体**：12 个。UI 8 个（Title、Sample、Dialogue×4、Quest×2），世界 2 个（气泡、任务标记），角色 2 个（拼接小人玩家 / 巡逻者）。
 - **美术**：拼接小人 5 张分件 + 2 段动画 + 1 个控制器；2 张整体 chibi 纸片；对话占位（2 角色 × 2 表情、气泡框、2 个选项图标、2 个标记）；灰盒材质 5 份；深度裁剪着色器 1 份；中文字体 1 套。**无环境模型、无怪物 / 妖灵、无 UI 皮肤、无镜面特效。**
 - **音频**：零。

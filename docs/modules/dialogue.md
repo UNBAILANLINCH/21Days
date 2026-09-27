@@ -131,7 +131,7 @@
 - 角色 2 个：`elder` 老者（表情 default、angry）、`traveler` 旅人（表情 default、smile）。立绘全是占位图。
 - 选项图标 2 个（前往、离开），占位图。
 - 路人 1 个：SampleScene 的「村民」，没有对话树，两句闲话「这个移动平台比我年轻时见到的老不少。」「今天的风有点大，小心站稳。」
-- 另有独立验证场景 `Assets/_Project/Scenes/Verify/Dialogue.unity`，内容同上三人。
+- 回放在 `Assets/Scenes/SampleScene.unity` 上跑，内容同上三人。
 
 ## 6. 已知限制与还没做的
 

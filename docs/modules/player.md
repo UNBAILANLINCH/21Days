@@ -63,7 +63,7 @@ Player 是玩家在探索场景里操控的那个角色的“规则身体”：�
 
 - 一份配置资产 `PlayerConfig.asset`，数值见第 4 节，全部是原型值。
 - 一个玩家角色：在 SampleScene 中由拼接小人（`player` 对象）表现。
-- 验证用场景 `Assets/_Project/Scenes/Verify/Disguise.unity`、`Taming.unity` 里也有一个 XY 平面的占位玩家。
+- 回放在 `Assets/Scenes/SampleScene.unity` 上跑，里面也有一个 XY 平面的占位玩家。
 - 一套回放验证用例，覆盖移动、潜行、伪装、攻击、受伤等动作可见。
 
 ## 6. 已知限制与还没做的

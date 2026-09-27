@@ -38,13 +38,13 @@ Game.Editor ──────────────────────�
 | `Assets/_Project/Scripts/Runtime/<Module>/` | 游戏逻辑，一个模块一个目录，命名空间 `Game.<Module>` |
 | `Assets/_Project/Scripts/Editor/` | 编辑器工具、自定义 Inspector |
 | `Assets/_Project/Scripts/Tests/{EditMode,PlayMode}/` | 测试；EditMode 优先 |
-| `Assets/_Project/Scripts/Tests/Showcase/<Module>/` | 模块回放验证场景（给人看的），asmdef `Game.Tests.Showcase`，由 `/verify-module` 跑 |
+| `Assets/_Project/Scripts/Tests/Showcase/<Module>/` | 模块回放脚本（给人看的），asmdef `Game.Tests.Showcase`，由 `/verify-module` 跑 |
 | `Assets/_Project/Data/` | ScriptableObject 配置资产 |
 | `Assets/_Project/Art/{Sprites,Animations,Materials,Shaders,Fonts}/` | 美术资源；`Sprites/` 有自动导入规则（`Editor/Importers/SpriteImportProcessor.cs`） |
-| `Assets/_Project/{Prefabs,Scenes,Audio}/` | 预制体、场景、音频 |
+| `Assets/_Project/{Prefabs,Scenes,Audio}/` | 预制体、场景、音频；`Scenes/` 只放正式场景 |
 | `Tables/` | Excel 源表与 Luban 配置 |
 | `Assets/_Project/Data/Config/` | Luban 生成物（不手改） |
-| `Assets/Scenes/`、`Assets/Settings/` | 模板自带（SampleScene、URP 配置），原位不动 |
+| `Assets/Scenes/`、`Assets/Settings/` | 模板自带（SampleScene、URP 配置），原位不动；SampleScene 是功能 demo 示例场景，也是回放舞台 |
 | `ai-docs/` | 知识层：模块三件套、catalog、pitfalls |
 | `PRP/` | 复杂功能的 PRD / PRP / tasks |
 

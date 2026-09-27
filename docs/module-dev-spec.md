@@ -13,14 +13,14 @@
 | 2 | **设计要点**：数据进不进 SO、类的职责、依赖方向、对外接口 | `/new-feature` 第 2 步 | 对话里的 3～6 条决定 |
 | 3 | **实现**：先数据与接口，再 MonoBehaviour | `/new-feature` 第 3 步 / `/dev` | `Assets/_Project/Scripts/Runtime/<Module>/` |
 | 4 | **单测**：纯逻辑规则、边界、分支 | `/unity-test EditMode` | `Scripts/Tests/EditMode/<Module>/` |
-| 5 | **Showcase + 验证场景**：把「用户看得见的行为」写成回放 | 手写 + MCP 建场景 | `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`、`Scenes/Verify/<Module>.unity` |
+| 5 | **Showcase**：把「用户看得见的行为」写成回放，在 SampleScene 上跑 | 手写 + 按需 MCP 补 demo 物体 | `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs` |
 | 6 | **跑回放**：编译门 → 快门 → Game 视图回放 → 报告 | `/verify-module <模块>` | `Logs/verify/<模块小写>/…`（已 gitignore） |
 | 7 | **开发者看回放反馈**：哪一步表现不对 | 人看，对话里说 | 对话记录 |
 | 8 | **迭代**：改玩法代码或改回放步骤，重跑 | `/dev` → `/verify-module` | 同上 |
 | 9 | **文档三件套** | `/generate-doc <模块>` | `ai-docs/docs/modules/<模块小写>/` |
 | 10 | **待审提交** | `/review-change` | 改动清单，停下等授权 |
 
-第 6～8 步是个环，转到开发者点头为止。第 9 步的 guide 里要写上 Showcase 与验证场景的路径
+第 6～8 步是个环，转到开发者点头为止。第 9 步的 guide 里要写上 Showcase 路径与回放舞台说明
 （见 [`ai-docs/docs/modules/README.md`](../ai-docs/docs/modules/README.md)）。
 
 ## 2. 模块完成定义（DoD）
@@ -30,9 +30,9 @@
 1. 代码在 `Scripts/Runtime/<Module>/`，命名空间 `Game.<Module>`，project-lint 零违规，`code-reviewer` 无 BLOCK。
 2. 核心规则有 EditMode 测试（`Scripts/Tests/EditMode/<Module>/`），全绿。
 3. 有 `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`（≥1 条场景），每条 3～10 步，覆盖「用户能看见的主要行为」；
-   需要场景的有 `Scenes/Verify/<Module>.unity`。
+   回放统一在 `Assets/Scenes/SampleScene.unity`（`ShowcaseOptions.DemoScenePath`）上跑，所需物体放进 SampleScene 或由回放运行时生成并 `Track()`。
 4. `/verify-module <Module>` PASS，**且开发者看过回放并点头**（对话里有记录）。
-5. `ai-docs/docs/modules/<模块小写>/` guide 存在，`modules.json` 已登记，guide 里写了 Showcase 与验证场景路径。
+5. `ai-docs/docs/modules/<模块小写>/` guide 存在，`modules.json` 已登记，guide 里写了 Showcase 路径与回放舞台说明。
 6. `/review-change` 清单已列，停下等授权。
 
 第 4 条是这套规范的重点：**自动化能证明「数值对、没报错」，证明不了「看起来对」**。
@@ -61,9 +61,9 @@ AI 不做视觉验收，只负责把回放跑出来、把报告和截图摆到�
 
 1. 复制 `Assets/_Project/Scripts/Tests/Showcase/SelfTest/ShowcaseSelfTest.cs` 到 `Showcase/<Module>/<Module>Showcase.cs`。
 2. 改命名空间为 `Game.Tests.Showcase.<Module>`，类名为 `<Module>Showcase`。
-3. 改 `Module` 返回模块名（PascalCase），`ScenePath` 返回验证场景路径（场景在代码里搭就返回 `null`）。
+3. 改 `Module` 返回模块名（PascalCase），`ScenePath` 返回 `ShowcaseOptions.DemoScenePath`（场景在代码里搭就返回 `null`）。
 4. 把自检的步骤换成模块行为：一条 `[UnityTest]` 讲一个用户可见行为，3～10 步。
-5. 需要场景就用 MCP 建 `Assets/_Project/Scenes/Verify/<Module>.unity`（预制体实例化，不堆 override），存盘。
+5. 需要 demo 物体就用 MCP 把它加进 `Assets/Scenes/SampleScene.unity`（预制体实例化，不堆 override），存盘；或在回放里运行时生成并 `Track()` 清理。
 6. `Game.Core` / `Game.Runtime` 已存在时，确认它们在 `Game.Tests.Showcase.asmdef` 的 `references` 里，否则引用不到模块类型。
 7. 跑 `/verify-module <模块>`。
 
@@ -76,7 +76,7 @@ namespace Game.Tests.Showcase.Player
     public class PlayerShowcase : ShowcaseScenario
     {
         protected override string Module => "Player";
-        protected override string ScenePath => "Assets/_Project/Scenes/Verify/Player.unity";
+        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
 
         [UnityTest]
         public IEnumerator TakeDamage_ShowsHealthDrop()
@@ -99,7 +99,7 @@ namespace Game.Tests.Showcase.Player
 | `[Category("Showcase")]` | 打上分类，`/verify-module` 与 Test Runner 靠它把回放与快测试分开 |
 | `: ShowcaseScenario` | 继承基类，拿到场景加载、叠加层、截图、报告与收尾断言 |
 | `Module => "Player"` | 模块名，PascalCase；报告落到 `Logs/verify/player/` |
-| `ScenePath => "…/Verify/Player.unity"` | SetUp 里自动加载；返回 `null` 就完全在代码里搭场景 |
+| `ScenePath => ShowcaseOptions.DemoScenePath` | SetUp 里自动加载 SampleScene（回放舞台）；返回 `null` 就完全在代码里搭场景 |
 | `FindRequired<PlayerHealth>("Player")` | 取被测对象，找不到直接失败——前置条件不满足，继续跑没意义 |
 | `Step("玩家受击 20 点", …)` | 记一步、叠加层显示标题、执行动作、按倍率停顿（默认 1.5 s），**你在这一停里看表现** |
 | `Check("血量应为 80", …)` | 检查点：过了绿、没过红并多停一会儿；**失败不中断**，整条跑完才统一报 |
@@ -175,7 +175,7 @@ namespace Game.Tests.Showcase.Player
 | 现象 | 多半是 | 怎么办 |
 | --- | --- | --- |
 | `No Unity Editor instances` | 编辑器没开，或 bridge 没启动 | 打开 Unity，`Window → MCP for Unity` 确认 bridge 运行中再重跑；不重试、不改 `.mcp.json` |
-| 回放没开始就报错 / 场景是空的 | 编辑器还停在 Play 模式，或 `ScenePath` 指向的场景不存在 | 先停止 Play；确认 `Scenes/Verify/<Module>.unity` 真的存过盘并有 `.meta` |
+| 回放没开始就报错 / 场景是空的 | 编辑器还停在 Play 模式，或所需 demo 物体没放进 SampleScene | 先停止 Play；确认 `Assets/Scenes/SampleScene.unity` 里有回放需要的对象，或改成运行时生成并 `Track()` |
 | 截图全黑 | `Snapshot` 撞上帧边界，或 Game 视图被别的窗口完全挡住 | 保证 Game 视图可见；`Snapshot` 前加一步 `Wait(0.2f)`；批处理无图形时截图本来就跳过 |
 | 某个检查点一直红 | 期望写错了（比如查了看不见的内部状态），或模块行为确实不对 | 先看报告里那一步的截图对不对；只在数值上说不通的检查点，该挪去 EditMode |
 | 回放太慢等不住 | 节奏倍率是标准或慢速 | 菜单切 `快速 (x0.25)`；确认没红之后再切回标准细看 |

@@ -32,7 +32,7 @@ EditMode 全量 191/191 通过。Disguise Showcase 2/2 通过、5 个检查点�
 
 ## 试玩与调参
 
-打开 `Assets/_Project/Scenes/Verify/Disguise.unity` 直接 Play。
+回放在 `Assets/Scenes/SampleScene.unity` 上跑，直接 Play 也可试。
 WASD 移动，G 伪装，J 普通攻击；左上角显示双方生命和伪装状态。
 敌人血量改 `Assets/_Project/Data/Monster/MonsterConfig.asset` 的 `Max Health`，停止 Play 后修改，再重新进入。
 玩家伤害、攻击距离与冷却改 `Assets/_Project/Data/Player/PlayerConfig.asset`。
@@ -40,7 +40,7 @@ WASD 移动，G 伪装，J 普通攻击；左上角显示双方生命和伪装�
 ## 验证
 
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Disguise/DisguiseRulesTests.cs`，覆盖已敌对、受击、近距离禁攻及取消恢复。
-- Showcase：`Assets/_Project/Scripts/Tests/Showcase/Disguise/DisguiseShowcase.cs`，使用本模块独立验证场景。
+- Showcase：`Assets/_Project/Scripts/Tests/Showcase/Disguise/DisguiseShowcase.cs`，在 SampleScene 上跑（ShowcaseOptions.DemoScenePath）。
 - 普通攻击回归：`Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterStepTests.cs`。
 
 不允许仅在 UI 或遭遇调度处扣掉伤害来实现伪装；敌人的攻击许可必须统一。

@@ -37,7 +37,7 @@ maturity: stable
 **不进启动链**。要试跑它需要三步：
 
 1. 在 Boot 的 `GameBootstrap` 上挂 `SampleInstaller` 组件，并把 `SampleConfig.asset` 拖进 Config 字段；
-2. 把 `Assets/_Project/Scenes/Sample.unity` 加进 Addressables Scenes 组，地址填 `SampleScene_Game`；
+2. 新建一个场景放到 `Assets/_Project/Scenes/`，加进 Addressables Scenes 组，地址填 `SampleScene_Game`（`Sample.unity` 已于 2026-09-28 删除）；
 3. **注意**：挂上后它与 `Game.Session` 的 `SessionTitleRouter` 会同时订阅 `TitleStartClickedEvent`，两者
    都在容器里时点「开始」会竞争（谁先注册谁的 `GoToAsync` 先跑），不要两个同时挂。
 
@@ -130,7 +130,7 @@ Addressables 里两条地址必须在（Window → Asset Management → Addressa
 | 地址 | 组 | 资产 |
 | --- | --- | --- |
 | `SampleView` | UI | `Assets/_Project/Prefabs/UI/SampleView.prefab` |
-| `SampleScene_Game` | Scenes | `Assets/_Project/Scenes/Sample.unity` |
+| `SampleScene_Game` | Scenes | `Assets/_Project/Scenes/`（`Sample.unity` 已删，需新建场景） |
 
 Sample 场景**不进 Build Settings**——Addressables 加载的场景不需要，加进去反而会被打两份。
 

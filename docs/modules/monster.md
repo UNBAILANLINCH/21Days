@@ -78,7 +78,7 @@ Monster 是探索场景里巡逻的敌人：沿固定路线走走停停，用“
 
 - 一份配置资产 `MonsterConfig.asset`，数值见第 4 节。
 - SampleScene 中一个巡逻者和它的巡逻点；另有 `MonsterEncounter.unity` 原型场景。
-- 验证场景 `Verify/Disguise.unity`、`Verify/Taming.unity` 各有一个 XY 平面占位敌人。
+- Disguise / Taming 的回放在 SampleScene 上跑（旧独立验证场景已删）。
 - 回放验证用例覆盖巡逻、警戒、追击、命中、死亡五个画面检查点。
 
 ## 6. 已知限制与还没做的

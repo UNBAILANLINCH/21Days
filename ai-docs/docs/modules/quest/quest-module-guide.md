@@ -136,7 +136,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | 玩家标记 | 玩家根挂 `DialogueInteractionActor`（复用对话模块） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
 | 入口 | 从 Boot → 标题「开始」进场景才有任务服务 | 直接 Play 玩法场景：服务未初始化，`IsReady == false`，查询返回空、上报被忽略 |
 
-示例接线：`Assets/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；`Scenes/Verify/Quest.unity` 独立验证场景。
+示例接线：`Assets/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；回放也在 SampleScene 上跑。
 
 ## 内容表（Luban）
 
@@ -177,7 +177,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | EditMode | `.../QuestTableValidatorTests.cs`（32） | 编辑期校验每条规则的触发与不触发、聚合、排序、运行时兜底、`CollectContext` 收集真实工程键 |
 | EditMode | `.../QuestMainChainTests.cs`（13） | 主线链推导（线性 / 分叉 / 成环 / 空）、▲▼ 调序重写前置、支线解锁分组名 |
 | Showcase | `Tests/Showcase/Quest/QuestShowcase.cs`（3） | HUD 指引（屏内头顶标记 / 屏外贴边箭头）、对白与地点联动、面板暂停与追踪切换（肉眼验收） |
-| 验证场景 | `Scenes/Verify/Quest.unity` | 独立验证场景（透视相机、`player`、Elder/Traveler、两个 `QuestLocation`） |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 透视相机、`player`、Elder/Traveler、两个 `QuestLocation` |
 
 跑 `/unity-test EditMode Quest`；视觉验收跑 `/verify-module Quest`（编辑器须打开，本轮尚未跑）。
 

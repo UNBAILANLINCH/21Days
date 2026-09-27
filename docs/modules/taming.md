@@ -9,7 +9,7 @@ Taming 让玩家把一只敌人“收服”过来，并在玩家和这只敌人�
 
 ## 2. 玩家看到什么、做什么
 
-- 目前**只能在独立验证场景里玩**：打开 `Assets/_Project/Scenes/Verify/Taming.unity` 直接 Play，不经过标题，也不在 SampleScene 里。
+- 旧独立验证场景已删；回放（Showcase）在 `Assets/Scenes/SampleScene.unity` 上跑：`Encounter/TamingDemo` 默认不激活、挂 `TamingSceneController`，回放临时激活；正常游玩不激活。想手动试玩就在 Inspector 里勾上它，不经过标题。
 - 场景里有一个玩家、一个敌人（XY 平面占位图）。
 - 操作：
   - WASD 移动当前被操控的角色；
@@ -46,11 +46,11 @@ Taming 让玩家把一只敌人“收服”过来，并在玩家和这只敌人�
 | 玩家移动速度 | Inspector 里选 `Assets/_Project/Data/Player/PlayerConfig.asset` | `Move Speed`（现值 3） | 操控玩家时走多快 | 同时影响探索场景，见 [player.md](player.md) |
 | 驯服前敌人的威胁 | `MonsterConfig.asset` | 感知半径、攻击相关字段 | 驯服前被发现、被打的难度 | 与探索场景共用同一份 |
 
-验证场景 `Verify/Taming.unity` 自己引用了这两份配置资产，改完停止 Play 再进场景即可生效。改法见 [策划手册第 3 章](../designer-guide.md#3-改数值两条路怎么选)。
+回放里的占位对象引用了这两份配置资产，改完停止 Play 再重跑回放即可生效。改法见 [策划手册第 3 章](../designer-guide.md#3-改数值两条路怎么选)。
 
 ## 5. 现在有的内容
 
-- 一个独立验证场景 `Verify/Taming.unity`：一个玩家、一个敌人、跟随镜头。
+- 回放（Showcase）在 `Assets/Scenes/SampleScene.unity` 上跑：一个玩家、一个敌人、跟随镜头（运行时生成，不常驻场景）。
 - 没有配置资产，没有配置表。
 - 回放验证用例覆盖：按 T 切换并移动敌人、镜头真的跟过去、切回玩家、死亡时控制自动退出。
 

@@ -108,7 +108,7 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 | 来源 | 条件 | 行为 | 用在哪 |
 | --- | --- | --- | --- |
 | `facingSource.flipX` | 配了 `facingSource` | 直接跟随该 `SpriteRenderer` 的 `flipX`（真 = 朝左） | SampleScene 玩家 / 巡逻者：跟随被 `EncounterSceneView` 翻转的隐藏纸片 |
-| 位移投影 | `facingSource` 为空 | `Dot(Δ, Camera.main.transform.right) / window` 过死区；取不到主相机时保持原朝向 | 验证场景（正交相机，无纸片） |
+| 位移投影 | `facingSource` 为空 | `Dot(Δ, Camera.main.transform.right) / window` 过死区；取不到主相机时保持原朝向 | 回放运行时生成的独立小人（无原纸片） |
 
 用速度（除以窗口时长）而不是位移过死区：帧率 / 窗口长短不改变判定（`ChibiPuppetMotion.cs:132`）。
 `Camera.main` 只在首次需要时取一次并缓存，不每帧 Find。
@@ -194,7 +194,7 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetMotionRulesTests.cs` | 无位移静止、起步阈值、走动中阈值上保持、停步阈值、dt ≤ 0、朝向死区保持与符号、按剪辑地速的播放速率（原速、夹取、地速非正回退）、跑走滞回、无 run 剪辑永不置 Running |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs` | 帧名解析（合法 / 各类非法）、分组与数值排序、重复序号报错、缺号与陌生文件告警、缺态文案、run 可选、PPU、pivot 回退链、fps 优先级（缺省 24）、groundSpeed 解析与缺省 3 / 5、meta 解析失败、画布尺寸不一致、状态名映射 |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs` | 待机 → 右走（Walk、`localScale.x > 0`）→ 左走翻面 → 停下回 Idle → 3 单位/秒走路（Animator `Speed` ≈ 1.0）→ 5 单位/秒奔跑（amiya 无 run 帧：仍 Walk 态，`Speed` ≈ 1.6 且高于走路）→ 停下回 Idle → 时停期间 Idle 的 normalizedTime 仍增长 |
-| 验证场景 | `Assets/_Project/Scenes/Verify/CharacterPuppet.unity` | 正交相机 + 空物体 `Puppet` 下挂 `Chibi_amiya`，无 `facingSource`（走位移投影分支） |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 正交相机 + 空物体 `Puppet` 下挂 `Chibi_amiya`，无 `facingSource`（走位移投影分支） |
 
 - Showcase 不加载 Boot 场景（`LoadBootScene => false`），由协程逐帧推根节点；时停检查在 `finally` 里恢复 `timeScale = 1`。
 - 跑法：`/verify-module CharacterPuppet`；规则改动先跑 `/unity-test EditMode CharacterPuppet`。

@@ -323,7 +323,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs`（7 条） | `Portraits_SlideInCrossfadeAndDimNonSpeaker`（长者滑入瞬态 → l2 旅人入场、长者压暗 → l3 反转 → c1 换表情交叉淡化）；交互 → 打字 → 选项 → 结束且全程时停；跳过（经确认）停在选项；点击旅人拉起 1002；`SkipCancelled_DialogueContinues`；`Focus_ShowsHudButton_AndHudClickStartsDialogue`；`Bubble_ShowsAboveHead_WithoutPausing` |
-| 验证场景 | `Assets/_Project/Scenes/Verify/Dialogue.unity`（2D） | `Main Camera`（`Physics2DRaycaster`）、`Player`（Actor）、`Elder`（1001）、`Traveler`（1002）、`Villager`（无树 + 气泡） |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑（2D） | `Main Camera`（`Physics2DRaycaster`）、`Player`（Actor）、`Elder`（1001）、`Traveler`（1002）、`Villager`（无树 + 气泡） |
 
 跑 `/unity-test EditMode Dialogue`；视觉验收跑 `/verify-module Dialogue`（编辑器须打开）。
 

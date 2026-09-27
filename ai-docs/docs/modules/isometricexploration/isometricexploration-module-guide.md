@@ -492,8 +492,7 @@ ResetButton
   公共绑定逻辑抽到 `BindEncounter()`；除原有 `SneakApproach_ThenAttack_KillsMonster`，新增
   `WalkOntoStairs_RaisesBody`：逐级把玩家 `Reset` 到 `Stairs_Step_1..3`，检查
   `EncounterSceneView.PlayerScenePosition.y` 相对地面抬升 ≥0.55，再 `Reset` 回平地确认落回地面高度。
-- 当前 Showcase 直接加载 `Assets/Scenes/SampleScene.unity`；固定验证场景待 Unity MCP 可用后保存到
-  `Assets/_Project/Scenes/Verify/IsometricExploration.unity`。
+- Showcase 通过 `ShowcaseOptions.DemoScenePath` 加载 SampleScene，这就是定案做法，不再建固定验证场景。
 - Showcase（波 9）：`ExplorationShowcase` 追加 `Collision_FenceBlocksPlayer`（摇杆顶围栏，z 不越过 −0.7）、
   `MultiLevel_RampLeadsToDeck`（沿坡道走上甲板，高度单调不降、终点 y ≥ 7.8）、
   `Occluder_FadesBridgeWhenPlayerBeneath`（人在桥后侧时桥变 `M_Graybox_Faded`，离开恢复），共 7 条。

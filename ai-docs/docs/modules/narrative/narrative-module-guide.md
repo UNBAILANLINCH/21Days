@@ -110,7 +110,7 @@ Dialogue（唯一现存消费者，只用 EncounterContext / NarrativeCondition�
 | T5 DialogueController、View／HistoryView、Config、Installer | 未勾选 | **已被 `PRP/dialogue-system/` 以不同表现语义完成**（两槽立绘、跳过取代已读快进），与本 tasks.md 原设计无关；不要再按这条派工 |
 | T6 NarrativeController、真实状态／交互接线、GameSessionController、SaveSlotsView | 未勾选 | **完全未做**——这是 Narrative 接 Unity 的核心缺口，对应 `docs/roadmap.md` 差距矩阵 C1 |
 | T7 Excel／Luban 内容、校验器、验证对白与遭遇内容 | 未勾选 | 完全未做，对应 roadmap C3 |
-| T8 Boot Installer、UI 预制体、Addressables、验证场景及 Showcase | 未勾选 | Dialogue 侧已完成；**Narrative 侧的 Installer、`Verify/Narrative.unity`、`NarrativeShowcase.cs` 均未做** |
+| T8 Boot Installer、UI 预制体、Addressables、验证场景及 Showcase | 未勾选 | Dialogue 侧已完成；**Narrative 侧的 Installer、`NarrativeShowcase.cs` 未做（回放统一在 SampleScene 上跑，不再建独立验证场景）** |
 | T9 lint、编译、测试、模块审查、模块文档三件套、登记与健康检查 | 未勾选 | 本次三件套生成与 `modules.json` / `catalog.md` 登记是这条的一部分；lint/编译/审查/健康检查仍需在接线后单独跑 |
 
 ## 接线顺序（引用 follow-up-integration.md 第 2 节，标注哪些已过时）
@@ -150,7 +150,7 @@ Dialogue 模块的 `IDialogueConditionSource` 唯一注册实现是 `DefaultDial
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Narrative/NarrativeRulesTests.cs`（4 条） | 局部遭遇完成后续接父阶段并保留已完成部分；读档后旧结果被拒绝且不推进；自动条件环路在内容构造期被拒绝；`EncounterRules` 同批候选按优先级+稳定目标 ID 仲裁 |
 | Showcase | 无 | 模块未接 Unity，没有可回放的场景；`/verify-module Narrative` 目前不可用 |
 
-跑 `/unity-test EditMode Narrative`。没有验证场景，不能跑 `/verify-module`。
+跑 `/unity-test EditMode Narrative`。没有 Showcase，不能跑 `/verify-module`。
 
 ## 已知约束 / 未做
 

@@ -61,7 +61,7 @@
 - 示例演出 `perf_sample_greeting`：3 条字幕、1 个停顿点，时长约 8 秒，时间轴带一段入场位移动画，演员是占位立绘（老者）。
 - 对话 `1003`（验证用）：老者、旅人各说一句，第二句台词「老先生，我就看一眼——」之前插播 `perf_sample_greeting`。
 - 世界舞台示例 `perf_sample_scene_talk`：五个方舟小人（阿米娅、德克萨斯、能天使、陈、斯卡蒂）站在 `SampleScene` 村口的灰盒场景里对话，6 句字幕、不压黑边，舞台相机接管整个画面（近景微俯）。由菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 生成（`Editor/Performance/Samples/SceneTalkSampleBuilder.cs`，可重复执行、原地覆盖），挂在 `SampleScene` 的村口触发区 `Trigger_VillageEntrance` 上，走进去触发。是目前唯一的**世界舞台模式**示例，8.6 节的参照就是它。
-- 验证场景 `Assets/_Project/Scenes/Verify/Performance.unity`，一套回放用例覆盖：代码直接拉起演出、长按跳过提前结束、走进触发区自动播且只播一次、对话中插播并在演出结束后接着说下一句。
+- 回放在 `Assets/Scenes/SampleScene.unity` 上跑，一套回放用例覆盖：代码直接拉起演出、长按跳过提前结束、走进触发区自动播且只播一次、对话中插播并在演出结束后接着说下一句。
 - 演出编辑器菜单 `21Days/演出/演出编辑器`：能列出全部已登记的演出、一键创建、打开时间轴、校验、Play 模式下试播。
 
 ## 6. 已知限制与还没做的

@@ -386,7 +386,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 - 对话服务、焦点系统、EventSystem 都随 Boot 启动。**从 Boot → 标题「开始」进入才有对话**；直接 Play 玩法场景只会记 Warn。
 - 运行时 `Instantiate` 出来的 NPC 不会被自动扫描，要自己调 `interactable.Bind(service)`，且不参与焦点。
 
-验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（验证场景 `Assets/_Project/Scenes/Verify/Dialogue.unity`，编辑器须打开）。
+验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（回放在 `Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
 对话内容怎么配见 [`designer-guide.md` 第 11 章](designer-guide.md)。
 
 ### 6.15 角色小人 — `ChibiPuppet`
@@ -400,10 +400,10 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
    localPosition `(0, 0, -0.01)`（略靠前，避免与原纸片同面）。`trackedRoot` 留空即可，自动取父链上第一个不叫 `Visual` 的节点。
 2. 原来的纸片 `SpriteRenderer` **不要删**，只取消 `enabled`（sprite 可置空，`EncounterSceneView.EnsureSprite` 会补运行时占位图）：`EncounterSceneView` 仍往它上面写 `flipX`，
    它就是朝向的载体。把它拖进小人 `ChibiPuppetMotion` 的 `facingSource`。
-3. 没有纸片的场景（如验证场景）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
+3. 没有原纸片的情况（如回放运行时生成的独立小人）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
 
 手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、跑走切换阈值（runStart 4 / runStop 3.5）、播放速率夹取（0.8～1.6）；剪辑地速在各预制体 `ChibiPuppet.walkClipSpeed` / `runClipSpeed`）。
-Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（`Assets/_Project/Scenes/Verify/CharacterPuppet.unity`）。
+Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（回放在 `Assets/Scenes/SampleScene.unity` 上跑）。
 
 **序列帧小人（现行唯一做法；早期分件拼接小人已于 2026-09-28 删除）**：美术按状态交序列帧（规范见 [`artist-guide.md` 3.4 节](artist-guide.md)），
 编辑器工具一键生成动画、控制器与预制体；运行时是 `ChibiPuppet` + `ChibiPuppetMotion`，`parts` 只有一个 `SpriteRenderer`。
@@ -466,8 +466,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 - 演出预制体、时间轴一律用 `21Days/演出/演出编辑器`（菜单）的「新建」一步建齐，不要手工拼——手工漏一步（图层、
   Overlay 相机、Addressables 登记）就播不出来；校验按钮能列出缺演员 / 空字幕 / 表情名不存在等问题。
 
-验证：`/unity-test EditMode Performance`；看回放 `/verify-module Performance`（验证场景
-`Assets/_Project/Scenes/Verify/Performance.unity`，编辑器须打开）。
+验证：`/unity-test EditMode Performance`；看回放 `/verify-module Performance`（回放在
+`Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
 
 ### 6.17 任务系统 — QuestService / 任务编辑器
 
@@ -1172,6 +1172,8 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
   编辑器的 Play Mode Script 是 `Use Asset Database (fastest)`，它不看组，直接从工程里取。
   这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
+- 地址 `IsometricEncounter` 现在指向 `Assets/Scenes/SampleScene.unity`（功能 demo 示例场景），这是**临时**的；
+  正式内容落地后只改这一处指向 `Assets/_Project/Scenes/` 下的新场景。
 
 ### 14.4 占位素材闸门：Release 包不许带开发期占位图
 

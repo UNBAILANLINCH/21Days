@@ -87,7 +87,7 @@
 
 ## 5. 现在有的内容
 
-- 任务 4 条（SampleScene 与验证场景 `Assets/_Project/Scenes/Verify/Quest.unity` 共用）：
+- 任务 4 条（回放在 `Assets/Scenes/SampleScene.unity` 上跑）：
   - `1001` 主线「找到落脚处」：与长者谈谈（对话 1001）→ 前往营地（地点 `camp`）。开局接取。
   - `1002` 主线「与旅人叙旧」：和旅人聊聊（对话 1002）。前置 1001。
   - `2001` 支线「观察神秘生物」：前往瞭望点（地点 `lookout`）。开局接取。

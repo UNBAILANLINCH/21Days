@@ -1,7 +1,7 @@
 ---
-description: 模块回放验证（Showcase）规范：目录命名、ShowcaseScenario 作者 API、编写约束、与快测试的分工、模块完成定义。编辑 Scripts/Tests/Showcase/ 或 Scenes/Verify/ 下文件时适用。
-paths: ["Assets/_Project/Scripts/Tests/Showcase/**", "Assets/_Project/Scenes/Verify/**"]
-globs: ["Assets/_Project/Scripts/Tests/Showcase/**", "Assets/_Project/Scenes/Verify/**"]
+description: 模块回放验证（Showcase）规范：目录命名、ShowcaseScenario 作者 API、编写约束、与快测试的分工、模块完成定义。编辑 Scripts/Tests/Showcase/ 下文件时适用。
+paths: ["Assets/_Project/Scripts/Tests/Showcase/**"]
+globs: ["Assets/_Project/Scripts/Tests/Showcase/**"]
 alwaysApply: false
 ---
 
@@ -20,7 +20,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 | 命名空间 | `Game.Tests.Showcase.<Module>` |
 | 类名 | `<Module>Showcase : ShowcaseScenario`，带 `[Category("Showcase")]` |
 | 测试方法 | `[UnityTest] public IEnumerator <行为>_<期望>()`，如 `TakeDamage_ShowsHealthDrop` |
-| 验证场景 | `Assets/_Project/Scenes/Verify/<Module>.unity`（用 MCP 建，不进 Build Settings） |
+| 回放舞台 | `Assets/Scenes/SampleScene.unity`（即 `ShowcaseOptions.DemoScenePath`），不建独立验证场景 |
 | 报告 | `Logs/verify/<模块小写>/<yyyyMMdd-HHmmss>/report.md` + 截图 `NN-<名字>.png`，另复制一份 `latest.md` |
 
 框架代码在 `Showcase/Framework/`，模板在 `Showcase/SelfTest/ShowcaseSelfTest.cs`。
@@ -31,7 +31,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 | 成员 | 干什么 |
 | --- | --- |
 | `protected abstract string Module { get; }` | 模块名，PascalCase 必填；报告目录取它的小写 |
-| `protected virtual string ScenePath => null;` | 非空则 SetUp 里加载它；返回 `null` = 场景在代码里搭 |
+| `protected virtual string ScenePath => null;` | 一律返回 `ShowcaseOptions.DemoScenePath`（= `Assets/Scenes/SampleScene.unity`）；返回 `null` = 场景在代码里搭 |
 | `protected virtual bool LoadBootScene => true;` | 为真且 Boot 场景文件存在 → 先加载 Boot 再加载验证场景 |
 | `protected virtual IEnumerator WaitForBootReady()` | 默认等一帧；框架 Boot 就绪信号落地后覆写它 |
 | `Step(string title, Action act = null, float hold = -1)` | 记一步 + 叠加层显示 + 执行 `act` + 停顿（默认 1.5 s × 倍率） |
@@ -52,7 +52,8 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 - 只通过模块的**公开接口 / 事件**驱动：不 `GetComponent` 到私有实现，不改 ScriptableObject 字段，不读 `Input.*`。
 - 每步 hold 1～3 秒；**至少在末尾 `Snapshot` 一次**；`Check` 必须对应肉眼可见或数值可见的变化——
   检查一个屏幕上看不出区别的内部标志位，属于写错了地方，该去 EditMode。
-- 不依赖 `Assets/Scenes/SampleScene.unity`；验证场景只放该模块需要的最少对象，可复用的做成预制体实例，不堆 override。
+- 回放统一在 `Assets/Scenes/SampleScene.unity` 上跑（`ShowcaseOptions.DemoScenePath`）；回放需要的物体作为 demo 内容放进 SampleScene，或由回放运行时生成并 `Track()` 清理；**不许改变从标题「开始」进 SampleScene 的正常游玩表现**。
+- SampleScene 里的距离是真的：出生点离长者 3、离巡逻怪 18，NPC 交互半径 2 且只认 `player`。回放先用 `StandNextTo` / `Approach` 走到位再交互，别假设物体在身边。
 - 检查点失败**不用** `Debug.LogError` / `Assert`：Test Framework 会把未预期的 `LogError` 当测试失败并打断报告流程。
   失败走 `Debug.LogWarning` + 记录，收尾在 `ShowcaseTearDown` 里统一 `Assert.Fail`。
 - `UnityEditor` 相关代码一律 `#if UNITY_EDITOR` 包住；`UnityEngine.Object` 判空用 `== null` / `!= null`。
@@ -79,9 +80,9 @@ Showcase 慢，`/unity-test PlayMode` 想只跑快测试就用 `assembly_names` 
 1. 代码在 `Scripts/Runtime/<Module>/`，命名空间 `Game.<Module>`，project-lint 零违规，`code-reviewer` 无 BLOCK。
 2. 核心规则有 EditMode 测试（`Scripts/Tests/EditMode/<Module>/`），全绿。
 3. 有 `Scripts/Tests/Showcase/<Module>/<Module>Showcase.cs`（≥1 条场景），每条 3～10 步，覆盖该模块「用户能看见的主要行为」；
-   需要场景的有 `Scenes/Verify/<Module>.unity`。
+   `ScenePath` 返回 `ShowcaseOptions.DemoScenePath`，回放需要的物体已放进 SampleScene 或由回放运行时生成并 `Track()`。
 4. `/verify-module <Module>` PASS，**且开发者看过回放并点头**（对话里有记录）。
-5. `ai-docs/docs/modules/<模块小写>/` guide 存在（`/generate-doc`），`modules.json` 已登记，guide 里写了 Showcase 与验证场景路径。
+5. `ai-docs/docs/modules/<模块小写>/` guide 存在（`/generate-doc`），`modules.json` 已登记，guide 里写了 Showcase 路径与回放舞台说明。
 6. `/review-change` 清单已列，停下等授权。
 
 ## 检查清单
@@ -90,6 +91,6 @@ Showcase 慢，`/unity-test PlayMode` 想只跑快测试就用 `assembly_names` 
 - [ ] 每条 `[UnityTest]` 只讲一个用户可见行为，3～10 步，末尾有 `Snapshot`。
 - [ ] 只走公开接口 / 事件；没有 `GetComponent` 私有实现、没有改 SO、没有读 `Input.*`。
 - [ ] 检查点对应看得见的变化；失败路径没有 `Debug.LogError` / 就地 `Assert`。
-- [ ] 验证场景不依赖 SampleScene，只放最少对象，`.meta` 已由 Unity 生成。
+- [ ] 回放在 SampleScene 上跑，所需物体已作为 demo 内容放进 SampleScene 或由回放运行时生成并 `Track()` 清理；没有改变正常游玩表现。
 - [ ] 不细粒度断言——那些在 EditMode 里。
 - [ ] 没有靠 Step 的 hold 等跨帧结果；跨帧等待都走 Check(timeout) / WaitUntil。

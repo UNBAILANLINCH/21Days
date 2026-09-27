@@ -145,7 +145,7 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 | `groundProbeDepth` | 4 | 射线在起点之下的最大探测距离 |
 | `maxStepHeight` | 0.32 | 单帧允许的最大抬升；楼梯每级 0.3 可上，长椅 0.45 / 路障 0.35 会被拒绝，墙顶不会被“跳”上去；下落不限 |
 | `playerStateIndicator` / `monsterStateIndicator` | 空 | 状态色优先染色目标；为空回退染本体 SpriteRenderer |
-| `flipByMoveDirection` | false | 按本帧场景 X 位移翻转纸片 `flipX`（逻辑坐标系不受影响）；只在 XZ 等距场景勾选，SampleScene 已勾；Disguise / Taming 等 2D 验证场景保持关闭 |
+| `flipByMoveDirection` | false | 按本帧场景 X 位移翻转纸片 `flipX`（逻辑坐标系不受影响）；只在 XZ 等距场景勾选，SampleScene 已勾；旧 2D 验证场景已删，回放现在也在 SampleScene 上跑 |
 
 ### 白盒遮挡碰撞（PRP/exploration-whitebox 波 9）
 
@@ -173,7 +173,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 | 字段 | 默认值 | 作用 |
 | --- | --- | --- |
-| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 只勾 `Ground`，`Verify/Disguise.unity`、`Taming.unity` 保持默认 |
+| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 只勾 `Ground`，旧验证场景已删 |
 | `obstacleBottomOffset` | 0.35 | 胶囊下沿离脚底高度；须高于单级台阶 |
 | `obstacleTopOffset` | 1.5 | 胶囊上沿离脚底高度；更高的悬空几何不挡人 |
 | `obstacleRadius` | 0.3 | 胶囊半径，与 player 的 CapsuleCollider 一致 |

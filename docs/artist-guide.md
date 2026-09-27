@@ -144,7 +144,7 @@
 ### 3.3 拼接小人分件（已删除）
 
 早期「5 张分件图 + Animator」的拼接小人已于 2026-09-28 被 3.4 节的序列帧小人替换，分件图、动画与预制体都已删除；
-验证场景 `Assets/_Project/Scenes/Verify/CharacterPuppet.unity` 现在挂的是 `Chibi_amiya`。角色小人一律按 3.4 节交序列帧。
+回放在 `Assets/Scenes/SampleScene.unity` 上跑，小人用 `Prefabs/Characters/Chibi_amiya.prefab`。角色小人一律按 3.4 节交序列帧。
 
 ### 3.4 角色序列帧交付规范
 

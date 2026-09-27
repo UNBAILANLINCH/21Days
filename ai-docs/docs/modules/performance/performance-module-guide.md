@@ -243,7 +243,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | 对白插播 | 对白节点 JSON 的 `performance` 字段非空，且 `Tables/Defines/dialogue.xml` 已生成对应字段 | 空串：不插播；服务未注册：记 Warn 埋 `performance_unavailable` 直接显示台词 |
 | 入口 | 从 Boot → 标题「开始」进场景才有演出服务与场景绑定 | 直接 Play 玩法场景：触发器 `TryFire` 记 Warn「未绑定演出服务」 |
 
-示例：`Scenes/Verify/Performance.unity`（Main Camera 已排除第 9 层剔除遮罩、Player 挂 Kinematic Rigidbody2D 开
+示例：回放舞台 `Assets/Scenes/SampleScene.unity`（Main Camera 已排除第 9 层剔除遮罩、Player 挂 Kinematic Rigidbody2D 开
 `useFullKinematicContacts`、Elder 挂 1003 对白、`Trigger_Intro` 挂 `PerformanceTrigger` OnEnter+once）；
 示例演出 `perf_sample_greeting`（`Prefabs/Performance/perf_sample_greeting.prefab` + 同名时间轴，由模板工厂建）。
 
@@ -275,7 +275,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | `performance` 字段翻译（去空白、空串 = 不插播） |
 | Showcase | `Tests/Showcase/Performance/PerformanceShowcase.cs`（4 条） | 代码拉起演出（黑边/字幕/时停/停顿确认/结束恢复，PRD A2）、长按跳过（A3）、场景触发只播一次（A4）、对白节点前插播（A5） |
 | Showcase | `Tests/Showcase/Performance/ScenePerformanceShowcase.cs`（2 条） | SampleScene 村口触发世界舞台示例：头像 / 说话者逐句、舞台相机接管、玩家与 NPC / 巡逻怪 / 标记隐藏、五人在画内；逐句走完 / 跳过后全部恢复 |
-| 验证场景 | `Scenes/Verify/Performance.unity` | 见「接线要求」示例 |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 见「接线要求」示例 |
 
 跑 `/unity-test EditMode Performance`；视觉验收跑 `/verify-module Performance`（编辑器须打开）。
 

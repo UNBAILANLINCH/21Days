@@ -27,9 +27,10 @@ maturity: seed
 
 ## 试玩入口
 
-`Assets/_Project/Scenes/Verify/Taming.unity` 直接 Play，无需 Boot。
-场景中 `Encounter` 显式保存视图、输入资产、双方配置和 SmoothCameraFollow 引用。
-视图持有 player/enerme、出生点和巡逻点；本独立验证场景采用 XY 平面。
+回放在 `Assets/Scenes/SampleScene.unity` 上跑，直接 Play 也可试，无需 Boot。
+`Encounter` 下的子物体 `TamingDemo` 挂 `TamingSceneController`，默认不激活；回放前先停用 `StandaloneEncounterController` 再激活 `TamingDemo`，正常游玩不激活。想手动试玩就在 Inspector 里勾上它。
+`TamingDemo` 已接好视图、输入资产、双方配置和 SmoothCameraFollow 五个引用。
+视图持有 player/enerme、出生点和巡逻点；采用 XY 平面，挂在 SampleScene 的 `Encounter/TamingDemo` 子物体上（默认不激活）。
 TamingSceneController 是唯一推进者，不同时挂 StandaloneEncounterController。
 屏幕显示当前控制对象、按键提示及生命。
 
@@ -37,7 +38,7 @@ TamingSceneController 是唯一推进者，不同时挂 StandaloneEncounterContr
 
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Taming/TamingRulesTests.cs`。
 - Showcase：`Assets/_Project/Scripts/Tests/Showcase/Taming/TamingShowcase.cs`。
-- 验证场景：`Assets/_Project/Scenes/Verify/Taming.unity`。
+- 回放舞台：`ShowcaseOptions.DemoScenePath`（= `Assets/Scenes/SampleScene.unity`），回放临时激活 `Encounter/TamingDemo`。
 
 验证覆盖切换及长按、双方位移归属、返回后友善、死亡退出、实际镜头移动。
 这是独立验证模块，尚未注册正式 GameFlow、触屏或确定性回放；后续接入需补输入命令位和状态快照。

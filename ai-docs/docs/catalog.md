@@ -23,7 +23,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Sample | 三件套齐备（**同时是模块文档的样例**） | [`modules/sample/`](modules/sample/sample-module-guide.md) |
 | Player | 三件套齐备；Unity 场景接线待完成 | [`modules/player/`](modules/player/player-module-guide.md) |
 | Monster | 三件套齐备；Unity 场景接线待完成 | [`modules/monster/`](modules/monster/monster-module-guide.md) |
-| Disguise | 伪装禁攻规则与独立验证场景 | [`modules/disguise/`](modules/disguise/disguise-module-guide.md) |
+| Disguise | 伪装禁攻规则与回放 | [`modules/disguise/`](modules/disguise/disguise-module-guide.md) |
 | Taming | 独立驯服原型；尚未接正式遭遇 | [`modules/taming/`](modules/taming/taming-module-guide.md) |
 | IsometricExploration | 三件套齐备；确定性潜行战斗接入等距纸片场景 | [`modules/isometricexploration/`](modules/isometricexploration/isometricexploration-module-guide.md) |
 | Dialogue | 三件套齐备；Unity 接线已完成，视觉验收待开发者跑 /verify-module | [`modules/dialogue/`](modules/dialogue/dialogue-module-guide.md) |
@@ -56,7 +56,7 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | [`unity-tests.md`](../../.claude/rules/unity-tests.md) | `Assets/_Project/Scripts/Tests/**` | EditMode 优先、测试命名、TearDown 清理、怎么跑（MCP / batchmode 二选一）。 |
 | [`harness-authoring.md`](../../.claude/rules/harness-authoring.md) | `.claude/**` | 往 harness 加东西的硬要求：载体锚定、不建伴生清单、资产归哪一层、规则与文档的分界。 |
 | [`hook-injection-style.md`](../../.claude/rules/hook-injection-style.md) | `.claude/hooks/**` | 钩子怎么对模型说话：第三人称事实陈述、只在写操作注入、同会话去重、阻断要克制、成功静默失败冗余。 |
-| [`module-verify.md`](../../.claude/rules/module-verify.md) | `Scripts/Tests/Showcase/**`、`Scenes/Verify/**` | 模块回放验证（Showcase）：目录命名、作者 API、编写约束、与快测试的分工、模块完成定义 DoD。 |
+| [`module-verify.md`](../../.claude/rules/module-verify.md) | `Scripts/Tests/Showcase/**` | 模块回放验证（Showcase）：目录命名、作者 API、编写约束、与快测试的分工、模块完成定义 DoD。 |
 
 ## 其它入口
 

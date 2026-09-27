@@ -334,7 +334,23 @@ namespace Game.Tests.Showcase.Performance
 
         private bool HoldPromptVisible()
         {
-            return ChildActive(View(), "HoldPrompt");
+            // HoldPrompt 挪进了对白面板 SubtitleRoot 里（面板右下角 ▼），按名字在整棵子树里找，不依赖层级。
+            PerformanceView view = View();
+            if (view == null)
+            {
+                return false;
+            }
+
+            Transform[] all = view.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].name == "HoldPrompt")
+                {
+                    return all[i].gameObject.activeInHierarchy;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

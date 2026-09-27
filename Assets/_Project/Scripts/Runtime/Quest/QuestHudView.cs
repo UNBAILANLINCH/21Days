@@ -1,4 +1,4 @@
-// 职责：常驻 Hud 层的任务栏——显示当前追踪任务标题与目标、目标指引标识（屏内悬浮 / 屏外贴边 + 箭头）与距离；只显示与抛点击事件。
+// 职责：常驻 Hud 层的任务栏——显示当前追踪任务标题与目标、目标指引标识（屏内悬浮 / 屏外贴边 + 绕标识公转的箭头）与距离；只显示与抛点击事件。
 // 为什么新建：任务系统首次落地（PRP/quest-system），现有 Hud View（DialogueInteractHudView）只管「对话」按钮，职责与层内布局都不同。
 using System;
 using System.Collections.Generic;
@@ -28,9 +28,11 @@ namespace Game.Quest
         [SerializeField] private TMP_Text objective;
         [Tooltip("目标指引标识，锚点须在 HUD 根的中心（anchoredPosition 以画布中心为原点）。")]
         [SerializeField] private RectTransform guidanceRoot;
-        [Tooltip("屏外箭头，绕 Z 轴旋转（可空：不显示箭头）。")]
+        [Tooltip("箭头与距离文本的公转枢轴，位于标识中心；SetGuidance 按目标方向旋转它，箭头随之绕标识公转到朝向目标的一侧，距离文本落在对面。")]
+        [SerializeField] private RectTransform guidancePivot;
+        [Tooltip("屏外箭头，挂在 guidancePivot 下；这里只负责显隐，朝向由枢轴旋转带动（可空：不显示箭头）。")]
         [SerializeField] private RectTransform guidanceArrow;
-        [Tooltip("到目标的距离文字，如「12 m」。")]
+        [Tooltip("到目标的距离文字，如「12 m」；挂在 guidancePivot 下与箭头相对，SetGuidance 反向旋转它保持正立。")]
         [SerializeField] private TMP_Text distanceLabel;
         [Tooltip("任务键键位提示（如「Tab」），运行时由 QuestHudPresenter 按输入绑定赋值。可空：不显示提示。")]
         [SerializeField] private TMP_Text keyHint;
@@ -77,18 +79,20 @@ namespace Game.Quest
 
         /// <summary>
         /// 显示指引标识。每帧调用：只改位置与角度，<paramref name="distance"/> 为 null 时不动距离文本（避免每帧赋字符串）。
-        /// 任务栏隐藏期间（<see cref="SetVisible"/>(false)）忽略。
+        /// 朝向：旋转 <see cref="guidancePivot"/>（标识中心），箭头随枢轴绕标识公转到朝向目标的一侧，距离文本落在对面；
+        /// 距离文本再反向旋转同样角度保持正立。箭头本身只切显隐。任务栏隐藏期间（<see cref="SetVisible"/>(false)）忽略。
         /// </summary>
         public void SetGuidance(in QuestGuidance g, string distance)
         {
             if (!visible) return;
             if (!guidanceRoot.gameObject.activeSelf) guidanceRoot.gameObject.SetActive(true);
             guidanceRoot.anchoredPosition = g.AnchoredPosition;
+            guidancePivot.localEulerAngles = new Vector3(0f, 0f, g.ArrowAngleDeg);
+            distanceLabel.rectTransform.localEulerAngles = new Vector3(0f, 0f, -g.ArrowAngleDeg);
             if (guidanceArrow != null)
             {
                 GameObject arrow = guidanceArrow.gameObject;
                 if (arrow.activeSelf != g.ShowArrow) arrow.SetActive(g.ShowArrow);
-                if (g.ShowArrow) guidanceArrow.localEulerAngles = new Vector3(0f, 0f, g.ArrowAngleDeg);
             }
 
             if (distance != null) distanceLabel.text = distance;
@@ -127,6 +131,7 @@ namespace Game.Quest
             if (title == null) missing.Add(nameof(title));
             if (objective == null) missing.Add(nameof(objective));
             if (guidanceRoot == null) missing.Add(nameof(guidanceRoot));
+            if (guidancePivot == null) missing.Add(nameof(guidancePivot));
             if (distanceLabel == null) missing.Add(nameof(distanceLabel));
             if (missing.Count > 0)
                 throw new InvalidOperationException("QuestHudView 引用未接线：" + string.Join("、", missing));

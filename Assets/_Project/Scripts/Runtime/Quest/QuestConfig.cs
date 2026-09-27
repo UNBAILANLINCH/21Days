@@ -7,8 +7,9 @@ namespace Game.Quest
     [CreateAssetMenu(menuName = "21Days/Quest/QuestConfig")]
     public sealed class QuestConfig : ScriptableObject
     {
-        [Tooltip("目标在屏幕外时，指引箭头贴屏幕边缘的留白（参考分辨率像素）。")]
-        [SerializeField, Min(0)] private float edgeMargin = 48f;
+        [Tooltip("目标在屏幕外时，指引标识中心贴屏幕边缘的留白（参考分辨率像素）。取值依据：须 ≥ 箭头公转半径 48 + 箭头半宽 14 + 余量，" +
+                 "否则箭头转到朝外一侧时被屏幕边裁掉；距离文本总在箭头对面（朝屏内），不参与这个下限。")]
+        [SerializeField, Min(0)] private float edgeMargin = 72f;
 
         [Tooltip("目标在屏幕内时，指引标记相对目标屏幕点向上的偏移（参考分辨率像素）。")]
         [SerializeField] private float hoverOffset = 80f;

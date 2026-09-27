@@ -60,7 +60,8 @@ maturity: seed
 表现：QuestHudPresenter.Tick → binder.TryResolveTarget（得 Position 测距 / Anchor 标记；NPC 的 Anchor 优先取其对话图标锚点，
       次选碰撞体顶部 + MarkerLift，再次位置上方 LocationMarkerHeight）→ marker.Show(Anchor) 常驻摆位
       → SceneCamera.WorldToViewportPoint(Anchor) → QuestGuidanceMath.Solve
-      → 屏内：hud.HideGuidance，只留世界标记；屏外：hud.SetGuidance 贴边箭头 + 距离，标记仍留在目标处（被相机裁掉）；
+      → 屏内：hud.HideGuidance，只留世界标记；屏外：hud.SetGuidance 贴边标识（中心距屏幕边 EdgeMargin 72）+ 旋转
+        Guidance/ArrowPivot，箭头绕标识公转到朝向目标一侧、距离文本落在对面并反向旋转保持正立，标记仍留在目标处（被相机裁掉）；
       NPC 目标：marker.Show 之后 SetOverridden(target.Interactable) 接管其对话「…/!」图标（marker 实例化失败时不接管）；
       HideMarker（对白 / 沉浸 / 解析失败 / 缺相机）与 Dispose 交还，换目标时先还旧再接新；
       对白中两者都隐藏；HUD 点击 / 任务键 Gameplay/Journal → QuestPanelController.OpenAsync → SetList/SetDetail
@@ -124,6 +125,7 @@ maturity: seed
 | --- | --- | --- |
 | Installer | `Boot.unity` 的 `GameBootstrap` 挂 `QuestInstaller`（排在 `DialogueInstaller` 之后），**Config** 拖 `Data/Quest/QuestConfig.asset` | 没挂：解析不到 `QuestService`；没拖：记 Error 并用默认值顶上 |
 | 预制体地址 | Addressables（UI 组）`QuestHudView` → `Prefabs/UI/QuestHudView.prefab`；`QuestPanelView` → `Prefabs/UI/QuestPanelView.prefab`。**地址等于类名** | `ui.OpenAsync<T>()` 找不到预制体 |
+| 贴边指引层级 | `QuestHudView.prefab` 的 `Guidance`（锚点画布中心）下：`Icon`(56×56) + 空 RectTransform `ArrowPivot`（0,0，尺寸 0，pivot 0.5）；`ArrowPivot` 下 `Arrow`(28×28, 0,48) 与 `Distance`(120×30, 0,-60)。组件接线 `guidanceRoot`→Guidance、`guidancePivot`→ArrowPivot（旋转它让箭头公转、文本在对面）、`guidanceArrow`→Arrow（只管显隐，可空）、`distanceLabel`→Distance。`QuestConfig.EdgeMargin` 72 须 ≥ 公转半径 48 + 箭头半宽 14 + 余量（文本总在内侧不参与） | 缺 `guidancePivot`：打开 HUD 时 `Validate` 抛「引用未接线」；箭头直接挂 `Guidance` 下：只会原地自转、永远在标识正上方；EdgeMargin 小于 62：箭头转到朝外一侧时被屏幕边裁掉 |
 | 目标标记预制体 | Addressables（UI 组）`QuestTargetMarker` → `Prefabs/World/QuestTargetMarker.prefab`（根 `QuestTargetMarker`，子 `Icon`：SpriteRenderer + `CameraBillboard`，缩放 0.45 与 NPC 对话标记 `MarkerIdle` / `MarkerFocus` 一致，贴图同为 `Marker_Focus.png` 染黄；改对话标记尺寸要同步改这里） | 找不到 / 根上无组件：画面内标记不显示，记 Error 并埋 `marker_missing`；画面外箭头不受影响 |
 | `QuestConfig` 标记字段 | `MarkerLift`(0.3，仅 NPC 没有对话标记图标时的降级)、`LocationMarkerHeight`(1.5)、`TargetMarkerAddress`("QuestTargetMarker") 需与预制体地址一致 | 地址对不上：走上一行的降级；高度 / 抬升值用默认值不影响编译 |
 | 场景地点 | 场景里 `QuestLocation` 的 `locationKey` 要与表里 `ReachLocation` 目标的 `key`（`location` 留空时兜底用 `key`）对应 | 找不到地点：驱动器不判定、指引不显示，`QuestSceneBinder` 记 Warn |

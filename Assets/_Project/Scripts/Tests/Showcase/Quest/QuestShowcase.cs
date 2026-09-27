@@ -101,8 +101,8 @@ namespace Game.Tests.Showcase.Quest
 
             yield return Step("追踪支线 2001（目标瞭望点在画面外右侧）", () => service.Track(SideQuestId));
             yield return Check("HUD 换成「观察神秘生物」，指引贴屏幕边缘并显示箭头与距离「N m」，标记移到瞭望点",
-                () => HudText("Root/Title").Contains("观察神秘生物") && HudActive("Guidance") && HudActive("Guidance/Arrow")
-                      && HudText("Guidance/Distance").EndsWith("m")
+                () => HudText("Root/Title").Contains("观察神秘生物") && HudActive("Guidance") && HudActive("Guidance/ArrowPivot/Arrow")
+                      && HudText("Guidance/ArrowPivot/Distance").EndsWith("m")
                       && Marker() != null && Math.Abs(Marker().transform.position.x - LookoutX) < 0.5f, 3f);
             yield return Snapshot("支线追踪·屏外箭头");
 

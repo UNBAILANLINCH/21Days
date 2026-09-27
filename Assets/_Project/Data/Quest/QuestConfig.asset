@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c5825a55cd44bd42a6e2ab3e1cbc25e, type: 3}
   m_Name: QuestConfig
   m_EditorClassIdentifier: 
-  edgeMargin: 48
+  edgeMargin: 72
   hoverOffset: 80
   distanceRefreshInterval: 0.2
   markerLift: 0.3
@@ -21,3 +21,5 @@ MonoBehaviour:
   untrackedLabel: "\u672A\u8FFD\u8E2A\u4EFB\u52A1"
   mainKindLabel: "\u4E3B\u7EBF"
   sideKindLabel: "\u652F\u7EBF"
+  activatedNotificationFormat: "\u63A5\u53D6\u4EFB\u52A1\uFF1A{0}"
+  completedNotificationFormat: "\u4EFB\u52A1\u5B8C\u6210\uFF1A{0}"

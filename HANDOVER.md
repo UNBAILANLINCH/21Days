@@ -2,7 +2,7 @@
 
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
-> **基线**：`main` @ `4da29a3`（§1.1 的 A、B 随它推送）；§1.1-C 的改动在工作区待审。本文行号按「该基线 + C 的工作区改动」核对过；改动后请顺手更新本文。
+> **基线**：`main` @ `161c690`（演出旧模式下架已全部落地，尚未 push；工作区只剩字体资产的 Play 期脏数据）。本文行号按该基线核对过；改动后请顺手更新本文。
 
 ## 0. 现状一句话
 
@@ -12,7 +12,7 @@
 
 **没做的分两层，量级差很远：**
 
-- **§1 / §2 是已有模块的收尾**（7 件活 + 10 项待拍板）。数量少、都能立刻动手。
+- **§1 / §2 是已有模块的收尾**（6 件活 + 10 项待拍板）。数量少、都能立刻动手。
 - **§3 是内容层，几乎没开始**：`docs/roadmap.md` A–H 共 51 条，其中 20 条标着「待做 / 待定义」；`docs/design/features/` 16 份策划稿只落地了 3 份（01 通灵视 / 02 照镜辨形 / 03 镜之耐久与镜碎），**其余 12 份一行代码都没有**。这一片才是大头，且卡在策划拍板。
 
 一句话：**框架能跑，玩法的肉还在纸上。**
@@ -21,25 +21,13 @@
 
 ## 1. 可以直接开工
 
-### 1.1 演出旧模式下架 + 对白插播传锚点 【已完成，C 待审】
-
-A（下架示例 greeting）、B（对白插播传 NPC 锚点、插播时藏场景角色）已随 `4da29a3` 推送。
-C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演出只保留世界舞台 + 序列帧小人）改动在工作区，待审后按路径提交，提交后删掉本节：
-
-- 删 `PerformanceStageMode` 枚举与舞台 `mode` 字段，世界舞台成为唯一行为；删相机栈叠加及其退路（埋点 `camera_stack_unavailable`）、摆放忽略告警（`placement_ignored`）。
-- 黑边整条删：策略 / 配置 / 舞台开关 / 面板参数 / `PerformanceView` 字段与补间 / 预制体 `LetterboxTop`、`LetterboxBottom` 两个节点；进场黑场 `Fade` 保留。
-- 模板工厂「新建演出」改建世界舞台壳（透视 Base 舞台相机 + 空 `Actors` 站位根 + 字幕 / 动作 / 音效三轨），舞台相机与村口示例 builder 共用 `CreateWorldStageCamera`；校验器删掉只对叠加有意义的检查，相机检查改为无条件执行。
-- 删 `Runtime/Live2D/` 整个程序集、`Editor/Performance/Live2DDefineSync.cs`、演出编辑器「检查 Live2D 符号」；立绘占位演员 `SpritePerformanceActor` 一并删除（`PerformanceActor` 抽象与表情轨保留，但工程里暂无具体实现，模板不建表情轨）。
-- 验收（2026-09-29）：编译零错误零警告；EditMode 全量 1030 条通过；`PerformanceShowcase`（4 条）+ `ScenePerformanceShowcase`（2 条）回放 PASS；
-  `DialogueShowcase` 7 条中 6 条 PASS，`Bubble_ShowsAboveHead_WithoutPausing` 失败，原因与本单无关，见 §1.4 最后一行。
-
-### 1.2 回放框架的输入失焦问题
+### 1.1 回放框架的输入失焦问题
 
 **现象**：编辑器窗口失去焦点时，10 个键盘回放用例失败。
 **做法**：在 Showcase 的公共 SetUp 里临时改 InputSettings 的 `backgroundBehavior` / `editorInputBehaviorInPlayMode`，TearDown 还原。
 **现状**：`Assets/_Project/Scripts/Tests/Showcase/` 下搜不到这两个字段（已核）。
 
-### 1.3 Narrative 接线（roadmap C1–C3）【最大一块】
+### 1.2 Narrative 接线（roadmap C1–C3）【最大一块】
 
 `PRP/narrative-dialogue/` 的 tasks 只勾了 3/10，且**对白那半边已被 dialogue 模块取代**，只剩 Narrative 半边。
 
@@ -48,7 +36,7 @@ C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演
 - **前置**：`PRP/narrative-dialogue/prp.md` 自述「设计草案…未实现」，`docs/roadmap.md` §6.2 要求**先修订 PRP 再执行**
 - 关联：`DialogueSaveData` 尚未接存档（`ai-docs/docs/modules/dialogue/dialogue-module-guide.md:65`）
 
-### 1.4 六处小修（半小时级）
+### 1.3 六处小修（半小时级）
 
 | 位置 | 问题 |
 | --- | --- |
@@ -59,11 +47,11 @@ C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演
 | `Assets/_Project/Scripts/Editor/Tools/ProjectStructureMenu.cs:153` | 全仓唯一一条真 `// TODO`：依赖应走构造注入，别在这里 new 服务或读静态单例 |
 | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs:313` | `FindRequired<DialogueSpeechBubble>("SpeechBubble")` 按名字全局找气泡；`eed1a5f`（照镜 demo）给 SampleScene 加了第二个同名物体 `Yao_WellWoman/SpeechBubble`，回放 `Bubble_ShowsAboveHead_WithoutPausing` 两个气泡检查点因此失败（2026-09-29 实测）。改成从 `Npc_Villager` 下取气泡 |
 
-### 1.5 replay 缺两个实测数字
+### 1.4 replay 缺两个实测数字
 
 `PRP/replay/tasks.md:159`：G3 的 0.2 ms/帧预算、G1 的体积（现在是外推的 690 KB）都**没有实测**。跑一次真实录制回填即可，PRP 只差这一步。
 
-### 1.6 roadmap 里「已做但留尾巴」的 5 条
+### 1.5 roadmap 里「已做但留尾巴」的 5 条
 
 | 条目 | 尾巴 |
 | --- | --- |
@@ -98,7 +86,7 @@ C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演
 
 **这一节是大头**：3.1 已废弃，3.2–3.3 是两条长线，3.4 是「一行代码都还没有」的全部内容。
 
-**3.1 Live2D** —— 已废弃（2026-09-28 用户定）：演出只保留世界舞台 + 序列帧小人，Live2D 适配层与叠加模式代码已随 §1.1-C 删除，不再导入 Cubism SDK。
+**3.1 Live2D** —— 已废弃（2026-09-28 用户定）：演出只保留世界舞台 + 序列帧小人，Live2D 适配层与叠加模式代码已随 `161c690` 删除，不再导入 Cubism SDK。
 
 **3.2 移动端移植** —— 现阶段是 PC 游戏：触屏摇杆、触屏三键、走跑按钮、Android 画质档、安全区实机统一，全部后置到移植阶段。注意玩法代码里**禁止**平台条件编译与平台专属 API，这类只允许出现在 `Scripts/Runtime/Platform/`，输入只读 Input System 的 Action Map。
 
@@ -110,7 +98,7 @@ C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演
 | --- | --- | --- |
 | A 探索层 | 3/6 | A3 泛化可交互对象与物资箱、A4 多场景流转、A6 相机边界与死区 |
 | B 任务系统 | 2/4 | B3 任务完成写剧情标记、B4 进度重置与已完成列表 |
-| C 叙事接线 | 4/5 | C1 NarrativeController + Installer、C2 剧情标记条件源、C3 剧情内容进表与校验、C5 战斗结果 → 剧情（C1–C3 与 §1.3 是同一件事） |
+| C 叙事接线 | 4/5 | C1 NarrativeController + Installer、C2 剧情标记条件源、C3 剧情内容进表与校验、C5 战斗结果 → 剧情（C1–C3 与 §1.2 是同一件事） |
 | D 演出与 UI 动效 | 1/6 | D6 角色动画补齐 |
 | E 系统与流程 | 1/8 | E4 加载过渡 |
 | F 内容与美术 | **5/5** | F1 剧本进表、F2 环境模型替换灰盒、F3 角色 / 立绘 / UI 皮肤、F4 音频、F5 内容校验器 |
@@ -132,7 +120,7 @@ C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演
 
 - **生成物不手改**：`Library/` `Temp/` `Logs/` `obj/` `UserSettings/`、`*.meta`、`*.csproj/*.sln`、`packages-lock.json` 都由 Unity 生成。
 - **共享工作区**：本项目常有多个会话 / 多人共用同一个工作区与 git 索引。提交一律按路径（`git commit -F <信息文件> -- <路径…>`），不要用不带路径的 `git commit` 或 `-a`；同一文件里混有别人未提交的段落时用临时索引出提交。细节见 `ai-docs/pitfalls.md`。
-- **`invariants.py` 目前有两处常红**：字体资产、LailaFace 命名空间（§1.4）。看扫描输出时先排除这两条，别当成新问题，也别习惯性忽略——它会掩盖真问题。
+- **`invariants.py` 目前有两处常红**：字体资产、LailaFace 命名空间（§1.3）。看扫描输出时先排除这两条，别当成新问题，也别习惯性忽略——它会掩盖真问题。
 - **移动 / 删除 / 重命名资产**用 `git mv` / `git rm`，必须连 `.meta` 一起。
 - **角色纸片不要给 `CameraBillboard` 加 `ExecuteAlways`**：会把场景标脏，二十多个物体旋转进 diff。
 - 更多踩过的坑见 `ai-docs/pitfalls.md`，动手前值得扫一遍。

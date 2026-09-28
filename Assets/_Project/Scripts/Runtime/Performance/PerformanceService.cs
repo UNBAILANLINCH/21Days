@@ -1,5 +1,5 @@
-// 职责：演出管线的对外入口——按 id 实例化演出预制体、持世界时停令牌、切输入图、开演出面板、藏 HUD、
-//   把舞台相机叠到主相机上，每帧把确认 / 长按跳过 / 自动 / 台词记录（LOG）喂给规则与面板，
+// 职责：演出管线的对外入口——按 id 实例化演出预制体并摆到世界位姿、持世界时停令牌、切输入图、开演出面板、藏 HUD、
+//   让舞台相机接管画面（世界舞台），每帧把确认 / 长按跳过 / 自动 / 台词记录（LOG）喂给规则与面板，
 //   结束后按「进来前的状态」逐项恢复、归还实例、记存档、广播事件。
 // 为什么新建（复用 → 扩展 → 新建）：PerformanceRules 只管阶段语义、PerformanceStage 只管时间轴，二者都不该持有
 //   时停 / 输入图 / UI / 相机 / 存档这类会话级资源；DialogueService 是对白专用且 Performance 不得依赖 Dialogue，只能新建。
@@ -36,13 +36,10 @@ namespace Game.Performance
     /// （UniTask 约定，同 DialogueService）；Cancelled / Failed 不记「已播」。
     /// </para>
     /// <para>
-    /// 舞台相机的渲染器在运行时对齐主相机（URP 只允许同类渲染器叠加），演出预制体里不用手选渲染器。
-    /// </para>
-    /// <para>
-    /// 世界模式（<see cref="PerformanceStageMode.World"/>）不叠相机栈：舞台相机当 Base 相机、深度 = 主相机 + 1、
-    /// 剔除遮罩 = 主相机遮罩 + Performance 层，清屏 / 背景 / 后处理 / Volume 遮罩 / 渲染器从主相机拷贝，透视参数与位姿保留预制体里作者的值；
-    /// 主相机保持 enabled（<c>Camera.main</c> 不能变空），只把剔除遮罩置 0 省一遍场景渲染，收尾（含跳过 / 取消 / 异常）恢复。
-    /// UI 根画布是 Screen Space Overlay（UIService 建），不受相机深度影响。
+    /// 世界舞台：舞台相机当 Base 相机、深度 = 主相机 + 1、
+    /// 剔除遮罩 = 主相机遮罩 + Performance 层，清屏 / 背景 / 后处理 / Volume 遮罩 / 渲染器从主相机拷贝（预制体里不用手选渲染器），
+    /// 透视参数与位姿保留预制体里作者的值；主相机保持 enabled（<c>Camera.main</c> 不能变空），只把剔除遮罩置 0 省一遍场景渲染，
+    /// 收尾（含跳过 / 取消 / 异常）恢复。UI 根画布是 Screen Space Overlay（UIService 建），不受相机深度影响。
     /// </para>
     /// <para>
     /// 台词记录（LOG）：History 键 / 面板「LOG」按钮打开 Core 通用记录面板 <see cref="TranscriptView"/>（Top 层，压在演出面板之上），
@@ -70,7 +67,7 @@ namespace Game.Performance
 
         /// <summary>
         /// 相机当前渲染器索引。URP 14 没有公开 getter，只能反射读私有序列化字段 <c>m_RendererIndex</c>——
-        /// URP 14.0.12 私有字段，升级 URP 时核对；取不到时 <see cref="ReadRendererIndex"/> 返回 -1，改走渲染器类型比较。
+        /// URP 14.0.12 私有字段，升级 URP 时核对；取不到时 <see cref="ReadRendererIndex"/> 返回 -1，舞台相机保留预制体里的渲染器。
         /// </summary>
         private static readonly FieldInfo RendererIndexField =
             typeof(UniversalAdditionalCameraData).GetField("m_RendererIndex", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -175,7 +172,8 @@ namespace Game.Performance
                     telemetry.TrackError("stage_missing", $"演出预制体 {id} 根上没有 PerformanceStage", TelemetryProps.Of(("id", id)));
                     throw new InvalidOperationException($"演出预制体 {id} 根上没有 PerformanceStage");
                 }
-                ApplyPlacement(id, stage, placement);
+                // 摆到调用方给的世界位姿（触发区锚点 / 说话 NPC）；不指定就保持预制体自身位姿。
+                if (placement.HasValue) stage.transform.SetPositionAndRotation(placement.Position, placement.Rotation);
                 PerformancePolicy policy = stage.BuildPolicy(config);
                 rules.Start(id, policy);
                 outcome = await RunAsync(id, stage, policy, ct);
@@ -198,19 +196,6 @@ namespace Game.Performance
                 CurrentId = null;
                 endedPublisher.Publish(new PerformanceEndedEvent(id, outcome));
             }
-        }
-
-        // 世界模式：把实例摆到调用方给的世界位姿；叠加模式的舞台与世界位置无关，摆放值忽略并告警（调用方多半接错了舞台）。
-        private void ApplyPlacement(string id, PerformanceStage stage, PerformancePlacement placement)
-        {
-            if (!placement.HasValue) return;
-            if (stage.Mode == PerformanceStageMode.World)
-            {
-                stage.transform.SetPositionAndRotation(placement.Position, placement.Rotation);
-                return;
-            }
-            Log.Warn($"PerformanceService：演出 {id} 是叠加模式，忽略传入的摆放位姿。", stage);
-            telemetry.TrackWarn("placement_ignored", TelemetryProps.Of(("id", id), ("reason", "placement_ignored_overlay")));
         }
 
         private async UniTask<GameObject> LoadAsync(string id, CancellationToken ct)
@@ -252,7 +237,7 @@ namespace Game.Performance
             bool hudHidden = false;
             bool hudWasVisible = true;
             bool popupWasVisible = true;
-            var camera = new CameraStackState();
+            var camera = new StageCameraState();
             bool holdPending = false;
             bool finishedPending = false;
             Action onHold = () => holdPending = true;
@@ -289,8 +274,8 @@ namespace Game.Performance
                     popupWasVisible = ui.IsLayerVisible(UILayer.Popup);
                 }
 
-                var args = new PerformanceViewArgs(policy, BuildSkipHint(actions), config.LetterboxHeight,
-                    config.FadeSeconds, config.HoldPromptText, config.SubtitleCharactersPerSecond,
+                var args = new PerformanceViewArgs(policy, BuildSkipHint(actions), config.FadeSeconds,
+                    config.HoldPromptText, config.SubtitleCharactersPerSecond,
                     config.SubtitlePunctuationPauseSeconds, config.SubtitlePunctuationChars,
                     hasInput ? KeyboardHint(actions.Dialogue.Auto) : string.Empty,
                     hasInput ? KeyboardHint(actions.Dialogue.History) : string.Empty);
@@ -437,7 +422,7 @@ namespace Game.Performance
             }
             finally
             {
-                // 正常结束、取消、异常都走这里；顺序：先摘回调再停时间轴（Stop 会触发 stopped），再拆相机、关台词记录与面板、恢复 HUD / 输入 / 时停。
+                // 正常结束、取消、异常都走这里；顺序：先摘回调再停时间轴（Stop 会触发 stopped），再还相机、关台词记录与面板、恢复 HUD / 输入 / 时停。
                 if (subscribed)
                 {
                     stage.OnHold -= onHold;
@@ -586,22 +571,18 @@ namespace Game.Performance
             return string.Empty;
         }
 
-        /// <summary>相机叠加改动的记录，收尾时据此原样改回。私有可变记录，只在本类的 Attach / Detach 之间传递，不是序列化暴露面。</summary>
-        private struct CameraStackState
+        /// <summary>舞台相机接管画面时改动的记录，收尾时据此原样改回。私有可变记录，只在本类的 Attach / Detach 之间传递，不是序列化暴露面。</summary>
+        private struct StageCameraState
         {
+            internal bool Attached;
             internal Camera Stage;
             internal UniversalAdditionalCameraData StageData;
             internal CameraRenderType StageRenderType;
             internal bool RendererChanged;
             internal int StageRendererIndex;
-            internal UniversalAdditionalCameraData MainData;
-            internal bool Stacked;
-            internal bool Fallback;
             internal float StageDepth;
             internal CameraClearFlags StageClearFlags;
             internal Color StageBackground;
-            // 世界模式专用：舞台相机被改的其余字段与主相机的剔除遮罩，收尾原样改回。
-            internal bool World;
             internal int StageCullingMask;
             internal LayerMask StageVolumeMask;
             internal bool StagePostProcessing;
@@ -611,10 +592,9 @@ namespace Game.Performance
             internal int MainCullingMask;
         }
 
-        // 舞台相机（Overlay）叠进 Camera.main 的 URP 相机栈；叠加前先把舞台相机的渲染器对齐主相机（URP 规定渲染器类型不同的
-        // 相机不能叠加，否则每帧告警并整段跳过渲染），预制体里不用手选渲染器。主相机缺 URP 数据、本身不是 Base、渲染器不支持叠加、
-        // 或对齐后渲染器类型仍不一致时退路：舞台相机改 Base、深度高于主相机、纯黑底，记 Warn + 埋 camera_stack_unavailable（prp 2.3）。
-        private void AttachCamera(string id, PerformanceStage stage, ref CameraStackState state)
+        // 世界舞台：舞台相机当 Base 相机接管画面（见类注释）。主相机缺失 / 就是舞台相机时退路：舞台相机按作者设的参数独立渲染
+        // （遮罩补上 Performance 层、深度抬高），记 Warn + 埋 world_camera_fallback。
+        private void AttachCamera(string id, PerformanceStage stage, ref StageCameraState state)
         {
             Camera stageCamera = stage.StageCamera;
             if (stageCamera == null)
@@ -623,78 +603,13 @@ namespace Game.Performance
                 return;
             }
             UniversalAdditionalCameraData stageData = stageCamera.GetUniversalAdditionalCameraData();
+            state.Attached = true;
             state.Stage = stageCamera;
             state.StageData = stageData;
             state.StageRenderType = stageData.renderType;
             state.StageDepth = stageCamera.depth;
             state.StageClearFlags = stageCamera.clearFlags;
             state.StageBackground = stageCamera.backgroundColor;
-
-            if (stage.Mode == PerformanceStageMode.World)
-            {
-                AttachWorldCamera(id, stage, stageCamera, stageData, ref state);
-                return;
-            }
-
-            Camera main = mainCameraProvider();
-            // 不用 GetUniversalAdditionalCameraData 取主相机：那个扩展在缺组件时会 AddComponent，「没有 URP 数据」就判不出来了。
-            UniversalAdditionalCameraData mainData = null;
-            bool canStack = main != null && main != stageCamera
-                && main.TryGetComponent(out mainData)
-                && mainData.renderType == CameraRenderType.Base;
-            bool rendererMismatch = false;
-            if (canStack)
-            {
-                // 对齐渲染器：读得到主相机索引就让舞台相机用同一个；读不到（反射失败 / 索引 < 0 即「用默认」）不改，只靠下面的类型比较兜底。
-                int mainRendererIndex = ReadRendererIndex(mainData);
-                if (mainRendererIndex >= 0)
-                {
-                    state.StageRendererIndex = ReadRendererIndex(stageData);
-                    state.RendererChanged = true;
-                    stageData.SetRenderer(mainRendererIndex);
-                }
-                rendererMismatch = !SameRendererType(mainData, stageData);
-            }
-            if (canStack && !rendererMismatch)
-            {
-                stageData.renderType = CameraRenderType.Overlay;
-                // cameraStack 在渲染器不支持叠加时返回 null（URP 自己会记一条 Warning）。
-                var stack = mainData.cameraStack;
-                if (stack != null)
-                {
-                    if (!stack.Contains(stageCamera)) stack.Add(stageCamera);
-                    state.MainData = mainData;
-                    state.Stacked = true;
-                    // 叠加后再核一次：类型仍不一致时 URP 会每帧跳过整段渲染，撤出相机栈走退路。
-                    if (SameRendererType(mainData, stageData)) return;
-                    stack.Remove(stageCamera);
-                    state.MainData = null;
-                    state.Stacked = false;
-                    rendererMismatch = true;
-                }
-            }
-
-            stageData.renderType = CameraRenderType.Base;
-            stageCamera.depth = (main == null ? 0f : main.depth) + FallbackCameraDepthOffset;
-            stageCamera.clearFlags = CameraClearFlags.SolidColor;
-            stageCamera.backgroundColor = Color.black;
-            state.Fallback = true;
-            string reason = main == null ? "no_main_camera"
-                : main == stageCamera ? "stage_is_main"
-                : mainData == null ? "no_urp_data"
-                : mainData.renderType != CameraRenderType.Base ? "main_not_base"
-                : rendererMismatch ? "renderer_mismatch"
-                : "stack_unsupported";
-            Log.Warn($"PerformanceService：演出 {id} 无法叠加到主相机（{reason}），舞台相机改为 Base 独立渲染。", stage);
-            telemetry.TrackWarn("camera_stack_unavailable", TelemetryProps.Of(("id", id), ("reason", reason)));
-        }
-
-        // 世界模式：舞台相机当 Base 相机接管画面（见类注释）。主相机缺失 / 就是舞台相机时退路：舞台相机按作者设的参数独立渲染
-        // （遮罩补上 Performance 层、深度抬高），记 Warn + 埋 world_camera_fallback。
-        private void AttachWorldCamera(string id, PerformanceStage stage, Camera stageCamera,
-            UniversalAdditionalCameraData stageData, ref CameraStackState state)
-        {
-            state.World = true;
             state.StageCullingMask = stageCamera.cullingMask;
             state.StageVolumeMask = stageData.volumeLayerMask;
             state.StagePostProcessing = stageData.renderPostProcessing;
@@ -710,7 +625,7 @@ namespace Game.Performance
                 string reason = main == null ? "no_main_camera" : "stage_is_main";
                 stageCamera.depth = (main == null ? 0f : main.depth) + FallbackCameraDepthOffset;
                 stageCamera.cullingMask |= performanceBit;
-                Log.Warn($"PerformanceService：世界模式演出 {id} 找不到主相机（{reason}），舞台相机按预制体参数独立渲染。", stage);
+                Log.Warn($"PerformanceService：演出 {id} 找不到主相机（{reason}），舞台相机按预制体参数独立渲染。", stage);
                 telemetry.TrackWarn("world_camera_fallback", TelemetryProps.Of(("id", id), ("reason", reason)));
                 return;
             }
@@ -742,57 +657,35 @@ namespace Game.Performance
             telemetry.Track("world_stage_attached", ("id", id));
         }
 
-        private static void DetachCamera(ref CameraStackState state)
+        private static void DetachCamera(ref StageCameraState state)
         {
-            // 世界模式先把主相机遮罩还回去：舞台相机随实例销毁后画面立刻由主相机接手。
-            if (state.World && state.Main != null) state.Main.cullingMask = state.MainCullingMask;
-            if (state.Stacked && state.MainData != null && state.Stage != null)
-            {
-                var stack = state.MainData.cameraStack;
-                if (stack != null) stack.Remove(state.Stage);
-            }
+            // 先把主相机遮罩还回去：舞台相机随实例销毁后画面立刻由主相机接手。
+            if (state.Main != null) state.Main.cullingMask = state.MainCullingMask;
             // 舞台相机随实例归还一起销毁，这里仍改回原值：实例若被复用 / 归还失败，也不留下被改过的相机。
-            if (state.Stage != null)
+            if (state.Attached && state.Stage != null)
             {
+                state.Stage.depth = state.StageDepth;
+                state.Stage.clearFlags = state.StageClearFlags;
+                state.Stage.backgroundColor = state.StageBackground;
+                state.Stage.cullingMask = state.StageCullingMask;
+                state.Stage.layerCullDistances = state.StageLayerCullDistances;
+                state.Stage.layerCullSpherical = state.StageLayerCullSpherical;
                 if (state.StageData != null)
                 {
                     state.StageData.renderType = state.StageRenderType;
                     if (state.RendererChanged) state.StageData.SetRenderer(state.StageRendererIndex);
-                }
-                if (state.Fallback || state.World)
-                {
-                    state.Stage.depth = state.StageDepth;
-                    state.Stage.clearFlags = state.StageClearFlags;
-                    state.Stage.backgroundColor = state.StageBackground;
-                }
-                if (state.World)
-                {
-                    state.Stage.cullingMask = state.StageCullingMask;
-                    state.Stage.layerCullDistances = state.StageLayerCullDistances;
-                    state.Stage.layerCullSpherical = state.StageLayerCullSpherical;
-                    if (state.StageData != null)
-                    {
-                        state.StageData.volumeLayerMask = state.StageVolumeMask;
-                        state.StageData.renderPostProcessing = state.StagePostProcessing;
-                    }
+                    state.StageData.volumeLayerMask = state.StageVolumeMask;
+                    state.StageData.renderPostProcessing = state.StagePostProcessing;
                 }
             }
             state = default;
         }
 
-        /// <summary>反射读相机当前渲染器索引；字段取不到（URP 升级改名）返回 -1，调用方退回类型比较。</summary>
+        /// <summary>反射读相机当前渲染器索引；字段取不到（URP 升级改名）返回 -1，调用方不改舞台相机的渲染器。</summary>
         private static int ReadRendererIndex(UniversalAdditionalCameraData data)
         {
             if (RendererIndexField == null || data == null) return -1;
             return RendererIndexField.GetValue(data) is int index ? index : -1;
-        }
-
-        /// <summary>两台相机实际生效的渲染器是否同一类型（Renderer2D / UniversalRenderer）；任一取不到按不一致处理。</summary>
-        private static bool SameRendererType(UniversalAdditionalCameraData main, UniversalAdditionalCameraData stage)
-        {
-            ScriptableRenderer mainRenderer = main.scriptableRenderer;
-            ScriptableRenderer stageRenderer = stage.scriptableRenderer;
-            return mainRenderer != null && stageRenderer != null && mainRenderer.GetType() == stageRenderer.GetType();
         }
     }
 }

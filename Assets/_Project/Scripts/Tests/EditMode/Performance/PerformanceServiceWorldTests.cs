@@ -1,5 +1,5 @@
-// 职责：钉住 PerformanceService 的世界模式与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
-//   结束（跳过 / 取消）后主相机与舞台相机原样恢复；世界模式按摆放值摆实例；叠加模式忽略摆放并告警；主相机缺失走退路并告警；
+// 职责：钉住 PerformanceService 的世界舞台与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
+//   结束（跳过 / 取消）后主相机与舞台相机原样恢复；按摆放值摆实例、不传摆放保持原位；主相机缺失走退路并告警；
 //   HideHud 时 Hud / Popup 层演出中隐藏、结束按进来前的显隐恢复（对白里插播时 Hud 不被重新亮出来）；
 //   「自动」开着时停顿处过秒数自动继续；台词记录（LOG）开着时导演暂停、关上恢复，演出结束时还开着的 LOG 先于演出面板关掉。
 //   后三条用真实的 PerformanceView / TranscriptView 预制体（按钮点击 → 面板事件 → 服务），假 UI 照 UIService 调面板生命周期。
@@ -35,7 +35,7 @@ using Object = UnityEngine.Object;
 namespace Game.Tests.EditMode.Performance
 {
     /// <summary>
-    /// <see cref="PerformanceService"/> 世界模式 / 摆放的 EditMode 测试。
+    /// <see cref="PerformanceService"/> 世界舞台 / 摆放的 EditMode 测试。
     /// <para>
     /// 主相机经构造参数注入（不走 <c>Camera.main</c>），编辑器里打开的场景有没有主相机都不影响用例。
     /// 假资源服务直接交出预先搭好的舞台物体、归还时只记录不销毁（TearDown 统一销毁），用来核对收尾后舞台相机也被改回。
@@ -114,14 +114,12 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [UnityTest]
-        public IEnumerator PlayAsync_WorldMode_TakesOverWithBaseCameraAndRestoresAfterSkip()
+        public IEnumerator PlayAsync_TakesOverWithBaseCameraAndRestoresAfterSkip()
         {
-            SetMode(PerformanceStageMode.World);
-
             UniTask<PerformanceResult> play = service.PlayAsync(Id);
 
             AssertRunning(play);
-            Assert.That(stageData.renderType, Is.EqualTo(CameraRenderType.Base), "世界模式舞台相机应为 Base");
+            Assert.That(stageData.renderType, Is.EqualTo(CameraRenderType.Base), "舞台相机应为 Base");
             Assert.That(stageCamera.depth, Is.EqualTo(main.depth + 1f), "深度 = 主相机 + 1");
             Assert.That(stageCamera.cullingMask & MainMask, Is.EqualTo(MainMask), "舞台相机遮罩应包含主相机遮罩");
             int performanceLayer = LayerMask.NameToLayer("Performance");
@@ -148,9 +146,8 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [UnityTest]
-        public IEnumerator PlayAsync_WorldMode_RestoresMainCameraAfterCancel()
+        public IEnumerator PlayAsync_RestoresMainCameraAfterCancel()
         {
-            SetMode(PerformanceStageMode.World);
             using var cts = new CancellationTokenSource();
 
             UniTask<PerformanceResult> play = service.PlayAsync(Id, cts.Token);
@@ -166,9 +163,8 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [UnityTest]
-        public IEnumerator PlayAsync_WorldModeWithPlacement_MovesInstanceToPlacement()
+        public IEnumerator PlayAsync_WithPlacement_MovesInstanceToPlacement()
         {
-            SetMode(PerformanceStageMode.World);
             var position = new Vector3(3f, 0.5f, -7f);
             Quaternion rotation = Quaternion.Euler(0f, 45f, 0f);
 
@@ -177,7 +173,7 @@ namespace Game.Tests.EditMode.Performance
 
             Assert.That(Vector3.Distance(stage.transform.position, position), Is.LessThan(1e-4f));
             Assert.That(Quaternion.Angle(stage.transform.rotation, rotation), Is.LessThan(0.01f));
-            Assert.That(telemetry.Warnings, Has.No.Member("placement_ignored"));
+            Assert.That(telemetry.Warnings, Is.Empty, "有主相机、有摆放时不该有任何告警");
 
             service.Skip();
             yield return WaitCompleted(play);
@@ -185,20 +181,15 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [UnityTest]
-        public IEnumerator PlayAsync_OverlayModeWithPlacement_IgnoresPlacementAndWarns()
+        public IEnumerator PlayAsync_WithoutPlacement_KeepsPrefabPose()
         {
             var original = new Vector3(100f, 0f, 0f);
             stage.transform.position = original;
 
-            UniTask<PerformanceResult> play = service.PlayAsync(Id, new PerformancePlacement(Vector3.zero, Quaternion.identity));
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
             AssertRunning(play);
 
-            Assert.That(stage.transform.position, Is.EqualTo(original), "叠加模式不该挪实例");
-            Assert.That(telemetry.Warnings, Has.Member("placement_ignored"));
-            Assert.That(main.cullingMask, Is.EqualTo(MainMask), "叠加模式不动主相机遮罩");
-            Assert.That(telemetry.Events, Has.No.Member("world_stage_attached"));
-            Assert.That(stageCamera.layerCullDistances[0], Is.EqualTo(80f), "叠加模式保留作者剔除距离");
-            Assert.That(stageCamera.layerCullSpherical, Is.False);
+            Assert.That(stage.transform.position, Is.EqualTo(original), "不传摆放（None）时实例保持自身位姿");
 
             service.Skip();
             yield return WaitCompleted(play);
@@ -206,9 +197,8 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [UnityTest]
-        public IEnumerator PlayAsync_WorldModeWithoutMainCamera_FallsBackAndWarns()
+        public IEnumerator PlayAsync_WithoutMainCamera_FallsBackAndWarns()
         {
-            SetMode(PerformanceStageMode.World);
             providedMain = null;
 
             UniTask<PerformanceResult> play = service.PlayAsync(Id);
@@ -407,7 +397,6 @@ namespace Game.Tests.EditMode.Performance
                 so.FindProperty("stageCamera").objectReferenceValue = stageCamera;
                 so.FindProperty("pauseWorld").boolValue = false;
                 so.FindProperty("hideHud").boolValue = false;
-                so.FindProperty("letterbox").boolValue = false;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
         }
@@ -489,15 +478,6 @@ namespace Game.Tests.EditMode.Performance
             using (var so = new SerializedObject(stage))
             {
                 so.FindProperty("hideHud").boolValue = hide;
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-        }
-
-        private void SetMode(PerformanceStageMode mode)
-        {
-            using (var so = new SerializedObject(stage))
-            {
-                so.FindProperty("mode").enumValueIndex = (int)mode;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
         }

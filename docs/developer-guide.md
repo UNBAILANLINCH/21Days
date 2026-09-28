@@ -433,8 +433,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 [`performance-module-guide.md`](../ai-docs/docs/modules/performance/performance-module-guide.md)），这里先给接入入口。
 
 **从代码拉起**：构造注入 `IPerformanceService`，`var result = await performance.PlayAsync("perf_sample_scene_talk", PerformancePlacement.FromTransform(anchor), ct);`
-（世界舞台示例；要给摆放锚点，否则舞台生成在原点。旧叠加示例 greeting 已下架）。
-它会暂停世界、整层隐藏 Hud / Popup、把舞台相机叠加到主相机上、跑完时间轴、播完恢复现场，返回 `PerformanceResult`
+（世界舞台示例；要给摆放锚点，否则舞台生成在原点。演出只有世界舞台一种，旧的全屏立绘示例 greeting 已下架）。
+它会把实例摆到锚点、暂停世界、整层隐藏 Hud / Popup、让舞台相机接管画面（主相机暂停渲染场景）、跑完时间轴、播完恢复现场，返回 `PerformanceResult`
 （`Outcome` ∈ `Completed / Skipped / Cancelled / Failed`）。进行中重复调用抛 `InvalidOperationException`（先看 `IsRunning`，
 同 `DialogueService` 的规则）；要在回放 / 编辑器试播里模拟玩家操作，用 `Confirm()`（等价按确认）与 `Skip()`（等价长按跳过满）。
 
@@ -442,8 +442,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 1. **场景触发器**：放一个 `PerformanceTrigger`（`isTrigger` 碰撞体 + `PerformanceId` + `Mode`：`OnEnter` 进区域自动播、
    `OnSceneStart` 场景加载即播；`Once` 控制只播一次），玩家根挂 `PerformanceTriggerActor` 标记（同 Dialogue 的
    `DialogueInteractionActor` 做法，但两者互不依赖）。运行时新生成的触发器要靠 `PerformanceSceneBinder` 扫描绑定，
-   不会自动生效。世界模式（小人站在 3D 场景里）示例见菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 与 SampleScene 的
-   `Trigger_VillageEntrance`（锚点 `anchor`、`hideActorVisual`、`hiddenDuringPlay`），细节见演出模块 guide「世界模式」。
+   不会自动生效。世界舞台（小人站在 3D 场景里）示例见菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 与 SampleScene 的
+   `Trigger_VillageEntrance`（锚点 `anchor`、`hideActorVisual`、`hiddenDuringPlay`），细节见演出模块 guide「世界舞台」。
 2. **对白节点前插播**：`Tables/Data/dialogue/<编号>.json` 节点的 `performance` 字段填演出 id（空串 `""` = 不插播，
    JSON 不允许缺这个字段）。`DialogueController` 会在摆这句台词之前先播完这段演出，期间对话框隐藏、不推进、不收输入；
    `IPerformanceService` 缺席（Boot 没挂 `PerformanceInstaller`）时只记 Warn，不阻塞对白。
@@ -451,26 +451,19 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
    `DialogueService.PlayAsync(id, 锚点)`；没有锚点就不摆放。插播期间自动藏起场景里全部角色（带 `ChibiPuppet` 的玩家 / NPC / 巡逻怪，
    连同名牌与标记），演出结束恢复，不用像触发区那样配 `hiddenDuringPlay`；代码直接调 `IPerformanceService.PlayAsync` 不藏。
 
-**Live2D 接入步骤**（SDK 未导入前工程照常编译运行，`Game.Live2D` 程序集直接不参与编译）：
-1. 下载 Cubism SDK for Unity，导入到 `Assets/Live2D/`（不进仓库，是否 `.gitignore` 由用户决定）。
-2. 编辑器检测到工程里出现 `Live2D.Cubism.asmdef` 后自动给当前平台加编译符号 `LIVE2D_CUBISM`
-   （`Live2DDefineSync`，`[InitializeOnLoad]`，只在状态变化时写一次 `ProjectSettings`；菜单
-   `21Days/演出/检查 Live2D 符号` 能手动核对当前状态）。
-3. 模型放 `Assets/_Project/Art/Live2D/<角色>/`。
-4. 演出预制体的演员组件从 `SpritePerformanceActor` 换成 `Live2DPerformanceActor`（挂在 Cubism 模型根上，和
-   `CubismExpressionController` / `CubismRenderController` 同一个物体）。
-5. 动作走时间轴的 **Animation 轨**：Cubism 导入器把 `.motion3.json` 转成的 `AnimationClip` 直接拖进这条轨绑定模型的
-   `Animator` 播放，不经过适配层。
+**演员**：序列帧小人（`ChibiPuppet`），放在演出预制体的 `Actors` 站位根下，接法照 `Editor/Performance/Samples/SceneTalkSampleBuilder.cs`
+（`PuppetVisual` 挂 `CameraBillboard` 指舞台相机，下面嵌套 `Chibi_<名字>` 预制体并停用 `ChibiPuppetMotion`）。动作走时间轴的
+**Animation 轨**绑小人的 `Animator`。表情轨（`ExpressionTrack`）要绑 `PerformanceActor` 子类，工程里目前没有，模板不建这条轨。
 
 **注意事项**：
-- 场景主相机的剔除遮罩要**排除 `Performance` 层**，否则舞台内容会被主相机重复渲染一次；缺 URP 相机数据时服务会退回
-  Base 相机叠加并记 Warn + 埋点 `camera_stack_unavailable`。
+- 场景主相机的剔除遮罩要**排除 `Performance` 层**（模板建的舞台整棵树在这一层）：舞台相机接管前主相机不会顺带拍到舞台物体；
+  主相机找不到（或就是舞台相机）时服务让舞台相机按预制体参数独立渲染，记 Warn + 埋点 `world_camera_fallback`。
 - `PlayableDirector` 必须和 `PerformanceStage` 挂在**同一个物体**（预制体根）上，否则 `HoldMarker` 通知与字幕轨道都收不到
   （挂错位置 `PerformanceStage.Awake` 会检测并 `Log.Warn`）。
 - 演出复用 **Dialogue 的输入图**（确认 / 跳过键位与对白一致），本模块没有单独的 Action Map；服务只恢复「进来之前」的
   输入图状态，不会关掉本来就开着的 Dialogue 图。
-- 演出预制体、时间轴一律用 `21Days/演出/演出编辑器`（菜单）的「新建」一步建齐，不要手工拼——手工漏一步（图层、
-  Overlay 相机、Addressables 登记）就播不出来；校验按钮能列出缺演员 / 空字幕 / 表情名不存在等问题。
+- 演出预制体、时间轴一律用 `21Days/演出/演出编辑器`（菜单）的「创建」一步建齐世界舞台壳，不要手工拼——手工漏一步（图层、
+  透视 Base 舞台相机、Addressables 登记）就播不出来；校验按钮能列出舞台相机类型不对 / 空字幕 / 演员名单缺头像等问题。
 
 验证：`/unity-test EditMode Performance`；看回放 `/verify-module Performance`（回放在
 `Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。

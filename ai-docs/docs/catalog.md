@@ -33,7 +33,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Narrative | 纯规则层（seed），未接 Unity；三件套已生成 | [`modules/narrative/`](modules/narrative/narrative-module-guide.md) |
 | Loot | 三件套齐备；物资箱拾取 / 奖励 / 背包分区，SampleScene 已接三只箱子，回放见波 4 | [`modules/loot/`](modules/loot/loot-module-guide.md) |
 | Inventory | 三件套（seed）；背包面板白盒（I / 手柄 RB，全部 / 物品 / 线索筛选），读 Loot 背包 + 物品表，未建回放 | [`modules/inventory/`](modules/inventory/inventory-module-guide.md) |
-| Performance | 三件套齐备；演出管线（时间轴 + 场景触发 / 对白插播）、演出编辑器、Live2D 适配层（SDK 未导入），回放 4 条待开发者视觉验收 | [`modules/performance/`](modules/performance/performance-module-guide.md) |
+| Performance | 三件套齐备；演出管线（世界舞台 + 时间轴 + 场景触发 / 对白插播）、演出编辑器（新建即世界舞台壳），回放 4 条待开发者视觉验收 | [`modules/performance/`](modules/performance/performance-module-guide.md) |
 | Session | 三件套（seed）；存档会话——自动保存触发 / 稳定边界闸门、槽位元数据、新游戏 / 继续 / 选槽、标题路由；Showcase 回放待补 | [`modules/session/`](modules/session/session-module-guide.md) |
 | Mirror | 三件套（seed）；照镜辨形 / 通灵视 / 镜裂镜碎 demo（`PRP/mirror-core`），场景接线与 UI 预制体搭建待执行 | [`modules/mirror/`](modules/mirror/mirror-module-guide.md) |
 

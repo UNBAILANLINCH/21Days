@@ -1,5 +1,5 @@
 // 职责：菜单「21Days/演出/演出编辑器」——给动画师的演出总览：左栏列出全部演出（id / 时长 / 轨道摘要 / 校验状态），
-//   右栏看选中演出的校验结果，并提供「打开时间轴」「定位资产」「校验」「试播（Play 模式）」「检查 Live2D 符号」与新建演出。
+//   右栏看选中演出的校验结果，并提供「打开时间轴」「定位资产」「校验」「试播（Play 模式）」与新建演出。
 //
 // 本窗口不含业务判定：建模板走 PerformanceTemplateFactory，校验走 PerformanceValidator，试播走运行中的 IPerformanceService，
 //   窗口只负责列出、画结果、把点击转成对它们的调用（同 ReplayWindow 的分工）。
@@ -27,13 +27,12 @@ namespace Game.Editor.Performance
     /// <summary>演出编辑器窗口（IMGUI 两栏）。</summary>
     public sealed class PerformanceEditorWindow : EditorWindow
     {
-        private const string Live2DCheckMenu = "21Days/演出/检查 Live2D 符号";
         private const double ResolveIntervalSeconds = 0.5d;
         private const float ListWidth = 300f;
         private const float DotSize = 10f;
 
         private const string HelpText =
-            "一段演出 = 预制体 + 时间轴；动作用 Animation 轨绑演员的 Animator；Live2D 模型导入后 .motion3.json 会变成动画片段";
+            "一段演出 = 预制体 + 时间轴；动作用 Animation 轨绑演员的 Animator";
 
         /// <summary>左栏一行的缓存数据。</summary>
         private sealed class Row
@@ -236,7 +235,6 @@ namespace Game.Editor.Performance
             {
                 row.Issues = PerformanceValidator.Validate(row.Prefab, row.Id);
             }
-            if (GUILayout.Button("检查 Live2D 符号")) EditorApplication.ExecuteMenuItem(Live2DCheckMenu);
             EditorGUILayout.EndHorizontal();
 
             DrawPlayControls(row);

@@ -14,7 +14,7 @@ maturity: stable
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
 | `PlayAsync` | `UniTask<DialogueResult> PlayAsync(int dialogueId, CancellationToken ct = default)` | 播放一段对白直到结束；节点前插播的演出**不摆放**，等价于下一行锚点传 `null`（`DialogueService.cs:86`） |
-| `PlayAsync`（带插播锚点） | `UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)` | 同上，节点前插播演出时按 `performanceAnchor` 的世界位姿摆放（`PerformancePlacement.FromTransform`，世界舞台模式据此落位，叠加模式由演出服务忽略）；一般传说话 NPC 自己的 Transform，`DialogueInteractable` 就这样传（`DialogueService.cs:99`）。传 `null` 与上一行完全一致。插播的是世界舞台演出却不传锚点，舞台会生成在世界原点（落到地面以下） |
+| `PlayAsync`（带插播锚点） | `UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)` | 同上，节点前插播演出时按 `performanceAnchor` 的世界位姿摆放（`PerformancePlacement.FromTransform`，世界舞台据此落位）；一般传说话 NPC 自己的 Transform，`DialogueInteractable` 就这样传（`DialogueService.cs:99`）。传 `null` 与上一行完全一致。插播的是世界舞台演出却不传锚点，舞台会生成在世界原点（落到地面以下） |
 | `IsRunning` | `bool IsRunning { get; }` | 含打开面板、展示、收尾整个过程 |
 | `OnStarted` | `event Action<DialogueStartedEvent>` | 已暂停世界、已关 Gameplay 图之后 |
 | `OnChoiceSelected` | `event Action<DialogueChoiceSelectedEvent>` | 玩家选定一个选项（规则已接受） |

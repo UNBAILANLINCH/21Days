@@ -199,7 +199,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | D1 | 立绘动效 | 直接换图 | 入场 / 退场滑动、表情切换交叉淡化、说话者高亮与非说话者压暗 | Dialogue View | 待看视频 | M | opus | 完成（2026-09-26，待视觉验收） |
 | D2 | 对话框动效 | 打字机有，开合无 | 开合动效、说话者名牌切换、文字节奏可配 | Dialogue View | 待看视频 | S–M | opus | 完成（2026-09-26，待视觉验收） |
-| D3 | 全屏演出与插图 | 无 | `NodeKind` 加全屏 / 插图节点，表字段，全屏 View，卷轴滚动 | Dialogue + Tables | 美术给规格 | L | opus，PRP | 由 `PRP/performance-pipeline/` 覆盖：演出管线 + Timeline 编辑器 + Live2D 适配层已实现（2026-09-26，工作区未提交，待视觉验收）；对白节点插播走 `performance` 字段而非新 `NodeKind` |
+| D3 | 全屏演出与插图 | 无 | `NodeKind` 加全屏 / 插图节点，表字段，全屏 View，卷轴滚动 | Dialogue + Tables | 美术给规格 | L | opus，PRP | 由 `PRP/performance-pipeline/` 覆盖：演出管线 + Timeline 编辑器已实现（2026-09-26，待视觉验收）；2026-09-28 起只保留世界舞台，全屏立绘演出与第三方模型适配层已按用户决定下架；对白节点插播走 `performance` 字段而非新 `NodeKind` |
 | D4 | 面板过渡花样 | 只有淡入淡出 | 在 `UIView` 两个虚方法上做滑入 / 缩放预设，按面板选 | Core/UI | 待看视频 | S | sonnet | 完成（2026-09-26）；现有预制体尚未选用非 Fade 预设；LitMotion 句柄已加 AddTo 双保险 |
 | D5 | 按钮反馈 | 无 | 通用按压缩放 + 音效钩子组件 | Core/UI | F4 音效 | S | sonnet | 完成（2026-09-26）；尚未挂到任何预制体 |
 | D6 | 角色动画补齐 | 待机 / 走路 | 转身、奔跑、交互动作；战斗表现定 Spine 后再议 | CharacterPuppet | A1、美术 | M | opus | 待做 |

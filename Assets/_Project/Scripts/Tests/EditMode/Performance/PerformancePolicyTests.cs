@@ -15,13 +15,12 @@ namespace Game.Tests.EditMode.Performance
         [Test]
         public void Constructor_ValidValues_KeepsAllFields()
         {
-            var policy = new PerformancePolicy(false, 1.5f, true, false, true);
+            var policy = new PerformancePolicy(false, 1.5f, true, false);
 
             Assert.That(policy.Skippable, Is.False);
             Assert.That(policy.SkipHoldSeconds, Is.EqualTo(1.5f));
             Assert.That(policy.PauseWorld, Is.True);
             Assert.That(policy.HideHud, Is.False);
-            Assert.That(policy.Letterbox, Is.True);
             Assert.That(policy.IsValid, Is.True);
         }
 
@@ -31,7 +30,7 @@ namespace Game.Tests.EditMode.Performance
         [TestCase(float.PositiveInfinity)]
         public void Constructor_InvalidHoldSeconds_Throws(float seconds)
         {
-            Assert.Throws<ArgumentException>(() => new PerformancePolicy(true, seconds, true, true, true));
+            Assert.Throws<ArgumentException>(() => new PerformancePolicy(true, seconds, true, true));
         }
 
         [Test]
@@ -45,7 +44,7 @@ namespace Game.Tests.EditMode.Performance
         [Test]
         public void Constructor_WithoutAutoSeconds_UsesDefault()
         {
-            var policy = new PerformancePolicy(true, 1f, true, true, true);
+            var policy = new PerformancePolicy(true, 1f, true, true);
 
             Assert.That(policy.AutoAdvanceSeconds, Is.EqualTo(PerformancePolicy.DefaultAutoAdvanceSeconds));
             Assert.That(PerformancePolicy.DefaultAutoAdvanceSeconds, Is.EqualTo(1.5f), "与对白的自动间隔默认值一致");
@@ -55,7 +54,7 @@ namespace Game.Tests.EditMode.Performance
         [TestCase(2.5f)]
         public void Constructor_ValidAutoSeconds_KeepsValue(float seconds)
         {
-            var policy = new PerformancePolicy(true, 1f, true, true, true, seconds);
+            var policy = new PerformancePolicy(true, 1f, true, true, seconds);
 
             Assert.That(policy.AutoAdvanceSeconds, Is.EqualTo(seconds));
         }
@@ -65,7 +64,7 @@ namespace Game.Tests.EditMode.Performance
         [TestCase(float.PositiveInfinity)]
         public void Constructor_InvalidAutoSeconds_Throws(float seconds)
         {
-            Assert.Throws<ArgumentException>(() => new PerformancePolicy(true, 1f, true, true, true, seconds));
+            Assert.Throws<ArgumentException>(() => new PerformancePolicy(true, 1f, true, true, seconds));
         }
 
         [Test]
@@ -74,10 +73,10 @@ namespace Game.Tests.EditMode.Performance
             var config = ScriptableObject.CreateInstance<PerformanceConfig>();
             try
             {
-                Assert.That(config.BuildPolicy(true, true, true, true).AutoAdvanceSeconds, Is.EqualTo(1.5f), "配置默认 1.5 秒");
+                Assert.That(config.BuildPolicy(true, true, true).AutoAdvanceSeconds, Is.EqualTo(1.5f), "配置默认 1.5 秒");
 
                 SetAutoSeconds(config, 0.4f);
-                Assert.That(config.BuildPolicy(true, true, true, true).AutoAdvanceSeconds, Is.EqualTo(0.4f).Within(1e-5f));
+                Assert.That(config.BuildPolicy(true, true, true).AutoAdvanceSeconds, Is.EqualTo(0.4f).Within(1e-5f));
 
                 SetAutoSeconds(config, -1f);
                 Assert.That(config.AutoAdvanceSeconds, Is.EqualTo(PerformancePolicy.DefaultAutoAdvanceSeconds), "资产里的负数按默认兜底");

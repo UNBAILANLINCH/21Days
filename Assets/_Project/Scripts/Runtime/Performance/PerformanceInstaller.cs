@@ -27,7 +27,7 @@ namespace Game.Performance
     {
         private const string TelemetryModule = "performance";
 
-        [Tooltip("演出参数（长按跳过秒数、黑边高度、黑场时长、提示文案、默认策略）。拖 Data/Performance/PerformanceConfig.asset。")]
+        [Tooltip("演出参数（长按跳过秒数、黑场时长、提示文案、默认策略）。拖 Data/Performance/PerformanceConfig.asset。")]
         [SerializeField] private PerformanceConfig config;
 
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)

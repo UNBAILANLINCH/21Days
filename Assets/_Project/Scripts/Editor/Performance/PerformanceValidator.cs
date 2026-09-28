@@ -17,12 +17,10 @@ using UnityEngine.Timeline;
 namespace Game.Editor.Performance
 {
     /// <summary>
-    /// 演出校验器。规则见 PRP/performance-pipeline/prp.md 2.8：
-    /// 舞台 / Director / 时间轴 / 时长、舞台相机（Overlay、只剔 Performance 层）、图层、字幕正文、表情绑定与表情名、停顿标记位置、Addressables 地址。
-    /// <para>
-    /// 世界模式（<see cref="PerformanceStageMode.World"/>）：舞台相机只要求是透视 Base 相机（剔除遮罩运行时从主相机拷贝，不查），
-    /// 演员站在世界里、不要求在 Performance 层；另查演员名单（说话者重名 / 空名 / 头像为空报 Warning）与字幕说话者是否登记（Info，旁白除外）。
-    /// </para>
+    /// 演出校验器。规则源自 PRP/performance-pipeline/prp.md 2.8，现只剩世界舞台适用的几条：
+    /// 舞台 / Director / 时间轴 / 时长、舞台相机（透视 URP Base、不打 MainCamera 标签；剔除遮罩运行时从主相机拷贝，不查）、
+    /// 演员名单（说话者重名 / 空名 / 头像为空报 Warning）、字幕正文与说话者是否登记（Info，旁白除外）、表情绑定与表情名、
+    /// 停顿标记位置、Addressables 地址。演员站在世界里，不要求在 Performance 层。
     /// </summary>
     public static class PerformanceValidator
     {
@@ -31,13 +29,13 @@ namespace Game.Editor.Performance
 
         /// <summary>
         /// URP 相机附加数据的类型名。Game.Editor 程序集没有引用 URP Runtime（本波不改该 asmdef），
-        /// 所以按名字取类型、用 SerializedObject 读写它的序列化字段 m_CameraType（0 = Base，1 = Overlay）。
+        /// 所以按名字取类型、用 SerializedObject 读写它的序列化字段 m_CameraType（0 = Base）。
         /// </summary>
         internal const string UrpCameraDataTypeName =
             "UnityEngine.Rendering.Universal.UniversalAdditionalCameraData, Unity.RenderPipelines.Universal.Runtime";
 
         internal const string UrpCameraTypeProperty = "m_CameraType";
-        internal const int UrpOverlayValue = 1;
+        internal const int UrpBaseValue = 0;
 
         /// <summary>校验一个舞台根物体。<paramref name="expectedAddress"/> 非空时同时检查 Addressables 登记。</summary>
         public static List<PerformanceIssue> Validate(GameObject stageRoot, string expectedAddress = null)
@@ -69,16 +67,12 @@ namespace Game.Editor.Performance
             if (timeline != null && timeline.duration <= 0d)
                 issues.Add(Error("duration_zero", "时间轴总时长是 0 秒，播出来一闪就结束。", timeline));
 
-            int layer = LayerMask.NameToLayer(PerformanceLayerName);
-            bool world = stage != null && stage.Mode == PerformanceStageMode.World;
+            // 演员就站在世界图层上、由舞台相机按主相机遮罩渲染，不查图层。
             if (stage != null)
             {
-                if (world) CheckWorldCamera(stage, issues);
-                else CheckCamera(stage, layer, issues);
+                CheckCamera(stage, issues);
                 CheckCast(stage, issues);
             }
-            // 世界模式的演员就站在世界图层上、由舞台相机按主相机遮罩渲染，不要求 Performance 层。
-            if (!world) CheckLayers(stageRoot, layer, issues);
 
             if (timeline != null) CheckTracks(timeline, director, stage, issues);
 
@@ -87,18 +81,18 @@ namespace Game.Editor.Performance
             return issues;
         }
 
-        /// <summary>该相机是否是 URP Overlay 相机（没有 URP 附加数据视为 Base）。</summary>
-        internal static bool IsOverlayCamera(Camera camera)
+        /// <summary>该相机是否是 URP Base 相机（没有 URP 附加数据视为 Base；传 null 返回 false）。</summary>
+        internal static bool IsBaseCamera(Camera camera)
         {
             if (camera == null) return false;
             Type dataType = Type.GetType(UrpCameraDataTypeName);
-            if (dataType == null) return false;
+            if (dataType == null) return true;
             Component data = camera.GetComponent(dataType);
-            if (data == null) return false;
+            if (data == null) return true;
             using (var so = new SerializedObject(data))
             {
                 SerializedProperty prop = so.FindProperty(UrpCameraTypeProperty);
-                return prop != null && prop.intValue == UrpOverlayValue;
+                return prop == null || prop.intValue == UrpBaseValue;
             }
         }
 
@@ -116,7 +110,8 @@ namespace Game.Editor.Performance
             return string.IsNullOrEmpty(path) ? null : path;
         }
 
-        private static void CheckCamera(PerformanceStage stage, int layer, List<PerformanceIssue> issues)
+        // 问题码保留旧名 camera_world_*（按码过滤的人不用改）。
+        private static void CheckCamera(PerformanceStage stage, List<PerformanceIssue> issues)
         {
             Camera camera = stage.StageCamera;
             if (camera == null)
@@ -125,26 +120,10 @@ namespace Game.Editor.Performance
                 return;
             }
 
-            if (!IsOverlayCamera(camera))
-                issues.Add(Warning("camera_not_overlay", "舞台相机不是 URP Overlay（Render Type 应为 Overlay），会盖掉游戏画面。", camera));
-
-            if (layer >= 0 && (camera.cullingMask & ~(1 << layer)) != 0)
-                issues.Add(Warning("camera_culling_extra", "舞台相机的剔除遮罩（Culling Mask）除了 Performance 还勾了别的层，会把游戏场景再画一遍。", camera));
-        }
-
-        private static void CheckWorldCamera(PerformanceStage stage, List<PerformanceIssue> issues)
-        {
-            Camera camera = stage.StageCamera;
-            if (camera == null)
-            {
-                issues.Add(Error("camera_missing", "PerformanceStage 的舞台相机（Stage Camera）没接，演出画面出不来。", stage));
-                return;
-            }
-
-            if (IsOverlayCamera(camera))
-                issues.Add(Warning("camera_world_not_base", "世界模式的舞台相机应为 URP Base（Render Type 改成 Base）：它要接管整个画面，而不是叠在主相机上。", camera));
+            if (!IsBaseCamera(camera))
+                issues.Add(Warning("camera_world_not_base", "舞台相机应为 URP Base（Render Type 改成 Base）：它要接管整个画面，而不是叠在主相机上。", camera));
             if (camera.orthographic)
-                issues.Add(Warning("camera_world_orthographic", "世界模式的舞台相机应为透视相机（Projection 改成 Perspective），否则看不出纵深。", camera));
+                issues.Add(Warning("camera_world_orthographic", "舞台相机应为透视相机（Projection 改成 Perspective），否则看不出纵深。", camera));
             if (camera.CompareTag("MainCamera"))
                 issues.Add(Warning("camera_tagged_main", "舞台相机打了 MainCamera 标签：演出期间 Camera.main 可能取到它，服务就找不到真正的主相机。", camera));
         }
@@ -167,23 +146,6 @@ namespace Game.Editor.Performance
                     issues.Add(Warning("cast_speaker_duplicate", $"演员名单里「{entry.Speaker}」出现了不止一次，只有第一条生效。", stage));
                 if (entry.Avatar == null)
                     issues.Add(Warning("cast_avatar_missing", $"演员名单里「{entry.Speaker}」没拖头像，对白面板不会显示头像。", stage));
-            }
-        }
-
-        private static void CheckLayers(GameObject stageRoot, int layer, List<PerformanceIssue> issues)
-        {
-            if (layer < 0)
-            {
-                issues.Add(Warning("layer_missing", "工程里还没有名为 Performance 的图层（Project Settings → Tags and Layers），舞台相机没法只拍演出物体。", stageRoot));
-                return;
-            }
-
-            Transform[] all = stageRoot.GetComponentsInChildren<Transform>(true);
-            for (int i = 0; i < all.Length; i++)
-            {
-                GameObject go = all[i].gameObject;
-                if (go.layer != layer)
-                    issues.Add(Warning("layer_mismatch", $"「{go.name}」不在 Performance 图层上，舞台相机拍不到它（或主相机会拍到它）。", go));
             }
         }
 

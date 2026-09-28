@@ -1,4 +1,5 @@
 // 职责：PerformanceValidator 的 EditMode 测试——用内存物体与不落盘的时间轴，逐类覆盖校验规则的正反例。
+//   工程里已没有具体的演员实现，表情轨校验用本文件的测试替身 TestActor。
 // 为什么新建（复用 → 扩展 → 新建）：校验器是新写的编辑器类，没有现成测试可扩展。
 using System.Collections.Generic;
 using System.Linq;
@@ -22,44 +23,31 @@ namespace Game.Tests.EditMode.Editor.Performance
         private PerformanceStage stage;
         private PlayableDirector director;
         private Camera stageCamera;
-        private SpritePerformanceActor actor;
+        private TestActor actor;
         private TimelineAsset timeline;
         private ExpressionTrack expressionTrack;
         private SubtitleTrack subtitleTrack;
-        private int layer;
 
         [SetUp]
         public void SetUp()
         {
-            layer = LayerMask.NameToLayer(PerformanceValidator.PerformanceLayerName);
-            int useLayer = layer >= 0 ? layer : 0;
-
             root = Track(new GameObject("perf_validator_test"));
             director = root.AddComponent<PlayableDirector>();
             stage = root.AddComponent<PerformanceStage>();
 
+            // 合格的舞台相机：透视、URP Base、不打 MainCamera 标签（新建 GameObject 默认 Untagged）。
             var cameraGo = new GameObject("StageCamera");
             cameraGo.transform.SetParent(root.transform, false);
             stageCamera = cameraGo.AddComponent<Camera>();
-            stageCamera.cullingMask = 1 << useLayer;
+            stageCamera.orthographic = false;
             UniversalAdditionalCameraData data = cameraGo.GetComponent<UniversalAdditionalCameraData>();
             if (data == null) data = cameraGo.AddComponent<UniversalAdditionalCameraData>();
-            data.renderType = CameraRenderType.Overlay;
+            data.renderType = CameraRenderType.Base;
 
             var actorGo = new GameObject("Actor");
             actorGo.transform.SetParent(root.transform, false);
-            var spriteRenderer = actorGo.AddComponent<SpriteRenderer>();
-            actor = actorGo.AddComponent<SpritePerformanceActor>();
-            using (var so = new SerializedObject(actor))
-            {
-                so.FindProperty("target").objectReferenceValue = spriteRenderer;
-                SerializedProperty list = so.FindProperty("expressions");
-                list.arraySize = 1;
-                list.GetArrayElementAtIndex(0).FindPropertyRelative("name").stringValue = "smile";
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-
-            foreach (Transform t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = useLayer;
+            actor = actorGo.AddComponent<TestActor>();
+            actor.SetNames("smile");
 
             timeline = Track(ScriptableObject.CreateInstance<TimelineAsset>());
             timeline.durationMode = TimelineAsset.DurationMode.FixedLength;
@@ -83,11 +71,11 @@ namespace Game.Tests.EditMode.Editor.Performance
         }
 
         [Test]
-        public void Validate_WellFormedStage_HasNoIssuesBesidesLayerMissing()
+        public void Validate_WellFormedStage_HasNoIssues()
         {
             List<PerformanceIssue> issues = PerformanceValidator.Validate(root);
 
-            Assert.That(issues.Where(i => i.Code != "layer_missing").Select(i => i.ToString()), Is.Empty);
+            Assert.That(issues.Select(i => i.ToString()), Is.Empty);
         }
 
         [Test]
@@ -141,55 +129,6 @@ namespace Game.Tests.EditMode.Editor.Performance
             SetStage(director, null);
 
             Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Contain("camera_missing"));
-        }
-
-        [Test]
-        public void Validate_BaseCamera_WarnsNotOverlay()
-        {
-            stageCamera.GetComponent<UniversalAdditionalCameraData>().renderType = CameraRenderType.Base;
-
-            PerformanceIssue issue = PerformanceValidator.Validate(root).Single(i => i.Code == "camera_not_overlay");
-
-            Assert.That(issue.Severity, Is.EqualTo(PerformanceIssueSeverity.Warning));
-        }
-
-        [Test]
-        public void Validate_OverlayCamera_NoNotOverlayWarning()
-        {
-            Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Not.Contain("camera_not_overlay"));
-        }
-
-        [Test]
-        public void Validate_CameraCullsOtherLayers_WarnsCullingExtra()
-        {
-            if (layer < 0) Assert.Ignore("工程里没有 Performance 图层。");
-            stageCamera.cullingMask = ~0;
-
-            Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Contain("camera_culling_extra"));
-        }
-
-        [Test]
-        public void Validate_CameraCullsOnlyPerformance_NoCullingWarning()
-        {
-            if (layer < 0) Assert.Ignore("工程里没有 Performance 图层。");
-
-            Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Not.Contain("camera_culling_extra"));
-        }
-
-        [Test]
-        public void Validate_ChildOffLayer_WarnsLayerMismatchOrLayerMissing()
-        {
-            actor.gameObject.layer = layer == 0 ? 1 : 0;
-
-            List<string> codes = Codes(PerformanceValidator.Validate(root));
-
-            Assert.That(codes, Does.Contain(layer < 0 ? "layer_missing" : "layer_mismatch"));
-        }
-
-        [Test]
-        public void Validate_AllOnLayer_NoLayerMismatch()
-        {
-            Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Not.Contain("layer_mismatch"));
         }
 
         [Test]
@@ -268,26 +207,22 @@ namespace Game.Tests.EditMode.Editor.Performance
         }
 
         [Test]
-        public void Validate_WorldStageWithPerspectiveBaseCamera_NoCameraOrLayerIssues()
+        public void Validate_PerspectiveBaseCameraAnyLayer_NoCameraIssues()
         {
-            MakeWorldStage();
             stageCamera.cullingMask = ~0;
             actor.gameObject.layer = 0;
 
             List<string> codes = Codes(PerformanceValidator.Validate(root));
 
-            Assert.That(codes, Does.Not.Contain("camera_not_overlay"));
-            Assert.That(codes, Does.Not.Contain("camera_culling_extra"));
             Assert.That(codes, Does.Not.Contain("camera_world_not_base"));
             Assert.That(codes, Does.Not.Contain("camera_world_orthographic"));
-            Assert.That(codes, Does.Not.Contain("layer_mismatch"), "世界模式的演员站在世界图层上，不要求 Performance 层");
-            Assert.That(codes, Does.Not.Contain("layer_missing"));
+            Assert.That(codes, Does.Not.Contain("camera_tagged_main"));
+            Assert.That(codes, Is.Empty, "演员站在世界图层上、遮罩运行时从主相机拷贝，都不查");
         }
 
         [Test]
-        public void Validate_WorldStageWithOverlayOrthographicCamera_Warns()
+        public void Validate_NonBaseOrthographicCamera_Warns()
         {
-            MakeWorldStage();
             stageCamera.GetComponent<UniversalAdditionalCameraData>().renderType = CameraRenderType.Overlay;
             stageCamera.orthographic = true;
 
@@ -323,17 +258,6 @@ namespace Game.Tests.EditMode.Editor.Performance
             Assert.That(infos.Count, Is.EqualTo(1), "只有「陈」该提示，旁白与已登记的不提示");
             Assert.That(infos[0].Severity, Is.EqualTo(PerformanceIssueSeverity.Info));
             Assert.That(infos[0].IsError, Is.False);
-        }
-
-        private void MakeWorldStage()
-        {
-            stageCamera.GetComponent<UniversalAdditionalCameraData>().renderType = CameraRenderType.Base;
-            stageCamera.orthographic = false;
-            using (var so = new SerializedObject(stage))
-            {
-                so.FindProperty("mode").enumValueIndex = (int)PerformanceStageMode.World;
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
         }
 
         private void SetCast(params (string speaker, Sprite avatar)[] entries)
@@ -416,5 +340,23 @@ namespace Game.Tests.EditMode.Editor.Performance
         }
 
         private static List<string> Codes(List<PerformanceIssue> issues) => issues.Select(i => i.Code).ToList();
+
+        /// <summary>测试用演员：表情名单直接给定，不切任何显示（工程里已没有具体演员实现，表情轨校验靠它覆盖）。</summary>
+        private sealed class TestActor : PerformanceActor
+        {
+            private readonly List<string> names = new List<string>();
+
+            public override IReadOnlyList<string> ExpressionNames => names;
+
+            public override void SetExpression(string expressionName)
+            {
+            }
+
+            public void SetNames(params string[] values)
+            {
+                names.Clear();
+                names.AddRange(values);
+            }
+        }
     }
 }

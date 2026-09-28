@@ -185,7 +185,7 @@ namespace Game.Tests.Showcase.Performance
             yield return Step("玩家走进村口触发区 Trigger_VillageEntrance", () => Teleport(player, trigger.transform.position), hold: 0f);
             yield return WaitPhysicsFrames();
             yield return Check($"进入触发区即拉起演出 {id}", () => performance.IsRunning && performance.CurrentId == id, 3f);
-            // 村口是世界舞台演出（舞台相机 + 底部对白面板），不一定有黑边：只等面板打开再截图，构图细节归 ScenePerformanceShowcase。
+            // 村口是世界舞台演出（舞台相机 + 底部对白面板）：只等面板打开再截图，构图细节归 ScenePerformanceShowcase。
             yield return Check("演出面板打开", () => View() != null, 5f);
             yield return Wait(0.6f);
             yield return Snapshot("触发区拉起演出");
@@ -423,7 +423,7 @@ namespace Game.Tests.Showcase.Performance
         /// <summary>
         /// 等演出面板真正盖上来再截图：服务进入播放后面板是异步打开的，进场黑场还要再走 FadeSeconds，
         /// 紧跟「服务在播」的检查点截图只能拍到面板打开前的那一帧（HUD、对白框都还在）。
-        /// 世界舞台示例不开黑边，以底部对白面板（SubtitleRoot）出现为准。
+        /// 以底部对白面板（SubtitleRoot）出现为准。
         /// </summary>
         private IEnumerator WaitPanelShown()
         {

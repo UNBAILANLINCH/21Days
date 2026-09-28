@@ -2,10 +2,10 @@
 //   透视舞台相机近景微俯、底部对白面板带头像（对标《明日方舟》活动探索截图）。预制体与时间轴存在时就地改内容，GUID 不变。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
-//   复用不行：PerformanceTemplateFactory 只产叠加模式舞台（Overlay 正交相机 + Performance 层 + 占位精灵演员 + 四条空轨），
+//   复用不行：PerformanceTemplateFactory 只产空的世界舞台壳（空站位根 + 空演员名单 + 三条空轨），
 //     且已存在同名资产时直接拒绝，做不到「可重跑、保 GUID」；
-//   扩展不行：把「世界舞台 + 嵌套小人预制体 + 固定台词」塞进模板工厂会让通用工厂背上示例内容，职责说不通。
-//   Addressables 登记复用工厂的 RegisterAddressable（internal），不复制。
+//   扩展不行：把「嵌套小人预制体 + 固定台词」塞进模板工厂会让通用工厂背上示例内容，职责说不通。
+//   Addressables 登记与舞台相机（默认构图）复用工厂的 RegisterAddressable / CreateWorldStageCamera（internal），不复制。
 //
 // 副作用：只写本 builder 的两个资产与 Addressables Performance 组条目；不改 Chibi 预制体（只嵌套引用），不碰任何场景。
 using System;
@@ -36,21 +36,11 @@ namespace Game.Editor.Performance.Samples
 
         private const string ChibiFolder = "Assets/_Project/Prefabs/Characters";
         private const string AvatarFolder = "Assets/_Project/Art/Sprites/Characters/Ark/Avatars";
-        private const string SubtitleTrackName = "字幕";
-        private const string StageCameraName = "StageCamera";
-        private const string ActorsName = "Actors";
         private const string PuppetVisualName = "PuppetVisual";
         private const string ChibiSpriteChild = "Sprite";
 
-        // ── 构图（世界锚点由场景触发器的 StageAnchor 给：SampleScene (10.5, 4.888, 7.0)，旋转 0）──
-        /// <summary>舞台相机相对锚点的局部位置。</summary>
-        public static readonly Vector3 CameraLocalPosition = new Vector3(0f, 3.9f, -10.6f);
-        /// <summary>舞台相机局部欧拉角（俯角 17°：脚底线落在屏高约 61%）。</summary>
-        public static readonly Vector3 CameraLocalEuler = new Vector3(17f, 0f, 0f);
-        /// <summary>垂直 FOV 29°：小人高约占屏 27%（32° 时约 23%，偏小）。</summary>
-        public const float CameraFieldOfView = 29f;
-        public const float CameraNear = 0.3f;
-        public const float CameraFar = 100f;
+        // ── 构图：世界锚点由场景触发器的 StageAnchor 给（SampleScene (10.5, 4.888, 7.0)，旋转 0）；舞台相机用模板工厂的默认构图
+        //    （PerformanceTemplateFactory.DefaultCamera*，就是在本示例上调出来的），改构图改那边。──
 
         // ── 字幕节奏 ──
         private const double ClipSeconds = 4d;
@@ -134,7 +124,7 @@ namespace Game.Editor.Performance.Samples
                 }
             }
 
-            var subtitles = timeline.CreateTrack<SubtitleTrack>(null, SubtitleTrackName);
+            var subtitles = timeline.CreateTrack<SubtitleTrack>(null, PerformanceTemplateFactory.SubtitleTrackName);
             timeline.CreateMarkerTrack();
             double start = 0d;
             for (int i = 0; i < Lines.GetLength(0); i++)
@@ -185,18 +175,16 @@ namespace Game.Editor.Performance.Samples
                 director.extrapolationMode = DirectorWrapMode.None;
                 var stage = GetOrAdd<PerformanceStage>(root);
 
-                Camera camera = CreateStageCamera(root.transform);
+                Camera camera = PerformanceTemplateFactory.CreateWorldStageCamera(root.transform);
                 CreateActors(root.transform, camera);
 
                 using (var so = new SerializedObject(stage))
                 {
                     so.FindProperty("director").objectReferenceValue = director;
                     so.FindProperty("stageCamera").objectReferenceValue = camera;
-                    so.FindProperty("mode").enumValueIndex = (int)PerformanceStageMode.World;
                     so.FindProperty("skippable").boolValue = true;
                     so.FindProperty("pauseWorld").boolValue = true;
                     so.FindProperty("hideHud").boolValue = true;
-                    so.FindProperty("letterbox").boolValue = false;
                     SerializedProperty cast = so.FindProperty("cast");
                     cast.arraySize = CastOrder.Length;
                     for (int i = 0; i < CastOrder.Length; i++)
@@ -221,36 +209,9 @@ namespace Game.Editor.Performance.Samples
             }
         }
 
-        private static Camera CreateStageCamera(Transform parent)
-        {
-            var go = new GameObject(StageCameraName);
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = CameraLocalPosition;
-            go.transform.localRotation = Quaternion.Euler(CameraLocalEuler);
-            go.tag = "Untagged";
-
-            // 不加 AudioListener：主相机那边已有监听器。深度 / 遮罩 / 清屏由服务播放时从主相机接管。
-            var camera = go.AddComponent<Camera>();
-            camera.orthographic = false;
-            camera.fieldOfView = CameraFieldOfView;
-            camera.nearClipPlane = CameraNear;
-            camera.farClipPlane = CameraFar;
-
-            Type dataType = Type.GetType(PerformanceValidator.UrpCameraDataTypeName);
-            if (dataType == null) throw new InvalidOperationException("找不到 URP 的 UniversalAdditionalCameraData，舞台相机没法设成 Base。");
-            Component data = go.GetComponent(dataType);
-            if (data == null) data = go.AddComponent(dataType);
-            using (var so = new SerializedObject(data))
-            {
-                so.FindProperty(PerformanceValidator.UrpCameraTypeProperty).intValue = 0; // 0 = Base
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-            return camera;
-        }
-
         private static void CreateActors(Transform parent, Camera camera)
         {
-            var actorsGo = new GameObject(ActorsName);
+            var actorsGo = new GameObject(PerformanceTemplateFactory.ActorsName);
             actorsGo.transform.SetParent(parent, false);
 
             foreach (ActorSpec spec in Actors)

@@ -1,6 +1,6 @@
 // 职责：演出预制体的根组件（舞台）——持有 PlayableDirector 与舞台相机、给出本段演出的策略开关；
 //   播放 / 继续 / 停止时间轴，收到 HoldMarker 就暂停并通知，时间轴停下就通知结束；挂字幕输出端供字幕轨道找到面板；
-//   声明舞台渲染模式（叠加 / 世界）与演员名单（说话者 → 头像与头像侧）。
+//   声明演员名单（说话者 → 头像与头像侧）。演出一律是世界舞台：演员站在世界里，舞台相机接管画面。
 // 为什么新建（复用 → 扩展 → 新建）：工程里没有「一段按时间轴编排的演出」的场景组件；PlayableDirector 本身不认识
 //   停顿标记、策略与字幕输出端，需要一个预制体根把它们装在一起（prp 2.2「一段演出 = 一个预制体」）。
 using System;
@@ -16,9 +16,7 @@ namespace Game.Performance
     /// 演出舞台。**接线要求**：挂在演出预制体根上，且 <c>director</c> 必须是同一物体上的 PlayableDirector——
     /// 时间轴 Markers 区的 <see cref="HoldMarker"/> 通知发给 Director 所在物体，字幕轨道也从 Director 所在物体取舞台。
     /// <para>
-    /// 舞台相机按 <see cref="Mode"/> 分两种：
-    /// <see cref="PerformanceStageMode.Overlay"/>（默认）须为 URP Overlay、正交、只渲染 Performance 层，服务播放时把它叠到主相机的 stack 上；
-    /// <see cref="PerformanceStageMode.World"/> 须为透视 Base 相机，服务播放时让它渲染主相机能看到的全部图层 + Performance 层并接管画面，
+    /// 舞台相机须为透视 URP Base 相机，服务播放时让它渲染主相机能看到的全部图层 + Performance 层并接管画面，
     /// 预制体子物体就是站在世界里的演员（实例按 <see cref="PerformancePlacement"/> 摆到世界位姿上）。舞台相机不要打 MainCamera 标签。
     /// </para>
     /// </summary>
@@ -28,10 +26,7 @@ namespace Game.Performance
         [Tooltip("本段演出的 PlayableDirector；必须挂在本物体上（预制体根）。")]
         [SerializeField] private PlayableDirector director;
 
-        [Tooltip("舞台渲染模式。Overlay：叠加在游戏画面上的独立小舞台；World：演员站在世界里，舞台相机接管整个画面。")]
-        [SerializeField] private PerformanceStageMode mode = PerformanceStageMode.Overlay;
-
-        [Tooltip("舞台相机。Overlay 模式：URP Overlay、剔除遮罩只含 Performance 层、正交；World 模式：透视 Base 相机（剔除遮罩运行时从主相机拷贝）。")]
+        [Tooltip("舞台相机：透视 URP Base 相机，不打 MainCamera 标签（剔除遮罩、清屏、渲染器等运行时从主相机拷贝）。")]
         [SerializeField] private Camera stageCamera;
 
         [Tooltip("演员名单：字幕说话者显示名 → 对白面板头像与头像侧（左 / 右）。说话者须与字幕片段一字不差；重名只取第一条。")]
@@ -46,9 +41,6 @@ namespace Game.Performance
         [Tooltip("演出期间是否整层隐藏 HUD 层与弹窗层（对白框在弹窗层，对白里插播时一起藏）。")]
         [SerializeField] private bool hideHud = true;
 
-        [Tooltip("是否上下黑边。")]
-        [SerializeField] private bool letterbox = true;
-
         private bool stoppedSubscribed;
         private bool warnedDirectorPlacement;
 
@@ -60,14 +52,12 @@ namespace Game.Performance
 
         public PlayableDirector Director => director;
         public Camera StageCamera => stageCamera;
-        public PerformanceStageMode Mode => mode;
 
         /// <summary>演员名单（只读视图）；校验器与编辑器读它。</summary>
         public IReadOnlyList<PerformanceCastEntry> Cast => cast;
         public bool Skippable => skippable;
         public bool PauseWorld => pauseWorld;
         public bool HideHud => hideHud;
-        public bool Letterbox => letterbox;
 
         /// <summary>时间轴总时长（秒）；没接 Director 时为 0。</summary>
         public double Duration => director == null ? 0d : director.duration;
@@ -106,7 +96,7 @@ namespace Game.Performance
         public PerformancePolicy BuildPolicy(PerformanceConfig config)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
-            return config.BuildPolicy(skippable, pauseWorld, hideHud, letterbox);
+            return config.BuildPolicy(skippable, pauseWorld, hideHud);
         }
 
         /// <summary>从头播放。播放前强制：unscaled 时间（世界时停时照样走）、不外插（播完即停并触发 stopped）、不自动播放。</summary>

@@ -75,7 +75,6 @@
 | 音乐、音效 | `Assets/_Project/Audio/` | 无自动规则，导入设置要手调，见第 8 章 |
 | UI 面板预制体 | `Assets/_Project/Prefabs/UI/` | 会被「资产体检」检查有没有进 Addressables，见第 9 章 |
 | 字体（`.ttf` / `.otf` 与 TMP 字体资产） | `Assets/_Project/Art/Fonts/` | 无自动规则，只是约定的位置 |
-| Live2D 模型（演出用的角色） | `Assets/_Project/Art/Live2D/<角色>/` | 无自动规则；待 SDK 导入后才能用，见 [`developer-guide.md` 6.16 节](developer-guide.md) |
 | 演出预制体与时间轴 | `Assets/_Project/Prefabs/Performance/` + `Assets/_Project/Data/Performance/Timelines/` | 由「演出编辑器」（菜单 `21Days/演出/演出编辑器`）一步生成，**美术 / 动画师不用手建**，见第 6.11 节 |
 
 **关于字体**：**中文已经能正常显示了，你不用做任何事**。工程里放了 `Font_NotoSansSC_Regular.otf`
@@ -503,13 +502,13 @@ Addressables 地址仍是 `TitleView`）是**当前工程唯一的正式场景�
 
 ### 6.11 演出面板
 
-剧情节点插一段短演出（黑边、字幕、角色出场）用的面板是 `Assets/_Project/Prefabs/UI/PerformanceView.prefab`，
+剧情节点插一段短演出（进场黑场、底部对白面板、头像）用的面板是 `Assets/_Project/Prefabs/UI/PerformanceView.prefab`，
 细节见[策划手册说明 performance.md](modules/performance.md)。可换图的元素跟对话框一样，只换 `Image` / `SpriteRenderer`
 上的 Sprite（和颜色、字体大小），不改层级、不改物体名：
 
 | 元素 | 是什么 |
 | --- | --- |
-| 上下黑边 | 两条 `Image`，全宽、纯黑或按需要换成有纹理的边框图 |
+| 进场黑场 | `Fade`：全屏纯黑 `Image`，演出开始时从全黑淡开（不挡点击） |
 | 字幕底板 | 字幕文字后面的半透明底条 |
 | 跳过进度环 | 长按跳过时显示进度的图，现用 `Fx_SelectRing`（和 Monster 模块的选中圈同一张占位图，正式美术再各自换） |
 | 左上「LOG」/ 右上「自动」「跳过」 | 三个控件按钮，和对话框右上角的同款按钮同尺寸（160×90）同样式（白字投影），见 6.9 节「对话 / 演出控件按钮」；换图同样只改 `Image` 的 Sprite / 颜色，不改物体名 |
@@ -517,8 +516,8 @@ Addressables 地址仍是 `TitleView`）是**当前工程唯一的正式场景�
 演出预制体与时间轴本身**不需要美术手建**，动画师用「演出编辑器」（菜单 `21Days/演出/演出编辑器`）新建，
 生成在 `Prefabs/Performance/` 与 `Data/Performance/Timelines/`（见第 3 章的资源放哪一表）。
 
-时间轴里字幕 / 表情 / 动作 / 音效四条轨怎么摆、停顿标记怎么放、校验红黄字对照表，见
-[`modules/performance.md`](modules/performance.md) 第 8 节；演员站进 3D 场景里说话的「世界舞台模式」见该文档 8.6 节。
+时间轴里字幕 / 动作 / 音效三条轨怎么摆、停顿标记怎么放、校验红黄字对照表，见
+[`modules/performance.md`](modules/performance.md) 第 8 节；演员（序列帧小人）站进 3D 场景里说话的「世界舞台」（现在唯一的演出方式）见该文档 8.6 节。
 
 ## 7. 分辨率与安全区
 

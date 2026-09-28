@@ -1,4 +1,5 @@
-// 职责：PerformanceTemplateFactory 的 EditMode 测试——在临时目录里建一段演出，核对预制体、时间轴、轨道绑定与图层；非法 / 重名 id 抛异常。
+// 职责：PerformanceTemplateFactory 的 EditMode 测试——在临时目录里建一段演出（世界舞台壳），核对预制体、时间轴轨道、
+//   舞台相机（透视 Base、不打 MainCamera 标签）、图层与校验结果；非法 / 重名 id 抛异常。
 // 为什么新建（复用 → 扩展 → 新建）：模板工厂是新写的编辑器类，没有现成测试可扩展。
 using System;
 using System.Linq;
@@ -9,6 +10,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Playables;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.Timeline;
 
 namespace Game.Tests.EditMode.Editor.Performance
@@ -29,7 +31,6 @@ namespace Game.Tests.EditMode.Editor.Performance
                 PrefabFolder = TempRoot + "/Prefabs",
                 TimelineFolder = TempRoot + "/Timelines",
                 RegisterAddressable = false,
-                ActorSprites = new[] { new SpritePerformanceActor.ExpressionEntry("smile", null) },
             };
         }
 
@@ -53,7 +54,7 @@ namespace Game.Tests.EditMode.Editor.Performance
         }
 
         [Test]
-        public void Create_WithValidId_TimelineHasFourTypedTracks()
+        public void Create_WithValidId_TimelineHasSubtitleAnimationAudioTracks()
         {
             PerformanceTemplateResult result = PerformanceTemplateFactory.Create(TestId, options);
 
@@ -61,24 +62,28 @@ namespace Game.Tests.EditMode.Editor.Performance
             Assert.That(timeline, Is.Not.Null);
             TrackAsset[] tracks = timeline.GetOutputTracks().ToArray();
             Assert.That(tracks.OfType<SubtitleTrack>().Count(), Is.EqualTo(1));
-            Assert.That(tracks.OfType<ExpressionTrack>().Count(), Is.EqualTo(1));
             Assert.That(tracks.OfType<AnimationTrack>().Count(), Is.EqualTo(1));
             Assert.That(tracks.OfType<AudioTrack>().Count(), Is.EqualTo(1));
+            Assert.That(tracks.OfType<ExpressionTrack>(), Is.Empty, "没有具体演员可绑，壳里不建表情轨");
             Assert.That(timeline.duration, Is.EqualTo(PerformanceTemplateFactory.DefaultDurationSeconds));
         }
 
         [Test]
-        public void Create_WithValidId_ExpressionTrackBoundToActor()
+        public void Create_WithValidId_StageCameraIsPerspectiveBaseAndUntagged()
         {
             PerformanceTemplateResult result = PerformanceTemplateFactory.Create(TestId, options);
 
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(result.PrefabPath);
-            var director = prefab.GetComponent<PlayableDirector>();
-            var timeline = (TimelineAsset)director.playableAsset;
-            ExpressionTrack track = timeline.GetOutputTracks().OfType<ExpressionTrack>().Single();
-            var actor = director.GetGenericBinding(track) as SpritePerformanceActor;
-            Assert.That(actor, Is.Not.Null);
-            Assert.That(actor.ExpressionNames, Is.EqualTo(new[] { "smile" }));
+            Camera camera = prefab.GetComponent<PerformanceStage>().StageCamera;
+            Assert.That(camera, Is.Not.Null, "舞台相机应已接到 PerformanceStage 上");
+            Assert.That(camera.orthographic, Is.False, "舞台相机应为透视");
+            Assert.That(camera.fieldOfView, Is.EqualTo(PerformanceTemplateFactory.DefaultCameraFieldOfView));
+            var data = camera.GetComponent<UniversalAdditionalCameraData>();
+            Assert.That(data, Is.Not.Null, "舞台相机应带 URP 附加数据");
+            Assert.That(data.renderType, Is.EqualTo(CameraRenderType.Base), "舞台相机应为 URP Base");
+            Assert.That(camera.CompareTag("MainCamera"), Is.False, "舞台相机不能打 MainCamera 标签");
+            Assert.That(camera.GetComponent<AudioListener>(), Is.Null, "舞台相机不带 AudioListener");
+            Assert.That(prefab.transform.Find(PerformanceTemplateFactory.ActorsName), Is.Not.Null, "应有演员站位根");
         }
 
         [Test]

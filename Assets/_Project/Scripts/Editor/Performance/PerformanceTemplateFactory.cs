@@ -1,5 +1,7 @@
-// 职责：一步建齐一段新演出——时间轴资产（字幕 / 表情 / 动作 / 音效四条轨）、舞台预制体（PerformanceStage + PlayableDirector
-//   + 舞台相机 + 占位演员，轨道绑定已接好）、整棵树设到 Performance 图层、登记 Addressables Performance 组（地址 = id）。
+// 职责：一步建齐一段新演出的世界舞台壳——时间轴资产（字幕 / 动作 / 音效三条轨）、舞台预制体（PerformanceStage + PlayableDirector
+//   + 透视 URP Base 舞台相机 + 空的演员站位根 Actors，演员名单留空）、整棵树设到 Performance 图层、登记 Addressables Performance 组（地址 = id）。
+//   演员（序列帧小人）与演员名单由动画师照村口示例的接法补（Samples/SceneTalkSampleBuilder.cs）；舞台相机的建法与默认构图和那个示例共用
+//   本类的 CreateWorldStageCamera。
 //
 // 副作用说明（project-guide 硬规则 3）：
 //   · 图层 Performance 不存在时，会用 TagManager 的 SerializedObject 在第一个空槽（≥ 8）建它——这是写
@@ -10,7 +12,6 @@
 // 为什么新建（复用 → 扩展 → 新建）：ProjectStructureMenu 只建目录与脚本骨架，不会建时间轴与带绑定的预制体；
 //   手工搭一段演出要十几步（建轨、绑定、层、相机类型、登记地址），漏一步就播不出来，需要一个专门的模板工厂。
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Game.Core.Logging;
@@ -33,17 +34,25 @@ namespace Game.Editor.Performance
     {
         public const string AddressableGroupName = "Performance";
         public const string SubtitleTrackName = "字幕";
-        public const string ExpressionTrackName = "表情";
         public const string AnimationTrackName = "动作";
         public const string AudioTrackName = "音效";
+        public const string StageCameraName = "StageCamera";
+        public const string ActorsName = "Actors";
         public const double DefaultDurationSeconds = 8d;
+
+        // ── 默认构图：村口示例 perf_sample_scene_talk 上调出来的值（舞台根就是摆放锚点，实例化后摆到触发区锚点 / 说话 NPC 上）──
+        /// <summary>舞台相机相对舞台根（锚点）的默认局部位置。</summary>
+        public static readonly Vector3 DefaultCameraLocalPosition = new Vector3(0f, 3.9f, -10.6f);
+        /// <summary>舞台相机默认局部欧拉角（俯角 17°：脚底线落在屏高约 61%）。</summary>
+        public static readonly Vector3 DefaultCameraLocalEuler = new Vector3(17f, 0f, 0f);
+        /// <summary>默认垂直 FOV 29°：小人高约占屏 27%（32° 时约 23%，偏小）。</summary>
+        public const float DefaultCameraFieldOfView = 29f;
+        public const float DefaultCameraNear = 0.3f;
+        public const float DefaultCameraFar = 100f;
 
         private const string SchemaTemplateGroupName = "UI";
         private const string TagManagerPath = "ProjectSettings/TagManager.asset";
         private const int FirstUserLayer = 8;
-        private const float StageCameraOrthoSize = 5f;
-        private const float StageCameraDepth = 10f;
-        private const float StageCameraZ = -10f;
 
         private static readonly Regex IdPattern = new Regex("^[a-z0-9_]+$");
 
@@ -75,8 +84,8 @@ namespace Game.Editor.Performance
             EnsureFolder(prefabFolder);
             EnsureFolder(timelineFolder);
 
-            TimelineAsset timeline = CreateTimeline(id, timelinePath, out TrackAsset expressionTrack, out TrackAsset animationTrack);
-            BuildPrefab(id, prefabPath, layer, timeline, expressionTrack, animationTrack, options.ActorSprites);
+            TimelineAsset timeline = CreateTimeline(id, timelinePath);
+            BuildPrefab(id, prefabPath, layer, timeline);
             ClearTimelineUndo(timeline);
 
             bool registered = options.RegisterAddressable && RegisterAddressable(prefabPath, id);
@@ -84,17 +93,17 @@ namespace Game.Editor.Performance
             return new PerformanceTemplateResult(prefabPath, timelinePath, registered);
         }
 
-        private static TimelineAsset CreateTimeline(
-            string id, string timelinePath, out TrackAsset expressionTrack, out TrackAsset animationTrack)
+        private static TimelineAsset CreateTimeline(string id, string timelinePath)
         {
             TimelineAsset timeline = ScriptableObject.CreateInstance<TimelineAsset>();
             timeline.name = id;
             AssetDatabase.CreateAsset(timeline, timelinePath);
 
             // 资产落盘后再建轨：CreateTrack 会把轨道作为子资产存进时间轴文件。
+            // 不建表情轨：工程里还没有具体的演员实现可绑，空绑定的表情轨过不了校验（expression_unbound）。
+            // 动作轨先不绑，小人拖进 Actors 后把它的 Animator 拖进轨道绑定槽。
             timeline.CreateTrack<SubtitleTrack>(null, SubtitleTrackName);
-            expressionTrack = timeline.CreateTrack<ExpressionTrack>(null, ExpressionTrackName);
-            animationTrack = timeline.CreateTrack<AnimationTrack>(null, AnimationTrackName);
+            timeline.CreateTrack<AnimationTrack>(null, AnimationTrackName);
             timeline.CreateTrack<AudioTrack>(null, AudioTrackName);
             timeline.durationMode = TimelineAsset.DurationMode.FixedLength;
             timeline.fixedDuration = DefaultDurationSeconds;
@@ -104,14 +113,7 @@ namespace Game.Editor.Performance
             return timeline;
         }
 
-        private static void BuildPrefab(
-            string id,
-            string prefabPath,
-            int layer,
-            TimelineAsset timeline,
-            TrackAsset expressionTrack,
-            TrackAsset animationTrack,
-            IReadOnlyList<SpritePerformanceActor.ExpressionEntry> actorSprites)
+        private static void BuildPrefab(string id, string prefabPath, int layer, TimelineAsset timeline)
         {
             // 在预览场景里搭临时物体：不往用户当前打开的场景里塞东西，也就不会把它标脏。
             Scene previewScene = EditorSceneManager.NewPreviewScene();
@@ -126,14 +128,11 @@ namespace Game.Editor.Performance
                 director.extrapolationMode = DirectorWrapMode.None;
                 var stage = root.AddComponent<PerformanceStage>();
 
-                Camera camera = CreateStageCamera(root.transform, layer);
+                Camera camera = CreateWorldStageCamera(root.transform);
 
-                var actorGo = new GameObject("Actor");
-                actorGo.transform.SetParent(root.transform, false);
-                var spriteRenderer = actorGo.AddComponent<SpriteRenderer>();
-                var actor = actorGo.AddComponent<SpritePerformanceActor>();
-                var animator = actorGo.AddComponent<Animator>();
-                AssignActor(actor, spriteRenderer, actorSprites);
+                // 演员站位根：序列帧小人（PuppetVisual + 嵌套 Chibi 预制体）放到它下面，接法照村口示例。
+                var actors = new GameObject(ActorsName);
+                actors.transform.SetParent(root.transform, false);
 
                 using (var so = new SerializedObject(stage))
                 {
@@ -141,9 +140,6 @@ namespace Game.Editor.Performance
                     so.FindProperty("stageCamera").objectReferenceValue = camera;
                     so.ApplyModifiedPropertiesWithoutUndo();
                 }
-
-                director.SetGenericBinding(expressionTrack, actor);
-                director.SetGenericBinding(animationTrack, animator);
 
                 foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
                     t.gameObject.layer = layer;
@@ -171,63 +167,36 @@ namespace Game.Editor.Performance
             AssetDatabase.SaveAssetIfDirty(timeline);
         }
 
-        private static Camera CreateStageCamera(Transform parent, int layer)
+        /// <summary>
+        /// 在 <paramref name="parent"/> 下建世界舞台相机（模板壳与村口示例 builder 共用）：透视、URP Base、不打 MainCamera 标签、
+        /// 不加 AudioListener，位姿与透视参数取默认构图；深度 / 剔除遮罩 / 清屏 / 渲染器由服务播放时从主相机接管。
+        /// </summary>
+        /// <exception cref="InvalidOperationException">找不到 URP 的 UniversalAdditionalCameraData，设不成 Base。</exception>
+        internal static Camera CreateWorldStageCamera(Transform parent)
         {
-            var cameraGo = new GameObject("StageCamera");
-            cameraGo.transform.SetParent(parent, false);
-            cameraGo.transform.localPosition = new Vector3(0f, 0f, StageCameraZ);
+            var go = new GameObject(StageCameraName);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = DefaultCameraLocalPosition;
+            go.transform.localRotation = Quaternion.Euler(DefaultCameraLocalEuler);
+            go.tag = "Untagged";
 
-            // 刻意不加 AudioListener：舞台相机是叠加相机，场景里主相机已有监听器，两个会报警告。
-            var camera = cameraGo.AddComponent<Camera>();
-            camera.orthographic = true;
-            camera.orthographicSize = StageCameraOrthoSize;
-            camera.cullingMask = 1 << layer;
-            camera.clearFlags = CameraClearFlags.Depth;
-            camera.depth = StageCameraDepth;
+            // 不加 AudioListener：主相机那边已有监听器，两个会报警告。
+            var camera = go.AddComponent<Camera>();
+            camera.orthographic = false;
+            camera.fieldOfView = DefaultCameraFieldOfView;
+            camera.nearClipPlane = DefaultCameraNear;
+            camera.farClipPlane = DefaultCameraFar;
 
             Type dataType = Type.GetType(PerformanceValidator.UrpCameraDataTypeName);
-            if (dataType == null)
-            {
-                Log.Warn("找不到 URP 的 UniversalAdditionalCameraData，舞台相机没能设成 Overlay；请手动把 Render Type 改为 Overlay。", cameraGo);
-                return camera;
-            }
-
-            Component data = cameraGo.GetComponent(dataType);
-            if (data == null) data = cameraGo.AddComponent(dataType);
+            if (dataType == null) throw new InvalidOperationException("找不到 URP 的 UniversalAdditionalCameraData，舞台相机没法设成 Base。");
+            Component data = go.GetComponent(dataType);
+            if (data == null) data = go.AddComponent(dataType);
             using (var so = new SerializedObject(data))
             {
-                SerializedProperty prop = so.FindProperty(PerformanceValidator.UrpCameraTypeProperty);
-                if (prop != null)
-                {
-                    prop.intValue = PerformanceValidator.UrpOverlayValue;
-                    so.ApplyModifiedPropertiesWithoutUndo();
-                }
-            }
-            return camera;
-        }
-
-        private static void AssignActor(
-            SpritePerformanceActor actor,
-            SpriteRenderer spriteRenderer,
-            IReadOnlyList<SpritePerformanceActor.ExpressionEntry> actorSprites)
-        {
-            int count = actorSprites == null ? 0 : actorSprites.Count;
-            using (var so = new SerializedObject(actor))
-            {
-                so.FindProperty("target").objectReferenceValue = spriteRenderer;
-                SerializedProperty list = so.FindProperty("expressions");
-                list.arraySize = count;
-                for (int i = 0; i < count; i++)
-                {
-                    SerializedProperty element = list.GetArrayElementAtIndex(i);
-                    element.FindPropertyRelative("name").stringValue = actorSprites[i].Name ?? string.Empty;
-                    element.FindPropertyRelative("sprite").objectReferenceValue = actorSprites[i].Sprite;
-                }
+                so.FindProperty(PerformanceValidator.UrpCameraTypeProperty).intValue = PerformanceValidator.UrpBaseValue;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
-
-            // 默认显示第一个表情，排演出时 Scene 视图里就能看见人。
-            if (count > 0) spriteRenderer.sprite = actorSprites[0].Sprite;
+            return camera;
         }
 
         /// <summary>把预制体登记进 Addressables Performance 组（地址 = id）；组不存在时照抄 UI 组 schema 新建。示例 builder 共用。</summary>

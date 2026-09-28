@@ -400,7 +400,7 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 `ApplySettings` 遇到非 32 项缓存会重读相机，`OnDisable` 只恢复完整的 32 项缓存，避免 Unity setter 抛异常。
 未配置层保持原值，重复层后项覆盖前项；0、负数、NaN、无穷统一使用 0（该相机的 Far Clip）。
 保留相机原有 `layerCullSpherical` 模式；默认平面剔除沿相机深度，不等于以玩家为中心的半径。
-Performance 世界舞台接管时继承主相机的分层距离与模式，结束恢复作者值，Overlay 模式保持原样。
+Performance 世界舞台接管时继承主相机的分层距离与模式，结束恢复作者值；找不到主相机的退路保持舞台作者值。
 
 验证：`Tests/EditMode/IsometricExploration/CameraLayerCullSettingsTests.cs` 覆盖数值边界；
 `Tests/PlayMode/CameraDistanceCullingTests.cs` 覆盖重新应用、禁用/重启恢复及碰撞体保留，以及 0 / 31 / 33 项无效缓存；

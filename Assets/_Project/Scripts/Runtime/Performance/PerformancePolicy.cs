@@ -1,4 +1,4 @@
-// 职责：一段演出的播放策略快照（可否跳过、长按跳过秒数、是否时停 / 藏 HUD / 上黑边、「自动」继续间隔），构造时校验。
+// 职责：一段演出的播放策略快照（可否跳过、长按跳过秒数、是否时停 / 藏 HUD、「自动」继续间隔），构造时校验。
 // 为什么新建（复用 → 扩展 → 新建）：策略来自「舞台预制体开关 + 全局配置默认值」两处，需要一个校验过的不可变值在
 //   规则、服务、面板之间传递；DialoguePlaybackSettings 是对白专用且 Performance 不得依赖 Dialogue，只能新建。
 using System;
@@ -15,12 +15,11 @@ namespace Game.Performance
         /// <param name="skipHoldSeconds">长按多少秒触发跳过，必须大于 0（不可跳过时也要合法，便于统一校验）。</param>
         /// <param name="pauseWorld">演出期间是否暂停世界（timeScale = 0）。</param>
         /// <param name="hideHud">演出期间是否整层隐藏 HUD。</param>
-        /// <param name="letterbox">是否上下黑边。</param>
         /// <param name="autoAdvanceSeconds">开「自动」后，停顿处字幕打完再等多少秒自动继续；必须是不小于 0 的有限数（0 = 打完立即继续）。</param>
         /// <exception cref="ArgumentException">
         /// <paramref name="skipHoldSeconds"/> 不大于 0 或不是有限数；<paramref name="autoAdvanceSeconds"/> 小于 0 或不是有限数。
         /// </exception>
-        public PerformancePolicy(bool skippable, float skipHoldSeconds, bool pauseWorld, bool hideHud, bool letterbox,
+        public PerformancePolicy(bool skippable, float skipHoldSeconds, bool pauseWorld, bool hideHud,
             float autoAdvanceSeconds = DefaultAutoAdvanceSeconds)
         {
             // NaN 与任何数比较都为 false，所以写成「不大于 0」一并拦下；无穷大单独拦。
@@ -33,7 +32,6 @@ namespace Game.Performance
             SkipHoldSeconds = skipHoldSeconds;
             PauseWorld = pauseWorld;
             HideHud = hideHud;
-            Letterbox = letterbox;
             AutoAdvanceSeconds = autoAdvanceSeconds;
         }
 
@@ -48,9 +46,6 @@ namespace Game.Performance
 
         /// <summary>演出期间是否整层隐藏 HUD 层与弹窗层（对白框在弹窗层）。</summary>
         public bool HideHud { get; }
-
-        /// <summary>是否上下黑边。</summary>
-        public bool Letterbox { get; }
 
         /// <summary>开「自动」后，停顿处字幕打完再等多少秒自动继续（不小于 0）。</summary>
         public float AutoAdvanceSeconds { get; }

@@ -2,7 +2,7 @@
 
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
-> **基线**：`main` @ `2095933`，工作区干净、与 origin 同步。本文所有行号按该基线核对过；改动后请顺手更新本文。
+> **基线**：`main` @ `4da29a3`（§1.1 的 A、B 随它推送）；§1.1-C 的改动在工作区待审。本文行号按「该基线 + C 的工作区改动」核对过；改动后请顺手更新本文。
 
 ## 0. 现状一句话
 
@@ -12,7 +12,7 @@
 
 **没做的分两层，量级差很远：**
 
-- **§1 / §2 是已有模块的收尾**（7 件活 + 11 项待拍板）。数量少、都能立刻动手。
+- **§1 / §2 是已有模块的收尾**（7 件活 + 10 项待拍板）。数量少、都能立刻动手。
 - **§3 是内容层，几乎没开始**：`docs/roadmap.md` A–H 共 51 条，其中 20 条标着「待做 / 待定义」；`docs/design/features/` 16 份策划稿只落地了 3 份（01 通灵视 / 02 照镜辨形 / 03 镜之耐久与镜碎），**其余 12 份一行代码都没有**。这一片才是大头，且卡在策划拍板。
 
 一句话：**框架能跑，玩法的肉还在纸上。**
@@ -21,44 +21,17 @@
 
 ## 1. 可以直接开工
 
-### 1.1 演出旧模式下架 + 对白插播传锚点 【P0，建议一整单做完】
+### 1.1 演出旧模式下架 + 对白插播传锚点 【已完成，C 待审】
 
-演出现在跑在 World 舞台模式；旧的全屏叠加模式要下架。分三小步，A、B 可一起提交，C 单独一单。
+A（下架示例 greeting）、B（对白插播传 NPC 锚点、插播时藏场景角色）已随 `4da29a3` 推送。
+C（2026-09-28 用户定：叠加模式连同 Live2D 适配层整个删掉，演出只保留世界舞台 + 序列帧小人）改动在工作区，待审后按路径提交，提交后删掉本节：
 
-> **A、B 已完成**（2026-09-28）：改动在工作区、尚未提交，待审后按路径提交（三处资产删除已用 `git rm` 进索引）。
-> 验收已过：EditMode 全量 1024 条通过；`PerformanceShowcase`（4 条）与 `ScenePerformanceShowcase`（2 条）回放 PASS。提交后删掉 A、B 两段，只留 C。
-
-**A. 下架示例演出 `perf_sample_greeting`** 【已完成】—— 引用点共 7 处：
-
-| 位置 | 动作 |
-| --- | --- |
-| `Assets/_Project/Prefabs/Performance/perf_sample_greeting.prefab` | 已删除（连 `.meta`，`git rm`） |
-| `Assets/_Project/Data/Performance/Timelines/perf_sample_greeting.playable` | 已删除（连 `.meta`） |
-| `Assets/_Project/Data/Performance/Animations/perf_sample_greeting_enter.anim` | 已删除（连 `.meta`；目录删空，`Animations.meta` 一并删） |
-| `Assets/AddressableAssetsData/AssetGroups/Performance.asset` | 已用编辑器 API 移除该地址（diff 只少这一条） |
-| `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | 已改为断言 `perf_sample_scene_talk`、revision 2 |
-| `Assets/_Project/Scripts/Tests/Showcase/Performance/PerformanceShowcase.cs` | 已整份改用 `perf_sample_scene_talk` |
-| `Tables/Data/dialogue/1003.json` | 已改指 `perf_sample_scene_talk`（l2 `revision` 1 → 2），Luban 已重生成 |
-
-验收：EditMode 全绿 + Performance 回放通过。
-
-**B. 对白插播要传锚点** 【已完成】
-
-`DialogueService` 新增重载 `PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)`，
-两参重载转发时传 null；锚点经 `DialogueController.PresentAsync` 带到插播点，调
-`performance.PlayAsync(node.PerformanceId, PerformancePlacement.FromTransform(anchor), ct)`（锚点 null = `None`，与旧版一致）。
-`DialogueInteractable` 拉起对白时传自身 Transform。
-
-验收：回放 `DialogueNode_PlaysPerformanceBeforeSecondLine` 用 `PlayAsync(1003, Npc_Elder)` 插播，演出实例根与 `Npc_Elder`
-水平距离、高度差实测都是 0.000。
-插播时场景角色与舞台小人重影已在本单一并解决：`DialogueController` 拉起演出前经 `DialogueInterludeVisibility` 藏起场景里全部带 `ChibiPuppet` 的角色根
-（连同名牌 / 标记 / 光圈），演出结束（完成 / 跳过 / 取消 / 异常）在同一个 `finally` 里恢复；同一回放用例新增「插播·场景角色已隐藏」检查与截图。
-
-**C. 删 Overlay 模式的代码（做完 A / B 再开）**
-
-`PerformanceStageMode.Overlay` 目前仍是默认值：`PerformanceStage.cs:32` 的 `mode` 字段初值就是 `Overlay`，枚举本身在 `PerformanceStageMode.cs:14`。
-要连带清理：相机栈叠加、黑边、模板工厂的叠加壳、演出编辑器里校验叠加的项，以及 Live2D 适配层。
-⚠️ **动手前先与项目负责人确认 Live2D 接入计划**——适配层目前挂在 Overlay 上（见 §3.1）。
+- 删 `PerformanceStageMode` 枚举与舞台 `mode` 字段，世界舞台成为唯一行为；删相机栈叠加及其退路（埋点 `camera_stack_unavailable`）、摆放忽略告警（`placement_ignored`）。
+- 黑边整条删：策略 / 配置 / 舞台开关 / 面板参数 / `PerformanceView` 字段与补间 / 预制体 `LetterboxTop`、`LetterboxBottom` 两个节点；进场黑场 `Fade` 保留。
+- 模板工厂「新建演出」改建世界舞台壳（透视 Base 舞台相机 + 空 `Actors` 站位根 + 字幕 / 动作 / 音效三轨），舞台相机与村口示例 builder 共用 `CreateWorldStageCamera`；校验器删掉只对叠加有意义的检查，相机检查改为无条件执行。
+- 删 `Runtime/Live2D/` 整个程序集、`Editor/Performance/Live2DDefineSync.cs`、演出编辑器「检查 Live2D 符号」；立绘占位演员 `SpritePerformanceActor` 一并删除（`PerformanceActor` 抽象与表情轨保留，但工程里暂无具体实现，模板不建表情轨）。
+- 验收（2026-09-29）：编译零错误零警告；EditMode 全量 1030 条通过；`PerformanceShowcase`（4 条）+ `ScenePerformanceShowcase`（2 条）回放 PASS；
+  `DialogueShowcase` 7 条中 6 条 PASS，`Bubble_ShowsAboveHead_WithoutPausing` 失败，原因与本单无关，见 §1.4 最后一行。
 
 ### 1.2 回放框架的输入失焦问题
 
@@ -75,7 +48,7 @@
 - **前置**：`PRP/narrative-dialogue/prp.md` 自述「设计草案…未实现」，`docs/roadmap.md` §6.2 要求**先修订 PRP 再执行**
 - 关联：`DialogueSaveData` 尚未接存档（`ai-docs/docs/modules/dialogue/dialogue-module-guide.md:65`）
 
-### 1.4 五处小修（半小时级）
+### 1.4 六处小修（半小时级）
 
 | 位置 | 问题 |
 | --- | --- |
@@ -84,6 +57,7 @@
 | `Assets/_Project/Scripts/Runtime/Gameplay/FaceBlendShapeController.cs:4`、`FaceDragHandle.cs:4`、`MuralFaceController.cs:3` | 命名空间是 `Game.LailaFace`，与所在目录 `Runtime/Gameplay/` 不符；`invariants.py` 每次都报红，常红会掩盖新引入的问题。挪目录改命名空间，或反过来（`.claude/skills/generate-doc/modules.json` 里 `lailaface.src` 也指向这里，要一起改） |
 | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs:273` | 残留私有 `RequireButton`（已迁到基类） |
 | `Assets/_Project/Scripts/Editor/Tools/ProjectStructureMenu.cs:153` | 全仓唯一一条真 `// TODO`：依赖应走构造注入，别在这里 new 服务或读静态单例 |
+| `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs:313` | `FindRequired<DialogueSpeechBubble>("SpeechBubble")` 按名字全局找气泡；`eed1a5f`（照镜 demo）给 SampleScene 加了第二个同名物体 `Yao_WellWoman/SpeechBubble`，回放 `Bubble_ShowsAboveHead_WithoutPausing` 两个气泡检查点因此失败（2026-09-29 实测）。改成从 `Npc_Villager` 下取气泡 |
 
 ### 1.5 replay 缺两个实测数字
 
@@ -116,16 +90,15 @@
 | 记录面板「关闭」压住「跳过」 | 项目负责人 | 两按钮位置重叠，待视觉打磨 |
 | `docs/design/features/` 的矛盾与待定 | 策划 | 30 条跨文档矛盾 + 128 条待定问题；拍板后要把 `[待定]` 改成 `[原文]` 并回写产品文档，别让 features 变成第二真源 |
 | 四本素材 PDF（共 152 MB） | 项目负责人 | 移出仓库放共享盘，还是走 Git LFS |
-| Cubism SDK 导入 | 需人工操作 | 要人工下载并导入到 `Assets/Live2D/`（**该目录目前不存在**），之后才能接 Live2D 适配层 |
 | Run 动画帧、探索 3D 环境资产 | 美术 | 序列帧小人暂无 Run 动画（现复用 walk 剪辑）；探索环境仍是灰盒 |
 
 ---
 
 ## 3. 长线与内容层（等外部输入）
 
-**这一节是大头**：3.1–3.3 是三条长线，3.4 是「一行代码都还没有」的全部内容。
+**这一节是大头**：3.1 已废弃，3.2–3.3 是两条长线，3.4 是「一行代码都还没有」的全部内容。
 
-**3.1 Live2D** —— 导入 SDK（§2）→ 接适配层 → 模型放 `Assets/_Project/Art/Live2D/<角色>/`。适配层现在挂在 Overlay 模式下，与 §1.1-C 有依赖顺序。
+**3.1 Live2D** —— 已废弃（2026-09-28 用户定）：演出只保留世界舞台 + 序列帧小人，Live2D 适配层与叠加模式代码已随 §1.1-C 删除，不再导入 Cubism SDK。
 
 **3.2 移动端移植** —— 现阶段是 PC 游戏：触屏摇杆、触屏三键、走跑按钮、Android 画质档、安全区实机统一，全部后置到移植阶段。注意玩法代码里**禁止**平台条件编译与平台专属 API，这类只允许出现在 `Scripts/Runtime/Platform/`，输入只读 Input System 的 Action Map。
 

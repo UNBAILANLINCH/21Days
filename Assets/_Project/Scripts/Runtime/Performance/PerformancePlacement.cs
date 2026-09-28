@@ -1,4 +1,4 @@
-// 职责：世界模式演出的摆放值——把演出预制体实例摆到世界里的哪个位置、朝哪个方向。
+// 职责：演出（世界舞台）的摆放值——把演出预制体实例摆到世界里的哪个位置、朝哪个方向。
 // 为什么新建（复用 → 扩展 → 新建）：Unity 的 Pose 没有「未指定」语义，传 default 会把演出摆到原点；
 //   PlayAsync 需要一个能区分「不摆」与「摆到原点」的值，塞进 PerformanceViewArgs / PerformancePolicy 都名实不符，只能新建。
 
@@ -8,7 +8,7 @@ namespace Game.Performance
 {
     /// <summary>
     /// 演出摆放值。<see cref="None"/>（即 <c>default</c>）= 不摆放，实例保持预制体自身位姿；
-    /// 只对 <see cref="PerformanceStageMode.World"/> 模式生效，叠加模式传入会被忽略并告警。
+    /// 指定时服务在实例化后把演出根摆到这个世界位姿。
     /// </summary>
     public readonly struct PerformancePlacement
     {

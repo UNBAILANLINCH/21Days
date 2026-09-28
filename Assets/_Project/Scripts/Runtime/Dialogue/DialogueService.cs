@@ -90,7 +90,7 @@ namespace Game.Dialogue
 
         /// <summary>
         /// 同上，并指定插播演出的摆放锚点：节点前插播演出时，演出按 <paramref name="performanceAnchor"/> 的世界位姿摆放
-        /// （世界舞台模式据此落位；叠加模式由演出服务忽略）。通常传说话 NPC 自己的 Transform
+        /// （世界舞台据此落位）。通常传说话 NPC 自己的 Transform
         /// （<see cref="DialogueInteractable"/> 就是这样传的）。传 null 不摆放，行为与不带锚点的重载完全一致。
         /// </summary>
         /// <exception cref="ArgumentException">未知对白 id，或播放配置非法。</exception>

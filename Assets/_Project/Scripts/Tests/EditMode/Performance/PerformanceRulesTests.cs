@@ -17,7 +17,7 @@ namespace Game.Tests.EditMode.Performance
         public void SetUp() => rules = new PerformanceRules(NullTelemetryScope.Instance);
 
         private static PerformancePolicy Policy(bool skippable = true, float holdSeconds = 1f, float autoSeconds = 1f) =>
-            new PerformancePolicy(skippable, holdSeconds, true, true, true, autoSeconds);
+            new PerformancePolicy(skippable, holdSeconds, true, true, autoSeconds);
 
         // 进停顿并开自动：自动计时的前置状态。
         private void HoldWithAuto(float autoSeconds = 1f)

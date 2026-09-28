@@ -276,7 +276,7 @@
 - 现象：给 Live2D 做适配层时担心「SDK 缺席、asmdef 引用了不存在的 `Live2D.Cubism.*` 会编译报错」，准备绕远路（`~` 目录 + 复制安装）。实测（2026-09-26）：asmdef 的 `defineConstraints` 未满足时 Unity **跳过整个程序集**，连引用解析都不做，控制台零错误零警告，`CompilationPipeline.GetAssemblies()` 里也没有它。反过来真正的坑是：PRP 里按印象写的引用名 `Live2D.Cubism.Core` / `Live2D.Cubism.Framework` 都不存在——官方 CubismUnityComponents 运行时只有一个 `Live2D.Cubism.asmdef`（另有 `Live2D.Cubism.Editor`）。名字错了不会报错，导入 SDK 后适配层照样不编译、符号也不会被检测脚本加上，表现成「装了 SDK 什么都没发生」。
 - 根因：约束未满足的程序集对编译管线是不可见的，错误只会在符号真的被定义之后才暴露；而符号又靠检测那个（写错的）asmdef 名来加，两头互相掩护。
 - 正确做法：可选 SDK 一律「独立 asmdef + `defineConstraints` + 编辑器脚本按 SDK 的 asmdef **文件名**检测后写符号」；引用名与检测名必须去官方仓库的文件树核对（不要凭记忆写），并在适配层文件头列出用到的 API 与「未本地编译验证」字样；导入 SDK 后第一件事是编译一次适配层。
-- 关联：`Assets/_Project/Scripts/Runtime/Live2D/Game.Live2D.asmdef`、`Scripts/Editor/Performance/Live2DDefineSync.cs`（菜单 `21Days/演出/检查 Live2D 符号` 是状态锚点）、`PRP/performance-pipeline/prp.md` 2.7。
+- 关联：`Assets/_Project/Scripts/Runtime/Live2D/Game.Live2D.asmdef`、`Scripts/Editor/Performance/Live2DDefineSync.cs`（菜单 `21Days/演出/检查 Live2D 符号` 是状态锚点）、`PRP/performance-pipeline/prp.md` 2.7。（叠加模式与 Live2D 已于 2026-09-28 下架）
 
 ## 编辑器代码用 Timeline API 建好的时间轴，会被别的测试运行器收尾时回滚 Undo 打成空壳
 - 现象：`PerformanceTemplateFactory` 刚建好 8 秒 / 5 轨的 `.playable`，回放一进 Play 就秒结束；磁盘上的资产变成 `m_Tracks: []`、`m_FixedDuration: 0`（`CreateAsset` 时的初始状态），只多一个没人引用的 Markers 子资产（2026-09-26 演出回放第 1 轮）。
@@ -387,7 +387,7 @@
 - 现象：演出舞台相机（Overlay）叠进主相机的 `cameraStack` 后，2D 验证场景正常，SampleScene（3D）里黑边、字幕都在、舞台内容一片空白；服务没走退路、没埋点，只有游戏内调试面板的 Warning 计数每帧涨 1（2026-09-26 冒烟发现）。
 - 根因：URP 资产里有多个渲染器（0 号 Renderer2D、1 号 UniversalRenderer），舞台相机 `rendererIndex = -1` 落到默认的 0 号，主相机用 1 号；`UniversalRenderPipeline` 对渲染器类型不同的叠加相机直接跳过并每帧告警 `Only cameras with compatible renderer types can be stacked`，MCP 的 `read_console` 读不到这条原文。
 - 正确做法：叠加前把 Overlay 相机的渲染器对齐到主相机（URP 14 没有公开的索引 getter，反射读 `UniversalAdditionalCameraData.m_RendererIndex` 再 `SetRenderer`，收尾还原），叠加后再比一次 `scriptableRenderer.GetType()`，不一致就走 Base 退路并埋点；验证场景与正式场景用的渲染器不同时，两边都要冒烟一次。
-- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。
+- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。（叠加模式与 Live2D 已于 2026-09-28 下架）
 
 ## 序列帧画布宽不是 4 的倍数，出包时块压缩退回不压缩；编辑器里看不出来
 - 现象：方舟小人第一次渲出的画布宽 242 / 318 / 330 px，导入后 Inspector 显示正常；但这台机器编辑器里所有贴图（连现有纸片）`Texture2D.format` 都是 `RGBA32`，从编辑器里根本判断不了出包是否压缩。
@@ -471,4 +471,10 @@
 - 现象：`PerformanceServiceWorldTests` 里等演出收尾的用例，全量跑测试套件时偶发超时，单独跑这条用例却总是通过。
 - 根因：UniTask 的编辑器循环在 `EditorApplication.isPlayingOrWillChangePlaymode || isCompiling || isUpdating` 时整帧跳过（`PlayerLoopHelper.cs:339`）；共用编辑器时别的会话在导入资产 / 编译，`isUpdating` 会为 true 一段时间，这段时间里 `await UniTask.Yield` 根本不推进，「等 N 帧」的循环会把预算的帧数在停摆期间耗光，还没等到条件成立就报超时。
 - 正确做法：EditMode 里等异步任务收尾一律按墙钟时间等待（`Time.realtimeSinceStartup` 起点 + 固定秒数上限，如 10 秒），不要按帧数上限；帧数上限只在能保证编辑器不会被别的会话打断时才可靠。
-- 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:493`–`499`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。
+- 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:495`–`500`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。
+
+## MCP 里调 `AssetDatabase.SaveAssets()` 会把别的会话改脏的资产一起写上磁盘
+- 现象：2026-09-28 下架示例 greeting 那一单（`4da29a3`）在 MCP 里改完目标资产后调了 `AssetDatabase.SaveAssets()`，工作区随之多出本单根本没碰的改动——字体 SDF 资产（`Art/Fonts/Font_NotoSansSC_Regular SDF.asset`）与 `ProjectSettings/EditorSettings.asset`，提交前得逐个挑出去。
+- 根因：`SaveAssets()` 保存的是**编辑器内存里全部标脏的资产**，不是「刚才改的那个」；共用一台编辑器时，别的会话进 Play 撑大的 TMP 动态字体图集、测试运行器改过的 Enter Play Mode Options 等都挂在同一个脏列表里，一并被写盘。
+- 正确做法：改单个资产后只调 `AssetDatabase.SaveAssetIfDirty(asset)`（预制体走 `PrefabUtility.SaveAsPrefabAsset`，它自己落盘），**禁止在 MCP 脚本里调 `AssetDatabase.SaveAssets()`**；改完 `git status --short` 核对只多了目标文件，多出来的别人的改动不提交、也不擅自还原（可能是对方还没存完的工作）。本文件「MCP 预制体舞台改动可能不落盘」一条里的 `AssetDatabase.SaveAssets()` 那一步以本条为准。
+- 关联：`4da29a3`；本文件「TMP Dynamic 字体资产进一次 Play 就胖 2 MB」「MCP 预制体舞台改动可能不落盘」「共用一台编辑器的并发会话互相干扰」；`.claude/skills/unity-mcp/SKILL.md`；2026-09-28。

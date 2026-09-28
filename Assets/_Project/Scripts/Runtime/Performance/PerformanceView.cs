@@ -1,4 +1,4 @@
-// 职责：演出面板——上下黑边、对白面板（左 / 右头像位 + 说话者 + 正文）、停顿提示符、跳过提示与长按进度环、进场黑场淡出；
+// 职责：演出面板——对白面板（左 / 右头像位 + 说话者 + 正文）、停顿提示符、跳过提示与长按进度环、进场黑场淡出；
 //   左上「LOG」、右上「自动」与「跳过」三个控件（与对白面板 HistoryButton / AutoButton / SkipButton 同位同样式，倍速位空着）；
 //   实现字幕输出端供时间轴字幕轨道调用；字幕逐字揭示（打字机）；每句字幕抛 OnSubtitleShown 供服务记台词。
 //   只显示与抛事件，不注入服务、不读输入、不持有时间轴进度，全部由 PerformanceService 调方法。
@@ -24,9 +24,8 @@ namespace Game.Performance
     /// <summary>
     /// 演出面板。预制体 Addressables 地址须为 <c>PerformanceView</c>（UI 组）。
     /// <para>
-    /// 接线提示：<c>letterboxTop</c> / <c>letterboxBottom</c> 分别锚在屏幕上 / 下边缘、横向拉伸，高度由本类改 sizeDelta.y；
-    /// <c>fade</c> 是全屏黑色 Image（不挡射线）；<c>skipFill</c> 的 Image Type 须为 Filled；
-    /// <c>tapArea</c> 是全屏透明 Button，层级在黑边 / 字幕之上、三个控件（SkipRoot / AutoButton / HistoryButton）之下——
+    /// 接线提示：<c>fade</c> 是全屏黑色 Image（不挡射线）；<c>skipFill</c> 的 Image Type 须为 Filled；
+    /// <c>tapArea</c> 是全屏透明 Button，层级在黑场 / 字幕之上、三个控件（SkipRoot / AutoButton / HistoryButton）之下——
     /// 否则会吞掉控件的点击；控件以外的 Graphic 一律关 raycastTarget。<c>skipRoot</c> 上挂透明 Image（开 raycast）与
     /// <see cref="UIPointerHold"/>（<c>skipHold</c>）：鼠标按住「跳过」等同长按跳过键。
     /// </para>
@@ -45,12 +44,6 @@ namespace Game.Performance
     /// </summary>
     public sealed class PerformanceView : UIView, IPerformanceSubtitleSink
     {
-        [Tooltip("上黑边（锚在顶边、横向拉伸）。")]
-        [SerializeField] private Image letterboxTop;
-
-        [Tooltip("下黑边（锚在底边、横向拉伸）。")]
-        [SerializeField] private Image letterboxBottom;
-
         [Tooltip("全屏黑场，进场时从不透明淡到透明。")]
         [SerializeField] private Image fade;
 
@@ -117,8 +110,6 @@ namespace Game.Performance
         private const string AutoOffLabel = "自动";
         private const string AutoOnLabel = "自动中";
 
-        private MotionHandle topHandle;
-        private MotionHandle bottomHandle;
         private MotionHandle fadeHandle;
         private float shownSkipProgress = -1f;
 
@@ -201,36 +192,14 @@ namespace Game.Performance
             SetAuto(false);
 
             float seconds = args.FadeSeconds > 0f ? args.FadeSeconds : 0f;
-            float height = args.Policy.Letterbox && args.LetterboxHeight > 0f ? args.LetterboxHeight : 0f;
-            letterboxTop.gameObject.SetActive(height > 0f);
-            letterboxBottom.gameObject.SetActive(height > 0f);
-            SetLetterbox(0f);
-            if (height > 0f)
-            {
-                if (seconds > 0f)
-                {
-                    // UpdateIgnoreTimeScale：演出期间世界时停（timeScale = 0），黑边照样推入。
-                    // AddTo(this)：面板被直接销毁时随之掐断；OnCloseAsync 里也手动 Cancel，双保险。
-                    topHandle = LMotion.Create(0f, height, seconds)
-                        .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
-                        .BindToSizeDeltaY(letterboxTop.rectTransform)
-                        .AddTo(this);
-                    bottomHandle = LMotion.Create(0f, height, seconds)
-                        .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
-                        .BindToSizeDeltaY(letterboxBottom.rectTransform)
-                        .AddTo(this);
-                }
-                else
-                {
-                    SetLetterbox(height);
-                }
-            }
 
             // 进场黑场：从全黑淡到透明，舞台相机的画面随之显出来。
             fade.raycastTarget = false;
             if (seconds > 0f)
             {
                 SetFadeAlpha(1f);
+                // UpdateIgnoreTimeScale：演出期间世界时停（timeScale = 0），黑场照样淡出。
+                // AddTo(this)：面板被直接销毁时随之掐断；OnCloseAsync 里也手动 Cancel，双保险。
                 fadeHandle = LMotion.Create(1f, 0f, seconds)
                     .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                     .BindToColorA(fade)
@@ -245,7 +214,7 @@ namespace Game.Performance
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
-            // 淡出过渡已播完才走到这里：收黑边、清字幕，让下次打开从干净状态开始。
+            // 淡出过渡已播完才走到这里：清字幕，让下次打开从干净状态开始。
             if (tapArea != null) tapArea.onClick.RemoveListener(HandleTap);
             Unhook(autoButton, HandleAuto);
             Unhook(historyButton, HandleHistory);
@@ -254,7 +223,6 @@ namespace Game.Performance
             OnHistory = null;
             OnSubtitleShown = null;
             CancelMotions();
-            if (letterboxTop != null && letterboxBottom != null) SetLetterbox(0f);
             if (subtitleRoot != null) HideSubtitle();
             holdRequested = false;
             if (holdPrompt != null) holdPrompt.gameObject.SetActive(false);
@@ -420,14 +388,6 @@ namespace Game.Performance
             if (holdPrompt.gameObject.activeSelf != visible) holdPrompt.gameObject.SetActive(visible);
         }
 
-        private void SetLetterbox(float height)
-        {
-            RectTransform top = letterboxTop.rectTransform;
-            RectTransform bottom = letterboxBottom.rectTransform;
-            top.sizeDelta = new Vector2(top.sizeDelta.x, height);
-            bottom.sizeDelta = new Vector2(bottom.sizeDelta.x, height);
-        }
-
         private void SetFadeAlpha(float alpha)
         {
             Color color = fade.color;
@@ -463,8 +423,6 @@ namespace Game.Performance
 
         private void CancelMotions()
         {
-            if (topHandle.IsActive()) topHandle.Cancel();
-            if (bottomHandle.IsActive()) bottomHandle.Cancel();
             if (fadeHandle.IsActive()) fadeHandle.Cancel();
         }
 
@@ -472,8 +430,6 @@ namespace Game.Performance
         private void Validate()
         {
             var missing = new List<string>();
-            if (letterboxTop == null) missing.Add(nameof(letterboxTop));
-            if (letterboxBottom == null) missing.Add(nameof(letterboxBottom));
             if (fade == null) missing.Add(nameof(fade));
             if (subtitleRoot == null) missing.Add(nameof(subtitleRoot));
             if (speaker == null) missing.Add(nameof(speaker));

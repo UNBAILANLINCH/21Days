@@ -1,6 +1,6 @@
 // 职责：演出演员的抽象——表情轨道只认它：列出可用表情名（供编辑器校验）、按名字切表情、显隐。
-// 为什么新建（复用 → 扩展 → 新建）：占位演员是 SpriteRenderer，正式演员是 Live2D 模型（独立可选程序集），
-//   时间轴轨道需要一个与两者都无关的绑定类型；DialogueCharacter 是对白立绘数据不是场景演员，且 Performance 不得依赖 Dialogue。
+// 为什么新建（复用 → 扩展 → 新建）：不同演员切表情的做法各不相同（换 Sprite / 切控制器索引等），
+//   时间轴轨道需要一个与具体实现无关的绑定类型；DialogueCharacter 是对白立绘数据不是场景演员，且 Performance 不得依赖 Dialogue。
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Timeline;
@@ -10,6 +10,7 @@ namespace Game.Performance
     /// <summary>
     /// 演出演员基类。挂在演出预制体的演员子物体上，由 <see cref="Timeline.ExpressionTrack"/> 绑定。
     /// 动作不经这里：Animation 轨道直接绑模型的 Animator。
+    /// 工程里目前没有具体实现（旧的立绘占位演员已下架）；序列帧小人要切表情时在这里加一个实现。
     /// </summary>
     public abstract class PerformanceActor : MonoBehaviour
     {

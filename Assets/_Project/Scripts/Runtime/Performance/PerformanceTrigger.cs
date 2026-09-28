@@ -1,5 +1,5 @@
 // 职责：场景里的演出挂载点——玩家进入触发区（或场景开始时）按 id 拉起一段演出；支持「只播一次」；
-//   世界模式演出可指定摆放锚点，并可在演出期间隐藏触发者（玩家，演出里另有替身）与点名的场景物体（NPC、巡逻怪、任务标记）。
+//   可指定演出的摆放锚点，并可在演出期间隐藏触发者（玩家，演出里另有替身）与点名的场景物体（NPC、巡逻怪、任务标记）。
 // 为什么新建（复用 → 扩展 → 新建）：DialogueInteractable 是按键交互的对白入口、属于 Dialogue；演出触发是进入即播、
 //   不需要焦点与按键，语义不同且 Performance 不得依赖 Dialogue。场景物体不在容器里，服务由 PerformanceSceneBinder 注入。
 using System;
@@ -28,7 +28,7 @@ namespace Game.Performance
         [Tooltip("只播一次：存档里已播过（完整播完或被跳过）就不再触发。")]
         [SerializeField] private bool once = true;
 
-        [Tooltip("世界模式演出的摆放锚点：演出实例摆到它的世界位置与朝向。留空 = 不传摆放（实例保持预制体位姿）。")]
+        [Tooltip("演出的摆放锚点：演出实例摆到它的世界位置与朝向。留空 = 不传摆放（实例保持预制体位姿）。")]
         [SerializeField] private Transform anchor;
 
         [Tooltip("演出期间隐藏触发者（带 PerformanceTriggerActor 的根）下的全部 Renderer 与 Canvas（头顶名牌），结束后恢复原状。演出里另有替身演员时勾上。")]

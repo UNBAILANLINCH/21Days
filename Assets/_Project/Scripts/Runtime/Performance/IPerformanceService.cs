@@ -22,8 +22,8 @@ namespace Game.Performance
         UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default);
 
         /// <summary>
-        /// 同上，并指定摆放：世界模式（<see cref="PerformanceStageMode.World"/>）的演出实例化后摆到 <paramref name="placement"/> 的世界位姿；
-        /// 传 <see cref="PerformancePlacement.None"/> 等价于两参重载。叠加模式忽略摆放并埋一条告警。
+        /// 同上，并指定摆放：演出实例化后摆到 <paramref name="placement"/> 的世界位姿（演员站在世界里）；
+        /// 传 <see cref="PerformancePlacement.None"/> 等价于两参重载，实例保持预制体自身位姿。
         /// </summary>
         UniTask<PerformanceResult> PlayAsync(string id, PerformancePlacement placement, CancellationToken ct = default);
 

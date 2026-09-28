@@ -42,7 +42,7 @@ maturity: stable
 4. 时停与输入图不用管：对白与演出两边服务各自持令牌、只恢复进来前的状态。参照 `Tables/Data/dialogue/1003.json`。
 5. **摆放锚点**：世界舞台演出要知道摆在哪。NPC 交互拉起的对白自动带 NPC 自身 Transform（`DialogueInteractable`）；
    代码拉起时用 `DialogueService.PlayAsync(id, 锚点)` 把说话的 NPC 传进来。只传 `id`（不带锚点）时插播不摆放，
-   世界舞台会生成在世界原点、落到地面以下；叠加模式演出带了锚点时摆放被忽略，演出服务记一条 Warn 并埋 `placement_ignored`。
+   世界舞台会生成在世界原点、落到地面以下（演出只有世界舞台一种，带了锚点就一定按锚点摆）。
 6. **场景角色自动隐藏，不用配**：插播期间场景里全部带 `ChibiPuppet` 的角色（玩家、NPC、巡逻怪，连同根下名牌 / 标记 / 光圈）
    被藏起，演出结束恢复（`DialogueInterludeVisibility`）。新角色要被正确整根藏掉：NPC 根挂 `DialogueInteractable`、玩家根挂
    `DialogueInteractionActor` 或 `PerformanceTriggerActor`；都不挂的角色按场景顶层物体整棵藏，别把它收进装地形 / 道具的公共容器。

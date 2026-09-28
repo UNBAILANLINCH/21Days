@@ -115,12 +115,6 @@ namespace Game.Tests.EditMode.Performance
             Assert.That(stage.TryGetAvatar("阿米娅", out _, out _), Is.False);
         }
 
-        [Test]
-        public void Mode_DefaultsToOverlay()
-        {
-            Assert.That(stage.Mode, Is.EqualTo(PerformanceStageMode.Overlay), "旧演出预制体没有该字段，默认必须是叠加模式");
-        }
-
         private void SetCast(params (string speaker, Sprite avatar)[] entries)
         {
             var sided = new (string speaker, Sprite avatar, PerformanceAvatarSide side)[entries.Length];

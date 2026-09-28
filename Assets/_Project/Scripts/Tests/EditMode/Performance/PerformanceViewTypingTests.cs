@@ -41,11 +41,11 @@ namespace Game.Tests.EditMode.Performance
             if (canvasObject != null) Object.DestroyImmediate(canvasObject);
         }
 
-        // 黑边 / 黑场时长给 0：不起 LitMotion 动画，EditMode 下只测字幕。
+        // 黑场时长给 0：不起 LitMotion 动画，EditMode 下只测字幕。
         private void Open(float charactersPerSecond)
         {
-            var policy = new PerformancePolicy(true, 1f, true, true, false);
-            var args = new PerformanceViewArgs(policy, "长按 Ctrl", 0f, 0f, "▼", charactersPerSecond, 0.12f,
+            var policy = new PerformancePolicy(true, 1f, true, true);
+            var args = new PerformanceViewArgs(policy, "长按 Ctrl", 0f, "▼", charactersPerSecond, 0.12f,
                 "，。！？…；：、,.!?");
             view.OnOpenAsync(args, CancellationToken.None).GetAwaiter().GetResult();
         }

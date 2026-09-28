@@ -1,13 +1,13 @@
 // 职责：时间轴上的表情轨道——绑定一个演员，片段开始时切到片段指定的表情。
-// 为什么新建（复用 → 扩展 → 新建）：Timeline 自带轨道没有「按名字切表情」的语义；Animation 轨道能换 Sprite，
-//   但 Live2D 表情走 CubismExpressionController 的索引而不是动画曲线，需要一层与演员实现无关的抽象，只能新建。
+// 为什么新建（复用 → 扩展 → 新建）：Timeline 自带轨道没有「按名字切表情」的语义；Animation 轨道只能按曲线改属性，
+//   而演员切表情的做法各不相同（换 Sprite / 切控制器索引），需要一层与演员实现无关的抽象，只能新建。
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
 
 namespace Game.Performance.Timeline
 {
-    /// <summary>表情轨道。绑定 <see cref="PerformanceActor"/>（占位 Sprite 演员或 Live2D 演员）。</summary>
+    /// <summary>表情轨道。绑定 <see cref="PerformanceActor"/> 的具体实现（工程里目前还没有，模板工厂因此不建这条轨）。</summary>
     [TrackColor(0.45f, 0.75f, 0.95f)]
     [TrackBindingType(typeof(PerformanceActor))]
     [TrackClipType(typeof(ExpressionClip))]

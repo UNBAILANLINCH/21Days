@@ -56,9 +56,10 @@
 
 ## Showcase 真实按键用例红：Game 视图没焦点，键盘事件被丢
 - 现象：Taming / Disguise 这类用真实 Input System 按键（而非 Simulate）的回放用例第一轮跑红，检查点显示按键没生效；同样的回放重跑一次、或手动在编辑器里按同一个键却是好的。
-- 根因：Unity 编辑器只把键盘事件路由给当前有焦点的窗口。跑测试时 Game 视图未必在前台，Input System 的事件队列直接丢弃了这些按键，与场景、代码逻辑无关。
-- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。实测还要求 **Unity 窗口在系统前台**（`isApplicationActive`）：编辑器整体失焦（切到别的应用）时 Input System 会 `ResetAndDisableNonBackgroundDevices`，把键盘复位并停用，虚拟手柄不受影响，只有键盘类用例会红；`get_test_job` 结果里的 `editor_is_focused` 字段可以直接判断是不是这个原因。
-- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #FocusGameView`。日期：2026-09-28。
+- 根因（旧配置）：Game 视图的输入路由限制与编辑器整体失焦时的 `ResetAndDisableNonBackgroundDevices` 会使虚拟键盘事件失效；仅聚焦 Game 视图不能覆盖切到其它应用的情况。
+- 当前做法：`ShowcaseScenario.ShowcaseSetUp` 保存原 `InputSystem.settings` 与 `Application.runInBackground`，创建 `HideAndDontSave` 临时 InputSettings 副本，设为 `IgnoreFocus` / `AllDeviceInputAlwaysGoesToGameView`，并临时开启后台运行。TearDown 的 `finally` 与退出 Play 的兜底回调均调用 `RestoreBackgroundInput`：恢复原设置对象与后台运行值、销毁副本，不写回项目输入资产。`FocusGameView` 仍用于展示回放，但 Unity 系统前台焦点已不是虚拟输入的前提。
+- 若按键检查点仍红，先跑 `ShowcaseSelfTest.Keyboard_WhenGameViewUnfocused_RecolorsSquare`；同 fixture 的 `InputSettings_AfterScenarios_Restored` 检查恢复。`editor_is_focused=false` 仅说明编辑器失焦，不能单独证明当前失败由焦点造成，不靠反复聚焦或永久改项目设置掩盖问题。
+- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #ConfigureBackgroundInput / RestoreBackgroundInput`。日期：2026-09-29。
 
 ## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
 - 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。

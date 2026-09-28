@@ -484,6 +484,8 @@ namespace Game.Performance
             internal int StageCullingMask;
             internal LayerMask StageVolumeMask;
             internal bool StagePostProcessing;
+            internal float[] StageLayerCullDistances;
+            internal bool StageLayerCullSpherical;
             internal Camera Main;
             internal int MainCullingMask;
         }
@@ -575,6 +577,8 @@ namespace Game.Performance
             state.StageCullingMask = stageCamera.cullingMask;
             state.StageVolumeMask = stageData.volumeLayerMask;
             state.StagePostProcessing = stageData.renderPostProcessing;
+            state.StageLayerCullDistances = stageCamera.layerCullDistances;
+            state.StageLayerCullSpherical = stageCamera.layerCullSpherical;
             int performanceLayer = LayerMask.NameToLayer(PerformanceLayerName);
             int performanceBit = performanceLayer >= 0 ? 1 << performanceLayer : 0;
             stageData.renderType = CameraRenderType.Base;
@@ -592,6 +596,8 @@ namespace Game.Performance
 
             stageCamera.depth = main.depth + WorldCameraDepthOffset;
             stageCamera.cullingMask = main.cullingMask | performanceBit;
+            stageCamera.layerCullDistances = main.layerCullDistances;
+            stageCamera.layerCullSpherical = main.layerCullSpherical;
             stageCamera.clearFlags = main.clearFlags;
             stageCamera.backgroundColor = main.backgroundColor;
             // 不用 GetUniversalAdditionalCameraData 取主相机：那个扩展在缺组件时会 AddComponent，改到主相机上。
@@ -641,6 +647,8 @@ namespace Game.Performance
                 if (state.World)
                 {
                     state.Stage.cullingMask = state.StageCullingMask;
+                    state.Stage.layerCullDistances = state.StageLayerCullDistances;
+                    state.Stage.layerCullSpherical = state.StageLayerCullSpherical;
                     if (state.StageData != null)
                     {
                         state.StageData.volumeLayerMask = state.StageVolumeMask;

@@ -383,6 +383,21 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 
 ## 配置资产
 
+### 相机距离剔除
+
+`CameraDistanceCulling`（`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraDistanceCulling.cs`）
+挂在 SampleScene 的 Main Camera，引用下述配置资产。使用 Unity 原生 `Camera.layerCullDistances`，
+没有逐帧遍历物体，不关 Renderer、GameObject 或 Collider，也不卸载资产。
+配置 `CameraLayerCulling` 默认为空，具体距离待定；启用和显式刷新时应用，禁用时恢复启用前的相机距离。
+未配置层保持原值，重复层后项覆盖前项；0、负数、NaN、无穷统一使用 0（该相机的 Far Clip）。
+保留相机原有 `layerCullSpherical` 模式；默认平面剔除沿相机深度，不等于以玩家为中心的半径。
+Performance 世界舞台接管时继承主相机的分层距离与模式，结束恢复作者值，Overlay 模式保持原样。
+
+验证：`Tests/EditMode/IsometricExploration/CameraLayerCullSettingsTests.cs` 覆盖数值边界；
+`Tests/PlayMode/CameraDistanceCullingTests.cs` 覆盖重新应用、禁用/重启恢复及碰撞体保留；
+`IsometricExplorationShowcase.CameraDistanceCulling_HidesDistantVisualAndRestoresIt` 在 SampleScene
+临时生成并清理青色方块，用实际画面采样和截图验证消失/重现。测试距离不写入正式配置。
+
 配置资产位于：
 
 `Assets/_Project/Data/IsometricExploration/IsometricExplorationConfig.asset`
@@ -462,7 +477,7 @@ ResetButton
   取舍：障碍不在确定性内核里，同机同场景可复现，跨机 / 跨平台回放不保证逐位一致；正式版要把关卡障碍数据放进内核。
   怪物不解算碰撞（巡逻路线本身避开障碍）；单帧位移超过 `obstacleTeleportDistance`（1.5 m）视为瞬移，不解算只贴地；
   碰撞按本帧插值后的位置解算，回写逻辑位置时只改被挡的轴（沿墙那一轴保留逻辑值，贴墙滑动不减速）；
-- 当前没有专门的 PlayMode 自动化测试，场景接线仍需在 Unity 中试玩确认；
+- 距离剔除有 PlayMode 生命周期测试；整体探索场景接线仍需 Showcase 与 Unity 试玩确认；
 - 贴地投影是表现层：`groundMask` 只影响 `EncounterSceneView` 里纸片的世界 Y，逻辑层没有高度、
   不做视线判定，玩法规则依旧不读取贴地结果（怪物感知不会被桥 / 墙挡住）；
 - 两角色重合时 `NameTag` 会叠在一起，没有做避让或层级排序。

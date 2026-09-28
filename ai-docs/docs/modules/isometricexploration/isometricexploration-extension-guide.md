@@ -101,5 +101,10 @@ maturity: stable
 
 ## 验证
 
+距离调优：编辑配置资产的 `Camera Layer Culling` 列表，按渲染层填写距离，再运行相机组件的
+「应用距离剔除配置」或重新进入 Play。先保留空列表，正式数值待美术规模与性能采样确定。
+不要为了剔除移动 `Ground` 碰撞根的 Layer；需要独立视觉层时拆出 Renderer 子节点并保留根碰撞层。
+这只减少远处绘制，不减少逻辑、物理或资产内存；LOD、遮挡烘焙与流式加载需分别评估。
+
 坐标映射与适配器接线放 EditMode 测试；玩家可见行为放 IsometricExploration Showcase。
 场景资产只通过 Unity 编辑器或 Unity MCP 修改，不手改 YAML。

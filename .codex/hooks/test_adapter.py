@@ -58,6 +58,57 @@ def run():
         assert decision(call("PreToolUse", "apply_patch", patch(target))) == "deny"
         base["transcript_path"] = "parent"
 
+        # 正文讨论截断/退出码不能误判；真实非零退出和实际截断仍拒绝。
+        literal = root / "literal.md"
+        literal.write_text("output truncated\ntokens truncated\nexit code: 1", encoding="utf-8")
+        literal_command = "Get-Content -Raw -Encoding UTF8 -LiteralPath 'literal.md'"
+        literal_body = literal.read_text(encoding="utf-8")
+        assert adapter.read_path(literal_command, root, literal_body) == "literal.md"
+        assert adapter.read_path(literal_command, root, {"exit_code": 1, "output": literal_body}) is None
+        assert adapter.read_path(literal_command, root, literal_body[:10]) is None
+
+        transcript = root / "transcript.jsonl"
+        evidence = dict(base, transcript_path=str(transcript), tool_use_id="exec-1", turn_id="turn-1")
+        item = {"type": "CommandExecution", "id": "exec-1", "cwd": root.as_uri(),
+                "command": ["pwsh", "-Command", command], "status": "completed", "exit_code": 0, "stdout": content}
+        records = [
+            {"type": "response_item", "payload": {"type": "custom_tool_call", "call_id": "parent-1"}},
+            {"type": "event_msg", "payload": {"type": "item_completed", "thread_id": "a", "turn_id": "turn-1", "item": item}},
+            {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",
+                "output": [{"type": "input_text", "text": json.dumps({"exit_code": 0, "output": content})}]}},
+        ]
+
+        def save_records():
+            transcript.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+
+        save_records()
+        actual = adapter.transcript_response(evidence, command, root)
+        assert adapter.read_path(command, root, actual) == doc
+        for key, wrong in [("tool_use_id", "other"), ("session_id", "other"), ("turn_id", "other")]:
+            assert adapter.transcript_response(dict(evidence, **{key: wrong}), command, root) is None
+        assert adapter.transcript_response(evidence, command + " extra", root) is None
+        item["exit_code"] = 1
+        save_records()
+        assert adapter.transcript_response(evidence, command, root) is None
+        item["exit_code"] = 0
+        records[-1]["payload"]["output"][0]["text"] = content[:30]
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(evidence, command, root)) is None
+        records.pop()
+        save_records()
+        assert adapter.transcript_response(evidence, command, root) is None
+        adapter.handle(dict(evidence, hook_event_name="PostToolUse", tool_name="Bash",
+                            tool_input={"command": command}, tool_response="Warning: truncated output"))
+        # 同父工具尚未完成时，下一条命令不能吞掉第一条读取的待验证记录。
+        adapter.handle(dict(evidence, hook_event_name="PreToolUse", tool_name="Bash",
+                            tool_input={"command": "git status --short"}))
+        assert any(json.loads(p.read_text()) for p in adapter.CACHE.rglob("pending-read.json"))
+        records.append({"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",
+                       "output": [{"type": "input_text", "text": content}]}})
+        save_records()
+        assert decision(adapter.handle(dict(evidence, hook_event_name="PreToolUse", tool_name="apply_patch",
+                        tool_input={"command": patch(target)}))) is None
+
         cs = root / "Assets/_Project/Scripts/Runtime/Example/Test.cs"
         cs.parent.mkdir(parents=True)
         cs.write_text("class Test : MonoBehaviour {\npublic float speed;\n// TEMP\n}", encoding="utf-8")

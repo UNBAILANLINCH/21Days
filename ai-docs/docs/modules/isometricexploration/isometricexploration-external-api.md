@@ -24,6 +24,12 @@ maturity: stable
 
 ## 沉浸模式（跨模块）
 
+相机距离 API（`Runtime/IsometricExploration/CameraDistanceCulling.cs`）：
+`ApplyConfiguration()` 重读当前配置；`ApplySettings(IReadOnlyList<CameraLayerCullSettings>)` 临时应用一组层掩码/距离，
+组件必须处于启用且激活状态。null/空列表恢复启用前的距离，未列出的层也恢复原值；重复层后项优先。
+`CameraLayerCullSettings(int layers, float distance)` 只读 `Layers` / `Distance`，非法距离归零；
+`IsometricExplorationConfig.CameraLayerCulling` 暴露只读列表。运行时调用不修改 SO，禁用组件恢复原始相机距离。
+
 沉浸状态的真相在 Core 的 `IHudVisibility`，不在本模块：其他模块读 `IsHudHidden` 或订阅 `HudVisibilityChangedEvent`
 隐藏自己的世界空间提示；自己的 Hud 面板默认会被隐藏，沉浸中仍需显示的面板重写 `UIView.VisibleWhenHudHidden => true`。
 Addressables：`UI` 组地址 `ExplorationHudView`（预制体 `Assets/_Project/Prefabs/UI/ExplorationHudView.prefab`）、

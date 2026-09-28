@@ -1,5 +1,6 @@
 // 职责：保存 2.5D 探索场景需要现场调节的相机与探索 HUD 参数（移动速度归 PlayerConfig）。
 // 为什么新建：现有 PlayerConfig 面向战斗规则，不能承载独立场景原型的表现参数。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.IsometricExploration
@@ -9,6 +10,11 @@ namespace Game.IsometricExploration
     {
         [SerializeField, Min(0.01f), Tooltip("摄像机跟随目标时的缓动时间")]
         private float cameraSmoothTime = 0.2f;
+
+        [SerializeField, Tooltip("按 Layer 设置相机剔除距离；空列表保持原值，具体距离待场景调优")]
+        private CameraLayerCullSettings[] cameraLayerCulling = System.Array.Empty<CameraLayerCullSettings>();
+
+        public IReadOnlyList<CameraLayerCullSettings> CameraLayerCulling => cameraLayerCulling;
 
         // —— PRP/exploration-whitebox 波 3 追加：探索 HUD 的控件、万向标与重置文案。
         [SerializeField, Tooltip("开发用开关：桌面平台也显示触屏控件（摇杆 / 三键 / 走跑按钮），默认关；正式只在触屏平台显示")]

@@ -138,6 +138,9 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | UI | 不受影响：UI 根画布是 Screen Space Overlay（`UIService.CreateLayer`），与相机深度无关 | 同左 |
 
 - 主相机缺失（或取到的就是舞台相机）→ 退路：舞台相机按作者参数独立渲染（遮罩补 Performance 层、深度 +10），Warn + 埋 `world_camera_fallback(id, reason)`。
+- 世界模式接管时同时复制主相机的 `layerCullDistances` 与 `layerCullSpherical`，所有收尾路径恢复舞台作者值；
+  0 仍表示舞台自身 Far Clip，不复制主相机裁剪面。主相机缺失与 Overlay 模式保留作者的分层距离。
+  `PerformanceServiceWorldTests` 核对继承、跳过/取消恢复及 Overlay/缺主相机路径。
 - **舞台相机不要打 MainCamera 标签**，否则演出期间 `Camera.main` 可能取到它（校验器 `camera_tagged_main`）。
 - 服务构造函数末尾有可选参数 `Func<Camera> mainCameraProvider`（默认 `Camera.main`），测试靠它注入主相机。
 - 模板工厂 `PerformanceTemplateFactory` 只建叠加模式；世界模式示例用专门 builder（见下「示例 `perf_sample_scene_talk`」）。

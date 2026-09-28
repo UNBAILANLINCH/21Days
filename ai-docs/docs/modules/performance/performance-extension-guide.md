@@ -79,6 +79,9 @@ maturity: stable
 
 ## 验证
 
+新增世界舞台时，距离剔除从主相机继承；不要再挂一套组件竞争写 `layerCullDistances`。
+近远裁剪面仍按舞台作者配置；调镜头后检查远景是否被主相机的分层距离剔除，并测试结束后的恢复。
+
 规则改动（`PerformanceRules`/`PerformancePolicy`/`PerformanceSaveData`/`PerformanceTriggerRules`）配 EditMode 测试；
 编辑器工具（模板工厂、校验器）配 `Tests/EditMode/Editor/Performance/` 测试，用临时目录并在 `TearDown` 删干净；
 玩家可见行为（黑边、字幕、停顿、跳过、触发、对白插播）走 `Tests/Showcase/Performance/PerformanceShowcase.cs`。

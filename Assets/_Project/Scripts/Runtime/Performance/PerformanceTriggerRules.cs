@@ -4,6 +4,7 @@
 // 为什么新建（复用 → 扩展 → 新建）：判定逻辑要脱离场景与服务单测，PerformanceRules 是单段演出的阶段机，
 //   触发判定不属于它的职责；工程里没有可复用的「一次性触发」判定。
 using System.Collections.Generic;
+using Game.CharacterPuppet;
 using UnityEngine;
 
 namespace Game.Performance
@@ -38,6 +39,22 @@ namespace Game.Performance
             }
             reason = null;
             return true;
+        }
+
+        /// <summary>在实例化舞台之前收集场景角色；包含未激活角色，避免演出期间启用时漏出。只扫描一次。</summary>
+        public static HiddenVisuals HideSceneCharacters()
+        {
+            var roots = new List<GameObject>();
+            foreach (ChibiPuppet puppet in Object.FindObjectsByType<ChibiPuppet>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (puppet.GetComponentInParent<PerformanceStage>(true) != null) continue;
+                ChibiPuppetMotion motion = puppet.GetComponent<ChibiPuppetMotion>();
+                // 使用表现组件公开的角色根，不依赖玩家或对白模块。
+                // ponytail: 无驱动的小人退回顶层根；放入公共容器时应配置 ChibiPuppetMotion.TrackedRoot。
+                Transform root = motion != null && motion.TrackedRoot != null ? motion.TrackedRoot : puppet.transform.root;
+                roots.Add(root.gameObject);
+            }
+            return HideVisuals(roots);
         }
 
         /// <summary>

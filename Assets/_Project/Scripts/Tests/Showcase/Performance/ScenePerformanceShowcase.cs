@@ -11,6 +11,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Core.Flow;
+using Game.Core.Simulation;
 using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Performance;
@@ -137,6 +138,7 @@ namespace Game.Tests.Showcase.Performance
             }, 5f);
             yield return Check("面板显示第一句：说话者「阿米娅」、头像在左侧",
                 () => SpeakerText() == "阿米娅" && AvatarShownOn(false), 5f);
+            yield return CheckWorldPausedWhileStagePlays();
             yield return Check("舞台相机接管画面：它是深度最高的启用相机，主相机遮罩清零",
                 () => StageCameraOnTop(Stage()) && mainCamera != null && mainCamera.cullingMask == 0, 3f);
             yield return Check("玩家渲染器与名牌全部隐藏（舞台上的阿米娅是替身，不出重影）",
@@ -191,6 +193,8 @@ namespace Game.Tests.Showcase.Performance
             yield return EnterSampleScene();
             yield return WalkIntoTrigger();
             yield return Check("第一句出现", () => SpeakerText() == "阿米娅", 5f);
+            yield return CheckWorldPausedWhileStagePlays();
+            yield return Check("包含新增 NPC 的全部场景角色已隐藏", () => AllHidden(sceneVisuals), 2f);
 
             yield return Step("跳过（等价长按跳过键到满）", () => performance.Skip());
             yield return Check("演出提前结束，结果 Skipped",
@@ -259,6 +263,8 @@ namespace Game.Tests.Showcase.Performance
                 }
             }
 
+            // 独立于触发器的配置检查新增 NPC，防止手工列表漏配却测试通过。
+            sceneVisuals.AddRange(CollectVisuals(GameObject.Find("Yao_WellWoman")));
             sceneVisualsBefore = ReadEnabled(sceneVisuals);
 
             GameObject patrol = GameObject.Find(PatrolMonsterName);
@@ -277,6 +283,19 @@ namespace Game.Tests.Showcase.Performance
             yield return Step("确认（点击 / 空格）", () => performance.Confirm(), 0.3f);
         }
 
+        private IEnumerator CheckWorldPausedWhileStagePlays()
+        {
+            SimulationRunner runner = ResolveService<SimulationRunner>();
+            Assert.That(runner, Is.Not.Null);
+            long tick = runner.Clock.Tick;
+            double directorTime = DirectorTime();
+            Vector2 position = playerRules.Model.Position;
+            yield return new WaitForSecondsRealtime(0.5f);
+            yield return Check("演出动画继续播放，世界逻辑 Tick 与玩家位置保持不变",
+                () => Time.timeScale == 0f && runner.IsPaused && runner.Clock.Tick == tick
+                      && playerRules.Model.Position == position && DirectorTime() > directorTime);
+        }
+
         private IEnumerator CheckRestored()
         {
             yield return Check("主相机遮罩恢复、HUD 层恢复可见、演出面板已关",
@@ -285,6 +304,9 @@ namespace Game.Tests.Showcase.Performance
             yield return Check("玩家渲染器与名牌恢复到进入前的开关状态", () => Restored(playerVisuals, playerVisualsBefore), 2f);
             yield return Check("场景 NPC / 巡逻怪 / 标记恢复到进入前的开关状态", () => Restored(sceneVisuals, sceneVisualsBefore), 2f);
             yield return Check("世界恢复：timeScale = 1", () => Mathf.Approximately(Time.timeScale, 1f), 2f);
+            SimulationRunner runner = ResolveService<SimulationRunner>();
+            long tick = runner.Clock.Tick;
+            yield return Check("世界逻辑 Tick 恢复推进", () => runner.Clock.Tick > tick, 2f);
         }
 
         private void Connect()

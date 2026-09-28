@@ -42,7 +42,6 @@ namespace Game.Editor.Performance
             public GameObject Prefab;
             public double Duration;
             public int SubtitleCount;
-            public int ExpressionCount;
             public int HoldCount;
             public List<PerformanceIssue> Issues;
         }
@@ -198,7 +197,7 @@ namespace Game.Editor.Performance
                 EditorGUILayout.BeginVertical();
                 EditorGUILayout.LabelField(row.Id, EditorStyles.boldLabel);
                 EditorGUILayout.LabelField(
-                    $"{row.Duration:0.##} 秒 · 字幕 {row.SubtitleCount} 条 / 表情 {row.ExpressionCount} 条 / 停顿 {row.HoldCount} 个",
+                    $"{row.Duration:0.##} 秒 · 字幕 {row.SubtitleCount} 条 / 停顿 {row.HoldCount} 个",
                     EditorStyles.miniLabel);
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.EndHorizontal();
@@ -376,7 +375,6 @@ namespace Game.Editor.Performance
                 if (track == null || !visited.Add(track)) continue;
                 row.HoldCount += CountHolds(track);
                 if (track is SubtitleTrack) row.SubtitleCount += CountClips(track);
-                else if (track is ExpressionTrack) row.ExpressionCount += CountClips(track);
             }
         }
 

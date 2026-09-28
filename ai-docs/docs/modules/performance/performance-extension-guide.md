@@ -17,21 +17,11 @@ maturity: stable
    （`CameraBillboard`，目标相机指舞台相机）下嵌套小人预制体 `Chibi_<名字>`，停用小人上的 `ChibiPuppetMotion`；`cast` 填说话者 → 头像 → 站位
    （`side: Left/Right`，按演员在舞台上的实际站位配，决定头像出现在对白面板左槽还是右槽）。
 3. 在 Timeline 窗口里拖时间线：字幕轨加 `SubtitleClip`（说话者 + 正文）、动作轨绑演员的 `Animator` 再拖 `AnimationClip`、
-   需要停顿处在 Markers 区加 `HoldMarker`。表情轨（`ExpressionTrack`）模板不建：它只认 `PerformanceActor` 的子类，工程里目前没有（见下「给演员加表情」）。
+   需要停顿处在 Markers 区加 `HoldMarker`。表情轨及无实现的演员抽象已删除。
 4. 点 Inspector 或编辑器窗口的「校验」，看 `PerformanceValidator` 列出的问题（红色 Error 必须清零，黄色 Warning 视情况）。
 5. Play 模式下从 Boot 进游戏，回到演出编辑器窗口点「试播」验证效果；也可以直接用 `PerformanceTrigger` 挂进验证场景走完整流程。
-   场景里给 `PerformanceTrigger` 接 `anchor`，勾 `hideActorVisual`，同形象的 NPC / 怪与标记拖进 `hiddenDuringPlay`。
+   场景里给 `PerformanceTrigger` 接 `anchor`。带 `ChibiPuppet` 的场景角色由服务统一隐藏；角色根以外的标记等额外物体拖进 `hiddenDuringPlay`。
    构图按 `/verify-module Performance` 的截图调相机局部位姿与站位。
-
-## 给演员加表情
-
-`ExpressionTrack` / `ExpressionClip` 与抽象基类 `PerformanceActor` 保留着，但工程里**没有具体实现**（立绘占位演员 `SpritePerformanceActor`
-已随旧演出方式删除）。要让序列帧小人按时间轴切表情：
-
-1. 在 `Runtime/Performance/` 加一个 `PerformanceActor` 子类，挂在小人上：`ExpressionNames` 列出能切的表情名，`SetExpression`
-   按名字切（例如切 `Animator` 状态或换 Sprite），改了序列化属性就重写 `GatherPreviewProperties` 登记预览属性（否则拖时间线会弄脏预制体）。
-2. 时间轴加表情轨、绑定这个组件；`PerformanceValidator` 会查未绑定（Error）与表情名不存在（Error）。
-3. 想让新建演出默认带表情轨，再改 `PerformanceTemplateFactory.CreateTimeline`，并配 `Tests/EditMode/Editor/Performance/` 的测试。
 
 ## 加一个新的挂载点
 
@@ -46,7 +36,7 @@ maturity: stable
 
 ## 加一种新的时间轴轨道（比如「相机运镜」「音效强度」）
 
-1. 参照 `Runtime/Performance/Timeline/ExpressionTrack.cs` 的四件套：`XxxTrack : TrackAsset`（`[TrackClipType]`，
+1. 参照 `Runtime/Performance/Timeline/SubtitleTrack.cs` 的四件套：`XxxTrack : TrackAsset`（`[TrackClipType]`，
    需要绑定对象就加 `[TrackBindingType]`）、`XxxClip : PlayableAsset, ITimelineClipAsset`、
    `XxxBehaviour : PlayableBehaviour`（数据载体）、`XxxMixerBehaviour : PlayableBehaviour`（混合逻辑，
    只在权重最大片段变化时调用真正的效果，不要每帧调）。
@@ -69,7 +59,7 @@ maturity: stable
 
 ## 依赖方向约束
 
-新扩展只能 `Game.Performance → Game.Core`；`Game.Performance.Timeline` 只能被 `Game.Performance` 与 `Game.Editor.Performance`
+服务依赖 `Game.Core`；角色隐藏额外读取叶子表现模块 `Game.CharacterPuppet` 的公开组件与 `TrackedRoot`，不引用角色玩法逻辑。`Game.Performance.Timeline` 只能被 `Game.Performance` 与 `Game.Editor.Performance`
 引用。不要引用 `Game.Dialogue` / `Game.IsometricExploration` 等玩法模块（方向反了，是它们调 `IPerformanceService`）；
 编辑器扩展不进 `Game.Runtime`，运行时类型不引用 `UnityEditor`（编辑器侧的示例 builder 可以引用小人 / 探索模块的组件来搭舞台）。
 

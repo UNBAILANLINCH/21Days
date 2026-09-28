@@ -108,6 +108,8 @@ namespace Game.Tests.Showcase.Performance
         {
             Connect();
             yield return CloseTitleIfOpen();
+            Renderer[] characterRenderers = SceneCharacterRenderers();
+            bool[] rendererStatesBefore = EnabledStates(characterRenderers);
 
             Transform anchor = VillageStageAnchor();
             yield return Step($"代码拉起演出 {SampleId}（摆到村口锚点 {anchor.name}）",
@@ -116,6 +118,7 @@ namespace Game.Tests.Showcase.Performance
                 () => performance.IsRunning && View() != null && Time.timeScale == 0f && !GameplayEnabled(), 5f);
             yield return WaitPanelShown();
             yield return Check("底部对白面板出现字幕（说话者 + 正文）", SubtitleVisible, 3f);
+            yield return Check("代码试播同样隐藏全部场景角色（含新增 NPC）", () => AllDisabled(characterRenderers), 3f);
             yield return Check($"舞台摆到村口锚点：演出实例根与 {anchor.name} 水平距离、高度差都 < {PlacementTolerance}",
                 () => StageNear(anchor), 3f);
             yield return Snapshot("世界舞台与字幕");
@@ -134,6 +137,7 @@ namespace Game.Tests.Showcase.Performance
                       && performance.HasPlayed(SampleId), 2f);
             yield return Check("世界恢复：timeScale=1、Gameplay 输入图打开、演出面板已关",
                 () => Mathf.Approximately(Time.timeScale, 1f) && GameplayEnabled() && View() == null, 3f);
+            yield return Check("代码试播结束，场景角色恢复原显隐", () => StatesMatch(characterRenderers, rendererStatesBefore), 3f);
             yield return Snapshot("结束恢复");
         }
 
@@ -465,13 +469,12 @@ namespace Game.Tests.Showcase.Performance
         }
 
         /// <summary>
-        /// 对白 1003 插播时应被藏起的场景角色（玩家、长者、旅人）根下的全部渲染器（含未激活的，与插播隐藏的范围一致）。
-        /// 在拉起对白前取：此时场景里还没有舞台实例。
+        /// 演出前收集场景角色根下全部渲染器（含未激活），独立于触发器的手工名单。
         /// </summary>
         private Renderer[] SceneCharacterRenderers()
         {
             var renderers = new List<Renderer>();
-            string[] names = { PlayerName, ElderName, TravelerName };
+            string[] names = { PlayerName, ElderName, TravelerName, "Npc_Villager", "enerme", "Yao_WellWoman" };
             for (int i = 0; i < names.Length; i++)
             {
                 renderers.AddRange(FindRequired<Transform>(names[i]).GetComponentsInChildren<Renderer>(true));

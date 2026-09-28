@@ -162,9 +162,12 @@ namespace Game.Performance
             pendingConfirm = false;
             pendingSkip = false;
             GameObject instance = null;
+            PerformanceTriggerRules.HiddenVisuals hiddenCharacters = null;
             PerformanceOutcome outcome = PerformanceOutcome.Failed;
             try
             {
+                // 所有调用入口都隐藏背景角色；加载舞台前取快照，舞台替身不进入隐藏名单。
+                hiddenCharacters = PerformanceTriggerRules.HideSceneCharacters();
                 instance = await LoadAsync(id, ct);
                 PerformanceStage stage = instance.GetComponent<PerformanceStage>();
                 if (stage == null)
@@ -191,6 +194,7 @@ namespace Game.Performance
             finally
             {
                 // 实例归还放最外层：加载成功后无论哪条路径（缺舞台、播放异常、取消）都要还。
+                PerformanceTriggerRules.RestoreVisuals(hiddenCharacters);
                 if (instance != null) assets.ReleaseInstance(instance);
                 running = false;
                 CurrentId = null;

@@ -10,6 +10,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.CharacterPuppet;
 using Game.Core.Assets;
 using Game.Core.Input;
 using Game.Core.Save;
@@ -111,6 +112,36 @@ namespace Game.Tests.EditMode.Performance
             // 服务第一次播放时懒建的挂载根（EditMode 下不进 DontDestroyOnLoad，留在当前场景里），一并清掉。
             GameObject serviceRoot = GameObject.Find("PerformanceRoot");
             if (serviceRoot != null) Object.DestroyImmediate(serviceRoot);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_HidesSceneCharactersAndRestoresAfterCancel()
+        {
+            var npc = Track(new GameObject("unlisted_npc", typeof(ChibiPuppet), typeof(SpriteRenderer), typeof(Canvas)));
+            var inactiveNpc = Track(new GameObject("inactive_npc", typeof(ChibiPuppet), typeof(SpriteRenderer)));
+            inactiveNpc.SetActive(false);
+            var previouslyHidden = Track(new GameObject("hidden_part", typeof(SpriteRenderer)));
+            previouslyHidden.transform.SetParent(npc.transform);
+            previouslyHidden.GetComponent<Renderer>().enabled = false;
+            var stageActor = Track(new GameObject("stage_actor", typeof(ChibiPuppet), typeof(SpriteRenderer)));
+            stageActor.transform.SetParent(stage.transform);
+            using var cts = new CancellationTokenSource();
+
+            UniTask<PerformanceResult> play = service.PlayAsync(Id, cts.Token);
+            AssertRunning(play);
+            Assert.That(npc.GetComponent<Renderer>().enabled, Is.False);
+            Assert.That(npc.GetComponent<Canvas>().enabled, Is.False);
+            inactiveNpc.SetActive(true);
+            Assert.That(inactiveNpc.GetComponent<Renderer>().enabled, Is.False);
+            Assert.That(stageActor.GetComponent<Renderer>().enabled, Is.True, "舞台替身保持可见");
+
+            cts.Cancel();
+            yield return WaitCompleted(play);
+            Assert.That(Capture(play), Is.InstanceOf<OperationCanceledException>());
+            Assert.That(npc.GetComponent<Renderer>().enabled, Is.True);
+            Assert.That(npc.GetComponent<Canvas>().enabled, Is.True);
+            Assert.That(inactiveNpc.GetComponent<Renderer>().enabled, Is.True);
+            Assert.That(previouslyHidden.GetComponent<Renderer>().enabled, Is.False);
         }
 
         [UnityTest]
@@ -270,8 +301,8 @@ namespace Game.Tests.EditMode.Performance
         [UnityTest]
         public IEnumerator PlayAsync_AutoOn_ContinuesAtHoldAfterSecondsWithoutConfirm()
         {
-            // 间隔取大一些（3 秒）：EditMode 下每次循环的 dt 偏大，间隔太小会在测试看到 Holding 之前就已继续。
-            const float autoSeconds = 3f;
+            // 秒数边界由规则测试覆盖；EditMode 的 unscaledDeltaTime 不稳定，这里只验自动按钮到继续播放的接线。
+            const float autoSeconds = 0f;
             PerformanceView view = UseRealViews(autoSeconds);
             UniTask<PerformanceResult> play = service.PlayAsync(Id);
             AssertRunning(play);
@@ -282,13 +313,12 @@ namespace Game.Tests.EditMode.Performance
 
             // EditMode 下时间轴不会自己走到停顿标记：直接给舞台发 HoldMarker 通知（舞台暂停导演并通知服务），同时间轴走到标记。
             stage.OnNotify(Playable.Null, Track(ScriptableObject.CreateInstance<HoldMarker>()), null);
-            yield return WaitRealtime(() => rules.Phase == PerformancePhase.Holding, 5f, "收到停顿标记后应进入 Holding");
-            Assert.That(telemetry.Events, Has.No.Member("hold_confirmed"), "刚进停顿不应立即继续");
             Assert.That(stage.Director.state, Is.EqualTo(PlayState.Paused), "停顿中导演应暂停");
 
             // 「等满秒数」的精确语义由 PerformanceRulesTests 钉住；这里不量真实耗时——EditMode 下 Time.unscaledDeltaTime
             // 不是每次循环的真实间隔（实测 14 ms 墙钟内循环累计了 1 秒以上的 dt），只验接线：不调 Confirm 也会自己继续。
             yield return WaitRealtime(() => telemetry.Events.Contains("hold_confirmed"), 10f, "自动开着时停顿处过秒数应自动继续（不调 Confirm）");
+            Assert.That(rules.HoldCount, Is.EqualTo(1));
             Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Playing));
             Assert.That(rules.AutoPlay, Is.True, "自动继续不关自动");
             Assert.That(stage.Director.state, Is.EqualTo(PlayState.Playing), "自动继续后导演应恢复播放");

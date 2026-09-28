@@ -64,7 +64,7 @@ namespace Game.Tests.EditMode.Editor.Performance
             Assert.That(tracks.OfType<SubtitleTrack>().Count(), Is.EqualTo(1));
             Assert.That(tracks.OfType<AnimationTrack>().Count(), Is.EqualTo(1));
             Assert.That(tracks.OfType<AudioTrack>().Count(), Is.EqualTo(1));
-            Assert.That(tracks.OfType<ExpressionTrack>(), Is.Empty, "没有具体演员可绑，壳里不建表情轨");
+            Assert.That(tracks.Length, Is.EqualTo(3), "模板只保留字幕、动作、音效三条轨");
             Assert.That(timeline.duration, Is.EqualTo(PerformanceTemplateFactory.DefaultDurationSeconds));
         }
 

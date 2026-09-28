@@ -23,6 +23,8 @@ maturity: stable
 
 ### `PlayAsync` 的语义
 
+- **场景角色隐藏**：加载舞台前收集场景中带 `ChibiPuppet` 的角色（含未激活），优先取 `ChibiPuppetMotion.TrackedRoot`，没有则取顶层根，关闭根下 Renderer 与 Canvas；排除 `PerformanceStage` 内的演员。所有入口共用，所有收尾路径按原 enabled 状态恢复。公共容器下的角色应配置自己的 `TrackedRoot`，避免兜底隐藏整个容器；开始后新生成的角色不在本次快照内。
+- **世界时停**：舞台 `pauseWorld` 开启时持有全局暂停令牌，暂停模拟 Tick 与缩放时间；时间轴、字幕使用 unscaled 时间继续播放，收尾释放令牌。外层页签 / 对白仍持有令牌时不会提前恢复世界。
 - 舞台相机接管时继承主相机分层剔除距离与球形/平面模式，结束恢复舞台作者值；缺主相机的退路保留作者值、不复制。
 
 - **重入**：`IsRunning` 为真时再调，抛 `InvalidOperationException`，埋 `play_rejected(reason=busy)`，不修改当前演出。

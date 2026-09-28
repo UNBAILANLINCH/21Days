@@ -1,6 +1,8 @@
 // 职责：钉住 PerformanceService 的世界模式与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
 //   结束（跳过 / 取消）后主相机与舞台相机原样恢复；世界模式按摆放值摆实例；叠加模式忽略摆放并告警；主相机缺失走退路并告警；
-//   HideHud 时 Hud / Popup 层演出中隐藏、结束按进来前的显隐恢复（对白里插播时 Hud 不被重新亮出来）。
+//   HideHud 时 Hud / Popup 层演出中隐藏、结束按进来前的显隐恢复（对白里插播时 Hud 不被重新亮出来）；
+//   「自动」开着时停顿处过秒数自动继续；台词记录（LOG）开着时导演暂停、关上恢复，演出结束时还开着的 LOG 先于演出面板关掉。
+//   后三条用真实的 PerformanceView / TranscriptView 预制体（按钮点击 → 面板事件 → 服务），假 UI 照 UIService 调面板生命周期。
 // 为什么新建（复用 → 扩展 → 新建）：现有 Performance 测试都是纯逻辑类（规则 / 策略 / 存档 / 触发判定），没有服务级用例可扩展；
 //   DialogueServiceTests 的假服务是对白专用的私有嵌套类，拿不过来。服务要走真实的相机与舞台组件，只能新建。
 using System;
@@ -14,9 +16,12 @@ using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
+using Game.Core.UI.Views;
 using Game.Performance;
+using Game.Performance.Timeline;
 using MessagePipe;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Playables;
@@ -43,9 +48,13 @@ namespace Game.Tests.EditMode.Performance
         private const int MaxFrames = 600;
         private const int MainMask = (1 << 0) | (1 << 2) | (1 << 4);
         private const int AuthorStageMask = 1 << 3;
+        private const string PerformanceViewPath = "Assets/_Project/Prefabs/UI/PerformanceView.prefab";
+        private const string TranscriptViewPath = "Assets/_Project/Prefabs/UI/TranscriptView.prefab";
 
         private readonly List<Object> created = new List<Object>();
         private RecordingTelemetry telemetry;
+        private PerformanceRules rules;
+        private TranscriptView transcriptView;
         private PerformanceConfig config;
         private FakeAssets assets;
         private PerformanceService service;
@@ -84,7 +93,8 @@ namespace Game.Tests.EditMode.Performance
             assets = new FakeAssets(stage.gameObject);
             var view = BuildView();
             ui = new FakeUI(view);
-            service = new PerformanceService(config, new PerformanceRules(telemetry), assets, ui,
+            rules = new PerformanceRules(telemetry);
+            service = new PerformanceService(config, rules, assets, ui,
                 new FakeInput(), new FakeWorldPause(), new FakeSave(),
                 new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
                 telemetry, () => providedMain);
@@ -267,6 +277,84 @@ namespace Game.Tests.EditMode.Performance
             Capture(play);
         }
 
+        [UnityTest]
+        public IEnumerator PlayAsync_AutoOn_ContinuesAtHoldAfterSecondsWithoutConfirm()
+        {
+            // 间隔取大一些（3 秒）：EditMode 下每次循环的 dt 偏大，间隔太小会在测试看到 Holding 之前就已继续。
+            const float autoSeconds = 3f;
+            PerformanceView view = UseRealViews(autoSeconds);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+
+            Field<Button>(view, "autoButton").onClick.Invoke();
+            yield return WaitRealtime(() => rules.AutoPlay, 5f, "点「自动」后规则应开启自动");
+            Assert.That(Field<TMP_Text>(view, "autoLabel").text, Is.EqualTo("自动中"), "自动开着时标签应为「自动中」");
+
+            // EditMode 下时间轴不会自己走到停顿标记：直接给舞台发 HoldMarker 通知（舞台暂停导演并通知服务），同时间轴走到标记。
+            stage.OnNotify(Playable.Null, Track(ScriptableObject.CreateInstance<HoldMarker>()), null);
+            yield return WaitRealtime(() => rules.Phase == PerformancePhase.Holding, 5f, "收到停顿标记后应进入 Holding");
+            Assert.That(telemetry.Events, Has.No.Member("hold_confirmed"), "刚进停顿不应立即继续");
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Paused), "停顿中导演应暂停");
+
+            // 「等满秒数」的精确语义由 PerformanceRulesTests 钉住；这里不量真实耗时——EditMode 下 Time.unscaledDeltaTime
+            // 不是每次循环的真实间隔（实测 14 ms 墙钟内循环累计了 1 秒以上的 dt），只验接线：不调 Confirm 也会自己继续。
+            yield return WaitRealtime(() => telemetry.Events.Contains("hold_confirmed"), 10f, "自动开着时停顿处过秒数应自动继续（不调 Confirm）");
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Playing));
+            Assert.That(rules.AutoPlay, Is.True, "自动继续不关自动");
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Playing), "自动继续后导演应恢复播放");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_LogOpen_PausesDirectorAndResumesOnClose()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Playing), "开演后导演应在播放");
+            view.ShowSubtitle("阿米娅", "博士，前面就是村口了。", null, PerformanceAvatarSide.Left);
+
+            Field<Button>(view, "historyButton").onClick.Invoke();
+            yield return WaitRealtime(() => ui.Calls.Contains("Open:" + nameof(TranscriptView)), 5f, "点「LOG」应打开台词记录");
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Paused), "LOG 开着时导演应暂停");
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Playing), "LOG 只停导演，不改规则阶段");
+            Assert.That(Field<TMP_Text>(transcriptView, "content").text, Does.Contain("阿米娅：博士，前面就是村口了。"),
+                "台词记录应含已显示过的字幕，格式同对白历史");
+            yield return null;
+            yield return null;
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Paused), "LOG 开着的后续帧导演仍暂停");
+
+            Field<Button>(transcriptView, "close").onClick.Invoke();
+            yield return WaitRealtime(() => ui.Calls.Contains("Close:" + nameof(TranscriptView)), 5f, "点「关闭」应关掉台词记录");
+            Assert.That(stage.Director.state, Is.EqualTo(PlayState.Playing), "关掉 LOG 后导演应恢复播放");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayAsync_SkipWhileLogOpen_ClosesLogBeforePanel()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            Field<Button>(view, "historyButton").onClick.Invoke();
+            yield return WaitRealtime(() => ui.Calls.Contains("Open:" + nameof(TranscriptView)), 5f, "点「LOG」应打开台词记录");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+
+            int closeLog = ui.Calls.IndexOf("Close:" + nameof(TranscriptView));
+            int closePanel = ui.Calls.IndexOf("Close:" + nameof(PerformanceView));
+            Assert.That(closeLog, Is.GreaterThanOrEqualTo(0), "演出结束时还开着的台词记录要一并关掉");
+            Assert.That(closePanel, Is.GreaterThan(closeLog), "先关 Top 层的台词记录，再关演出面板");
+        }
+
         // 假服务同步完成，调用返回时应停在播放循环里；提前结束就把异常带进失败信息。
         private void AssertRunning(UniTask<PerformanceResult> play)
         {
@@ -346,6 +434,56 @@ namespace Game.Tests.EditMode.Performance
             return view;
         }
 
+        /// <summary>
+        /// 换上真实的 PerformanceView / TranscriptView 预制体（挂在临时画布下），假 UI 打开 / 关闭时调面板的 OnOpenAsync / OnCloseAsync，
+        /// 并重建服务。黑场时长置 0（不起 LitMotion 动画），「自动」间隔按参数写进配置。
+        /// </summary>
+        private PerformanceView UseRealViews(float autoSeconds)
+        {
+            using (var so = new SerializedObject(config))
+            {
+                so.FindProperty("fadeSeconds").floatValue = 0f;
+                so.FindProperty("autoAdvanceSeconds").floatValue = autoSeconds;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            var canvas = Track(new GameObject("perf_test_canvas", typeof(RectTransform), typeof(Canvas)));
+            var viewPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PerformanceViewPath);
+            var transcriptPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TranscriptViewPath);
+            Assert.That(viewPrefab, Is.Not.Null, "找不到演出面板预制体：" + PerformanceViewPath);
+            Assert.That(transcriptPrefab, Is.Not.Null, "找不到记录面板预制体：" + TranscriptViewPath);
+            var view = Track(Object.Instantiate(viewPrefab, canvas.transform, false)).GetComponent<PerformanceView>();
+            transcriptView = Track(Object.Instantiate(transcriptPrefab, canvas.transform, false)).GetComponent<TranscriptView>();
+            ui = new FakeUI(view) { RunLifecycle = true };
+            ui.Register(transcriptView);
+            rules = new PerformanceRules(telemetry);
+            service = new PerformanceService(config, rules, assets, ui,
+                new FakeInput(), new FakeWorldPause(), new FakeSave(),
+                new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
+                telemetry, () => providedMain);
+            return view;
+        }
+
+        /// <summary>按真实时间等条件成立（EditMode 帧率不定，不按帧数算）；超时断言失败。</summary>
+        private static IEnumerator WaitRealtime(Func<bool> condition, float timeoutSeconds, string failMessage)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(condition(), Is.True, failMessage);
+        }
+
+        /// <summary>按序列化字段名取面板上接好的引用（顺带验接线）。</summary>
+        private static T Field<T>(Object owner, string field) where T : Object
+        {
+            using (var so = new SerializedObject(owner))
+            {
+                SerializedProperty property = so.FindProperty(field);
+                Assert.That(property, Is.Not.Null, $"{owner.GetType().Name} 没有字段 {field}");
+                var value = property.objectReferenceValue as T;
+                Assert.That(value, Is.Not.Null, $"{owner.GetType().Name}.{field} 未接线");
+                return value;
+            }
+        }
+
         private void SetHideHud(bool hide)
         {
             using (var so = new SerializedObject(stage))
@@ -368,6 +506,17 @@ namespace Game.Tests.EditMode.Performance
         {
             for (int i = 0; i < MaxFrames && !task.Status.IsCompleted(); i++) yield return null;
             Assert.That(task.Status.IsCompleted(), Is.True, $"{MaxFrames} 帧内演出没有收尾");
+        }
+
+        /// <summary>
+        /// 按真实时间等演出收尾。EditMode 下 UniTask 的循环在 <c>EditorApplication.isUpdating</c>（别的会话导入资产）时停摆，
+        /// 按帧数等会在停摆期间把帧数耗光误报超时（全量跑时实测过）；新用例按墙钟等，给足 10 秒。
+        /// </summary>
+        private static IEnumerator WaitCompletedRealtime(UniTask<PerformanceResult> task, float timeoutSeconds = 10f)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!task.Status.IsCompleted() && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(task.Status.IsCompleted(), Is.True, $"{timeoutSeconds} 秒内演出没有收尾");
         }
 
         // 观察已完成的任务：返回它抛出的异常（成功返回 null），不留未观察异常（见 pitfalls）。
@@ -418,27 +567,41 @@ namespace Game.Tests.EditMode.Performance
         }
 
         /// <summary>
-        /// 打开面板直接交出预先搭好的面板；关闭空操作；按层记 SetLayerVisible 设的值（初始全可见，语义同 UIService：
-        /// 只反映整层开关）。<see cref="Calls"/> 按顺序记打开与读层，用来钉住「先记层状态、再开面板」。
+        /// 打开面板直接交出预先搭好的面板（按类型登记，可登记多个）；按层记 SetLayerVisible 设的值（初始全可见，语义同 UIService：
+        /// 只反映整层开关）。<see cref="Calls"/> 按顺序记打开、关闭与读层，用来钉住「先记层状态、再开面板」与收尾顺序。
+        /// <see cref="RunLifecycle"/> 为 true 时照 UIService 调面板的 OnOpenAsync / OnCloseAsync（真预制体面板用；最小面板不走生命周期）。
         /// </summary>
         private sealed class FakeUI : IUIService
         {
-            private readonly UIView view;
+            private readonly Dictionary<Type, UIView> views = new Dictionary<Type, UIView>();
 
             public FakeUI(UIView view)
             {
-                this.view = view;
+                Register(view);
             }
 
             public List<string> Calls { get; } = new List<string>();
 
+            public bool RunLifecycle { get; set; }
+
+            public void Register(UIView view) => views[view.GetType()] = view;
+
             public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView
             {
                 Calls.Add("Open:" + typeof(T).Name);
+                if (!views.TryGetValue(typeof(T), out UIView view))
+                    throw new InvalidOperationException("假 UI 没登记面板 " + typeof(T).Name);
+                if (RunLifecycle) view.OnOpenAsync(arg, ct).GetAwaiter().GetResult();
                 return UniTask.FromResult((T)view);
             }
 
-            public UniTask CloseAsync(UIView closed, CancellationToken ct = default) => UniTask.CompletedTask;
+            public UniTask CloseAsync(UIView closed, CancellationToken ct = default)
+            {
+                if (closed == null) return UniTask.CompletedTask;
+                Calls.Add("Close:" + closed.GetType().Name);
+                if (RunLifecycle) closed.OnCloseAsync(ct).GetAwaiter().GetResult();
+                return UniTask.CompletedTask;
+            }
             public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
             public T Get<T>() where T : UIView => null;
             private readonly HashSet<UILayer> hiddenLayers = new HashSet<UILayer>();

@@ -1,0 +1,13 @@
+{
+    "id": 1,
+    "disguise_name": "巡夜人",
+    "true_name": "巡夜人（占位真形）",
+    "true_desc": "占位描述：夜里提灯巡行的身影，镜中现出披甲持刃的异形。",
+    "true_image": "yao_true_demon",
+    "flaw": "占位破绽：灯火照不出它的影子。",
+    "obsession": "占位执念：守着一条早已无人走的路。",
+    "clan": "占位族属",
+    "clue_items": [],
+    "sealable": true,
+    "mask": false
+}

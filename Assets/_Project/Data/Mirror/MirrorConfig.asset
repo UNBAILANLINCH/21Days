@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76534df0467f567429b0046744743c53, type: 3}
+  m_Name: MirrorConfig
+  m_EditorClassIdentifier: 
+  baseRange: 5
+  rangeLossPerCrack: 1.2
+  fanHalfAngle: 35
+  castCooldown: 0.4
+  resultSeconds: 2.5
+  sightRadius: 8
+  spiritShadowSprite: {fileID: 21300000, guid: f4332a35e9add4246ac59dab8ed04df6, type: 3}
+  spiritHintLift: 1.2
+  spiritHintScale: 1
+  spiritHintSortingOrder: 10
+  visionBaseRadius: 1
+  visionLossPerCrack: 0.18
+  engraving:
+  - "\u7167\u5F62\u4E0D\u7167\u5FC3"
+  - "\u4E00\u7167\u4E00\u95EE\uFF0C\u4E0D\u95EE\u4E8C\u56DE"
+  - "\u955C\u4E2D\u65E0\u6211"
+  humanTitle: "\u662F\u4EBA"
+  objectTitle: "\u662F\u7269"
+  blurryTitle: "\u770B\u4E0D\u771F\u5207"
+  blurryBody: "\u955C\u91CC\u53EA\u6709\u4E00\u56E2\u5F71\u5B50\u3002\u4E5F\u8BB8\u8FD8\u7F3A\u70B9\u4EC0\u4E48\u7EBF\u7D22\u3002"
+  trueFormTitle: "\u7167\u89C1\u771F\u5F62"
+  nothingTitle: "\u7167\u4E0D\u5230"
+  nothingBody: "\u955C\u9762\u524D\u7A7A\u65E0\u4E00\u7269\uFF0C\u6216\u8005\u592A\u8FDC\u4E86\u3002"
+  selfTitle: "\u955C\u4E2D\u65E0\u6211"
+  selfBody: "\u955C\u91CC\u53EA\u6709\u8EAB\u540E\u7684\u666F\u7269\u3002"
+  shatterText: "\u955C\u788E"
+  shatterInputDelay: 0.6

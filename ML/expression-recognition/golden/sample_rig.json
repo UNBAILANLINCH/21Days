@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "rig": "sample_rig",
+  "status": "占位",
+  "note": "按 configs/facs.yaml 的 FACS 原型在 sample_rig 滑杆上手写的占位金标，与合成器同源，不能证明泛化（DESIGN §7）。正式金标要由多人在游戏内捏脸工具里捏、盲标、取多数票。没写的滑杆取默认值 0。expect 为 unknown 表示应判「认不出」。",
+  "entries": [
+    {"id": "neutral_01", "expect": "neutral", "sliders": {}, "note": "全默认"},
+    {"id": "neutral_02", "expect": "neutral", "sliders": {"eye_ball_x": 0.6, "eye_ball_y": -0.4}, "note": "只动眼珠（屏蔽维）"},
+    {"id": "neutral_03", "expect": "neutral", "sliders": {"brow_L_y": 0.1, "brow_R_y": 0.1, "mouth_corner_L": 0.1, "mouth_corner_R": 0.1}, "note": "微动"},
+
+    {"id": "happy_01", "expect": "happy", "sliders": {"mouth_corner_L": 0.8, "mouth_corner_R": 0.8, "eye_L_smile": 0.7, "eye_R_smile": 0.7}, "note": "EMFACS 6+12"},
+    {"id": "happy_02", "expect": "happy", "sliders": {"mouth_corner_L": 0.9, "mouth_corner_R": 0.9}, "note": "CK+ 最小判据 AU12"},
+    {"id": "happy_03", "expect": "happy", "sliders": {"mouth_corner_L": 0.8, "mouth_corner_R": 0.8, "eye_L_smile": 0.6, "eye_R_smile": 0.6, "mouth_open": 0.3, "lower_lip": 0.3}, "note": "张嘴笑"},
+    {"id": "happy_04", "expect": "happy", "sliders": {"mouth_corner_L": 0.7, "mouth_corner_R": 0.6, "eye_L_smile": 0.5, "eye_R_smile": 0.6}, "note": "略不对称"},
+
+    {"id": "sad_01", "expect": "sad", "sliders": {"brow_L_angle": -0.8, "brow_R_angle": -0.8, "brow_L_y": -0.5, "brow_R_y": -0.5, "mouth_corner_L": -0.7, "mouth_corner_R": -0.7}, "note": "EMFACS 1+4+15"},
+    {"id": "sad_02", "expect": "sad", "sliders": {"brow_L_angle": -0.9, "brow_R_angle": -0.9, "mouth_corner_L": -0.6, "mouth_corner_R": -0.6, "chin": 0.5}, "note": "1+15+17，眉只抬内角"},
+    {"id": "sad_03", "expect": "sad", "sliders": {"brow_L_angle": -0.7, "brow_R_angle": -0.7, "brow_L_y": -0.4, "brow_R_y": -0.4, "mouth_corner_L": -0.8, "mouth_corner_R": -0.8, "eye_ball_y": -0.6}, "note": "眼珠朝下（屏蔽维不应起作用）"},
+    {"id": "sad_04", "expect": "sad", "sliders": {"eye_L_smile": 0.5, "eye_R_smile": 0.5, "mouth_corner_L": -0.8, "mouth_corner_R": -0.8}, "note": "CK+ 例外 AU6+15"},
+
+    {"id": "surprise_01", "expect": "surprise", "sliders": {"brow_L_y": 0.9, "brow_R_y": 0.9, "eye_L_open": 0.35, "eye_R_open": 0.35, "mouth_open": 0.6}, "note": "EMFACS 1+2+5B+26"},
+    {"id": "surprise_02", "expect": "surprise", "sliders": {"brow_L_y": 0.8, "brow_R_y": 0.8, "eye_L_open": 0.3, "eye_R_open": 0.3, "mouth_open": 1.0, "mouth_width": 0.2}, "note": "1+2+5B+27"},
+    {"id": "surprise_03", "expect": "surprise", "sliders": {"brow_L_y": 0.9, "brow_R_y": 0.9}, "note": "CK+ 最小判据 AU1+2"},
+    {"id": "surprise_04", "expect": "surprise", "sliders": {"brow_L_y": 0.7, "brow_R_y": 0.7, "mouth_open": 0.5}, "note": "1+2+26"},
+
+    {"id": "fear_01", "expect": "fear", "sliders": {"brow_L_y": 0.8, "brow_R_y": 0.8, "brow_L_angle": 0.5, "brow_R_angle": 0.5, "eye_L_open": 0.9, "eye_R_open": 0.9, "eye_L_smile": -0.4, "eye_R_smile": -0.4, "mouth_width": 0.8, "mouth_open": 0.5}, "note": "EMFACS 1+2+4+5+7+20+26"},
+    {"id": "fear_02", "expect": "fear", "sliders": {"brow_L_y": 0.8, "brow_R_y": 0.8, "brow_L_angle": 0.5, "brow_R_angle": 0.5, "eye_L_open": 0.9, "eye_R_open": 0.9, "mouth_width": 0.7}, "note": "1+2+4+5+20，不张嘴"},
+    {"id": "fear_03", "expect": "fear", "sliders": {"brow_L_y": 0.7, "brow_R_y": 0.7, "brow_L_angle": 0.6, "brow_R_angle": 0.6, "eye_L_open": 0.8, "eye_R_open": 0.8}, "note": "1+2+4+5"},
+    {"id": "fear_04", "expect": "fear", "sliders": {"brow_L_y": 0.9, "brow_R_y": 0.9, "eye_L_open": 1.0, "eye_R_open": 1.0}, "note": "CK+ 例外 1+2+5E（无 AU4）"},
+
+    {"id": "disgust_01", "expect": "disgust", "sliders": {"nose_sneer": 0.8, "mouth_corner_L": -0.5, "mouth_corner_R": -0.5, "lower_lip": 0.6}, "note": "EMFACS 9+15+16"},
+    {"id": "disgust_02", "expect": "disgust", "sliders": {"nose_sneer": 0.9}, "note": "CK+ 最小判据 AU9"},
+    {"id": "disgust_03", "expect": "disgust", "sliders": {"upper_lip": 0.8}, "note": "CK+ 最小判据 AU10"},
+    {"id": "disgust_04", "expect": "disgust", "sliders": {"upper_lip": 0.7, "chin": 0.6}, "note": "10+17"},
+
+    {"id": "angry_01", "expect": "angry", "sliders": {"brow_L_y": -0.8, "brow_R_y": -0.8, "brow_L_angle": 0.5, "brow_R_angle": 0.5, "eye_L_open": 0.6, "eye_R_open": 0.6, "eye_L_smile": -0.6, "eye_R_smile": -0.6, "lip_press": 0.5, "upper_lip": -0.3, "lower_lip": -0.3}, "note": "EMFACS 4+5+7+23"},
+    {"id": "angry_02", "expect": "angry", "sliders": {"brow_L_y": -0.8, "brow_R_y": -0.8, "eye_L_open": 0.5, "eye_R_open": 0.5, "eye_L_smile": -0.6, "eye_R_smile": -0.6, "lip_press": 0.9, "chin": 0.5}, "note": "4+5+7+17+24"},
+    {"id": "angry_03", "expect": "angry", "sliders": {"lip_press": 0.8, "upper_lip": -0.4, "lower_lip": -0.4}, "note": "CK+ 最小判据 AU23+24（只动嘴，容易认不出）"},
+    {"id": "angry_04", "expect": "angry", "sliders": {"brow_L_y": -1.0, "brow_R_y": -1.0, "brow_L_angle": 0.6, "brow_R_angle": 0.6, "eye_L_smile": -0.8, "eye_R_smile": -0.8, "lip_press": 0.7}, "note": "4+7+24（去掉 AU5 的变体）"},
+
+    {"id": "weird_01", "expect": "unknown", "sliders": {"mouth_corner_L": 1.0, "mouth_corner_R": -1.0, "eye_L_open": 1.0, "eye_R_open": -1.0}, "note": "一侧嘴角上扬另一侧下撇 + 单眼瞪单眼闭"},
+    {"id": "weird_02", "expect": "unknown", "sliders": {"brow_L_y": 1, "brow_R_y": 1, "brow_L_angle": 1, "brow_R_angle": 1, "eye_L_open": 1, "eye_R_open": 1, "eye_L_smile": 1, "eye_R_smile": 1, "eye_ball_x": 1, "eye_ball_y": 1, "nose_sneer": 1, "mouth_corner_L": 1, "mouth_corner_R": 1, "mouth_open": 1, "mouth_width": 1, "mouth_x": 1, "upper_lip": 1, "lower_lip": 1, "lip_press": 1, "chin": 1}, "note": "所有滑杆拉到最大"},
+    {"id": "weird_03", "expect": "unknown", "sliders": {"mouth_open": 1.0, "lip_press": 1.0, "upper_lip": -1.0, "lower_lip": -1.0, "eye_L_open": -1.0, "eye_R_open": -1.0, "brow_L_y": 1.0, "brow_R_y": -1.0}, "note": "大张嘴又抿紧 + 闭眼 + 一眉挑一眉压"},
+    {"id": "weird_04", "expect": "unknown", "sliders": {"brow_L_y": -1, "brow_R_y": -1, "brow_L_angle": -1, "brow_R_angle": -1, "eye_L_open": -1, "eye_R_open": -1, "eye_L_smile": -1, "eye_R_smile": -1, "eye_ball_x": -1, "eye_ball_y": -1, "mouth_corner_L": -1, "mouth_corner_R": -1, "mouth_width": -1, "mouth_x": -1, "upper_lip": -1, "lower_lip": -1, "lip_press": -1, "chin": -1}, "note": "所有滑杆拉到最小"},
+    {"id": "weird_05", "expect": "unknown", "sliders": {"mouth_x": 1.0, "mouth_corner_L": 1.0, "mouth_corner_R": -1.0, "brow_L_angle": 1.0, "brow_R_angle": -1.0, "nose_sneer": 1.0, "eye_L_smile": 1.0, "eye_R_open": 1.0}, "note": "左右完全不对称的歪脸"}
+  ]
+}

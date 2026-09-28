@@ -1,0 +1,4 @@
+# 只在从图片抽 MediaPipe 表情基特征（python -m exprnet.extract）时需要
+# 已验证版本：mediapipe 1.0.1、opencv-python-headless 5.0.0.93（Python 3.12，Windows）
+mediapipe>=0.10.14
+opencv-python-headless>=4.8

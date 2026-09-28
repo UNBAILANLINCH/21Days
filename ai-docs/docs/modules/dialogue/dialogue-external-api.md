@@ -94,7 +94,7 @@ EncounterContext Snapshot(string targetId);   // targetId 形如 "dialogue:1001"
 
 ## 禁止事项
 
-- **不要自己开 `DialogueView` / `DialogueHistoryView`**，也不要直接调 `DialogueController` / `DialogueRules.Start`——
+- **不要自己开 `DialogueView` / `TranscriptView`**，也不要直接调 `DialogueController` / `DialogueRules.Start`——
   会绕过暂停、输入图与重入保护。一律走 `PlayAsync` 或 `Interact`。跳过确认弹窗、交互 HUD 同理，分归 Controller 与焦点系统。
 - **不要各自改 `Time.timeScale`**：要让世界停下走 `IWorldPauseService.Acquire(this)`，否则会和对白的暂停互相覆盖。
 - 不要在 `OnEnded` 回调里同步再调 `PlayAsync` 以外的方式续播；要连播就 `await` 上一段 `PlayAsync` 返回后再调下一段。

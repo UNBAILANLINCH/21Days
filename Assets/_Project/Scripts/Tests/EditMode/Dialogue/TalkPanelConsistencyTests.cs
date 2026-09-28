@@ -1,13 +1,16 @@
 // 职责：守住「NPC 交互对白（DialogueView.prefab）与时间轴演出对白（PerformanceView.prefab）是同一套视觉」——
-//   按节点名逐项比对两份预制体的布局（RectTransform）、底图（Image）与文字样式（TMP，含字体与材质引用），任何一边被单独改样式就红。
+//   按节点名逐项比对两份预制体的布局（RectTransform）、底图（Image）与文字样式（TMP，含字体与材质引用），任何一边被单独改样式就红；
+//   控件同位：两份预制体放进同一个 1920×1080 画布、强制布局后比 LOG / 自动 / 跳过三个控件的屏幕矩形（对白的跳过按钮 ↔ 演出的 SkipRoot），
+//   以及 LOG / 自动两对按钮下 Label / LabelShadow / Hint 的屏幕矩形与样式。
 // 为什么新建：复用——既有 Dialogue 测试都守规则 / 策略，没有预制体样式的守卫；扩展——塞进某个规则测试类职责说不通，
 //   这是跨两个模块预制体的视觉契约，所以单独成类。刻意读真实资产路径：它守的就是这两份预制体本身。
-// Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……）：本文件不直接引用 TMP / uGUI 类型（程序集已引用 Unity.TextMeshPro，供别的测试用），
-//   且这样比的正是落盘的值。
+// Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……），比的正是落盘的值；
+//   只有强制布局用到 uGUI 的 LayoutGroup / LayoutRebuilder（对白的自动 / 跳过按钮由布局组排位，不跑布局量不出真实位置）。
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Tests.EditMode.Dialogue
 {
@@ -18,6 +21,20 @@ namespace Game.Tests.EditMode.Dialogue
         private const string ImageType = "Image";
         private const string TextType = "TextMeshProUGUI";
         private const float Tolerance = 0.0001f;
+
+        /// <summary>控件屏幕矩形的比对容差（参考分辨率像素）。</summary>
+        private const float PixelTolerance = 0.5f;
+
+        /// <summary>参考分辨率（与 UIConfig 一致：1920×1080、按高度匹配）。</summary>
+        private static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
+
+        // 同位控件：对白面板节点 ↔ 演出面板节点（演出不做倍速，倍速位空着；跳过在演出里是 SkipRoot）。
+        private static readonly (string Dialogue, string Performance)[] ControlPairs =
+            { ("HistoryButton", "HistoryButton"), ("AutoButton", "AutoButton"), ("SkipButton", "SkipRoot") };
+
+        // 两边都从同一份按钮结构来的控件：子节点的位置与样式也要一致。
+        private static readonly string[] ClonedControls = { "HistoryButton", "AutoButton" };
+        private static readonly string[] ControlChildren = { "Label", "LabelShadow", "Hint" };
 
         // 两边同名、样式必须完全一致的对白面板节点。
         private static readonly string[] SharedNodes =
@@ -95,6 +112,128 @@ namespace Game.Tests.EditMode.Dialogue
                 CheckColor(diffs, label, dt, pt, "m_fontColor");
             }
             AssertNoDiffs(diffs);
+        }
+
+        [Test]
+        public void Controls_SitAtSameScreenRect()
+        {
+            var diffs = new List<string>();
+            GameObject canvas = CreateReferenceCanvas();
+            try
+            {
+                GameObject d = Object.Instantiate(dialogue, canvas.transform, false);
+                GameObject p = Object.Instantiate(performance, canvas.transform, false);
+                ForceLayout(d);
+                ForceLayout(p);
+                var canvasRect = (RectTransform)canvas.transform;
+                foreach ((string dialogueNode, string performanceNode) in ControlPairs)
+                {
+                    Transform dc = Require(d, "DialogueView", dialogueNode, diffs);
+                    Transform pc = Require(p, "PerformanceView", performanceNode, diffs);
+                    if (dc == null || pc == null) continue;
+                    CompareScreenRect($"DialogueView {dialogueNode} ↔ PerformanceView {performanceNode}", canvasRect, dc, pc, diffs);
+                }
+                foreach (string control in ClonedControls)
+                {
+                    Transform dc = FindDeep(d.transform, control);
+                    Transform pc = FindDeep(p.transform, control);
+                    if (dc == null || pc == null) continue; // 缺节点上面已点名
+                    foreach (string child in ControlChildren)
+                    {
+                        Transform dChild = RequireChild(dc, "DialogueView", control, child, diffs);
+                        Transform pChild = RequireChild(pc, "PerformanceView", control, child, diffs);
+                        if (dChild == null || pChild == null) continue;
+                        CompareScreenRect($"{control}/{child}", canvasRect, dChild, pChild, diffs);
+                    }
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+            AssertNoDiffs(diffs);
+        }
+
+        [Test]
+        public void ControlLabels_HistoryAndAuto_MatchDialogueStyle()
+        {
+            var diffs = new List<string>();
+            foreach (string control in ClonedControls)
+            {
+                Transform dc = Require(dialogue, "DialogueView", control, diffs);
+                Transform pc = Require(performance, "PerformanceView", control, diffs);
+                if (dc == null || pc == null) continue;
+                foreach (string child in ControlChildren)
+                {
+                    Transform d = RequireChild(dc, "DialogueView", control, child, diffs);
+                    Transform p = RequireChild(pc, "PerformanceView", control, child, diffs);
+                    if (d == null || p == null) continue;
+                    string label = $"DialogueView {control}/{child} ↔ PerformanceView {control}/{child}";
+                    SerializedObject dt = Serialized(d, TextType);
+                    SerializedObject pt = Serialized(p, TextType);
+                    if (dt == null || pt == null)
+                    {
+                        diffs.Add($"{label}：一边缺 TMP 文本");
+                        continue;
+                    }
+                    CheckFont(diffs, label, dt, pt);
+                    CheckFloat(diffs, label, dt, pt, "m_fontSize");
+                    CheckColor(diffs, label, dt, pt, "m_fontColor");
+                    CheckInt(diffs, label, dt, pt, "m_HorizontalAlignment");
+                    CheckInt(diffs, label, dt, pt, "m_VerticalAlignment");
+                }
+            }
+            AssertNoDiffs(diffs);
+        }
+
+        // 世界空间画布、尺寸固定为参考分辨率：不受 Game 视图分辨率影响，两份面板根节点都铺满它。
+        private static GameObject CreateReferenceCanvas()
+        {
+            var canvas = new GameObject("TalkPanelConsistencyTests_Canvas", typeof(RectTransform), typeof(Canvas));
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var rect = (RectTransform)canvas.transform;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = ReferenceResolution;
+            rect.position = Vector3.zero;
+            rect.localScale = Vector3.one;
+            return canvas;
+        }
+
+        // 布局组（对白的 Controls）只在布局重建时才给子节点排位：逐个强制重建，量到的才是运行时的真实位置。
+        private static void ForceLayout(GameObject root)
+        {
+            Canvas.ForceUpdateCanvases();
+            foreach (LayoutGroup group in root.GetComponentsInChildren<LayoutGroup>(true))
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)group.transform);
+        }
+
+        // 屏幕矩形：画布本地坐标平移到左下角为原点（参考分辨率像素）。
+        private static Rect ScreenRect(RectTransform canvas, Transform node)
+        {
+            var corners = new Vector3[4];
+            ((RectTransform)node).GetWorldCorners(corners);
+            Vector3 min = canvas.InverseTransformPoint(corners[0]);
+            Vector3 max = canvas.InverseTransformPoint(corners[2]);
+            Vector2 offset = ReferenceResolution * 0.5f;
+            return Rect.MinMaxRect(min.x + offset.x, min.y + offset.y, max.x + offset.x, max.y + offset.y);
+        }
+
+        private static void CompareScreenRect(string label, RectTransform canvas, Transform d, Transform p, List<string> diffs)
+        {
+            Rect dr = ScreenRect(canvas, d);
+            Rect pr = ScreenRect(canvas, p);
+            if (Mathf.Abs(dr.xMin - pr.xMin) > PixelTolerance || Mathf.Abs(dr.yMin - pr.yMin) > PixelTolerance ||
+                Mathf.Abs(dr.xMax - pr.xMax) > PixelTolerance || Mathf.Abs(dr.yMax - pr.yMax) > PixelTolerance)
+                diffs.Add($"{label} 屏幕矩形不同位（1920×1080，左下为原点）：DialogueView={Describe(dr)}，PerformanceView={Describe(pr)}");
+        }
+
+        private static string Describe(Rect r) => $"x[{r.xMin:0.#},{r.xMax:0.#}] y[{r.yMin:0.#},{r.yMax:0.#}]";
+
+        private static Transform RequireChild(Transform control, string prefabName, string controlName, string child, List<string> diffs)
+        {
+            Transform found = control.Find(child);
+            if (found == null) diffs.Add($"{prefabName}：缺节点 {controlName}/{child}");
+            return found;
         }
 
         private static Transform Require(GameObject root, string prefabName, string node, List<string> diffs)

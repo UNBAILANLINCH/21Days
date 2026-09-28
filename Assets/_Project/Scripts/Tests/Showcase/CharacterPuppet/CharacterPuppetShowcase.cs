@@ -1,185 +1,339 @@
-// 职责：回放小人（验证场景挂序列帧小人 Chibi_amiya）的待机 → 向右走 → 向左走 → 停下 → 走路 3 → 奔跑 5 → 停下，看动画切换、翻面与走跑步频差别。
-//   Chibi_amiya 没有 run 帧：奔跑仍停在 Walk 态，只是 walk 剪辑提速到上限；换成有 run 帧的小人时奔跑一步应改断言 Run 态、Speed ≈ 1。
-// 新建原因：CharacterPuppet 是新模块，按 module-verify.md 每模块一份 Showcase。
-// 舞台是 SampleScene（不加载 Boot）：场景里现成的 amiya 挂在 player 下、由遭遇控制器每帧驱动，推它的根会和控制器打架；
-//   所以回放自己从预制体实例化一只独立小人（根 → Visual（CameraBillboard）→ Chibi_amiya，与 player 同构），
-//   放在玩家左前方的镜头内，Track() 交给收尾销毁，不动场景里的任何物体。
+// 职责：序列帧小人回放——驱动场景里 player 下现成的 Chibi_amiya：待机 → 向右走（Walk 态、朝右）→ 向左走（翻面）→ 停（Idle），
+//   走 / 跑步频差别，以及世界时停（对白）期间待机动画仍在播。
+// 舞台是 SampleScene，走 Boot 真实流程（标题「开始」进场），虚拟手柄推摇杆、虚拟键盘按动作驱动场景里的真实玩家，
+//   小人只从玩家根的位移反推动画（ChibiPuppetMotion），回放不碰小人本身，只读它的 Animator 状态与 Speed 参数。
+// 本次重写理由：原版不加载 Boot，另从预制体实例化一只独立小人、用协程逐帧推它的根——演的是「另一只」小人，
+//   与 demo 场景里玩家身上那只、以及遭遇控制器驱动它的真实链路脱节。
+// Run 态：chr_amiya.controller 有 Run 状态，但 motion 仍是 chr_amiya_walk（2026-09-28 按 24 fps 重渲时只出了 idle / walk 两个剪辑），
+//   预制体与场景实例的 ChibiPuppet.hasRunClip 都是 false，驱动层永不置 Running——奔跑仍停在 Walk 态、只是 walk 剪辑提速到上限。
+//   所以奔跑一步断言「Walk 态、倍率夹到 rateMax」；等美术交了 run 剪辑、hasRunClip 为真，改断言 Run 态、倍率 ≈ 1。
+// 时停走真实路径：出生点离长者 3、交互半径 2——走到长者旁（ElderName / ElderStandOffset，见 Framework/ShowcaseScenario.DemoScene.cs）
+//   按交互键拉起对白 1001（世界时停），看待机动画仍在推进，
+//   再按对白「跳过」键 → 确认弹窗点确认 → 跳过停在选项处点第二项「拒绝」，三步关掉对白、世界恢复
+//   （同 DialogueShowcase.Skip_StopsAtChoice_ThenFinishesSkipped 的口径）。用例中途失败没关掉时，[UnityTearDown] 按同样三步兜底，
+//   兜不住再由基类收尾销毁根作用域（WorldPauseService.Dispose 恢复 timeScale）。
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using Game.CharacterPuppet;
-using Game.IsometricExploration;
+using Game.Core.Input;
+using Game.Core.Timing;
+using Game.Core.UI;
+using Game.Dialogue;
+using Game.Player;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Game.Tests.Showcase.CharacterPuppet
 {
     [Category("Showcase")]
     public sealed class CharacterPuppetShowcase : ShowcaseScenario
     {
-        private const float MoveSpeed = 1.5f;
-        private const float MoveSeconds = 2f;
-        private const float WalkSpeed = 3f;
-        private const float RunSpeed = 5f;
-        // 验证场景镜头固定，可见范围约起点左 0.5 到右 3.75：走路向右 3 单位、奔跑向左 3 单位回原点，不出画。
-        private const float WalkSeconds = 1f;
-        private const float RunSeconds = 0.6f;
-        // 期望播放倍率 = clamp(速度 / 剪辑地速, rateMin 0.8, rateMax 1.6)；amiya 走路剪辑地速 3（meta 未写，取缺省）。
-        // 走 3 → 1.0；跑 5 → 5/3 ≈ 1.67 夹到 1.6。随 ChibiPuppetConfig.asset 与预制体 walkClipSpeed 调参同步改。
-        private const float ExpectedWalkRate = 1f;
-        private const float ExpectedRunRate = 1.6f;
-        private const float RateTolerance = 0.1f;
-        private const string PuppetPrefabPath = "Assets/_Project/Prefabs/Characters/Chibi_amiya.prefab";
+        private const string PuppetPath = "player/Visual/Chibi_amiya";
+        private const string PuppetConfigPath = "Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset";
 
-        /// <summary>
-        /// 独立小人相对玩家的站位：左 1.5、靠镜头 1.5。各步累计位移最远向右 3 单位（走到玩家右前方）再回原点，
-        /// 全程在跟随玩家的主相机画面里，也不和玩家纸片重叠。
-        /// </summary>
-        private static readonly Vector3 PuppetOffsetFromPlayer = new Vector3(-1.5f, 0f, -1.5f);
+        /// <summary>左右走各推多久：步行 3，出生点 (-4,3.4) 向右 1 秒到 x≈-1、再向左回到原处，碰不到左墙（x -6）。</summary>
+        private const float TurnSeconds = 1f;
+
+        /// <summary>走跑对比各推多久：向右走 0.8 秒（2.4 米）、向左跑 0.6 秒（3 米），终点 x≈-4.6，仍在画面内、碰不到左墙。</summary>
+        private const float WalkSeconds = 0.8f;
+        private const float RunSeconds = 0.6f;
+
+        /// <summary>播放倍率容差：Speed 参数 = clamp(速度 / 剪辑地速, rateMin, rateMax)，采样窗口有抖动。</summary>
+        private const float RateTolerance = 0.1f;
+
         private static readonly int SpeedParamHash = Animator.StringToHash("Speed");
 
-        protected override string Module => "CharacterPuppet";
-        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
-        protected override bool LoadBootScene => false;
+        private IInputService inputService;
+        private PlayerModel player;
+        private IUIService ui;
+        private DialogueService dialogue;
+        private DialogueRules dialogueRules;
+        private ChibiPuppet puppet;
 
-        private bool moveDone;
+        protected override string Module => "CharacterPuppet";
+
+        /// <summary>世界由流程加载（标题「开始」→ MonsterEncounterState → SampleScene），基类不再叠加载一份。</summary>
+        protected override string ScenePath => null;
+
+        /// <summary>用例中途失败留下没关的对白时，按「跳过 → 确认 → 选第二项」兜底关掉，免得时停带进基类收尾。</summary>
+        [UnityTearDown]
+        public IEnumerator CloseDialogueIfOpen()
+        {
+            for (int attempt = 0; attempt < 3 && dialogue != null && dialogue.IsRunning; attempt++)
+            {
+                TryClick(FindUnder<Button>(DialogueViewRoot(), "SkipButton"));
+                yield return WaitRealtime(0.3f);
+                TryClick(FindUnder<Button>(SkipConfirmRoot(), "ConfirmButton"));
+                yield return WaitRealtime(0.5f);
+                ClickChoiceIfAny(1);
+                yield return WaitRealtime(0.5f);
+            }
+
+            if (dialogue != null && dialogue.IsRunning)
+            {
+                Debug.LogWarning($"{ShowcaseOptions.Prefix}[{Module}] 收尾时对白仍未关闭，交给基类销毁根作用域恢复时停");
+            }
+        }
 
         [UnityTest]
         public IEnumerator IdleWalkTurnStop_PlaysMatchingAnimation()
         {
-            var player = FindRequired<Transform>("player");
-            ChibiPuppet puppet = SpawnPuppet(player.position + PuppetOffsetFromPlayer);
-            Transform root = puppet.transform.parent.parent;
-            Coroutine move = null;
-            try
+            yield return EnterWorld();
+            yield return Check("站着不动：播放待机动画", () => IsState("Idle"), 2f);
+            yield return Snapshot("待机");
+
+            bool walkRight = false;
+            yield return Step($"摇杆向右推 {TurnSeconds} 秒", null, 0f);
+            yield return PushWatching(Vector2.right, TurnSeconds, () => IsState("Walk") && !puppet.FaceLeft, seen => walkRight = seen);
+            yield return Check("向右走时切到走路动画、面朝右", () => walkRight);
+            yield return Snapshot("向右走");
+
+            bool walkLeft = false;
+            yield return Step($"摇杆向左推 {TurnSeconds} 秒", null, 0f);
+            yield return PushWatching(Vector2.left, TurnSeconds, () => IsState("Walk") && puppet.FaceLeft, seen => walkLeft = seen);
+            yield return Check("向左走时翻面朝左、继续走路动画", () => walkLeft);
+            yield return Snapshot("向左走");
+
+            yield return Step("松开摇杆停下", null, 0f);
+            yield return Check("回到待机动画，保持朝左", () => IsState("Idle") && puppet.FaceLeft, 1.5f);
+            yield return Snapshot("停下待机");
+        }
+
+        [UnityTest]
+        public IEnumerator WalkVersusRun_RunPlaysFaster()
+        {
+            yield return EnterWorld();
+            PuppetMotionLimits(out float walkClipSpeed, out float rateMax);
+
+            float walkRate = 0f;
+            float expectedWalk = Mathf.Clamp(ResolveService<PlayerConfig>().MoveSpeed / walkClipSpeed, 0f, rateMax);
+            yield return Step($"步行模式下摇杆向右推 {WalkSeconds} 秒", null, 0f);
+            yield return PushWatching(Vector2.right, WalkSeconds, () => IsState("Walk"), null, rate => walkRate = rate);
+            yield return Check($"走路动画按剪辑地速播放（倍率 {walkRate:0.00}，期望约 {expectedWalk:0.00}）",
+                () => Mathf.Abs(walkRate - expectedWalk) <= RateTolerance);
+            yield return Snapshot("步行步频");
+
+            yield return Step("按一下走跑键（Gameplay/Run）", null, 0f);
+            yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => player.IsRunning);
+            yield return Check("切到奔跑模式", () => player.IsRunning, 2f);
+
+            float runRate = 0f;
+            bool stayedWalkState = true;
+            yield return Step($"奔跑模式下摇杆向左推 {RunSeconds} 秒（回到出生点附近）", null, 0f);
+            yield return PushWatching(Vector2.left, RunSeconds, () =>
             {
-                yield return Step("原地站 2 秒", null, 2f);
-                yield return Check("播放待机动画", () => IsState(puppet, "Idle"), 1f);
-                yield return Snapshot("待机");
-
-                yield return Step("以 1.5 单位/秒向右移动 2 秒", () =>
-                    move = puppet.StartCoroutine(MoveRoot(root, Vector3.right * MoveSpeed, MoveSeconds)), 0f);
-                yield return Check("切到走路动画且面朝右", () => IsState(puppet, "Walk") && puppet.transform.localScale.x > 0f, 1f);
-                yield return Snapshot("向右走");
-                yield return WaitUntil("向右移动结束", () => moveDone, MoveSeconds + 3f);
-
-                yield return Step("以 1.5 单位/秒向左移动 2 秒", () =>
-                    move = puppet.StartCoroutine(MoveRoot(root, Vector3.left * MoveSpeed, MoveSeconds)), 0f);
-                yield return Check("翻面朝左并继续走路", () => IsState(puppet, "Walk") && puppet.transform.localScale.x < 0f, 1f);
-                yield return Snapshot("向左走");
-                yield return WaitUntil("向左移动结束", () => moveDone, MoveSeconds + 3f);
-
-                yield return Step("停下", null, 1f);
-                yield return Check("回到待机动画，保持朝左", () => IsState(puppet, "Idle") && puppet.transform.localScale.x < 0f, 1.5f);
-                yield return Snapshot("停下待机");
-
-                // 走跑步频：Animator 的 Speed 参数即 Walk / Run 状态的播放倍率，速度越快腿摆越快（有上限，不快放）。
-                float walkRate = 0f;
-                yield return Step("以 3 单位/秒向右移动 1 秒", () =>
-                    move = puppet.StartCoroutine(MoveRoot(root, Vector3.right * WalkSpeed, WalkSeconds)), 0f);
-                yield return Check("走路动画按原速播放，倍率约 1.0（误差 ±0.1）",
-                    () => IsState(puppet, "Walk") && IsNear(GetWalkRate(puppet), ExpectedWalkRate), 1.5f);
-                walkRate = GetWalkRate(puppet);
-                yield return Snapshot("走路 3");
-                yield return WaitUntil("走路移动结束", () => moveDone, WalkSeconds + 3f);
-
-                yield return Step("以 5 单位/秒向左移动 0.6 秒（回到原点）", () =>
-                    move = puppet.StartCoroutine(MoveRoot(root, Vector3.left * RunSpeed, RunSeconds)), 0f);
-                yield return Check("无 run 帧：仍是 Walk 态，倍率夹到上限约 1.6（误差 ±0.1），且高于上一步走路倍率",
-                    () => IsState(puppet, "Walk") && IsNear(GetWalkRate(puppet), ExpectedRunRate)
-                        && GetWalkRate(puppet) > walkRate, 0.5f);
-                yield return Snapshot("奔跑 5");
-                yield return WaitUntil("奔跑移动结束", () => moveDone, RunSeconds + 3f);
-
-                yield return Step("停下", null, 1f);
-                yield return Check("回到待机动画", () => IsState(puppet, "Idle"), 1.5f);
-
-                // 世界时停（对话期间 Time.timeScale = 0）：Animator 走 unscaled time，待机动画应继续播放而不是定格。
-                yield return Step("触发世界时停（模拟对话）", () => Time.timeScale = 0f, 0f);
-                try
+                if (IsState("Run"))
                 {
-                    yield return Wait(0.5f);
-                    float idleTimeBefore = GetIdleNormalizedTime(puppet);
-                    for (int i = 0; i < 5; i++)
-                    {
-                        yield return null;
-                    }
+                    stayedWalkState = false;
+                }
 
-                    yield return Check("时停期间待机动画仍在播放（未定格）",
-                        () => IsState(puppet, "Idle") && GetIdleNormalizedTime(puppet) > idleTimeBefore, 1f);
-                    yield return Snapshot("时停待机");
-                }
-                finally
-                {
-                    // 无论检查是否通过都要恢复，避免这条用例把 timeScale 泄漏给同一批次的其他测试。
-                    Time.timeScale = 1f;
-                }
-            }
-            finally
+                return IsState("Walk");
+            }, null, rate => runRate = rate);
+            yield return Check($"没有 run 剪辑：仍是 Walk 态，倍率夹到上限 {rateMax:0.0}（实测 {runRate:0.00}），高于步行 {walkRate:0.00}",
+                () => !puppet.HasRunClip && stayedWalkState && Mathf.Abs(runRate - rateMax) <= RateTolerance && runRate > walkRate);
+            yield return Snapshot("奔跑步频");
+
+            yield return Step("再按一下走跑键，切回步行", null, 0f);
+            yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => !player.IsRunning);
+            yield return Check("回到步行模式、小人回到待机", () => !player.IsRunning && IsState("Idle"), 2f);
+            yield return Snapshot("切回步行待机");
+        }
+
+        [UnityTest]
+        public IEnumerator WorldPauseDuringDialogue_IdleKeepsPlaying()
+        {
+            yield return EnterWorld();
+            var elder = FindRequired<Transform>(ElderName);
+            Vector2 elderLogic = new Vector2(elder.position.x, elder.position.z);
+
+            yield return Step("走到长者身旁（交互半径 2 以内）", null, 0f);
+            yield return WalkTo(elderLogic + ElderStandOffset, 0.2f, 5f);
+            yield return Check("站定后播放待机动画", () => IsState("Idle"), 2f);
+
+            yield return Step("按交互键（Gameplay/Interact）和长者说话", null, 0f);
+            yield return Input.Press(inputService.Actions.Gameplay.Interact);
+            yield return Check("对白面板打开，世界时停（timeScale = 0）",
+                () => dialogue.IsRunning && ui.Get<DialogueView>() != null && Time.timeScale == 0f, 3f);
+
+            float idleBefore = IdleNormalizedTime();
+            yield return Check("时停期间小人仍是待机态，待机动画还在推进（未定格）",
+                () => IsState("Idle") && IdleNormalizedTime() > idleBefore + 0.02f, 2f);
+            yield return Snapshot("时停待机");
+
+            yield return Step("按对白「跳过」键（Dialogue/Skip）", null, 0f);
+            yield return Input.Press(inputService.Actions.Dialogue.Skip);
+            yield return Check("弹出跳过确认", () => SkipConfirmRoot() != null, 3f);
+            // 弹窗一登记进 UI 服务就能取到，但对白控制器要等打开流程走完才订阅「确认」事件，太早点会被吞掉（实测弹窗一直不关）；
+            // 所以每 0.3 秒补点一次，直到弹窗关闭。
+            yield return Step("点确认", null, 0f);
+            yield return ClickWhenReady("确认弹窗关闭", () => FindUnder<Button>(SkipConfirmRoot(), "ConfirmButton"),
+                () => SkipConfirmRoot() == null, 3f, 0.3f);
+            yield return Check("跳过停在选项处", () => dialogueRules.Phase == DialogueSaveData.Phase.AwaitChoice, 3f);
+            yield return WaitUntil("选项按钮已显示", () => ActiveChoices().Count >= 2, 3f);
+            yield return Step("选第二项「拒绝」结束对白", () => ClickChoice(1), 0f);
+            yield return Check("对白关闭、世界恢复（timeScale = 1、不再暂停）",
+                () => !dialogue.IsRunning && Time.timeScale == 1f && !ResolveService<IWorldPauseService>().IsPaused, 5f);
+            yield return Snapshot("对白结束");
+        }
+
+        // ───────────────────────── 进场与驱动 ─────────────────────────
+
+        /// <summary>标题「开始」进世界（EnterDemoWorld），等容器里的输入 / 对白服务可用，再找到玩家身上的小人。</summary>
+        private IEnumerator EnterWorld()
+        {
+            yield return EnterDemoWorld("遭遇逻辑在跑、输入 / 对白服务可用", () =>
             {
-                if (move != null && puppet != null)
-                {
-                    puppet.StopCoroutine(move);
-                }
-            }
+                inputService = ResolveService<IInputService>();
+                player = ResolveService<PlayerModel>();
+                ui = ResolveService<IUIService>();
+                dialogue = ResolveService<DialogueService>();
+                dialogueRules = ResolveService<DialogueRules>();
+                return inputService != null && inputService.Actions != null
+                       && player != null && ui != null && dialogue != null && dialogueRules != null;
+            }, "进世界后容器里取不到 PlayerModel / IInputService / IUIService / DialogueService / DialogueRules");
+
+            puppet = FindRequired<ChibiPuppet>(PuppetPath);
         }
 
         /// <summary>
-        /// 造独立小人：根（被推的角色根）→ Visual（CameraBillboard 让纸片正对透视镜头）→ Chibi_amiya 预制体实例。
-        /// ChibiPuppetMotion 沿父级跳过 Visual 取到根，读根的位移反推动画，与 player 下的结构一致。
+        /// 取剪辑地速（ChibiPuppet 公开属性）与播放倍率上限（读 ChibiPuppetConfig.asset，跟着资产走，不写死）。
+        /// 配置只挂在 ChibiPuppetMotion 的私有字段上，回放不碰私有实现，改为编辑器下按资产路径读；读不到时退回资产当前值 1.6。
         /// </summary>
-        private ChibiPuppet SpawnPuppet(Vector3 position)
+        private void PuppetMotionLimits(out float walkClipSpeed, out float rateMax)
         {
-            GameObject prefab = null;
+            walkClipSpeed = puppet.WalkClipSpeed;
+            ChibiPuppetConfig config = null;
 #if UNITY_EDITOR
-            prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(PuppetPrefabPath);
+            config = UnityEditor.AssetDatabase.LoadAssetAtPath<ChibiPuppetConfig>(PuppetConfigPath);
 #endif
-            if (prefab == null)
-            {
-                Assert.Fail($"加载不到小人预制体 {PuppetPrefabPath}。");
-            }
-
-            var root = Track(new GameObject("ShowcasePuppet"));
-            root.transform.position = position;
-            var visual = new GameObject("Visual");
-            visual.transform.SetParent(root.transform, false);
-            visual.AddComponent<CameraBillboard>();
-            GameObject instance = Object.Instantiate(prefab, visual.transform, false);
-            instance.name = "ShowcasePuppet_amiya";
-            var puppet = instance.GetComponent<ChibiPuppet>();
-            if (puppet == null)
-            {
-                Assert.Fail($"预制体 {PuppetPrefabPath} 根上没有 ChibiPuppet。");
-            }
-
-            return puppet;
+            rateMax = config == null ? 1.6f : config.RateMax;
         }
 
-        private static bool IsState(ChibiPuppet puppet, string state) =>
-            puppet.Animator != null && puppet.Animator.GetCurrentAnimatorStateInfo(0).IsName(state);
-
-        // 读 ChibiPuppet 写进 Animator 的 Speed 参数（ChibiPuppet.SetMoving），即 Walk / Run 状态的实际播放倍率。
-        private static float GetWalkRate(ChibiPuppet puppet) =>
-            puppet.Animator == null ? 0f : puppet.Animator.GetFloat(SpeedParamHash);
-
-        private static bool IsNear(float value, float expected) =>
-            value >= expected - RateTolerance && value <= expected + RateTolerance;
-
-        private static float GetIdleNormalizedTime(ChibiPuppet puppet) =>
-            puppet.Animator == null ? 0f : puppet.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
-
-        // 逐帧推根节点，模拟角色移动；小人只从位移反推动画，不知道是谁在推。
-        private IEnumerator MoveRoot(Transform root, Vector3 velocity, float seconds)
+        /// <summary>
+        /// 朝 <paramref name="direction"/> 逐帧推摇杆 <paramref name="seconds"/> 秒，推满 0.3 秒后开始采样：
+        /// <paramref name="state"/> 是否成立过（回调 <paramref name="reportSeen"/>）、最后一次采到的 Speed 参数（回调 <paramref name="reportRate"/>）。
+        /// 松杆后等玩家停稳。
+        /// </summary>
+        private IEnumerator PushWatching(Vector2 direction, float seconds, Func<bool> state,
+            Action<bool> reportSeen, Action<float> reportRate = null)
         {
-            moveDone = false;
-            float elapsed = 0f;
-            while (elapsed < seconds)
+            bool seen = false;
+            float rate = 0f;
+            float start = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - start < seconds)
             {
+                Input.SetStick(direction);
                 yield return null;
-                elapsed += Time.deltaTime;
-                root.position += velocity * Time.deltaTime;
+                if (Time.realtimeSinceStartup - start >= 0.3f && state())
+                {
+                    seen = true;
+                    rate = puppet.Animator == null ? 0f : puppet.Animator.GetFloat(SpeedParamHash);
+                }
             }
 
-            moveDone = true;
+            Input.ReleaseStick();
+            yield return WaitPlayerStable();
+            reportSeen?.Invoke(seen);
+            reportRate?.Invoke(rate);
+        }
+
+        private bool IsState(string state)
+        {
+            return puppet != null && puppet.Animator != null && puppet.Animator.GetCurrentAnimatorStateInfo(0).IsName(state);
+        }
+
+        private float IdleNormalizedTime()
+        {
+            return puppet == null || puppet.Animator == null ? 0f : puppet.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+        }
+
+        // ───────────────────────── 对白界面 ─────────────────────────
+
+        private Transform DialogueViewRoot()
+        {
+            DialogueView view = ui == null ? null : ui.Get<DialogueView>();
+            return view == null ? null : view.transform;
+        }
+
+        private Transform SkipConfirmRoot()
+        {
+            DialogueSkipConfirmView view = ui == null ? null : ui.Get<DialogueSkipConfirmView>();
+            return view == null ? null : view.transform;
+        }
+
+        private static T FindUnder<T>(Transform root, string objectName) where T : Component
+        {
+            return FindDeep<T>(root, objectName);
+        }
+
+        /// <summary>找不到按钮就抛异常：放在 Step 的 act 里只把这一步记成失败。</summary>
+        private static Button RequireButton(Transform root, string objectName)
+        {
+            Button button = FindUnder<Button>(root, objectName);
+            if (button == null)
+            {
+                throw new InvalidOperationException($"找不到按钮「{objectName}」（界面没开，或预制体物体名不一致）");
+            }
+
+            return button;
+        }
+
+        /// <summary>ChoiceRoot 下当前激活的选项按钮（排除隐藏模板）。</summary>
+        private List<Button> ActiveChoices()
+        {
+            var result = new List<Button>();
+            Transform root = FindUnder<Transform>(DialogueViewRoot(), "ChoiceRoot");
+            if (root == null)
+            {
+                return result;
+            }
+
+            Button[] buttons = root.GetComponentsInChildren<Button>(false);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i].name != "ChoiceTemplate")
+                {
+                    result.Add(buttons[i]);
+                }
+            }
+
+            return result;
+        }
+
+        private void ClickChoice(int index)
+        {
+            List<Button> choices = ActiveChoices();
+            if (index >= choices.Count)
+            {
+                throw new InvalidOperationException($"只有 {choices.Count} 个激活选项，点不到第 {index + 1} 项");
+            }
+
+            choices[index].onClick.Invoke();
+        }
+
+        private void ClickChoiceIfAny(int index)
+        {
+            List<Button> choices = ActiveChoices();
+            if (choices.Count > 0)
+            {
+                choices[Mathf.Min(index, choices.Count - 1)].onClick.Invoke();
+            }
+        }
+
+        private static void TryClick(Button button)
+        {
+            if (button != null && button.interactable)
+            {
+                button.onClick.Invoke();
+            }
+        }
+
+        private static IEnumerator WaitRealtime(float seconds)
+        {
+            yield return new WaitForSecondsRealtime(seconds);
         }
     }
 }

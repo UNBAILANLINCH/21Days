@@ -4,6 +4,9 @@
 // 做什么：把「进 Play → 加载场景 → 按节奏驱动模块 → 逐步停顿让人看清 → 检查点判定 → 截图 → 出报告」
 //         这条固定流程收敛成一个基类，每个模块的 Showcase 只剩一串 yield return Step/Check。
 //         SetUp 里还会先把键盘焦点切给 Game 视图（FocusGameView），否则焦点在别的窗口时真实按键用例的键盘事件会被丢。
+//         本类按职责拆成四个 partial 文件：本文件 = 报告节奏引擎；ShowcaseScenario.BootFlow.cs = 从标题「开始」进世界 /
+//         收尾退回标题并销毁根作用域；ShowcaseScenario.PlayerDrive.cs = 虚拟输入（Input）、走路（WalkTo / Walk）与补点按钮（ClickWhenReady）；
+//         ShowcaseScenario.DemoScene.cs = SampleScene demo 内容的坐标常量与共用操作（路线、观察点、和巡逻怪交手）。
 //
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— 回放引擎本身就是复用 Unity Test Framework（[UnityTest] + [UnitySetUp]/[UnityTearDown]），
@@ -29,7 +32,7 @@ namespace Game.Tests.Showcase
     /// 检查点失败一律只记录 + Debug.LogWarning，不中断也不 LogError（UTF 会把未预期的 LogError 判成
     /// 测试失败并当场打断，报告就写不出来了）；所有失败在 TearDown 里汇总成一次 Assert.Fail。
     /// </summary>
-    public abstract class ShowcaseScenario
+    public abstract partial class ShowcaseScenario
     {
         /// <summary>根作用域的程序集限定类型名，供 <see cref="ResolveService{T}"/> 反射查找（理由见该方法）。</summary>
         private const string ScopeTypeName = "Game.Core.Boot.GameLifetimeScope, Game.Core";
@@ -133,6 +136,14 @@ namespace Game.Tests.Showcase
             // try/finally：写报告、销毁物体或 Assert.Fail 抛出时也要解锁，否则编辑器会一直不编译。
             try
             {
+                // 先收虚拟输入与 Boot 流程（此时仍在捕获日志：退回标题途中报的错照样进报告），再走报告收尾。
+                // 两者都幂等：子类自己的 [UnityTearDown] 先跑、已经销毁过根作用域时这里静默跳过。
+                DisposeInput();
+                if (LoadBootScene)
+                {
+                    yield return ShutdownBootFlow();
+                }
+
                 EndCapture();
                 if (expectedErrors.Count > 0)
                 {
@@ -162,6 +173,9 @@ namespace Game.Tests.Showcase
             }
             finally
             {
+                // 收尾中途抛异常也要把虚拟设备摘掉，否则它会留到下一条用例甚至下一次 Play。
+                DisposeInput();
+
                 // 存档根目录覆盖必须无条件清掉：留着的话下一条用例（甚至下一次 Play）会继续读到这次的临时目录。
                 PlatformServiceBase.SaveRootOverride = null;
                 if (!string.IsNullOrEmpty(showcaseSaveRoot) && Directory.Exists(showcaseSaveRoot))

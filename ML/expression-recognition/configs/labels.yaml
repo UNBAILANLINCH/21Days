@@ -1,0 +1,70 @@
+# 表情类别表
+#
+# classes：当前启用的类别，顺序即网络输出 probs 的顺序（导出元数据里原样写出）。
+#   改类别（增删、换顺序）必须重训。默认 7 类基本情绪。
+#   想加「轻蔑」：把下面注释掉的 contempt 打开，facs.yaml 里已有它的原型，公开集里的轻蔑样本也会被收进来。
+# 数据集里的标签先经 aliases 归一到类别 key；归一后不在 classes 里的样本（如未启用的 contempt、
+# AffectNet 的 none/uncertain/no_face）一律丢弃。
+
+classes:
+  - {key: neutral,  zh: 中性}
+  - {key: happy,    zh: 高兴}
+  - {key: sad,      zh: 悲伤}
+  - {key: surprise, zh: 惊讶}
+  - {key: fear,     zh: 恐惧}
+  - {key: disgust,  zh: 厌恶}
+  - {key: angry,    zh: 愤怒}
+  # - {key: contempt, zh: 轻蔑}
+
+# 标签别名 → 类别 key（匹配时忽略大小写与首尾空白）。
+# 也用于 imagefolder 的子文件夹名、KDEF / JAFFE 文件名里的两字母表情码。
+aliases:
+  neutral:  [neutral, neu, ne, calm, 中性, 平静]
+  happy:    [happy, happiness, happiness_joy, joy, ha, hap, 高兴, 开心, 喜]
+  sad:      [sad, sadness, sa, 悲伤, 伤心]
+  surprise: [surprise, surprised, su, sur, 惊讶, 吃惊]
+  fear:     [fear, fearful, afraid, af, fe, 恐惧, 害怕]
+  disgust:  [disgust, disgusted, di, dis, 厌恶]
+  angry:    [angry, anger, an, ang, 愤怒, 生气]
+  contempt: [contempt, co, 轻蔑]
+  # 下面三个不是表情，只为了让 AffectNet 的编号能被识别后丢弃
+  _none:      [none]
+  _uncertain: [uncertain]
+  _no_face:   [non-face, no-face, no_face, nonface]
+
+# 各公开集的官方标签编号顺序（order[i] 对应编号 index_base + i），名字是数据集自己的写法，再经 aliases 归一。
+# 已逐一查证：
+datasets:
+  fer2013:
+    # 授权警告：FER2013 没有官方许可证，图片由 Google 图片搜索抓取，版权来源不明（Goodfellow 等 2013 自述），
+    # 风险高于其余几个「持证、限非商用」的数据集；Kaggle 镜像页自标的 CC0 等只是上传者声明，不算授权。
+    # Kaggle「Challenges in Representation Learning: Facial Expression Recognition Challenge」
+    # fer2013.csv 的 emotion 列：0=Angry 1=Disgust 2=Fear 3=Happy 4=Sad 5=Surprise 6=Neutral
+    # 划分看 Usage 列：Training / PublicTest / PrivateTest
+    index_base: 0
+    order: [Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral]
+  rafdb:
+    # RAF-DB basic 子集 EmoLabel/list_patition_label.txt（官方文件名就是这个拼法）：
+    # 1=Surprise 2=Fear 3=Disgust 4=Happiness 5=Sadness 6=Anger 7=Neutral；文件名前缀 train_/test_ 即官方划分
+    index_base: 1
+    order: [Surprise, Fear, Disgust, Happiness, Sadness, Anger, Neutral]
+  affectnet:
+    # AffectNet（Mollahosseini 等 2017）官方 csv 的 expression 列：
+    # 0=Neutral 1=Happy 2=Sad 3=Surprise 4=Fear 5=Disgust 6=Anger 7=Contempt 8=None 9=Uncertain 10=Non-Face
+    index_base: 0
+    order: [Neutral, Happy, Sad, Surprise, Fear, Disgust, Anger, Contempt, None, Uncertain, Non-Face]
+  ckplus:
+    # CK+（Lucey 等 CVPRW 2010）Emotion/*_emotion.txt 里的编号：
+    # 0=neutral 1=anger 2=contempt 3=disgust 4=fear 5=happy 6=sadness 7=surprise
+    # （官方只给序列末帧打情绪标签，没有 0；本工程取每段序列首帧当 neutral）
+    index_base: 0
+    order: [neutral, anger, contempt, disgust, fear, happy, sadness, surprise]
+  kdef:
+    # KDEF 文件名第 5–6 位是表情码：AF=afraid AN=angry DI=disgusted HA=happy NE=neutral SA=sad SU=surprised
+    # 这里的 order 只为列全表情码，KDEF 读取时直接按表情码经 aliases 归一，不用编号。
+    index_base: 0
+    order: [AF, AN, DI, HA, NE, SA, SU]
+  jaffe:
+    # JAFFE 文件名第 2 段前两位是表情码：AN DI FE HA NE SA SU（FE = fear）；同样直接按表情码归一。
+    index_base: 0
+    order: [AN, DI, FE, HA, NE, SA, SU]

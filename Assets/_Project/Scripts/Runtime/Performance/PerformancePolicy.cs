@@ -1,4 +1,4 @@
-// 职责：一段演出的播放策略快照（可否跳过、长按跳过秒数、是否时停 / 藏 HUD / 上黑边），构造时校验。
+// 职责：一段演出的播放策略快照（可否跳过、长按跳过秒数、是否时停 / 藏 HUD / 上黑边、「自动」继续间隔），构造时校验。
 // 为什么新建（复用 → 扩展 → 新建）：策略来自「舞台预制体开关 + 全局配置默认值」两处，需要一个校验过的不可变值在
 //   规则、服务、面板之间传递；DialoguePlaybackSettings 是对白专用且 Performance 不得依赖 Dialogue，只能新建。
 using System;
@@ -8,22 +8,33 @@ namespace Game.Performance
     /// <summary>演出播放策略。只读值类型，构造即校验。</summary>
     public readonly struct PerformancePolicy
     {
+        /// <summary>「自动」继续间隔的默认值（秒），与 <see cref="PerformanceConfig"/> 的默认值一致（同对白的自动间隔 1.5 秒）。</summary>
+        public const float DefaultAutoAdvanceSeconds = 1.5f;
+
         /// <param name="skippable">玩家能否长按跳过。</param>
         /// <param name="skipHoldSeconds">长按多少秒触发跳过，必须大于 0（不可跳过时也要合法，便于统一校验）。</param>
         /// <param name="pauseWorld">演出期间是否暂停世界（timeScale = 0）。</param>
         /// <param name="hideHud">演出期间是否整层隐藏 HUD。</param>
         /// <param name="letterbox">是否上下黑边。</param>
-        /// <exception cref="ArgumentException"><paramref name="skipHoldSeconds"/> 不大于 0 或不是有限数。</exception>
-        public PerformancePolicy(bool skippable, float skipHoldSeconds, bool pauseWorld, bool hideHud, bool letterbox)
+        /// <param name="autoAdvanceSeconds">开「自动」后，停顿处字幕打完再等多少秒自动继续；必须是不小于 0 的有限数（0 = 打完立即继续）。</param>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="skipHoldSeconds"/> 不大于 0 或不是有限数；<paramref name="autoAdvanceSeconds"/> 小于 0 或不是有限数。
+        /// </exception>
+        public PerformancePolicy(bool skippable, float skipHoldSeconds, bool pauseWorld, bool hideHud, bool letterbox,
+            float autoAdvanceSeconds = DefaultAutoAdvanceSeconds)
         {
             // NaN 与任何数比较都为 false，所以写成「不大于 0」一并拦下；无穷大单独拦。
             if (!(skipHoldSeconds > 0f) || float.IsInfinity(skipHoldSeconds))
                 throw new ArgumentException($"SkipHoldSeconds 必须是大于 0 的有限数，实际 {skipHoldSeconds}", nameof(skipHoldSeconds));
+            // 同理：「不小于 0」写成取反，NaN 一并拦下。
+            if (!(autoAdvanceSeconds >= 0f) || float.IsInfinity(autoAdvanceSeconds))
+                throw new ArgumentException($"AutoAdvanceSeconds 必须是不小于 0 的有限数，实际 {autoAdvanceSeconds}", nameof(autoAdvanceSeconds));
             Skippable = skippable;
             SkipHoldSeconds = skipHoldSeconds;
             PauseWorld = pauseWorld;
             HideHud = hideHud;
             Letterbox = letterbox;
+            AutoAdvanceSeconds = autoAdvanceSeconds;
         }
 
         /// <summary>玩家能否长按跳过。</summary>
@@ -40,6 +51,9 @@ namespace Game.Performance
 
         /// <summary>是否上下黑边。</summary>
         public bool Letterbox { get; }
+
+        /// <summary>开「自动」后，停顿处字幕打完再等多少秒自动继续（不小于 0）。</summary>
+        public float AutoAdvanceSeconds { get; }
 
         /// <summary>是否由构造函数建出（default 值的 SkipHoldSeconds 为 0，视为无效）。</summary>
         public bool IsValid => SkipHoldSeconds > 0f;

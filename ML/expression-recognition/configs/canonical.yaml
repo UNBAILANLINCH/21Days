@@ -1,0 +1,80 @@
+# 规范表情空间（51 维）定义
+#
+# 维度 = ARKit 52 个表情基去掉 tongueOut；
+#      = MediaPipe Face Landmarker 输出的 52 个 blendshape 类别去掉 _neutral。
+# 两边除这两项外名字一一对应（大小写一致），顺序按 MediaPipe 输出顺序（去掉第 0 个 _neutral）。
+# 已对照 mediapipe 1.0.1 的库文件核对过全部 52 个类别名与顺序。
+# MediaPipe 类别名来源：mediapipe/tasks/cc/vision/face_landmarker/face_blendshapes_graph.cc 里的
+# kBlendshapeNames 常量；ARKit 名字来源：Apple ARKit 文档 ARFaceAnchor.BlendShapeLocation。
+#
+# 字段：
+#   name    表情基名字（与 MediaPipe category_name 完全一致）
+#   region  解剖分区：brow 眉 / eye 眼 / cheek 颊 / nose 鼻 / mouth 嘴 / jaw 下颌
+#   side    L 左 / R 右 / C 中（左右以「角色自身」为准，与 ARKit 约定一致）
+#   pair    左右互换时对应的另一维（中间维不填）
+#
+# 注意：jawLeft/jawRight、mouthLeft/mouthRight 描述的是「往哪边偏」而不是「哪一侧的肌肉」，
+# 但镜像时同样要互换，所以也按左右成对处理。
+
+masked_by_default:   # 默认屏蔽：眼球朝向不是表情线索（DESIGN §3.2），训练与推理都置零
+  - eyeLookDownLeft
+  - eyeLookDownRight
+  - eyeLookInLeft
+  - eyeLookInRight
+  - eyeLookOutLeft
+  - eyeLookOutRight
+  - eyeLookUpLeft
+  - eyeLookUpRight
+
+dims:
+  - {name: browDownLeft,        region: brow,  side: L, pair: browDownRight}
+  - {name: browDownRight,       region: brow,  side: R, pair: browDownLeft}
+  - {name: browInnerUp,         region: brow,  side: C}
+  - {name: browOuterUpLeft,     region: brow,  side: L, pair: browOuterUpRight}
+  - {name: browOuterUpRight,    region: brow,  side: R, pair: browOuterUpLeft}
+  - {name: cheekPuff,           region: cheek, side: C}
+  - {name: cheekSquintLeft,     region: cheek, side: L, pair: cheekSquintRight}
+  - {name: cheekSquintRight,    region: cheek, side: R, pair: cheekSquintLeft}
+  - {name: eyeBlinkLeft,        region: eye,   side: L, pair: eyeBlinkRight}
+  - {name: eyeBlinkRight,       region: eye,   side: R, pair: eyeBlinkLeft}
+  - {name: eyeLookDownLeft,     region: eye,   side: L, pair: eyeLookDownRight}
+  - {name: eyeLookDownRight,    region: eye,   side: R, pair: eyeLookDownLeft}
+  - {name: eyeLookInLeft,       region: eye,   side: L, pair: eyeLookInRight}
+  - {name: eyeLookInRight,      region: eye,   side: R, pair: eyeLookInLeft}
+  - {name: eyeLookOutLeft,      region: eye,   side: L, pair: eyeLookOutRight}
+  - {name: eyeLookOutRight,     region: eye,   side: R, pair: eyeLookOutLeft}
+  - {name: eyeLookUpLeft,       region: eye,   side: L, pair: eyeLookUpRight}
+  - {name: eyeLookUpRight,      region: eye,   side: R, pair: eyeLookUpLeft}
+  - {name: eyeSquintLeft,       region: eye,   side: L, pair: eyeSquintRight}
+  - {name: eyeSquintRight,      region: eye,   side: R, pair: eyeSquintLeft}
+  - {name: eyeWideLeft,         region: eye,   side: L, pair: eyeWideRight}
+  - {name: eyeWideRight,        region: eye,   side: R, pair: eyeWideLeft}
+  - {name: jawForward,          region: jaw,   side: C}
+  - {name: jawLeft,             region: jaw,   side: L, pair: jawRight}
+  - {name: jawOpen,             region: jaw,   side: C}
+  - {name: jawRight,            region: jaw,   side: R, pair: jawLeft}
+  - {name: mouthClose,          region: mouth, side: C}
+  - {name: mouthDimpleLeft,     region: mouth, side: L, pair: mouthDimpleRight}
+  - {name: mouthDimpleRight,    region: mouth, side: R, pair: mouthDimpleLeft}
+  - {name: mouthFrownLeft,      region: mouth, side: L, pair: mouthFrownRight}
+  - {name: mouthFrownRight,     region: mouth, side: R, pair: mouthFrownLeft}
+  - {name: mouthFunnel,         region: mouth, side: C}
+  - {name: mouthLeft,           region: mouth, side: L, pair: mouthRight}
+  - {name: mouthLowerDownLeft,  region: mouth, side: L, pair: mouthLowerDownRight}
+  - {name: mouthLowerDownRight, region: mouth, side: R, pair: mouthLowerDownLeft}
+  - {name: mouthPressLeft,      region: mouth, side: L, pair: mouthPressRight}
+  - {name: mouthPressRight,     region: mouth, side: R, pair: mouthPressLeft}
+  - {name: mouthPucker,         region: mouth, side: C}
+  - {name: mouthRight,          region: mouth, side: R, pair: mouthLeft}
+  - {name: mouthRollLower,      region: mouth, side: C}
+  - {name: mouthRollUpper,      region: mouth, side: C}
+  - {name: mouthShrugLower,     region: mouth, side: C}
+  - {name: mouthShrugUpper,     region: mouth, side: C}
+  - {name: mouthSmileLeft,      region: mouth, side: L, pair: mouthSmileRight}
+  - {name: mouthSmileRight,     region: mouth, side: R, pair: mouthSmileLeft}
+  - {name: mouthStretchLeft,    region: mouth, side: L, pair: mouthStretchRight}
+  - {name: mouthStretchRight,   region: mouth, side: R, pair: mouthStretchLeft}
+  - {name: mouthUpperUpLeft,    region: mouth, side: L, pair: mouthUpperUpRight}
+  - {name: mouthUpperUpRight,   region: mouth, side: R, pair: mouthUpperUpLeft}
+  - {name: noseSneerLeft,       region: nose,  side: L, pair: noseSneerRight}
+  - {name: noseSneerRight,      region: nose,  side: R, pair: noseSneerLeft}

@@ -18,6 +18,9 @@
 | `skadi/` | 斯卡蒂 | NPC `Npc_Elder` |
 | `texas/` | 德克萨斯 | NPC `Npc_Traveler` |
 | `exusiai/` | 能天使 | NPC `Npc_Villager` |
+| `nian/` | 年（源 `models/2014_nian`） | 妖·化形（照镜 demo） |
+| `demon/` | 萨卡兹大剑手（源 `models_enemies/1010_demon`，Idle/Move_Loop 映射为 idle/walk） | 妖·真形①（照镜 demo，本波只用首帧） |
+| `slime/` | 源石虫（源 `models_enemies/1007_slime`，同上映射） | 妖·真形②（照镜 demo，本波只用首帧） |
 
 **没有跑步帧**：五个角色目前只有 idle 与 walk 两套帧，因为方舟源 Spine 模型本身没有跑步动画，渲不出 run 帧，不是筛选取舍。
 按住奔跑时控制器的 Run 态复用 walk 剪辑，播放速率提到上限 1.6 倍（速率 = 地速 5 ÷ walk 剪辑地速 3 ≈ 1.67，夹到 1.6），
@@ -34,3 +37,11 @@
 - **文件**：`avatar_<名字>.png`，名字与上表子目录一致；`avatar_exusiai.png` 取自原仓库的 `char_103_angel.png`。
 - **导入**：Sprite / PPU 100 / Bilinear / 不生成 mipmap（UI 用，不进序列帧图集）；由演出舞台 `PerformanceStage` 的演员名单（cast）引用。
 - **替换方式**：同名覆盖即可（GUID 不变，演出里的引用不用重接）。
+
+## TrueForms/ — 照镜真形图（同样仅开发期占位）
+
+- **来源**：两张图取自 demon / slime 的 idle 第 1 帧，作为「照镜」demo 里妖怪真形的静态展示图。
+- **导入**：Sprite（2D and UI）/ Single / 关 mipmap / PPU 100；UI 用途，不进序列帧图集。
+- **加载**：经 Addressables 组 `Mirror` 按地址加载，地址即文件名（不含扩展名）：`yao_true_demon`、`yao_true_slime`。
+- **替换方式**：同名覆盖即可（Addressables 地址与引用不用重接）。
+

@@ -1,0 +1,165 @@
+# 示例绑定：捏脸滑杆 → 规范表情空间（DESIGN §9）
+#
+# 这是占位示例，20 根滑杆，策划定下真实捏脸滑杆后只改这个文件（或复制一份新 rig），
+# 然后跑绑定覆盖度报告（python -m exprnet.coverage）并重新导出（python -m exprnet.export）。
+#
+# 每根滑杆：
+#   key       滑杆标识（导出元数据里给 Unity 侧对号入座）
+#   zh        中文名
+#   range     [min, max]，必须包含 0；0 是「中性」位置
+#   default   默认值（应为 0：捏脸的中性脸在规范空间里是全 0）
+#   pos       往正方向拉满（= max）时各表情基的激活值；中间线性插值
+#   neg       往负方向拉满（= min）时各表情基的激活值；单极滑杆不写
+#   live2d    对应的 Live2D Cubism 标准参数（仅作参照；非标准参数标「自定义」）
+# 多根滑杆驱动同一个表情基时相加，结果裁剪到 [0,1]。
+#
+# 刻意没覆盖的表情基（覆盖度报告应能报出来）：cheekPuff、jawLeft/jawRight、mouthClose、
+# mouthDimpleLeft/Right；眼球朝向 eyeLook* 虽然有滑杆驱动，但在规范空间里默认被屏蔽。
+
+name: sample_rig
+sliders:
+  # ---------------- 眉
+  - key: brow_L_y
+    zh: 左眉高低
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpLeft: 1.0, browInnerUp: 0.5}   # 左眉整体上抬
+    neg: {browDownLeft: 1.0}                        # 左眉压低
+    live2d: ParamBrowLY
+  - key: brow_R_y
+    zh: 右眉高低
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpRight: 1.0, browInnerUp: 0.5}
+    neg: {browDownRight: 1.0}
+    live2d: ParamBrowRY
+  - key: brow_L_angle
+    zh: 左眉角度
+    range: [-1, 1]
+    default: 0
+    pos: {browDownLeft: 0.6, browOuterUpLeft: 0.4}  # 眉头压、眉尾挑：怒眉
+    neg: {browInnerUp: 0.5}                         # 眉头上抬、眉尾垂：愁眉
+    live2d: ParamBrowLAngle
+  - key: brow_R_angle
+    zh: 右眉角度
+    range: [-1, 1]
+    default: 0
+    pos: {browDownRight: 0.6, browOuterUpRight: 0.4}
+    neg: {browInnerUp: 0.5}
+    live2d: ParamBrowRAngle
+
+  # ---------------- 眼
+  - key: eye_L_open
+    zh: 左眼睁闭
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideLeft: 1.0}                         # 瞪大
+    neg: {eyeBlinkLeft: 1.0}                        # 闭上
+    live2d: ParamEyeLOpen（Live2D 为 0 闭–1 常态，可映射为 1 + 滑杆值）
+  - key: eye_R_open
+    zh: 右眼睁闭
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideRight: 1.0}
+    neg: {eyeBlinkRight: 1.0}
+    live2d: ParamEyeROpen
+  - key: eye_L_smile
+    zh: 左眼笑眼
+    range: [-1, 1]
+    default: 0
+    pos: {cheekSquintLeft: 1.0, eyeSquintLeft: 0.4} # 眯眼笑（颊上推）
+    neg: {eyeSquintLeft: 1.0}                       # 眼睑收紧（凶、嫌）
+    live2d: ParamEyeLSmile
+  - key: eye_R_smile
+    zh: 右眼笑眼
+    range: [-1, 1]
+    default: 0
+    pos: {cheekSquintRight: 1.0, eyeSquintRight: 0.4}
+    neg: {eyeSquintRight: 1.0}
+    live2d: ParamEyeRSmile
+  - key: eye_ball_x
+    zh: 眼珠左右
+    range: [-1, 1]
+    default: 0
+    pos: {eyeLookOutRight: 1.0, eyeLookInLeft: 1.0} # 看向角色右侧
+    neg: {eyeLookOutLeft: 1.0, eyeLookInRight: 1.0} # 看向角色左侧
+    live2d: ParamEyeBallX
+  - key: eye_ball_y
+    zh: 眼珠上下
+    range: [-1, 1]
+    default: 0
+    pos: {eyeLookUpLeft: 1.0, eyeLookUpRight: 1.0}
+    neg: {eyeLookDownLeft: 1.0, eyeLookDownRight: 1.0}
+    live2d: ParamEyeBallY
+
+  # ---------------- 鼻
+  - key: nose_sneer
+    zh: 皱鼻
+    range: [0, 1]
+    default: 0
+    pos: {noseSneerLeft: 1.0, noseSneerRight: 1.0}
+    live2d: 自定义（Cubism 标准参数里没有）
+
+  # ---------------- 嘴
+  - key: mouth_corner_L
+    zh: 左嘴角
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileLeft: 1.0}                      # 上扬
+    neg: {mouthFrownLeft: 1.0}                      # 下撇
+    live2d: ParamMouthForm 的左半（标准参数是左右共用的一根）
+  - key: mouth_corner_R
+    zh: 右嘴角
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileRight: 1.0}
+    neg: {mouthFrownRight: 1.0}
+    live2d: ParamMouthForm 的右半
+  - key: mouth_open
+    zh: 张嘴
+    range: [0, 1]
+    default: 0
+    pos: {jawOpen: 1.0}
+    live2d: ParamMouthOpenY
+  - key: mouth_width
+    zh: 嘴宽
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchLeft: 1.0, mouthStretchRight: 1.0}   # 横拉
+    neg: {mouthPucker: 1.0}                                # 噘嘴
+    live2d: 自定义
+  - key: mouth_x
+    zh: 嘴歪
+    range: [-1, 1]
+    default: 0
+    pos: {mouthRight: 1.0}
+    neg: {mouthLeft: 1.0}
+    live2d: 自定义（部分模型有 ParamMouthX）
+  - key: upper_lip
+    zh: 上唇
+    range: [-1, 1]
+    default: 0
+    pos: {mouthUpperUpLeft: 1.0, mouthUpperUpRight: 1.0}   # 上唇上提（露齿、嫌恶）
+    neg: {mouthRollUpper: 1.0}                             # 上唇内卷
+    live2d: 自定义
+  - key: lower_lip
+    zh: 下唇
+    range: [-1, 1]
+    default: 0
+    pos: {mouthLowerDownLeft: 1.0, mouthLowerDownRight: 1.0}  # 下唇下拉
+    neg: {mouthRollLower: 1.0}                                # 下唇内卷
+    live2d: 自定义
+  - key: lip_press
+    zh: 抿嘴
+    range: [-1, 1]
+    default: 0
+    pos: {mouthPressLeft: 1.0, mouthPressRight: 1.0}       # 双唇抿紧
+    neg: {mouthFunnel: 1.0}                                # 嘴唇撮成漏斗
+    live2d: 自定义
+  - key: chin
+    zh: 下巴
+    range: [-1, 1]
+    default: 0
+    pos: {mouthShrugLower: 1.0, mouthShrugUpper: 0.4}      # 下巴上顶（皱下巴）
+    neg: {jawForward: 1.0}                                 # 下巴前伸
+    live2d: 自定义

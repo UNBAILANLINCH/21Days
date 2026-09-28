@@ -1,0 +1,38 @@
+{
+  "name": "slime",
+  "fps": 24,
+  "scale": 1.0,
+  "frameWidth": 312,
+  "frameHeight": 200,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.055
+  },
+  "pivotPx": {
+    "x": 156,
+    "y": 11
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -136.443,
+    "minY": -6.097,
+    "maxX": 150.753,
+    "maxY": 184.988
+  },
+  "animations": {
+    "idle": {
+      "source": "Idle",
+      "frames": 48,
+      "duration": 2,
+      "loop": true,
+      "loopNote": "skel 不带循环标记，默认按循环处理"
+    },
+    "walk": {
+      "source": "Move_Loop",
+      "frames": 48,
+      "duration": 2,
+      "loop": true,
+      "loopNote": "skel 不带循环标记，默认按循环处理；源动画名 Move_Loop 手工映射为 walk（enemy 模型状态命名与 STATE_MAP 不同，脚本不识别，渲后按 README 约定重命名）"
+    }
+  }
+}

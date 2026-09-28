@@ -123,7 +123,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: db56eead34e41be43a4ff835c32aaeea
-    m_Address: DialogueHistoryView
+    m_Address: TranscriptView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

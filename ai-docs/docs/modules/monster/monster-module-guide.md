@@ -66,6 +66,7 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 随机停步区间使用 `logic.monster.patrol` 专用确定性随机流，当前抽整数秒 7、8、9、10。
 停步时长 2 秒；巡逻速度 2 单位/秒，警戒与敌对速度倍率 1.1、1.25。
 Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 1 秒。
+玩家 `Health` 因此归零时，若 `Mirror` 模块已接线，会弹出镜碎页并调 `EncounterStep.End()` 结束本场遭遇、重进场景，而不是让双方停在原地，见 [`mirror-module-guide.md`](../mirror/mirror-module-guide.md)。
 工作簿未规定攻击冷却；它是待试玩校准的原型值。
 全部数值集中在 `MonsterConfig`，不要在视图或场景脚本中复制一份。
 修改敌人血量：选中 `Assets/_Project/Data/Monster/MonsterConfig.asset`，修改 Inspector 的 `Max Health`，重新开始场景后生效。
@@ -123,7 +124,10 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
   `EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime)`；`SimulationRunner` 处于 `Driven`
   （重放播放器逐 tick 推进、余量恒 0）时返回 1，直接显示当前 tick。独立场景 `StandaloneEncounterController` 用
   FixedUpdate 相位（`Time.time − Time.fixedTime`）/ `Time.fixedDeltaTime`，`ManualSimulation` 时返回 1。
-  不传 `alphaSource`（Taming、各 Showcase）按 1，行为与接入插值前一致。
+  不传 `alphaSource` 按 1，行为与接入插值前一致——目前只有 Taming（未接正式流程，独立绑定视图）与验框架机制的
+  自检回放（`ScenePath` 返回 `DemoScenePath`、不经 `MonsterEncounterState`）落在这一支；Player / Monster /
+  IsometricExploration / Disguise / CharacterPuppet 五份 Showcase 已改走 `EnterWorldFromTitle` 进 Boot 真实流程，
+  实际绑定走的是 `MonsterEncounterState.Bind`，与正式游玩共用同一条 `ReadInterpolationAlpha`。
 - **时停 / 暂停**：`timeScale = 0` 或 `SimulationRunner.IsPaused` 时余量不变、alpha 恒定，画面静止不抖。
 - **传送保护**：`|Position − PreviousPosition|` 超过 `obstacleTeleportDistance`（1.5）不插值，直接取 `Position`（漏同步时的兜底）。
 - 纯函数在 `EncounterProjection`：`InterpolationAlpha`（`EncounterProjection.cs:37`）、`InterpolatePosition`（`:58`），
@@ -185,16 +189,29 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 （`y = Screen.height − 56 − 28 − 28 − 24`）。挪到左下角是为了把右上角一列让给
 `Game.IsometricExploration` 的沉浸 / 重置按钮（见 `isometricexploration-module-guide.md` 的
 「探索 HUD 与沉浸模式」）。`Time.timeScale <= 0f`（对白 / 面板暂停期间）整块不画，避免压在对话框
-或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。
+或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。玩家状态行已按 Mirror 的 V8 验收去掉生命数字，只显示潜行 / 伪装
+（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）；怪物状态行仍保留生命数字（调试用）。
 
 `PlayerScenePosition`（`EncounterSceneView.cs:84`）暴露玩家纸片贴地后的场景坐标（插值后的渲染位置，
 正式流程下最多落后逻辑位置一个 tick），供 Showcase 与跨模块只读取用，不需要碰视图私有字段。
 
+## Showcase 回放（2026-09-28 重写，走 Boot 真实流程）
+
+`Assets/_Project/Scripts/Tests/Showcase/Monster/MonsterShowcase.cs` 四条用例，全部标题「开始」进 SampleScene
+（`EnterDemoWorld`），虚拟手柄推摇杆、虚拟键盘按 Gameplay 动作驱动真实玩家 `player`，巡逻怪 `enerme` 由容器里的
+`MonsterRules` 自己跑逻辑 tick（不再自己 `new` 规则、不再手动喂 `MonsterIntent`、不再瞬移玩家）：
+
+| 用例 | 演什么 |
+| --- | --- |
+| `Patrol_WalksAlongPointsAndTurnsBack` | 巡逻沿点位走动、到端点折返 |
+| `Sense_SneakBehindStaysCalm_FrontRedZoneTurnsHostile` | 背后潜行不警戒、正面红区照样敌对 |
+| `Hostile_ChasesFleeingPlayerAndHitsIt` | 敌对后追击逃跑的玩家并出手 |
+| `Attacked_TakesHitsUntilDead` | 挨打直到生命归零倒地 |
+
 ## 已知集成状态
 
 脚本、输入映射、配置资产、Boot、遭遇场景和 Addressables 均已接线。
-2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
-Monster Showcase 的 5 个检查点通过且运行时异常为 0，资产体检四项全过；视觉表现仍需开发者确认。
+2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，资产体检四项全过；视觉表现仍需开发者确认。
 
 **已知限制**：贴地是表现层行为——`PlayerModel`/`MonsterModel` 的逻辑坐标只有 XY，没有高度、
 不做视线遮挡；玩家的障碍判定只有上文的表现层白盒回写，怪物仍穿墙；`Reset` 或任意跨点瞬移只改变逻辑 XY，视图在下一帧仍按

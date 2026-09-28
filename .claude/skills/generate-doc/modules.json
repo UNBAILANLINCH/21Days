@@ -82,6 +82,11 @@
       "src": "Assets/_Project/Scripts/Runtime/Session",
       "docs": "ai-docs/docs/modules/session",
       "status": "seed"
+    },
+    "mirror": {
+      "src": "Assets/_Project/Scripts/Runtime/Mirror",
+      "docs": "ai-docs/docs/modules/mirror",
+      "status": "seed"
     }
   }
 }

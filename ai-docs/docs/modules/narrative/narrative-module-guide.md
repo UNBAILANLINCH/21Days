@@ -122,7 +122,7 @@ Dialogue（唯一现存消费者，只用 EncounterContext / NarrativeCondition�
 | 1 | 建立最小内容对象（Line→Choice→End 对白 + WaitAction→Battle→End 剧情） | 对白半边已由对话系统二期以 JSON 表完成；剧情半边仍待做（对应本表 T7） |
 | 2 | 角色表情地址索引 | 已由 `DialogueCatalog` 完成，与 Narrative 无关 |
 | 3 | Boot 根作用域注册 `DialogueRules`／`DialogueController`／`NarrativeRules`／`EncounterRules` | **对白半边已注册**（`DialogueInstaller`）；**Narrative 半边（`NarrativeRules`／`EncounterRules`）仍未注册，没有 Installer** |
-| 4 | 创建 `DialogueView`／`DialogueHistoryView` 预制体 | 已完成，但字段形状与本文档写的不同（两槽立绘、无 `advance` 按钮），详见 `dialogue-module-guide.md` 开头说明——**这条与 Narrative 无关，不要按这份原文接** |
+| 4 | 创建 `DialogueView`／`TranscriptView` 预制体 | 已完成，但字段形状与本文档写的不同（两槽立绘、无 `advance` 按钮），详见 `dialogue-module-guide.md` 开头说明——**这条与 Narrative 无关，不要按这份原文接** |
 | 5 | 先接「对白开始、选择、结束」 | 已完成（`DialogueService.PlayAsync`） |
 | 6 | `simulation.SetPaused(dialogueController, dialogueController.BlocksWorld)` | **已过时**：实际实现是 `DialogueService` 持有 `IWorldPauseService.Acquire(this)` 引用计数令牌，不是 `SimulationRunner.SetPaused` |
 | 7 | 接真实战斗（`StartBattle` → tick 提交后消费 → 转 `NarrativeIntent`） | **未做**，对应 roadmap C5；roadmap 同时提示要先按设计支柱重新审视「无血条对抗」是否还需要 Battle 阶段这种形态 |

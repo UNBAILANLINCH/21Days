@@ -9,6 +9,7 @@ using Game.Core.Logging;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
+using Game.Core.UI.Views;
 using Game.Narrative;
 using Game.Performance;
 using UnityEngine;
@@ -36,6 +37,9 @@ namespace Game.Dialogue
         // 不宜每帧取；资格变化以 0.25 s 粒度刷新到界面足够，提交时规则层仍会用最新快照校验，不会放过失效选项。
         private const float ChoiceRefreshInterval = 0.25f;
 
+        // 历史里选择项的「说话者」：记录面板显示为「选择：选项文字」（与改用通用记录面板之前的格式一致）。
+        private const string ChoiceSpeaker = "选择";
+
         private readonly DialogueRules rules;
         private readonly DialogueCatalog catalog;
         private readonly IUIService ui;
@@ -54,7 +58,8 @@ namespace Game.Dialogue
             new Dictionary<string, AssetHandle<Sprite>>(StringComparer.Ordinal);
         private Dictionary<string, DialogueCharacter> characters;
         private DialogueView view;
-        private DialogueHistoryView history;
+        // 历史面板复用 Core 的通用记录面板（Top 层）：打开时把规则里的历史转成 TranscriptLine 交给它。
+        private TranscriptView history;
         private DialogueSkipConfirmView skipConfirm;
         private IDialogueConditionSource conditions;
         private DialoguePlaybackPolicy policy;
@@ -166,8 +171,8 @@ namespace Game.Dialogue
                     {
                         historyRequested = false;
                         historyOpen = true;
-                        history = await ui.OpenAsync<DialogueHistoryView>(ct: ct);
-                        history.Show(rules.History, rules.HistoryTruncated);
+                        history = await ui.OpenAsync<TranscriptView>(ct: ct);
+                        history.Show(BuildTranscript(rules.History), rules.HistoryTruncated);
                         history.OnDismiss += DismissHistory;
                     }
                     if (dismissHistory)
@@ -374,6 +379,25 @@ namespace Game.Dialogue
             }
             // 演出期间对白可能已被外部 Cancel / Restore（generation / visit 变了）：由调用方比对后 continue，这里只处理取消。
             ct.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// 把规则里的对白历史转成通用记录面板的输入：选择项记为说话者「选择」，其余原样取说话者与正文（旁白说话者为空）。
+        /// 只在打开历史面板时调一次。公开是为了测试程序集可调（Game.Runtime 未对测试开 InternalsVisibleTo）。
+        /// </summary>
+        public static List<TranscriptLine> BuildTranscript(IReadOnlyList<DialogueSaveData.HistoryEntry> entries)
+        {
+            var lines = new List<TranscriptLine>(entries == null ? 0 : entries.Count);
+            if (entries == null) return lines;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                DialogueSaveData.HistoryEntry entry = entries[i];
+                if (entry == null) continue;
+                lines.Add(entry.IsChoice
+                    ? new TranscriptLine(ChoiceSpeaker, entry.Text)
+                    : new TranscriptLine(entry.Speaker, entry.Text));
+            }
+            return lines;
         }
 
         private void EnsureCharacters()

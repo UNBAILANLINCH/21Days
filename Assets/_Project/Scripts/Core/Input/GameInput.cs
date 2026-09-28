@@ -145,6 +145,24 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Mirror"",
+                    ""type"": ""Button"",
+                    ""id"": ""95732c71-e7a8-4887-95e4-713d533bcced"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""MirrorSelf"",
+                    ""type"": ""Button"",
+                    ""id"": ""ba88ad59-f38f-4717-ae36-b5e6236ae4c0"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -563,6 +581,50 @@ namespace Game.Core.Input
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Inventory"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""80b94b66-8256-4ef1-aa11-9161c65efc8b"",
+                    ""path"": ""<Keyboard>/r"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Mirror"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b4b566d3-dcff-4ffd-9de8-4762ad421697"",
+                    ""path"": ""<Gamepad>/leftTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Mirror"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a9aab613-7405-4ee9-90c5-41996b8f7c41"",
+                    ""path"": ""<Keyboard>/v"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""MirrorSelf"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""bbc9f063-2eee-4028-b937-74648e92ab78"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""MirrorSelf"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1290,6 +1352,8 @@ namespace Game.Core.Input
             m_Gameplay_Interact = m_Gameplay.FindAction("Interact", throwIfNotFound: true);
             m_Gameplay_Journal = m_Gameplay.FindAction("Journal", throwIfNotFound: true);
             m_Gameplay_Inventory = m_Gameplay.FindAction("Inventory", throwIfNotFound: true);
+            m_Gameplay_Mirror = m_Gameplay.FindAction("Mirror", throwIfNotFound: true);
+            m_Gameplay_MirrorSelf = m_Gameplay.FindAction("MirrorSelf", throwIfNotFound: true);
             // UI
             m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
             m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1394,6 +1458,8 @@ namespace Game.Core.Input
         private readonly InputAction m_Gameplay_Interact;
         private readonly InputAction m_Gameplay_Journal;
         private readonly InputAction m_Gameplay_Inventory;
+        private readonly InputAction m_Gameplay_Mirror;
+        private readonly InputAction m_Gameplay_MirrorSelf;
         public struct GameplayActions
         {
             private @GameInput m_Wrapper;
@@ -1411,6 +1477,8 @@ namespace Game.Core.Input
             public InputAction @Interact => m_Wrapper.m_Gameplay_Interact;
             public InputAction @Journal => m_Wrapper.m_Gameplay_Journal;
             public InputAction @Inventory => m_Wrapper.m_Gameplay_Inventory;
+            public InputAction @Mirror => m_Wrapper.m_Gameplay_Mirror;
+            public InputAction @MirrorSelf => m_Wrapper.m_Gameplay_MirrorSelf;
             public InputActionMap Get() { return m_Wrapper.m_Gameplay; }
             public void Enable() { Get().Enable(); }
             public void Disable() { Get().Disable(); }
@@ -1459,6 +1527,12 @@ namespace Game.Core.Input
                 @Inventory.started += instance.OnInventory;
                 @Inventory.performed += instance.OnInventory;
                 @Inventory.canceled += instance.OnInventory;
+                @Mirror.started += instance.OnMirror;
+                @Mirror.performed += instance.OnMirror;
+                @Mirror.canceled += instance.OnMirror;
+                @MirrorSelf.started += instance.OnMirrorSelf;
+                @MirrorSelf.performed += instance.OnMirrorSelf;
+                @MirrorSelf.canceled += instance.OnMirrorSelf;
             }
 
             private void UnregisterCallbacks(IGameplayActions instance)
@@ -1502,6 +1576,12 @@ namespace Game.Core.Input
                 @Inventory.started -= instance.OnInventory;
                 @Inventory.performed -= instance.OnInventory;
                 @Inventory.canceled -= instance.OnInventory;
+                @Mirror.started -= instance.OnMirror;
+                @Mirror.performed -= instance.OnMirror;
+                @Mirror.canceled -= instance.OnMirror;
+                @MirrorSelf.started -= instance.OnMirrorSelf;
+                @MirrorSelf.performed -= instance.OnMirrorSelf;
+                @MirrorSelf.canceled -= instance.OnMirrorSelf;
             }
 
             public void RemoveCallbacks(IGameplayActions instance)
@@ -1762,6 +1842,8 @@ namespace Game.Core.Input
             void OnInteract(InputAction.CallbackContext context);
             void OnJournal(InputAction.CallbackContext context);
             void OnInventory(InputAction.CallbackContext context);
+            void OnMirror(InputAction.CallbackContext context);
+            void OnMirrorSelf(InputAction.CallbackContext context);
         }
         public interface IUIActions
         {

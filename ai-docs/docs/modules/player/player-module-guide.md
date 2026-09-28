@@ -42,6 +42,8 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动（走 / �
 伪装开启后 Monster 的攻击统一被 DisguiseRules 禁止（含已敌对敌人），但不禁止警戒或追击；切换记录 `disguise_changed` 遥测。
 独立场景的 StandaloneEncounterController 缓存 J/G/左 Ctrl 按下事件，避免短按落在两个物理帧之间被漏读。
 玩家生命归零后不再移动或攻击；死亡视觉由遭遇场景的占位图反馈。
+玩家 `Health` 归零后，若 `Mirror` 模块已接线，会弹出镜碎页并调 `EncounterStep.End()` 结束本场遭遇、重进场景恢复满生命，取代这里描述的「原地不再移动」旧表现，见 [`mirror-module-guide.md`](../mirror/mirror-module-guide.md)。
+遭遇场景调试面板（`OnGUI`）也已按 Mirror 的 V8 验收去掉玩家生命数字，只显示潜行 / 伪装状态（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）。
 
 ## 运行数据与回放
 
@@ -86,11 +88,26 @@ Player 回放状态由 `MonsterInstaller` 在固定顺序中首先注册，然�
 触屏虚拟摇杆与走跑等按钮已迁到探索 HUD（`ExplorationHudView`），复用同一 Gameplay 动作，仅触屏平台显示（PC 阶段不显示，移植阶段启用），本模块不再挂触屏组件。
 `GameInput.cs` 为 Unity 输入系统生成物；只改 `.inputactions`，由 Unity 重新生成。
 
+## Showcase 回放（2026-09-28 重写，走 Boot 真实流程）
+
+`Assets/_Project/Scripts/Tests/Showcase/Player/PlayerShowcase.cs` 四条用例，全部标题「开始」进 SampleScene
+（`EnterDemoWorld`），虚拟手柄推摇杆、虚拟键盘按 Gameplay 动作驱动场景里的真实玩家 `player`（不再自己 `new`
+规则、不再瞬移）：
+
+| 用例 | 演什么 |
+| --- | --- |
+| `WalkThenRunToggle_RunCoversMoreGround` | 走 / 走跑切换：按走跑键前后同时长推杆，比较位移证明奔跑更快 |
+| `SneakHeld_MovesSlowerThenReleases` | 按住潜行键移动变慢，松开恢复 |
+| `DisguiseKey_TogglesDisguiseOnAndOff` | 按伪装键开启 / 再按关闭 |
+| `AttackThenTakeHits_HealthDropsToDeath` | 打巡逻怪一下后站定挨打，真实受击直到生命归零 |
+
+舞台统一是 `Assets/Scenes/SampleScene.unity`；死亡靠真实数值（`PlayerConfig` 生命 3、`MonsterConfig` 伤害 1、
+冷却 1 秒，贴身约 3 秒即死），不额外调 `PlayerRules.ApplyDamage` 补刀。
+
 ## 已知集成状态
 
 脚本、输入映射、配置资产、Boot Installer、遭遇场景和 Addressables 均已接线。
-2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过，
-Player Showcase 的 3 个检查点通过且运行时异常为 0；视觉表现仍需开发者确认。
+2026-09-20 验证结果：Unity 编译无错误，相关工程 EditMode 全量 181/181 通过；视觉表现仍需开发者确认。
 
 ## 修改时检查
 

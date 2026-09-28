@@ -61,7 +61,7 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 ## 驱动数据流
 
 ```text
-角色根 Transform.position（别人推：探索移动 / 巡逻 AI / Showcase 协程）
+角色根 Transform.position（别人推：探索移动 / 巡逻 AI / 回放虚拟输入驱动的真实移动）
    │  ChibiPuppetMotion.LateUpdate（ExecutionOrder 100）
    ▼
 pendingDelta += Δpos，pendingTime += Time.deltaTime
@@ -108,7 +108,7 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 | 来源 | 条件 | 行为 | 用在哪 |
 | --- | --- | --- | --- |
 | `facingSource.flipX` | 配了 `facingSource` | 直接跟随该 `SpriteRenderer` 的 `flipX`（真 = 朝左） | SampleScene 玩家 / 巡逻者：跟随被 `EncounterSceneView` 翻转的隐藏纸片 |
-| 位移投影 | `facingSource` 为空 | `Dot(Δ, Camera.main.transform.right) / window` 过死区；取不到主相机时保持原朝向 | 回放运行时生成的独立小人（无原纸片） |
+| 位移投影 | `facingSource` 为空 | `Dot(Δ, Camera.main.transform.right) / window` 过死区；取不到主相机时保持原朝向 | 无当前用例：场景内小人（玩家、巡逻者、三个 NPC）都配了 `facingSource`；Showcase 现在直接驱动这些既有小人，不再另生成无 `facingSource` 的独立小人。这条分支留给将来脱离隐藏纸片单独生成小人的场合 |
 
 用速度（除以窗口时长）而不是位移过死区：帧率 / 窗口长短不改变判定（`ChibiPuppetMotion.cs:132`）。
 `Camera.main` 只在首次需要时取一次并缓存，不每帧 Find。
@@ -193,10 +193,12 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 | --- | --- | --- |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetMotionRulesTests.cs` | 无位移静止、起步阈值、走动中阈值上保持、停步阈值、dt ≤ 0、朝向死区保持与符号、按剪辑地速的播放速率（原速、夹取、地速非正回退）、跑走滞回、无 run 剪辑永不置 Running |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs` | 帧名解析（合法 / 各类非法）、分组与数值排序、重复序号报错、缺号与陌生文件告警、缺态文案、run 可选、PPU、pivot 回退链、fps 优先级（缺省 24）、groundSpeed 解析与缺省 3 / 5、meta 解析失败、画布尺寸不一致、状态名映射 |
-| Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs` | 待机 → 右走（Walk、`localScale.x > 0`）→ 左走翻面 → 停下回 Idle → 3 单位/秒走路（Animator `Speed` ≈ 1.0）→ 5 单位/秒奔跑（amiya 无 run 帧：仍 Walk 态，`Speed` ≈ 1.6 且高于走路）→ 停下回 Idle → 时停期间 Idle 的 normalizedTime 仍增长 |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 正交相机 + 空物体 `Puppet` 下挂 `Chibi_amiya`，无 `facingSource`（走位移投影分支） |
+| Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs`（2026-09-28 重写，走 Boot 真实流程）| 三条用例，全部标题「开始」进 SampleScene（`EnterDemoWorld`）后驱动场景里 `player` 下现成的 `Chibi_amiya`：`IdleWalkTurnStop_PlaysMatchingAnimation`（待机 → 右走 Walk、`localScale.x > 0` → 左走翻面 → 停下回 Idle）、`WalkVersusRun_RunPlaysFaster`（3 单位/秒走路 `Speed` ≈ 1.0 vs 5 单位/秒奔跑：amiya 无 run 帧，仍 Walk 态、`Speed` ≈ 1.6 且高于走路）、`WorldPauseDuringDialogue_IdleKeepsPlaying`（走到长者旁按交互键拉起对白 1001，时停期间 Idle 的 normalizedTime 仍增长；按「跳过」→ 确认 → 选第二项「拒绝」关掉对白，世界恢复） |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 走 Boot 真实流程，驱动场景里 `player/Visual` 下已配好 `facingSource` 的 `Chibi_amiya`，不再另生成独立小人 |
 
-- Showcase 不加载 Boot 场景（`LoadBootScene => false`），由协程逐帧推根节点；时停检查在 `finally` 里恢复 `timeScale = 1`。
+- Showcase 走 Boot 真实流程（`LoadBootScene` 默认 `true`，`ScenePath => null`），虚拟手柄推摇杆驱动真实 `PlayerModel` 位移，
+  小人只从这个真实位移反推动画，不再由协程直接推根节点；对白时停用例中途失败留下未关的对白，`[UnityTearDown]`
+  按「跳过 → 确认 → 选第二项」兜底关闭，兜不住再由基类收尾销毁根作用域（`WorldPauseService.Dispose` 恢复 `timeScale`）。
 - 跑法：`/verify-module CharacterPuppet`；规则改动先跑 `/unity-test EditMode CharacterPuppet`。
 - SampleScene 冒烟：玩家出生静止为 Idle；巡逻者巡逻时 Walk、朝向随移动翻转；对话时停时回到待机。
 

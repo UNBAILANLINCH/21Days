@@ -1,0 +1,12 @@
+# 训练 / 导出 / 测试依赖（CPU 版 torch 就够，模型只有几万到十几万参数）
+# 安装：pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# 已验证版本：torch 2.14.0+cpu、numpy 2.5.3、scipy 1.18.1、onnx 1.23.0、onnxruntime 1.30.0、pytest 9.1.1（Python 3.12）
+# 注意：导出走 torch.onnx.export(dynamo=False) 的旧版 TorchScript 导出器（opset 15 需要它）；
+#       如果将来的 torch 移除了它，把 torch 固定在 2.14.x。
+torch>=2.2,<2.15
+numpy>=1.26
+scipy>=1.11
+pyyaml>=6.0
+onnx>=1.15
+onnxruntime>=1.17
+pytest>=8.0

@@ -7,12 +7,14 @@ maturity: stable
 
 # Disguise 模块指南
 
-## 本轮测试（2026-09-20）
+## 历史记录：本轮测试（2026-09-20）
 
 EditMode 全量 191/191 通过。Disguise Showcase 2/2 通过、5 个检查点通过，无运行时异常。
 覆盖已敌对时禁攻、取消伪装恢复攻击、普通攻击击杀，以及真实 Input System 短按 G/J。
 报告：`Logs/verify/disguise/20260920-221546/report.md`。验证使用独立 XY 占位场景，不代表 SampleScene 整张地图视觉已验收。
 截图中回放叠加层和生命 HUD 重叠，Game Gizmos 可见；视觉与手感仍待开发者确认。
+**此节是历史记录**：当时的 Showcase 不加载 Boot、自己 `new` 规则、用独立占位场景；2026-09-28 已整份重写为走 Boot
+真实流程，用例内容与场景见下文「验证」一节，不再是这两条。
 
 独立定义“伪装期间敌人不攻击玩家”。不把伪装作为驯服前置条件。
 按 G 切换伪装，状态与按键边缘继续保存在 PlayerModel，由 PlayerRules 推进。
@@ -40,7 +42,11 @@ WASD 移动，G 伪装，J 普通攻击；左上角显示双方生命和伪装�
 ## 验证
 
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Disguise/DisguiseRulesTests.cs`，覆盖已敌对、受击、近距离禁攻及取消恢复。
-- Showcase：`Assets/_Project/Scripts/Tests/Showcase/Disguise/DisguiseShowcase.cs`，在 SampleScene 上跑（ShowcaseOptions.DemoScenePath）。
+- Showcase（2026-09-28 重写，走 Boot 真实流程）：`Assets/_Project/Scripts/Tests/Showcase/Disguise/DisguiseShowcase.cs`，
+  标题「开始」进 SampleScene（`EnterDemoWorld`）后两条用例：`Disguise_BlocksHostileAttack_ThenCanKillNormally`
+  （虚拟手柄贴近巡逻怪，伪装期间敌对怪物不出手、取消伪装立刻挨打、普通攻击照样能击杀）与
+  `ShortKeyboardPress_ReachesDisguiseAndAttack`（虚拟键盘短按伪装 / 攻击键，按住约一个逻辑帧即松开，
+  验的是 `LiveInputSource` 逐 tick 采样、没有按下沿锁存这条真实路径，不是「按住直到生效」）。
 - 普通攻击回归：`Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterStepTests.cs`。
 
 不允许仅在 UI 或遭遇调度处扣掉伤害来实现伪装；敌人的攻击许可必须统一。

@@ -1,8 +1,19 @@
-// 职责：在等距纸片场景回放潜行接近、红区警戒、追击、普通攻击与死亡，以及角色走上灰盒楼梯时身体贴地抬升。
-// 为什么新建：Player/Monster Showcase 只使用代码生成的二维占位图，无法验证 XZ 场景适配。
+// 职责：纸片场景适配回放——玩家真走上灰盒楼梯（Stairs_Step_1..4）时身体贴地逐级抬升、走下来落回地面；验证相机距离剔除的消失与恢复。
+// 舞台是 SampleScene，走 Boot 真实流程（标题「开始」进场），虚拟手柄推摇杆驱动场景里的真实玩家，
+//   高度读 EncounterSceneView.PlayerScenePosition（纸片身体的场景位置），不瞬移、不 new 规则。
+// 本次重写理由：原版不加载 Boot，自己 new PlayerRules / MonsterRules / EncounterStep + 默认值 ScriptableObject 重新 Bind 视图，
+//   再 PlayerRules.Reset 把玩家一级一级瞬移上台阶——与 demo 场景的正常游玩链路脱节（瞬移还会跳过视图的碰撞与贴地插值），
+//   验的是默认值配置而不是场景里调好的数值。原版的潜行接近 / 红区敌对 / 普通攻击击杀用例已挪到
+//   Monster / Player 两份回放（每个行为只演一次），本文件只留纸片场景适配。
+// 站位与时机：楼梯紧挨巡逻怪的巡逻线（巡逻段 x 13.86..17.86、z 3.4；楼梯 x 16.5..19.5、z 6..9.2），楼梯口 z≈5.5 离巡逻线只有 2.1 米，
+//   怪物朝东走时楼梯口会落进它的视野锥（±37.5°、警戒半径 6）。所以先在塔与楼梯之间的空地 (15.5,7.2) 等（任何时候都在视野外），
+//   等它朝东走过 x 16.3 再出发：此后它要么朝东看不到楼梯口（夹角 > 37.5°）、要么折返朝西背对楼梯口，
+//   直到再走回 x 13.86 掉头（≥ 2.7 秒），这段时间里玩家已经走过楼梯第 3 级（z ≥ 7.6，此后怎么都进不了警戒半径）。
+//   出发前的路线同 Player / Monster 回放：北侧 RouteToPatrol 绕开村口演出触发区。楼梯口坐标与时机常量（StairsLaneX / StairsFootOffset /
+//   StairsCorner / StairsSafeMonsterX）的推导见 Framework/ShowcaseScenario.DemoScene.cs。
+using System;
 using System.Collections;
-using Game.Core.Simulation;
-using Game.Core.Telemetry;
+using Game.Core.Input;
 using Game.IsometricExploration;
 using Game.Monster;
 using Game.Player;
@@ -15,20 +26,19 @@ namespace Game.Tests.Showcase.IsometricExploration
     [Category("Showcase")]
     public sealed class IsometricExplorationShowcase : ShowcaseScenario
     {
-        private EncounterSceneView view;
-        private PlayerRules player;
-        private MonsterRules monster;
-        private EncounterStep encounter;
-        private RandomService random;
-        private long tick;
+        private IInputService inputService;
+        private PlayerModel player;
+        private MonsterModel monster;
 
         protected override string Module => "IsometricExploration";
-        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
-        protected override bool LoadBootScene => false;
+
+        /// <summary>世界由流程加载（标题「开始」→ MonsterEncounterState → SampleScene），基类不再叠加载一份。</summary>
+        protected override string ScenePath => null;
 
         [UnityTest]
         public IEnumerator CameraDistanceCulling_HidesDistantVisualAndRestoresIt()
         {
+            yield return EnterWorld();
             Camera camera = FindRequired<Camera>("Main Camera");
             CameraDistanceCulling culling = FindRequired<CameraDistanceCulling>("Main Camera");
             SmoothCameraFollow follow = FindRequired<SmoothCameraFollow>("Main Camera");
@@ -80,108 +90,95 @@ namespace Game.Tests.Showcase.IsometricExploration
         }
 
         [UnityTest]
-        public IEnumerator SneakApproach_ThenAttack_KillsMonster()
+        public IEnumerator WalkUpStairs_BodyRisesStepByStepThenLandsBack()
         {
-            Vector2 patrolStart = default;
-            Vector2 chaseStart = default;
-            BindEncounter();
+            yield return EnterWorld();
+            EncounterSceneView view = FindRequired<EncounterSceneView>("Encounter");
+            Transform step1 = FindRequired<Transform>("Stairs_Step_1");
+            Collider step4 = FindRequired<Collider>("Stairs_Step_4");
+            Vector2 foot = new Vector2(StairsLaneX, step1.position.z - StairsFootOffset);
+            Vector2 top = new Vector2(StairsLaneX, step4.transform.position.z);
 
-            yield return Step("敌人沿路线巡逻", () =>
+            yield return Step("切到奔跑，沿北侧走到塔与楼梯之间的空地（巡逻怪看不到这里）", null, 0f);
+            yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => player.IsRunning);
+            yield return WalkRoute(RouteToPatrol, 0.4f, 8f);
+
+            yield return Step("等巡逻怪朝东走过楼梯口前方（接下来几秒它看不到楼梯口）", null, 0f);
+            yield return WaitUntil("怪物朝东巡逻、已过 x 16.3", MonsterLeavesStairsFoot, 15f);
+
+            float baseline = 0f;
+            yield return Step("跑到楼梯口平地，记下地面高度", null, 0f);
+            yield return WalkTo(StairsCorner, 0.3f, 3f);
+            yield return WalkTo(foot, 0.2f, 3f);
+            baseline = view.PlayerScenePosition.y;
+            float rise = step4.bounds.max.y - baseline;
+            yield return Check($"站在楼梯口平地上（身体高度 {baseline:0.00}，第 4 级台阶顶比地面高 {rise:0.00}）",
+                () => rise > 0.9f && Vector2.Distance(player.Position, foot) <= 0.4f);
+
+            float maxDrop = 0f;
+            float lastY = baseline;
+            yield return Step("推摇杆沿楼梯向上走到第 4 级", null, 0f);
+            yield return PushSampling(Vector2.up, 3f, () => player.Position.y >= top.y - 0.1f, () =>
             {
-                patrolStart = monster.Model.Position;
-                Step(0u, 0.5f);
+                float y = view.PlayerScenePosition.y;
+                maxDrop = Mathf.Max(maxDrop, lastY - y);
+                lastY = y;
             });
-            yield return Check("敌人发生巡逻位移", () => monster.Model.Position != patrolStart);
+            float climbed = view.PlayerScenePosition.y - baseline;
+            yield return Check($"上楼过程中身体高度只升不降（最大回落 {maxDrop:0.000} 米）", () => maxDrop <= 0.001f);
+            yield return Check($"身体贴着台阶抬到第 4 级上（抬升 {climbed:0.00} 米，台阶顶 {rise:0.00} 米）",
+                () => view.PlayerScenePosition.y - baseline >= rise - 0.15f && player.Position.y >= top.y - 0.4f, 1f);
+            yield return Snapshot("站上楼梯第4级");
 
-            yield return Step("玩家在怪物背后潜行接近", () =>
-            {
-                player.Reset(monster.Model.Position - Vector2.right);
-                Step(InputCommand.ButtonSneak);
-            });
-            yield return Check("潜行避免背后近距警戒", () => monster.Model.Mode == MonsterMode.PatrolWalk);
-            yield return Snapshot("潜行接近");
+            yield return Step("在楼梯顶等巡逻怪再次朝东走过楼梯口前方", null, 0f);
+            yield return WaitUntil("怪物朝东巡逻、已过 x 16.3", MonsterLeavesStairsFoot, 15f);
 
-            yield return Step("玩家潜行进入正面红区", () =>
-            {
-                player.Reset(monster.Model.Position + Vector2.right);
-                Step(InputCommand.ButtonSneak);
-                chaseStart = monster.Model.Position;
-            });
-            yield return Check("红区仍触发敌对", () => monster.Model.Mode == MonsterMode.Hostile);
-            yield return Step("敌人向玩家追击", () => Step(InputCommand.ButtonSneak, 0.5f));
-            yield return Check("敌人发生追击位移", () => monster.Model.Position != chaseStart);
-            yield return Snapshot("敌对追击");
-
-            yield return Step("玩家近身连续普通攻击", () =>
-            {
-                player.Reset(monster.Model.Position - Vector2.right * 0.5f);
-                for (int i = 0; i < 3; i++)
-                {
-                    Step(InputCommand.ButtonAttack, 1f);
-                    Step(0u, 0f);
-                }
-            });
-            yield return Check("怪物生命归零并停止行动",
-                () => monster.Model.Health == 0 && monster.Model.Mode == MonsterMode.Dead);
-            yield return Snapshot("普通攻击击杀");
-        }
-
-        [UnityTest]
-        public IEnumerator WalkOntoStairs_RaisesBody()
-        {
-            BindEncounter();
-            // 楼梯各级的逻辑坐标 = 场景 XZ；只读场景标记位置，不碰视图私有实现。
-            Vector2 step1 = ToLogic(FindRequired<Transform>("Stairs_Step_1").position);
-            Vector2 step2 = ToLogic(FindRequired<Transform>("Stairs_Step_2").position);
-            Vector2 step3 = ToLogic(FindRequired<Transform>("Stairs_Step_3").position);
-            Vector2 flat = view.PlayerStart;
-
-            yield return Step("玩家回到平地出生点，记录地面高度基准", () => { player.Reset(flat); Step(0u, 0.1f); });
-            yield return null;
-            float baseline = view.PlayerScenePosition.y;
-
-            // 每级抬升 0.3，低于单帧步高上限；逐级走上去，每级至少过一帧让视图贴地。
-            yield return Step("玩家走上楼梯第 1 级", () => { player.Reset(step1); Step(0u, 0.1f); });
-            yield return null;
-            yield return Step("玩家走上楼梯第 2 级", () => { player.Reset(step2); Step(0u, 0.1f); });
-            yield return null;
-            yield return Step("玩家走上楼梯第 3 级", () => { player.Reset(step3); Step(0u, 0.1f); });
-            yield return Check("玩家身体抬到第 3 级台阶上（比地面基准高 0.55 以上）",
-                () => view.PlayerScenePosition.y >= baseline + 0.55f, 2f);
-            yield return Snapshot("站上楼梯第3级");
-
-            yield return Step("玩家回到平地出生点", () => { player.Reset(flat); Step(0u, 0.1f); });
-            yield return Check("玩家身体落回地面高度基准",
+            yield return Step("推摇杆沿楼梯走回楼梯口平地", null, 0f);
+            yield return WalkTo(foot, 0.2f, 3f);
+            yield return Check($"身体落回地面高度（与 {baseline:0.00} 相差 ≤ 0.05 米）",
                 () => Mathf.Abs(view.PlayerScenePosition.y - baseline) <= 0.05f, 2f);
-            yield return Snapshot("回到平地");
+            yield return Snapshot("走回平地");
         }
 
-        private static Vector2 ToLogic(Vector3 scenePosition) => new Vector2(scenePosition.x, scenePosition.z);
+        // ───────────────────────── 进场与驱动 ─────────────────────────
 
-        private void BindEncounter()
+        /// <summary>怪物在朝东巡逻、已走过楼梯口前方：推导见文件头「站位与时机」。</summary>
+        private bool MonsterLeavesStairsFoot()
         {
-            tick = 0;
-            view = Object.FindObjectOfType<EncounterSceneView>();
-            Assert.That(view, Is.Not.Null, "IsometricEncounter 场景必须显式接入 EncounterSceneView");
-            var standalone = Object.FindObjectOfType<StandaloneEncounterController>();
-            if (standalone != null) standalone.ManualSimulation = true;
-            PlayerConfig playerConfig = Track(ScriptableObject.CreateInstance<PlayerConfig>());
-            MonsterConfig monsterConfig = Track(ScriptableObject.CreateInstance<MonsterConfig>());
-            var playerModel = new PlayerModel();
-            player = new PlayerRules(playerConfig, playerModel, NullTelemetryScope.Instance);
-            var monsterModel = new MonsterModel();
-            random = new RandomService(123ul);
-            monster = new MonsterRules(monsterConfig, monsterModel, random, NullTelemetryScope.Instance);
-            encounter = new EncounterStep(player, monster);
-            encounter.Begin(view.PlayerStart, view.PatrolPositions());
-            view.Bind(playerModel, monsterModel);
+            return monster.Mode == MonsterMode.PatrolWalk && monster.Facing.x > 0.5f
+                   && monster.Position.x >= StairsSafeMonsterX;
         }
 
-        private void Step(uint buttons, float deltaTime = 0f)
+        /// <summary>标题「开始」进世界（EnterDemoWorld），等容器里的输入服务与玩家 / 怪物模型可用。</summary>
+        private IEnumerator EnterWorld()
         {
-            var command = new InputCommand(Vector2.zero, Vector2.zero, buttons, Vector2.zero, 0);
-            var context = new SimulationContext(tick++, deltaTime, in command, random);
-            encounter.Step(in context);
+            yield return EnterDemoWorld("遭遇逻辑在跑、输入服务与玩家 / 怪物模型可用", () =>
+            {
+                inputService = ResolveService<IInputService>();
+                player = ResolveService<PlayerModel>();
+                monster = ResolveService<MonsterModel>();
+                return inputService != null && inputService.Actions != null
+                       && player != null && monster != null;
+            }, "进世界后容器里取不到 PlayerModel / MonsterModel / IInputService，后续步骤无法驱动");
+        }
+
+        /// <summary>
+        /// 逐帧朝 <paramref name="direction"/> 推摇杆并回调 <paramref name="onFrame"/> 采样，
+        /// <paramref name="stopWhen"/> 成立或满 <paramref name="maxSeconds"/> 秒松杆，再等玩家停稳。
+        /// </summary>
+        private IEnumerator PushSampling(Vector2 direction, float maxSeconds, Func<bool> stopWhen, Action onFrame)
+        {
+            float deadline = Time.realtimeSinceStartup + maxSeconds;
+            while (Time.realtimeSinceStartup < deadline && !stopWhen())
+            {
+                Input.SetStick(direction);
+                yield return null;
+                onFrame();
+            }
+
+            Input.ReleaseStick();
+            yield return WaitPlayerStable();
+            onFrame();
         }
     }
 }

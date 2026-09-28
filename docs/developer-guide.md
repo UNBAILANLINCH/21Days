@@ -1174,6 +1174,7 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
 - 地址 `IsometricEncounter` 现在指向 `Assets/Scenes/SampleScene.unity`（功能 demo 示例场景），这是**临时**的；
   正式内容落地后只改这一处指向 `Assets/_Project/Scenes/` 下的新场景。
+  SampleScene 同时是功能实现模板：新场景接同一功能时照它的接法抄，只改内容不改接法。
 
 ### 14.4 占位素材闸门：Release 包不许带开发期占位图
 

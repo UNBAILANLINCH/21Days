@@ -118,18 +118,18 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Dialogue | stable | 是 | SampleScene | 33 | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
 | Quest | seed | 是 | SampleScene | 50 | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
-| Monster | stable | 是 | SampleScene、MonsterEncounter | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
-| Player | stable | 是 | 无场景挂件 | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
-| CharacterPuppet | stable | 不需要 | SampleScene | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
-| IsometricExploration | stable | 不需要 | SampleScene 等 | 挂在 Monster 测试里 | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
-| Disguise | stable | 不需要 | SampleScene（回放） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
+| Monster | stable | 是 | SampleScene（Boot 真实流程）、MonsterEncounter（遗留原型，无人加载） | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
+| Player | stable | 是 | 无场景挂件；回放 SampleScene（Boot 真实流程） | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
+| CharacterPuppet | stable | 不需要 | SampleScene（Boot 真实流程） | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
+| IsometricExploration | stable | 不需要 | SampleScene（Boot 真实流程） | 19（另有共享用例在 Monster 测试里） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
+| Disguise | stable | 不需要 | SampleScene（Boot 真实流程） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
 | Taming | seed | 按要求不接 | SampleScene（回放） | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
 | Narrative | 无 | 无 Installer | 无（纯 C# 库） | 4 | 无 | **无，也未登记 `modules.json`** | 阶段迁移 / 条件 / 遭遇仲裁 / 存档 DTO 全是纯逻辑，未接 Unity |
 | Sample | stable | **否** | 无 | 7 | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
 
-- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`（`Sample.unity` 与 `Verify/` 已于 2026-09-28 删除，回放统一在 SampleScene 上跑）。
+- **场景**：可玩场景只有 `Assets/Scenes/SampleScene.unity`（灰盒环境、玩家与巡逻者拼接小人、3 个 NPC、2 个任务点、6 个停用的室内纸片）。另有 `Boot`、`MonsterEncounter`（`Sample.unity` 与 `Verify/` 已于 2026-09-28 删除，回放统一在 SampleScene 上跑）；它同时是功能实现模板，正式场景接法与之对齐。
 - **预制体**：12 个。UI 8 个（Title、Sample、Dialogue×4、Quest×2），世界 2 个（气泡、任务标记），角色 2 个（拼接小人玩家 / 巡逻者）。
 - **美术**：拼接小人 5 张分件 + 2 段动画 + 1 个控制器；2 张整体 chibi 纸片；对话占位（2 角色 × 2 表情、气泡框、2 个选项图标、2 个标记）；灰盒材质 5 份；深度裁剪着色器 1 份；中文字体 1 套。**无环境模型、无怪物 / 妖灵、无 UI 皮肤、无镜面特效。**
 - **音频**：零。
@@ -213,7 +213,7 @@
 | E3 | 设置面板 | `SettingsSaveData` 有音量 / 语言字段，无面板 | 音量三路、语言占位、按键提示；**PC 显示设置**：分辨率列表（取自显示器）、全屏 / 无边框 / 窗口化、垂直同步、帧率上限（见 E8）；写回并落盘 | Core/UI + Core/Save | E5（入口） | M | opus | 完成（2026-09-26）待视觉验收；设置改为跨槽位独立档案 `settings`（分区版本 2）；标题界面已有「设置」入口（2026-09-26） |
 | E4 | 加载过渡 | 加载完直接切 | Top 层黑场 / 进度 View，`SceneGameState` 前后钩子 | Core/UI + Core/Flow | 无 | S–M | opus | 待做 |
 | E5 | 暂停菜单 | `Pause` 动作无人订阅 | 订阅 Pause → `IWorldPauseService.Acquire` → Popup（继续 / 设置 / 回主菜单） | Core/UI | E3 | S–M | opus | 完成（2026-09-26）待视觉验收；Esc 优先级：可关面板 → 关；对白 / 标题 → 无事；沉浸 → 退沉浸；否则开暂停菜单；P 只开不关 |
-| E6 | 「镜碎」失败页 | 无 | 依赖镜裂机制定义 | G4 | G4 | S | sonnet | 待做 |
+| E6 | 「镜碎」失败页 | 无 | 依赖镜裂机制定义 | G4 | G4 | S | sonnet | demo 完成（`PRP/mirror-core`），待视觉验收 |
 | E7 | Sample 模块去留 | 过期（2.5 第 1 条） | 删或修，二选一 | Sample | 无 | S | sonnet | 完成（文档说明现状，代码保留） |
 | E8 | 分辨率基准与画面适配 | `UIConfig` 1920×1080、match 0.5；工程默认 1920×1080 独占全屏窗口、窗口不可拖拽 | **用户 2026-09-26 已定**：1080p / 16:9 基准；UI 改按高度匹配（match 1），21:9 两侧多看、16:10 两侧少看，UI 不缩放不裁切；最低 1280×720；窗口化可拖拽 + 无边框全屏；美术按 1080p 出图（PPU 100），4K 靠 SDF 与矢量 UI，需要时再补 2x 贴图。落点：`UIConfig.asset` match、`ProjectSettings` resizableWindow=1（改前按硬规则 3 说明）、artist-guide 7.1 / 7.2 措辞、设置面板分辨率项（并入 E3） | Core/UI + ProjectSettings + 美术规格 | E3 | S–M | opus | 完成（2026-09-26）：`UIConfig` match=1、`resizableWindow=1`、artist-guide 7.1 / 7.2 已改；`SetResolution` 与窗口拖拽未出包实测 |
 
@@ -231,10 +231,10 @@
 
 | # | 机制 | 现有雏形 | 第一步 | 状态 |
 | --- | --- | --- | --- | --- |
-| G1 | 照镜 / 辨形 | 无 | 策划写玩法定义（输入、反馈、失败、与潜行可见范围的关系） | 待定义 |
+| G1 | 照镜 / 辨形 | 无 | 策划写玩法定义（输入、反馈、失败、与潜行可见范围的关系） | demo 完成（`PRP/mirror-core`），待视觉验收 |
 | G2 | 画皮面具 | Disguise（伪装禁攻） | 定义面具的获取、生效时间、冷却、被识破；决定是否在 Disguise 上扩展 | 待定义 |
 | G3 | 收押妖灵 | Taming（驯服切换控制） | 定义收押前提「辨认成功 + 妖力削弱」的判定；Taming 接 Boot、输入命令位、回放快照 | 待定义 |
-| G4 | 镜裂失败 | 无 | 定义裂痕计数、可见范围缩减、三次重开关卡；接「镜碎」页 | 待定义 |
+| G4 | 镜裂失败 | 无 | 定义裂痕计数、可见范围缩减、三次重开关卡；接「镜碎」页 | demo 完成（`PRP/mirror-core`），待视觉验收 |
 | G5 | 追逐 / 躲藏 / 弱点识破 | Monster 感知 / 警戒 / 追击 | 定义无血条对抗的胜负条件；重审 Player / Monster 的攻击与生命字段 | 待定义 |
 | G6 | 三结局硬分支 | Narrative 阶段机可承载 | 内容层的事，C1–C3 做完后由剧本驱动 | 待内容 |
 

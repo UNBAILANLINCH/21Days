@@ -1,0 +1,64 @@
+# 训练超参（DESIGN §4–§6）
+# 配置里的相对路径一律相对本子项目根目录（ML/expression-recognition/）解析。
+# 命令行参数可覆盖其中一部分（见 python -m exprnet.train --help）。
+
+seed: 42
+
+labels: configs/labels.yaml
+canonical: configs/canonical.yaml
+facs: configs/facs.yaml
+rig: configs/rigs/sample_rig.yaml    # 绑定配置；写 null 表示单位绑定（输入直接是规范空间 51 维）
+golden: golden/sample_rig.json       # 金标集；与 rig 不匹配时跳过
+
+model:
+  name: regionformer                 # regionformer（默认）| resmlp（基线）
+  regionformer: {d_model: 48, heads: 4, layers: 2, ffn_mult: 2, dropout: 0.1}
+  resmlp: {width: 128, hidden: 256, blocks: 2, dropout: 0.1}
+
+data:
+  # 训练数据来源，可混合：
+  #   {kind: synthetic, n_per_class: N, seed: S}
+  #   {kind: npz, path: data/features/rafdb.npz, weight: 1.0, baseline_norm: true, split: auto}
+  #     split：auto（有官方划分用官方，否则有受试者编号按人划分，否则随机）| official | subject | random
+  sources:
+    - {kind: synthetic, n_per_class: 2000, seed: 0}
+  val_fraction: 0.15                 # 合成数据 / 无官方划分数据的验证集比例
+  negatives:
+    train: 7000                      # 训练用负样本（Outlier Exposure）
+    heldout: 2000                    # 留出负样本：只用来报 OOD 指标与拒识率，不参与训练、也不参与定阈值
+    calib: null                      # 标定用负样本：TNR95 阈值只在这批上取；null = 与 heldout 同数量
+    seed_offsets: {train: 101, heldout: 202, calib: 303}   # 三批负样本的种子 = seed + 偏移，必须互不相同
+  projection_prob: 0.7               # 有绑定时，每个样本每次取到「绑定投影版」的概率（DESIGN §3.2）
+
+augment:
+  mirror_prob: 0.5                   # 左右互换
+  intensity:                         # 强度缩放 x' = clip(α·x)，α ~ U(low, high)
+    prob: 0.5
+    low: 0.8
+    high: 2.0
+    apply_to: [real]                 # real = 公开集特征；synthetic 自己已按 A–E 档采样，默认不再放大
+  mixup:
+    prob: 0.3                        # 每个 batch 做 mixup 的概率
+    alpha: 0.4                       # λ ~ Beta(α, α)
+
+loss:
+  label_smoothing: 0.1
+  logit_adjust_tau: 1.0              # logits + τ·log π（π 为训练集类先验）
+  oe_weight: 0.5                     # Outlier Exposure 权重 λ
+  neg_batch_ratio: 0.5               # 每个 batch 里负样本数 = 正样本数 × 该比例
+  sce: {enabled: false, alpha: 0.1, beta: 1.0}   # 对称交叉熵（噪声标签时打开）
+
+optim:
+  batch_size: 256
+  epochs: 12
+  lr: 3.0e-3
+  weight_decay: 0.05
+  warmup_epochs: 1
+  early_stop_patience: 5             # 验证集 macro-F1 连续多少个 epoch 不涨就停
+
+calibration:
+  threshold_rule: tnr95              # tnr95：留出负样本（怪脸）95% 被拒，取负样本 energy 第 5 百分位（DESIGN §6）
+                                     # id95 ：旧规则，分布内验证集 95% 通过；只建议用来对照
+  tnr: 0.95                          # tnr95 规则的拒识率
+  tpr: 0.95                          # id95 规则的通过率（报告里总会同时算出它作对照）
+  min_confidence: 0.4                # 写进元数据的默认值；游戏侧 max(probs) 低于它判「认不出」

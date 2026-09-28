@@ -1,0 +1,36 @@
+{
+  "name": "nian",
+  "fps": 24,
+  "scale": 0.437309,
+  "frameWidth": 448,
+  "frameHeight": 192,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.046875
+  },
+  "pivotPx": {
+    "x": 224,
+    "y": 9
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -501.067,
+    "minY": -9.479,
+    "maxX": 203.842,
+    "maxY": 409.177
+  },
+  "animations": {
+    "idle": {
+      "source": "Relax",
+      "frames": 64,
+      "duration": 2.6667,
+      "loop": true
+    },
+    "walk": {
+      "source": "Move",
+      "frames": 64,
+      "duration": 2.6667,
+      "loop": true
+    }
+  }
+}

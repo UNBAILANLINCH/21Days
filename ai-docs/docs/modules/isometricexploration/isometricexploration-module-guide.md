@@ -368,11 +368,25 @@ offset = camera.position - target.position
 `SmoothCameraFollow` 标了 `[DefaultExecutionOrder(50)]`：必须排在 `EncounterSceneView`（默认 0，LateUpdate 里把逻辑位置
 插值写成本帧的角色 Transform 位置）之后、`ChibiPuppetMotion`（100）之前，保证本组件跟随的是本帧刚投影好的位置。
 
-当前 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 28、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
-`Start` 记录的 `offset` 落地为 `player 根 + (0, 11, -14)`；`UniversalAdditionalCameraData.rendererIndex`
+当前工作区 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 15（原基线 28，独立构图调参）、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
+按保存的相机与玩家位置，`Start` 记录的 `offset` 为 `(0, 11.8116, -14)`；`UniversalAdditionalCameraData.rendererIndex`
 = 1（对应表现层里的 `UniversalRenderer` / `UniversalRenderer_Mobile`，不是索引 0 的 `Renderer2D`），
 Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 / 偏移）在编辑器里调 `Main Camera`
 的 Transform 与 `SmoothCameraFollow.target`，脚本本身不用改。
+
+### 临时视角对比（仅 Unity 编辑器）
+
+播放 `SampleScene`，Game 画面右下角可直接选择「原视角 / 30° / 25° / 20°」，当前项高亮。
+入口在 `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:28`，整体位于 `UNITY_EDITOR` 条件内，不进入构建。
+「原视角」保存第一次选择时的旋转与初始跟随偏移，不是硬编码 38°；每次选择均从这份基准计算，
+围绕目标脚底上方 0.8 m 转动，重置缓动速度并继续跟随当前目标。FOV 不变，退出 Play 不保存选择。
+
+`Camera_Reference_30deg` 是场景里停用、Untagged 的参考相机；GUI 始终操作主相机，不需要启用它。
+`Data/IsometricExploration/CameraAngle_Original38.preset` 与 `CameraAngle_Reference30.preset` 是原生 Transform 预设，
+可在运行前应用到 Main Camera；仅包含位姿，不包含 FOV。25° / 20° 由 GUI 计算，没有对应预设资产。
+新室内场景目前不会自动显示按钮（入口限定场景名 `SampleScene`）；迁移步骤见扩展指南。
+这些角度是构图试验档位，不是参考图片反推的真实参数；最终选择要同时检查通道、前景遮挡与上下层可读性。
+确认构图后移除临时 GUI；正式镜头仍通过场景参数配置。
 
 ## 配置资产
 
@@ -382,12 +396,15 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 挂在 SampleScene 的 Main Camera，引用下述配置资产。使用 Unity 原生 `Camera.layerCullDistances`，
 没有逐帧遍历物体，不关 Renderer、GameObject 或 Collider，也不卸载资产。
 配置 `CameraLayerCulling` 默认为空，具体距离待定；启用和显式刷新时应用，禁用时恢复启用前的相机距离。
+编辑器实测曾出现原生距离数组为 32 项、组件缓存却为 0 项的情况；不能只用 null 判断缓存有效。
+`ApplySettings` 遇到非 32 项缓存会重读相机，`OnDisable` 只恢复完整的 32 项缓存，避免 Unity setter 抛异常。
 未配置层保持原值，重复层后项覆盖前项；0、负数、NaN、无穷统一使用 0（该相机的 Far Clip）。
 保留相机原有 `layerCullSpherical` 模式；默认平面剔除沿相机深度，不等于以玩家为中心的半径。
 Performance 世界舞台接管时继承主相机的分层距离与模式，结束恢复作者值，Overlay 模式保持原样。
 
 验证：`Tests/EditMode/IsometricExploration/CameraLayerCullSettingsTests.cs` 覆盖数值边界；
-`Tests/PlayMode/CameraDistanceCullingTests.cs` 覆盖重新应用、禁用/重启恢复及碰撞体保留；
+`Tests/PlayMode/CameraDistanceCullingTests.cs` 覆盖重新应用、禁用/重启恢复及碰撞体保留，以及 0 / 31 / 33 项无效缓存；
+`Tests/PlayMode/SmoothCameraFollowTests.cs` 覆盖四档反复切换、胸口相对相机位置保持及目标移动后恢复原构图；
 `IsometricExplorationShowcase.CameraDistanceCulling_HidesDistantVisualAndRestoresIt` 在 SampleScene
 临时生成并清理青色方块，用实际画面采样和截图验证消失/重现。测试距离不写入正式配置。
 

@@ -101,6 +101,12 @@ maturity: stable
 
 ## 验证
 
+临时镜头调参：播放 SampleScene 后用右下角四档选择，先固定 FOV 和人物尺寸比较角度，再单独调整 FOV。
+要在新室内场景测试，先接好主相机的 `SmoothCameraFollow.target/config`，再调整 `OnGUI` 的场景名限制；
+不要启用第二台相机替代主相机，否则已有 Billboard / HUD 的相机引用可能仍指向旧相机。
+加角度时同步 `ComparisonLabels` 与 `ComparisonPitches` 的索引，保留 0 为原视角，并扩展
+`Assets/_Project/Scripts/Tests/PlayMode/SmoothCameraFollowTests.cs:26` 的多次切换验证；不要从上一次角度累积旋转。
+
 距离调优：编辑配置资产的 `Camera Layer Culling` 列表，按渲染层填写距离，再运行相机组件的
 「应用距离剔除配置」或重新进入 Play。先保留空列表，正式数值待美术规模与性能采样确定。
 不要为了剔除移动 `Ground` 碰撞根的 Layer；需要独立视觉层时拆出 Renderer 子节点并保留根碰撞层。

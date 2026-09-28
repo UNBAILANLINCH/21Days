@@ -1,4 +1,4 @@
-// 职责：场景里可交互的对白物体——有对话树时按范围与占用判定后调用 DialogueService.PlayAsync；
+// 职责：场景里可交互的对白物体——有对话树时按范围与占用判定后调用 DialogueService.PlayAsync（自身 Transform 作插播演出锚点）；
 //   没有对话树（dialogueId == 0）但配了常驻台词时，按顺序抛出一句给头顶气泡（不暂停世界、不切输入图、不开面板）。
 // 为什么新建：DialogueService 是纯 C# 服务，场景物体需要一个 MonoBehaviour 承载「对白 id / 交互半径 / 点击入口」；
 //   现有 Dialogue 目录里没有挂在场景物体上的组件可扩展（DialogueView 是 UI 面板，职责不同）。
@@ -188,7 +188,8 @@ namespace Game.Dialogue
         {
             try
             {
-                DialogueResult result = await service.PlayAsync(dialogueId, destroyCancellationToken);
+                // 自身 Transform 作插播演出锚点：对话树里节点前插播的世界舞台演出摆到本 NPC 所在位置，而不是世界原点。
+                DialogueResult result = await service.PlayAsync(dialogueId, transform, destroyCancellationToken);
                 OnCompleted?.Invoke(result);
             }
             catch (OperationCanceledException)

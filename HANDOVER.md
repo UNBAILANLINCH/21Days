@@ -25,34 +25,34 @@
 
 演出现在跑在 World 舞台模式；旧的全屏叠加模式要下架。分三小步，A、B 可一起提交，C 单独一单。
 
-**A. 下架示例演出 `perf_sample_greeting`** —— 引用点共 6 处：
+> **A、B 已完成**（2026-09-28）：改动在工作区、尚未提交，待审后按路径提交（三处资产删除已用 `git rm` 进索引）。
+> 验收已过：EditMode 全量 1024 条通过；`PerformanceShowcase`（4 条）与 `ScenePerformanceShowcase`（2 条）回放 PASS。提交后删掉 A、B 两段，只留 C。
+
+**A. 下架示例演出 `perf_sample_greeting`** 【已完成】—— 引用点共 7 处：
 
 | 位置 | 动作 |
 | --- | --- |
-| `Assets/_Project/Prefabs/Performance/perf_sample_greeting.prefab` | 删除（连 `.meta`，用 `git rm`） |
-| `Assets/_Project/Data/Performance/Timelines/perf_sample_greeting.playable` | 删除（连 `.meta`） |
-| `Assets/AddressableAssetsData/AssetGroups/Performance.asset` | 去掉它的 Addressable 地址 |
-| `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | 改引用 |
-| `Assets/_Project/Scripts/Tests/Showcase/Performance/PerformanceShowcase.cs` | 改用例 |
-| `Tables/Data/dialogue/1003.json` | 改指 `perf_sample_scene_talk` |
+| `Assets/_Project/Prefabs/Performance/perf_sample_greeting.prefab` | 已删除（连 `.meta`，`git rm`） |
+| `Assets/_Project/Data/Performance/Timelines/perf_sample_greeting.playable` | 已删除（连 `.meta`） |
+| `Assets/_Project/Data/Performance/Animations/perf_sample_greeting_enter.anim` | 已删除（连 `.meta`；目录删空，`Animations.meta` 一并删） |
+| `Assets/AddressableAssetsData/AssetGroups/Performance.asset` | 已用编辑器 API 移除该地址（diff 只少这一条） |
+| `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | 已改为断言 `perf_sample_scene_talk`、revision 2 |
+| `Assets/_Project/Scripts/Tests/Showcase/Performance/PerformanceShowcase.cs` | 已整份改用 `perf_sample_scene_talk` |
+| `Tables/Data/dialogue/1003.json` | 已改指 `perf_sample_scene_talk`（l2 `revision` 1 → 2），Luban 已重生成 |
 
 验收：EditMode 全绿 + Performance 回放通过。
 
-**B. 对白插播要传锚点**
+**B. 对白插播要传锚点** 【已完成】
 
-`Assets/_Project/Scripts/Runtime/Dialogue/DialogueController.cs:364` 现在是：
+`DialogueService` 新增重载 `PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)`，
+两参重载转发时传 null；锚点经 `DialogueController.PresentAsync` 带到插播点，调
+`performance.PlayAsync(node.PerformanceId, PerformancePlacement.FromTransform(anchor), ct)`（锚点 null = `None`，与旧版一致）。
+`DialogueInteractable` 拉起对白时传自身 Transform。
 
-```csharp
-await performance.PlayAsync(node.PerformanceId, ct);
-```
-
-没有传 `PerformancePlacement`，World 模式下舞台会生成在原点（在地面以下）。参照同模块 `PerformanceTrigger.cs:100` 的用法：
-
-```csharp
-PlayAsync(performanceId, PerformancePlacement.FromTransform(anchor), hidden)
-```
-
-验收：在某个 NPC 处触发插播演出，舞台出现在该 NPC 的位置而不是原点。
+验收：回放 `DialogueNode_PlaysPerformanceBeforeSecondLine` 用 `PlayAsync(1003, Npc_Elder)` 插播，演出实例根与 `Npc_Elder`
+水平距离、高度差实测都是 0.000。
+插播时场景角色与舞台小人重影已在本单一并解决：`DialogueController` 拉起演出前经 `DialogueInterludeVisibility` 藏起场景里全部带 `ChibiPuppet` 的角色根
+（连同名牌 / 标记 / 光圈），演出结束（完成 / 跳过 / 取消 / 异常）在同一个 `finally` 里恢复；同一回放用例新增「插播·场景角色已隐藏」检查与截图。
 
 **C. 删 Overlay 模式的代码（做完 A / B 再开）**
 

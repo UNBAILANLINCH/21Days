@@ -20,7 +20,7 @@
         },
         {
             "id": "l2",
-            "revision": 1,
+            "revision": 2,
             "kind": "Line",
             "speaker": "traveler",
             "speakerName": "",
@@ -31,7 +31,7 @@
             "next": "l3",
             "outcome": "",
             "blocking": true,
-            "performance": "perf_sample_greeting",
+            "performance": "perf_sample_scene_talk",
             "choices": []
         },
         {

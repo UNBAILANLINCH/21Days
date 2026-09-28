@@ -372,6 +372,8 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 关 Gameplay 输入图、跑完整段对白、恢复现场，返回 `DialogueResult`（`Outcome` 出口码、`Skipped`）。进行中重复调用抛
 `InvalidOperationException`（先看 `IsRunning`），表里没有该编号抛 `ArgumentException`。要旁听用它的 C# 事件
 `OnStarted / OnChoiceSelected / OnEnded`（不是 MessagePipe，自己退订）。
+对话树里有节点插播世界舞台演出时，用重载 `PlayAsync(id, 说话NPC的Transform, ct)` 把摆放锚点带进来（NPC 交互拉起的对白会自动传 NPC 自身）；
+只传 `id` 时插播不摆放，舞台会落在世界原点、地面以下。
 
 **场景里放 NPC**：根上碰撞体（3D `BoxCollider` / 2D `Collider2D`）+ `DialogueInteractable`（填对话树编号、显示名、交互半径）+
 `DialogueInteractableMarker`，子物体放头顶标记 `MarkerIdle` / `MarkerFocus` 与名字 `NameLabel`（3D 场景再挂 `CameraBillboard`）。
@@ -430,7 +432,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 模块 `Game.Performance`（`Assets/_Project/Scripts/Runtime/Performance/`）。三件套还没生成（跑 `/generate-doc Performance` 后见
 [`performance-module-guide.md`](../ai-docs/docs/modules/performance/performance-module-guide.md)），这里先给接入入口。
 
-**从代码拉起**：构造注入 `IPerformanceService`，`var result = await performance.PlayAsync("perf_sample_greeting", ct);`。
+**从代码拉起**：构造注入 `IPerformanceService`，`var result = await performance.PlayAsync("perf_sample_scene_talk", PerformancePlacement.FromTransform(anchor), ct);`
+（世界舞台示例；要给摆放锚点，否则舞台生成在原点。旧叠加示例 greeting 已下架）。
 它会暂停世界、整层隐藏 Hud / Popup、把舞台相机叠加到主相机上、跑完时间轴、播完恢复现场，返回 `PerformanceResult`
 （`Outcome` ∈ `Completed / Skipped / Cancelled / Failed`）。进行中重复调用抛 `InvalidOperationException`（先看 `IsRunning`，
 同 `DialogueService` 的规则）；要在回放 / 编辑器试播里模拟玩家操作，用 `Confirm()`（等价按确认）与 `Skip()`（等价长按跳过满）。
@@ -444,6 +447,9 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 2. **对白节点前插播**：`Tables/Data/dialogue/<编号>.json` 节点的 `performance` 字段填演出 id（空串 `""` = 不插播，
    JSON 不允许缺这个字段）。`DialogueController` 会在摆这句台词之前先播完这段演出，期间对话框隐藏、不推进、不收输入；
    `IPerformanceService` 缺席（Boot 没挂 `PerformanceInstaller`）时只记 Warn，不阻塞对白。
+   插播按对白带进来的锚点摆放（`PerformancePlacement.FromTransform(锚点)`）：NPC 交互自动以该 NPC 为锚点，代码拉起用
+   `DialogueService.PlayAsync(id, 锚点)`；没有锚点就不摆放。插播期间自动藏起场景里全部角色（带 `ChibiPuppet` 的玩家 / NPC / 巡逻怪，
+   连同名牌与标记），演出结束恢复，不用像触发区那样配 `hiddenDuringPlay`；代码直接调 `IPerformanceService.PlayAsync` 不藏。
 
 **Live2D 接入步骤**（SDK 未导入前工程照常编译运行，`Game.Live2D` 程序集直接不参与编译）：
 1. 下载 Cubism SDK for Unity，导入到 `Assets/Live2D/`（不进仓库，是否 `.gitignore` 由用户决定）。

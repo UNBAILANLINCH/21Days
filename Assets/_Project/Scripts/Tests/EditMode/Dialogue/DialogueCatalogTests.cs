@@ -55,7 +55,8 @@ namespace Game.Tests.EditMode.Dialogue
             DialogueContent.Node second = content.Get(content.Get(content.Entry).Next);
 
             Assert.That(second.SpeakerId, Is.EqualTo("traveler"));
-            Assert.That(second.PerformanceId, Is.EqualTo("perf_sample_greeting"));
+            Assert.That(second.PerformanceId, Is.EqualTo("perf_sample_scene_talk"));
+            Assert.That(second.Revision, Is.EqualTo(2), "改插播演出时 revision 已加 1");
         }
 
         [Test]

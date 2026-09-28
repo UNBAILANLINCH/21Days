@@ -13,7 +13,8 @@ maturity: stable
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `PlayAsync` | `UniTask<DialogueResult> PlayAsync(int dialogueId, CancellationToken ct = default)` | 播放一段对白直到结束（`DialogueService.cs:67`） |
+| `PlayAsync` | `UniTask<DialogueResult> PlayAsync(int dialogueId, CancellationToken ct = default)` | 播放一段对白直到结束；节点前插播的演出**不摆放**，等价于下一行锚点传 `null`（`DialogueService.cs:86`） |
+| `PlayAsync`（带插播锚点） | `UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)` | 同上，节点前插播演出时按 `performanceAnchor` 的世界位姿摆放（`PerformancePlacement.FromTransform`，世界舞台模式据此落位，叠加模式由演出服务忽略）；一般传说话 NPC 自己的 Transform，`DialogueInteractable` 就这样传（`DialogueService.cs:99`）。传 `null` 与上一行完全一致。插播的是世界舞台演出却不传锚点，舞台会生成在世界原点（落到地面以下） |
 | `IsRunning` | `bool IsRunning { get; }` | 含打开面板、展示、收尾整个过程 |
 | `OnStarted` | `event Action<DialogueStartedEvent>` | 已暂停世界、已关 Gameplay 图之后 |
 | `OnChoiceSelected` | `event Action<DialogueChoiceSelectedEvent>` | 玩家选定一个选项（规则已接受） |
@@ -53,7 +54,8 @@ maturity: stable
 | `DisplayName` / `DialogueId` / `IsBound` / `HasTree` / `HasBubble` | 只读属性 | `DialogueId == 0` 即 `HasTree == false` |
 
 `Interact()` 不抛异常、不返回结果；要结果就订阅 `OnCompleted`，或直接调 `DialogueService.PlayAsync`。
-物体销毁会取消进行中的对白（用的是 `destroyCancellationToken`）。
+物体销毁会取消进行中的对白（用的是 `destroyCancellationToken`）。有树时走带锚点的重载、传**自身 Transform**
+（`DialogueInteractable.cs:192`），对话树里节点前插播的世界舞台演出摆到这个 NPC 所在位置。
 
 ## `Game.Dialogue.DialogueInteractionFocus`（根作用域入口点，可构造注入）
 
@@ -91,6 +93,7 @@ EncounterContext Snapshot(string targetId);   // targetId 形如 "dialogue:1001"
   结束后恢复到进来前的状态。暂停期间还要动的东西用 unscaled 时间。输入服务未初始化（`input.Actions == null`，
   如 EditMode 测试）时跳过输入图的记录 / 禁用 / 恢复，不抛。
 - 条件选项的真假取决于 `IDialogueConditionSource`；占位实现下依赖剧情标记的选项永远不可用。
+- 两个 `PlayAsync` 重载的第二个参数都能接字面量 `default`，写 `PlayAsync(id, default)` 会报二义性；不带锚点就只传 `id` 或具名 `ct:`。
 
 ## 禁止事项
 

@@ -1,4 +1,5 @@
-// 职责：对白的对外入口——按 id 拉起一段对白：查内容、持世界暂停、关 Gameplay 输入图、藏探索 HUD 层、交给 Controller 展示、收尾并广播事件。
+// 职责：对白的对外入口——按 id 拉起一段对白：查内容、持世界暂停、关 Gameplay 输入图、藏探索 HUD 层、交给 Controller 展示、收尾并广播事件；
+//   调用方可带一个插播演出锚点（说话的 NPC），原样交给 Controller 在节点前插播时摆放演出。
 // 为什么新建：DialogueRules 只管推进语义、DialogueController 只管表现，二者都不该持有「世界暂停 / 输入图 / 重入保护
 //   / HUD 层显隐」这类会话级资源；把它们塞进 Controller 会让表现层依赖 Core 的暂停与输入服务，也没法被其他模块当成一行调用。
 // 事件为什么不用 MessagePipe：broker 注册要根作用域的 MessagePipeOptions，而 GameplayInstaller.Install 只拿到
@@ -12,11 +13,13 @@ using Game.Core.Input;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
+using UnityEngine;
 
 namespace Game.Dialogue
 {
     /// <summary>
-    /// 对白服务。其他模块直接 <c>await PlayAsync(id)</c> 即可；场景物体走 <see cref="DialogueInteractable"/>。
+    /// 对白服务。其他模块直接 <c>await PlayAsync(id)</c> 即可；对白里有节点插播世界舞台演出时用
+    /// <c>PlayAsync(id, anchor)</c> 把说话的 NPC 作为摆放锚点带进来；场景物体走 <see cref="DialogueInteractable"/>（自动带自身）。
     /// <para>同一时刻只允许一段对白；对白期间世界暂停（timeScale = 0），表现层一律用 unscaled 时间。</para>
     /// <para>
     /// 对白期间隐藏 Hud 层（与演出观感一致），结束按进来前的显隐恢复；不动 Popup 层（对白框自己在 Popup 层）。
@@ -73,11 +76,27 @@ namespace Game.Dialogue
         /// <summary>对白结束（成功、取消、失败都会触发；非成功时 Outcome 为空）。已恢复 Hud 层与输入图、已释放暂停。</summary>
         public event Action<DialogueEndedEvent> OnEnded;
 
-        /// <summary>播放一段对白直到结束，返回出口与是否跳过。</summary>
+        /// <summary>
+        /// 播放一段对白直到结束，返回出口与是否跳过。节点前插播的演出不摆放（等价于演出锚点传 null）；
+        /// 插播的是世界舞台演出时应改用带锚点的重载，否则舞台生成在世界原点。
+        /// </summary>
         /// <exception cref="ArgumentException">未知对白 id，或播放配置非法。</exception>
         /// <exception cref="InvalidOperationException">已有对白在进行。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/> 取消（规则已 Cancel）或对白被外部中断。</exception>
-        public async UniTask<DialogueResult> PlayAsync(int dialogueId, CancellationToken ct = default)
+        public UniTask<DialogueResult> PlayAsync(int dialogueId, CancellationToken ct = default)
+        {
+            return PlayAsync(dialogueId, null, ct);
+        }
+
+        /// <summary>
+        /// 同上，并指定插播演出的摆放锚点：节点前插播演出时，演出按 <paramref name="performanceAnchor"/> 的世界位姿摆放
+        /// （世界舞台模式据此落位；叠加模式由演出服务忽略）。通常传说话 NPC 自己的 Transform
+        /// （<see cref="DialogueInteractable"/> 就是这样传的）。传 null 不摆放，行为与不带锚点的重载完全一致。
+        /// </summary>
+        /// <exception cref="ArgumentException">未知对白 id，或播放配置非法。</exception>
+        /// <exception cref="InvalidOperationException">已有对白在进行。</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="ct"/> 取消（规则已 Cancel）或对白被外部中断。</exception>
+        public async UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)
         {
             telemetry.Track("play_requested", ("id", dialogueId));
             if (running)
@@ -122,7 +141,8 @@ namespace Game.Dialogue
                     try
                     {
                         OnStarted?.Invoke(new DialogueStartedEvent(dialogueId));
-                        outcome = await controller.PresentAsync(conditions, TargetPrefix + dialogueId, playback, ct);
+                        outcome = await controller.PresentAsync(conditions, TargetPrefix + dialogueId, playback,
+                            performanceAnchor, ct);
                         skipped = playback.Skipping;
                         completed = true;
                     }

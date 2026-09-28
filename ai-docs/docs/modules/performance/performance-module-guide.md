@@ -49,7 +49,7 @@ Live2D 适配层：SDK 不在时整个程序集不参与编译，在时表情走
 | `PerformanceViewArgs` | 打开面板的参数快照（策略、跳过提示文案、黑边高度、黑场时长、停顿提示符、字幕逐字三参数 `CharactersPerSecond`/`PunctuationPauseSeconds`/`PunctuationChars`、可选 `AutoHint`/`HistoryHint` 键位小字） | 服务组装后传给 `ui.OpenAsync<PerformanceView>` |
 | `PerformanceTrigger` | 场景挂载点：`performanceId`（`[PerformanceId]`）、`mode`（`OnEnter`/`OnSceneStart`）、`once`、`anchor`（世界模式摆放锚点，空 = 不摆）、`hideActorVisual`（默认关；演出期间藏触发者的 Renderer 与 Canvas）、`hiddenDuringPlay`（演出期间要藏的场景物体根：NPC、巡逻怪、任务 / 物资标记）；`OnTriggerEnter(2D)` 只认带 `PerformanceTriggerActor` 的对象 | 场景物体；服务由 `PerformanceSceneBinder` 注入 |
 | `PerformanceTriggerActor` | 空标记，挂玩家根（同 `DialogueInteractionActor` 的做法，但不依赖 Dialogue） | 场景玩家物体 |
-| `PerformanceTriggerRules` | 静态判定：`ShouldFire(once, hasPlayed, serviceRunning, out reason)`，已播过优先于忙碌；`HideVisuals(roots)` / `RestoreVisuals(snapshot)` 成对隐藏 / 恢复一批根下的 Renderer 与 Canvas（组件去重；只切 enabled 不 SetActive）；底层 `HideRenderers` / `HideBehaviours` 与对应 Restore | `PerformanceTrigger.TryFire` 调 |
+| `PerformanceTriggerRules` | 静态判定：`ShouldFire(once, hasPlayed, serviceRunning, out reason)`，已播过优先于忙碌；`HideVisuals(roots)` / `RestoreVisuals(snapshot)` 成对隐藏 / 恢复一批根下的 Renderer 与 Canvas（组件去重；只切 enabled 不 SetActive）；底层 `HideRenderers` / `HideBehaviours` 与对应 Restore | `PerformanceTrigger.TryFire` 调；对白插播时 Dialogue 侧 `DialogueInterludeVisibility.HideSceneCharacters` / `DialogueController` 也调 `HideVisuals` / `RestoreVisuals` |
 | `PerformanceSceneBinder` | 入口点（`IStartable`）：启动与 `sceneLoaded` 扫描 `PerformanceTrigger`（含未激活）并 `Bind`；`BootCompletedEvent` 后触发 `OnSceneStart` 的（`PerformanceSceneBinder.cs:21`） | 根作用域入口点 |
 | `PerformanceInstaller` | `GameplayInstaller`：事件 broker、配置、规则（工厂式注入 `ITelemetryScope`）、服务、场景绑定（`PerformanceInstaller.cs:26`） | Boot 场景 `GameBootstrap` 物体 |
 | `PerformanceConfig` | SO：长按跳过秒数、黑边高度、黑场时长、停顿 / 跳过提示文案、字幕逐字三参数（`SubtitleCharactersPerSecond` 默认 35，0 = 整句直出；`SubtitlePunctuationPauseSeconds` 默认 0.12；`SubtitlePunctuationChars` 默认「，。！？…；：、,.!?」）、`AutoAdvanceSeconds`（「自动」继续间隔，默认 `PerformancePolicy.DefaultAutoAdvanceSeconds` = 1.5 秒，语义同对白；资产里为负数 / NaN / 无穷时按默认兜底）、默认策略三开关 | `Data/Performance/PerformanceConfig.asset` |
@@ -102,11 +102,19 @@ PerformanceService.PlayAsync(id, ct)：
 挂载点 2（场景开始）：PerformanceSceneBinder 扫描 sceneLoaded 时登记的 OnSceneStart 触发器，
   在 BootCompletedEvent 之后统一触发一次（之前已加载场景）或场景加载时触发（启动完成之后才加载的场景）
 
-挂载点 3（对白节点前插播）：DialogueController.PrepareAsync 前，Visit 变化时先调 PerformBeforeNodeAsync（DialogueController.cs:325）
+挂载点 3（对白节点前插播）：DialogueController.PrepareAsync 前，Visit 变化时先调 PerformBeforeNodeAsync（DialogueController.cs:183、367）
   → node.PerformanceId 非空 且 Phase == Preparing 且非跳过快进 → Performing = true（HandleKey 与主循环全部让位）
-  → performance.PlayAsync(id, ct)（IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
+  → DialogueInterludeVisibility.HideSceneCharacters()（DialogueController.cs:387）：在 PlayAsync 之前扫一次场景里激活的 ChibiPuppet，
+     每个取角色根（向上最近的 DialogueInteractable / DialogueInteractionActor / PerformanceTriggerActor，都没有取 transform.root），
+     去重后交给 PerformanceTriggerRules.HideVisuals 关掉根下全部 Renderer 与 Canvas（名牌 / NPC 标记 / 脚下光圈一起藏）；
+     舞台在 PlayAsync 内异步生成，此刻收集天然不含舞台替身
+  → performance.PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)（DialogueController.cs:390；IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
+     锚点来自 DialogueService.PlayAsync(dialogueId, performanceAnchor, ct)：NPC 交互（DialogueInteractable）传 NPC 自身 Transform，
+     代码拉起可自己传说话的 NPC；不传 / 传 null = None，不摆放（世界舞台演出会落在世界原点、地面以下）
   → 服务缺席记 Warn + 埋 dialogue 模块的 performance_unavailable；演出抛非取消异常记 Error + 埋 performance_failed，都不阻断对白
-  → 完成后 Performing = false，比对 Generation/Visit 后继续 PrepareAsync 摆台词
+  → 同一个 finally（完成 / 跳过 / 取消 / 异常都走）：先 PerformanceTriggerRules.RestoreVisuals 按原 enabled 值恢复场景角色
+     （DialogueController.cs:406），再 Performing = false；比对 Generation/Visit 后继续 PrepareAsync 摆台词
+  → 服务缺席 / 跳过快进中不插播，也就不藏；不经 DialogueService 的代码直接调 IPerformanceService.PlayAsync 不藏任何场景物体
 ```
 
 ## 玩家操作
@@ -127,6 +135,7 @@ PerformanceService.PlayAsync(id, ct)：
 | `Game.Live2D`（独立 asmdef，`references` 含 `Game.Core`/`Game.Runtime`/`Live2D.Cubism`，见「Live2D 适配」） | 可选的 Live2D 演员实现；`Game.Performance` 不引用它（方向是 Live2D → Performance） |
 
 **`Game.Dialogue → Game.Performance`，反向禁止**：Dialogue 经 `resolver.TryResolve<IPerformanceService>()` 拿服务，
+插播藏场景角色时直接用静态 `PerformanceTriggerRules.HideVisuals` / `RestoreVisuals` 并认 `PerformanceTriggerActor` 作玩家根标记（`DialogueInterludeVisibility.cs`），
 Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在 `PerformanceService.cs:42` 而不是引用 `DialogueService.InputMap`。
 `Game.Core` 不认识演出名词。`Game.Editor.Performance` 只引用 `Game.Performance` / `Game.Performance.Timeline`，不反向。
 
@@ -138,7 +147,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | --- | --- | --- |
 | 舞台相机 | URP Overlay、正交、只剔 Performance 层，叠进主相机 `cameraStack` | **Base**、透视；深度 = 主相机 + 1；遮罩 = 主相机遮罩 \| Performance 层；清屏 / 背景色 / `volumeLayerMask` / `renderPostProcessing` / 渲染器索引从主相机拷贝；FOV、裁剪面、位姿保留预制体作者值 |
 | 主相机 | 不动 | **保持 enabled**（`Camera.main` 不能变空），`cullingMask` 置 0 省一遍场景渲染；收尾（完成 / 跳过 / 取消 / 异常，同一个 finally）恢复 |
-| 实例位姿 | 摆放值忽略 + 埋 `placement_ignored` | `PlayAsync(id, placement)` 实例化后 `SetPositionAndRotation`；`PerformanceTrigger.anchor` 就是给它的 |
+| 实例位姿 | 摆放值忽略 + 埋 `placement_ignored` | `PlayAsync(id, placement)` 实例化后 `SetPositionAndRotation`；触发区的 `PerformanceTrigger.anchor`、对白插播时说话 NPC 的 Transform（见「数据流」挂载点 3）就是给它的 |
 | 演员图层 | 必须在 Performance 层（校验器查） | 任意主相机可见的层（校验器不查） |
 | UI | 不受影响：UI 根画布是 Screen Space Overlay（`UIService.CreateLayer`），与相机深度无关 | 同左 |
 
@@ -151,6 +160,8 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 - 模板工厂 `PerformanceTemplateFactory` 只建叠加模式；世界模式示例用专门 builder（见下「示例 `perf_sample_scene_talk`」）。
 - 世界模式配 `PerformanceTrigger.hideActorVisual = true`：演出里有玩家替身时把真玩家（含头顶名牌 Canvas）藏掉，结束恢复；
   场景里与舞台演员同形象的 NPC / 巡逻怪、会飘在画面里的标记拖进 `hiddenDuringPlay`。完成 / 跳过 / 取消 / 异常同一个 finally 恢复原 enabled 值。
+- 对白插播（挂载点 3）不用配：`DialogueController` 插播时自动藏起场景里**全部**角色（有 `ChibiPuppet` 的都算，取根规则见「数据流」挂载点 3），
+  复用同一对 `HideVisuals` / `RestoreVisuals`；不逐 NPC 勾选。不在角色根下的世界物体（物资箱标记等）不藏。
 
 ### 示例 `perf_sample_scene_talk`（村口·场景对白）
 
@@ -205,7 +216,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 - `PerformanceService` 播放循环每帧调 `view.TickTyping(dt)`（与 `rules.Tick` 同一个 unscaled dt，**Holding 期间也 tick**——已经进入停顿但字还没打完时继续打完，不会被停顿截断）。
 - 玩家点击 / 按 Advance：打字中 → `CompleteTyping()` 整句补全，本次输入就此消费，不同时触发继续；非打字中 → 等同 `Confirm()`，只在 Holding 时生效（见「玩家操作」）。
 - ▼ 显隐门控：`SetHoldPromptVisible(bool)` 只记「服务要求显示」，实际显隐 = 请求显示 且 当前句已打完（`ApplyHoldPrompt`，`PerformanceView.cs:337`）；`HoldHint` 固定小字随 ▼ 一起显隐。
-- 示例演出核对：`perf_sample_scene_talk` 每句字幕结尾都落了 `HoldMarker`，停顿期间即使字还没打完也会继续打完不被截断；`perf_sample_greeting` 后两句虽无停顿，但片段时长足够打完全句。新增 / 改字幕节奏时留意这条（片段太短、又没有停顿会让字幕被切断）。
+- 示例演出核对：`perf_sample_scene_talk` 每句字幕结尾都落了 `HoldMarker`，停顿期间即使字还没打完也会继续打完不被截断（旧叠加示例 greeting 已下架）。新增 / 改字幕节奏时留意这条（片段太短、又没有停顿会让字幕被切断）。
 
 ## LOG 与自动
 
@@ -284,9 +295,10 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | 对白插播 | 对白节点 JSON 的 `performance` 字段非空，且 `Tables/Defines/dialogue.xml` 已生成对应字段 | 空串：不插播；服务未注册：记 Warn 埋 `performance_unavailable` 直接显示台词 |
 | 入口 | 从 Boot → 标题「开始」进场景才有演出服务与场景绑定 | 直接 Play 玩法场景：触发器 `TryFire` 记 Warn「未绑定演出服务」 |
 
-示例：回放舞台 `Assets/Scenes/SampleScene.unity`（Main Camera 已排除第 9 层剔除遮罩、Player 挂 Kinematic Rigidbody2D 开
-`useFullKinematicContacts`、Elder 挂 1003 对白、`Trigger_Intro` 挂 `PerformanceTrigger` OnEnter+once）；
-示例演出 `perf_sample_greeting`（`Prefabs/Performance/perf_sample_greeting.prefab` + 同名时间轴，由模板工厂建）。
+示例：回放舞台 `Assets/Scenes/SampleScene.unity`（Main Camera 已排除第 9 层剔除遮罩；场景里唯一的触发区是村口
+`Trigger_VillageEntrance`，挂世界舞台示例，见上「示例 `perf_sample_scene_talk`」；对白 1003 不挂在任何 NPC 上，只由回放用代码拉起）。
+示例演出只剩世界舞台的 `perf_sample_scene_talk`；旧叠加示例 greeting（模板工厂建的预制体 + 时间轴 + 入场动画）已下架，
+Addressables 地址一并移除。
 
 ## 埋点（模块 `performance` + dialogue 侧两条）
 
@@ -315,8 +327,10 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | EditMode | `.../PerformanceViewControlsTests.cs`（7 条） | 实例化真实预制体：打开写键位小字与初始「自动」标签、`SetAuto` 在「自动」/「自动中」间切换且投影镜像主标签、重新打开复位为「自动」、按钮点击抛 `OnAuto`/`OnHistory`（关面板后退订不再抛）、`ShowSubtitle` 抛 `OnSubtitleShown`（旁白说话者为空串）、`TapArea` 层级须在 `SkipRoot`/`AutoButton`/`HistoryButton` 之下、`SkipRoot` 挂 `UIPointerHold` 与开 raycast 的透明 `Image` 且 `SkipPointerHeld` 跟随按住状态 |
 | EditMode | `.../PerformanceTriggerTests.cs` | 锚点位姿传递、默认不隐藏、隐藏触发者并在结束 / 异常后恢复；`hiddenDuringPlay` 的 Renderer 与 Canvas 隐藏、空 / 重复 / 嵌套引用、取消后恢复 |
 | EditMode | `Tests/EditMode/Editor/Performance/PerformanceTemplateFactoryTests.cs`、`PerformanceValidatorTests.cs` | 模板工厂建齐资产（临时目录，`TearDown` 删干净）、校验器逐条问题码 |
-| EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | `performance` 字段翻译（去空白、空串 = 不插播） |
-| Showcase | `Tests/Showcase/Performance/PerformanceShowcase.cs`（4 条） | 代码拉起演出（黑边/字幕/时停/停顿确认/结束恢复，PRD A2）、长按跳过（A3）、场景触发只播一次（A4）、对白节点前插播（A5） |
+| EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueCatalogTests.cs` | `performance` 字段翻译（去空白、空串 = 不插播；1003 第 2 句 = `perf_sample_scene_talk`） |
+| EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueControllerTests.cs` | 插播摆放：传锚点 → 演出服务收到 `HasValue == true` 且位姿等于锚点；不传 → 收到 `None`。插播显隐：演出进行中手搭的 NPC / 玩家 / 巡逻怪根下 Renderer 与名牌 Canvas 全部隐藏、角色根外的物体与 PlayAsync 内生成的舞台替身不藏；演出播完或被取消后按原值恢复（进来前就关着的仍关着） |
+| EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueInterludeVisibilityTests.cs` | 取根规则：NPC 取 `DialogueInteractable` 那层、玩家取 Actor 那层（两种 Actor 各一例）、无标记小人取场景顶层根、同一根下多个小人去重 |
+| Showcase | `Tests/Showcase/Performance/PerformanceShowcase.cs`（4 条，全部用世界舞台示例 `perf_sample_scene_talk`） | `PlayById_ShowsSubtitlesAndRestoresWorld`：代码拉起并摆到村口 `Trigger_VillageEntrance.Anchor`（对白面板 / 字幕 / 时停 / 舞台落在锚点 / 停顿确认 / 结束恢复，PRD A2）；`HoldSkip_EndsEarlyWithSkippedOutcome` 长按跳过（A3）；`Trigger_PlaysOnEnter_FollowsOnceFlag` 场景触发按 Once 判定（A4）；`DialogueNode_PlaysPerformanceBeforeSecondLine` 对白 1003 经 `DialogueService.PlayAsync(1003, Npc_Elder)` 在第二句前插播，查演出实例根与 `Npc_Elder` 水平距离、高度差都 < 0.5（A5）；插播期间查 `player` / `Npc_Elder` / `Npc_Traveler` 根下 Renderer 全部 `enabled == false`（截图「插播·场景角色已隐藏」），回到对白后查全部恢复为进入插播前的值。前两条代码直接调演出、不经对白与触发区，**不隐藏**场景玩家 / NPC，截图里与舞台小人同框属预期 |
 | Showcase | `Tests/Showcase/Performance/ScenePerformanceShowcase.cs`（2 条） | SampleScene 村口触发世界舞台示例：头像 / 说话者逐句、舞台相机接管、玩家与 NPC / 巡逻怪 / 标记隐藏、五人在画内；「面板显示第一句」前新增瞬态检查「第一句逐字显示中（0 < 已显示字数 < 总字数）」；逐句走完 / 跳过后全部恢复；`WalkIntoTrigger()` 拍 before 快照前先检查「回放环境干净：演出尚未运行、玩家存活」（见 `ai-docs/pitfalls.md`）；新增 LOG 步骤：某句停顿时点左上「LOG」打开台词记录（内容含「阿米娅：」）→ 静置 0.5 秒真实时间验证导演没走、仍停在停顿 → 点「关闭」；随后在第三句验证点右上「自动」后标签变「自动中」，不再手动确认也能自行播完 |
 | 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 见「接线要求」示例 |
 
@@ -329,6 +343,10 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 - **相机叠加只实测了退路分支**：Overlay 叠加到 `Base` 相机的路径写在 prp 但两种 URP 渲染器（2D/Forward）的实测记录未在源码注释里体现，接手前建议先在验证场景跑一次 `/verify-module`。
 - **演出中途不能存档 / 恢复**：`PerformanceSaveData` 只记「播完 / 跳过」这个终态，没有中途快照；异常退出（应用崩溃）会导致该演出下次重新播放。
 - **对白插播固定在节点之前**：先演后说（PRD Q3 默认值），换成「之后」需要改 `DialogueController.PresentAsync` 的调用顺序。
+- **对白插播自动藏全部场景角色，不可逐个配置**：插播开始（`PlayAsync` 之前）藏起场景里所有带 `ChibiPuppet` 的角色根，演出结束（完成 / 跳过 / 取消 / 异常）
+  按原值恢复，见「数据流」挂载点 3。代价：舞台上没有替身的场景角色也会一起消失；无标记角色的兜底根是场景顶层物体，
+  以后若把角色收进公共容器（如 `Monsters/xxx`），容器下的兄弟会被一起藏（2026-09-28 核对 SampleScene 无此情况）。
+  **不经 `DialogueService` 的代码直接调 `IPerformanceService.PlayAsync` 不藏任何场景物体**（代码拉起的回放用例截图里场景角色与舞台小人同框属预期）。
 - **没有分图**：演出复用 Dialogue 的 `"Dialogue"` 输入图，将来要给演出单独定义键位需要新开一张图并同步改 `PerformanceService.InputMap`。
 - 手柄键位提示与 Dialogue 同款限制：`BuildSkipHint` 只取键盘第一条绑定，不跟随手柄。
 

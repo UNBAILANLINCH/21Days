@@ -1,4 +1,5 @@
-// 职责：连接规则、表现策略、TMP 与立绘资源生命周期；复用 UI/Assets 服务。
+// 职责：连接规则、表现策略、TMP 与立绘资源生命周期；复用 UI/Assets 服务；节点前插播演出（按调用方给的锚点摆放，
+//   插播期间经 DialogueInterludeVisibility 藏起场景里全部角色，结束恢复）。
 //   世界暂停与输入图切换由 DialogueService 统一持有，本类不碰。
 using System;
 using System.Collections.Generic;
@@ -24,6 +25,9 @@ namespace Game.Dialogue
     /// <para>
     /// 「演出中」（<see cref="Performing"/>）：节点带 <c>PerformanceId</c> 时，摆台词之前先 await 演出服务播完；
     /// 期间语义同「覆盖中」，且点击 / 按键 / 自动 / 倍速 / 跳过全部忽略。时停与输入图由两边服务各自持令牌，本类不碰。
+    /// 调用方传了演出锚点（通常是说话的 NPC）时，插播按锚点的世界位姿摆放演出（世界舞台模式据此落位）；不传则不摆放。
+    /// 插播期间场景里的全部角色（玩家、NPC、巡逻怪，连同根下的名牌 / 标记 / 光圈）被藏起，免得与舞台替身小人重影，
+    /// 演出结束（完成 / 跳过 / 取消 / 异常）即按原值恢复（<see cref="DialogueInterludeVisibility"/>）。
     /// </para>
     /// <para>
     /// 角色表不在构造时取：<see cref="DialogueCatalog.Characters"/> 惰性依赖 <c>IConfigService</c> 初始化完成，
@@ -64,6 +68,8 @@ namespace Game.Dialogue
         private IDialogueConditionSource conditions;
         private DialoguePlaybackPolicy policy;
         private string targetId;
+        // 本段对白的插播演出锚点（可为 null = 不摆放）；PresentAsync 开始时记下、收尾清空，插播时才读它的世界位姿。
+        private Transform performanceAnchor;
         private bool running;
         private bool historyOpen;
         private bool historyRequested;
@@ -115,10 +121,22 @@ namespace Game.Dialogue
 
         /// <summary>
         /// 展示当前对白直到完成，返回出口。调用方须先 <c>rules.Start(content)</c>（或 Restore），本方法只负责表现。
+        /// 节点插播演出不摆放（等价于锚点传 null）。
+        /// </summary>
+        /// <exception cref="OperationCanceledException">ct 取消，或对白被外部中断（Generation 变化 / 未到 Completed）。</exception>
+        public UniTask<string> PresentAsync(IDialogueConditionSource conditionSource, string target,
+            DialoguePlaybackPolicy playback, CancellationToken ct)
+        {
+            return PresentAsync(conditionSource, target, playback, null, ct);
+        }
+
+        /// <summary>
+        /// 同上，并指定插播演出的锚点：节点前插播时按 <paramref name="anchor"/> 此刻的世界位姿摆放演出
+        /// （<c>PerformancePlacement.FromTransform</c>，世界舞台模式据此落位）。传 null 不摆放，行为与不带锚点的重载完全一致。
         /// </summary>
         /// <exception cref="OperationCanceledException">ct 取消，或对白被外部中断（Generation 变化 / 未到 Completed）。</exception>
         public async UniTask<string> PresentAsync(IDialogueConditionSource conditionSource, string target,
-            DialoguePlaybackPolicy playback, CancellationToken ct)
+            DialoguePlaybackPolicy playback, Transform anchor, CancellationToken ct)
         {
             if (running) throw new InvalidOperationException("已有对白正在展示");
             if (conditionSource == null) throw new ArgumentNullException(nameof(conditionSource));
@@ -127,6 +145,7 @@ namespace Game.Dialogue
             running = true;
             conditions = conditionSource;
             targetId = target ?? string.Empty;
+            performanceAnchor = anchor;
             policy = playback;
             presentToken = ct;
             ready = false;
@@ -279,6 +298,7 @@ namespace Game.Dialogue
                     policy = null;
                     cadence = null;
                     targetId = null;
+                    performanceAnchor = null;
                 }
             }
         }
@@ -339,6 +359,10 @@ namespace Game.Dialogue
         private bool Overlaid => historyOpen || skipConfirmOpen || performing;
 
         // 节点前插播演出。只在新进节点（Preparing）时播：跳过快进中略过，存档恢复到已就绪的句子也不重播。
+        // 摆放取锚点此刻的世界位姿（锚点为 null 或已销毁 → PerformancePlacement.None，等价于不带摆放的重载）：
+        // 世界舞台演出不摆放会生成在原点（落到地面以下），所以对白要把说话的 NPC 作为锚点带进来。
+        // 场景角色：拉起演出之前藏起场景里全部小人的角色根（舞台在 PlayAsync 内异步生成，此刻收集天然不含舞台替身），
+        // 结束时在同一个 finally 里恢复。服务缺席 / 跳过快进中不插播，也就不藏。
         // 服务缺席记 Warn 后照常摆台词；演出失败记 Error 后照常摆台词；取消原样抛出。
         private async UniTask PerformBeforeNodeAsync(CancellationToken ct)
         {
@@ -359,9 +383,11 @@ namespace Game.Dialogue
             }
             performing = true;
             view.SetInput(false);
+            // 必须在 PlayAsync 之前：进了 PlayAsync 舞台替身小人就可能已生成，会被当成场景角色一起藏掉。
+            PerformanceTriggerRules.HiddenVisuals hiddenCharacters = DialogueInterludeVisibility.HideSceneCharacters();
             try
             {
-                await performance.PlayAsync(node.PerformanceId, ct);
+                await performance.PlayAsync(node.PerformanceId, PerformancePlacement.FromTransform(performanceAnchor), ct);
             }
             catch (OperationCanceledException)
             {
@@ -375,6 +401,9 @@ namespace Game.Dialogue
             }
             finally
             {
+                // 完成 / 跳过 / 取消 / 异常都走这里。顺序：先按快照恢复场景角色，再解除「演出中」——
+                // 解除后主循环下一步就摆台词、重开输入，那时角色应已回到画面。
+                PerformanceTriggerRules.RestoreVisuals(hiddenCharacters);
                 performing = false;
             }
             // 演出期间对白可能已被外部 Cancel / Restore（generation / visit 变了）：由调用方比对后 continue，这里只处理取消。

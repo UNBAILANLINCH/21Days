@@ -22,11 +22,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ea0e9ab08d087ff4fb68fe23791591a8
-    m_Address: perf_sample_greeting
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: f6f1748f1b9bba74d8edb0af0aaa7c26, type: 2}
   m_SchemaSet:

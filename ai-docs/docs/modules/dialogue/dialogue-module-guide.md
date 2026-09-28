@@ -46,13 +46,14 @@ maturity: stable
 | `DialogueContent` | 与表无关的内容模型（节点、选项、立绘指令），构造时校验跳转 / 槽位 / 出口 | Catalog 产出，测试可直接 new |
 | `DialogueCharacter` | 角色 → 表情 → Addressables 地址的只读索引 | Catalog 产出 |
 | `DialogueController` | 表现驱动：每帧打字、立绘与选项图标的加载与释放、选项刷新、历史面板、跳过确认、把 View 事件翻成意图 | 根作用域单例；只被 Service 调 |
-| （插播）`IPerformanceService`（`Game.Performance`，可空） | 节点带 `PerformanceId` 时，Controller 摆台词前先 `await PlayAsync`；`Performing` 期间语义同覆盖中（`DialogueController.cs:151`、`325`） | `DialogueInstaller` 用 `resolver.TryResolve` 注入，Boot 没挂 `PerformanceInstaller` 时为 null |
+| （插播）`IPerformanceService`（`Game.Performance`，可空） | 节点带 `PerformanceId` 时，Controller 摆台词前先 `await PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)`：锚点是 Service 经 `PresentAsync` 带进来的（通常是说话 NPC），为 null 即 `None`、不摆放；`Performing` 期间语义同覆盖中；拉起演出前藏起场景全部角色、同一个 `finally` 里先恢复再解除 `Performing`（`DialogueController.cs:120`、`367`、`387`、`390`、`406`） | `DialogueInstaller` 用 `resolver.TryResolve` 注入，Boot 没挂 `PerformanceInstaller` 时为 null |
+| `DialogueInterludeVisibility` | **静态类**：插播时藏哪些场景角色。`HideSceneCharacters()` 扫一次场景里激活的 `ChibiPuppet`（`FindObjectsByType`，不含未激活）→ `CollectCharacterRoots` 逐个 `ResolveCharacterRoot` 取角色根并去重 → `PerformanceTriggerRules.HideVisuals`；取根 = 向上最近的带 `DialogueInteractable` / `DialogueInteractionActor` / `PerformanceTriggerActor` 的物体，都没有取 `transform.root`（`DialogueInterludeVisibility.cs:33`、`43`、`60`） | Controller 在 `PerformBeforeNodeAsync` 里、`PlayAsync` 之前调一次 |
 | `DialogueView` | `UIView`（Popup 层）：显示文字 / 立绘 / 选项（含图标位）/ 控件，只抛事件，不注入服务 | `IUIService` 按地址实例化 |
 | `DialogueSkipConfirmView` | `UIView`（Popup 层）：「是否跳过剧情？」确认 / 取消，只抛 `OnConfirm / OnCancel` | Controller 在点跳过时开关 |
 | `Game.Core.UI.Views.TranscriptView`（Core，原 `DialogueHistoryView` 下沉重命名，见下「为什么这样设计」） | `UIView`（**Top 层**：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白之上；不进 UI 栈、不改 EventSystem 选中，Esc 与关闭都由调用方处理）：`Show(lines, truncated)` + 纯函数 `Format` 显示记录，格式来自静态 `DialogueController.BuildTranscript`（选择项说话者写「选择」） | Controller 按需开关（`history` 字段） |
-| `DialogueService` | **对外入口**：重入保护、世界暂停、输入图切换、藏探索 Hud 层（按进来前的值恢复）、事件广播、结果返回 | 根作用域单例 |
+| `DialogueService` | **对外入口**：重入保护、世界暂停、输入图切换、藏探索 Hud 层（按进来前的值恢复）、事件广播、结果返回；`PlayAsync(id, performanceAnchor, ct)` 重载把插播演出锚点原样交给 Controller，两参重载转发时传 null（`DialogueService.cs:86`、`99`） | 根作用域单例 |
 | `IDialogueConditionSource` / `DefaultDialogueConditionSource` | 选项条件的事实快照来源；默认实现是占位 | 根作用域单例，Service 传给 Controller |
-| `DialogueInteractable` | 场景组件：对话树编号（`0` = 无树）+ 显示名 + 常驻台词 + 交互半径 + 点击入口；`Focused` 由焦点系统写 | 场景物体；`DialogueSceneBinder` 注入 Service 与场景 Actor |
+| `DialogueInteractable` | 场景组件：对话树编号（`0` = 无树）+ 显示名 + 常驻台词 + 交互半径 + 点击入口；`Focused` 由焦点系统写；拉起对白时把**自身 Transform** 作插播演出锚点（`DialogueInteractable.cs:192`） | 场景物体；`DialogueSceneBinder` 注入 Service 与场景 Actor |
 | `DialogueSceneBinder` | 入口点：启动时与每次 `sceneLoaded` 扫场景，有树的 `Bind`、全部登记进 `Bound`，找玩家标记 `Actor`；`sceneUnloaded` 清已销毁项 | 根作用域入口点（`AsSelf`，焦点系统注入它） |
 | `DialogueKeyboardInput` | `ITickable` 入口点：对白进行中每帧读 `Dialogue` 动作图 + `UI/Cancel`，经静态纯函数 `Map(key, state)` 翻成处理动作，交给 `DialogueController.HandleKey` 调与点击同一套处理函数；首次拿到动作集时把按钮键位提示交给 Controller | 根作用域入口点（`DialogueInstaller`） |
 | `DialogueInteractionActor` | 玩家根上的空标记：测距原点 | 场景玩家物体 |
@@ -81,8 +82,8 @@ Core 侧配套：`Game.Core.Boot.FallbackCamera`（`Assets/_Project/Scripts/Core
 触发：DialogueInteractable.Interact() / OnPointerClick
         ├─ 无树（dialogueId==0）且有台词 → OnBubbleRequested(下一句，循环) → DialogueSpeechBubble.Show
         │     （不暂停世界、不切输入图、不开面板；到此为止）
-        └─ 有树且已绑定 ─────────────────────────┐
-      其他模块直接 await DialogueService.PlayAsync(id) ───┤
+        └─ 有树且已绑定 → PlayAsync(id, 自身 Transform) ─┐
+      其他模块直接 await DialogueService.PlayAsync(id[, 插播锚点]) ───┤
                                                            ▼
 DialogueService.PlayAsync
   ├─ DialogueCatalog.TryGet(id)          （首次访问：IConfigService.Tables → 翻译 → 缓存）
@@ -90,9 +91,13 @@ DialogueService.PlayAsync
   ├─ IWorldPauseService.Acquire(this)    （timeScale=0 + 逻辑 tick 停）
   ├─ IInputService.DisableMap(Gameplay) + EnableMap(Dialogue)  （UI 图不动，EventSystem 靠它）
   ├─ 读 IUIService.IsLayerVisible(Hud) 记进来前的值，再 SetLayerVisible(Hud, false)（藏探索 HUD，与演出观感一致；不动 Popup 层——对白框就在 Popup 层）
-  ├─ OnStarted → DialogueController.PresentAsync(conditions, "dialogue:<id>", policy, ct)
+  ├─ OnStarted → DialogueController.PresentAsync(conditions, "dialogue:<id>", policy, 插播锚点, ct)
   │       每帧：Skipping? → rules.Skip ； Visit 变 → PrepareAsync（SetLine + 立绘）→ rules.Ready
-  │       Visit 变 → 节点有 PerformanceId（且非跳过中、Preparing）→ Performing=true → await IPerformanceService.PlayAsync → 复位 → 比对 generation / visit → PrepareAsync
+  │       Visit 变 → 节点有 PerformanceId（且非跳过中、Preparing）→ Performing=true
+  │             → DialogueInterludeVisibility.HideSceneCharacters()（藏场景全部角色根；在 PlayAsync 之前，不含舞台替身）
+  │             → await IPerformanceService.PlayAsync(id, PerformancePlacement.FromTransform(插播锚点), ct)（锚点 null = None，不摆放）
+  │             → finally（完成 / 跳过 / 取消 / 异常）：RestoreVisuals 恢复场景角色 → Performing=false
+  │             → 比对 generation / visit → PrepareAsync
   │             Typing → rules.RevealTo(cps × unscaledΔ) ； policy.TickAuto → Submit(Advance)
   │       View.OnTap → policy.RegisterTap → Submit(Advance) ； View.OnIntent → Submit(Choose)
   │       DialogueKeyboardInput.Tick → HandleKey → Map → 同一套处理函数（Tap / 按钮 / Submit(Choose)）
@@ -126,7 +131,8 @@ DialogueService.PlayAsync
 | `Game.Core.Config`（`IConfigService`）+ 生成物 `cfg.dialogue.*` | 内容表 |
 | `Game.Core.Save`（`ISaveData`） | `DialogueSaveData` 的形状 |
 | `Game.Narrative`（**只用** `EncounterContext` / `NarrativeCondition`） | 选项条件的值类型与匹配 |
-| `Game.Performance`（**只用** `IPerformanceService`，可为 null） | 对白节点前插播演出；Performance 不反向引用 Dialogue |
+| `Game.Performance`（`IPerformanceService`，可为 null；静态 `PerformanceTriggerRules.HideVisuals` / `RestoreVisuals`；`PerformanceTriggerActor` 作玩家根标记） | 对白节点前插播演出，插播期间藏 / 恢复场景角色；Performance 不反向引用 Dialogue |
+| `Game.CharacterPuppet`（**只用** `ChibiPuppet` 类型本身） | `DialogueInterludeVisibility` 以「有 `ChibiPuppet`」判定场景角色，不调它任何方法；CharacterPuppet 不引用任何玩法模块，不成环 |
 
 Core 不认识本模块；`IWorldPauseService` 里没有对话名词。Narrative 不反向引用 Dialogue。
 `CameraBillboard`（IsometricExploration）只在场景里挂到标记 / 气泡子物体上，本模块代码不引用它。
@@ -309,7 +315,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 翻译规则 | `side` → 该槽 `Show`；`clearOther` → 另一槽 `Clear`（旁白忽略）；`expression` 空取默认；`speakerName` 空取角色显示名；`revision < 1` 按 1；条件 `anyOf[].all[]` = 外层 OR 内层 AND（`DialogueCatalog.cs:170`、`200`） |
 | 条件事实 | `ConditionFact` 与 `EncounterContext.Fact` **按名字**映射，改名 / 增项两边一起改（`DialogueCatalog.cs:242`） |
 | 选项图标 | `Choice.icon`（Addressables 地址，空串 = 无图标，**JSON 必须显式写 `"icon": ""`**）→ `DialogueContent.Choice.IconKey`（`DialogueCatalog.cs:226`） |
-| 插播演出 | `Node.performance`（演出 id = Addressables 地址，空串 = 不插播，**JSON 必须显式写 `"performance": ""`**）→ `DialogueContent.Node.PerformanceId`（去首尾空白，`DialogueCatalog.cs:164`）；验证树 `1003.json` 第 2 句带 `perf_sample_greeting` |
+| 插播演出 | `Node.performance`（演出 id = Addressables 地址，空串 = 不插播，**JSON 必须显式写 `"performance": ""`**）→ `DialogueContent.Node.PerformanceId`（去首尾空白，`DialogueCatalog.cs:164`）；验证树 `1003.json` 第 2 句（`l2`，revision 2）带世界舞台示例 `perf_sample_scene_talk`（旧叠加示例 greeting 已下架）；世界舞台演出靠调用方传的锚点落位，见「数据流」 |
 
 内容非法（跳转不存在、选项 `next` 与 `outcome` 不是恰好一个、表情不存在、选择节点无选项）在首次访问 Catalog 时抛
 `ArgumentException`，消息带对话 id；不会半途落缓存。
@@ -336,7 +342,8 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueCatalogTests.cs`（8 条） | 读真实 `.bytes`：1001 / 1002 结构、立绘指令、每个表情有地址、条件选项、选项图标键 |
 | EditMode | `.../DialogueInteractableTests.cs`（17 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接；`TryGetIconAnchor` 焦点图优先 / 只配可交互图 / 都没配 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueServiceTests.cs`（6 条） | 进行中重入抛 `InvalidOperationException`；未知 id 抛 `ArgumentException` 且不碰暂停 / 输入；Present 异常时清理并发 `OnEnded`；对白期间 Dialogue 图开、Gameplay 图关、Hud 层隐藏，取消 / 异常后对称恢复，进来前关着的 Gameplay 与已隐藏的 Hud 不被打开 / 不被误亮 |
-| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueControllerTests.cs`（3 条） | 静态 `BuildTranscript`：选择项记为说话者「选择」；转换后经 `TranscriptView.Format` 拼出的文本与旧历史面板逐字节一致；`null` / 空历史返回空列表 |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueControllerTests.cs`（7 条） | 静态 `BuildTranscript`：选择项记为说话者「选择」；转换后经 `TranscriptView.Format` 拼出的文本与旧历史面板逐字节一致；`null` / 空历史返回空列表。插播摆放（实例化真实 `DialogueView.prefab` + 假 UI / 假演出服务，停在第一句前的插播点）：传锚点 → 演出服务收到 `HasValue == true` 且位置 / 朝向等于锚点；不传 → 收到 `None`。插播显隐：演出中手搭的 NPC / 玩家 / 巡逻怪根下 Renderer 与名牌 Canvas 全隐、角色根外物体与 `PlayAsync` 内生成的舞台替身不藏；演出播完 / 被取消后按原值恢复 |
+| EditMode | `.../DialogueInterludeVisibilityTests.cs`（4 个方法 / 5 例） | 取根：NPC 取 `DialogueInteractable` 那层（不上到场景容器）、玩家取 Actor 那层（`DialogueInteractionActor` / `PerformanceTriggerActor` 各一例）、无标记小人取场景顶层根、同一根下多个小人去重（null 跳过） |
 | EditMode | `.../DialogueReadStoreTests.cs`（3 条） | 空档案读入为空；写 3 个键后新 store 读回一致且原地填充同一实例；同帧两次对白结束只写一次（计数 `ISaveService` 装饰器包临时目录 `JsonSaveService`） |
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
@@ -347,6 +354,10 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 
 ## 已知约束 / 未做
 
+- **插播藏全部场景角色，不可逐个配置**：凡带 `ChibiPuppet` 的场景角色一律藏（舞台上没有替身的也藏）；不在角色根下的世界物体
+  （物资箱标记等）不藏，任务目标标记在对白期间本来就由 `QuestHudPresenter` 收起。无标记角色兜底取 `transform.root`，
+  以后若场景把角色收进公共容器，容器下的兄弟会一起藏（2026-09-28 核对 SampleScene 无此情况）。只有经 `DialogueController`
+  的插播才藏，代码直接调 `IPerformanceService.PlayAsync` 不藏。
 - **非阻塞旁白未实现**：节点 `blocking` 字段与 `DialogueRules.Blocking`（`DialogueRules.cs:39`）保留，但
   Service 对整段对白一律暂停世界、一律等点击推进。
 - **跳过确认后不可撤销**：确认后本段内一直跳过。

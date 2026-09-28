@@ -23,7 +23,9 @@ namespace Game.IsometricExploration
         {
             if (!isActiveAndEnabled) return;
             if (targetCamera == null) targetCamera = GetComponent<Camera>();
-            if (originalDistances == null) originalDistances = targetCamera.layerCullDistances;
+            // 编辑器重载后缓存可能为空数组；Unity 的 setter 只接受完整的 32 层。
+            if (originalDistances == null || originalDistances.Length != 32)
+                originalDistances = targetCamera.layerCullDistances;
             var distances = (float[])originalDistances.Clone();
             if (settings != null)
             {
@@ -40,7 +42,7 @@ namespace Game.IsometricExploration
 
         private void OnDisable()
         {
-            if (targetCamera != null && originalDistances != null)
+            if (targetCamera != null && originalDistances != null && originalDistances.Length == 32)
                 targetCamera.layerCullDistances = originalDistances;
             originalDistances = null;
         }

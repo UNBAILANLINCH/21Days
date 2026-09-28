@@ -18,6 +18,35 @@ namespace Game.Tests.PlayMode
             yield return null;
         }
 
+        [TestCase(0)]
+        [TestCase(31)]
+        [TestCase(33)]
+        public void ApplySettings_InvalidCachedLength_RecapturesAndRestoresBaseline(int length)
+        {
+            root = new GameObject("DistanceCullingReloadTest", typeof(Camera));
+            Camera camera = root.GetComponent<Camera>();
+            var baseline = new float[32];
+            baseline[8] = 70f;
+            camera.layerCullDistances = baseline;
+            var culling = root.AddComponent<CameraDistanceCulling>();
+            var cache = typeof(CameraDistanceCulling).GetField("originalDistances",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            // 注入实际观察到的空缓存，以及其他无效长度，不依赖编辑器触发域重载。
+            cache.SetValue(culling, new float[length]);
+            culling.ApplySettings(new[] { new CameraLayerCullSettings(1 << 31, 20f) });
+            Assert.That(camera.layerCullDistances.Length, Is.EqualTo(32));
+            Assert.That(camera.layerCullDistances[8], Is.EqualTo(70f));
+            Assert.That(camera.layerCullDistances[31], Is.EqualTo(20f));
+            culling.enabled = false;
+            CollectionAssert.AreEqual(baseline, camera.layerCullDistances);
+
+            culling.enabled = true;
+            cache.SetValue(culling, new float[length]);
+            culling.enabled = false;
+            CollectionAssert.AreEqual(baseline, camera.layerCullDistances);
+            LogAssert.NoUnexpectedReceived();
+        }
+
         [UnityTest]
         public IEnumerator ApplySettings_ReapplyDisableReenable_RestoresCameraAndKeepsPhysics()
         {

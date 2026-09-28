@@ -1,0 +1,190 @@
+# FACS 情绪原型合成配置（DESIGN §3.1、§3.3）
+#
+# 每个情绪变体都用 source 标明出处，三类出处不混写（DESIGN §3.1）：
+#   emfacs      EMFACS 典型原型：Ekman、Friesen、Hager 2002《FACS Manual / Investigator's Guide》
+#               里的情绪预测组合，是完整的「刻意摆出」表情。
+#   ckplus_min  CK+ 最小判据：Lucey 等 CVPRW 2010 Table 2，判为该情绪的最低条件（原表见 REFERENCES.md 附录 A）。
+#               注意这是「必要条件」，只摆出最小判据的脸往往比典型原型更含糊。
+#   ckplus_fig1 CK+ 示例图：同一篇论文 Figure 1 的插图示例（REFERENCES.md 附录 A 表后与核对结论第 2、3 条），
+#               只取其中的张嘴笑 AU6+12+25 与张口惊讶 AU1+2+5+25+27。Figure 1 的其他示例（如厌恶=1+4+15+17、
+#               愤怒=4+5+15+17）与同篇 Table 2 判据冲突（缺 AU9/10、缺 AU23/24），不收。
+#   none        中性脸：不激活任何 AU，只有干扰 AU 与噪声。
+# 带 note 的 emfacs 变体是 EMFACS 情绪预测表里的其他原型 / 主要变体，出自二手转引，原书未逐字核对。
+#
+# AU 写法：数字是 AU 编号；强度档写 "B"、"B-E"，「*」表示原文未限定强度（用 default_intensity）。
+# 原表「25, 26, or 27」这类逗号写法表示任选其一，这里用 choose 表达。
+#
+# AU → 表情基映射对照 REFERENCES.md 附录 C（Melinda Ozel 整理的 ARKit↔FACS 对照，非官方）；
+# 标「近似」的几条（AU11、AU23、AU25）在该表里没有对应的基，按视觉效果拆成几个基的组合。
+
+sources:
+  emfacs: "Ekman, Friesen, Hager (2002). Facial Action Coding System: The Manual and Investigator's Guide — EMFACS 情绪预测"
+  ckplus_min: "Lucey 等 (2010). The Extended Cohn-Kanade Dataset (CK+). CVPRW 2010, Table 2 情绪判定标准"
+  ckplus_fig1: "Lucey 等 (2010). The Extended Cohn-Kanade Dataset (CK+). CVPRW 2010, Figure 1 示例图"
+  none: "中性脸，不激活 AU"
+
+# ---------------------------------------------------------------- AU → 表情基
+au_to_blendshape:
+  AU1:  {browInnerUp: 1.0}                                            # 内眉上抬
+  AU2:  {browOuterUpLeft: 1.0, browOuterUpRight: 1.0}                 # 外眉上抬
+  AU4:  {browDownLeft: 1.0, browDownRight: 1.0}                       # 降眉（皱眉）
+  AU5:  {eyeWideLeft: 1.0, eyeWideRight: 1.0}                         # 上睑提升（瞪眼）
+  AU6:  {cheekSquintLeft: 1.0, cheekSquintRight: 1.0, eyeSquintLeft: 0.3, eyeSquintRight: 0.3}  # 颊提升，连带下睑上推
+  AU7:  {eyeSquintLeft: 1.0, eyeSquintRight: 1.0}                     # 眼睑收紧
+  AU9:  {noseSneerLeft: 1.0, noseSneerRight: 1.0, browDownLeft: 0.3, browDownRight: 0.3}  # 皱鼻，降眉间肌连带眉头下压
+  AU10: {mouthUpperUpLeft: 1.0, mouthUpperUpRight: 1.0}               # 上唇提升
+  AU11: {mouthUpperUpLeft: 0.3, mouthUpperUpRight: 0.3}               # 鼻唇沟加深（近似：弱上唇提升）
+  AU12: {mouthSmileLeft: 1.0, mouthSmileRight: 1.0}                   # 嘴角上拉
+  AU14: {mouthDimpleLeft: 1.0, mouthDimpleRight: 1.0}                 # 酒窝（嘴角收紧）
+  AU15: {mouthFrownLeft: 1.0, mouthFrownRight: 1.0}                   # 嘴角下压
+  AU16: {mouthLowerDownLeft: 1.0, mouthLowerDownRight: 1.0}           # 下唇下压
+  AU17: {mouthShrugLower: 1.0, mouthShrugUpper: 0.3}                  # 颏肌上推（皱下巴）
+  AU18: {mouthPucker: 1.0}                                            # 噘嘴
+  AU20: {mouthStretchLeft: 1.0, mouthStretchRight: 1.0}               # 嘴唇横拉
+  AU22: {mouthFunnel: 1.0}                                            # 唇成漏斗
+  AU23: {mouthPressLeft: 0.5, mouthPressRight: 0.5, mouthRollLower: 0.3, mouthRollUpper: 0.3}  # 嘴唇收紧（近似）
+  AU24: {mouthPressLeft: 1.0, mouthPressRight: 1.0}                   # 双唇相压
+  AU25: {jawOpen: 0.1, mouthLowerDownLeft: 0.3, mouthLowerDownRight: 0.3}  # 双唇分开（近似）
+  AU26: {jawOpen: 0.6}                                                # 下颌下垂
+  AU27: {jawOpen: 1.0, mouthStretchLeft: 0.2, mouthStretchRight: 0.2} # 嘴大张（附录 C：jawOpen 越大越接近 27）
+  AU28: {mouthRollLower: 1.0, mouthRollUpper: 1.0}                    # 唇内吸
+  AU29: {jawForward: 1.0}                                             # 下颌前伸
+  AU34: {cheekPuff: 1.0}                                              # 鼓腮
+  AU43: {eyeBlinkLeft: 1.0, eyeBlinkRight: 1.0}                       # 闭眼
+  AU45: {eyeBlinkLeft: 1.0, eyeBlinkRight: 1.0}                       # 眨眼（附录 C 把 eyeBlink 对到 AU45）
+  AU64: {eyeLookDownLeft: 1.0, eyeLookDownRight: 1.0}                 # 眼球向下（默认被屏蔽，只为贴近真实分布）
+
+# ---------------------------------------------------------------- 强度档
+# FACS 强度 A=微弱 B=轻 C=明显 D=强 E=极强；映射到表情基激活值区间，档内均匀采样。
+intensity_levels:
+  A: [0.10, 0.25]
+  B: [0.25, 0.45]
+  C: [0.45, 0.65]
+  D: [0.65, 0.85]
+  E: [0.85, 1.00]
+# 原文写「*」（未限定强度）时用的档位范围。捏脸是「刻意摆出来的」，所以不取 A。
+default_intensity: "B-E"
+
+# ---------------------------------------------------------------- 合成器参数
+synthesis:
+  combine: max            # 多个 AU 驱动同一个表情基时取最大值（同一块肌肉不叠加超过 1）
+  clean_fraction: 0.25    # 干净稀疏样本比例（DESIGN §3.1）：这部分正样本只保留变体的核心 AU（可选 AU 按原概率），
+                          # 不加干扰 AU、不加高斯噪声、不做左右抖动、不加眼球朝向；每类按比例取整，位置随机
+  asymmetry_std: 0.12     # 左右不对称抖动：成对维各乘 (1 + N(0, σ))
+  noise_std: 0.02         # 全维高斯噪声，之后裁剪到 [0,1]
+  distractor:             # 低强度干扰 AU
+    count_probs: [0.45, 0.35, 0.20]   # 加 0 / 1 / 2 个的概率
+    intensity: "A"
+    aus: [AU1, AU2, AU4, AU5, AU6, AU7, AU9, AU10, AU12, AU14, AU15, AU17, AU20, AU23, AU24, AU25, AU26, AU28, AU45]
+  gaze:                   # 随机眼球朝向（被默认屏蔽，保留是为了让合成数据的「屏蔽前」分布更像真人）
+    prob: 0.3
+    intensity: "A-C"
+
+# ---------------------------------------------------------------- 情绪原型
+# 每个变体：
+#   source    出处：emfacs | ckplus_min | ckplus_fig1 | none（必填）
+#   note      补充说明（可选）
+#   aus       必出现的 AU 与强度档
+#   choose    从列表里任选一组合并进来（原表的逗号写法）
+#   optional  {AU: [概率, 强度]}，各自独立决定是否出现
+#   unilateral {AU: L|R|random} 该 AU 只作用于一侧（原表的 L/R 前缀）；同一变体内的 random 共用一次抽签（落在同一侧）
+#   drop_one_of + drop_prob  以一定概率去掉列表里的某一个 AU（EMFACS「主要变体 = 原型去掉其一」）
+#   weight    变体被抽中的相对权重：典型原型最高，最小判据次之
+emotions:
+  neutral:
+    variants:
+      - {source: none, aus: {}, weight: 1}
+
+  happy:
+    variants:
+      - {source: emfacs, aus: {AU6: "*", AU12: "*"}, weight: 3}
+      - {source: emfacs, note: "另一原型 12C/D", aus: {AU12: "C-D"}, weight: 1}
+      - {source: ckplus_min, note: "必须有 AU12（不要求 AU6）", aus: {AU12: "*"}, weight: 1.5}
+      - {source: ckplus_fig1, note: "张嘴笑 AU6+12+25；Figure 1 未标强度，按 * 处理", aus: {AU6: "*", AU12: "*", AU25: "*"}, weight: 2}
+
+  sad:
+    variants:
+      - {source: emfacs, note: "可伴随 54+64（低头、眼向下），AU64 默认被屏蔽", aus: {AU1: "*", AU4: "*", AU15: "*"}, optional: {AU64: [0.4, "B-D"]}, weight: 3}
+      - {source: emfacs, note: "主要变体 1+4+15B+17", aus: {AU1: "*", AU4: "*", AU15: B, AU17: "*"}, optional: {AU64: [0.4, "B-D"]}, weight: 1}
+      - {source: ckplus_min, note: "分支一：AU1+4+15", aus: {AU1: "*", AU4: "*", AU15: "*"}, weight: 1}
+      - {source: ckplus_min, note: "分支二：AU11。AU11 在 ARKit 里没有对应基，近似映射后与轻度 AU10（厌恶）难分，权重压低", aus: {AU11: "*"}, weight: 0.3}
+      - {source: ckplus_min, note: "例外：AU6+15", aus: {AU6: "*", AU15: "*"}, weight: 1}
+
+  surprise:
+    variants:
+      - {source: emfacs, aus: {AU1: "*", AU2: "*", AU5: B, AU26: "*"}, weight: 3}
+      - {source: emfacs, note: "另一原型 1+2+5B+27", aus: {AU1: "*", AU2: "*", AU5: B, AU27: "*"}, weight: 1.5}
+      - {source: emfacs, note: "主要变体 1+2+5B", aus: {AU1: "*", AU2: "*", AU5: B}, weight: 0.5}
+      - {source: ckplus_min, note: "分支一：AU1+2", aus: {AU1: "*", AU2: "*"}, weight: 1}
+      - {source: ckplus_min, note: "分支二：AU5，且强度不超过 B", aus: {AU5: "A-B"}, weight: 0.3}
+      - {source: ckplus_fig1, note: "张口惊讶 AU1+2+5+25+27；Figure 1 未标强度，AU5 按同篇 Table 2 惊讶判据取不超过 B，其余按 *", aus: {AU1: "*", AU2: "*", AU5: "A-B", AU25: "*", AU27: "*"}, weight: 2}
+
+  fear:
+    variants:
+      - {source: emfacs, aus: {AU1: "*", AU2: "*", AU4: "*", AU5: "*", AU7: "*", AU20: "*", AU26: "*"}, weight: 3}
+      - {source: emfacs, note: "另一原型 1+2+4+5*+20*+(25|26|27)", aus: {AU1: "*", AU2: "*", AU4: "*", AU5: "*", AU20: "*"}, choose: [{AU25: "*"}, {AU26: "*"}, {AU27: "*"}], weight: 1.5}
+      - {source: emfacs, note: "主要变体 1+2+4+5*", aus: {AU1: "*", AU2: "*", AU4: "*", AU5: "*"}, weight: 0.5}
+      - {source: ckplus_min, note: "必须有 AU1+2+4", aus: {AU1: "*", AU2: "*", AU4: "*"}, weight: 1}
+      - {source: ckplus_min, note: "例外：AU5 为 E 档时 AU4 可缺", aus: {AU1: "*", AU2: "*", AU5: E}, weight: 0.5}
+
+  disgust:
+    variants:
+      - {source: emfacs, aus: {AU9: "*", AU15: "*", AU16: "*"}, weight: 3}
+      - {source: emfacs, note: "其他原型 9+17、10+17", choose: [{AU9: "*"}, {AU10: "*"}], aus: {AU17: "*"}, weight: 1}
+      - {source: ckplus_min, note: "分支一：AU9", aus: {AU9: "*"}, weight: 1}
+      - {source: ckplus_min, note: "分支二：AU10", aus: {AU10: "*"}, weight: 1}
+
+  angry:
+    variants:
+      - {source: emfacs, aus: {AU4: "*", AU5: "*", AU7: "*", AU23: "*"}, weight: 3}
+      - {source: emfacs, note: "其他原型 4+5*+7+17+24、4+5*+7+24；主要变体 = 原型去掉 4、5、7 之一", aus: {AU4: "*", AU5: "*", AU7: "*", AU24: "*"}, optional: {AU17: [0.5, "*"]}, drop_one_of: [AU4, AU5, AU7], drop_prob: 0.3, weight: 1.5}
+      - {source: ckplus_min, note: "必须 AU23 与 AU24 同时出现", aus: {AU23: "*", AU24: "*"}, weight: 1}
+
+  contempt:   # 默认 7 类不含；labels.yaml 启用 contempt 后才会被合成
+    variants:
+      - {source: emfacs, note: "R12A+R14A，单侧；强度放宽到 A–C 以贴近捏脸", aus: {AU12: "A-C", AU14: "A-C"}, unilateral: {AU12: random, AU14: random}, weight: 2}
+      - {source: ckplus_min, note: "AU14，单侧", aus: {AU14: "*"}, unilateral: {AU14: random}, weight: 1}
+      - {source: ckplus_min, note: "AU14，双侧", aus: {AU14: "*"}, weight: 1}
+
+# ---------------------------------------------------------------- 负样本（DESIGN §3.3）
+negatives:
+  mix: {random: 0.5, antagonist: 0.5}   # 两种负样本的比例
+  random:
+    # 有绑定时：随机挑一部分滑杆、在范围内均匀取值；无绑定时：在规范空间随机稀疏取值
+    active_fraction: [0.15, 0.6]
+  antagonist:
+    pairs_per_sample: [1, 3]     # 每个样本拉满几组拮抗对
+    intensity: "D-E"
+    extra_random_dims: [0, 4]    # 再随机点亮几维（强度 A–C），避免负样本太「干净」
+    # 每组两边同时拉满；名字是规范空间表情基
+    pairs:
+      - name: 嘴角上扬又下撇
+        a: [mouthSmileLeft, mouthSmileRight]
+        b: [mouthFrownLeft, mouthFrownRight]
+      - name: 单眼瞪单眼闭（左瞪右闭）
+        a: [eyeWideLeft]
+        b: [eyeBlinkRight]
+      - name: 单眼瞪单眼闭（右瞪左闭）
+        a: [eyeWideRight]
+        b: [eyeBlinkLeft]
+      - name: 一侧嘴角上扬另一侧下撇
+        a: [mouthSmileLeft]
+        b: [mouthFrownRight]
+      - name: 噘嘴又横拉
+        a: [mouthPucker]
+        b: [mouthStretchLeft, mouthStretchRight]
+      - name: 大张嘴又抿紧
+        a: [jawOpen]
+        b: [mouthPressLeft, mouthPressRight, mouthRollLower, mouthRollUpper]
+      - name: 闭眼又瞪眼
+        a: [eyeBlinkLeft, eyeBlinkRight]
+        b: [eyeWideLeft, eyeWideRight]
+      - name: 鼓腮又张嘴
+        a: [cheekPuff]
+        b: [jawOpen]
+      - name: 单侧眉上挑另一侧眉下压
+        a: [browOuterUpLeft]
+        b: [browDownRight]
+  # 与任一类合成正样本的最近邻 L2 距离（在未屏蔽维上）小于该值的负样本丢弃
+  min_distance_to_positive: 0.45
+  reference_per_class: 800       # 计算最近邻时每类取多少正样本作参照

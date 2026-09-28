@@ -1,0 +1,8 @@
+# 本子项目自己的忽略规则（不改仓库根 .gitignore）
+.venv/
+.cache/
+data/
+artifacts/
+__pycache__/
+.pytest_cache/
+*.egg-info/

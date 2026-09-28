@@ -1,4 +1,4 @@
-// 职责：Dialogue 模块回放——范围焦点与底部交互提示、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
+// 职责：Dialogue 模块回放——范围焦点与底部交互提示、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、历史（LOG，Core 通用记录面板）、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
 //   以及对白期间世界时停、结束后恢复（PRD 验收 A4–A6）。
 using System;
 using System.Collections;
@@ -115,6 +115,15 @@ namespace Game.Tests.Showcase.Dialogue
                 () => Time.timeScale == 0f && worldPause.IsPaused && !input.Actions.Gameplay.enabled
                     && !ui.IsLayerVisible(UILayer.Hud));
             yield return Snapshot("对话拉起·世界时停");
+
+            // 历史（LOG）改用 Core 通用记录面板 TranscriptView（Top 层）：点开能看到第一句，关掉后对白照常停在 l1。
+            yield return Step("点左上「LOG」打开历史记录", () => RequireButton("HistoryButton").onClick.Invoke());
+            yield return Check("历史记录（TranscriptView）已打开，含第一句（说话者：正文）",
+                () => TranscriptText().Contains(FirstLineRecord()), 3f);
+            yield return Step("点历史记录的「关闭」", () => RequireTranscriptClose().onClick.Invoke());
+            yield return Check("历史记录已关闭，对白仍停在 l1 等待推进",
+                () => ui.Get<TranscriptView>() == null && CurrentIs("l1")
+                      && rules.Phase == DialogueSaveData.Phase.AwaitAdvance, 3f);
 
             yield return Step("单点一下对白区：推进到下一句", () => RequireButton("TapArea").onClick.Invoke());
             yield return Check("推进到第二句 l2", () => CurrentIs("l2"), 2f);
@@ -608,6 +617,33 @@ namespace Game.Tests.Showcase.Dialogue
             Transform child = button == null ? null : button.transform.Find(childName);
             TMP_Text label = child == null ? null : child.GetComponent<TMP_Text>();
             return label == null ? null : label.text;
+        }
+
+        /// <summary>当前句在历史记录里的样子：说话者非空写「说话者：正文」，旁白只写正文（同 TranscriptView.Format）。</summary>
+        private string FirstLineRecord()
+        {
+            return string.IsNullOrEmpty(rules.Speaker) ? rules.Text : rules.Speaker + "：" + rules.Text;
+        }
+
+        /// <summary>历史记录（TranscriptView，Top 层）的正文；没开返回空串。</summary>
+        private string TranscriptText()
+        {
+            TranscriptView transcript = ui == null ? null : ui.Get<TranscriptView>();
+            TMP_Text content = transcript == null ? null : FindDeep<TMP_Text>(transcript.transform, "Content");
+            return content == null ? string.Empty : content.text;
+        }
+
+        /// <summary>历史记录的「关闭」按钮；没开或找不到就抛异常，让 Step 记失败。</summary>
+        private Button RequireTranscriptClose()
+        {
+            TranscriptView transcript = ui == null ? null : ui.Get<TranscriptView>();
+            Button close = transcript == null ? null : FindDeep<Button>(transcript.transform, "CloseButton");
+            if (close == null)
+            {
+                throw new InvalidOperationException("历史记录没开，或找不到「CloseButton」");
+            }
+
+            return close;
         }
 
         /// <summary>ChoiceRoot 下当前激活的选项按钮（排除隐藏模板本身）。</summary>

@@ -436,7 +436,7 @@ Window → Asset Management → **Addressables** → **Groups**，把你的预�
 `Portrait_elder_angry`、`Portrait_traveler_default`、`Portrait_traveler_smile`，占位 256×256）。每张拖进 Addressables 的 **`UI`** 组，
 地址写 `Dialogue/Portrait_<角色>_<表情>`（和文件名一致，前面加 `Dialogue/`）。地址要和策划角色表 `dialogue_character.json` 里的
 `sprite` 一字不差；漏登记不会报红，只是对话里退回默认表情或那一侧不显示立绘。新角色 / 新表情要和策划对一下 id。
-对话里立绘分左右两侧，说话的一侧原色、另一侧压暗，不用单独出暗版。
+对话里立绘按角色站位分左右两个头像位，**同一时刻只显示当前说话者那一侧**，另一侧连同头像框一起隐藏（不是压暗），旁白时两侧都隐藏；不用出暗版、也不用出隐藏版，正常出正面图即可。
 
 选项左边的小图标同理：`Art/Sprites/Dialogue/ChoiceIcon_*.png`，登记地址 `Dialogue/ChoiceIcon_*`。
 NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，气泡底框是 `Bubble_Frame.png`，同目录，直接换图即可（不走 Addressables）。
@@ -447,7 +447,7 @@ NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，
 | 预制体 | 是什么 |
 | --- | --- |
 | `Assets/_Project/Prefabs/UI/DialogueView.prefab` | 对话框：名字、正文、左右立绘、右侧竖排胶囊选项、自动 / 倍速 / 跳过 / LOG 按钮 |
-| `Assets/_Project/Prefabs/UI/DialogueHistoryView.prefab` | 历史记录面板 |
+| `Assets/_Project/Prefabs/UI/TranscriptView.prefab` | 台词记录面板（对白历史 / 演出 LOG 共用，Core 通用组件，Top 层） |
 | `Assets/_Project/Prefabs/UI/DialogueInteractHudView.prefab` | 靠近 NPC 时右下角的「对话」按钮 |
 | `Assets/_Project/Prefabs/UI/DialogueSkipConfirmView.prefab` | 「是否跳过剧情？」确认弹窗 |
 | `Assets/_Project/Prefabs/World/DialogueSpeechBubble.prefab` | 无对话树 NPC 头顶的台词气泡（世界空间） |
@@ -464,7 +464,8 @@ NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，
 
 | 项 | 基线 | 例子 |
 | --- | --- | --- |
-| 按钮高 | **36–44** | 对话右上「自动 / 倍速 / 跳过」120×36、LOG 100×36；弹窗按钮 160×40；标题页三个按钮 240×44 |
+| 按钮高 | **36–44**（对话 / 演出的右上控件例外，见下） | 弹窗按钮 160×40；标题页三个按钮 240×44 |
+| 对话 / 演出控件按钮 | **160×90** | 对话右上「自动 / 倍速 / 跳过」与左上「LOG」均为 160×90，白字投影；演出面板的「LOG」「自动」「跳过」同尺寸同位（`TalkPanelConsistencyTests` 逐像素比对两份预制体） |
 | 按钮 / 正文字号 | **20–24** | 按钮文字 20–24；装不下的短按钮（带键位提示的）文字开「Auto Size」，上限 20–22、下限 14–16 |
 | 列表行高 | 44 | 任务面板左侧列表、对话选项胶囊（560×44） |
 | 悬停 / 选中 | **淡金** `(0.62, 0.50, 0.18)` | Button 的 Highlighted 与 Selected 同色；Pressed 为底色压暗 25%；Disabled 为 `(0.22, 0.22, 0.22, 50%)`；Fade Duration 0.08 |
@@ -511,6 +512,7 @@ Addressables 地址仍是 `TitleView`）是**当前工程唯一的正式场景�
 | 上下黑边 | 两条 `Image`，全宽、纯黑或按需要换成有纹理的边框图 |
 | 字幕底板 | 字幕文字后面的半透明底条 |
 | 跳过进度环 | 长按跳过时显示进度的图，现用 `Fx_SelectRing`（和 Monster 模块的选中圈同一张占位图，正式美术再各自换） |
+| 左上「LOG」/ 右上「自动」「跳过」 | 三个控件按钮，和对话框右上角的同款按钮同尺寸（160×90）同样式（白字投影），见 6.9 节「对话 / 演出控件按钮」；换图同样只改 `Image` 的 Sprite / 颜色，不改物体名 |
 
 演出预制体与时间轴本身**不需要美术手建**，动画师用「演出编辑器」（菜单 `21Days/演出/演出编辑器`）新建，
 生成在 `Prefabs/Performance/` 与 `Data/Performance/Timelines/`（见第 3 章的资源放哪一表）。

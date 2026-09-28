@@ -1,5 +1,5 @@
 // 职责：跳过剧情前的确认弹窗；只显示与抛确认 / 取消事件，不持有播放策略（PRP 8.2）。
-// 为什么新建：DialogueView 是对白主面板、DialogueHistoryView 是只读记录，确认弹窗是独立的 Popup 层界面，
+// 为什么新建：DialogueView 是对白主面板、TranscriptView（Core 通用记录面板）是只读记录，确认弹窗是独立的 Popup 层界面，
 //   需要单独的预制体与 Addressables 地址，塞进任一现有 View 都说不通职责。
 using System;
 using System.Collections.Generic;

@@ -49,7 +49,7 @@ maturity: stable
 | （插播）`IPerformanceService`（`Game.Performance`，可空） | 节点带 `PerformanceId` 时，Controller 摆台词前先 `await PlayAsync`；`Performing` 期间语义同覆盖中（`DialogueController.cs:151`、`325`） | `DialogueInstaller` 用 `resolver.TryResolve` 注入，Boot 没挂 `PerformanceInstaller` 时为 null |
 | `DialogueView` | `UIView`（Popup 层）：显示文字 / 立绘 / 选项（含图标位）/ 控件，只抛事件，不注入服务 | `IUIService` 按地址实例化 |
 | `DialogueSkipConfirmView` | `UIView`（Popup 层）：「是否跳过剧情？」确认 / 取消，只抛 `OnConfirm / OnCancel` | Controller 在点跳过时开关 |
-| `DialogueHistoryView` | `UIView`：历史记录只读展示 | Controller 按需开关 |
+| `Game.Core.UI.Views.TranscriptView`（Core，原 `DialogueHistoryView` 下沉重命名，见下「为什么这样设计」） | `UIView`（**Top 层**：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白之上；不进 UI 栈、不改 EventSystem 选中，Esc 与关闭都由调用方处理）：`Show(lines, truncated)` + 纯函数 `Format` 显示记录，格式来自静态 `DialogueController.BuildTranscript`（选择项说话者写「选择」） | Controller 按需开关（`history` 字段） |
 | `DialogueService` | **对外入口**：重入保护、世界暂停、输入图切换、藏探索 Hud 层（按进来前的值恢复）、事件广播、结果返回 | 根作用域单例 |
 | `IDialogueConditionSource` / `DefaultDialogueConditionSource` | 选项条件的事实快照来源；默认实现是占位 | 根作用域单例，Service 传给 Controller |
 | `DialogueInteractable` | 场景组件：对话树编号（`0` = 无树）+ 显示名 + 常驻台词 + 交互半径 + 点击入口；`Focused` 由焦点系统写 | 场景物体；`DialogueSceneBinder` 注入 Service 与场景 Actor |
@@ -116,7 +116,7 @@ DialogueService.PlayAsync
 
 | 依赖 | 用来做什么 |
 | --- | --- |
-| `Game.Core.UI`（`IUIService` / `UIView`） | 开关 `DialogueView` / `DialogueHistoryView` / `DialogueSkipConfirmView` / `DialogueInteractHudView`；`IsLayerVisible` / `SetLayerVisible` 藏 / 恢复探索 Hud 层 |
+| `Game.Core.UI`（`IUIService` / `UIView`） | 开关 `DialogueView` / `TranscriptView` / `DialogueSkipConfirmView` / `DialogueInteractHudView`；`IsLayerVisible` / `SetLayerVisible` 藏 / 恢复探索 Hud 层 |
 | `Game.Core.Assets`（`IAssetService` / `AssetHandle<Sprite>`） | 立绘与选项图标加载与释放 |
 | `Game.Core.Input`（`IInputService`） | 关 / 恢复 Gameplay 动作图；焦点系统读 `Gameplay.Interact`（按下 + 第一条键盘绑定的显示串） |
 | `Game.Core.Events`（`BootCompletedEvent`，经 MessagePipe `ISubscriber`） | 焦点系统等启动完成再开 HUD |
@@ -223,6 +223,11 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
   那时 `hud` 字段还没赋值、`Dispose` 关不到它；所以 await 回来先看 `disposed`，是就立刻关掉刚开的面板，避免孤儿 HUD。
 - **面板收尾对称退订、只关打开过的**（`DialogueController.cs:143`、`207`–`217`）：历史面板关闭前先退订 `OnDismiss`（与跳过确认弹窗对称）；
   `finally` 里对 `null`（从未打开或已关）的面板不调 `CloseAsync`，中途取消时不会对未打开的面板报错。
+- **历史面板下沉到 Core、改名 `TranscriptView`、放 Top 层**：Performance 模块的 LOG 功能要显示同一种「说话者 + 正文」记录，
+  但玩法模块之间不能互相引用私有实现，于是把面板原样下沉（序列化字段名与脚本 / 预制体 GUID 不变，预制体接线不丢），
+  调用方各自把自己的记录转成 `TranscriptLine` 交给它。放 Top 层是因为演出会整层隐藏 Popup 层，只有 Top 层能压在演出与对白面板之上；
+  Top 层不进 UI 栈，所以 `CloseOnCancel` 恒为 `false`，Esc 与「关闭」按钮都由调用方（`DialogueController` / `PerformanceService`）读到事件后自己收尾
+  （`Assets/_Project/Scripts/Core/UI/Views/TranscriptView.cs:38`–`47`）。
 - **HUD 常驻、只切 `root`**：每次进出范围都走 `UIService` 开关会反复实例化 / 淡入淡出。
 - **气泡组件挂预制体根、自包含**：`target` 为空时向父级找 `DialogueInteractable`，放进 NPC 子物体即生效；
   不塞进 `DialogueInteractable`（逻辑组件不依赖 Canvas / TMP / LitMotion），也不塞进标记（将来单换气泡样式不动标记）。
@@ -241,7 +246,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 项 | 要求 | 缺了会怎样 |
 | --- | --- | --- |
 | Installer | `Assets/_Project/Scenes/Boot.unity` 的 `GameBootstrap` 物体挂 `DialogueInstaller`，**Config** 字段拖 `Assets/_Project/Data/Dialogue/DialogueConfig.asset` | 没挂：解析不到 `DialogueService`；没拖：记 Error 并用默认值顶上（`DialogueInstaller.cs:72`） |
-| 面板地址 | Addressables（UI 组）`DialogueView` → `Prefabs/UI/DialogueView.prefab`；`DialogueHistoryView` → `Prefabs/UI/DialogueHistoryView.prefab`。**地址等于类名** | `ui.OpenAsync<T>()` 找不到预制体 |
+| 面板地址 | Addressables（UI 组）`DialogueView` → `Prefabs/UI/DialogueView.prefab`；`TranscriptView` → `Prefabs/UI/TranscriptView.prefab`（对白与演出共用，Core）。**地址等于类名** | `ui.OpenAsync<T>()` 找不到预制体 |
 | 立绘地址 | 角色表里每个 `sprite` 在 Addressables 有同名地址（现为 `Dialogue/Portrait_<角色>_<表情>`，UI 组）。当前四张占位图内容 = 方舟头像（长者 = 斯卡蒂、旅人 = 德克萨斯，同名替换 `Portrait_elder_default/angry.png`、`Portrait_traveler_default/smile.png`），两表情暂同图，美术按表情出图时同名替换即可 | 回退默认表情；默认也缺则隐藏该槽 |
 | 交互 HUD / 跳过确认地址 | `DialogueInteractHudView` → `Prefabs/UI/DialogueInteractHudView.prefab`；`DialogueSkipConfirmView` → `Prefabs/UI/DialogueSkipConfirmView.prefab`（UI 组，地址等于类名） | HUD：记 Error，无底部交互提示；弹窗：点跳过时对白抛异常收尾 |
 | 选项图标地址 | 表里 `icon` 非空时 Addressables 有同名地址（现为 `Dialogue/ChoiceIcon_Go` / `_Leave`，UI 组） | 埋 `choice_icon_failed`，该选项无图标 |
@@ -331,10 +336,11 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueCatalogTests.cs`（8 条） | 读真实 `.bytes`：1001 / 1002 结构、立绘指令、每个表情有地址、条件选项、选项图标键 |
 | EditMode | `.../DialogueInteractableTests.cs`（17 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接；`TryGetIconAnchor` 焦点图优先 / 只配可交互图 / 都没配 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueServiceTests.cs`（6 条） | 进行中重入抛 `InvalidOperationException`；未知 id 抛 `ArgumentException` 且不碰暂停 / 输入；Present 异常时清理并发 `OnEnded`；对白期间 Dialogue 图开、Gameplay 图关、Hud 层隐藏，取消 / 异常后对称恢复，进来前关着的 Gameplay 与已隐藏的 Hud 不被打开 / 不被误亮 |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueControllerTests.cs`（3 条） | 静态 `BuildTranscript`：选择项记为说话者「选择」；转换后经 `TranscriptView.Format` 拼出的文本与旧历史面板逐字节一致；`null` / 空历史返回空列表 |
 | EditMode | `.../DialogueReadStoreTests.cs`（3 条） | 空档案读入为空；写 3 个键后新 store 读回一致且原地填充同一实例；同帧两次对白结束只写一次（计数 `ISaveService` 装饰器包临时目录 `JsonSaveService`） |
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
-| Showcase | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs`（7 条） | `Portraits_SpeakerAvatarSwapsAndCrossfades`（长者入场 → l2 只显示旅人（头像在右侧，x<0）、长者收起 → l3 反转（长者头像在左侧，x>0）→ c1 残影交叉淡化）；交互 → 打字 → 选项 → 结束且全程时停，「对话拉起·世界时停」检查 Hud 层不可见、「结束·世界恢复」检查 Hud 层恢复可见；跳过（经确认）停在选项；点击旅人拉起 1002；`SkipCancelled_DialogueContinues`；`Focus_ShowsHudButton_AndHudClickStartsDialogue`；`Bubble_ShowsAboveHead_WithoutPausing` |
+| Showcase | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs`（7 条） | `Portraits_SpeakerAvatarSwapsAndCrossfades`（长者入场 → l2 只显示旅人（头像在右侧，x<0）、长者收起 → l3 反转（长者头像在左侧，x>0）→ c1 残影交叉淡化）；交互 → 打字 → 选项 → 结束且全程时停，「对话拉起·世界时停」检查 Hud 层不可见、「结束·世界恢复」检查 Hud 层恢复可见；历史（LOG）改用 `TranscriptView` 后新增三步：点左上「LOG」打开 → 内容含第一句「说话者：正文」→ 点「关闭」，对白照常停在原节点；跳过（经确认）停在选项；点击旅人拉起 1002；`SkipCancelled_DialogueContinues`；`Focus_ShowsHudButton_AndHudClickStartsDialogue`；`Bubble_ShowsAboveHead_WithoutPausing` |
 | 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑（2D） | `Main Camera`（`Physics2DRaycaster`）、`Player`（Actor）、`Elder`（1001）、`Traveler`（1002）、`Villager`（无树 + 气泡） |
 
 跑 `/unity-test EditMode Dialogue`；视觉验收跑 `/verify-module Dialogue`（编辑器须打开）。

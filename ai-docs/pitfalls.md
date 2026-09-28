@@ -478,3 +478,9 @@
 - 根因：`SaveAssets()` 保存的是**编辑器内存里全部标脏的资产**，不是「刚才改的那个」；共用一台编辑器时，别的会话进 Play 撑大的 TMP 动态字体图集、测试运行器改过的 Enter Play Mode Options 等都挂在同一个脏列表里，一并被写盘。
 - 正确做法：改单个资产后只调 `AssetDatabase.SaveAssetIfDirty(asset)`（预制体走 `PrefabUtility.SaveAsPrefabAsset`，它自己落盘），**禁止在 MCP 脚本里调 `AssetDatabase.SaveAssets()`**；改完 `git status --short` 核对只多了目标文件，多出来的别人的改动不提交、也不擅自还原（可能是对方还没存完的工作）。本文件「MCP 预制体舞台改动可能不落盘」一条里的 `AssetDatabase.SaveAssets()` 那一步以本条为准。
 - 关联：`4da29a3`；本文件「TMP Dynamic 字体资产进一次 Play 就胖 2 MB」「MCP 预制体舞台改动可能不落盘」「共用一台编辑器的并发会话互相干扰」；`.claude/skills/unity-mcp/SKILL.md`；2026-09-28。
+
+## Codex 必读文档反复重读仍未记账：输出截断与会话记录格式不兼容
+- **现象**：独立 `Get-Content -Raw` 已执行，修改代码仍被必读闸拦住；提高命令输出预算、把文档分成多次读取也未解决。2026-09-29 排查缓存：Performance 指南正文 31931 字符，hook 摘要仅 25707 字符、`full_body_present=false`；另有 adapter.py 正文完整（9369 字符，结果 9371 字符）但 `successful=false` 的旧诊断。缓存只保留各会话最近一次失败，不能据此统计总发生次数。
+- **根因**：三处适配问题叠加。① 命令 stdout、交付给模型的工具结果、PostToolUse 摘要是不同层；增加命令的 `max_output_tokens` 不会解除后两层的截断。本次环境的 hook 摘要约 10000 token 即截断，这不是所有客户端的固定规格。② 旧回退逻辑要求会话文件含 `CommandExecution` 完成事件，但本次会话文件没有该事件；又只检查一条父调用输出，不能累计同一调用的多批交付。③ 旧成功判据在整段文本搜索 `output truncated` / `exit code: 1`，把正文讨论这些字样误判成工具失败；现已先排除完整正文再判工具状态。
+- **正确做法**：保持独立完整读取；长文从同一次成功读取结果按换行分批 `notify({exit_code: result.exit_code, output: chunk})`，全部在同一个父 `functions.exec` 调用内交付，示例见 [Codex hooks 说明](../.codex/hooks/README.md#长文读取示例)。适配器绑定真实 PostToolUse 的父调用，下一次前置事件核验同一调用的交付全文后记账；仍拒绝非零退出、缺段、截断和混入别的调用。不要跨调用拼历史、手填账本、缩减必读清单或关闭 hook。再次失败先查 `.codex/.cache/<会话散列>/last-read-failure.json` 的全文 / 状态 / 截断字段及 `pending-read.json`，不要盲目重复读取。**压缩或清除上下文后账本主动重置是现行设计，需重新读取，不属于本故障。**
+- **关联**：[adapter.py](../.codex/hooks/adapter.py) 的 `successful` / `transcript_response` / `handle`；[test_adapter.py](../.codex/hooks/test_adapter.py) 覆盖正文含错误字样、完整与缺段输出、父调用不匹配、非零退出、延迟记账与压缩重置，2026-09-29 重跑 PASS。此前真实 Performance 长文分批交付后，运行时代码补丁已通过必读闸；这证明本次客户端链路可用，不代表其他客户端格式均已验证。

@@ -124,6 +124,7 @@ def transcript_response(payload, command, cwd):
     if not transcript or not call_id:
         return None
     parent_id, result = None, None
+    delivered = []
     with Path(transcript).open(encoding="utf-8") as stream:
         for line in stream:
             try:
@@ -132,20 +133,40 @@ def transcript_response(payload, command, cwd):
                 continue
             event = record.get("payload", {})
             if record.get("type") == "response_item":
+                # 新客户端不落盘 CommandExecution；父调用 ID 在真实 PostToolUse 时绑定，
+                # 分批结果必须携带成功退出码。旧客户端仍走下方原始 stdout 核验。
+                if (event.get("type") == "custom_tool_call"
+                        and event.get("call_id") == payload.get("parent_call_id")):
+                    parent_id, result = event["call_id"], {"exit_code": 0, "output": ""}
                 if event.get("type") == "custom_tool_call" and result is None:
                     parent_id = event.get("call_id")
                 elif (event.get("type") == "custom_tool_call_output" and result is not None
                       and event.get("call_id") == parent_id):
                     # 原始 stdout 不能证明模型拿到了全文，还要核对实际交付的工具结果。
-                    delivered = []
-                    for block in event.get("output", []):
+                    output = event.get("output", [])
+                    if isinstance(output, str):
+                        output = [{"text": output}]
+                    for block in output:
                         text = block.get("text", "")
                         try:
-                            delivered.append(strings(json.loads(text)))
+                            value = json.loads(text)
                         except (ValueError, TypeError):
+                            if payload.get("parent_call_id"):
+                                continue
                             delivered.append(text)
+                            continue
+                        if payload.get("parent_call_id"):
+                            if not isinstance(value, dict) or "exit_code" not in value:
+                                continue
+                            if value["exit_code"] != 0 or not isinstance(value.get("output"), str):
+                                return None
+                            delivered.append(value["output"])
+                        else:
+                            delivered.append(strings(value))
                     result["output"] = "\n".join(delivered)
-                    return result
+                    # 同一父调用可通过 notify 分批交付长文；只在拼齐全文后记账。
+                    if read_path(command, cwd, result):
+                        return result
             item = event.get("item", {})
             if record.get("type") != "event_msg" or event.get("type") != "item_completed":
                 continue
@@ -161,7 +182,7 @@ def transcript_response(payload, command, cwd):
             if not read_path(command, cwd, original):
                 return None
             result = original
-    return None
+    return result if delivered else None
 
 
 def handle(payload):
@@ -225,6 +246,14 @@ def handle(payload):
             else:
                 state.mkdir(parents=True, exist_ok=True)
                 evidence = {key: payload.get(key) for key in ("session_id", "turn_id", "transcript_path", "tool_use_id")}
+                # 只在本次命令完成的 hook 内绑定当前父调用，不能事后按相似命令猜。
+                if payload.get("transcript_path"):
+                    with Path(payload["transcript_path"]).open(encoding="utf-8") as stream:
+                        for line in stream:
+                            record = json.loads(line)
+                            parent = record.get("payload", {})
+                            if record.get("type") == "response_item" and parent.get("type") == "custom_tool_call":
+                                evidence["parent_call_id"] = parent.get("call_id")
                 waiting = json.loads(pending.read_text(encoding="utf-8")) if pending.exists() else {}
                 waiting[payload.get("tool_use_id")] = dict(evidence, command=command, cwd=cwd)
                 pending.write_text(json.dumps(waiting), encoding="utf-8")
@@ -243,6 +272,7 @@ def handle(payload):
                 "body_chars": len(body), "output_chars": len(output),
                 "full_body_present": body in output, "successful": successful(response),
                 "hook_summary_truncated": output.startswith("Warning: truncated output"),
+                "response_prefix": output[:500],
             }
             state.mkdir(parents=True, exist_ok=True)
             (state / "last-read-failure.json").write_text(json.dumps(diagnostic, ensure_ascii=False), encoding="utf-8")

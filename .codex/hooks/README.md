@@ -32,10 +32,40 @@ Get-Content -Raw -Encoding UTF8 -LiteralPath '.claude/rules/unity-assets.md'
 
 Codex 0.158 的 PostToolUse 字符串摘要实测会在约 10000 token 截断，即使命令返回了完整输出。
 这种情况先挂起验证，在下一次前置事件中检查当前会话记录：会话、轮次、调用 ID、工作目录、
-原命令和成功退出必须一致，原始 stdout 与实际交付的父工具结果也必须都包含全文，才自动记账。
+原命令和成功退出必须一致；旧客户端核对原始 stdout 与实际交付的父工具结果。
+不再落盘 CommandExecution 的客户端，在真实 PostToolUse 中绑定当前父调用 ID，
+只接受该调用交付的 `{exit_code: 0, output: 正文}` 结果，全文匹配后才记账。
+长文可在同一个父调用中用 notify 按换行边界分批输出上述结果；检查会按顺序合并同一调用的输出，
+仍要求全文连续匹配，缺段、截断或混入别的调用都不算完整读取。
 不接受历史相似命令、部分正文或从磁盘补出来的输出。压缩时同时清掉待验证记录。
 最近一次失败摘要保存在当前会话缓存的 `last-read-failure.json`，用于区别执行失败、截断与全文不匹配；
 正文中讨论错误或截断的文字不作为工具状态判断。
+
+### 长文读取示例
+
+命令只读一份全文；分批的是本次结果的交付，不是多条部分读取命令。以下代码放在同一次 `functions.exec`：
+
+```javascript
+const result = await tools.exec_command({
+  cmd: "Get-Content -Raw -Encoding UTF8 -LiteralPath 'ai-docs/docs/modules/performance/performance-module-guide.md'",
+  max_output_tokens: 30000
+});
+const body = result.output.replace(/\r\n/g, "\n");
+let start = 0;
+while (start < body.length) {
+  let end = Math.min(start + 8000, body.length);
+  if (end < body.length) {
+    const newline = body.lastIndexOf("\n", end);
+    if (newline < start) throw new Error("单行超过分批上限，需单独检查输出预算");
+    end = newline;
+  }
+  notify({exit_code: result.exit_code, output: body.slice(start, end)});
+  start = end + 1;
+}
+```
+
+预算须容纳命令全文；若命令结果本身已截断，分批不能补回缺文。待下一次前置事件处理完，再核对该会话的 `reads/session.jsonl`；不能只看命令退出码宣称记账成功。
+反复失败的根因、诊断字段与压缩重置的区别见 [pitfalls 记账条目](../../ai-docs/pitfalls.md#codex-必读文档反复重读仍未记账输出截断与会话记录格式不兼容)。
 
 ## 平台差异
 

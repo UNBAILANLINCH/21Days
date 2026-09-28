@@ -51,6 +51,7 @@ namespace Game.Tests.EditMode.Core
             assets.Register<ImmersiveHudView>();
             assets.Register<PopupView>();
             assets.Register<LockedView>();
+            assets.Register<PendingTransitionView>();
 
             // InputService 只有在 InitializeAsync 之后才会创建 GameInput；这里只是给构造函数一个非空依赖。
             // 埋点两个参数传 null：UIService 会换成空实现，开关面板的行为和接了埋点时完全一样，
@@ -80,6 +81,29 @@ namespace Game.Tests.EditMode.Core
             Assert.That(service.Get<ThrowingView>(), Is.Null, "打开失败的面板不能留在记账里，否则下次会当成「已开着」复用");
             Assert.That(assets.ReleaseCount, Is.EqualTo(1), "失败路径要把实例还给资源服务，不能留在场景上");
             Assert.That(assets.LiveInstanceCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OpenAsync_CancelDuringTransition_RollsBackStackAndInstance()
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            PlainView below = service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PendingTransitionView"));
+            using var cancellation = new CancellationTokenSource();
+            UniTask<PendingTransitionView> opening = service.OpenAsync<PendingTransitionView>(ct: cancellation.Token);
+            UniTask<PendingTransitionView> waiting = service.OpenAsync<PendingTransitionView>();
+            Assert.That(waiting.Status.IsCompleted(), Is.False, "并发调用不能拿到尚在淡入的半成品");
+            Assert.That(service.TopView, Is.TypeOf<PendingTransitionView>());
+            Assert.That(below.gameObject.activeSelf, Is.False);
+
+            cancellation.Cancel();
+            Assert.Catch<OperationCanceledException>(() => opening.GetAwaiter().GetResult());
+            Assert.Catch<OperationCanceledException>(() => waiting.GetAwaiter().GetResult());
+            Assert.That(service.Get<PendingTransitionView>(), Is.Null, "淡入取消不能留下未交给调用方的面板");
+            Assert.That(service.TopView, Is.SameAs(below));
+            Assert.That(below.gameObject.activeSelf, Is.True);
+            Assert.That(assets.ReleaseCount, Is.EqualTo(1));
+            Assert.That(assets.LiveInstanceCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -353,6 +377,18 @@ namespace Game.Tests.EditMode.Core
             public override UniTask OnOpenAsync(object arg, CancellationToken ct)
             {
                 throw new InvalidOperationException(Message);
+            }
+        }
+
+        /// <summary>只挂起打开过渡，取消令牌触发同步收尾，不依赖 EditMode 帧循环。</summary>
+        private sealed class PendingTransitionView : UIView
+        {
+            public override UILayer Layer => UILayer.Panel;
+
+            protected override async UniTask PlayOpenTransitionAsync(float seconds, CancellationToken ct)
+            {
+                var pending = new UniTaskCompletionSource();
+                using (ct.Register(() => pending.TrySetCanceled(ct))) await pending.Task;
             }
         }
 

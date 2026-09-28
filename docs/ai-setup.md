@@ -43,6 +43,33 @@ Codex 复用项目检查逻辑，但不继承 Claude 的模型派单和私有记
 修改配置后重新开启会话。升级 Unity MCP 时同步修改 `Packages/manifest.json`、`.mcp.json` 和 `.codex/config.toml` 的版本。
 配置参考：[Codex 项目指令](https://learn.chatgpt.com/docs/agent-configuration/agents-md)、[Codex MCP](https://learn.chatgpt.com/docs/extend/mcp)。
 
+### 多窗口 MCP 维护与恢复
+
+项目已用 `.codex/config.toml` 统一声明 UnityMCP；从同一可信项目启动的会话复用这份配置，无需每个窗口重新注册。配置存在、Unity bridge 运行、当前 Codex 会话握手成功是三个不同状态。只有当前会话实际读取编辑器成功，才能报告原生 MCP 已连接。
+
+发生 `connection closed: initialize response` 时，先在 Codex 的 MCP 设置中重启 `UnityMCP` 连接，再在同一会话重新读取编辑器。当前会话没有重连工具时，使用客户端设置；仍未恢复则保存测试 job id 后重新开启会话。CLI 的 `codex mcp list/get` 检查配置，不能代替握手验证。不要反复重启已在工作的 Unity bridge。
+
+可用只读探针区分 bridge 故障与 Codex 会话故障（使用已缓存的项目版本，不联网下载）：
+
+```powershell
+uvx --offline --from mcpforunityserver==10.2.0 python -B scripts/unity_mcp_probe.py
+```
+
+探针从项目配置启动临时 STDIO 客户端，按工程路径选择唯一实例，核对工程并读取编辑器状态；12 秒内未完成协议检查则失败。`ok: true` 且 `native_session_verified: false` 只证明临时通道可用，不会恢复 Codex 工具列表。若 uv 缓存被沙箱拒绝访问，按客户端权限流程处理，不能据此认定 Unity bridge 离线。缓存未准备好时，离线诊断失败，不自动安装。
+
+**自动启动状态：探针尚未接入 SessionStart。** 本次修改受保护的 `.codex/hooks/adapter.py` 时，自动审批及一次重试均超时，未落地。拟接入已有 SessionStart（startup/resume）：每个会话只探测一次，外层限时 20 秒，将带时间的结果写入该会话缓存 `mcp-status.json`；失败只提示，压缩/清除上下文不重跑。接入后须验证实际启动输出，不能只凭脚本自测宣称自动启用。
+
+Codex 的 MCP 类型 hooks 只调用已连接的服务器，**不能启动或重连服务器**；SessionStart 也可能早于 MCP 就绪，因此不适合作为永久保活机制。依据：[官方 hooks 限制](https://learn.chatgpt.com/docs/hooks)、[官方 MCP 管理](https://learn.chatgpt.com/docs/extend/mcp)。
+
+多窗口采用以下顺序：各窗口独立检查自己的连接；指定一个窗口负责刷新、编译、测试和回放；测试期间其他窗口冻结 C# 与表生成物。保存测试 job id，连接中断后先查询原 job，避免重复启动测试。每批结束记录真实 passed/failed/skipped 和编译错误数；临时通道结果与原生恢复分开记录。升级 MCP 时同步 Unity 包和两端 server 版本，再跑探针及一次实际测试。
+
+探针逻辑自测（无需连接 Unity）：
+
+```powershell
+$projectPython = uv python find
+& $projectPython -B scripts/unity_mcp_probe.py --self-test
+```
+
 ## Claude Code 的 Unity MCP 接入
 
 工程已在 `Packages/manifest.json` 声明 `com.coplaydev.unity-mcp`（v10.2.0），Claude Code 侧在 `.mcp.json` 用 `uvx` 拉起同版本的 `mcpforunityserver`。

@@ -10,8 +10,7 @@
 //   yield return Input.Release(inputService.Actions.Gameplay.Sneak);    // ……松开
 //   逐帧自己控制方向（边走边采样）：循环里每帧 Input.SetStick(dir); yield return null;，结束 Input.ReleaseStick()。
 //
-// 编辑器注意：Input System 在编辑器里默认只在 Game 视图有焦点时处理键盘事件（手柄不受影响）；
-//   基类 SetUp 已经切 Game 视图焦点，键盘类用例仍红在「按了没反应」时先手动点一下 Game 视图。
+// 编辑器注意：基类 SetUp 临时放开输入焦点限制，TearDown / 退出 Play 恢复原设置；切走窗口不会吞虚拟键盘事件。
 //
 // 两个实测过的坑（2026-09-28 Player / Monster / Disguise 等五份回放改走虚拟输入时踩到）：
 //   ① 设备要一起建：新设备加入会让 Input System 重新解析所有动作的绑定并复位动作状态，

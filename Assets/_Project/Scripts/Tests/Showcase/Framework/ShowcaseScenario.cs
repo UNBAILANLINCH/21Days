@@ -3,7 +3,7 @@
 //
 // 做什么：把「进 Play → 加载场景 → 按节奏驱动模块 → 逐步停顿让人看清 → 检查点判定 → 截图 → 出报告」
 //         这条固定流程收敛成一个基类，每个模块的 Showcase 只剩一串 yield return Step/Check。
-//         SetUp 里还会先把键盘焦点切给 Game 视图（FocusGameView），否则焦点在别的窗口时真实按键用例的键盘事件会被丢。
+//         SetUp 临时放开输入焦点限制，TearDown / 退出 Play 恢复；Game 视图聚焦仅用于展示和截图。
 //         本类按职责拆成四个 partial 文件：本文件 = 报告节奏引擎；ShowcaseScenario.BootFlow.cs = 从标题「开始」进世界 /
 //         收尾退回标题并销毁根作用域；ShowcaseScenario.PlayerDrive.cs = 虚拟输入（Input）、走路（WalkTo / Walk）与补点按钮（ClickWhenReady）；
 //         ShowcaseScenario.DemoScene.cs = SampleScene demo 内容的坐标常量与共用操作（路线、观察点、和巡逻怪交手）。
@@ -22,6 +22,7 @@ using System.Reflection;
 using Game.Core.Platform;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -58,6 +59,9 @@ namespace Game.Tests.Showcase
         private static int reloadLockCount;
         private static bool exitPlayHookInstalled;
         private bool holdsReloadLock;
+        private static InputSettings originalInputSettings;
+        private static InputSettings showcaseInputSettings;
+        private static bool originalRunInBackground;
 #endif
 
         /// <summary>模块名，PascalCase（报告目录用它的小写形式）。</summary>
@@ -113,6 +117,7 @@ namespace Game.Tests.Showcase
             PlatformServiceBase.SaveRootOverride = showcaseSaveRoot;
 
             AcquireReloadLock();
+            ConfigureBackgroundInput();
             stepIndex = 0;
             bootLoaded = false;
             expectedErrors.Clear();
@@ -175,6 +180,8 @@ namespace Game.Tests.Showcase
             {
                 // 收尾中途抛异常也要把虚拟设备摘掉，否则它会留到下一条用例甚至下一次 Play。
                 DisposeInput();
+
+                RestoreBackgroundInput();
 
                 // 存档根目录覆盖必须无条件清掉：留着的话下一条用例（甚至下一次 Play）会继续读到这次的临时目录。
                 PlatformServiceBase.SaveRootOverride = null;
@@ -242,11 +249,7 @@ namespace Game.Tests.Showcase
         }
 
         /// <summary>
-        /// 把键盘焦点给 Game 视图。Input System 在编辑器里只把「Game 视图有焦点」时的键盘事件送进队列，
-        /// 焦点停在 Console / Project 等窗口时，真实按键用例（InputSystem.QueueStateEvent 排进去的键盘事件）会被整批丢掉，
-        /// 用例红在「按了没反应」（2026-09-28 Taming / Disguise 迁到 SampleScene 首轮实测）。
-        /// 实现：EditorApplication.ExecuteMenuItem("Window/General/Game")——与手动点菜单同一路径，会激活并聚焦 Game 视图。
-        /// 只在编辑器且非批处理下做（批处理没有窗口）；失败只告警不中断，焦点问题会在对应用例里自己暴露。
+        /// 显示 Game 视图以便观看与截图；输入已由 ConfigureBackgroundInput 独立于窗口焦点。
         /// </summary>
         private static void FocusGameView()
         {
@@ -260,15 +263,42 @@ namespace Game.Tests.Showcase
             {
                 if (!UnityEditor.EditorApplication.ExecuteMenuItem("Window/General/Game"))
                 {
-                    Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点失败：菜单 Window/General/Game 不存在，"
-                                     + "真实按键用例可能收不到键盘事件");
+                    Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点失败：菜单 Window/General/Game 不存在");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点时抛出 {e.GetType().Name}：{e.Message}，"
-                                 + "真实按键用例可能收不到键盘事件");
+                Debug.LogWarning($"{ShowcaseOptions.Prefix} 切 Game 视图焦点时抛出 {e.GetType().Name}：{e.Message}");
             }
+#endif
+        }
+
+        // 用临时副本覆盖，避免将测试设置写回项目资产；退出 Play 的既有回调也负责兜底恢复。
+        private static void ConfigureBackgroundInput()
+        {
+#if UNITY_EDITOR
+            if (showcaseInputSettings != null) return;
+            originalInputSettings = InputSystem.settings;
+            originalRunInBackground = Application.runInBackground;
+            showcaseInputSettings = UnityEngine.Object.Instantiate(originalInputSettings);
+            showcaseInputSettings.hideFlags = HideFlags.HideAndDontSave;
+            showcaseInputSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            showcaseInputSettings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            Application.runInBackground = true;
+            InputSystem.settings = showcaseInputSettings;
+#endif
+        }
+
+        private static void RestoreBackgroundInput()
+        {
+#if UNITY_EDITOR
+            if (showcaseInputSettings == null) return;
+            InputSystem.settings = originalInputSettings;
+            Application.runInBackground = originalRunInBackground;
+            UnityEngine.Object.DestroyImmediate(showcaseInputSettings);
+            showcaseInputSettings = null;
+            originalInputSettings = null;
 #endif
         }
 
@@ -280,6 +310,7 @@ namespace Game.Tests.Showcase
                 return;
             }
 
+            RestoreBackgroundInput();
             while (reloadLockCount > 0)
             {
                 reloadLockCount--;

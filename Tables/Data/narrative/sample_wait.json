@@ -1,0 +1,13 @@
+{
+    "id": "sample_wait", "entry": "wait",
+    "stages": [
+        {
+            "id": "wait", "kind": "WaitAction", "payload": "", "allowEncounter": true,
+            "anyOf": [], "exits": [{"result": "Success", "next": "done"}], "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "done", "kind": "End", "payload": "", "allowEncounter": false,
+            "anyOf": [], "exits": [], "setFlags": ["sample_wait_complete"], "outcome": "Success"
+        }
+    ]
+}

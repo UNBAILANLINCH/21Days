@@ -7,9 +7,31 @@ maturity: seed
 
 # Narrative 外部接口
 
-> 纯 C# 规则库，没有根作用域注册，**目前没有生产调用方**——下表是签名与调用约束，不代表已经在游戏里跑。
-> 内部结构见 [`narrative-module-guide.md`](narrative-module-guide.md)。Dialogue 模块当前只用本文档的
-> `EncounterContext` 与 `NarrativeCondition` 两节，其余类型暂无消费者。
+> 运行入口为 NarrativeService；必须由 Boot 的 NarrativeInstaller 注册并完成初始化。
+> 资产接线/实际验证状态见 PRP/narrative-dialogue/tasks.md；内部结构见 [`narrative-module-guide.md`](narrative-module-guide.md)。
+
+## `NarrativeService`（根作用域）
+
+```csharp
+bool IsReady { get; } bool IsBusy { get; } bool CanSave { get; }
+long Generation { get; }
+NarrativeConditionSource Conditions { get; }
+NarrativeSaveData Capture();
+UniTask<bool> StartAsync(string storyId, string targetId, CancellationToken ct = default);
+UniTask<bool> TryEncounterAsync(IEnumerable<EncounterRules.Candidate> candidates, CancellationToken ct = default);
+UniTask<bool> SubmitAsync(NarrativeIntent intent, CancellationToken ct = default);
+UniTask RetryAsync(CancellationToken ct = default);
+void ValidateCandidate(SaveSnapshot candidate);
+void ReloadFromSave();
+void CaptureIntoPartition();
+```
+
+- 开局/遭遇/意图返回 false 表示未接受；取消抛 OperationCanceledException，失败原样抛出。无后台重试。
+- 当前停在未完成 Dialogue 时，同目标的有效 Interact 候选会重试原阶段，不再次消费 Once；其他触发类型不重试。
+- `Capture()` 是当前内存深拷贝，不承诺可落盘；Session 必须检查 CanSave，稳定等待/结束才支持恢复。
+- 提交意图从 Generation 与 Capture().Current 固定身份；不能 await 回来再读取新阶段身份。
+- `NarrativeTrigger.Configure(id, kind, service, actor)` 用于运行时 NPC；场景固定 NPC 由服务在加载时 Bind。
+- `NarrativeChangedEvent.Stage` 是已写回分区的通知，Session 只合并保存请求，不参与推进。
 
 ## `Game.Narrative.EncounterContext`（`sealed class`，值语义快照）
 
@@ -18,6 +40,7 @@ public EncounterContext(string targetId, string targetKind, bool playerAlive, bo
     bool disguised, bool targetAlive, bool hostile, bool detected, IEnumerable<string> storyFlags = null);
 public enum Fact { PlayerAlive, PlayerSneaking, PlayerDisguised, TargetAlive, TargetHostile, TargetDetected, StoryFlag }
 public bool Read(Fact fact, string key);
+public EncounterContext WithStoryFlags(IEnumerable<string> additional);
 ```
 
 - `targetId` 不可为空/空白，否则构造抛 `ArgumentException`。
@@ -39,7 +62,7 @@ public static bool Matches(NarrativeCondition[][] groups, EncounterContext conte
 - **不短路校验**：所有条件都会调 `Validate()`，非法条件不会被前面已匹配的 `true` 掩盖。
 - 调用方每次求值都应传入当前实际状态的 `EncounterContext`，不要用旧快照判新一轮。
 
-## `Game.Narrative.NarrativeContent`（`sealed class`，构造即校验，不可变）
+## `Game.Narrative.NarrativeContent`（构造即校验，Stage 是可变 DTO）
 
 ```csharp
 public NarrativeContent(string id, string entry, IEnumerable<Stage> source);
@@ -48,12 +71,12 @@ public string Entry { get; }
 public IEnumerable<Stage> Stages { get; }
 public Stage Get(string id);   // 找不到抛 ArgumentException
 public enum StageKind { Condition, Dialogue, WaitAction, Battle, End }
-public sealed class Stage { /* Id、Kind、PayloadId、AllowEncounter、IssueRequest、RequiredParts、Conditions、Exits(Dictionary<string,string>)、Outcome */ }
+public sealed class Stage { /* Id、Kind、PayloadId、AllowEncounter、IssueRequest、RequiredParts、Conditions、Exits、Outcome、SetFlags */ }
 ```
 
 - 构造时强校验（失败即抛 `ArgumentException`）：`id`/`entry` 非空、阶段 ID 不重复、跳转目标存在、
   `Condition` 必须有 `True`/`False` 出口、`RequiredParts` 非空须有 `Success` 出口、`AllowEncounter` 只能在 `WaitAction`、连续 `Condition` 不能成环。
-- 构造后是只读值对象，可安全在多处共享引用。
+- 构造后禁止修改 Stage；API 未深度冻结，修改会绕过校验。生产 Catalog 另拒绝无出口等待、Battle/外部请求/未接入目标事实。
 
 ## `Game.Narrative.NarrativeRules`（`sealed class`，持有可变状态，非线程安全）
 
@@ -75,6 +98,7 @@ public long EdgeCounter(string key);
 public void ConsumeEdge(string key);
 public void SetFlag(string flag);
 public bool MarkRequestIssued(long activation);
+public void ClearRequestIssued(long generation, long activation);
 public void ResolveAutomatic(EncounterContext context);
 public bool Apply(in NarrativeIntent intent);
 public NarrativeSaveData Capture();
@@ -117,12 +141,12 @@ public NarrativeIntent(long generation, long activationId, string targetId, stri
 
 字段：`NextActivationId`、`Current`/`Parent`（`Frame`）、`Outcome`、`ConsumedTriggers`、`ConditionEdges`、`EdgeCounters`、`StoryFlags`（详见 module-guide 类分工表）；`Migrate(int)` 当前空实现。
 
-由 `NarrativeRules.Capture()` 产出、`Restore()` 消费；可经 `ISaveService.Get<NarrativeSaveData>()` 取到空白实例，
-但**没有任何存读档流程会往里写数据或从里面读数据**（见 module-guide「未接线清单」T6/E1）。不要手工构造 `Frame` 后直接赋值给 `NarrativeRules`——没有公开入口这样做，只能通过 `Restore`。
+由 NarrativeService 写回当前分区、Session 稳定边界落盘，SessionStartedEvent 后重载。
+缺分区的旧档为未开始；未知内容、对白半途及带已发请求父帧的候选拒绝提交。DialogueReadData 仍属于独立档案。
 
 ## 禁止事项
 
 - 不要缓存 `EncounterContext` 长期复用；每次条件求值都应该是当时状态的新快照。
 - 不要绕过 `NarrativeRules.Apply`/`EnterEncounter` 直接操作 `NarrativeSaveData` 字段。
 - 不要把 `EncounterRules.TryActivate` 拆成逐候选多次调用；仲裁语义依赖一次性传入完整批次。
-- 不要假设这些类已经被任何 Installer 注册到 VContainer 容器——目前需要调用方自己 `new`。
+- 不要从容器直接解析 NarrativeRules/EncounterRules；Service 持有它们，测试才直接 new。

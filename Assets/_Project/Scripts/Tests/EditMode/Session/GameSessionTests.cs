@@ -241,6 +241,38 @@ namespace Game.Tests.EditMode.Session
                 NullTelemetryScope.Instance);
         }
 
+        [UnityTest]
+        public IEnumerator SaveNow_DialogueOrUnstableNarrative_PreservesOldSlotAndDefers() => UniTask.ToCoroutine(async () =>
+        {
+            await session.NewGameAsync(1);
+            Assert.That(await session.SaveNowAsync("initial"), Is.True);
+            string path = Path.Combine(saveRoot, "slot1.json");
+            string before = File.ReadAllText(path);
+            state.DialogueRunning = true;
+            Assert.That(await session.SaveNowAsync("quit"), Is.False);
+            state.DialogueRunning = false;
+            state.NarrativeStable = false;
+            Assert.That(await session.SaveNowAsync("leave"), Is.False);
+            session.Tick();
+            Assert.That(session.HasPendingSave, Is.True);
+            Assert.That(File.ReadAllText(path), Is.EqualTo(before));
+            Assert.That(state.CapturedTicks.Count, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        public IEnumerator Continue_InvalidNarrativeCandidate_DoesNotCommitOrSwitchSlot() => UniTask.ToCoroutine(async () =>
+        {
+            await session.NewGameAsync(1);
+            await session.SaveNowAsync("initial");
+            await session.NewGameAsync(2);
+            saves.Get<SessionSaveData>().ProgressText = "保留当前局";
+            state.RejectCandidate = true;
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("读存档槽 1 时出错"));
+            Assert.That(await session.ContinueAsync(1), Is.False);
+            Assert.That(session.CurrentSlot, Is.EqualTo(2));
+            Assert.That(saves.Get<SessionSaveData>().ProgressText, Is.EqualTo("保留当前局"));
+        });
+
         private static async UniTask WaitUntilAsync(Func<bool> condition)
         {
             DateTime deadline = DateTime.UtcNow.AddSeconds(5);
@@ -298,6 +330,12 @@ namespace Game.Tests.EditMode.Session
             public bool DialogueRunning { get; set; }
             public bool AnyPanelOpen { get; set; }
             public bool BattleResultPending { get; set; }
+            public bool NarrativeStable { get; set; } = true;
+            public bool RejectCandidate { get; set; }
+            public void ValidateCandidate(SaveSnapshot candidate)
+            {
+                if (RejectCandidate) throw new ArgumentException("未知叙事内容");
+            }
             public string ProgressText { get; set; }
             public List<long> CapturedTicks { get; } = new List<long>();
             public List<bool> PrepareRestoreCalls { get; } = new List<bool>();

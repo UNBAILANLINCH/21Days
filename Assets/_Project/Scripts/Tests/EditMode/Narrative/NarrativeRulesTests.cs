@@ -59,6 +59,44 @@ namespace Game.Tests.EditMode.Narrative
         }
 
         [Test]
+        public void ResolveAutomatic_StageSetsFlag_UsesItInSameChainAndPreservesSnapshot()
+        {
+            var story = new NarrativeContent("flags", "check", new[]
+            {
+                new NarrativeContent.Stage { Id = "check", Kind = NarrativeContent.StageKind.Condition,
+                    SetFlags = new[] { "entered" }, Conditions = new[] { new[] {
+                        new NarrativeCondition { Fact = EncounterContext.Fact.StoryFlag, Key = "entered" } } },
+                    Exits = new Dictionary<string, string> { ["True"] = "yes", ["False"] = "no" } },
+                new NarrativeContent.Stage { Id = "yes", Kind = NarrativeContent.StageKind.End, Outcome = "Yes" },
+                new NarrativeContent.Stage { Id = "no", Kind = NarrativeContent.StageKind.End, Outcome = "No" },
+            });
+            var rules = new NarrativeRules(new[] { story }, null);
+            EncounterContext before = Context();
+            rules.Start("flags", "target");
+            rules.ResolveAutomatic(before);
+            Assert.That(rules.Outcome, Is.EqualTo("Yes"));
+            Assert.That(before.Read(EncounterContext.Fact.StoryFlag, "entered"), Is.False);
+            var restored = new NarrativeRules(new[] { story }, null);
+            restored.Restore(rules.Capture());
+            Assert.That(restored.StoryFlags, Does.Contain("entered"));
+        }
+
+        [Test]
+        public void ClearRequestIssued_OldGeneration_DoesNotClearRestoredRequest()
+        {
+            var rules = new NarrativeRules(new[] { Story() }, null);
+            rules.Start("story", "target");
+            long generation = rules.Generation;
+            long activation = rules.Current.ActivationId;
+            rules.MarkRequestIssued(activation);
+            rules.Restore(rules.Capture());
+            rules.ClearRequestIssued(generation, activation);
+            Assert.That(rules.Current.RequestIssued, Is.True);
+            rules.ClearRequestIssued(rules.Generation, activation);
+            Assert.That(rules.Current.RequestIssued, Is.False);
+        }
+
+        [Test]
         public void EncounterRules_HighestPriorityAndStableTargetWin()
         {
             var rules = new NarrativeRules(new[] { Story() }, null);

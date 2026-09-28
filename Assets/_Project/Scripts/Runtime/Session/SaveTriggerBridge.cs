@@ -11,6 +11,7 @@ using Game.Dialogue;
 using Game.Loot;
 using Game.Monster;
 using Game.Quest;
+using Game.Narrative;
 using MessagePipe;
 using VContainer.Unity;
 
@@ -31,6 +32,7 @@ namespace Game.Session
         private readonly ISubscriber<CrateCollectedEvent> crateCollected;
         private readonly ISubscriber<GameStateChangedEvent> stateChanged;
         private readonly ISubscriber<GameStateChangingEvent> stateChanging;
+        private readonly ISubscriber<NarrativeChangedEvent> narrativeChanged;
 
         private IDisposable subscriptions;
         private IDisposable quitHook;
@@ -45,7 +47,8 @@ namespace Game.Session
             ISubscriber<QuestTrackingChangedEvent> questTracking,
             ISubscriber<CrateCollectedEvent> crateCollected,
             ISubscriber<GameStateChangedEvent> stateChanged,
-            ISubscriber<GameStateChangingEvent> stateChanging)
+            ISubscriber<GameStateChangingEvent> stateChanging,
+            ISubscriber<NarrativeChangedEvent> narrativeChanged = null)
         {
             this.session = session ?? throw new ArgumentNullException(nameof(session));
             // SessionConfig 是 ScriptableObject，判空只用 ==。
@@ -58,6 +61,7 @@ namespace Game.Session
             this.crateCollected = crateCollected ?? throw new ArgumentNullException(nameof(crateCollected));
             this.stateChanged = stateChanged ?? throw new ArgumentNullException(nameof(stateChanged));
             this.stateChanging = stateChanging ?? throw new ArgumentNullException(nameof(stateChanging));
+            this.narrativeChanged = narrativeChanged;
         }
 
         public void Start()
@@ -69,6 +73,7 @@ namespace Game.Session
             crateCollected.Subscribe(_ => session.RequestSave("crate")).AddTo(bag);
             stateChanged.Subscribe(HandleStateChanged).AddTo(bag);
             stateChanging.Subscribe(HandleStateChanging).AddTo(bag);
+            narrativeChanged?.Subscribe(_ => session.RequestSave("narrative")).AddTo(bag);
             subscriptions = bag.Build();
 
             // DialogueService 用 C# event（其文件头第 6 行的取舍），与 MessagePipe 订阅分开成对退订。

@@ -61,12 +61,18 @@ namespace Game.Narrative
             Current.RequestIssued = true;
             return true;
         }
+        public void ClearRequestIssued(long generation, long activation)
+        {
+            if (generation == Generation && Current != null && Current.ActivationId == activation)
+                Current.RequestIssued = false;
+        }
         public void ResolveAutomatic(EncounterContext context)
         {
             for (int i = 0; i < 128 && Stage != null; i++)
             {
                 if (Stage.Kind == NarrativeContent.StageKind.Condition)
                 {
+                    context = context.WithStoryFlags(state.StoryFlags);
                     Move(NarrativeCondition.Matches(Stage.Conditions, context) ? "True" : "False");
                     continue;
                 }
@@ -146,6 +152,7 @@ namespace Game.Narrative
             long activation = checked(++state.NextActivationId);
             state.Current = new NarrativeSaveData.Frame { StoryId = story, StageId = stage, TargetId = target,
                 ActivationId = activation, ActionRequestId = story.Length + ":" + story + ":" + activation };
+            foreach (string flag in Stage.SetFlags) SetFlag(flag);
             telemetry.Track("stage_entered", ("story", story), ("stage", stage));
         }
     }

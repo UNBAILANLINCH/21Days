@@ -30,6 +30,13 @@ namespace Game.Narrative
         public bool TargetAlive { get; }
         public bool TargetHostile { get; }
         public bool TargetDetected { get; }
+        public EncounterContext WithStoryFlags(IEnumerable<string> additional)
+        {
+            var merged = new HashSet<string>(flags, StringComparer.Ordinal);
+            merged.UnionWith(additional);
+            return new EncounterContext(TargetId, TargetKind, PlayerAlive, PlayerSneaking, PlayerDisguised,
+                TargetAlive, TargetHostile, TargetDetected, merged);
+        }
         public bool Read(Fact fact, string key)
         {
             switch (fact)

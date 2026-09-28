@@ -19,7 +19,7 @@ maturity: seed
 
 **不存什么**：不持有任何玩法分区的实例（`QuestSaveData` / `LootSaveData` / `EncounterSaveData` 都是每次
 `saves.Get<T>()` 现取现写）；不持久化对白已读记录（独立档案 `dialogue-read`，见下）；不持久化对白进行中 / 剧情
-中途状态（`DialogueSaveData` / `NarrativeSaveData` 本期不进槽）。
+逐节点状态（DialogueSaveData 尚未接入）。NarrativeSaveData 已接稳定等待/结束边界，完整保存主/父阶段与标记；对白中途禁止写盘。
 
 **谁负责**：各分区所有者自己 `Capture` / `Restore` 自己的数据，Session 只在稳定点统一喊「存」，不知道分区内部
 字段；读档后各所有者自己订阅 [`SessionStartedEvent`](../../../../Assets/_Project/Scripts/Runtime/Session/SessionStartedEvent.cs) 重载运行时状态，Session 不枚举模块。
@@ -49,6 +49,7 @@ maturity: seed
 | 任务激活 / 完成 / 追踪变化 | `QuestActivatedEvent` / `QuestCompletedEvent` / `QuestTrackingChangedEvent` | `RequestSave`（合并，等闸门） |
 | 开箱 | `CrateCollectedEvent` | `RequestSave` |
 | 对白结束 | `DialogueService.OnEnded` | `RequestSave` |
+| 叙事分区改变 | `NarrativeChangedEvent`（模块已安装时） | `RequestSave`，仍受稳定边界约束 |
 | 场景切换完成（含新游戏首次落盘） | `GameStateChangedEvent.To == MonsterEncounterState` | `RequestSave` |
 | 离开玩法状态 | `GameStateChangingEvent.From == MonsterEncounterState` | `SaveNowAsync` 直接存，不等闸门（捕获在 Exit 之前同步完成） |
 | 退出游戏 | `GameQuit.RegisterBeforeQuit` 钩子 | `SaveNowAsync`，按 `SessionConfig.QuitHookTimeoutSeconds` 单独限时 |
@@ -58,6 +59,10 @@ maturity: seed
 四条件任一不满足就不落盘，请求继续挂着，多次 `RequestSave` 合并成一次（原因取最新一次）。所有触发都只在
 `GameSession.CurrentSlot != 0` 时生效，标题页阶段不存。
 
+Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退出与离场）也不能绕过对白/Narrative 的
+完整恢复边界：不稳定时返回 false 并保留待保存请求，不改旧槽、不发成功通知。允许稳定面板内的退出保存，
+但对白逐节点恢复仍未实现；不能把中途剧情只保存阶段 ID 后从头播放当作恢复支持。
+
 ## 新游戏 / 继续 / 选槽
 
 - **新游戏**：`GameSession.NewGameAsync(slot)`（`GameSession.cs:106`）—— `saves.ResetAll()` → 槽位元数据置初值 →
@@ -65,7 +70,8 @@ maturity: seed
   首次落盘由「场景切换完成」触发。
 - **继续**：`ContinueAsync(slot)`（`GameSession.cs:135`）—— 先 `ReadCandidateAsync` 只读候选校验（缺
   `SessionSaveData` 分区也算失败），失败则通知「存档不可用」、内存与 `CurrentSlot` 都不动、返回 false；成功才
-  `LoadAsync` 整体替换分区、`PrepareRestore(true)`、发事件、进场景。
+  由 ISessionStateSource.ValidateCandidate 校验 Narrative 后，对刚读出的同一候选 Commit、PrepareRestore(true)、发事件、进场景。
+  未知叙事内容/不支持恢复的阶段拒绝提交；旧档缺 Narrative 分区可视为未开始。这不提供全场景失败回滚。
 - **选槽**：`SessionTitleRouter` 接管标题三事件——「开始」用第一个空槽直接开局，没有空槽开选槽面板
   `SlotsMode.NewGame`；「继续」读 `LatestSlot`，没有可用存档（`LatestSlot == 0`）时「继续」**隐藏**（不是置灰，
   `TitleView.SetContinueVisible(SessionTitleRules.ShouldShowContinue(...))`；回标题与选槽面板删掉最后一个存档后走同一判定）；「选择存档」开面板 `SlotsMode.Load`。`SaveSlotsController`

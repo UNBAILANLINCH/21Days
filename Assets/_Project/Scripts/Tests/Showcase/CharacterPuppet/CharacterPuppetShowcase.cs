@@ -269,18 +269,6 @@ namespace Game.Tests.Showcase.CharacterPuppet
             return FindDeep<T>(root, objectName);
         }
 
-        /// <summary>找不到按钮就抛异常：放在 Step 的 act 里只把这一步记成失败。</summary>
-        private static Button RequireButton(Transform root, string objectName)
-        {
-            Button button = FindUnder<Button>(root, objectName);
-            if (button == null)
-            {
-                throw new InvalidOperationException($"找不到按钮「{objectName}」（界面没开，或预制体物体名不一致）");
-            }
-
-            return button;
-        }
-
         /// <summary>ChoiceRoot 下当前激活的选项按钮（排除隐藏模板）。</summary>
         private List<Button> ActiveChoices()
         {

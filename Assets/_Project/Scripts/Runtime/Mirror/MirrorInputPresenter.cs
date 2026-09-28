@@ -145,13 +145,9 @@ namespace Game.Mirror
             disposed = true;
             lifetime.Cancel();
             lifetime.Dispose();
-            if (view != null)
-            {
-                view.OnClosed -= HandleViewClosed;
-                view = null;
-            }
-
-            Finish();
+            // 已显示的图片必须等面板摘掉引用后释放；打开途中的图片由 ShowAsync 自己收尾。
+            CloseResult();
+            if (view == null) Finish();
         }
 
         private void TrackBlocked(string reason, bool self)
@@ -161,47 +157,74 @@ namespace Game.Mirror
 
         // 时序：持暂停令牌 → 组内容（真形 / 模糊按地址加载真形图）→ 开结果画面 → 记开画时刻；
         //   关闭走 CloseResult（到时 / 确认键）或返回键被路由关掉，二者都经 OnClosed 回到 Finish。
-        private async UniTaskVoid ShowAsync(MirrorResult result, MirrorSubject subject)
+        private async UniTask ShowAsync(MirrorResult result, MirrorSubject subject)
         {
+            if (disposed || showing) return;
             showing = true;
             closeRequested = false;
-            pauseToken = worldPause.Acquire(this);
-            CancellationToken ct = lifetime.Token;
+            AssetHandle<Sprite> pendingImage = null;
+            MirrorResultInfo info = null;
+            MirrorResultView opened = null;
             try
             {
-                MirrorResultInfo info = await ComposeAsync(result, subject, ct);
+                pauseToken = worldPause.Acquire(this);
+                CancellationToken ct = lifetime.Token;
+                (info, pendingImage) = await ComposeAsync(result, subject, ct);
                 if (disposed) return;
-                MirrorResultView opened = await ui.OpenAsync<MirrorResultView>(info, ct);
+                opened = await ui.OpenAsync<MirrorResultView>(info, ct);
                 if (disposed)
                 {
                     await ui.CloseAsync(opened);
                     return;
                 }
 
+                // 淡入过程中可能已被返回键关掉，不能再持有一个已关闭的结果画面。
+                if (opened == null || opened.Current == null) return;
                 view = opened;
+                imageHandle = pendingImage;
+                pendingImage = null;
                 view.OnClosed -= HandleViewClosed;
                 view.OnClosed += HandleViewClosed;
                 shownAt = clock.UnscaledTime;
             }
             catch (OperationCanceledException)
             {
-                Finish();
+                // 取消是正常关闭路径；未转移的图片由 finally 回收。
             }
             catch (ObjectDisposedException)
             {
                 // 作用域销毁途中 UIService 已释放，静默。
-                Finish();
             }
             catch (Exception e)
             {
                 // 结果画面开不出来：判定与辨认记录已经写好，只是看不到；释放令牌，不让世界卡在暂停里。
                 telemetry.TrackError("mirror_view_failed", e);
                 Log.Error($"MirrorInputPresenter：打开照镜结果画面失败：{e}");
-                Finish();
+            }
+            finally
+            {
+                try
+                {
+                    // UIService 在淡入前已登记面板，取消可能发生在 OpenAsync 返回之前。
+                    // 只清本次内容的引用，避免句柄释放后残留 Sprite；面板实例仍由 UIService 管理。
+                    if (view == null && info != null)
+                    {
+                        if (opened == null) opened = ui.Get<MirrorResultView>();
+                        if (opened != null && ReferenceEquals(opened.Current, info))
+                            await opened.OnCloseAsync(CancellationToken.None);
+                    }
+                }
+                finally
+                {
+                    // 只有成功交给显示中的面板才转移所有权；取消、失败与销毁早退都在此释放。
+                    pendingImage?.Dispose();
+                    if (view == null) Finish();
+                }
             }
         }
 
-        private async UniTask<MirrorResultInfo> ComposeAsync(MirrorResult result, MirrorSubject subject, CancellationToken ct)
+        private async UniTask<(MirrorResultInfo Info, AssetHandle<Sprite> Image)> ComposeAsync(
+            MirrorResult result, MirrorSubject subject, CancellationToken ct)
         {
             string subjectName = null;
             Sprite portrait = null;
@@ -226,13 +249,13 @@ namespace Game.Mirror
             }
 
             MirrorResultInfo info = MirrorResultInfo.Compose(result.Kind, config, subjectName, trueName, trueDesc);
-            if (result.Kind == MirrorResultKind.Human || result.Kind == MirrorResultKind.Object) return info.WithImage(portrait);
-            if (string.IsNullOrEmpty(imageKey)) return info;
+            if (result.Kind == MirrorResultKind.Human || result.Kind == MirrorResultKind.Object) return (info.WithImage(portrait), null);
+            if (string.IsNullOrEmpty(imageKey)) return (info, null);
 
             try
             {
-                imageHandle = await assets.LoadAsync<Sprite>(imageKey, ct);
-                return info.WithImage(imageHandle == null ? null : imageHandle.Asset);
+                AssetHandle<Sprite> loaded = await assets.LoadAsync<Sprite>(imageKey, ct);
+                return (info.WithImage(loaded == null ? null : loaded.Asset), loaded);
             }
             catch (OperationCanceledException)
             {
@@ -243,7 +266,7 @@ namespace Game.Mirror
                 // 加载失败：记遥测、显示无图，文案照常。
                 telemetry.TrackWarn("mirror_image_failed",
                     TelemetryProps.Of(("key", imageKey), ("yao_id", result.YaoId), ("error", e.Message)));
-                return info;
+                return (info, null);
             }
         }
 
@@ -263,11 +286,14 @@ namespace Game.Mirror
             }
             catch (Exception e)
             {
+                telemetry.TrackError("mirror_close_failed", e, TelemetryProps.Of(("disposed", disposed)));
                 Log.Warn($"MirrorInputPresenter：关闭照镜结果画面失败：{e.Message}");
                 // 关闭失败也要放开世界，不然卡在暂停里。
                 if (ReferenceEquals(view, closing))
                 {
                     closing.OnClosed -= HandleViewClosed;
+                    // 淡出失败时 UIService 不会调用 OnCloseAsync，仍需先摘图片引用再释放句柄。
+                    if (closing != null) await closing.OnCloseAsync(CancellationToken.None);
                     view = null;
                     Finish();
                 }

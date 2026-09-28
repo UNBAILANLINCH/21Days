@@ -3,7 +3,7 @@
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：SupplyCrateMarker / DialogueInteractableMarker / QuestTargetMarker 各绑自己模块的对象与状态，且跨模块共用同一张标记图会撞脸（pitfalls）。
 //   2. 扩展不行：塞进 MirrorCrackPresenter 会把「被击中」与「察觉有妖」两件事绑在一起；放进绑定器会让事件驱动的登记变成每帧入口点。
-//   朝向相机自己在 LateTick 里对齐（一行旋转），不挂 IsometricExploration 的 CameraBillboard：PRP 2.1 的 Mirror 依赖清单里没有探索模块，
+//   朝向相机在渲染前对齐，不挂 IsometricExploration 的 CameraBillboard：PRP 2.1 的 Mirror 依赖清单里没有探索模块，
 //   且 Loot 的标记同样刻意不引用它（SupplyCrateMarker 文件头）。
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,7 @@ using Game.Core.Telemetry;
 using Game.Monster;
 using Game.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
@@ -20,7 +21,7 @@ namespace Game.Mirror
     /// 通灵视入口点。提示对象挂在一个池根下，池根放进标记所在的场景：场景卸载时随之销毁，重进场景时按需重建（不会留下指向旧相机的提示）。
     /// 每帧只做区域判定、距离比较与赋值；池只在需要更多提示时扩容，稳定后无分配。
     /// </summary>
-    public sealed class SpiritSightPresenter : ITickable, ILateTickable, IDisposable
+    public sealed class SpiritSightPresenter : ITickable, IDisposable
     {
         private const string PoolRootName = "SpiritSightHints";
 
@@ -47,6 +48,7 @@ namespace Game.Mirror
             this.step = step ?? throw new ArgumentNullException(nameof(step));
             this.player = player ?? throw new ArgumentNullException(nameof(player));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
+            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
         }
 
         /// <summary>通灵视当前是否生效。</summary>
@@ -107,13 +109,11 @@ namespace Game.Mirror
             shownCount = used;
         }
 
-        // 纸片朝向相机（同 CameraBillboard 的做法：旋转对齐相机）。放在 LateTick：相机跟随在 LateUpdate 里移动。
-        public void LateTick()
+        // URP 在渲染前给出当前相机：跟随已完成，也不缓存会被禁用、换标签或卸载的旧主相机。
+        private void OnBeginCameraRendering(ScriptableRenderContext context, Camera camera)
         {
-            if (disposed || shownCount == 0) return;
-            Camera camera = Camera.main;
-            // Camera 是 UnityEngine.Object，判空只用 == null。
-            if (camera == null) return;
+            if (disposed || shownCount == 0 || camera == null || !camera.isActiveAndEnabled ||
+                camera.cameraType != CameraType.Game || !camera.CompareTag("MainCamera")) return;
             Quaternion rotation = camera.transform.rotation;
             for (int i = 0; i < shownCount && i < pool.Count; i++)
             {
@@ -125,6 +125,7 @@ namespace Game.Mirror
         {
             if (disposed) return;
             disposed = true;
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
             if (poolRoot != null) UnityEngine.Object.Destroy(poolRoot);
             poolRoot = null;
             pool.Clear();

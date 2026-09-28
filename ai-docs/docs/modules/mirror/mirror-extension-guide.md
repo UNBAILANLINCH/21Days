@@ -37,13 +37,16 @@ maturity: seed
 5. 不要把新结果种类塞进 `MirrorSubjectKind`：那是「对象是什么」，不是「照镜结果是什么」，两者故意分开
    （`Assets/_Project/Scripts/Runtime/Mirror/MirrorResultKind.cs:1-3` 文件头注释）。
 
+新增结果需要异步加载图片时，沿用 `MirrorInputPresenter.ComposeAsync` 返回内容与句柄、`ShowAsync` 接管所有权的路径
+（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:226`、`:160`），并补取消 / 打开失败回归；不要在加载回调里直接覆盖呈现器的图片字段。
+
 ## 加一个通灵视条件
 
 当前生效条件固定「雨 / 夜 / 昏暗任一为真」（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightRules.cs:15`）。要加新条件（例如「持有某道具」）：
 
 1. `SpiritSightZone` 加一个 `[SerializeField] private bool` 字段（同 `rain`/`night`/`dim` 的写法，`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightZone.cs:19-26`），
    或者如果条件与「区域」无关（比如「持有道具」是全局条件、不挂在某个区域上），改造 `SpiritSightRules.IsActive` 的签名，
-   在 `SpiritSightPresenter.Tick`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:64-108`）里把新判断项传进去。
+   在 `SpiritSightPresenter.Tick`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:66`）里把新判断项传进去。
 2. `SpiritSightRules.IsActive`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightRules.cs:15`）是纯函数，加一个 `bool` 参数、`||` 上新条件即可，EditMode 直接补用例。
 3. 不要把新条件的判断逻辑写进 `SpiritSightPresenter` 或 `SpiritSightZone` 本身：规则必须留在 `SpiritSightRules` 里保持可脱离场景单测
    （同 `MirrorRules` / `MirrorCrackRules` 的分法，`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightRules.cs:1-5` 文件头注释）。

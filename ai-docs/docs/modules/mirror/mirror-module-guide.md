@@ -34,9 +34,9 @@ maturity: seed
 | `MirrorSaveData` | 存档分区：`Identified` / `GlimpsedBlurry` / `StoryCracks` / `SelfLooks`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSaveData.cs:10-30`） | `ISaveService.Get<MirrorSaveData>()` 产出 |
 | `MirrorService` | **对外门面**：照镜 / 自照 / 剧情裂痕，写分区、发事件、埋点（`Assets/_Project/Scripts/Runtime/Mirror/MirrorService.cs:34-226`） | 根作用域单例 + `IGameService` |
 | `MirrorSceneBinder` | 入口点：登记场景标记与区域、投影坐标、给候选（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSceneBinder.cs:24-191`） | 根作用域入口点（`AsSelf`） |
-| `MirrorInputPresenter` | 入口点：读照镜 / 自照按键，让位判断，组结果，开 / 关结果画面（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:28-302`） | 根作用域入口点（`AsSelf`） |
+| `MirrorInputPresenter` | 入口点：读照镜 / 自照按键，让位判断，组结果，开 / 关结果画面并管理图片所有权（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:28`） | 根作用域入口点（`AsSelf`） |
 | `MirrorCrackPresenter` | 入口点：驱动镜图标 / 视野遮罩，镜碎时结束遭遇并重开本场（`Assets/_Project/Scripts/Runtime/Mirror/MirrorCrackPresenter.cs:36-267`） | 根作用域入口点（`AsSelf`） |
-| `SpiritSightPresenter` | 入口点：判定通灵视是否生效，给半径内的妖挂影子提示（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:23-165`） | 根作用域入口点（`AsSelf`） |
+| `SpiritSightPresenter` | 入口点：判定通灵视是否生效，给半径内的妖挂影子提示；渲染前对齐当前主相机（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:24`） | 根作用域入口点（`AsSelf`） |
 | `MirrorResultView` / `MirrorHudView` / `MirrorVisionView` / `MirrorShatterView` | 四个 UI 面板，见下方「UI 层级决策」 | `IUIService.OpenAsync<T>()` |
 | `MirrorResultInfo` | 结果画面内容（标题 / 名字 / 说明 / 刻痕 / 图），按种类组文案的纯函数（`Assets/_Project/Scripts/Runtime/Mirror/MirrorResultInfo.cs:14-95`） | `MirrorInputPresenter` 组装 |
 | `MirrorCandidate` / `MirrorQuery` / `MirrorResult` / `MirrorResultKind` | 纯值类型：候选、判定输入、判定结果、结果种类 | `MirrorRules` 的输入 / 输出 |
@@ -87,6 +87,22 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 `actions.Gameplay.Mirror` 一行标了 `// lint-ok: 照镜不属于确定性模拟，同 SupplyCrateFocus 读 Interact 动作`，`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:103`）。
 理由见文件头（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:7`）：照镜属于交互类功能，同 Loot 的开箱、Dialogue 的对话，都在确定性内核之外，回放格式因此不用升版。
 
+## 结果图片的生命周期
+
+打开期间的图片句柄归 `ShowAsync` 本次调用所有；只有成功接管仍在显示的结果画面后，才转交给呈现器字段，随关闭释放。
+取消、打开失败或作用域销毁后的晚返回统一经过 `finally`，先清除本次内容在视图中的图片引用，再释放未转交的句柄
+（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:160`、`:204`）。
+已显示时 `Dispose` 发起关闭；淡出失败也会补做视图清理后释放句柄，不能在图片仍被视图使用时提前释放
+（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:142`、`:296`）。面板实例的销毁与 UI 栈仍归 `IUIService`。
+关闭失败记录 `mirror_close_failed`（异常及 `disposed` 状态），用于区分作用域退出与正常使用中的关闭故障。
+
+## 通灵视朝向与相机切换
+
+`SpiritSightPresenter` 订阅 `RenderPipelineManager.beginCameraRendering`，直接使用回调中的相机；只处理启用且激活、
+类型为 `Game`、标签为 `MainCamera` 的相机。每次渲染前取其当前旋转，不再实现 `ILateTickable`、不查询 `Camera.main`，也不缓存旧相机
+（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:51`、`:113`）。`Dispose` 对称退订（`:128`）。
+当前接线依赖项目的 URP / SRP 渲染回调；未提供 Built-in 管线回调。切镜、改标签或卸载相机不需要额外刷新缓存。
+
 ## Addressables 用 `Mirror` 组
 
 `Assets/AddressableAssetsData/AssetGroups/Mirror.asset` 现有 **6 条**（`m_GroupName: Mirror`，
@@ -114,11 +130,21 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 `Assets/_Project/Scripts/Tests/Showcase/Mirror/MirrorShowcase.cs`（`ScenePath => null` + `EnterDemoWorld`，走 Boot 真实流程 + 虚拟输入）
 6 条用例：`LookAtVillager_ShowsHuman`、`WellWoman_BlurryThenTrueForm`、`SelfLook_ShowsBlank`、`DialogueBlocksMirror`、
 `ThreeHits_ShatterAndRestart`、`StoryCrack_ShrinksVisionOnly`，回放统一在 `Assets/Scenes/SampleScene.unity` 上跑。
-最近一次批次结论 **PASS**（检查点失败 0 个、运行时异常 0 条），见 `Logs/verify/mirror/20260928-084017/report.md:6`。
+历史批次结论 **PASS**（检查点失败 0 个、运行时异常 0 条），见 `Logs/verify/mirror/20260928-084017/report.md:6`；该记录不覆盖下述后续呈现器修复。
 EditMode 覆盖：`MirrorRulesTests`（28 用例）、`MirrorCrackRulesTests`（9）、`MirrorCrackTrackerTests`（9）、`SpiritSightRulesTests`（8）、
-`MirrorServiceTests`（12）、`MirrorSceneBinderTests`（5）、`MirrorResultInfoTests`（7）、`MirrorInputPresenterTests`（6）、
+`MirrorServiceTests`（12）、`MirrorSceneBinderTests`（5）、`MirrorResultInfoTests`（7）、`MirrorInputPresenterTests`（纯判定及异步生命周期）、
 `MirrorCrackPresenterTests`（5 组 TestCase）、`MirrorHudViewTests`、`MirrorVisionViewTests`、`YaoTableTests`（6），均在
 `Assets/_Project/Scripts/Tests/EditMode/Mirror/`。跑 `/unity-test EditMode Mirror`；端到端视觉验收跑 `/verify-module Mirror`（编辑器须打开）。
+
+2026-09-29 两项呈现器修复已完成首轮验证：Mirror EditMode 执行 140 项，job `bbf2d4b2a9c6422fa5879e4731f4b25c` 为 `succeeded`；
+Mirror Showcase 6 项 PASS（`Logs/verify/mirror/20260929-055540/report.md`），所属整批 PlayMode job `2f8128b2e6014eeea505c23ec8b739ee` 执行 23 项并成功。
+主审窗口已独立查询两份 job、读取回放报告、查看结果画面与通灵视截图，并实际读取控制台错误 0 条。域重载后 MCP job 的 `result` 为 null，不能把估计的 `progress.total=1043` 当成实际执行数。
+收尾新增关闭失败埋点后，包含 Mirror 的 EditMode 回归 job `0f9f708b6a1e43f1b0786e709e146de6` 为 **461/461 通过、0 失败、0 跳过**（11.6726942 秒）；
+主审窗口直接读取到准确 `result.summary` 并复查控制台错误 0 条。提交范围及最终验证见 [`PRP/mirror-core/tasks.md`](../../../../PRP/mirror-core/tasks.md) 的呈现器修复审查。
+`MirrorInputPresenterTests` 新增加载取消 / 晚返回、打开失败、销毁期间关闭、重复开关、淡入中已关闭和关闭失败用例
+（`Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs:91`）；新增 `SpiritSightPresenterTests` 验证切镜 / 标签变更、
+禁用 / 销毁 / 非 Game 相机过滤及退订（`Assets/_Project/Scripts/Tests/EditMode/Mirror/SpiritSightPresenterTests.cs:50`）。
+统一验证过滤器为 `Game.Tests.EditMode.Mirror`，另跑 Mirror Showcase 核验实际渲染朝向和结果画面；测试源码存在不代表执行通过。
 
 ## 已知限制 / 未做
 
@@ -134,5 +160,3 @@ EditMode 覆盖：`MirrorRulesTests`（28 用例）、`MirrorCrackRulesTests`（
 - 真形描述超过约 3 行会溢出 `TextPanel`（固定 600×300，`Assets/_Project/Prefabs/UI/Mirror/MirrorResultView.prefab:666`），需要长描述时要么精简文案要么后续加自适应。
 - 影子提示观感偏淡，回放截图可见（`Logs/verify/mirror/20260928-084017/13-通灵视·影子提示.png`）。
 - 暗角在 1 道裂痕时偏轻：`visionLossPerCrack = 0.18`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorConfig.cs:51`），单裂痕只收掉 18% 可见范围，回放截图见 `Logs/verify/mirror/20260928-084017/09-第1道裂痕.png`；建议调到 0.3（单裂痕收掉 30%），本轮未改，留给开发者决定。
-- **待办**：`MirrorInputPresenter.ShowAsync` 在罕见时序下（结果画面还在加载真形图时整个作用域被 `Dispose`）会漏释放 `imageHandle`——两处 `disposed` 早退（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:173`、`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:175-178`）都直接 `return`，不经过会释放 `imageHandle` 的 `Finish()`（`imageHandle` 赋值见 `Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:234`）。发现未修（本轮改动被权限拦下），留给开发者决定。
-- **待办**：`SpiritSightPresenter.LateTick` 每帧取 `Camera.main`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:114`）未缓存。发现未修，留给开发者决定。

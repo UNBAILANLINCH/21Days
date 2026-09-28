@@ -57,9 +57,9 @@ maturity: seed
 | --- | --- | --- |
 | `MirrorCrackPresenter.IsShatterShowing` | `bool` | 镜碎页是否在显示（含重开途中）（`Assets/_Project/Scripts/Runtime/Mirror/MirrorCrackPresenter.cs:84`） |
 | `MirrorCrackPresenter.IsRestarting` | `bool` | 镜碎页已交回、正在重进遭遇（`Assets/_Project/Scripts/Runtime/Mirror/MirrorCrackPresenter.cs:87`） |
-| `SpiritSightPresenter.IsActive` | `bool` | 通灵视当前是否生效（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:53`） |
-| `SpiritSightPresenter.ShownCount` | `int` | 当前显示中的影子提示数（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:56`） |
-| `SpiritSightPresenter.ActiveZone` | `SpiritSightZone` | 当前生效的区域；未生效为 `null`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:59`） |
+| `SpiritSightPresenter.IsActive` | `bool` | 通灵视当前是否生效（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:55`） |
+| `SpiritSightPresenter.ShownCount` | `int` | 当前显示中的影子提示数（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:58`） |
+| `SpiritSightPresenter.ActiveZone` | `SpiritSightZone` | 当前生效的区域；未生效为 `null`（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs:61`） |
 
 ## 事件（MessagePipe，`IPublisher<T>` / `ISubscriber<T>` 注入，一文件一个 `readonly struct`）
 

@@ -120,10 +120,20 @@ namespace Game.Performance
             director.Play();
         }
 
-        /// <summary>停顿后继续。</summary>
+        /// <summary>停顿后继续；也用于 <see cref="Pause"/> 之后恢复。</summary>
         public void Resume()
         {
             if (director != null) director.Resume();
+        }
+
+        /// <summary>
+        /// 暂停时间轴（服务在台词记录 LOG 等覆盖层打开时调）。与 <see cref="HoldMarker"/> 停顿的区别：这里只停导演，
+        /// 不发 <see cref="OnHold"/>、不改规则阶段、不出 ▼，恢复由调用方在规则仍是 Playing 时调 <see cref="Resume"/>；
+        /// HoldMarker 停顿则由时间轴自己停下并通知，要玩家确认（或「自动」）才继续。停顿中本来就停着，不必再调本方法。
+        /// </summary>
+        public void Pause()
+        {
+            if (director != null) director.Pause();
         }
 
         /// <summary>停止（会触发 <see cref="OnFinished"/>）。</summary>

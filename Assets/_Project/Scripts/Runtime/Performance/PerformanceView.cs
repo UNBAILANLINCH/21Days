@@ -1,8 +1,10 @@
 // 职责：演出面板——上下黑边、对白面板（左 / 右头像位 + 说话者 + 正文）、停顿提示符、跳过提示与长按进度环、进场黑场淡出；
-//   实现字幕输出端供时间轴字幕轨道调用；字幕逐字揭示（打字机）。只显示，不注入服务、不读输入、不持有时间轴进度，全部由 PerformanceService 调方法。
+//   左上「LOG」、右上「自动」与「跳过」三个控件（与对白面板 HistoryButton / AutoButton / SkipButton 同位同样式，倍速位空着）；
+//   实现字幕输出端供时间轴字幕轨道调用；字幕逐字揭示（打字机）；每句字幕抛 OnSubtitleShown 供服务记台词。
+//   只显示与抛事件，不注入服务、不读输入、不持有时间轴进度，全部由 PerformanceService 调方法。
 //   逐字进度是文字表现状态（已显示几个字），由服务每帧调 TickTyping 驱动、点击时调 CompleteTyping 补全。
-// 为什么新建（复用 → 扩展 → 新建）：DialogueView 是对白主面板（Popup 层、带选项与控件），演出要的是 Panel 层全屏、
-//   Esc 关不掉、只有一块全屏透明点击区（停顿时点击继续）的覆盖层；塞进 DialogueView 会让 Performance 依赖 Dialogue（方向禁止）。
+// 为什么新建（复用 → 扩展 → 新建）：DialogueView 是对白主面板（Popup 层、带选项、倍速与跳过确认），演出要的是 Panel 层全屏、
+//   Esc 关不掉、全屏透明点击区（停顿时点击继续）加三个控件的覆盖层；塞进 DialogueView 会让 Performance 依赖 Dialogue（方向禁止）。
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -24,7 +26,9 @@ namespace Game.Performance
     /// <para>
     /// 接线提示：<c>letterboxTop</c> / <c>letterboxBottom</c> 分别锚在屏幕上 / 下边缘、横向拉伸，高度由本类改 sizeDelta.y；
     /// <c>fade</c> 是全屏黑色 Image（不挡射线）；<c>skipFill</c> 的 Image Type 须为 Filled；
-    /// <c>tapArea</c> 是全屏透明 Button，放在层级最后（最上层），其余 Graphic 一律关 raycastTarget。
+    /// <c>tapArea</c> 是全屏透明 Button，层级在黑边 / 字幕之上、三个控件（SkipRoot / AutoButton / HistoryButton）之下——
+    /// 否则会吞掉控件的点击；控件以外的 Graphic 一律关 raycastTarget。<c>skipRoot</c> 上挂透明 Image（开 raycast）与
+    /// <see cref="UIPointerHold"/>（<c>skipHold</c>）：鼠标按住「跳过」等同长按跳过键。
     /// </para>
     /// <para>
     /// 可选字段（不接也能用，旧预制体兼容）：<c>avatar</c> + <c>avatarFrame</c> 是对白面板左侧头像组，
@@ -32,6 +36,11 @@ namespace Game.Performance
     /// 另一侧隐藏，无头像（旁白 / 未登记）时两侧都隐藏；右侧组没接时右侧说话者退回左侧显示；
     /// <c>skipHint</c> 接了时键位提示（「长按 Ctrl」）写进它、<c>skipLabel</c> 保留预制体里的固定文案（「跳过 ▶」），
     /// 没接时键位提示仍写进 <c>skipLabel</c>。样式（颜色 / 字号 / 位置）全在预制体里，代码只填文字与显隐。
+    /// </para>
+    /// <para>
+    /// 控件字段必填（本预制体是唯一使用者，漏接 <see cref="Validate"/> 点名抛出）：<c>autoButton</c> / <c>autoLabel</c> /
+    /// <c>autoLabelShadow</c> / <c>autoHint</c>、<c>historyButton</c> / <c>historyHint</c>、<c>skipHold</c>。
+    /// 点击只抛 <see cref="OnAuto"/> / <see cref="OnHistory"/>，由服务与 Auto / History 键走同一条处理。
     /// </para>
     /// </summary>
     public sealed class PerformanceView : UIView, IPerformanceSubtitleSink
@@ -84,6 +93,30 @@ namespace Game.Performance
         [Tooltip("全屏透明点击区：停顿时点击等价确认键")]
         [SerializeField] private Button tapArea;
 
+        [Tooltip("右上「自动」按钮（与对白面板 AutoButton 同位同样式）：点一下切换自动继续。")]
+        [SerializeField] private Button autoButton;
+
+        [Tooltip("「自动」按钮主标签：自动关时「自动」、开时「自动中」。")]
+        [SerializeField] private TMP_Text autoLabel;
+
+        [Tooltip("「自动」按钮主标签的投影文字，镜像主标签文案。")]
+        [SerializeField] private TMP_Text autoLabelShadow;
+
+        [Tooltip("「自动」按钮下方的键位小字（Auto 动作的键位）。")]
+        [SerializeField] private TMP_Text autoHint;
+
+        [Tooltip("左上「LOG」按钮（与对白面板 HistoryButton 同位同样式）：点一下打开 / 关闭台词记录。")]
+        [SerializeField] private Button historyButton;
+
+        [Tooltip("「LOG」按钮下方的键位小字（History 动作的键位）；主标签「LOG」是预制体固定文案，代码不写。")]
+        [SerializeField] private TMP_Text historyHint;
+
+        [Tooltip("挂在 SkipRoot 上的按住检测：鼠标按住「跳过」等同长按跳过键。")]
+        [SerializeField] private UIPointerHold skipHold;
+
+        private const string AutoOffLabel = "自动";
+        private const string AutoOnLabel = "自动中";
+
         private MotionHandle topHandle;
         private MotionHandle bottomHandle;
         private MotionHandle fadeHandle;
@@ -102,6 +135,9 @@ namespace Game.Performance
         private bool typing;
         // 服务要求显示 ▼（进入停顿）；实际显隐 = holdRequested && !IsTyping。
         private bool holdRequested;
+        // 「自动」标签当前显示的状态；autoWritten 为 false 时下一次 SetAuto 必写（打开面板时强制写一次）。
+        private bool autoShown;
+        private bool autoWritten;
 
         public override UILayer Layer => UILayer.Panel;
         public override bool IsFullScreen => true;
@@ -113,8 +149,20 @@ namespace Game.Performance
         /// <summary>全屏点击区被点。服务处理：打字中 = 整句补全；停顿时 = 继续；其余无事，不触发跳过。</summary>
         public event Action OnTap;
 
+        /// <summary>「自动」按钮被点。服务处理：切换自动（同 Auto 键）。</summary>
+        public event Action OnAuto;
+
+        /// <summary>「LOG」按钮被点。服务处理：打开 / 关闭台词记录（同 History 键）。</summary>
+        public event Action OnHistory;
+
+        /// <summary>显示了一句字幕（说话者、正文；旁白说话者为空串）。服务据此记台词，面板自己不存。</summary>
+        public event Action<string, string> OnSubtitleShown;
+
         /// <summary>当前句是否还在逐字揭示中。</summary>
         public bool IsTyping => typing;
+
+        /// <summary>鼠标（指针）正按在「跳过」上：服务与跳过键按住同等对待（长按满即跳过）。没接 skipHold 时恒为 false。</summary>
+        public bool SkipPointerHeld => skipHold != null && skipHold.IsHeld;
 
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
@@ -128,6 +176,8 @@ namespace Game.Performance
             Navigation none = tapArea.navigation;
             none.mode = Navigation.Mode.None;
             tapArea.navigation = none;
+            Hook(autoButton, HandleAuto);
+            Hook(historyButton, HandleHistory);
 
             CancelMotions();
             charactersPerSecond = args.CharactersPerSecond;
@@ -144,6 +194,11 @@ namespace Game.Performance
             else skipLabel.text = args.SkipHint;
             shownSkipProgress = -1f;
             SetSkipProgress(0f);
+            autoHint.text = args.AutoHint;
+            historyHint.text = args.HistoryHint;
+            // 每段演出「自动」复位为关：强制写一次「自动」，不信预制体里的文案。
+            autoWritten = false;
+            SetAuto(false);
 
             float seconds = args.FadeSeconds > 0f ? args.FadeSeconds : 0f;
             float height = args.Policy.Letterbox && args.LetterboxHeight > 0f ? args.LetterboxHeight : 0f;
@@ -192,7 +247,12 @@ namespace Game.Performance
         {
             // 淡出过渡已播完才走到这里：收黑边、清字幕，让下次打开从干净状态开始。
             if (tapArea != null) tapArea.onClick.RemoveListener(HandleTap);
+            Unhook(autoButton, HandleAuto);
+            Unhook(historyButton, HandleHistory);
             OnTap = null;
+            OnAuto = null;
+            OnHistory = null;
+            OnSubtitleShown = null;
             CancelMotions();
             if (letterboxTop != null && letterboxBottom != null) SetLetterbox(0f);
             if (subtitleRoot != null) HideSubtitle();
@@ -205,11 +265,14 @@ namespace Game.Performance
         {
             // 面板被直接销毁 / 停用时也退订，与 OnOpenAsync 的订阅成对。
             if (tapArea != null) tapArea.onClick.RemoveListener(HandleTap);
+            Unhook(autoButton, HandleAuto);
+            Unhook(historyButton, HandleHistory);
         }
 
         /// <summary>
         /// 显示一句字幕；说话者为空时隐藏名字栏（旁白）。头像只显示在 <paramref name="side"/> 那一侧，另一侧隐藏；
         /// 头像为 null 时两侧都隐藏。逐字速度大于 0 时正文从 0 字开始揭示（由 <see cref="TickTyping"/> 推进），否则整句直出。
+        /// 显示后抛 <see cref="OnSubtitleShown"/>（说话者、正文），供服务记台词。
         /// </summary>
         public void ShowSubtitle(string speakerName, string text, Sprite avatarSprite, PerformanceAvatarSide side)
         {
@@ -220,6 +283,7 @@ namespace Game.Performance
             SetAvatar(avatarSprite, side);
             subtitleRoot.SetActive(true);
             BeginTyping();
+            OnSubtitleShown?.Invoke(speaker.text, body.text);
         }
 
         /// <summary>
@@ -337,6 +401,18 @@ namespace Game.Performance
             ApplyHoldPrompt();
         }
 
+        /// <summary>刷新「自动」按钮标签：开着写「自动中」、关着写「自动」，投影文字镜像主标签；值没变不重写。</summary>
+        public void SetAuto(bool on)
+        {
+            if (autoWritten && autoShown == on) return;
+            autoWritten = true;
+            autoShown = on;
+            string text = on ? AutoOnLabel : AutoOffLabel;
+            // TMP_Text 是 UnityEngine.Object，判空只用 != null（服务级测试里的最小面板不接这些字段）。
+            if (autoLabel != null) autoLabel.text = text;
+            if (autoLabelShadow != null) autoLabelShadow.text = text;
+        }
+
         // ▼ 显隐门控：请求显示且不在打字；activeSelf 没变不重写。
         private void ApplyHoldPrompt()
         {
@@ -359,13 +435,30 @@ namespace Game.Performance
             fade.color = color;
         }
 
-        // 点完即取消选中：否则 EventSystem 留着选中态，之后按 Enter / 手柄 A 会被 UI Submit 再点一次。
         private void HandleTap()
         {
-            EventSystem eventSystem = EventSystem.current;
-            if (eventSystem != null && eventSystem.currentSelectedGameObject == tapArea.gameObject)
-                eventSystem.SetSelectedGameObject(null);
+            ReleaseSelection(tapArea);
             OnTap?.Invoke();
+        }
+
+        private void HandleAuto()
+        {
+            ReleaseSelection(autoButton);
+            OnAuto?.Invoke();
+        }
+
+        private void HandleHistory()
+        {
+            ReleaseSelection(historyButton);
+            OnHistory?.Invoke();
+        }
+
+        // 点完即取消选中：否则 EventSystem 留着选中态，之后按 Enter / 手柄 A 会被 UI Submit 再点一次（同对白面板的控件按钮）。
+        private static void ReleaseSelection(Button button)
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem != null && button != null && eventSystem.currentSelectedGameObject == button.gameObject)
+                eventSystem.SetSelectedGameObject(null);
         }
 
         private void CancelMotions()
@@ -390,6 +483,13 @@ namespace Game.Performance
             if (skipLabel == null) missing.Add(nameof(skipLabel));
             if (skipFill == null) missing.Add(nameof(skipFill));
             if (tapArea == null) missing.Add(nameof(tapArea));
+            if (autoButton == null) missing.Add(nameof(autoButton));
+            if (autoLabel == null) missing.Add(nameof(autoLabel));
+            if (autoLabelShadow == null) missing.Add(nameof(autoLabelShadow));
+            if (autoHint == null) missing.Add(nameof(autoHint));
+            if (historyButton == null) missing.Add(nameof(historyButton));
+            if (historyHint == null) missing.Add(nameof(historyHint));
+            if (skipHold == null) missing.Add(nameof(skipHold));
             if (missing.Count > 0)
                 throw new InvalidOperationException("PerformanceView 引用未接线：" + string.Join("、", missing));
         }

@@ -61,7 +61,7 @@ Assets/_Project/
       Assets/             IAssetService、AssetHandle
       Config/             IConfigService；Generated/ 为 Luban 生成物
       Flow/               IGameFlow、GameState、内置 BootState / TitleState
-      UI/                 IUIService、UIView、UILayer
+      UI/                 IUIService、UIView、UILayer；`Views/` 下新增 `TranscriptView`（对白 / 演出共用的台词记录面板，Top 层）、`TranscriptLine`、`UIPointerHold`（指针按住检测）
       Audio/              IAudioService
       Save/               ISaveService、ISaveData
       Input/              IInputService、生成的 GameInput 包装类
@@ -212,7 +212,7 @@ public interface IUIService
 }
 ```
 
-四层 Canvas 各一个根节点，`Canvas Scaler` 按屏幕尺寸缩放并适配安全区。基准（用户 2026-09-26 定）：参考分辨率 1920×1080（16:9），`UIConfig.matchWidthOrHeight = 1` 按高度匹配——UI 在任何高度下比例不变，21:9 等宽屏横向扩展、两侧多看，不缩放 UI；最低支持 1280×720。Panel 层单栈：打开全屏 Panel 时隐藏其下的 Panel；Panel 栈里有任一全屏面板时整个 Hud 层也被盖住（`Canvas_Hud/SafeArea` 上的 CanvasGroup，alpha 0 且不吃点击），与沉浸模式、`SetLayerVisible` 互不干扰；面板淡出完成后恢复。整层开关 `SetLayerVisible` 切的是该层 Canvas；`IsLayerVisible` 只回读 `SetLayerVisible` 设过的值（`UIService` 自己记账，不读 `Canvas.enabled`），不受全屏遮盖与沉浸模式影响。对白 / 演出这类临时藏层的调用方在打开自己的面板之前先读它、收尾按读到的值恢复，嵌套（对白里插播演出）时不会把外层藏掉的层重新亮出来。Popup 层可叠加。预制体 Addressables key 等于类名。
+四层 Canvas 各一个根节点，`Canvas Scaler` 按屏幕尺寸缩放并适配安全区。基准（用户 2026-09-26 定）：参考分辨率 1920×1080（16:9），`UIConfig.matchWidthOrHeight = 1` 按高度匹配——UI 在任何高度下比例不变，21:9 等宽屏横向扩展、两侧多看，不缩放 UI；最低支持 1280×720。Panel 层单栈：打开全屏 Panel 时隐藏其下的 Panel；Panel 栈里有任一全屏面板时整个 Hud 层也被盖住（`Canvas_Hud/SafeArea` 上的 CanvasGroup，alpha 0 且不吃点击），与沉浸模式、`SetLayerVisible` 互不干扰；面板淡出完成后恢复。整层开关 `SetLayerVisible` 切的是该层 Canvas；`IsLayerVisible` 只回读 `SetLayerVisible` 设过的值（`UIService` 自己记账，不读 `Canvas.enabled`），不受全屏遮盖与沉浸模式影响。对白 / 演出这类临时藏层的调用方在打开自己的面板之前先读它、收尾按读到的值恢复，嵌套（对白里插播演出）时不会把外层藏掉的层重新亮出来。Popup 层可叠加。预制体 Addressables key 等于类名。Top 层除加载遮罩、网络转圈、调试台外，还放通用记录面板 `TranscriptView`（对白历史 / 演出 LOG 共用）：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白面板之上；它不进 UI 栈、不改 EventSystem 选中，Esc 与「关闭」都由调用方（`DialogueController` / `PerformanceService`）处理。
 
 过渡预设由 `UITransition` 枚举决定，默认 `Fade`（`UIView` 上的 `[SerializeField]` 字段，Inspector 里叫 Transition）。
 

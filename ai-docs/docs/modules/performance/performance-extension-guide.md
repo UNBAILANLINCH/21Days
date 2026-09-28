@@ -69,6 +69,7 @@ maturity: stable
   不要改 `PerformanceConfig`（那是全局默认值）。
 - 调字幕节奏：改 `PerformanceConfig` 三个字段——`subtitleCharactersPerSecond`（字/秒，**0 = 整句直出**）、
   `subtitlePunctuationPauseSeconds`（标点后停顿秒数）、`subtitlePunctuationChars`（哪些字符算标点）；这三项是全局默认，没有像四开关那样的单段覆盖。
+- 调「自动」继续间隔：改 `PerformanceConfig.autoAdvanceSeconds`（默认 1.5 秒，与对白的自动间隔语义一致；资产里填负数 / NaN / 无穷时按默认值兜底），同样是全局默认，没有单段覆盖。
 
 ## 依赖方向约束
 

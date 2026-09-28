@@ -1,8 +1,10 @@
 // 职责：演出管线的对外入口——按 id 实例化演出预制体、持世界时停令牌、切输入图、开演出面板、藏 HUD、
-//   把舞台相机叠到主相机上，每帧把确认 / 长按跳过喂给规则，结束后按「进来前的状态」逐项恢复、归还实例、记存档、广播事件。
+//   把舞台相机叠到主相机上，每帧把确认 / 长按跳过 / 自动 / 台词记录（LOG）喂给规则与面板，
+//   结束后按「进来前的状态」逐项恢复、归还实例、记存档、广播事件。
 // 为什么新建（复用 → 扩展 → 新建）：PerformanceRules 只管阶段语义、PerformanceStage 只管时间轴，二者都不该持有
 //   时停 / 输入图 / UI / 相机 / 存档这类会话级资源；DialogueService 是对白专用且 Performance 不得依赖 Dialogue，只能新建。
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -14,6 +16,7 @@ using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
+using Game.Core.UI.Views;
 using MessagePipe;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -40,6 +43,13 @@ namespace Game.Performance
     /// 剔除遮罩 = 主相机遮罩 + Performance 层，清屏 / 背景 / 后处理 / Volume 遮罩 / 渲染器从主相机拷贝，透视参数与位姿保留预制体里作者的值；
     /// 主相机保持 enabled（<c>Camera.main</c> 不能变空），只把剔除遮罩置 0 省一遍场景渲染，收尾（含跳过 / 取消 / 异常）恢复。
     /// UI 根画布是 Screen Space Overlay（UIService 建），不受相机深度影响。
+    /// </para>
+    /// <para>
+    /// 台词记录（LOG）：History 键 / 面板「LOG」按钮打开 Core 通用记录面板 <see cref="TranscriptView"/>（Top 层，压在演出面板之上），
+    /// 内容是本段演出已显示过的字幕，格式同对白历史。开着时时间轴暂停（停顿中本来就停着）、字幕不打字、不处理确认 / 自动 / 跳过键；
+    /// 再按 History、按 Esc（UI/Cancel）或点记录面板「关闭」关掉，规则仍是 Playing 才恢复时间轴。
+    /// 「自动」：Auto 键 / 面板「自动」按钮切换，停顿处字幕打完再等 <see cref="PerformancePolicy.AutoAdvanceSeconds"/> 按确认处理
+    /// （语义同对白，手动确认不关自动）。鼠标按住面板「跳过」等同长按跳过键。
     /// </para>
     /// </summary>
     public sealed class PerformanceService : IPerformanceService, IGameService
@@ -81,6 +91,8 @@ namespace Game.Performance
         // 代码请求（Confirm / Skip）只置标志，由播放循环在下一帧开头消费，与读动作走同一条处理函数，避免两处逻辑分叉。
         private bool pendingConfirm;
         private bool pendingSkip;
+        // 本段演出已显示过的字幕（台词记录的内容）：每次播放开始清空，面板每显示一句追加一条。
+        private readonly List<TranscriptLine> transcriptLines = new List<TranscriptLine>();
 
         public PerformanceService(PerformanceConfig config, PerformanceRules rules, IAssetService assets, IUIService ui,
             IInputService input, IWorldPauseService worldPause, ISaveService save,
@@ -114,6 +126,7 @@ namespace Game.Performance
         /// <summary>
         /// 代码确认：只在停顿（Holding）时置确认请求，下一帧继续时间轴；其余时候无事。
         /// 与玩家点击 / 按确认键不同：玩家输入在字幕逐字显示中会先整句补全，本方法不补全、也不因打字而被吞掉。
+        /// 台词记录（LOG）开着时请求被丢弃（开着期间一切推进都冻结）；代码 <see cref="Skip"/> 不受 LOG 影响。
         /// </summary>
         public void Confirm()
         {
@@ -244,10 +257,22 @@ namespace Game.Performance
             bool finishedPending = false;
             Action onHold = () => holdPending = true;
             Action onFinished = () => finishedPending = true;
+            // 台词记录（LOG）：logOpen 在 await 打开之前就置上（面板加载 / 淡入期间也按「开着」冻结），transcript 是打开后的面板。
+            bool logOpen = false;
+            TranscriptView transcript = null;
             // 面板点击与 Advance 键共用 HandlePlayerAdvance：打字中 = 整句补全；否则走 Confirm()（只在 Holding 时置确认请求，
-            // 循环里经 HandleConfirm 继续）；非打字、非停顿期间点击无事，不触发跳过。view 打开后才赋值。
+            // 循环里经 HandleConfirm 继续）；非打字、非停顿期间点击无事，不触发跳过；LOG 开着时不处理。view 打开后才赋值。
             Action onTap = null;
+            // 面板「自动」「LOG」按钮与记录面板「关闭」只置标志，由播放循环在下一帧与对应按键走同一条处理。
+            bool autoClicked = false;
+            bool logClicked = false;
+            bool logDismissed = false;
+            Action onAuto = () => autoClicked = true;
+            Action onHistory = () => logClicked = true;
+            Action onLogDismiss = () => logDismissed = true;
+            Action<string, string> onSubtitle = (speaker, text) => transcriptLines.Add(new TranscriptLine(speaker, text));
             bool subscribed = false;
+            transcriptLines.Clear();
             try
             {
                 if (hasInput)
@@ -266,11 +291,19 @@ namespace Game.Performance
 
                 var args = new PerformanceViewArgs(policy, BuildSkipHint(actions), config.LetterboxHeight,
                     config.FadeSeconds, config.HoldPromptText, config.SubtitleCharactersPerSecond,
-                    config.SubtitlePunctuationPauseSeconds, config.SubtitlePunctuationChars);
+                    config.SubtitlePunctuationPauseSeconds, config.SubtitlePunctuationChars,
+                    hasInput ? KeyboardHint(actions.Dialogue.Auto) : string.Empty,
+                    hasInput ? KeyboardHint(actions.Dialogue.History) : string.Empty);
                 view = await ui.OpenAsync<PerformanceView>(args, ct);
                 PerformanceView openedView = view;
-                onTap = () => HandlePlayerAdvance(openedView);
+                onTap = () =>
+                {
+                    if (!logOpen) HandlePlayerAdvance(openedView);
+                };
                 view.OnTap += onTap;
+                view.OnAuto += onAuto;
+                view.OnHistory += onHistory;
+                view.OnSubtitleShown += onSubtitle;
                 if (policy.HideHud)
                 {
                     // 隐藏 HUD 层与弹窗层：对白框（DialogueView）在弹窗层，Panel 层的演出面板盖不住它，对白里插播时要一起藏。
@@ -292,8 +325,8 @@ namespace Game.Performance
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     float dt = Time.unscaledDeltaTime;
                     rules.Tick(dt);
-                    // 字幕逐字与规则同一个 unscaled dt；停顿期间也推进，停下时正在打的字继续打完。
-                    view.TickTyping(dt);
+                    // 字幕逐字与规则同一个 unscaled dt；停顿期间也推进，停下时正在打的字继续打完；LOG 开着时不打字。
+                    if (!logOpen) view.TickTyping(dt);
 
                     if (finishedPending)
                     {
@@ -311,6 +344,58 @@ namespace Game.Performance
                             break;
                         }
                     }
+
+                    // 台词记录（LOG）：History 键 / 「LOG」按钮切换；开着时 Esc（UI/Cancel）与记录面板的「关闭」也能关。
+                    bool toggleLog = logClicked || (hasInput && actions.Dialogue.History.WasPressedThisFrame()); // lint-ok: 演出表现层读动作，不进确定性模拟
+                    bool closeLog = logDismissed || (logOpen && hasInput && actions.UI.Cancel.WasPressedThisFrame()); // lint-ok: 演出表现层读动作，不进确定性模拟
+                    logClicked = false;
+                    logDismissed = false;
+                    if (logOpen && (toggleLog || closeLog))
+                    {
+                        // 关：先退订、再 await 关面板，最后规则仍是 Playing 才恢复时间轴（停顿中保持停着等确认）。
+                        TranscriptView closing = transcript;
+                        transcript = null;
+                        if (closing != null) closing.OnDismiss -= onLogDismiss;
+                        await CloseViewAsync(closing, id, "transcript_close_failed");
+                        logOpen = false;
+                        if (rules.Phase == PerformancePhase.Playing) stage.Resume();
+                    }
+                    else if (!logOpen && toggleLog)
+                    {
+                        // 开：先置「开着」、先停时间轴，再 await 开面板——加载 / 淡入期间时间轴不走、按键不处理。
+                        logOpen = true;
+                        if (rules.Phase == PerformancePhase.Playing) stage.Pause();
+                        transcript = await OpenTranscriptAsync(id);
+                        if (transcript != null)
+                        {
+                            transcript.OnDismiss += onLogDismiss;
+                            transcript.Show(transcriptLines, false);
+                        }
+                        else
+                        {
+                            logOpen = false;
+                            if (rules.Phase == PerformancePhase.Playing) stage.Resume();
+                        }
+                    }
+                    if (logOpen)
+                    {
+                        // LOG 开着：不确认、不自动、不处理跳过键（进度清零）。新到的停顿照常记下——时间轴可能在暂停前刚走到标记，
+                        // 不记的话关 LOG 时会按 Playing 恢复时间轴、把这个停顿跳过去。
+                        pendingConfirm = false;
+                        autoClicked = false;
+                        if (holdPending)
+                        {
+                            holdPending = false;
+                            if (rules.EnterHold()) view.SetHoldPromptVisible(true);
+                        }
+                        if (policy.Skippable)
+                        {
+                            rules.TickSkip(false, dt);
+                            view.SetSkipProgress(rules.SkipProgress);
+                        }
+                        continue;
+                    }
+
                     // 先处理本帧的确认、再处理新到的停顿：停顿出现的同一帧按下的键不算确认，免得玩家看不到 ▼ 就被带过去。
                     // Advance 键与面板点击同一条：打字中只补全，不同时继续（一次按键只消费一次）。
                     if (hasInput && actions.Dialogue.Advance.WasPressedThisFrame()) // lint-ok: 演出表现层读动作，不进确定性模拟
@@ -323,9 +408,15 @@ namespace Game.Performance
                         holdPending = false;
                         if (rules.EnterHold()) view.SetHoldPromptVisible(true);
                     }
+                    // 自动：Auto 键 / 「自动」按钮切换（手动确认不关自动）；开着时停顿处字幕打完再等 AutoAdvanceSeconds，按确认处理。
+                    bool toggleAuto = autoClicked || (hasInput && actions.Dialogue.Auto.WasPressedThisFrame()); // lint-ok: 演出表现层读动作，不进确定性模拟
+                    autoClicked = false;
+                    if (toggleAuto && rules.ToggleAuto()) view.SetAuto(rules.AutoPlay);
+                    if (rules.TickAuto(dt, view.IsTyping)) HandleConfirm(stage, view);
                     if (policy.Skippable)
                     {
-                        bool held = hasInput && actions.Dialogue.Skip.IsPressed(); // lint-ok: 演出表现层读动作，不进确定性模拟
+                        // 按住跳过键，或鼠标按住面板「跳过」，都算按着。
+                        bool held = (hasInput && actions.Dialogue.Skip.IsPressed()) || view.SkipPointerHeld; // lint-ok: 演出表现层读动作，不进确定性模拟
                         bool fired = rules.TickSkip(held, dt);
                         view.SetSkipProgress(rules.SkipProgress);
                         if (fired) HandleSkipped(stage, view);
@@ -346,7 +437,7 @@ namespace Game.Performance
             }
             finally
             {
-                // 正常结束、取消、异常都走这里；顺序：先摘回调再停时间轴（Stop 会触发 stopped），再拆相机、关面板、恢复 HUD / 输入 / 时停。
+                // 正常结束、取消、异常都走这里；顺序：先摘回调再停时间轴（Stop 会触发 stopped），再拆相机、关台词记录与面板、恢复 HUD / 输入 / 时停。
                 if (subscribed)
                 {
                     stage.OnHold -= onHold;
@@ -359,10 +450,21 @@ namespace Game.Performance
                     stage.Stop();
                 }
                 DetachCamera(ref camera);
+                // LOG 还开着（播完 / 跳过 / 取消 / 异常）一并关掉：它在 Top 层，不关会压在回到探索的画面上。
+                if (transcript != null)
+                {
+                    transcript.OnDismiss -= onLogDismiss;
+                    await CloseViewAsync(transcript, id, "transcript_close_failed");
+                    transcript = null;
+                }
+                logOpen = false;
                 if (view != null)
                 {
                     if (onTap != null) view.OnTap -= onTap;
-                    await CloseViewAsync(view, id);
+                    view.OnAuto -= onAuto;
+                    view.OnHistory -= onHistory;
+                    view.OnSubtitleShown -= onSubtitle;
+                    await CloseViewAsync(view, id, "view_close_failed");
                 }
                 pendingConfirm = false;
                 pendingSkip = false;
@@ -408,17 +510,36 @@ namespace Game.Performance
             stage.Stop();
         }
 
-        private async UniTask CloseViewAsync(PerformanceView view, string id)
+        // 关面板（演出面板 / 台词记录）：失败只记错误与埋点（failedEvent），不打断收尾。
+        private async UniTask CloseViewAsync(UIView view, string id, string failedEvent)
         {
+            // UIView 是 UnityEngine.Object，判空只用 == null。
+            if (view == null) return;
             try
             {
-                // 收尾不跟随调用方的 ct：取消后面板也必须关掉。
+                // 不跟随调用方的 ct：取消后面板也必须关掉。
                 await ui.CloseAsync(view, CancellationToken.None);
             }
             catch (Exception e)
             {
-                telemetry.TrackError("view_close_failed", e, TelemetryProps.Of(("id", id)));
-                Log.Error($"PerformanceService：关闭演出面板失败（{id}）：{e.Message}");
+                telemetry.TrackError(failedEvent, e, TelemetryProps.Of(("id", id)));
+                Log.Error($"PerformanceService：关闭 {view.GetType().Name} 失败（{id}）：{e.Message}");
+            }
+        }
+
+        // 开台词记录（Top 层，压在演出面板之上）。不跟随调用方的 ct：打开途中被取消会留下没人关的面板；打开只是一次淡入，
+        // 开完后下一帧的 Yield 自然抛取消，由 finally 关掉。打开失败只记错误与埋点并返回 null，演出照常继续。
+        private async UniTask<TranscriptView> OpenTranscriptAsync(string id)
+        {
+            try
+            {
+                return await ui.OpenAsync<TranscriptView>(ct: CancellationToken.None);
+            }
+            catch (Exception e)
+            {
+                telemetry.TrackError("transcript_open_failed", e, TelemetryProps.Of(("id", id)));
+                Log.Error($"PerformanceService：打开台词记录失败（{id}）：{e.Message}");
+                return null;
             }
         }
 

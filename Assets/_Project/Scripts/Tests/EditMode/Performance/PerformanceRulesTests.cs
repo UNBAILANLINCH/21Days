@@ -1,4 +1,5 @@
-// 职责：钉住 PerformanceRules 的阶段机——阶段迁移、只在 Holding 能确认、长按累计与松手归零、不可跳过、重入、结果归类、计时。
+// 职责：钉住 PerformanceRules 的阶段机——阶段迁移、只在 Holding 能确认、长按累计与松手归零、不可跳过、重入、结果归类、计时；
+//   「自动」：切换只在活动阶段生效、打字中不计时、到秒数只触发一次、离开 Holding 清零、Start 复位、手动确认不关自动。
 // 为什么新建：Performance 模块首次落地（PRP/performance-pipeline 波 1），一个被测类一个测试类。
 using System;
 using Game.Core.Telemetry;
@@ -15,8 +16,16 @@ namespace Game.Tests.EditMode.Performance
         [SetUp]
         public void SetUp() => rules = new PerformanceRules(NullTelemetryScope.Instance);
 
-        private static PerformancePolicy Policy(bool skippable = true, float holdSeconds = 1f) =>
-            new PerformancePolicy(skippable, holdSeconds, true, true, true);
+        private static PerformancePolicy Policy(bool skippable = true, float holdSeconds = 1f, float autoSeconds = 1f) =>
+            new PerformancePolicy(skippable, holdSeconds, true, true, true, autoSeconds);
+
+        // 进停顿并开自动：自动计时的前置状态。
+        private void HoldWithAuto(float autoSeconds = 1f)
+        {
+            rules.Start(Id, Policy(autoSeconds: autoSeconds));
+            rules.EnterHold();
+            rules.ToggleAuto();
+        }
 
         [Test]
         public void New_IsIdleWithoutOutcome()
@@ -305,6 +314,108 @@ namespace Game.Tests.EditMode.Performance
             rules.TickSkip(true, 1f);
 
             Assert.That(rules.ElapsedSeconds, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void ToggleAuto_WhileActive_FlipsAutoPlay()
+        {
+            rules.Start(Id, Policy());
+            Assert.That(rules.AutoPlay, Is.False, "开演时自动默认关");
+
+            Assert.That(rules.ToggleAuto(), Is.True);
+            Assert.That(rules.AutoPlay, Is.True);
+            rules.EnterHold();
+            Assert.That(rules.ToggleAuto(), Is.True, "停顿中也能切换");
+            Assert.That(rules.AutoPlay, Is.False);
+        }
+
+        [Test]
+        public void ToggleAuto_WhenIdleOrFinished_ReturnsFalseAndStaysOff()
+        {
+            Assert.That(rules.ToggleAuto(), Is.False);
+            Assert.That(rules.AutoPlay, Is.False);
+
+            rules.Start(Id, Policy());
+            rules.Complete();
+            Assert.That(rules.ToggleAuto(), Is.False);
+            Assert.That(rules.AutoPlay, Is.False);
+        }
+
+        [Test]
+        public void TickAuto_WhileTyping_DoesNotAccumulate()
+        {
+            HoldWithAuto(autoSeconds: 1f);
+
+            Assert.That(rules.TickAuto(0.9f, true), Is.False);
+            Assert.That(rules.TickAuto(0.9f, true), Is.False, "打字中不计时，1.8 秒也不触发");
+            Assert.That(rules.TickAuto(0.5f, false), Is.False, "打完后从 0 开始计");
+            Assert.That(rules.TickAuto(0.5f, false), Is.True);
+        }
+
+        [Test]
+        public void TickAuto_ReachesSeconds_FiresOnceThenRestarts()
+        {
+            HoldWithAuto(autoSeconds: 1f);
+
+            Assert.That(rules.TickAuto(0.6f, false), Is.False);
+            Assert.That(rules.TickAuto(0.6f, false), Is.True, "累计 1.2 秒 ≥ 1 秒触发");
+            Assert.That(rules.TickAuto(0.1f, false), Is.False, "触发后清零，不连发");
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Holding), "TickAuto 只报时，不改阶段（由服务按确认处理）");
+        }
+
+        [Test]
+        public void TickAuto_LeavingHolding_ResetsTimer()
+        {
+            HoldWithAuto(autoSeconds: 1f);
+            rules.TickAuto(0.9f, false);
+
+            rules.Confirm();
+            Assert.That(rules.TickAuto(0.9f, false), Is.False, "Playing 中不计时");
+            rules.EnterHold();
+            Assert.That(rules.TickAuto(0.9f, false), Is.False, "上一段的 0.9 秒已清零");
+            Assert.That(rules.TickAuto(0.2f, false), Is.True);
+        }
+
+        [Test]
+        public void TickAuto_AutoOff_NeverFires()
+        {
+            rules.Start(Id, Policy(autoSeconds: 0f));
+            rules.EnterHold();
+
+            for (int i = 0; i < 5; i++) Assert.That(rules.TickAuto(10f, false), Is.False);
+        }
+
+        [Test]
+        public void TickAuto_ZeroSeconds_FiresOnFirstTickAfterTyping()
+        {
+            HoldWithAuto(autoSeconds: 0f);
+
+            Assert.That(rules.TickAuto(0f, true), Is.False, "打字中即使间隔为 0 也不触发");
+            Assert.That(rules.TickAuto(0f, false), Is.True);
+        }
+
+        [Test]
+        public void Confirm_WithAutoOn_KeepsAutoOn()
+        {
+            HoldWithAuto();
+
+            rules.Confirm();
+
+            Assert.That(rules.AutoPlay, Is.True, "手动确认不关自动（同对白）");
+        }
+
+        [Test]
+        public void Start_AfterAutoOn_ResetsAutoToOff()
+        {
+            HoldWithAuto();
+            rules.TickAuto(0.9f, false);
+            rules.Complete();
+
+            rules.Start("perf_next", Policy());
+
+            Assert.That(rules.AutoPlay, Is.False, "每段演出开始时自动复位为关");
+            rules.EnterHold();
+            Assert.That(rules.TickAuto(5f, false), Is.False, "自动关着不计时");
         }
 
         [TestCase(PerformanceOutcome.Completed, "completed")]

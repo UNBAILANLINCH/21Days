@@ -4,7 +4,8 @@
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— PerformanceShowcase 停在标题、把 SampleScene 叠加加载，不走「开始」进场的真实流程（玩家规则、存档、相机接管都不齐）；
 //   扩展 —— 往它里面加用例要改 ScenePath，四条旧用例会跟着换场景，职责说不通。进场方式照抄 ExplorationShowcase（sealed，不能继承）。
-// 确认 / 跳过走 IPerformanceService.Confirm() / Skip()（等价玩家按确认 / 长按满），不读输入。
+// 确认 / 跳过走 IPerformanceService.Confirm() / Skip()（等价玩家按确认 / 长按满），不读输入；
+//   LOG / 自动点演出面板上的 HistoryButton / AutoButton，台词记录（TranscriptView，Top 层）点它的 CloseButton 关。
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -146,6 +147,21 @@ namespace Game.Tests.Showcase.Performance
             yield return Wait(0.6f);
             yield return Snapshot("01-第一句·阿米娅");
 
+            // LOG：第一句停顿时点左上「LOG」，台词记录（Top 层）压在演出之上、时间轴不走；关掉后照常确认继续。
+            yield return Check("时间轴走到第一句停顿", () => rules != null && rules.Phase == PerformancePhase.Holding, LineTimeoutSeconds);
+            yield return Step("点左上「LOG」打开台词记录", () => RequireViewButton("HistoryButton").onClick.Invoke());
+            yield return Check("台词记录（TranscriptView）已打开，内容含「阿米娅：」", () => TranscriptText().Contains("阿米娅："), 3f);
+            double directorTimeAtLog = DirectorTime();
+            yield return Step("LOG 开着静置 0.5 秒（真实时间）", null, 0f);
+            yield return new WaitForSecondsRealtime(0.5f);
+            yield return Check("LOG 开着 0.5 秒：导演时间没走、演出仍停在停顿",
+                () => directorTimeAtLog >= 0d && Math.Abs(DirectorTime() - directorTimeAtLog) < 1e-4
+                      && performance.IsRunning && rules.Phase == PerformancePhase.Holding);
+            yield return Snapshot("LOG·演出");
+            yield return Step("点台词记录的「关闭」", () => RequireTranscriptClose().onClick.Invoke());
+            yield return Check("台词记录已关闭，演出仍停在停顿等确认",
+                () => ui.Get<TranscriptView>() == null && rules.Phase == PerformancePhase.Holding, 3f);
+
             yield return ConfirmAtHold();
             yield return Check("第二句：说话者「陈」、头像在右侧", () => SpeakerText() == "陈" && AvatarShownOn(true), LineTimeoutSeconds);
             yield return Wait(0.4f);
@@ -156,14 +172,14 @@ namespace Game.Tests.Showcase.Performance
             yield return Wait(0.4f);
             yield return Snapshot("03-第三句·德克萨斯");
 
-            // 余下第三～六句的四个停顿逐个确认，最后一个确认后时间轴走完收尾。
-            yield return ConfirmAtHold();
-            yield return ConfirmAtHold();
-            yield return ConfirmAtHold();
-            yield return ConfirmAtHold();
-
-            yield return Check("演出正常播完：结果 Completed",
-                () => !performance.IsRunning && rules != null && rules.Outcome == PerformanceOutcome.Completed, 5f);
+            // 自动：点右上「自动」后不再确认，余下第三～六句的四个停顿都是字打完再等自动间隔（默认 1.5 秒）自己继续，直到时间轴走完。
+            yield return Step("点右上「自动」", () => RequireViewButton("AutoButton").onClick.Invoke());
+            yield return Check("「自动」标签变为「自动中」", () => AutoLabelText() == "自动中", 2f);
+            yield return Snapshot("自动中·演出");
+            // 四句 × (4 秒片段 + 0.3 秒间隔 + 字打完后 1.5 秒自动间隔) ≈ 23 秒，超时给足 60 秒。
+            yield return Check("不再确认：演出自己逐句走完，结果 Completed、六个停顿全部走过",
+                () => !performance.IsRunning && rules != null && rules.Outcome == PerformanceOutcome.Completed
+                      && rules.HoldCount == 6, 60f);
             yield return CheckRestored();
             yield return Wait(0.5f);
             yield return Snapshot("04-结束·回到探索");
@@ -459,6 +475,55 @@ namespace Game.Tests.Showcase.Performance
             }
 
             return null;
+        }
+
+        /// <summary>演出面板下按物体名取按钮；面板没开或找不到就抛异常，让 Step 记失败。</summary>
+        private Button RequireViewButton(string objectName)
+        {
+            Button button = FindInView<Button>(objectName);
+            if (button == null)
+            {
+                throw new InvalidOperationException($"演出面板下找不到按钮「{objectName}」（面板没开，或预制体物体名不一致）");
+            }
+
+            return button;
+        }
+
+        /// <summary>「自动」按钮主标签文字（AutoButton/Label）；找不到返回 null。Label 重名，所以先定位按钮再找子物体。</summary>
+        private string AutoLabelText()
+        {
+            Button auto = FindInView<Button>("AutoButton");
+            Transform label = auto == null ? null : auto.transform.Find("Label");
+            TMP_Text text = label == null ? null : label.GetComponent<TMP_Text>();
+            return text == null ? null : text.text;
+        }
+
+        /// <summary>台词记录（TranscriptView，Top 层）的正文；没开返回空串。</summary>
+        private string TranscriptText()
+        {
+            TranscriptView transcript = ui == null ? null : ui.Get<TranscriptView>();
+            TMP_Text content = transcript == null ? null : FindDeep<TMP_Text>(transcript.transform, "Content");
+            return content == null ? string.Empty : content.text;
+        }
+
+        /// <summary>台词记录的「关闭」按钮；没开或找不到就抛异常，让 Step 记失败。</summary>
+        private Button RequireTranscriptClose()
+        {
+            TranscriptView transcript = ui == null ? null : ui.Get<TranscriptView>();
+            Button close = transcript == null ? null : FindDeep<Button>(transcript.transform, "CloseButton");
+            if (close == null)
+            {
+                throw new InvalidOperationException("台词记录没开，或找不到「CloseButton」");
+            }
+
+            return close;
+        }
+
+        /// <summary>演出时间轴当前时间（秒）；没有演出实例返回 -1。</summary>
+        private static double DirectorTime()
+        {
+            PerformanceStage stage = Stage();
+            return stage == null || stage.Director == null ? -1d : stage.Director.time;
         }
 
         private static Button RequireTitleStart(TitleView title)

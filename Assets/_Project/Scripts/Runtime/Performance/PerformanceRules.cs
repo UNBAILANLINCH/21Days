@@ -1,4 +1,4 @@
-// 职责：演出的纯规则阶段机——Idle → Playing ⇄ Holding → Finished；停顿确认、长按跳过计时、结果归类、播放计时与状态迁移埋点。
+// 职责：演出的纯规则阶段机——Idle → Playing ⇄ Holding → Finished；停顿确认、长按跳过计时、「自动」继续计时、结果归类、播放计时与状态迁移埋点。
 // 为什么新建（复用 → 扩展 → 新建）：PerformanceService 要接资源 / UI / 输入 / 相机，把阶段语义抽成不引 UnityEngine 的纯 C#
 //   才能脱离容器单测（同 DialogueRules / LootRules 的分法）；DialogueRules 是对白推进机，语义不同且 Performance 不得依赖 Dialogue。
 using System;
@@ -13,7 +13,11 @@ namespace Game.Performance
     /// <see cref="TickSkip"/> 只管长按进度，不累计播放时长——不可跳过的演出不调它，时长照样要算。
     /// </para>
     /// <para>
-    /// 埋点（模块 performance，状态迁移尺子）：started、hold_entered、hold_confirmed、skipped、ended；每帧的 Tick / TickSkip 不埋。
+    /// 「自动」（语义同对白）：<see cref="ToggleAuto"/> 是唯一开关，玩家手动确认不会关掉它；开着时 <see cref="TickAuto"/>
+    /// 只在停顿中、当前句字幕已打完时累计，满 <see cref="PerformancePolicy.AutoAdvanceSeconds"/> 返回 true 由服务按确认处理。每段演出开始复位为关。
+    /// </para>
+    /// <para>
+    /// 埋点（模块 performance，状态迁移尺子）：started、hold_entered、hold_confirmed、auto_toggled、skipped、ended；每帧的 Tick / TickSkip / TickAuto 不埋。
     /// </para>
     /// </summary>
     public sealed class PerformanceRules
@@ -27,6 +31,7 @@ namespace Game.Performance
         private readonly ITelemetryScope telemetry;
         private PerformancePolicy policy;
         private float skipHeldSeconds;
+        private float autoElapsed;
 
         public PerformanceRules(ITelemetryScope telemetry)
         {
@@ -65,6 +70,9 @@ namespace Game.Performance
         /// <summary>是否在 Playing / Holding。</summary>
         public bool IsActive => Phase == PerformancePhase.Playing || Phase == PerformancePhase.Holding;
 
+        /// <summary>「自动」是否开着。每段演出 <see cref="Start"/> 时复位为关；只有 <see cref="ToggleAuto"/> 能改它。</summary>
+        public bool AutoPlay { get; private set; }
+
         /// <summary>开始一段演出：Idle / Finished → Playing，清零计数。</summary>
         /// <exception cref="ArgumentException"><paramref name="id"/> 为空，或 <paramref name="policy"/> 是未经构造的 default 值。</exception>
         /// <exception cref="InvalidOperationException">已有演出在 Playing / Holding。</exception>
@@ -81,6 +89,8 @@ namespace Game.Performance
             HoldCount = 0;
             ElapsedSeconds = 0f;
             skipHeldSeconds = 0f;
+            AutoPlay = false;
+            autoElapsed = 0f;
             telemetry.Track("started", ("id", id), ("skippable", policy.Skippable));
         }
 
@@ -124,6 +134,37 @@ namespace Game.Performance
             if (unscaledDelta > 0f) skipHeldSeconds += unscaledDelta;
             if (skipHeldSeconds < policy.SkipHoldSeconds) return false;
             Finish(PerformanceOutcome.Skipped, SkipSourceHold);
+            return true;
+        }
+
+        /// <summary>
+        /// 切换「自动」（玩家按 Auto 键 / 点「自动」）：只在 Playing / Holding 生效，否则返回 false、不改状态。
+        /// 切换时自动计时清零；埋 auto_toggled(id, on)。
+        /// </summary>
+        public bool ToggleAuto()
+        {
+            if (!IsActive) return false;
+            AutoPlay = !AutoPlay;
+            autoElapsed = 0f;
+            telemetry.Track("auto_toggled", ("id", Id), ("on", AutoPlay));
+            return true;
+        }
+
+        /// <summary>
+        /// 自动继续计时（服务每帧调，unscaled Δt）。只在 Holding、<see cref="AutoPlay"/> 开着、当前句字幕不在逐字显示
+        /// （<paramref name="typing"/> 为 false）时累计；累计达到 <see cref="PerformancePolicy.AutoAdvanceSeconds"/> 返回 true 并清零
+        /// （调用方按确认处理）；其余情况计时清零并返回 false。
+        /// </summary>
+        public bool TickAuto(float unscaledDelta, bool typing)
+        {
+            if (Phase != PerformancePhase.Holding || !AutoPlay || typing)
+            {
+                autoElapsed = 0f;
+                return false;
+            }
+            if (unscaledDelta > 0f) autoElapsed += unscaledDelta;
+            if (autoElapsed < policy.AutoAdvanceSeconds) return false;
+            autoElapsed = 0f;
             return true;
         }
 

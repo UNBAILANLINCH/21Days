@@ -460,3 +460,15 @@
 - 根因：Unity 编辑器状态（当前场景、EditorPrefs、Play 状态、选中物体）是单例全局的，MCP 谁都能改，没有隔离；agent 只顾自己的任务，不知道别人在用。
 - 正确做法：用 MCP 改场景前先 `manage_scene get_hierarchy` / 读 `mcpforunity://editor/state` 记下当前打开的场景，改完存盘后切回去；改 EditorPrefs 这类全局设置（回放节奏）先读旧值，跑完还原；派单 prompt 里明确写「共用编辑器，跑完还原场景与节奏」。看到别人的场景在 Play 就等，不抢。
 - 关联：`.claude/skills/unity-mcp/SKILL.md #改场景 / 预制体的纪律`、`.claude/skills/verify-module/SKILL.md`、记忆 `shared-worktree-commit-discipline`；2026-09-28。
+
+## EditMode 测试里 `Time.unscaledDeltaTime` 不是每次循环的真实墙钟间隔，不能拿它断言「过了多少秒」
+- 现象：给演出「自动继续」（`PerformanceRules.TickAuto`）写 EditMode 测试，想用循环调用 `Tick` 的次数乘 `Time.unscaledDeltaTime` 来断言「过了 N 秒该怎样」，结果同一段 14 ms 墙钟内单次循环量到的 `unscaledDeltaTime` 有时会累计超过 1 秒，断言时灵时不灵。
+- 根因：EditMode 下播放循环不是固定帧率驱动，编辑器繁忙（导入、编译、别的会话在操作）时会把好几帧的间隔压缩成一次很大的 `unscaledDeltaTime`；它反映的是「距上次编辑器循环过了多久」，不是稳定的渲染帧间隔，靠它反推「真实经过了多少秒」并不可靠。
+- 正确做法：「满多少秒触发」这类语义放纯 C# 规则测试里，直接构造固定的 `dt` 值喂给 `TickAuto` / `Tick` 钉住边界（累计到秒数前不触发、到了触发一次、之后按新一轮重新计），不依赖真实循环次数反推秒数；只有「服务这条线接没接上」这种接线测试才允许用真实循环等待，且要按墙钟时间设超时（见下一条）。
+- 关联：`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceRulesTests.cs`（`TickAuto_*` 系列，纯 C# 钉边界）、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:289`–`290`；2026-09-28 演出 LOG / 自动那轮。
+
+## UniTask 的编辑器 PlayerLoop 在 `EditorApplication.isUpdating` 时停摆，EditMode 用例按帧数等待会误报超时
+- 现象：`PerformanceServiceWorldTests` 里等演出收尾的用例，全量跑测试套件时偶发超时，单独跑这条用例却总是通过。
+- 根因：UniTask 的编辑器循环在 `EditorApplication.isPlayingOrWillChangePlaymode || isCompiling || isUpdating` 时整帧跳过（`PlayerLoopHelper.cs:339`）；共用编辑器时别的会话在导入资产 / 编译，`isUpdating` 会为 true 一段时间，这段时间里 `await UniTask.Yield` 根本不推进，「等 N 帧」的循环会把预算的帧数在停摆期间耗光，还没等到条件成立就报超时。
+- 正确做法：EditMode 里等异步任务收尾一律按墙钟时间等待（`Time.realtimeSinceStartup` 起点 + 固定秒数上限，如 10 秒），不要按帧数上限；帧数上限只在能保证编辑器不会被别的会话打断时才可靠。
+- 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:493`–`499`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。

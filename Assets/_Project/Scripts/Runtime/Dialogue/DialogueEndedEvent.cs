@@ -4,15 +4,18 @@ namespace Game.Dialogue
 {
     public readonly struct DialogueEndedEvent
     {
-        public DialogueEndedEvent(int dialogueId, string outcome, bool skipped)
+        public DialogueEndedEvent(int dialogueId, string outcome, bool skipped, bool completed)
         {
             DialogueId = dialogueId;
             Outcome = outcome ?? string.Empty;
             Skipped = skipped;
+            Completed = completed;
         }
 
         public int DialogueId { get; }
         public string Outcome { get; }
         public bool Skipped { get; }
+        /// <summary>正常抵达出口（含跳过）为 true；取消或失败为 false。不能用 Outcome 判定。</summary>
+        public bool Completed { get; }
     }
 }

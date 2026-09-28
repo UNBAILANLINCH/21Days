@@ -123,6 +123,9 @@ namespace Game.Tests.EditMode.Dialogue
         [Test]
         public void PlayAsync_WhileRunning_HidesHudLayerOnly_AndRestoresVisibleAfterEnd()
         {
+            DialogueEndedEvent ended = default;
+            int endedCount = 0;
+            service.OnEnded += e => { ended = e; endedCount++; };
             ui.Mode = FakeUIService.OpenMode.Pending;
             using var cts = new CancellationTokenSource();
 
@@ -134,6 +137,8 @@ namespace Game.Tests.EditMode.Dialogue
             cts.Cancel();
             Assert.That(Capture(play), Is.InstanceOf<OperationCanceledException>());
             Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.True, "进来前可见 → 结束后恢复可见");
+            Assert.That(endedCount, Is.EqualTo(1));
+            Assert.That(ended.Completed, Is.False, "取消仍发清理通知，但不能推进任务");
         }
 
         [Test]
@@ -217,6 +222,7 @@ namespace Game.Tests.EditMode.Dialogue
             Assert.That(endedCount, Is.EqualTo(1));
             Assert.That(ended.DialogueId, Is.EqualTo(KnownId));
             Assert.That(ended.Outcome, Is.Empty);
+            Assert.That(ended.Completed, Is.False);
         }
 
         // 观察一个已完成的 UniTask：返回它抛出的异常（成功返回 null）。未完成视为用例失败——假服务都应同步结束。

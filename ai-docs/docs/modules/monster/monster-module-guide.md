@@ -66,6 +66,7 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 随机停步区间使用 `logic.monster.patrol` 专用确定性随机流，当前抽整数秒 7、8、9、10。
 停步时长 2 秒；巡逻速度 2 单位/秒，警戒与敌对速度倍率 1.1、1.25。
 Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 1 秒。
+玩家 `Health` 因此归零时，若 `Mirror` 模块已接线，会弹出镜碎页并调 `EncounterStep.End()` 结束本场遭遇、重进场景，而不是让双方停在原地，见 [`mirror-module-guide.md`](../mirror/mirror-module-guide.md)。
 工作簿未规定攻击冷却；它是待试玩校准的原型值。
 全部数值集中在 `MonsterConfig`，不要在视图或场景脚本中复制一份。
 修改敌人血量：选中 `Assets/_Project/Data/Monster/MonsterConfig.asset`，修改 Inspector 的 `Max Health`，重新开始场景后生效。
@@ -188,7 +189,8 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 （`y = Screen.height − 56 − 28 − 28 − 24`）。挪到左下角是为了把右上角一列让给
 `Game.IsometricExploration` 的沉浸 / 重置按钮（见 `isometricexploration-module-guide.md` 的
 「探索 HUD 与沉浸模式」）。`Time.timeScale <= 0f`（对白 / 面板暂停期间）整块不画，避免压在对话框
-或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。
+或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。玩家状态行已按 Mirror 的 V8 验收去掉生命数字，只显示潜行 / 伪装
+（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）；怪物状态行仍保留生命数字（调试用）。
 
 `PlayerScenePosition`（`EncounterSceneView.cs:84`）暴露玩家纸片贴地后的场景坐标（插值后的渲染位置，
 正式流程下最多落后逻辑位置一个 tick），供 Showcase 与跨模块只读取用，不需要碰视图私有字段。

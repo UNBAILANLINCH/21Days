@@ -1,0 +1,13 @@
+{
+    "id": 2,
+    "disguise_name": "井边妇人",
+    "true_name": "井边妇人（占位真形）",
+    "true_desc": "占位描述：终日守在井边的妇人，镜中只剩一团蠕动的石虫。",
+    "true_image": "yao_true_slime",
+    "flaw": "占位破绽：打上来的井水从不见她喝。",
+    "obsession": "占位执念：等一个不会再回来的人。",
+    "clan": "占位族属",
+    "clue_items": [1005],
+    "sealable": true,
+    "mask": true
+}

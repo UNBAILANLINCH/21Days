@@ -4,12 +4,16 @@
 // 本次重写理由：原版不加载 Boot，自己 new PlayerRules / MonsterRules + 默认值 ScriptableObject、代码生成占位图，
 //   与 demo 场景内容脱节（看不到 SampleScene 里的纸片、镜头、碰撞），验的是 PlayerConfig 默认值而不是场景里调好的数值资产。
 // 死亡怎么演：真实受击到死。PlayerConfig.asset 生命 3、MonsterConfig.asset 伤害 1 / 冷却 1 秒，被敌对怪物贴身约 3 秒即死，
-//   远小于 10 秒；EncounterStep 只在 EncounterId != 0（正式战斗，当前无调用方）时才结算胜负，玩家死亡不切流程、不回标题，
-//   收尾由基类退回标题即可，所以不需要用 PlayerRules.ApplyDamage 补刀。
+//   远小于 10 秒，所以不需要用 PlayerRules.ApplyDamage 补刀。
+//   2026-09-28 起（PRP/mirror-core）战败由镜模块接管：第三下击中 = 镜碎，MirrorCrackPresenter 结束本场遭遇、打开只有「镜碎」二字的
+//   镜碎页，按确认后重进遭遇（回出生点、生命回满）。本用例断言镜碎页出现，收尾前按 UI/Submit 走完重开，
+//   不再按旧的「死亡后场景不切换」断言；镜碎页本身的细节（按键保护、进度保留）归 MirrorShowcase。
 // 路线：村口演出触发区正挡在出生点与巡逻怪之间，去怪物那边一律走北侧路线到巡逻线北侧观察点（GoToPatrolLookout）；
 //   坐标与理由见 Framework/ShowcaseScenario.DemoScene.cs（RouteToPatrol / PatrolLookout），追怪出手用同文件的 StrikeMonster。
 using System.Collections;
 using Game.Core.Input;
+using Game.Core.UI;
+using Game.Mirror;
 using Game.Monster;
 using Game.Player;
 using NUnit.Framework;
@@ -24,11 +28,17 @@ namespace Game.Tests.Showcase.Player
         /// <summary>走 / 跑对比的推杆时长。步行 3、奔跑 5：出生点 (-4,3.4) 右走 2.1 米、左跑 3.5 米，终点 x≈-5.4，碰不到左墙（x -6）。</summary>
         private const float CompareSeconds = 0.7f;
 
+        /// <summary>镜碎页交回后重进遭遇（卸载并重载场景）的上限（真实秒），同 MirrorShowcase。</summary>
+        private const float RestartTimeoutSeconds = 20f;
+
         private IInputService inputService;
         private PlayerModel player;
         private MonsterModel monster;
         private PlayerConfig playerConfig;
         private MonsterConfig monsterConfig;
+        private IUIService ui;
+        private EncounterStep step;
+        private MirrorConfig mirrorConfig;
 
         protected override string Module => "Player";
 
@@ -135,13 +145,34 @@ namespace Game.Tests.Showcase.Player
             yield return Step("站着不动，任由敌对的怪物贴身攻击", () => Input.ReleaseStick(), 0f);
             yield return Check($"玩家受击掉血（生命低于 {playerMax}）", () => player.Health < playerMax, 5f);
             yield return Snapshot("受击掉血");
-            yield return Check("继续挨打直到生命归零（死亡，状态色变黑）", () => player.Health == 0, 8f);
+            yield return Check("继续挨打直到生命归零（第三下击中）", () => player.Health == 0, 8f);
+            yield return Check($"镜碎：出现只有「{mirrorConfig.ShatterText}」二字的镜碎页，本场遭遇停下",
+                () => ui.Get<MirrorShatterView>() != null && !step.IsActive, 3f);
 
             Vector2 deadAt = player.Position;
-            yield return Step("死亡后摇杆向右推 0.5 秒", null, 0f);
+            yield return Step("镜碎页上摇杆向右推 0.5 秒", null, 0f);
             yield return Walk(Vector2.right, 0.5f);
-            yield return Check("死亡后推摇杆也不再移动", () => Vector2.Distance(deadAt, player.Position) < 0.01f);
-            yield return Snapshot("死亡");
+            yield return Check("镜碎期间推摇杆也不移动", () => Vector2.Distance(deadAt, player.Position) < 0.01f);
+            yield return Snapshot("死亡·镜碎页");
+
+            // 收尾走完重开：镜碎页开着时 Gameplay 图是关的，按的是 UI/Submit；页面出现后有按键保护时间。
+            yield return Step("等按键保护时间过去，按确认键（Enter）交回镜碎页", null, 0f);
+            yield return new WaitForSecondsRealtime(mirrorConfig.ShatterInputDelay + 0.15f);
+            for (int attempt = 0; attempt < 3 && ui.Get<MirrorShatterView>() != null && !step.IsActive; attempt++)
+            {
+                yield return Input.Press(inputService.Actions.UI.Submit);
+                float until = Time.realtimeSinceStartup + 1.5f;
+                while (ui.Get<MirrorShatterView>() != null && !step.IsActive && Time.realtimeSinceStartup < until)
+                {
+                    yield return null;
+                }
+            }
+
+            yield return WaitUntil("重开本场：场景重进、遭遇重新开始、生命回满",
+                () => step.IsActive && player.Health == playerMax, RestartTimeoutSeconds);
+            yield return Check("重开后镜碎页已关，玩家生命回满、可以再走动",
+                () => step.IsActive && player.Health == playerMax && ui.Get<MirrorShatterView>() == null, 10f);
+            yield return Snapshot("重开·回到出生点");
         }
 
         // ───────────────────────── 进场与驱动 ─────────────────────────
@@ -156,9 +187,15 @@ namespace Game.Tests.Showcase.Player
                 monster = ResolveService<MonsterModel>();
                 playerConfig = ResolveService<PlayerConfig>();
                 monsterConfig = ResolveService<MonsterConfig>();
+                ui = ResolveService<IUIService>();
+                step = ResolveService<EncounterStep>();
+                mirrorConfig = ResolveService<MirrorConfig>();
+                // PlayerConfig / MonsterConfig / MirrorConfig 是 ScriptableObject，判空只用 != null。
                 return inputService != null && inputService.Actions != null
-                       && player != null && monster != null && playerConfig != null && monsterConfig != null;
-            }, "进世界后容器里取不到 PlayerModel / MonsterModel / IInputService / 配置，后续步骤无法驱动");
+                       && player != null && monster != null && playerConfig != null && monsterConfig != null
+                       && ui != null && step != null && mirrorConfig != null;
+            }, "进世界后容器里取不到 PlayerModel / MonsterModel / IInputService / IUIService / EncounterStep / 配置"
+               + "（含 MirrorConfig：Boot 的 GameBootstrap 应挂 MirrorInstaller），后续步骤无法驱动");
         }
     }
 }

@@ -254,7 +254,8 @@ namespace Game.Monster
                 lastPlayerHealth = player.Health;
                 lastSneaking = player.IsSneaking;
                 lastDisguised = player.IsDisguised;
-                playerStatus = $"玩家生命 {player.Health}  潜行 {player.IsSneaking}  伪装 {player.IsDisguised}";
+                // 照镜 demo 验收 V8「界面不出现生命数字或血条」：玩家受击改由镜的裂痕表现，此处不再显示生命数字（见 mirror-module-guide.md）。
+                playerStatus = $"潜行 {player.IsSneaking}  伪装 {player.IsDisguised}";
             }
 
             if (lastMonsterHealth != monster.Health || lastMode != monster.Mode)
@@ -265,7 +266,11 @@ namespace Game.Monster
             }
         }
 
-        private Vector2 ToLogicPosition(Vector3 position) =>
+        /// <summary>
+        /// 场景坐标 → 逻辑 XY：XZ 模式取 (x, z)，否则取 (x, y)。PlayerStart / PatrolPositions 与场景标记（Mirror 的 MirrorSubject、
+        /// SpiritSightZone）都经它换算，保证全工程只有这一处投影约定。公开只读换算，不改任何状态。
+        /// </summary>
+        public Vector2 ToLogicPosition(Vector3 position) =>
             useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
 
         private Vector2 Interpolate(Vector2 previous, Vector2 current, float alpha)

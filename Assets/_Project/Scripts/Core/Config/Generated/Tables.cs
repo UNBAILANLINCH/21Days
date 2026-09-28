@@ -26,6 +26,10 @@ public partial class Tables
     /// </summary>
     public quest.TbQuest TbQuest {get; }
     /// <summary>
+    /// 妖物表
+    /// </summary>
+    public yao.TbYao TbYao {get; }
+    /// <summary>
     /// 道具表
     /// </summary>
     public TbItem TbItem {get; }
@@ -35,6 +39,7 @@ public partial class Tables
         TbDialogue = new dialogue.TbDialogue(loader("dialogue_tbdialogue"));
         TbDialogueCharacter = new dialogue.TbDialogueCharacter(loader("dialogue_tbdialoguecharacter"));
         TbQuest = new quest.TbQuest(loader("quest_tbquest"));
+        TbYao = new yao.TbYao(loader("yao_tbyao"));
         TbItem = new TbItem(loader("tbitem"));
         ResolveRef();
     }
@@ -44,6 +49,7 @@ public partial class Tables
         TbDialogue.ResolveRef(this);
         TbDialogueCharacter.ResolveRef(this);
         TbQuest.ResolveRef(this);
+        TbYao.ResolveRef(this);
         TbItem.ResolveRef(this);
     }
 }

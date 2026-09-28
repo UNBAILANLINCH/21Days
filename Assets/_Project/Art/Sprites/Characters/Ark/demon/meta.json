@@ -1,0 +1,38 @@
+{
+  "name": "demon",
+  "fps": 24,
+  "scale": 0.685297,
+  "frameWidth": 388,
+  "frameHeight": 384,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.247396
+  },
+  "pivotPx": {
+    "x": 194,
+    "y": 95
+  },
+  "texturePremultiplied": true,
+  "nativeBounds": {
+    "minX": -274.826,
+    "minY": -131.778,
+    "maxX": 263.934,
+    "maxY": 415.792
+  },
+  "animations": {
+    "idle": {
+      "source": "Idle",
+      "frames": 24,
+      "duration": 1,
+      "loop": true,
+      "loopNote": "skel 不带循环标记，默认按循环处理"
+    },
+    "walk": {
+      "source": "Move_Loop",
+      "frames": 40,
+      "duration": 1.6667,
+      "loop": true,
+      "loopNote": "skel 不带循环标记，默认按循环处理；源动画名 Move_Loop 手工映射为 walk（enemy 模型状态命名与 STATE_MAP 不同，脚本不识别，渲后按 README 约定重命名）"
+    }
+  }
+}

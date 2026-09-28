@@ -35,6 +35,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Inventory | 三件套（seed）；背包面板白盒（I / 手柄 RB，全部 / 物品 / 线索筛选），读 Loot 背包 + 物品表，未建回放 | [`modules/inventory/`](modules/inventory/inventory-module-guide.md) |
 | Performance | 三件套齐备；演出管线（时间轴 + 场景触发 / 对白插播）、演出编辑器、Live2D 适配层（SDK 未导入），回放 4 条待开发者视觉验收 | [`modules/performance/`](modules/performance/performance-module-guide.md) |
 | Session | 三件套（seed）；存档会话——自动保存触发 / 稳定边界闸门、槽位元数据、新游戏 / 继续 / 选槽、标题路由；Showcase 回放待补 | [`modules/session/`](modules/session/session-module-guide.md) |
+| Mirror | 三件套（seed）；照镜辨形 / 通灵视 / 镜裂镜碎 demo（`PRP/mirror-core`），场景接线与 UI 预制体搭建待执行 | [`modules/mirror/`](modules/mirror/mirror-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

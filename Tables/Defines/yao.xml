@@ -1,0 +1,20 @@
+<!-- 妖物表结构定义（PRP/mirror-core/prp.md 2.2）。
+     数据：Tables/Data/yao/<id>.json（一只妖一个文件）；JSON 字段不能缺省，空列表写 []，布尔显式写 true / false。
+     运行时由 Game.Mirror.MirrorService 读：照镜判「线索是否齐」用 clue_items，结果画面用 true_name / true_desc / true_image。
+     flaw / obsession / clan / sealable / mask 本波只进表不读，留给调查面板、账、收押、画皮后续波次。 -->
+<module name="yao">
+    <bean name="Yao" comment="一只妖">
+        <var name="id" type="int" comment="主键；场景标记组件 MirrorSubject 的 yaoId 引用它"/>
+        <var name="disguise_name" type="string" comment="化形时的称呼；照见真形之前只显示它"/>
+        <var name="true_name" type="string" comment="真形名，照见真形后显示"/>
+        <var name="true_desc" type="string" comment="真形描述"/>
+        <var name="true_image" type="string" comment="真形图的 Addressables 地址（Sprite）"/>
+        <var name="flaw" type="string" comment="破绽描述（本波只进表）"/>
+        <var name="obsession" type="string" comment="执念（本波只进表）"/>
+        <var name="clan" type="string" comment="族属（账用，本波只进表）"/>
+        <var name="clue_items" type="list,int" comment="照见真形所需线索（tbitem id），全部持有才算齐；空 = 无要求"/>
+        <var name="sealable" type="bool" comment="能否收押（后续波次读）"/>
+        <var name="mask" type="bool" comment="能否制面具（后续波次读）"/>
+    </bean>
+    <table name="TbYao" value="Yao" index="id" input="yao" group="c" comment="妖物表"/>
+</module>

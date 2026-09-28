@@ -25,9 +25,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Cysharp.Threading.Tasks;
 using Game.Core.Config;
 using Game.Core.Replay;
 using Game.Core.Simulation;
+using Game.Core.UI;
+using Game.Core.UI.Views;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -145,9 +148,14 @@ namespace Game.Tests.Showcase.Replay
             {
                 ReplayRecorder currentRecorder = Resolve<ReplayRecorder>();
                 ReplayRecordDriver currentDriver = Resolve<ReplayRecordDriver>();
+                IUIService ui = Resolve<IUIService>();
+                TitleView title = ui == null ? null : ui.Get<TitleView>();
                 if (currentRecorder != null && currentDriver != null
-                    && (currentDriver.IsAttached || !currentRecorder.Enabled))
+                    && (currentDriver.IsAttached || !currentRecorder.Enabled) && title != null)
                 {
+                    // Boot 标题层会遮住整个示范世界；启动完成后通过正常关闭流程移除。
+                    yield return ui.CloseAsync(title).ToCoroutine();
+                    Assert.That(ui.Get<TitleView>(), Is.Null, "标题界面仍遮挡回放示范世界");
                     yield break;
                 }
 
@@ -254,6 +262,83 @@ namespace Game.Tests.Showcase.Replay
         {
             RestoreRuntime();
             yield return null;
+        }
+
+        // 复用本文件的容器、示范世界和录制接线；只测 RecordTick，不把等待、玩法或渲染耗时算进录制预算。
+        [UnityTest, Category("PerformanceEvidence"), Timeout(420000)]
+        public IEnumerator RecordFiveMinutes_MeasuresSizeAndRecorderCost()
+        {
+            yield return Step("连接真实录制器，准备五分钟实测", ConnectServices, 0f);
+            Assert.That(recorder != null && recorder.Enabled && runner != null, Is.True);
+            recordTicks = Mathf.RoundToInt(300f / runner.Clock.FixedDeltaTime);
+            Assert.That(recorder.InputCapacity, Is.GreaterThanOrEqualTo(recordTicks));
+            SetUpDemoWorld();
+            // 先触达全部快照槽，排除首次分配；不把这段加速预热算作五分钟录制。
+            int warmupTicks = Mathf.Max(recordTicks, recorder.SnapshotCapacity * snapshotIntervalTicks);
+            for (int i = 0; i < warmupTicks; i++) runner.AdvanceOneTick();
+            runner.Reset();
+            world.ResetWorld();
+            recorder.BeginSession(random.MasterSeed, ReadConfigHash(), runner.Clock.FixedDeltaTime);
+            recordStep.BeginMeasurement(recordTicks);
+            yield return Step($"环境：Unity {Application.unityVersion}，{SystemInfo.operatingSystem}，"
+                + $"CPU {SystemInfo.processorType}，GPU {SystemInfo.graphicsDeviceName}；"
+                + $"Editor Mono，{Screen.width}×{Screen.height}，{1f / runner.Clock.FixedDeltaTime:0.###} tick/s；"
+                + $"DemoWorld {world.Count} 实体，状态 {CaptureLength()} B，哈希间隔 {hashIntervalTicks}，"
+                + $"快照间隔 {snapshotIntervalTicks}，预热 {warmupTicks} tick", null, 0f);
+
+            int renderedFrames = 0;
+            int maxTicksPerFrame = 0;
+            var wall = System.Diagnostics.Stopwatch.StartNew();
+            while (runner.Clock.Tick < recordTicks || wall.Elapsed.TotalSeconds < 300d)
+            {
+                int due = Math.Min(recordTicks, (int)(wall.Elapsed.TotalSeconds / runner.Clock.FixedDeltaTime));
+                int frameTicks = 0;
+                while (runner.Clock.Tick < due)
+                {
+                    long before = runner.Clock.Tick;
+                    runner.AdvanceOneTick();
+                    if (runner.Clock.Tick != before + 1)
+                        throw new InvalidOperationException("推进器暂停或未推进，终止采样避免卡死");
+                    frameTicks++;
+                }
+
+                maxTicksPerFrame = Math.Max(maxTicksPerFrame, frameTicks);
+                renderedFrames++;
+                yield return null;
+            }
+
+            wall.Stop();
+            long[] samples = recordStep.Samples;
+            Assert.That(recordStep.SampleCount, Is.EqualTo(recordTicks));
+            Array.Sort(samples);
+            double tickToMs = 1000d / System.Diagnostics.Stopwatch.Frequency;
+            long total = 0;
+            int overBudget = 0;
+            foreach (long sample in samples)
+            {
+                total += sample;
+                if (sample * tickToMs > 0.2d) overBudget++;
+            }
+
+            yield return Step($"实录墙钟 {wall.Elapsed.TotalSeconds:0.000} 秒，{recordTicks} tick，"
+                + $"{renderedFrames} 渲染帧，单渲染帧最多追 {maxTicksPerFrame} tick；"
+                + $"RecordTick 平均 {total * tickToMs / samples.Length:0.000000} ms，"
+                + $"P95 {samples[(int)(samples.Length * 0.95) - 1] * tickToMs:0.000000} ms，"
+                + $"P99 {samples[(int)(samples.Length * 0.99) - 1] * tickToMs:0.000000} ms，"
+                + $"最大 {samples[samples.Length - 1] * tickToMs:0.000000} ms，超 0.2 ms {overBudget} 次；"
+                + $"函数内线程累计分配 {recordStep.AllocatedBytes} B（不含保存和整帧分配）", null, 0f);
+            yield return Check("稳态 RecordTick 函数内线程分配为零", () => recordStep.AllocatedBytes == 0);
+            yield return Step("保存真实五分钟回放并保留证据副本", SaveReplayFile, 0f);
+            Assert.That(File.Exists(savedPath), Is.True);
+            string evidence = Path.Combine(ShowcaseOptions.ReportRoot, "replay",
+                "performance-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".replay");
+            File.Copy(savedPath, evidence);
+            yield return Check(DescribeSavedFile() + "；证据 " + Path.GetFileName(evidence),
+                () => savedBytes > 0 && savedBytes <= 2000000L);
+            loadOk = player.Load(savedPath, out loadError);
+            yield return Check(DescribeLoaded(), () => loadOk && player.InputCount == recordTicks
+                && player.StartTick == 0 && player.EndTick == recordTicks - 1);
+            yield return Snapshot("五分钟录制实测");
         }
 
         /// <summary>第 1 步：把容器里那一套取出来，并抄下回放配置的两个间隔。</summary>
@@ -911,6 +996,19 @@ namespace Game.Tests.Showcase.Replay
         {
             private readonly ReplayRecorder recorder;
 
+            internal long[] Samples { get; private set; }
+            internal int SampleCount { get; private set; }
+            internal long AllocatedBytes { get; private set; }
+
+            internal void BeginMeasurement(int count)
+            {
+                Samples = new long[count];
+                SampleCount = 0;
+                AllocatedBytes = 0;
+                GC.GetAllocatedBytesForCurrentThread();
+                System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+
             internal DemoRecordStep(ReplayRecorder recorder)
             {
                 this.recorder = recorder ?? throw new ArgumentNullException(nameof(recorder));
@@ -919,6 +1017,17 @@ namespace Game.Tests.Showcase.Replay
             /// <inheritdoc />
             public void Step(in SimulationContext context)
             {
+                if (Samples != null && SampleCount < Samples.Length)
+                {
+                    long allocated = GC.GetAllocatedBytesForCurrentThread();
+                    long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                    recorder.RecordTick((uint)context.Tick, context.Input);
+                    long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+                    AllocatedBytes += GC.GetAllocatedBytesForCurrentThread() - allocated;
+                    Samples[SampleCount++] = elapsed;
+                    return;
+                }
+
                 recorder.RecordTick((uint)context.Tick, context.Input);
             }
         }

@@ -1,4 +1,8 @@
-"""Codex hooks 适配：复用 Claude 检查逻辑，隔离缓存并转换工具负载。"""
+"""Codex hooks 适配：复用 Claude 检查逻辑，隔离缓存并转换工具负载。
+
+载体：hooks.json 的工具事件；锚点：完整独立读取后检查 reads/session.jsonl。
+读取失败返回并保存最近一次诊断摘要；客户端原生提供等价读取检查后移除此适配。
+"""
 import contextlib
 import hashlib
 import importlib.util
@@ -86,11 +90,14 @@ def strings(value):
     return ""
 
 
-def successful(response):
+def successful(response, body=""):
     if isinstance(response, dict):
         if response.get("isError") or response.get("exit_code", 0) not in (0, None):
             return False
     text = strings(response)
+    if body:
+        # 文档本身可以讨论错误/截断；只检查正文以外的工具状态。
+        text = text.replace("\r\n", "\n").replace(body, "")
     return not re.search(r"(?i)(?:exit code|exited with code):?\s*[1-9]|output truncated|tokens truncated", text)
 
 
@@ -100,13 +107,60 @@ def read_path(command, cwd, response):
         r"Get-Content -Raw -Encoding UTF8 -LiteralPath '([^'\r\n]+)'",
         command.strip(), re.I,
     )
-    if not match or not successful(response):
+    if not match:
         return None
     path = relative(match[1], cwd)
     body = (ROOT / path).read_text(encoding="utf-8").strip().replace("\r\n", "\n")
     # 只有工具结果包含完整文件才记账，截断和失败读取不算。
-    if body and body in strings(response).replace("\r\n", "\n"):
+    if body and body in strings(response).replace("\r\n", "\n") and successful(response, body):
         return path
+    return None
+
+
+def transcript_response(payload, command, cwd):
+    """只接受当前真实调用的完成事件，不从历史相似命令或磁盘正文补输出。"""
+    transcript = payload.get("transcript_path")
+    call_id = payload.get("tool_use_id")
+    if not transcript or not call_id:
+        return None
+    parent_id, result = None, None
+    with Path(transcript).open(encoding="utf-8") as stream:
+        for line in stream:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            event = record.get("payload", {})
+            if record.get("type") == "response_item":
+                if event.get("type") == "custom_tool_call" and result is None:
+                    parent_id = event.get("call_id")
+                elif (event.get("type") == "custom_tool_call_output" and result is not None
+                      and event.get("call_id") == parent_id):
+                    # 原始 stdout 不能证明模型拿到了全文，还要核对实际交付的工具结果。
+                    delivered = []
+                    for block in event.get("output", []):
+                        text = block.get("text", "")
+                        try:
+                            delivered.append(strings(json.loads(text)))
+                        except (ValueError, TypeError):
+                            delivered.append(text)
+                    result["output"] = "\n".join(delivered)
+                    return result
+            item = event.get("item", {})
+            if record.get("type") != "event_msg" or event.get("type") != "item_completed":
+                continue
+            if item.get("id") != call_id or item.get("type") != "CommandExecution":
+                continue
+            if (event.get("thread_id") != payload.get("session_id")
+                    or event.get("turn_id") != payload.get("turn_id")
+                    or item.get("cwd", "").lower() != Path(cwd).resolve().as_uri().lower()
+                    or item.get("command", [None])[-1] != command
+                    or item.get("status") != "completed" or item.get("exit_code") != 0):
+                return None
+            original = {"exit_code": item["exit_code"], "output": item.get("stdout", "")}
+            if not read_path(command, cwd, original):
+                return None
+            result = original
     return None
 
 
@@ -124,10 +178,24 @@ def handle(payload):
     command = ti.get("command", ti.get("cmd", "")) if isinstance(ti, dict) else ti
     response = payload.get("tool_response", {})
     notes = []
+    pending = state / "pending-read.json"
+
+    if event == "PreToolUse" and pending.exists():
+        waiting = json.loads(pending.read_text(encoding="utf-8"))
+        for call_id, prior in list(waiting.items()):
+            original = transcript_response(prior, prior["command"], prior["cwd"])
+            if original is None:
+                continue  # 同一父工具中的下一条命令尚不能看到父工具完成输出。
+            path = read_path(prior["command"], prior["cwd"], original)
+            if path:
+                invoke("required-reads", dict(base, hook_event_name="PostToolUse", tool_name="Read", tool_input={"file_path": path}), state)
+            del waiting[call_id]
+        pending.write_text(json.dumps(waiting), encoding="utf-8")
 
     if event in ("SessionStart", "PostCompact"):
         # 压缩后已读信息不能代表仍在上下文里：清空本会话账本，保留编辑次数。
         if event == "PostCompact" or payload.get("source") in ("compact", "clear"):
+            pending.unlink(missing_ok=True)
             log = state / "reads/session.jsonl"
             if log.exists():
                 log.write_text("", encoding="utf-8")
@@ -148,8 +216,37 @@ def handle(payload):
         if event == "PreToolUse":
             return guard(dict(base, tool_name="Bash", tool_input={"command": command}))
         path = read_path(command, cwd, response)
+        is_read = re.fullmatch(r"Get-Content -Raw -Encoding UTF8 -LiteralPath '([^'\r\n]+)'", command.strip(), re.I)
+        if not path and is_read and isinstance(response, str) and response.startswith("Warning: truncated output"):
+            # Codex 的 hook 摘要固定截断；同次调用的原始 stdout 仍须通过全文检查。
+            original = transcript_response(payload, command, cwd)
+            if original is not None:
+                path = read_path(command, cwd, original)
+            else:
+                state.mkdir(parents=True, exist_ok=True)
+                evidence = {key: payload.get(key) for key in ("session_id", "turn_id", "transcript_path", "tool_use_id")}
+                waiting = json.loads(pending.read_text(encoding="utf-8")) if pending.exists() else {}
+                waiting[payload.get("tool_use_id")] = dict(evidence, command=command, cwd=cwd)
+                pending.write_text(json.dumps(waiting), encoding="utf-8")
         if path:
             invoke("required-reads", dict(base, tool_name="Read", tool_input={"file_path": path}), state)
+        elif is_read:
+            requested = is_read.group(1)
+            body = (ROOT / relative(requested, cwd)).read_text(encoding="utf-8").strip().replace("\r\n", "\n")
+            output = strings(response).replace("\r\n", "\n")
+            diagnostic = {
+                "file": relative(requested, cwd),
+                "response_type": type(response).__name__,
+                "response_keys": list(response) if isinstance(response, dict) else [],
+                "payload_keys": list(payload), "tool_use_id": payload.get("tool_use_id"),
+                "tool_input": ti,
+                "body_chars": len(body), "output_chars": len(output),
+                "full_body_present": body in output, "successful": successful(response),
+                "hook_summary_truncated": output.startswith("Warning: truncated output"),
+            }
+            state.mkdir(parents=True, exist_ok=True)
+            (state / "last-read-failure.json").write_text(json.dumps(diagnostic, ensure_ascii=False), encoding="utf-8")
+            return {"systemMessage": "读取未记账诊断：" + json.dumps(diagnostic, ensure_ascii=False)}
         return {}
 
     if tool != "apply_patch":

@@ -1,4 +1,4 @@
-// 职责：纸片场景适配回放——玩家真走上灰盒楼梯（Stairs_Step_1..4）时身体贴地逐级抬升、走下来落回地面。
+// 职责：纸片场景适配回放——玩家真走上灰盒楼梯（Stairs_Step_1..4）时身体贴地逐级抬升、走下来落回地面；验证相机距离剔除的消失与恢复。
 // 舞台是 SampleScene，走 Boot 真实流程（标题「开始」进场），虚拟手柄推摇杆驱动场景里的真实玩家，
 //   高度读 EncounterSceneView.PlayerScenePosition（纸片身体的场景位置），不瞬移、不 new 规则。
 // 本次重写理由：原版不加载 Boot，自己 new PlayerRules / MonsterRules / EncounterStep + 默认值 ScriptableObject 重新 Bind 视图，
@@ -14,6 +14,7 @@
 using System;
 using System.Collections;
 using Game.Core.Input;
+using Game.IsometricExploration;
 using Game.Monster;
 using Game.Player;
 using NUnit.Framework;
@@ -33,6 +34,60 @@ namespace Game.Tests.Showcase.IsometricExploration
 
         /// <summary>世界由流程加载（标题「开始」→ MonsterEncounterState → SampleScene），基类不再叠加载一份。</summary>
         protected override string ScenePath => null;
+
+        [UnityTest]
+        public IEnumerator CameraDistanceCulling_HidesDistantVisualAndRestoresIt()
+        {
+            yield return EnterWorld();
+            Camera camera = FindRequired<Camera>("Main Camera");
+            CameraDistanceCulling culling = FindRequired<CameraDistanceCulling>("Main Camera");
+            SmoothCameraFollow follow = FindRequired<SmoothCameraFollow>("Main Camera");
+            bool followWasEnabled = follow.enabled;
+            var marker = Track(GameObject.CreatePrimitive(PrimitiveType.Cube));
+            marker.name = "DistanceCullingDemo";
+            marker.layer = 31;
+            marker.transform.position = camera.ViewportToWorldPoint(new Vector3(0.65f, 0.55f, 8f));
+            var material = Track(new Material(Shader.Find("Universal Render Pipeline/Unlit")));
+            material.color = Color.cyan;
+            marker.GetComponent<Renderer>().sharedMaterial = material;
+            try
+            {
+                follow.enabled = false;
+                yield return Step("显示相机前方的青色测试方块", () =>
+                    culling.ApplySettings(new[] { new CameraLayerCullSettings(1 << 31, 0f) }));
+                yield return new WaitForEndOfFrame();
+                Texture2D before = Track(ScreenCapture.CaptureScreenshotAsTexture());
+                int x = Mathf.RoundToInt(before.width * 0.65f);
+                int y = Mathf.RoundToInt(before.height * 0.55f);
+                Color visible = before.GetPixel(x, y);
+                yield return Check("采样位置确实显示青色方块", () =>
+                    visible.g > visible.r + 0.2f && visible.b > visible.r + 0.2f);
+                yield return Snapshot("距离剔除前");
+                yield return Step("把该层剔除距离设为 4 米，8 米处方块应消失", () =>
+                    culling.ApplySettings(new[] { new CameraLayerCullSettings(1 << 31, 4f) }));
+                yield return new WaitForEndOfFrame();
+                Texture2D hidden = Track(ScreenCapture.CaptureScreenshotAsTexture());
+                yield return Check("方块位置的实际画面发生变化", () =>
+                    Vector4.Distance(visible, hidden.GetPixel(x, y)) > 0.1f);
+                Physics.SyncTransforms();
+                yield return Check("剔除后方块仍激活且碰撞体可命中", () =>
+                    marker.activeSelf && marker.GetComponent<Collider>().Raycast(
+                        new Ray(camera.transform.position, marker.transform.position - camera.transform.position), out _, 20f));
+                yield return Snapshot("距离剔除后");
+                yield return Step("恢复该层远裁剪面距离，方块应重新出现", () =>
+                    culling.ApplySettings(new[] { new CameraLayerCullSettings(1 << 31, 0f) }));
+                yield return new WaitForEndOfFrame();
+                Texture2D restored = Track(ScreenCapture.CaptureScreenshotAsTexture());
+                yield return Check("方块位置恢复原来的颜色", () =>
+                    Vector4.Distance(visible, restored.GetPixel(x, y)) < 0.1f);
+                yield return Snapshot("距离剔除恢复");
+            }
+            finally
+            {
+                culling.ApplyConfiguration();
+                follow.enabled = followWasEnabled;
+            }
+        }
 
         [UnityTest]
         public IEnumerator WalkUpStairs_BodyRisesStepByStepThenLandsBack()

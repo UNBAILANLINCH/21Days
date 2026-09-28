@@ -13,6 +13,7 @@ maturity: stable
 | `EncounterSceneView.ConfigureXZ(...)` | 显式接入现有角色并执行逻辑 XY → 场景 XZ 映射 | 出生点、巡逻点和角色引用完整 |
 | `MonsterEncounterState` | 通过正式流程加载等距遭遇 | Addressables 已登记 `IsometricEncounter` |
 | `SmoothCameraFollow.Target / SetTarget(Transform)` | 读取或切换镜头跟随对象 | 初始偏移已由 Start 建立；切换重置缓动速度 |
+| `SmoothCameraFollow.SelectComparisonAngle(int index)` | 编辑器临时对比：0 原视角、1 为 30°、2 为 25°、3 为 20° | 仅 `UNITY_EDITOR` 存在，Start 已完成且 target 有效；非法索引不操作。正式玩法不得依赖此入口 |
 | `ExplorationHudView.RunSlot` | 右下角预留槽位，供走 / 跑按钮挂入 | 探索 HUD 已打开（`IUIService.Get<ExplorationHudView>()` 非空） |
 | `ExplorationHudView.SetImmersive(bool)` / `OnImmersiveToggle` | 按钮文字与透明度 / 按钮点击 | 只由 `ExplorationHudPresenter` 驱动；别的模块要切沉浸调 `IHudVisibility.SetHudHidden` |
 | `ExplorationHudView.SetRunLabel` / `SetStickVisible` / `SetTouchButtonsVisible` / `SetRunToggleVisible` / `SetPrompt` / `SetControlsVisible` | 走跑标签、摇杆 / 触屏三键 / 走跑按钮显隐、交互提示、控件区整体显隐 | 只由 `ExplorationControlsPresenter` 驱动；全部可空容错，未接线字段调用即空操作 |
@@ -23,6 +24,13 @@ maturity: stable
 | `ExplorationPointOfInterest.Label` / `Kind` / `Position` / `IsVisible` | 兴趣点只读信息 | 由 `ExplorationCompassPresenter` 读取；`Crate` 类型的 `IsVisible` 反映同物体 `SupplyCrate.IsOpened` |
 
 ## 沉浸模式（跨模块）
+
+相机距离 API（`Runtime/IsometricExploration/CameraDistanceCulling.cs`）：
+`ApplyConfiguration()` 重读当前配置；`ApplySettings(IReadOnlyList<CameraLayerCullSettings>)` 临时应用一组层掩码/距离，
+组件必须处于启用且激活状态。null/空列表恢复启用前的距离，未列出的层也恢复原值；重复层后项优先。
+`CameraLayerCullSettings(int layers, float distance)` 只读 `Layers` / `Distance`，非法距离归零；
+`IsometricExplorationConfig.CameraLayerCulling` 暴露只读列表。运行时调用不修改 SO，禁用组件恢复原始相机距离。
+缓存长度异常时，应用配置先重新读取原生 32 层距离；禁用时不把无效缓存写回相机。
 
 沉浸状态的真相在 Core 的 `IHudVisibility`，不在本模块：其他模块读 `IsHudHidden` 或订阅 `HudVisibilityChangedEvent`
 隐藏自己的世界空间提示；自己的 Hud 面板默认会被隐藏，沉浸中仍需显示的面板重写 `UIView.VisibleWhenHudHidden => true`。

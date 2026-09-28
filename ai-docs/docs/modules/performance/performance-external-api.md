@@ -23,6 +23,8 @@ maturity: stable
 
 ### `PlayAsync` 的语义
 
+- World 相机接管时继承主相机分层剔除距离与球形/平面模式，结束恢复舞台作者值；Overlay 不复制。
+
 - **重入**：`IsRunning` 为真时再调，抛 `InvalidOperationException`，埋 `play_rejected(reason=busy)`，不修改当前演出。
 - **参数校验**：`id` 为空或 `null` 抛 `ArgumentException`，埋 `play_rejected(reason=empty_id)`。
 - **取消**：`ct` 取消时，`PerformanceRules` 置 `Cancelled`，照常收尾（关面板、恢复 HUD/输入图、释放时停令牌、归还实例），

@@ -76,6 +76,10 @@ namespace Game.Tests.EditMode.Performance
             main = mainGo.AddComponent<Camera>();
             main.depth = -1f;
             main.cullingMask = MainMask;
+            var distances = new float[32];
+            distances[0] = 40f;
+            main.layerCullDistances = distances;
+            main.layerCullSpherical = true;
             main.clearFlags = CameraClearFlags.SolidColor;
             main.backgroundColor = Color.red;
             mainData = mainGo.GetComponent<UniversalAdditionalCameraData>();
@@ -125,6 +129,8 @@ namespace Game.Tests.EditMode.Performance
                 Assert.That(stageCamera.cullingMask & (1 << performanceLayer), Is.Not.EqualTo(0), "舞台相机遮罩应包含 Performance 层");
             Assert.That(stageCamera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor), "清屏方式从主相机拷贝");
             Assert.That(stageCamera.backgroundColor, Is.EqualTo(Color.red), "背景色从主相机拷贝");
+            CollectionAssert.AreEqual(main.layerCullDistances, stageCamera.layerCullDistances);
+            Assert.That(stageCamera.layerCullSpherical, Is.True);
             Assert.That(stageData.renderPostProcessing, Is.True, "后处理开关从主相机拷贝");
             Assert.That((int)stageData.volumeLayerMask, Is.EqualTo(1 << 6), "Volume 遮罩从主相机拷贝");
             Assert.That(stageCamera.fieldOfView, Is.EqualTo(35f), "透视参数保留作者设的值");
@@ -191,6 +197,8 @@ namespace Game.Tests.EditMode.Performance
             Assert.That(telemetry.Warnings, Has.Member("placement_ignored"));
             Assert.That(main.cullingMask, Is.EqualTo(MainMask), "叠加模式不动主相机遮罩");
             Assert.That(telemetry.Events, Has.No.Member("world_stage_attached"));
+            Assert.That(stageCamera.layerCullDistances[0], Is.EqualTo(80f), "叠加模式保留作者剔除距离");
+            Assert.That(stageCamera.layerCullSpherical, Is.False);
 
             service.Skip();
             yield return WaitCompleted(play);
@@ -208,6 +216,8 @@ namespace Game.Tests.EditMode.Performance
             Assert.That(telemetry.Warnings, Has.Member("world_camera_fallback"));
             Assert.That(stageData.renderType, Is.EqualTo(CameraRenderType.Base));
             Assert.That(stageCamera.cullingMask & AuthorStageMask, Is.EqualTo(AuthorStageMask), "退路保留作者设的遮罩");
+            Assert.That(stageCamera.layerCullDistances[0], Is.EqualTo(80f));
+            Assert.That(stageCamera.layerCullSpherical, Is.False);
 
             service.Skip();
             yield return WaitCompleted(play);
@@ -356,6 +366,10 @@ namespace Game.Tests.EditMode.Performance
         {
             Assert.That(stageCamera.cullingMask, Is.EqualTo(AuthorStageMask), "舞台相机遮罩应改回作者的值");
             Assert.That(stageCamera.depth, Is.EqualTo(5f), "舞台相机深度应改回");
+            Assert.That(stageCamera.layerCullDistances[0], Is.EqualTo(80f));
+            Assert.That(stageCamera.layerCullSpherical, Is.False);
+            Assert.That(main.layerCullDistances[0], Is.EqualTo(40f));
+            Assert.That(main.layerCullSpherical, Is.True);
             Assert.That(stageCamera.clearFlags, Is.EqualTo(CameraClearFlags.Depth), "舞台相机清屏方式应改回");
             Assert.That(stageData.renderPostProcessing, Is.False, "舞台相机后处理开关应改回");
         }
@@ -372,6 +386,10 @@ namespace Game.Tests.EditMode.Performance
             stageCamera.fieldOfView = 35f;
             stageCamera.depth = 5f;
             stageCamera.cullingMask = AuthorStageMask;
+            var distances = new float[32];
+            distances[0] = 80f;
+            stageCamera.layerCullDistances = distances;
+            stageCamera.layerCullSpherical = false;
             stageCamera.clearFlags = CameraClearFlags.Depth;
             stageData = cameraGo.GetComponent<UniversalAdditionalCameraData>();
             if (stageData == null) stageData = cameraGo.AddComponent<UniversalAdditionalCameraData>();

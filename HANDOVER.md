@@ -2,17 +2,20 @@
 
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
-> **基线**：`main` @ `161c690`（演出旧模式下架已全部落地，尚未 push；工作区只剩字体资产的 Play 期脏数据）。本文行号按该基线核对过；改动后请顺手更新本文。
+> **最近核对**：2026-09-29，当前分支 `main`。Showcase 失焦输入、演出角色隐藏与表情轨删除、Codex 读取记账兼容修复均已分别提交；提交号与推送状态以 Git 为准。未涉及条目的行号沿用此前记录，接手时需重新定位。
+> **工作区边界**：仍有 `laila` / `SampleScene` 场景、URP、字体、Laila 美术资产、`lailaface` 模块文档与构建设置改动未提交；不属于上述三组修复，不要一起暂存、回滚或清理。以实时 `git status` 为准。
 
 ## 0. 现状一句话
 
-主流程已跑通并**全部合入 main**：标题页 → 进入探索场景 → 潜行 / 战斗 / 对话 / 演出 / 任务 / 存档，模块三件套与回放（Showcase）齐备，EditMode 与回放测试均为绿。
+主流程已跑通并**全部合入 main**：标题页 → 进入探索场景 → 潜行 / 战斗 / 对话 / 演出 / 任务 / 存档，模块三件套与回放（Showcase）齐备。本轮验证是定向回归，不代表全仓所有测试已重新跑过。
+
+**本轮验证范围**：Performance EditMode 150 项、演出 Showcase 6 项通过，失焦键盘自测与输入设置恢复检查通过；演出回放报告为 `Logs/verify/performance/20260929-042650/report.md`，失焦自测报告为 `Logs/verify/selftest/20260929-025916/report.md`（本地生成物，不入库）。角色隐藏已覆盖直接播放、对白插入及场景触发；演出期间世界 Tick / 玩家位置不变、Timeline 继续推进，结束后世界恢复。时停已验证，无需进一步修改。用户已完成一次视觉验收，暂未发现问题。
 
 **没有「写一半的代码」——但要说清楚做完的到底是什么。** 做完的是**框架与系统**：`Game.Core` + 16 个运行时模块、主流程全链路、三套编辑器工具、回放与埋点体系，外加一个照镜 demo（`PRP/mirror-core`）。
 
 **没做的分两层，量级差很远：**
 
-- **§1 / §2 是已有模块的收尾**（6 件活 + 10 项待拍板）。数量少、都能立刻动手。
+- **§1 / §2 是已有模块的收尾与待拍板事项**，具体范围见下面的清单。
 - **§3 是内容层，几乎没开始**：`docs/roadmap.md` A–H 共 51 条，其中 20 条标着「待做 / 待定义」；`docs/design/features/` 16 份策划稿只落地了 3 份（01 通灵视 / 02 照镜辨形 / 03 镜之耐久与镜碎），**其余 12 份一行代码都没有**。这一片才是大头，且卡在策划拍板。
 
 一句话：**框架能跑，玩法的肉还在纸上。**
@@ -21,11 +24,10 @@
 
 ## 1. 可以直接开工
 
-### 1.1 回放框架的输入失焦问题
+### 1.1 回放验证与排查文档收尾
 
-**现象**：编辑器窗口失去焦点时，10 个键盘回放用例失败。
-**做法**：在 Showcase 的公共 SetUp 里临时改 InputSettings 的 `backgroundBehavior` / `editorInputBehaviorInPlayMode`，TearDown 还原。
-**现状**：`Assets/_Project/Scripts/Tests/Showcase/` 下搜不到这两个字段（已核）。
+- `ai-docs/pitfalls.md` 的「Showcase 真实按键用例红」仍写着必须让 Unity 保持前台、手动聚焦后重跑，需同步为现有临时 InputSettings 方案。`ShowcaseScenario` 已在 SetUp 放开焦点限制，TearDown / 退出 Play 恢复原设置；不要再按旧说明重复实现或要求用户维持窗口焦点。
+- Performance EditMode 一次运行出现记录面板关闭等待 5 秒超时；该用例单独复跑及随后 150 项全量复跑均通过，原因尚未定位。再次出现时保留状态与日志定位时序，不要只增大超时或当作已修复。
 
 ### 1.2 Narrative 接线（roadmap C1–C3）【最大一块】
 
@@ -123,6 +125,8 @@
 - **`invariants.py` 目前有两处常红**：字体资产、LailaFace 命名空间（§1.3）。看扫描输出时先排除这两条，别当成新问题，也别习惯性忽略——它会掩盖真问题。
 - **移动 / 删除 / 重命名资产**用 `git mv` / `git rm`，必须连 `.meta` 一起。
 - **角色纸片不要给 `CameraBillboard` 加 `ExecuteAlways`**：会把场景标脏，二十多个物体旋转进 diff。
+- **演出隐藏的覆盖边界**：`PerformanceService.PlayAsync` 在加载舞台前统一快照场景中的 `ChibiPuppet`，包含未激活角色，排除舞台演员，并在退出时恢复 Renderer / Canvas 原状态。演出期间新生成的角色不在快照内；无 `ChibiPuppetMotion.TrackedRoot` 时退回顶层根，角色放在公共容器下时应配置角色根，避免连带隐藏其他对象。表情轨与 `PerformanceActor` 已删除，不要再配置旧绑定。
+- **Codex 长文必读记账**：兼容修复在 `.codex/hooks/`，没有修改 Claude hook。长文从同一次完整读取结果分批交付，缺段、失败与跨调用混入仍不记账；诊断方式与示例见 [.codex/hooks/README.md](.codex/hooks/README.md)。压缩后账本重置是既有设计，需要重新读取，不是这次故障复发。
 - 更多踩过的坑见 `ai-docs/pitfalls.md`，动手前值得扫一遍。
 
 ---

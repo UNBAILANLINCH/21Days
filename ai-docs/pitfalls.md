@@ -485,3 +485,9 @@
 - **根因**：三处适配问题叠加。① 命令 stdout、交付给模型的工具结果、PostToolUse 摘要是不同层；增加命令的 `max_output_tokens` 不会解除后两层的截断。本次环境的 hook 摘要约 10000 token 即截断，这不是所有客户端的固定规格。② 旧回退逻辑要求会话文件含 `CommandExecution` 完成事件，但本次会话文件没有该事件；又只检查一条父调用输出，不能累计同一调用的多批交付。③ 旧成功判据在整段文本搜索 `output truncated` / `exit code: 1`，把正文讨论这些字样误判成工具失败；现已先排除完整正文再判工具状态。
 - **正确做法**：保持独立完整读取；长文从同一次成功读取结果按换行分批 `notify({exit_code: result.exit_code, output: chunk})`，全部在同一个父 `functions.exec` 调用内交付，示例见 [Codex hooks 说明](../.codex/hooks/README.md#长文读取示例)。适配器绑定真实 PostToolUse 的父调用，下一次前置事件核验同一调用的交付全文后记账；仍拒绝非零退出、缺段、截断和混入别的调用。不要跨调用拼历史、手填账本、缩减必读清单或关闭 hook。再次失败先查 `.codex/.cache/<会话散列>/last-read-failure.json` 的全文 / 状态 / 截断字段及 `pending-read.json`，不要盲目重复读取。**压缩或清除上下文后账本主动重置是现行设计，需重新读取，不属于本故障。**
 - **关联**：[adapter.py](../.codex/hooks/adapter.py) 的 `successful` / `transcript_response` / `handle`；[test_adapter.py](../.codex/hooks/test_adapter.py) 覆盖正文含错误字样、完整与缺段输出、父调用不匹配、非零退出、延迟记账与压缩重置，2026-09-29 重跑 PASS。此前真实 Performance 长文分批交付后，运行时代码补丁已通过必读闸；这证明本次客户端链路可用，不代表其他客户端格式均已验证。
+
+## MCP 测试任务被中断后，`TestRunStatus.IsRunning` 会一直挡着 `refresh_unity`
+- 现象：编辑器里明明没有测试在跑（`EditorApplication.isPlaying=False`、控制台几十秒没有新日志、`Time.frameCount` 不涨），`refresh_unity` 却一直返回 `{"code":"tests_running"}`；`run_tests` 带 `clear_stuck=true` 也回「No running job to clear」。
+- 根因：`RefreshUnity` 的闸门读 `MCPForUnity.Editor.Services.TestRunStatus.IsRunning`（静态标志，开跑 `MarkStarted`、收尾 `MarkFinished`）。发起测试的 MCP 客户端中途断开 / 会话被中止时收尾没走到，标志就停在 true；而 `clear_stuck` 清的是 `TestJobManager._currentJobId`，跟它不是同一个东西。
+- 正确做法：先用 `execute_code` 读 `isPlaying` / 控制台确认没有真在跑；确系孤儿再反射调 `TestRunStatus.MarkFinished()`（`internal static`，程序集 `MCPForUnity.Editor`）。2026-09-30 实测：上一会话中断留下 PlayMode 标志、`staleMinutes=32.5`，清掉后 `refresh_unity` 立刻可用。
+- 关联：`Library/PackageCache/com.coplaydev.unity-mcp@*/Editor/Services/TestRunStatus.cs`、`Editor/Tools/RefreshUnity.cs:28`、`Editor/Tools/RunTests.cs`（`clear_stuck`）；`.claude/skills/unity-mcp/SKILL.md` 故障排查表；2026-09-30。

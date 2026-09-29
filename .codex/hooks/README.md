@@ -19,13 +19,27 @@
 | PostToolUse / apply_patch | 成功后计数；第 5 次及随后每 3 次提醒；对现存 C# 运行原 lint |
 | Stop | 原调试残留、缺失 meta、高频编辑提醒；不阻止结束 |
 | PreCompact | 保存原 git status / diff stat 工作态快照 |
-| PostCompact / SessionStart | 恢复可用快照；压缩或清除上下文后重置已读账本 |
+| PostCompact | 重置已读账本，不返回 additionalContext |
+| SessionStart | 提供可用历史快照的路径；compact / clear 时重置已读账本 |
 
 必读文档使用如下独立命令（路径相对当前命令工作目录）：
 
 ```powershell
 Get-Content -Raw -Encoding UTF8 -LiteralPath '.claude/rules/unity-assets.md'
 ```
+
+### 压缩贴文与失败提示
+
+压缩由 Codex 原生执行；本项目 hook 只保存 Git 工作态并在 `SessionStart(compact)` 提供快照路径，
+不生成对话摘要。完整快照保留在会话缓存，按需读取，当前改动仍以 `git status / diff` 为准。
+`PostCompact` 只返回通用输出，不承担上下文注入；`PreCompact` 正常完成时静默，
+避免把成功说明放入客户端会显示为警告的 `systemMessage`。
+
+旧适配器整份注入快照，可能触发 Codex 默认约 2500 token 的截断并落盘机制：
+`Warning: truncated output` 与 `Full hook output saved to` 表示输出过长，不证明原生压缩失败。
+遇到真正的失败，需区分 hook 执行/输出格式错误与原生压缩请求错误；不能仅凭黄色提示归因。
+本次回归覆盖大快照只返回短路径、PostCompact 无不支持字段及正常 PreCompact 无警告。
+依据：[官方 hooks 输出与压缩事件](https://learn.chatgpt.com/docs/hooks)。
 
 合并命令、管道、部分读取、失败或截断输出不记账；被拦后按提示单独重读。
 文件必须完整出现在工具结果中才记账。这是读取行为检查，不能证明模型理解了内容。

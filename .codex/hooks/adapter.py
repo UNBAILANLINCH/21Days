@@ -2,6 +2,8 @@
 
 载体：hooks.json 的工具事件；锚点：完整独立读取后检查 reads/session.jsonl。
 读取失败返回并保存最近一次诊断摘要；客户端原生提供等价读取检查后移除此适配。
+压缩恢复载体：SessionStart(compact)；锚点：仅注入 precompact-state.txt 路径，
+不粘贴完整快照；客户端原生保留等价工作态时移除此恢复提示。
 """
 import contextlib
 import hashlib
@@ -220,15 +222,21 @@ def handle(payload):
             log = state / "reads/session.jsonl"
             if log.exists():
                 log.write_text("", encoding="utf-8")
+        # PostCompact 只支持通用输出；上下文由随后的 SessionStart(compact) 注入。
+        if event == "PostCompact":
+            return {}
         notes.append("项目 hooks 已运行：编辑使用 apply_patch；必读文档用独立命令 Get-Content -Raw -Encoding UTF8 -LiteralPath '相对路径' 读取。")
         snap = state / "precompact-state.txt"
         if snap.exists():
-            notes.append(snap.read_text(encoding="utf-8"))
+            notes.append(
+                "压缩前 Git 工作态的历史快照：" + snap.relative_to(ROOT).as_posix()
+                + "。需要此前改动细节时按需读取；当前工作态以 git status / diff 为准。"
+            )
         return {"hookSpecificOutput": {"hookEventName": event, "additionalContext": "\n".join(notes)}}
 
     if event == "PreCompact":
         invoke("precompact-save", base, state)
-        return {"systemMessage": "项目工作态快照已处理；压缩后自动恢复可用快照。"}
+        return {}  # systemMessage 在客户端是警告通道，成功时保持静默。
     if event == "Stop":
         result, err = invoke("stop-check", base, state)
         return {"systemMessage": "\n".join(filter(None, [result.get("systemMessage"), err]))}

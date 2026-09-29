@@ -156,9 +156,15 @@ def run():
         assert "TEMP" in json.dumps(stopped) and ".meta" in json.dumps(stopped)
         assert "decision" not in stopped
         call("PreCompact")
-        assert list(adapter.CACHE.rglob("precompact-state.txt"))
-        restored = call("PostCompact")
-        assert "git status" in json.dumps(restored)
+        snapshots = list(adapter.CACHE.rglob("precompact-state.txt"))
+        assert snapshots
+        snapshots[0].write_text("# 压缩前工作态快照\n" + "large snapshot\n" * 3000, encoding="utf-8")
+        assert call("PostCompact") == {}  # 此事件不支持 additionalContext。
+        restored = call("SessionStart", source="compact")
+        context = restored["hookSpecificOutput"]["additionalContext"]
+        assert "precompact-state.txt" in context and len(context) < 1000
+        assert "large snapshot" not in context
+        assert "systemMessage" not in call("PreCompact")  # 成功不显示为警告。
         assert decision(call("PreToolUse", "apply_patch", patch(target))) == "deny"
         try:
             adapter.patch_paths(patch("../outside.cs"), str(root))

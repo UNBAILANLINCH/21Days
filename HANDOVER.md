@@ -2,28 +2,28 @@
 
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
-> **最近核对**：2026-09-29，当前分支 `main`。Mirror 修复、Core UI 取消回滚、Narrative 接线主体、Replay 五分钟实录、气泡两轮修复、Showcase 文档与手动 MCP 探针均已有提交；提交记录不等于所有相关片段已入库，尤其注意 §1.1。未涉及条目需接手时重新定位，推送状态未核对。
-> **工作区边界**：仍有 DialogueService 及 Dialogue/Quest 契约文档、Codex hooks 三文件、`laila` 场景、URP、字体、Laila 美术资产及模块文档、构建设置改动，以及未跟踪的提交清单。气泡源码、测试、SampleScene 和气泡两份指南目前已无 diff。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
+> **最近核对**：2026-09-29，当前分支 `main`。Mirror 修复、Core UI 取消回滚、Narrative 接线及遗漏片段、Replay 五分钟实录、气泡两轮修复均已提交；Narrative 验收文档、路线图与回放阅读停顿也已提交。剩余最终提交独立验证见 §1.1。未涉及条目需接手时重新定位，推送状态未核对。
+> **工作区边界**：仍有 Codex hooks 三文件、`laila` 场景、URP、字体、Laila 源码/测试/美术及模块文档、TimeManager 与构建设置，以及未跟踪的提交清单、Laila/音乐 PRP。DialogueService 与三份 Dialogue/Quest 契约文档已无 diff。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
 
 ## 0. 现状一句话
 
-主流程在完整工作区已跑通：标题页 → 进入探索场景 → 潜行 / 战斗 / 对话 / 演出 / 任务 / 存档。主要实现已进入 main，但 Narrative 依赖的 DialogueService 片段仍未提交，不能把工作区通过写成当前 HEAD 独立通过。本轮验证是定向回归，不代表全仓所有测试已重新跑过。
+主流程在完整工作区已跑通：标题页 → 进入探索场景 → 潜行 / 战斗 / 对话 / 演出 / 任务 / 存档。Narrative 依赖的 DialogueService 遗漏片段已补交；补交后的定向回归与人工回放验收已有记录，但尚未在独立干净检出上完成最终提交验证。本轮验证不代表全仓所有测试已重新跑过。
 
 **本轮验证范围**：Performance EditMode 150 项、演出 Showcase 6 项通过，失焦键盘自测与输入设置恢复检查通过；演出回放报告为 `Logs/verify/performance/20260929-042650/report.md`，失焦自测报告为 `Logs/verify/selftest/20260929-025916/report.md`（本地生成物，不入库）。角色隐藏已覆盖直接播放、对白插入及场景触发；演出期间世界 Tick / 玩家位置不变、Timeline 继续推进，结束后世界恢复。时停已验证，无需进一步修改。用户已完成一次视觉验收，暂未发现问题。
 
 **后续验证与当前交付边界**：
 
-- Core/Dialogue/Mirror/Narrative/Quest/Session 联合 EditMode 647/647、Dialogue/Mirror/Narrative PlayMode 16/16，均零失败零跳过；这是拆分提交前的完整工作区结果。Narrative 人工视觉确认仍待用户，证据见 `PRP/narrative-dialogue/tasks.md`。
+- Core/Dialogue/Mirror/Narrative/Quest/Session 联合 EditMode 647/647、Dialogue/Mirror/Narrative PlayMode 16/16，均零失败零跳过；这是拆分提交前的完整工作区结果。Narrative 最新记录另有补交后 EditMode 22/22、三条回放通过及用户人工确认，详见 §1.2 和 `PRP/narrative-dialogue/tasks.md`。
 - 气泡补修已提交并完成 review-change：井边妇人旧副本接回共用预制体，组件增加视口约束与临时缩小/恢复。Dialogue EditMode 125/125，零失败零跳过；两条气泡回放任务成功，报告 `Logs/verify/dialogue/20260929-075616/report.md` 为 PASS，覆盖村民侧面、妇人侧面与正面。最终 MCP result=null，不补推 passed/skipped 细分；该报告检查点失败 0、运行时异常 0。
 - 气泡正面图为同目录 `03-井边妇人·正面接近气泡.png`，已核对姓名、正文和边框完整；用户视觉确认尚未收到。最后一次读取 Unity 为 Boot、无未保存场景、控制台 error=0。
-- 提交拆分依据见 `PRP/commit-batches-2026-09-29.md`。它是历史清单：C2 气泡现已提交，不能照旧“待提交”状态重复暂存；其它批次也须与 Git 实时对账。
+- 提交拆分依据见 `PRP/commit-batches-2026-09-29.md`。它是历史清单：C2 气泡及顶部四文件补交现均已提交，不能照旧“待提交”状态重复暂存；其它批次也须与 Git 实时对账。
 
-**框架可运行与正式内容完成是两回事。** 当前已有 `Game.Core`、运行时模块、主流程、编辑器工具、回放与埋点体系，外加照镜 demo（`PRP/mirror-core`）；剩余接线提交、验收和内容工作见下文。
+**框架可运行与正式内容完成是两回事。** 当前已有 `Game.Core`、运行时模块、主流程、编辑器工具、回放与埋点体系，外加照镜 demo（`PRP/mirror-core`）；剩余验收和内容工作见下文。
 
 **没做的分两层，量级差很远：**
 
 - **§1 / §2 是已有模块的收尾与待拍板事项**，具体范围见下面的清单。
-- **§3 是内容层，仍有大量待定**：镜子相关已有 demo；画皮、收押、无血条对抗、三结局与真实章节内容尚未验收。`docs/roadmap.md` 的 Narrative/B3 状态尚未同步，旧“20 条完全没开始”不能再作为当前统计。这一片仍需策划与美术输入。
+- **§3 是内容层，仍有大量待定**：镜子相关已有 demo；画皮、收押、无血条对抗、三结局与真实章节内容尚未验收。`docs/roadmap.md` 的 C1–C3/B3/W2 状态已同步，旧“20 条完全没开始”不再作为当前统计。这一片仍需策划与美术输入。
 
 一句话：**框架能跑，玩法的肉还在纸上。**
 
@@ -31,18 +31,19 @@
 
 ## 1. 可以直接开工
 
-### 1.1 优先补齐已提交模块的遗漏片段
+### 1.1 最终提交的独立验证
 
-- `Assets/_Project/Scripts/Runtime/Dialogue/DialogueService.cs` 仍有未提交改动：稳定 targetId 的四参数 `PlayAsync` 重载、向 Controller 传 targetId、资源收尾成功后设置 Completed、结束事件传 completed。
-- 已入库的 `NarrativeService` 调用上述四参数重载，当前 HEAD 的 DialogueService 尚无该重载；静态核对确认提交不完整。先按内容审查并补齐，不能回滚这个文件来“清理工作区”。尚未在独立干净检出上运行编译。
-- `dialogue-external-api.md`、`quest-module-guide.md`、`quest-external-api.md` 还有相关未提交契约说明，和源码一起对账。原分批清单 E/F 可作归属参考，但不要重复提交已入库文件。
-- 补齐后验证最终提交状态的编译与相关回归，再同步 `PRP/narrative-dialogue/tasks.md` 和 `docs/roadmap.md`；tasks 内的未勾选项及早期“未实现”记录不能代替后续证据。
+- 原“遗漏提交”已关闭：DialogueService 的稳定 targetId 重载、Completed 传递及三份契约文档均已入库，不再要求补交。
+- 剩余工作是在隔离的干净检出上记录最终提交号，完成编译和相关联合回归；不通过清理或回滚共享工作区来制造干净状态。
+- 补交后 22/22 与三条 Narrative 回放属于工作区验证；此前 647/647、16/16 也不能代替此项。尚无独立检出验证已执行的证据。
+- 完成后回填 `PRP/narrative-dialogue/tasks.md` 的最终提交独立验证项，并关闭本节；不重复实现已有接线。
 
 ### 1.2 Narrative 接线的剩余验收
 
 C1–C3/B3 的运行接线、真实条件源、最小表/校验器、任务完成映射剧情标记与 Session 稳定状态保存已实现并有回归证据，不要再创建第二套控制器或存档系统。
 
-- 人工视觉确认：`Logs/verify/narrative/20260929-063358/report.md`；选项清晰图 `10-选项去调试遮挡.png`。自动通过不代表用户已确认。
+- 人工视觉确认已通过：最新实施记录载明用户观看慢速回放后反馈“好像是没问题的”。对应 `Logs/verify/narrative/20260929-094939/report.md`（实时刷新）与 `Logs/verify/narrative/20260929-095052/report.md`（取消/重试/跳过、保存/继续），记录均为检查点失败 0、运行时异常 0；验收仅限这三条覆盖行为。
+- 回放关键画面的 `Wait(3f)` 阅读停顿已提交，x2 时约停 6 秒；不再列为未提交改动。上述新增运行证据来自 Narrative 实施记录，本次交接更新未重跑 Unity。
 - 未覆盖：C5/G5 对抗结果、全目标生命周期中断、全场景恢复事务、对白逐节点/逐字恢复及真实章节内容；详见 PRP 的“未纳入本批的验收欠账”。
 - 调试探针曾在未传生命周期令牌、对白仍运行时直接停止 Play，出现 ObjectDisposedException；正式回放正常收尾为零异常，不据此宣称任意根作用域突然销毁均已覆盖。
 - `DefaultDialogueConditionSource` 保留作未装 NarrativeInstaller 的兼容来源；不要按旧交接要求直接删除。
@@ -110,12 +111,12 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 
 **3.3 美术替换** —— 探索场景从灰盒换成 3D 环境资产（模块化 Prefab + Lightmap）。纸片角色按**正面平视**画，不要按要求俯视 3/4 出图。
 
-**3.4 内容与系统剩余方向**（roadmap 的 C1–C3/B3/W2 状态及统计待同步，不沿用旧总数）
+**3.4 内容与系统剩余方向**（roadmap 的 C1–C3/B3/W2 状态已同步，不沿用旧总数）
 
 | 组 | 待推进或核对 |
 | --- | --- |
 | A 探索层 | A3 泛化交互/物资箱须与 Loot 聊天对账；A4 多场景流转、A6 相机边界与死区 |
-| B 任务系统 | B3 已有接线与验证，先补齐 §1.1；B4 进度重置与已完成列表 |
+| B 任务系统 | B3 已有接线与验证，最终提交独立验证见 §1.1；B4 进度重置与已完成列表 |
 | C 叙事接线 | C1–C3 转 §1.1/§1.2 收尾；C5 战斗结果 → 剧情等待 G5 规则 |
 | D 演出与 UI 动效 | D6 角色动画补齐，D4/D5 资产采用状态见 §1.5 |
 | E 系统与流程 | E4 加载过渡，E8 出包验证 |

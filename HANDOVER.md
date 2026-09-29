@@ -2,8 +2,9 @@
 
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
-> **最近核对**：2026-09-29，当前分支 `main`。Mirror 修复、Core UI 取消回滚、Narrative 接线及遗漏片段、Replay 五分钟实录、气泡两轮修复均已提交；Narrative 验收文档、路线图与回放阅读停顿也已提交。剩余最终提交独立验证见 §1.1。未涉及条目需接手时重新定位，推送状态未核对。
-> **工作区边界**：仍有 Codex hooks 三文件、`laila` 场景、URP、字体、Laila 源码/测试/美术及模块文档、TimeManager 与构建设置，以及未跟踪的提交清单、Laila/音乐 PRP。DialogueService 与三份 Dialogue/Quest 契约文档已无 diff。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
+> **接手备注（2026-09-30）**：上一会话把「连点补全下沉 Core、演出字幕接连点、可对话 NPC 挡人、laila 上界分析、`run_tests` 回放范围守卫」写进工作区后额度耗尽中断，没来得及提交。接管会话复核后按主题分 8 条提交并推送：编译零错误，EditMode 全量 **1088 条通过**，`python .claude/hooks/tests/run.py` **69 条全过**。它中断时留了两个尾巴，都已处理——编辑器里一个 32 分钟未收的孤儿测试标志（`TestRunStatus.IsRunning`，把 `refresh_unity` 一直挡成 `tests_running`；已补坑册与 MCP 排查表）与「记录面板『关闭』压住『跳过』」（关闭上移 30px，并补了布局守卫测试）。
+> **最近核对**：2026-09-30，当前分支 `main`，与 `origin/main` 同步。Mirror / Core UI / Narrative / Replay / 气泡几轮以及上面这批都已在 main 上。
+> **工作区边界**：这批提交后工作区干净。唯一的常态脏数据是两个 TMP 字体资产（`Art/Fonts/…SDF.asset`、`TextMesh Pro/…/LiberationSans SDF - Fallback.asset`）：每跑一次 Play、或一次带真实 View 的 EditMode 测试，就被烘进几 MB 字形，提交前清回基线（6,404 B / 9,633 B）再提交，别带进提交——见 `ai-docs/pitfalls.md`「TMP Dynamic 字体资产」。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
 
 ## 0. 现状一句话
 
@@ -93,8 +94,6 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 | 任务「!」标记是否给台词气泡让位 | 项目负责人 | 灰色「…」会避让，任务黄「!」不让位，无树 NPC 冒气泡时可能被压住 |
 | 任务面板底板透底 | 需实机复现 | 回放里正常、实机透底；怀疑与 `ProjectSettings/EditorSettings.asset` 的 Enter Play Mode Options 被测试运行器打开有关，未定位 |
 | Mirror `visionLossPerCrack` | 项目负责人 | 现值 0.18，建议 0.3——1～2 道裂时暗角几乎看不见 |
-| 对白与演出的补全手势不一致 | 项目负责人 | 对白打字中要「连点三下」补全，演出「单击」补全，统一还是保持 |
-| 记录面板「关闭」压住「跳过」 | 项目负责人 | 两按钮位置重叠，待视觉打磨 |
 | `docs/design/features/` 的矛盾与待定 | 策划 | 30 条跨文档矛盾 + 128 条待定问题；拍板后要把 `[待定]` 改成 `[原文]` 并回写产品文档，别让 features 变成第二真源 |
 | 四本素材 PDF（共 152 MB） | 项目负责人 | 移出仓库放共享盘，还是走 Git LFS |
 | Run 动画帧、探索 3D 环境资产 | 美术 | 序列帧小人暂无 Run 动画（现复用 walk 剪辑）；探索环境仍是灰盒 |

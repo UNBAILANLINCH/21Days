@@ -1,0 +1,116 @@
+# ==================================================================================================
+# 分析用候选，不是绑定，系数未经几何校准，不得用于导出部署。
+# ==================================================================================================
+#
+# 用途：只给「laila 12 维输入下七类表情可分性上限」分析用（analysis/laila_upper_bound/REPORT.md）。
+# 正式绑定是规格 §5.1 的 configs/rigs/laila_rig.yaml（name 为 laila_v1），要经几何校准定稿，与本文件无关。
+#
+# 口径：乐观候选。每个控制都取最宽松、但物理上还说得通的语义，用来估计「几何校准结果最好时」的上限。
+# 这里多出来的每一项都违背了规格 §5.2 末段「未验证系数先为 0」的要求——这正是它只能用于分析的原因。
+# 与 laila_candidate_conservative.yaml 相比多出的项，逐条用「[乐观+]」注释说明理由。
+#
+# §5.3 系数合计：两个控制驱动同一规范基时合计不超过 1——
+#   browInnerUp：左眉 0.5 + 右眉 0.5 = 1.0
+#   eyeWide*   ：同侧上眼皮 0.7 + 下眼皮 0.3 = 1.0
+#   mouthPucker：左嘴角 0.5 + 右嘴角 0.5 = 1.0
+#   其余规范基都只由一个控制驱动。
+#
+# 仍然刻意不补的：noseSneer（皱鼻，AU9）、mouthPress / mouthRoll（抿唇，AU23/24）、mouthShrug（AU17）、
+# 上唇带 jawOpen。当前 22 个形态里没有可以说得通地冒充它们的控制（规格 §5.2 末段），乐观也不凭空补。
+#
+# key、顺序、范围与规格 §4.1 完全一致（12 维；上唇、下唇只有 pos）。
+# 左右：假定 *_L_* 对应角色自身左侧的 *Left 基，以几何校准为准（同保守候选的说明）。
+
+name: laila_candidate_optimistic
+sliders:
+  # ---------------- 眉
+  - key: brow_L_y
+    zh: 左眉上下
+    range: [-1, 1]
+    default: 0
+    # [乐观+] browInnerUp 0.5：把「整眉上拉」理解成内外眉一起抬（AU1+AU2，惊讶式抬眉）。
+    #         browInnerUp 是左右共用的中间基，两眉各 0.5，合计 1.0。
+    pos: {browOuterUpLeft: 1.0, browInnerUp: 0.5}
+    neg: {browDownLeft: 1.0}
+  - key: brow_R_y
+    zh: 右眉上下
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpRight: 1.0, browInnerUp: 0.5}   # [乐观+] 同左眉
+    neg: {browDownRight: 1.0}
+
+  # ---------------- 眼
+  - key: eye_L_upper_y
+    zh: 左上眼皮
+    range: [-1, 1]
+    default: 0
+    # [乐观+] eyeWide 由上眼皮 0.7 + 下眼皮下拉 0.3 共同驱动（保守版为上眼皮 1.0、下眼皮不驱动）：
+    #         上下眼皮同时张开才算满幅睁大，合计 1.0。可达子空间与保守版相同（都能把 eyeWide 推到 1）。
+    pos: {eyeWideLeft: 0.7}
+    neg: {eyeBlinkLeft: 1.0}
+  - key: eye_L_lower_y
+    zh: 左下眼皮
+    range: [-1, 1]
+    default: 0
+    # [乐观+] cheekSquint 1.0：把下眼皮上推理解为颊提升连带下睑上推（近似 AU6，杜兴笑的眯眼）。
+    #         真实 AU6 伴随脸颊隆起；若几何校准只看到眼睑本身移动，这一项应为 0。
+    pos: {eyeSquintLeft: 1.0, cheekSquintLeft: 1.0}
+    # [乐观+] 下眼皮下拉 → eyeWide 0.3：规格 §5.2 表列出的候选，视觉上增大睑裂。
+    neg: {eyeWideLeft: 0.3}
+  - key: eye_R_upper_y
+    zh: 右上眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideRight: 0.7}                          # [乐观+] 同左上眼皮
+    neg: {eyeBlinkRight: 1.0}
+  - key: eye_R_lower_y
+    zh: 右下眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeSquintRight: 1.0, cheekSquintRight: 1.0} # [乐观+] 同左下眼皮
+    neg: {eyeWideRight: 0.3}                          # [乐观+] 同左下眼皮
+
+  # ---------------- 嘴角纵轴
+  - key: mouth_corner_L_y
+    zh: 左嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileLeft: 1.0}
+    neg: {mouthFrownLeft: 1.0}
+  - key: mouth_corner_R_y
+    zh: 右嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileRight: 1.0}
+    neg: {mouthFrownRight: 1.0}
+
+  # ---------------- 嘴角横轴
+  - key: mouth_corner_L_x
+    zh: 左嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchLeft: 1.0}
+    # [乐观+] 嘴角内收 → mouthPucker 0.5：把两侧嘴角同时内收理解为噘嘴（AU18 的嘴角内聚）。
+    #         mouthPucker 是中间基，两侧各 0.5，合计 1.0；单侧内收只给半幅。
+    neg: {mouthPucker: 0.5}
+  - key: mouth_corner_R_x
+    zh: 右嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchRight: 1.0}
+    neg: {mouthPucker: 0.5}                           # [乐观+] 同左嘴角
+
+  # ---------------- 唇
+  - key: upper_lip
+    zh: 上唇上提
+    range: [0, 1]
+    default: 0
+    pos: {mouthUpperUpLeft: 1.0, mouthUpperUpRight: 1.0}      # 与保守版相同：上唇不冒充 jawOpen（§5.2）
+  - key: lower_lip
+    zh: 下唇下拉
+    range: [0, 1]
+    default: 0
+    # [乐观+] jawOpen 0.5：把下唇约 6 mm 的下拉理解为带一部分下颌下垂（facs.yaml 里 AU26 = jawOpen 0.6×强度，
+    #         0.5 约相当于 AU26 的 D 档上沿；够不到 AU27 的 jawOpen 1.0）。
+    #         规格 §5.4 禁止在正式绑定里这样补 jawOpen，这里只是估上限。只有下唇驱动 jawOpen，合计 0.5。
+    pos: {mouthLowerDownLeft: 1.0, mouthLowerDownRight: 1.0, jawOpen: 0.5}

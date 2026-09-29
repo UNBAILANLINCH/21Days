@@ -47,6 +47,7 @@ Game.Editor ──────────────────────�
 | `Assets/Scenes/`、`Assets/Settings/` | 模板自带（SampleScene、URP 配置），原位不动；SampleScene 是功能 demo 示例场景，也是回放舞台；也是功能**实现模板**：正式场景接同一功能时，接法与表现与它对齐，只改内容不改接法 |
 | `ai-docs/` | 知识层：模块三件套、catalog、pitfalls |
 | `PRP/` | 复杂功能的 PRD / PRP / tasks |
+| `ML/<项目>/` | 独立的 Python 机器学习子项目（训练、导出 ONNX），不进 Assets、不被 Unity 导入；环境、数据、训练产物各自 `.gitignore`，进游戏的部署产物另放 `Assets/_Project/Data/` |
 
 空目录不预建。
 

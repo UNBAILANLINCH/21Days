@@ -26,7 +26,7 @@ configs/
   canonical.yaml       规范空间 51 维（ARKit 表情基）：区域、左右侧、左右配对、默认屏蔽的 eyeLook* 8 维
   facs.yaml            AU→表情基映射、各情绪的 AU 原型变体（逐条标出处：emfacs / ckplus_min / ckplus_fig1）、强度档、
                        干净稀疏样本比例（clean_fraction，默认 25%）、负样本
-  rigs/sample_rig.yaml 示例绑定（20 根滑杆，注释里写对应的 Live2D 标准参数）
+  rigs/sample_rig.yaml 示例绑定（20 根滑杆，仅跑通流程；live2d 字段是历史参照，Live2D 路线已废弃）
   train.yaml           训练超参
   sentis_ops.txt       Sentis 2.1 支持的 ONNX 算子白名单（附出处 URL 与抓取日期）
 golden/sample_rig.json 金标捏脸集占位（与合成器同源，不能证明泛化）

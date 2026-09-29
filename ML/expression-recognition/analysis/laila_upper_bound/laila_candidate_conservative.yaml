@@ -1,0 +1,98 @@
+# ==================================================================================================
+# 分析用候选，不是绑定，系数未经几何校准，不得用于导出部署。
+# ==================================================================================================
+#
+# 用途：只给「laila 12 维输入下七类表情可分性上限」分析用（analysis/laila_upper_bound/REPORT.md）。
+# 正式绑定是规格 §5.1 的 configs/rigs/laila_rig.yaml（name 为 laila_v1），要经几何校准定稿，与本文件无关。
+#
+# 口径：保守候选。只取接入规格（PRP/laila-expression-recognition/spec.md）§5.2 候选语义表里比较有把握的一项：
+#   - 嘴角 In 不启用（§5.2：没有唇前凸证据时不启用 mouthPucker 候选）；
+#   - 下唇只驱动 mouthLowerDown，不带 jawOpen（§5.2 / §5.4：不因看起来张口就默认有下颌运动）；
+#   - 下眼皮上抬只给 eyeSquint，不给 cheekSquint（§5.2 末段：不凭空补 cheekSquint）；
+#   - 下眼皮下拉不启用：ARKit 的 eyeWide 描述上睑提升（AU5），下睑下移没有独立的规范基，按 §5.2 末段记为映射限制；
+#   - 眉上拉只给 browOuterUp，不带 browInnerUp（§5.2：整眉抬升与内眉抬升需区分，叠加方式未确认）。
+# 每个规范基只由一个控制驱动，所以 §5.3「两个控制驱动同一规范基时系数合计不超过 1」自动满足。
+#
+# key、顺序、范围与规格 §4.1 完全一致（12 维；上唇、下唇只有 pos）。
+# 左右：本文件假定 *_L_* 对应角色自身左侧的 *Left 基。规格 §5.1 要求按角色解剖侧对齐、以几何校准为准；
+# 训练时有左右互换增强、合成器左右基本对称，这个假定不影响「能不能分」的结论。
+
+name: laila_candidate_conservative
+sliders:
+  # ---------------- 眉：P(Brow_*_Up, Brow_*_Down)
+  - key: brow_L_y
+    zh: 左眉上下
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpLeft: 1.0}          # 眉上拉：只认外眉上抬（AU2）
+    neg: {browDownLeft: 1.0}             # 眉下压：降眉（AU4）
+  - key: brow_R_y
+    zh: 右眉上下
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpRight: 1.0}
+    neg: {browDownRight: 1.0}
+
+  # ---------------- 眼：上眼皮 P(*_UpperLid_Up, *_UpperLid_Down)，下眼皮 P(*_LowerLid_Up, *_LowerLid_Down)
+  - key: eye_L_upper_y
+    zh: 左上眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideLeft: 1.0}              # 上眼皮上抬：睁大（AU5）
+    neg: {eyeBlinkLeft: 1.0}             # 上眼皮下落：闭眼（AU43/45）
+  - key: eye_L_lower_y
+    zh: 左下眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeSquintLeft: 1.0}            # 下眼皮上抬：眼睑收紧（AU7）
+    # neg 不启用：下眼皮下拉没有对应的规范基
+  - key: eye_R_upper_y
+    zh: 右上眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideRight: 1.0}
+    neg: {eyeBlinkRight: 1.0}
+  - key: eye_R_lower_y
+    zh: 右下眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeSquintRight: 1.0}
+
+  # ---------------- 嘴角纵轴：P(Mouth_*_Up, Mouth_*_Down)
+  - key: mouth_corner_L_y
+    zh: 左嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileLeft: 1.0}           # 嘴角上拉（AU12）
+    neg: {mouthFrownLeft: 1.0}           # 嘴角下压（AU15）
+  - key: mouth_corner_R_y
+    zh: 右嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileRight: 1.0}
+    neg: {mouthFrownRight: 1.0}
+
+  # ---------------- 嘴角横轴：P(Mouth_*_Out, Mouth_*_In)，正值 = 各自向外
+  - key: mouth_corner_L_x
+    zh: 左嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchLeft: 1.0}         # 嘴角外拉：横拉（AU20）
+    # neg 不启用：内收不必然等于噘嘴
+  - key: mouth_corner_R_x
+    zh: 右嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchRight: 1.0}
+
+  # ---------------- 唇：W(Mouth_UpperLip_Up.001)、W(Mouth_LowerLip_Down.001)，只有正半轴
+  - key: upper_lip
+    zh: 上唇上提
+    range: [0, 1]
+    default: 0
+    pos: {mouthUpperUpLeft: 1.0, mouthUpperUpRight: 1.0}      # 上唇上提（AU10）；不冒充 jawOpen
+  - key: lower_lip
+    zh: 下唇下拉
+    range: [0, 1]
+    default: 0
+    pos: {mouthLowerDownLeft: 1.0, mouthLowerDownRight: 1.0}  # 下唇下拉（AU16）；不带 jawOpen

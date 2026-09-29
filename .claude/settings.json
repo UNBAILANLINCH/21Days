@@ -50,13 +50,13 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Agent",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Agent|mcp__UnityMCP__run_tests",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.js\"",
             "timeout": 10,
-            "statusMessage": "guard 拦截生成物写入 / 提交推送确认"
+            "statusMessage": "guard 拦截生成物写入 / 提交推送确认 / 回放范围"
           }
         ]
       },

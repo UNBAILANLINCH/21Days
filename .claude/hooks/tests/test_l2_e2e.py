@@ -251,5 +251,69 @@ class Guard(unittest.TestCase):
         self.assertEqual(_decision(out).get("permissionDecision"), "deny")
 
 
+@unittest.skipIf(hookenv.node_exe() is None, "没装 node")
+class GuardRunTestsScope(unittest.TestCase):
+    """guard.js：PlayMode 回放要限定范围（model-routing 硬规则 6）——全跑十几分钟，还占着共用编辑器"""
+
+    TOOL = "mcp__UnityMCP__run_tests"
+    ONE_MODULE = "^Game\\.Tests\\.Showcase\\.Performance\\."
+
+    def _run(self, **tool_input):
+        _, out, _ = run_js_hook("guard", {"tool_name": self.TOOL, "tool_input": tool_input})
+        return out
+
+    def _deny_reason(self, out):
+        d = _decision(out)
+        self.assertEqual(d.get("permissionDecision"), "deny")
+        return d.get("permissionDecisionReason", "")
+
+    def test_editmode_unfiltered_passes(self):
+        """EditMode 快，全量合理"""
+        self.assertEqual(self._run(mode="EditMode").strip(), "")
+
+    def test_playmode_unfiltered_denied(self):
+        self.assertIn("十几分钟", self._deny_reason(self._run(mode="PlayMode")))
+
+    def test_playmode_single_module_allowed(self):
+        self.assertEqual(self._run(mode="PlayMode", group_names=[self.ONE_MODULE]).strip(), "")
+
+    def test_playmode_two_modules_denied(self):
+        reason = self._deny_reason(self._run(
+            mode="PlayMode",
+            group_names=["^Game\\.Tests\\.Showcase\\.(Performance|Dialogue)\\."]))
+        self.assertIn("2 个回放模块", reason)
+
+    def test_playmode_two_single_module_entries_allowed(self):
+        """一条正则只命中一个模块就算限定住了，逐条列模块是允许的"""
+        self.assertEqual(self._run(
+            mode="PlayMode",
+            group_names=[self.ONE_MODULE, "^Game\\.Tests\\.Showcase\\.Dialogue\\."]).strip(), "")
+
+    def test_playmode_whole_showcase_denied(self):
+        self.assertIn("回放模块", self._deny_reason(
+            self._run(mode="PlayMode", group_names=["^Game\\.Tests\\.Showcase\\."])))
+
+    def test_playmode_explicit_cases_allowed(self):
+        self.assertEqual(self._run(
+            mode="PlayMode",
+            test_names=["Game.Tests.Showcase.Performance.PerformanceShowcase.Play_StartsPerformance"],
+        ).strip(), "")
+
+    def test_playmode_non_showcase_assembly_allowed(self):
+        """程序集过滤与分组过滤是「与」关系：不含回放程序集就跑不到回放"""
+        self.assertEqual(self._run(mode="PlayMode", assembly_names=["Game.Tests.PlayMode"]).strip(), "")
+
+    def test_playmode_group_without_showcase_namespace_allowed(self):
+        self.assertEqual(self._run(mode="PlayMode", group_names=["^Game\\.Tests\\.EditMode\\.Core\\."]).strip(), "")
+
+    def test_playmode_clear_stuck_allowed(self):
+        """只清孤儿任务，不开跑"""
+        self.assertEqual(self._run(mode="PlayMode", clear_stuck=True).strip(), "")
+
+    def test_playmode_json_string_group_allowed(self):
+        """group_names 传 JSON 字符串形式的数组（MCP 客户端的常见形态）也要认"""
+        self.assertEqual(self._run(mode="PlayMode", group_names='["%s"]' % self.ONE_MODULE).strip(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

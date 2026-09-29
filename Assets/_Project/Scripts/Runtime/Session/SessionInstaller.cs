@@ -11,6 +11,11 @@ using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
+using Game.Dialogue;
+using Game.Monster;
+using Game.Narrative;
+using Game.Quest;
+using Game.Loot;
 using MessagePipe;
 using UnityEngine;
 using VContainer;
@@ -41,7 +46,11 @@ namespace Game.Session
 
             // 构造参数（IGameFlow / DialogueService / UIService / EncounterStep / MonsterEncounterState / QuestService /
             // ISaveService / SessionConfig）容器里都有且都按具体类型开了键，按类型自动注入即可。
-            builder.Register<SessionStateAdapter>(Lifetime.Singleton).As<ISessionStateSource>();
+            builder.Register(resolver => new SessionStateAdapter(
+                resolver.Resolve<IGameFlow>(), resolver.Resolve<DialogueService>(), resolver.Resolve<UIService>(),
+                resolver.Resolve<EncounterStep>(), resolver.Resolve<MonsterEncounterState>(), resolver.Resolve<QuestService>(),
+                resolver.Resolve<ISaveService>(), resolver.Resolve<SessionConfig>(),
+                resolver.TryResolve(out NarrativeService narrative) ? narrative : null), Lifetime.Singleton).As<ISessionStateSource>();
 
             // 一条注册同时拿到三种身份：RegisterEntryPoint 按已实现接口注册（IGameService 进启动串行、ITickable 每帧驱动、
             // IDisposable 随容器释放），再 AsSelf 让保存触发桥与标题路由按具体类型注入（先例 GameLifetimeScope 的 ReplayRecorder）。
@@ -60,7 +69,12 @@ namespace Game.Session
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
                 .AsSelf();
 
-            builder.RegisterEntryPoint<SaveTriggerBridge>(Lifetime.Singleton);
+            builder.RegisterEntryPoint(resolver => new SaveTriggerBridge(
+                resolver.Resolve<GameSession>(), resolver.Resolve<SessionConfig>(), resolver.Resolve<DialogueService>(),
+                resolver.Resolve<ISubscriber<QuestActivatedEvent>>(), resolver.Resolve<ISubscriber<QuestCompletedEvent>>(),
+                resolver.Resolve<ISubscriber<QuestTrackingChangedEvent>>(), resolver.Resolve<ISubscriber<CrateCollectedEvent>>(),
+                resolver.Resolve<ISubscriber<GameStateChangedEvent>>(), resolver.Resolve<ISubscriber<GameStateChangingEvent>>(),
+                resolver.TryResolve(out ISubscriber<NarrativeChangedEvent> narrativeChanged) ? narrativeChanged : null), Lifetime.Singleton);
 
             // 选槽面板控制器：只被标题路由按具体类型注入，不是入口点（IDisposable 随容器释放）。
             // 工厂注册：构造要 ITelemetryScope，容器里只有 ITelemetryService。

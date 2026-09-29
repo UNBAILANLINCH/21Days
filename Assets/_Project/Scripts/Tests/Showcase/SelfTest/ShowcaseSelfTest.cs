@@ -12,8 +12,10 @@
 //         这条用例又天然是最好的模板，两个用途合在一个文件里比分两份更不容易走样。
 
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 
 namespace Game.Tests.Showcase.SelfTest
@@ -32,6 +34,22 @@ namespace Game.Tests.Showcase.SelfTest
         private const int TextureSize = 4;
 
         private SpriteRenderer square;
+        private InputSettings inputSettingsBefore;
+        private bool runInBackgroundBefore;
+
+        [OneTimeSetUp]
+        public void RememberInputSettings()
+        {
+            inputSettingsBefore = InputSystem.settings;
+            runInBackgroundBefore = Application.runInBackground;
+        }
+
+        [OneTimeTearDown]
+        public void InputSettings_AfterScenarios_Restored()
+        {
+            Assert.That(InputSystem.settings, Is.SameAs(inputSettingsBefore));
+            Assert.That(Application.runInBackground, Is.EqualTo(runInBackgroundBefore));
+        }
 
         protected override string Module
         {
@@ -68,6 +86,48 @@ namespace Game.Tests.Showcase.SelfTest
             yield return Step("变红", () => square.color = Color.red);
             yield return Snapshot("变红后");
             yield return Check("颜色为红", () => square.color == Color.red);
+        }
+
+        [UnityTest]
+        public IEnumerator Keyboard_WhenGameViewUnfocused_RecolorsSquare()
+        {
+#if UNITY_EDITOR
+            EnsureCamera();
+            yield return Step("生成白色方块并准备虚拟键盘", () =>
+            {
+                square = CreateSquare();
+                Input.Prime();
+            }, hold: 0f);
+
+            // Input System 1.11 的焦点通知没有公开测试入口；调用实际回调，避免依赖操作系统前台或窗口布局。
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            object manager = typeof(InputSystem).GetField("s_Manager", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            MethodInfo focusChanged = manager.GetType().GetMethod("OnFocusChanged", flags);
+            FieldInfo hasFocus = manager.GetType().GetField("m_HasFocus", flags);
+            bool previousFocus = (bool)hasFocus.GetValue(manager);
+            using (var action = new InputAction("Recolor", InputActionType.Button, "<Keyboard>/space"))
+            {
+                action.performed += _ => square.color = Color.red;
+                action.Enable();
+                try
+                {
+                    yield return Step("经 Input System 焦点回调模拟失焦后按虚拟空格键",
+                        () => focusChanged.Invoke(manager, new object[] { false }), hold: 0f);
+                    yield return Check("Input System 已收到失焦通知", () => !(bool)hasFocus.GetValue(manager));
+                    yield return Input.Press(action);
+                    yield return Check("失焦时键盘动作仍将方块变红", () => square.color == Color.red, 2f);
+                }
+                finally
+                {
+                    focusChanged.Invoke(manager, new object[] { previousFocus });
+                }
+            }
+
+            yield return Snapshot("失焦键盘输入后");
+#else
+            Assert.Inconclusive("输入焦点回归只在编辑器里跑");
+            yield break;
+#endif
         }
 
         /// <summary>

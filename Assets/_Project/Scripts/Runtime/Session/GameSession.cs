@@ -105,6 +105,11 @@ namespace Game.Session
         /// </summary>
         public async UniTask<bool> NewGameAsync(int slot, CancellationToken ct = default)
         {
+            if (state.DialogueRunning)
+            {
+                telemetry.TrackWarn("new_game_rejected", TelemetryProps.Of(("slot", slot), ("reason", "dialogue_running")));
+                return false;
+            }
             if (!IsValidSlot(slot))
             {
                 Log.Warn($"新游戏槽号 {slot} 越界（1..{config.SlotCount}），忽略");
@@ -135,6 +140,11 @@ namespace Game.Session
         /// </summary>
         public async UniTask<bool> ContinueAsync(int slot, CancellationToken ct = default)
         {
+            if (state.DialogueRunning)
+            {
+                telemetry.TrackWarn("continue_rejected", TelemetryProps.Of(("slot", slot), ("reason", "dialogue_running")));
+                return false;
+            }
             if (!IsValidSlot(slot))
             {
                 Log.Warn($"继续的槽号 {slot} 越界（1..{config.SlotCount}），忽略");
@@ -151,7 +161,11 @@ namespace Game.Session
                 SaveSnapshot candidate = saves.Exists(slot) ? await saves.ReadCandidateAsync(slot, ct) : null;
                 if (candidate != null && candidate.Contains<SessionSaveData>())
                 {
-                    loaded = await saves.LoadAsync(slot, ct);
+                    state.ValidateCandidate(candidate);
+                    ct.ThrowIfCancellationRequested();
+                    // 提交刚校验过的同一候选，不能再次读盘换成另一份内容。
+                    saves.Commit(candidate);
+                    loaded = true;
                 }
             }
             catch (OperationCanceledException)
@@ -234,6 +248,7 @@ namespace Game.Session
 
             // 防重入：落盘在途时新请求继续挂着，等这次写完、下一帧再评估。
             if (!pending.HasRequest || savesInFlight > 0) return;
+            if (!state.NarrativeStable) return;
             if (!SaveGateRules.CanSave(gameplay, state.DialogueRunning, state.AnyPanelOpen, state.BattleResultPending)) return;
 
             pending = SaveGateRules.Take(pending, out string reason);
@@ -254,6 +269,13 @@ namespace Game.Session
             if (!state.IsGameplayState)
             {
                 telemetry.Track("save_skipped", ("reason", reason));
+                return false;
+            }
+
+            if (state.DialogueRunning || !state.NarrativeStable)
+            {
+                RequestSave(reason);
+                telemetry.Track("save_deferred", ("reason", reason));
                 return false;
             }
 

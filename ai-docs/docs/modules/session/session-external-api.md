@@ -34,11 +34,14 @@ public readonly struct SaveCompletedEvent { int Slot; string Reason; bool Succes
 | `int LatestSlot` | 保存时间最新的可用槽；0 = 没有可用存档 |
 | `bool HasPendingSave` | 是否有尚未落盘的自动保存请求 |
 | `UniTask<bool> NewGameAsync(int slot, ct)` | 槽号越界（不在 `1..SessionConfig.SlotCount`）直接返回 false，不抛 |
-| `UniTask<bool> ContinueAsync(int slot, ct)` | 候选校验失败（损坏 / 高版本 / 缺 `SessionSaveData`）内存与 `CurrentSlot` 都不动，返回 false 并通知「存档不可用」 |
+| `UniTask<bool> ContinueAsync(int slot, ct)` | 候选校验失败（损坏 / 高版本 / 缺 SessionSaveData / 无效叙事状态）不改内存与槽号；成功 Commit 同一候选。对白进行中拒绝新游戏/读档 |
 | `UniTask<IReadOnlyList<SlotInfo>> ReadSlotInfosAsync(ct)` | 只读候选，不碰内存分区，可随时调 |
 | `UniTask DeleteSlotAsync(int slot, ct)` | 删的是当前槽则 `CurrentSlot` 归 0 |
 | `void RequestSave(string reason)` | 合并式：还没开局时忽略；落盘发生在下一次闸门打开时（`Tick`），不是同步的 |
-| `UniTask<bool> SaveNowAsync(string reason, ct)` | **不经过闸门**，立即捕获现场并落盘；只有「不在玩法状态」时会跳过（返回 false），别的稳定边界条件不检查——离开玩法状态 / 退出游戏两条内置触发点专用；外部若要加「立即保存」调试项也调这个 |
+| `UniTask<bool> SaveNowAsync(string reason, ct)` | 立即保存入口；不在玩法状态时返回false，对白运行或Narrative不稳定时也返回false并保留待保存请求。退出/离场同样受此保护，不能覆盖旧槽；其余自动保存节流条件不在此检查 |
+
+SaveNowAsync 在对白运行或 NarrativeStable=false 时返回 false、保留待保存请求；退出/离场也不覆盖旧槽。
+ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)，后者必须只校验、不修改当前分区。
 
 **线程 / 时序**：`SaveNowAsync` 的捕获段（`state.CaptureEncounter` + 更新 `SessionSaveData`）在第一个
 `await` 之前**同步**完成，所以在 `GameStateChangingEvent` 回调里调用时，捕获发生在前一状态 `ExitAsync`

@@ -1,0 +1,24 @@
+{
+    "id": "sample_encounter",
+    "entry": "check",
+    "stages": [
+        {
+            "id": "check", "kind": "Condition", "payload": "", "allowEncounter": false,
+            "anyOf": [{"all": [{"fact": "StoryFlag", "key": "quest_completed_1002", "expected": true}]}],
+            "exits": [{"result": "True", "next": "known"}, {"result": "False", "next": "talk"}],
+            "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "talk", "kind": "Dialogue", "payload": "1002", "allowEncounter": false,
+            "anyOf": [], "exits": [{"result": "Done", "next": "done"}], "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "done", "kind": "End", "payload": "", "allowEncounter": false,
+            "anyOf": [], "exits": [], "setFlags": ["sample_traveler_met"], "outcome": "Success"
+        },
+        {
+            "id": "known", "kind": "End", "payload": "", "allowEncounter": false,
+            "anyOf": [], "exits": [], "setFlags": ["sample_traveler_recognized"], "outcome": "Success"
+        }
+    ]
+}

@@ -65,7 +65,7 @@ disable-model-invocation: true
 
 然后 `read_console(action="clear")` 清掉旧日志，事后只看本次。
 
-框架 SetUp 会自动把焦点切到 Game 视图；真实按键用例仍红时才手动 `execute_menu_item("Window/General/Game")` 再跑。
+框架 SetUp 会显示 Game 视图供观看，并临时放开输入焦点限制；切走窗口不应影响虚拟输入。输入用例仍红时先跑 `SelfTest` 的失焦回归，不靠反复聚焦窗口掩盖问题。
 
 ## 6. 回放
 

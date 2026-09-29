@@ -161,23 +161,20 @@ namespace Game.Core.UI
             Type type = typeof(T);
             long startMs = NowMs;
 
-            // 已经开着就复用：面板是有状态的，开两份会出现「关掉一个另一个还在」的幽灵界面。
-            if (opened.TryGetValue(type, out UIView existing) && existing != null)
-            {
-                await existing.OnOpenAsync(arg, ct);
-
-                // 复用也埋：OnOpenAsync 是玩法自己写的，重新打开同一个面板照样可能很慢。
-                TrackPanel(TelemetryKeys.UiEvents.Open, type.Name, startMs);
-                return (T)existing;
-            }
-
             // 同类型正在打开中：等第一次的结果，返回同一个实例。
-            // 上面那次查表到 opened 落值之间隔着 await，连点两下按钮会两次都查到「没开」，
-            // 各实例化一份出来——第二份不在栈里也不在字典里，成了关不掉的幽灵面板。
+            // 必须先于 opened 检查：淡入期间已登记 view，但尚未交付；取消时排队者也须收到取消。
             if (opening.TryGetValue(type, out UniTaskCompletionSource<UIView> inflight))
             {
                 // 这条路不埋：面板是上一次调用开的，那次自己会埋一条 open，这里再埋等于把同一次打开记两遍。
                 return (T)await inflight.Task;
+            }
+
+            // 已经开完才复用，不能把尚在打开中的半成品交给第二个调用方。
+            if (opened.TryGetValue(type, out UIView existing) && existing != null)
+            {
+                await existing.OnOpenAsync(arg, ct);
+                TrackPanel(TelemetryKeys.UiEvents.Open, type.Name, startMs);
+                return (T)existing;
             }
 
             var completion = new UniTaskCompletionSource<UIView>();
@@ -225,8 +222,8 @@ namespace Game.Core.UI
         /// <summary>
         /// 真正开一个新面板：实例化 → 挂层 → 三段生命周期的第一段 → 压栈 → 播淡入。
         /// <para>
-        /// 从实例化成功到压栈之间整段包 try/catch：<see cref="UIView.OnOpenAsync"/> 是玩法自己写的，
-        /// 抛异常并不罕见。不清理的话字典里留着一个没入栈、没人关得掉的残骸，实例还挂在场景上，
+        /// 从实例化成功到打开过渡结束整段包 try/catch：生命周期与过渡都可能失败或取消。
+        /// 不清理的话字典/栈里留着一个尚未交给调用方、没人关得掉的残骸，实例还挂在场景上，
         /// 之后再 OpenAsync 同一类型会把这个半初始化的面板当成「已经开着」直接复用。
         /// </para>
         /// </summary>
@@ -260,42 +257,46 @@ namespace Game.Core.UI
                 view.gameObject.SetActive(true);
 
                 await view.OnOpenAsync(arg, ct);
+
+                ApplyVisibility(stack.Push(view), false);
+
+                // 全屏面板一压栈 Hud 立刻盖住，不等淡入。
+                RefreshHudCover();
+
+                // 沉浸中新开的 Hud 面板：不播淡入（淡入会把 alpha 拉回 1），直接套隐藏。
+                if (hudHidden && FollowsHud(view))
+                {
+                    ApplyHudHidden(view, true);
+                    return view;
+                }
+
+                await view.PlayOpenTransitionAsync(TransitionSeconds, ct);
+
+                // 淡入途中进了沉浸：淡入收尾会把 alpha 写回 1，这里补一次。
+                if (hudHidden && FollowsHud(view))
+                {
+                    ApplyHudHidden(view, true);
+                }
+
+                // 淡入完才选中：淡入途中又叠上来一个面板时，这里的栈顶已经不是它，不抢那个面板的焦点。
+                if (stack.Top() == view)
+                {
+                    ApplySelection(view);
+                }
+
+                return view;
             }
             catch
             {
-                // 记账和实例一起回滚。opened 里没登记过时 Remove 是空操作（GetComponent 为 null 那条分支）。
+                // 打开尚未返回时调用方拿不到 view，服务必须回滚字典、栈、遮挡与实例。
+                bool wasTop = view != null && stack.Top() == view;
                 opened.Remove(type);
+                ApplyVisibility(stack.Remove(view), true);
+                RefreshHudCover();
+                if (wasTop) ApplySelection(TopView);
                 assets.ReleaseInstance(instance);
                 throw;
             }
-
-            ApplyVisibility(stack.Push(view), false);
-
-            // 全屏面板一压栈 Hud 立刻盖住，不等淡入。
-            RefreshHudCover();
-
-            // 沉浸中新开的 Hud 面板：不播淡入（淡入会把 alpha 拉回 1），直接套隐藏。
-            if (hudHidden && FollowsHud(view))
-            {
-                ApplyHudHidden(view, true);
-                return view;
-            }
-
-            await view.PlayOpenTransitionAsync(TransitionSeconds, ct);
-
-            // 淡入途中进了沉浸：淡入收尾会把 alpha 写回 1，这里补一次。
-            if (hudHidden && FollowsHud(view))
-            {
-                ApplyHudHidden(view, true);
-            }
-
-            // 淡入完才选中：淡入途中又叠上来一个面板时，这里的栈顶已经不是它，不抢那个面板的焦点。
-            if (stack.Top() == view)
-            {
-                ApplySelection(view);
-            }
-
-            return view;
         }
 
         public async UniTask CloseAsync(UIView view, CancellationToken ct = default)

@@ -310,20 +310,47 @@ namespace Game.Tests.Showcase.Dialogue
 
             var villager = FindRequired<DialogueInteractable>("Npc_Villager");
             yield return Step("玩家站到村民身边（交互半径内）", () => StandNextTo(villager), hold: 0.5f);
-            var bubble = FindRequired<DialogueSpeechBubble>("SpeechBubble");
+            var bubble = FindDeep<DialogueSpeechBubble>(villager.transform, "SpeechBubble");
+            Assert.That(bubble, Is.Not.Null, "Npc_Villager 下找不到 SpeechBubble 气泡组件");
+            var body = FindDeep<TMP_Text>(bubble.transform, "Body");
+            Assert.That(body, Is.Not.Null);
             yield return Step("和村民交互（无对话树，只说常驻台词）", () => villager.Interact(), hold: 0f);
             yield return Check("头顶气泡出现第一句，世界没有暂停、没有拉起对白面板",
                 () => bubble.IsShowing && bubble.CurrentText == "这个移动平台比我年轻时见到的老不少。"
                       && Mathf.Approximately(Time.timeScale, 1f) && !service.IsRunning && View() == null, 2f);
-            yield return Wait(1.5f);
+            yield return Check("第一句已完整打出", () => body.maxVisibleCharacters >= body.textInfo.characterCount, 2f);
+            yield return Step("检查第一句文本布局和屏幕边界", () => AssertBubbleFits(bubble), hold: 0f);
             yield return Snapshot("村民气泡·第一句");
 
             yield return Step("再次和村民交互", () => villager.Interact(), hold: 0f);
             yield return Check("气泡换成第二句", () => bubble.IsShowing && bubble.CurrentText == "今天的风有点大，小心站稳。", 1f);
-            yield return Wait(1f);
+            yield return Check("第二句已完整打出", () => body.maxVisibleCharacters >= body.textInfo.characterCount, 2f);
+            yield return Step("检查第二句文本布局和屏幕边界", () => AssertBubbleFits(bubble), hold: 0f);
             yield return Snapshot("村民气泡·第二句");
             yield return Check("停留后气泡淡出消失", () => !bubble.IsShowing, bubble.HoldSeconds + 2f);
             yield return Snapshot("气泡淡出");
+        }
+
+        private static void AssertBubbleFits(DialogueSpeechBubble bubble)
+        {
+            foreach (TMP_Text label in bubble.GetComponentsInChildren<TMP_Text>())
+            {
+                Assert.That(label.isTextOverflowing, Is.False, $"{label.name} 文字超出文本框");
+                Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 0.5f),
+                    $"{label.name} 文本框高度不足");
+            }
+
+            Camera camera = Camera.main;
+            Assert.That(camera, Is.Not.Null);
+            var corners = new Vector3[4];
+            ((RectTransform)bubble.transform).GetWorldCorners(corners);
+            foreach (Vector3 corner in corners)
+            {
+                Vector3 viewport = camera.WorldToViewportPoint(corner);
+                Assert.That(viewport.z, Is.GreaterThan(0f));
+                Assert.That(viewport.x, Is.InRange(0f, 1f), $"气泡越出屏幕水平边界：{viewport}");
+                Assert.That(viewport.y, Is.InRange(0f, 1f), $"气泡越出屏幕垂直边界：{viewport}");
+            }
         }
 
         [UnityTest]

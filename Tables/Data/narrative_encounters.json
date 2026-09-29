@@ -1,0 +1,7 @@
+[
+    {
+        "id": "sample_traveler", "trigger": "Interact", "targetKind": "SampleTraveler",
+        "priority": 10, "story": "sample_encounter", "entry": "check", "repeat": "Once",
+        "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
+    }
+]

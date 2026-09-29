@@ -84,6 +84,40 @@ def run():
         save_records()
         actual = adapter.transcript_response(evidence, command, root)
         assert adapter.read_path(command, root, actual) == doc
+        whole_output = records.pop()
+        split = content.index("\n", len(content) // 2)
+        first = {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",
+                 "output": content[:split]}}
+        second = {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",
+                  "output": content[split + 1:]}}
+        records.extend([first, second])
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(evidence, command, root)) == doc
+        second["payload"]["call_id"] = "another-parent"
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(evidence, command, root)) is None
+        records.pop()
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(evidence, command, root)) is None
+        records[-1] = whole_output
+        save_records()
+        legacy_records = records[:]
+        records = [records[0], first, second]
+        first["payload"]["output"] = json.dumps({"exit_code": 0, "output": content[:split]})
+        second["payload"]["call_id"] = "parent-1"
+        second["payload"]["output"] = json.dumps({"exit_code": 0, "output": content[split + 1:]})
+        bound = dict(evidence, parent_call_id="parent-1")
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(bound, command, root)) == doc
+        second["payload"]["output"] = json.dumps({"exit_code": 1, "output": content[split + 1:]})
+        save_records()
+        assert adapter.transcript_response(bound, command, root) is None
+        second["payload"]["output"] = json.dumps({"exit_code": 0, "output": content[split + 1:]})
+        second["payload"]["call_id"] = "another-parent"
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(bound, command, root)) is None
+        records = legacy_records
+        save_records()
         for key, wrong in [("tool_use_id", "other"), ("session_id", "other"), ("turn_id", "other")]:
             assert adapter.transcript_response(dict(evidence, **{key: wrong}), command, root) is None
         assert adapter.transcript_response(evidence, command + " extra", root) is None
@@ -104,7 +138,7 @@ def run():
                             tool_input={"command": "git status --short"}))
         assert any(json.loads(p.read_text()) for p in adapter.CACHE.rglob("pending-read.json"))
         records.append({"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",
-                       "output": [{"type": "input_text", "text": content}]}})
+                       "output": [{"type": "input_text", "text": json.dumps({"exit_code": 0, "output": content})}]}})
         save_records()
         assert decision(adapter.handle(dict(evidence, hook_event_name="PreToolUse", tool_name="apply_patch",
                         tool_input={"command": patch(target)}))) is None
@@ -122,9 +156,15 @@ def run():
         assert "TEMP" in json.dumps(stopped) and ".meta" in json.dumps(stopped)
         assert "decision" not in stopped
         call("PreCompact")
-        assert list(adapter.CACHE.rglob("precompact-state.txt"))
-        restored = call("PostCompact")
-        assert "git status" in json.dumps(restored)
+        snapshots = list(adapter.CACHE.rglob("precompact-state.txt"))
+        assert snapshots
+        snapshots[0].write_text("# 压缩前工作态快照\n" + "large snapshot\n" * 3000, encoding="utf-8")
+        assert call("PostCompact") == {}  # 此事件不支持 additionalContext。
+        restored = call("SessionStart", source="compact")
+        context = restored["hookSpecificOutput"]["additionalContext"]
+        assert "precompact-state.txt" in context and len(context) < 1000
+        assert "large snapshot" not in context
+        assert "systemMessage" not in call("PreCompact")  # 成功不显示为警告。
         assert decision(call("PreToolUse", "apply_patch", patch(target))) == "deny"
         try:
             adapter.patch_paths(patch("../outside.cs"), str(root))

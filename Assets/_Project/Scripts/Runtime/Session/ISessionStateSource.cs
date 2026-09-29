@@ -18,6 +18,10 @@ namespace Game.Session
 
         /// <summary>战斗终局已出、还没被消费。</summary>
         bool BattleResultPending { get; }
+        /// <summary>叙事处于可完整恢复的稳定边界；未安装叙事模块时为 true。</summary>
+        bool NarrativeStable { get; }
+        /// <summary>提交候选前校验玩法分区；失败抛异常，不能改当前分区。</summary>
+        void ValidateCandidate(Game.Core.Save.SaveSnapshot candidate);
 
         /// <summary>把遭遇现场捕获进 <c>saves.Get&lt;EncounterSaveData&gt;()</c>（原地写，不换分区实例）。</summary>
         void CaptureEncounter(long tick);

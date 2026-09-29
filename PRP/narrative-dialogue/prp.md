@@ -1,4 +1,95 @@
-# 事件与状态驱动的剧情、遭遇及对白立绘实现 Spec
+# Narrative 接线 Spec（2026-09-29 源码核对）
+
+> 状态：C1–C3 / B3 最小闭环已实现并接入 Boot；受影响模块 EditMode 647/647、Dialogue/Mirror/Narrative PlayMode 16/16 通过。人工视觉验收仍待确认，实际证据与未覆盖边界见 tasks.md；下方旧规格不代表全部实现。
+> 证据分级：下表“已有”只表示本次读到源码、测试或资产；历史测试记录不等于本次复跑通过。
+> 本文第 1–5 节是当前执行口径；文末旧设计仅保留需求与验收追溯，冲突内容不再作为施工指令。
+
+## 1. 核对结论与替代关系
+
+| 范围 | 源码证据 | 当前判断 |
+| --- | --- | --- |
+| Narrative 规则 | `Runtime/Narrative/` 七个 C# 文件；`NarrativeRulesTests` 四个测试 | 阶段、条件、父阶段、结果身份、重复触发与快照已有；没有生产控制器、Installer、表和 Showcase |
+| Dialogue | `DialogueService.PlayAsync`、`DialogueController`、`DialogueCatalog`、`DialogueInstaller` | T5 与 T7/T8 的对白部分已由 dialogue-system 取代；继续调用现有服务，不重建三槽 View、HistoryView 或旧快进入口 |
+| 已读 | `DialogueReadStore`、`DialogueReadProfile`、`DialogueReadData` | 启动读独立 `dialogue-read` 档案，对白结束合并写；跨局/跨槽位保留，不进入剧情槽位 |
+| 条件源 | `DefaultDialogueConditionSource.Snapshot` | 占位：存活=true、潜行/伪装=false、目标存活=true、敌对=false、发现=true、无标记；注释“正向全真”和模块文档“未发现”均不准确 |
+| Core/Save | `ReadCandidateAsync`、`Capture`、`Commit`、独立档案、`IoGate`、`WriteAtomic` | T3 通用存储代码与测试已有；不能再列作全部缺失，亦不等于完整游戏恢复事务通过 |
+| Session | `GameSession`、`SaveSlotsController/View`、`SessionInstaller`、`SessionStateAdapter`、`SessionShowcase` | 原 GameSessionController / 槽位 UI 计划被现有 Session 取代；Narrative 分区尚未接入 |
+| Quest | `QuestService.Flush` 先写分区后发布 `QuestCompletedEvent` | 任务完成事实已有；目前没有消费者写 Narrative 标记，B3 确实缺失 |
+| Monster | `EncounterStep.StartBattle/Restore/ConsumeResult`；`MonsterEncounterState.PrepareRestore`；`SimulationRunner.OnTickCommitted` | T4 已有快照与恢复路径，不能说恢复必经 Begin；没有将结果提交 Narrative 的生产消费者，C5 等 G5 定义 |
+| 资产与文档 | Dialogue/Session 的 Installer、UI、Showcase、模块文档已存在；Narrative 三件套已存在 | 文件存在不代表本次运行通过；Narrative 文档仍有 Session 未实现等过时描述，第二批按源码同步 |
+
+本次全库引用检索确认：Narrative 阶段规则的生产调用方缺失；Dialogue 仅消费条件类型。
+`NarrativeContent.Stage` 与 `Current` 返回可变对象，不能把模块文档“不可变值对象”当作源码保证。
+
+现行契约：[Dialogue API](../../ai-docs/docs/modules/dialogue/dialogue-external-api.md)、
+[Session API](../../ai-docs/docs/modules/session/session-external-api.md)、
+[Quest API](../../ai-docs/docs/modules/quest/quest-external-api.md)、
+[Narrative API](../../ai-docs/docs/modules/narrative/narrative-external-api.md)。
+
+## 2. 当前已确定范围
+
+本批只实现一个可验证闭环：真实交互候选 → 遭遇仲裁 → 现有对白服务 → 出口推进/写标记 →
+真实任务完成写标记 → 选项重新求值 → Session 槽位保存与恢复。
+
+- 复用 `NarrativeRules/EncounterRules`，保持 Generation、ActivationId、TargetId、ActionRequestId 的结果校验。
+- Condition、Dialogue、WaitAction、End 支持最小内容；Battle 类型保留，生产内容拒绝启用未接入结果路径。
+- 最小样例明确标为验证内容，不冒充第一章。C5/G5 无血条对抗、画皮、收押、三结局条件和真实章节不在本批定案。
+- 潜行、伪装等没有真实数据来源的事实，不以固定 true/false 假装接线完成；首批内容仅使用可证明来源的事实，校验拒绝不支持事实。
+- 不新增剧情编辑器、任意表达式、通用事件解释器或第二套存档服务。
+- Runtime 模块共用 Game.Runtime，不存在独立 Narrative/Dialogue asmdef 的编译循环；仍保持纯规则不引用对白表现。协调器可调用 Dialogue；条件适配器只依赖规则/事实数据，避免容器构造循环。
+
+## 3. 最小接线决定
+
+1. Narrative 内容目录沿用项目 JSON → Luban 方式；提供阶段、出口、遭遇、条件与标记映射的最小结构。
+   先检查现有表定义与生成命令，再由工具生成，不手改生成代码。对白表继续复用。
+2. 控制器协调阶段，调用 `await DialogueService.PlayAsync(id, anchor, ct)`，只接受正常返回的明确 Outcome。
+   取消/失败不是 Success；异步启动前捕获身份，返回后按原身份 Apply，不重新取新身份为旧回调“补票”。
+3. 条件源读取当前玩家/目标事实与 `NarrativeRules.StoryFlags`；处理 `dialogue:<id>` 到本次稳定目标身份的映射，
+   不把对白编号当作世界实体。无目标时保守拒绝目标事实；普通对白仍可读全局标记。
+4. B3 使用真实 `QuestCompletedEvent`，仅按内容映射写标记；读档时从当前任务快照补核对已完成任务，
+   不能依赖已过去且不重发的单次事件。标记写入幂等，不能同时当作真实玩法成功。
+5. 状态变化同步 Capture 到重新取得的 `NarrativeSaveData` 槽位分区；由现有 Session 请求合并与保存闸门落盘。
+   用现有 `SessionStartedEvent` 在分区就位后同步重载，异步恢复对白必须等玩法场景/目标绑定完成。
+6. 主动交互只生成候选，候选携带稳定目标 ID；不会用范围进入冒充发现。持续候选按批仲裁、忙碌不积压旧事件。
+   保存触发消费与父等待，恢复不得重发已执行请求。
+
+## 4. 保存边界与明确欠账
+
+**当前契约**：已读对白属于独立档案；剧情阶段、标记、消费记录属于槽位。新游戏重置剧情，读旧档回退剧情，
+但不清除跨局已读。不得 `saves.Get<DialogueReadProfile>()`；已读继续由 DialogueReadStore 管理。
+
+现行 `GameSession.Tick` 在对白/面板/未消费战斗结果期间挂起自动保存；`SaveNowAsync` 是退出/离场例外，
+不经过上述闸门。第二批必须覆盖此例外：不能保存一半选择效果，也不能用整段重播替代全状态恢复。
+不能完整恢复的对白/切换中状态必须阻止或延后保存，并明确返回未保存；保留原有槽文件。
+本批先验稳定等待/结束状态的完整快照；对白中途续播仍未完成，不声称已支持。
+
+`ContinueAsync` 当前先读候选，再 `LoadAsync` 替换内存，发布 SessionStartedEvent，再进入玩法；
+没有旧现场事务回滚。Narrative 接入须校验剧情快照/内容引用，未知阶段不得静默清进度，
+必要时对现有候选校验做最小扩展；不复制 GameSessionController。
+旧设计的“所有模块与场景失败都回滚”、对白中途节点恢复、战斗边界奖励一致性仍为后续验收，不因本批完成而勾选。
+
+## 5. 本批验收与证据
+
+| ID | 本批机器可判/可观看结果 | 覆盖旧标准 |
+| --- | --- | --- |
+| N1 | 有效候选只拉起一段现有 DialogueService；无匹配/忙碌不重复播放，旧异步结果不推进新会话 | A03、A08、A19 的已确定子集 |
+| N2 | 正常 Outcome 推进，取消/异常不成功；已接受阶段变化与配置标记一起写分区 | A08、A20 的非战斗子集 |
+| N3 | 真实任务完成后写配置标记，选项刷新及提交均重新读取；新游戏清除，读档按槽恢复 | A18、B3 |
+| N4 | 稳定等待/结束状态完整恢复、消费去重、父阶段与部分完成记录保留；不支持状态的保存阻止/延后；独立已读不回退 | A06、A10、A22 的稳定状态子集 |
+| N5 | 表校验拒绝重复 ID、死链、自动环、未接入事实/阶段、无出口、错误对白/任务引用、冲突规则；只装验证样例 | A16、A23 |
+| N6 | Unity 编译、定向 EditMode、Narrative Showcase 实际完成并核对报告；模块三件套、lint/gc/diff/meta 检查 | T9 |
+
+原 A01–A23 保留在下方追溯表：A01–A07 中已被 Dialogue/Session 替代部分按各自现行契约验证，
+A09/A11/A12/A17 的战斗与对抗部分等待 C5/G5，A13 全场景事务故障回滚、A15 Android 真机、
+A21 全目标生命周期中断没有证据不得标完成。新 Showcase 使用 SampleScene 运行时搭建验证对象，
+不覆盖共享场景、不更改字体/URP/Laila，不动 Mirror 或第一批两个 Showcase。
+
+---
+
+# 历史设计归档（2026-09-22，已由上文修订）
+
+> 以下保留最初目标、A01–A23 编号和决策来源，**不是当前实现事实，也不是本批待办清单**。
+> 三槽立绘/已读快进/独立验证场景/另建 GameSessionController 等施工指令失效；参见上文替代关系。
 
 > 状态：设计草案，供评审；未实现、未完成运行验证。
 > 日期：2026-09-22。

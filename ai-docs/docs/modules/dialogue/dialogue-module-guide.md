@@ -24,13 +24,12 @@ maturity: stable
 
 | 不做 | 归属 |
 | --- | --- |
-| 遭遇触发（什么时候、对谁自动开对白）、剧情阶段推进、选项结果驱动的玩法行为 | Narrative 后续接线（[`follow-up-integration.md`](../../../../PRP/narrative-dialogue/follow-up-integration.md) 第 4 节） |
-| 存读档 UI、槽位、候选读取事务 | Narrative / GameSession 后续（同上第 6 节）；已读档案持久化已由本模块 `DialogueReadStore` 自己做（独立档案，不经 Session） |
+| 遭遇触发（什么时候、对谁自动开对白）、剧情阶段推进、选项结果驱动的玩法行为 | Narrative 运行协调器（[`follow-up-integration.md`](../../../../PRP/narrative-dialogue/follow-up-integration.md)）；接线与验证状态见其 tasks.md |
+| 存读档 UI、槽位、候选读取事务 | 已有 Session；已读档案持久化由本模块 `DialogueReadStore` 自己做（独立档案，不经 Session） |
 | 条件事实的真实来源（玩家是否潜行、剧情标记……） | Narrative 接线后替换 `IDialogueConditionSource` |
 
-> `follow-up-integration.md` 第 3 节写于本模块落地前，其中「三槽立绘」「`advance` 按钮」「已读快进 Toggle」
-> 「调用方自己 `rules.Start` + `PresentAsync(Func<EncounterContext>)`」「`SetPaused(dialogueController, BlocksWorld)`」
-> 均已被本次实现取代；接 Narrative 时按本文与 external-api 走，只沿用它第 4、6 节的剧情 / 存档部分。
+> `follow-up-integration.md` 已按现有 Dialogue/Session 修订。Narrative 复用本文与 external-api 的服务入口，
+> 不恢复旧版三槽界面，也不在调用方自行启动对白规则与表现控制器。
 
 ## 运行时类分工
 
@@ -60,7 +59,7 @@ maturity: stable
 | `DialogueInteractionFocus` | `ITickable` 入口点：每帧在 `Bound` 里选最近且 `CanInteract` 的为焦点（`SelectNearest` 静态纯函数，无分配）；交互键（`Gameplay.Interact`）/ HUD 点击 → `Current.Interact()`；驱动 HUD 显隐，打开后给 HUD 赋一次键位显示串 | 根作用域入口点（`AsSelf`） |
 | `DialogueInteractHudView` | `UIView`（Hud 层）：底部居中 48 px 高胶囊「[键位] 对话 · NPC 名」，常驻打开，显隐只切 `root`；整条是按钮，抛 `OnInteract`；拼字符串是静态纯函数 `FormatKeyText` / `FormatLabel` | 焦点系统在 `BootCompletedEvent` 后打开 |
 | `DialogueInteractableMarker` | NPC 头顶三态标记：不可交互全隐 / 可交互灰「…」/ 焦点白「!」+ 名字；气泡显示中让位；被外部标记接管（`DialogueInteractable.MarkerOverridden`，如任务目标标记）时「…/!」图标隐藏、名字照常；`TryGetIconAnchor(out Vector3)` 公开图标世界锚点（焦点图优先、其次可交互图，都没配返回 false；每帧可调、无分配），供接管方摆到同一位置 | 场景 NPC（取代已删除的 `DialogueInteractableHint`） |
-| `DialogueSpeechBubble` | 世界空间气泡：订阅 `OnBubbleRequested`，逐字 → ▼ → 停留 `holdSeconds` → 淡出，全程 unscaled；高度随正文行数自适应 | 预制体 `Prefabs/World/DialogueSpeechBubble.prefab` 根上，实例挂 NPC 子物体 |
+| `DialogueSpeechBubble` | 世界空间气泡：订阅 `OnBubbleRequested`，逐字 → ▼ → 停留 `holdSeconds` → 淡出，全程 unscaled；高度随正文行数自适应；相机跟随后平移至视口内，尺寸放不下时临时缩小，空间恢复后回到原锚点和缩放 | 预制体 `Prefabs/World/DialogueSpeechBubble.prefab` 根上，实例挂 NPC 子物体 |
 | `DialogueInstaller` | `GameplayInstaller`：注册以上全部 | Boot 场景 `GameBootstrap` 物体 |
 | `DialogueConfig` | SO：打字速度、历史上限、倍速档、三连点、自动间隔 | `Data/Dialogue/DialogueConfig.asset` |
 | `DialogueSaveData` | `ISaveData`：对白稳定恢复点（节点、阶段、解析后文本、历史、立绘） | `rules.Capture()` 产出；**尚未接存档** |
@@ -130,11 +129,11 @@ DialogueService.PlayAsync
 | `Game.Core.Telemetry` | 模块名 `dialogue` 的埋点 |
 | `Game.Core.Config`（`IConfigService`）+ 生成物 `cfg.dialogue.*` | 内容表 |
 | `Game.Core.Save`（`ISaveData`） | `DialogueSaveData` 的形状 |
-| `Game.Narrative`（**只用** `EncounterContext` / `NarrativeCondition`） | 选项条件的值类型与匹配 |
+| `Game.Narrative`（`EncounterContext` / `NarrativeCondition`；Installer 另解析 `NarrativeConditionSource`） | 选项条件与真实事实源；不从表现控制器反向调用 NarrativeService |
 | `Game.Performance`（`IPerformanceService`，可为 null；静态 `PerformanceTriggerRules.HideVisuals` / `RestoreVisuals`；`PerformanceTriggerActor` 作玩家根标记） | 对白节点前插播演出，插播期间藏 / 恢复场景角色；Performance 不反向引用 Dialogue |
 | `Game.CharacterPuppet`（**只用** `ChibiPuppet` 类型本身） | `DialogueInterludeVisibility` 以「有 `ChibiPuppet`」判定场景角色，不调它任何方法；CharacterPuppet 不引用任何玩法模块，不成环 |
 
-Core 不认识本模块；`IWorldPauseService` 里没有对话名词。Narrative 不反向引用 Dialogue。
+Core 不认识本模块；`IWorldPauseService` 里没有对话名词。Narrative 纯规则不引用 Dialogue；运行协调器经本模块公开服务调用。
 `CameraBillboard`（IsometricExploration）只在场景里挂到标记 / 气泡子物体上，本模块代码不引用它。
 
 ## 世界时停与输入图：责任归属
@@ -294,7 +293,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | --- | --- |
 | `Prefabs/UI/DialogueInteractHudView.prefab` | `root` / `button` → `Root`（整条胶囊按钮：锚点底部居中、`anchoredPosition (0, 72)`、`sizeDelta (320, 48)`，`HorizontalLayoutGroup`）；`keyLabel` → `KeyBadge/KeyText`（徽章 48×40）；`label` → `Label`（弹性宽度、单行省略号）；`icon` → `Icon`（可空，默认隐藏、不参与布局）。放底部居中而非右下角：右下角已被探索 HUD 的攻击 / 潜行 / 跑步按钮占住，PC 游戏交互提示也惯例在屏幕下方中央；与探索 HUD 的 `InteractPrompt`（y 160）不重叠 |
 | `Prefabs/UI/DialogueSkipConfirmView.prefab` | `message` → `Message`；`confirm` → `ConfirmButton`；`cancel` → `CancelButton`；`defaultSelected`（UIView 通用字段）→ `CancelButton`（打开即选中取消） |
-| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
+| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 400、等比缩放 0.0035（父级缩放为 1 时宽 1.4 世界单位）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
 
 ## 对白面板视觉与演出面板共用规范
 
@@ -348,9 +347,20 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs`（7 条） | `Portraits_SpeakerAvatarSwapsAndCrossfades`（长者入场 → l2 只显示旅人（头像在右侧，x<0）、长者收起 → l3 反转（长者头像在左侧，x>0）→ c1 残影交叉淡化）；交互 → 打字 → 选项 → 结束且全程时停，「对话拉起·世界时停」检查 Hud 层不可见、「结束·世界恢复」检查 Hud 层恢复可见；历史（LOG）改用 `TranscriptView` 后新增三步：点左上「LOG」打开 → 内容含第一句「说话者：正文」→ 点「关闭」，对白照常停在原节点；跳过（经确认）停在选项；点击旅人拉起 1002；`SkipCancelled_DialogueContinues`；`Focus_ShowsHudButton_AndHudClickStartsDialogue`；`Bubble_ShowsAboveHead_WithoutPausing` |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑（2D） | `Main Camera`（`Physics2DRaycaster`）、`Player`（Actor）、`Elder`（1001）、`Traveler`（1002）、`Villager`（无树 + 气泡） |
+| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑（3D） | `player`（Actor）、`Npc_Elder`（1001）、`Npc_Traveler`（1002）、`Npc_Villager`（无树 + 气泡）；气泡回放同时检查文字排版边界与相机视口边界 |
 
 跑 `/unity-test EditMode Dialogue`；视觉验收跑 `/verify-module Dialogue`（编辑器须打开）。
+
+气泡补充回归：`Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueBubbleShowcase.cs` 从标题进入真实探索，
+经摇杆走到 `Npc_Villager` 侧面、`Yao_WellWoman` 侧面和正面，按交互键验证文字、视口边界与淡出。与仅叠加场景的旧用例分开启动，避免重复加载世界。
+2026-09-29 用户反馈的妇人气泡越屏已复现：该对象是失去预制体连接的旧副本，缩放仍为 0.01；
+通过 Unity 转换回 `DialogueSpeechBubble.prefab` 实例后继承 0.0035，保留 NPC 来源、标记引用和 CameraBillboard。
+仅恢复预制体后，妇人正面站位仍能复现上沿裁切，因此共用组件再补视口约束：默认保留 12 像素边距，
+尺寸放不下时临时缩小，每帧从原始锚点重算，避免偏移累积；镜头移开后恢复原尺寸与位置。
+本次 Dialogue EditMode 125/125，零失败零跳过，含新增透视／正交相机四边与恢复测试 10 例。
+新旧气泡回放完成 2 项、job 状态 succeeded、失败列表为空，报告 `Logs/verify/dialogue/20260929-075616/report.md` 为 PASS，
+检查点失败 0、运行时异常 0；MCP 的最终 result=null，未据此补推 passed/skipped 数字。
+真实探索验证覆盖当前相机的三个站位；仍是世界空间 UI，不承担遮挡其它 HUD 的避让或画外 NPC 指示。
 
 ## 已知约束 / 未做
 
@@ -367,8 +377,10 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 - 对白与美术装饰（手绘边框、贴纸、背景模糊）仍是占位（PRP 8.4）。
 - **已读记录走独立档案 `dialogue-read`**：启动读入、对白结束写出（`DialogueReadStore.cs`）；只在对白结束时落盘，对白进行中强退会丢这一段的已读键。
 - **存读档未接**：`Capture / Restore` 与 `DialogueSaveData` 已有且有测试，但没有调用方；`Preparing` 阶段不能 `Capture`。
-- **`DefaultDialogueConditionSource` 是占位**：所有正向事实为真、无剧情标记，所以依赖 `StoryFlag` 的选项
-  （如 1001 的第三个选项）当前永远不可用。Narrative 接线后替换注册并删掉本类。
+- **条件源按根注册选择**：装有 NarrativeInstaller 时使用真实玩家状态与当前槽位 StoryFlags；未装时保留
+  DefaultDialogueConditionSource（玩家/目标存活、非潜行/非伪装/非敌对、TargetDetected=true、无标记）。
+  Narrative 稳定目标重载复验已登记目标，尚无来源的敌意/感知条件由 NarrativeCatalog 拒绝。
+- **OnEnded 是收尾通知**：取消/异常也发；Completed=true 才能上报 TalkTo，跳过抵达出口仍算完成。
 - **既有 `CanSkip` 已删**；`DialogueConfig.skipInterval` 同删。别按旧文档找它们。
 - `DialogueConfig.slotCount` 已删除（运行时从未读取）；槽位数固定为 `DialogueContent.SlotCount = 2`。
 

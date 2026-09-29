@@ -31,6 +31,9 @@ maturity: stable
 不各自维护任务状态。键的语义由 `QuestObjectiveKind` 决定：`TalkTo` 传对话编号的字符串形式，
 `ReachLocation` 传场景地点键，`Counter` 传调用方自定义键（同一模块内约定一致即可）。
 
+Dialogue 自动桥接只在 DialogueEndedEvent.Completed=true 时上报 TalkTo；跳过抵达出口计入，取消/异常不计入。
+Narrative 订阅 QuestCompletedEvent 后读取持久完成状态写配置标记，不直接修改 QuestProgress；读档时补齐标记。
+
 ## 四个事件（MessagePipe，`IPublisher<T>`/`ISubscriber<T>` 注入，一文件一个 `readonly struct`）
 
 | 事件 | 字段 | 何时发布 |

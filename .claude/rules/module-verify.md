@@ -75,7 +75,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
   或由回放运行时生成并 `Track()` 清理；**不许改变从标题「开始」进 SampleScene 的正常游玩表现**。
 - **移动真走不瞬移**：用 `WalkTo` / `Walk` 经虚拟摇杆走，不 `playerRules.Reset` 瞬移；长距离挪位（十几个单位以上、走路本身不是
   演示内容）可先 `Input.Press(Gameplay.Run)` 切跑再走。
-- **键盘类虚拟输入要求 Unity 窗口在系统前台**（手柄不受影响）；红在「按了没反应」先看是不是编辑器失焦，不是先疑代码。
+- **虚拟输入不依赖窗口焦点**：基类临时使用 InputSettings 副本，设 `IgnoreFocus` / `AllDeviceInputAlwaysGoesToGameView` 并开启后台运行；TearDown 与退出 Play 恢复原设置。不要为修回放永久改项目输入设置；失焦回归见 `ShowcaseSelfTest.Keyboard_WhenGameViewUnfocused_RecolorsSquare`。
 - SampleScene 里的距离是真的：出生点离长者 3、离巡逻怪 18，NPC 交互半径 2 且只认 `player`。回放先用 `WalkTo` / `GoToPatrolLookout` 走到位再交互，别假设物体在身边；去巡逻怪那边一律走北侧路线常量（`RouteToPatrol`），村口演出触发区（x 8..11、z 1..4）一进就冻住世界，别往那边走。
 - 检查点失败**不用** `Debug.LogError` / `Assert`：Test Framework 会把未预期的 `LogError` 当测试失败并打断报告流程。
   失败走 `Debug.LogWarning` + 记录，收尾在 `ShowcaseTearDown` 里统一 `Assert.Fail`。

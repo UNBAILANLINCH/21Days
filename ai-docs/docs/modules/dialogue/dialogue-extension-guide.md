@@ -61,6 +61,10 @@ maturity: stable
 2. `Prefabs/World/DialogueSpeechBubble.prefab` 实例作 NPC 子物体放标记之上（3D 挂 `CameraBillboard`，`target` 留空向父级找），并拖进标记的 `speechBubble`，否则「!」与气泡重叠。
 3. 逐字 / 停留（`holdSeconds` 默认 4）/ 淡出时长在实例上调。参照 SampleScene 的 `Npc_Villager`。
 
+保留气泡的预制体连接，不要 Unpack 后复制样式。SampleScene 的 `Yao_WellWoman` 曾是独立副本，
+预制体缩放修为 0.0035 后仍停在旧值 0.01，导致同一相机下只有妇人的气泡过大；现已接回共用预制体。
+新增无树 NPC 后，要从标题进入实际探索并覆盖该 NPC，不能只复验村民。
+
 ## 换 HUD / 气泡 / 弹窗美术
 
 | 换什么 | 改哪 | 别动 |
@@ -75,6 +79,14 @@ maturity: stable
 
 同名替换 PNG 不用改预制体；改了结构跑 Showcase 兜底（`Validate()` 会点名漏接字段）。
 
+气泡根宽 400、等比缩放 0.0035（父级缩放为 1 时宽 1.4 世界单位），高度继续自适应。
+调整大小后用 `Bubble_ShowsAboveHead_WithoutPausing` 同时检查文字完整排版与屏幕内可见，不能只凭 TMP 没有溢出判定通过。
+实际探索补跑 `DialogueBubbleShowcase.Exploration_BothSpeakers_KeepBubbleInsideViewport`：通过真实移动和交互输入，
+分别验证村民侧面、井边妇人侧面和正面的完整文字、相机视口边界与淡出；复用现有相机配置，不修改镜头来迁就气泡。
+`DialogueSpeechBubble` 在相机跟随和 Billboard 更新后约束气泡边界，默认保留 12 像素距离；
+正常尺寸放不下时临时缩小，镜头移开后恢复原缩放和头顶锚点。调整位置或尺寸须在组件 Awake 前完成，
+不要在运行中累加边缘偏移。`DialogueSpeechBubbleTests` 覆盖透视／正交相机四边、过大尺寸、无漂移及恢复。
+
 ## 新增角色 / 表情
 
 1. 立绘 PNG 放 `Assets/_Project/Art/Sprites/Dialogue/Portrait_<角色>_<表情>.png`（导入规则自动生效）。
@@ -88,11 +100,11 @@ maturity: stable
 
 1. 在 Narrative 侧（或专门的接线类）实现 `IDialogueConditionSource.Snapshot(string targetId)`，
    从真实状态拼出 `EncounterContext`。要廉价、无副作用——对白期间每 0.25 s 及每次提交都会被调。
-2. 在 `DialogueInstaller.Install` 把 `builder.Register<IDialogueConditionSource, DefaultDialogueConditionSource>`
-   （`DialogueInstaller.cs:51`）换成新实现，然后删掉 `DefaultDialogueConditionSource.cs` 与其 `.meta`（`git rm`）。
+2. DialogueInstaller 已优先解析 NarrativeConditionSource；未装 NarrativeInstaller 时保留 DefaultDialogueConditionSource，
+   不要求删除兼容实现。叙事调用方传稳定 targetId，不能将所有目标都混成 dialogue:<id>。
 3. 条件事实新增时，`EncounterContext.Fact` 与 `Tables/Defines/dialogue.xml` 的 `ConditionFact` **同名**加一项，重跑生成。
 
-依赖方向：Dialogue 已依赖 Narrative，实现类放 Narrative 目录就不能引用 `Game.Dialogue`——放第三方接线处或 Dialogue 目录内。
+依赖边界：按 2026-09-29 Narrative PRP，运行适配层可引用 Dialogue 公开入口；原七个叙事纯规则文件不能引入玩法服务或 Unity。
 
 ## 接新的触发方式
 
@@ -123,4 +135,4 @@ maturity: stable
 
 - **不改 `DialogueRules` 做表现**：点击节奏、速度、自动、动效进 `DialoguePlaybackPolicy`（补其测试）或 Controller。
 - **不在 View 里改状态**：`DialogueView` 只显示与抛事件；新按钮 = 新 `event` + Controller 里订阅 / 退订成对。
-- **不在 Core 加对话名词**；不另起一套暂停或输入切换；不在 `Game.Narrative` 里引用 `Game.Dialogue`。
+- **不在 Core 加对话名词**；不另起一套暂停或输入切换；Narrative 纯规则不引用 `Game.Dialogue`，运行协调器只使用其公开服务入口。

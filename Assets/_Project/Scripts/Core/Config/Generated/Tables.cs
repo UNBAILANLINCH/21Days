@@ -21,6 +21,9 @@ public partial class Tables
     /// 对话角色表
     /// </summary>
     public dialogue.TbDialogueCharacter TbDialogueCharacter {get; }
+    public narrative.TbNarrativeStory TbNarrativeStory {get; }
+    public narrative.TbNarrativeEncounter TbNarrativeEncounter {get; }
+    public narrative.TbNarrativeQuestFlag TbNarrativeQuestFlag {get; }
     /// <summary>
     /// 任务表
     /// </summary>
@@ -38,6 +41,9 @@ public partial class Tables
     {
         TbDialogue = new dialogue.TbDialogue(loader("dialogue_tbdialogue"));
         TbDialogueCharacter = new dialogue.TbDialogueCharacter(loader("dialogue_tbdialoguecharacter"));
+        TbNarrativeStory = new narrative.TbNarrativeStory(loader("narrative_tbnarrativestory"));
+        TbNarrativeEncounter = new narrative.TbNarrativeEncounter(loader("narrative_tbnarrativeencounter"));
+        TbNarrativeQuestFlag = new narrative.TbNarrativeQuestFlag(loader("narrative_tbnarrativequestflag"));
         TbQuest = new quest.TbQuest(loader("quest_tbquest"));
         TbYao = new yao.TbYao(loader("yao_tbyao"));
         TbItem = new TbItem(loader("tbitem"));
@@ -48,6 +54,9 @@ public partial class Tables
     {
         TbDialogue.ResolveRef(this);
         TbDialogueCharacter.ResolveRef(this);
+        TbNarrativeStory.ResolveRef(this);
+        TbNarrativeEncounter.ResolveRef(this);
+        TbNarrativeQuestFlag.ResolveRef(this);
         TbQuest.ResolveRef(this);
         TbYao.ResolveRef(this);
         TbItem.ResolveRef(this);

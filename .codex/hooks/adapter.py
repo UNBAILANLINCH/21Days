@@ -2,6 +2,8 @@
 
 载体：hooks.json 的工具事件；锚点：完整独立读取后检查 reads/session.jsonl。
 读取失败返回并保存最近一次诊断摘要；客户端原生提供等价读取检查后移除此适配。
+压缩恢复载体：SessionStart(compact)；锚点：仅注入 precompact-state.txt 路径，
+不粘贴完整快照；客户端原生保留等价工作态时移除此恢复提示。
 """
 import contextlib
 import hashlib
@@ -124,6 +126,7 @@ def transcript_response(payload, command, cwd):
     if not transcript or not call_id:
         return None
     parent_id, result = None, None
+    delivered = []
     with Path(transcript).open(encoding="utf-8") as stream:
         for line in stream:
             try:
@@ -132,20 +135,40 @@ def transcript_response(payload, command, cwd):
                 continue
             event = record.get("payload", {})
             if record.get("type") == "response_item":
+                # 新客户端不落盘 CommandExecution；父调用 ID 在真实 PostToolUse 时绑定，
+                # 分批结果必须携带成功退出码。旧客户端仍走下方原始 stdout 核验。
+                if (event.get("type") == "custom_tool_call"
+                        and event.get("call_id") == payload.get("parent_call_id")):
+                    parent_id, result = event["call_id"], {"exit_code": 0, "output": ""}
                 if event.get("type") == "custom_tool_call" and result is None:
                     parent_id = event.get("call_id")
                 elif (event.get("type") == "custom_tool_call_output" and result is not None
                       and event.get("call_id") == parent_id):
                     # 原始 stdout 不能证明模型拿到了全文，还要核对实际交付的工具结果。
-                    delivered = []
-                    for block in event.get("output", []):
+                    output = event.get("output", [])
+                    if isinstance(output, str):
+                        output = [{"text": output}]
+                    for block in output:
                         text = block.get("text", "")
                         try:
-                            delivered.append(strings(json.loads(text)))
+                            value = json.loads(text)
                         except (ValueError, TypeError):
+                            if payload.get("parent_call_id"):
+                                continue
                             delivered.append(text)
+                            continue
+                        if payload.get("parent_call_id"):
+                            if not isinstance(value, dict) or "exit_code" not in value:
+                                continue
+                            if value["exit_code"] != 0 or not isinstance(value.get("output"), str):
+                                return None
+                            delivered.append(value["output"])
+                        else:
+                            delivered.append(strings(value))
                     result["output"] = "\n".join(delivered)
-                    return result
+                    # 同一父调用可通过 notify 分批交付长文；只在拼齐全文后记账。
+                    if read_path(command, cwd, result):
+                        return result
             item = event.get("item", {})
             if record.get("type") != "event_msg" or event.get("type") != "item_completed":
                 continue
@@ -161,7 +184,7 @@ def transcript_response(payload, command, cwd):
             if not read_path(command, cwd, original):
                 return None
             result = original
-    return None
+    return result if delivered else None
 
 
 def handle(payload):
@@ -199,15 +222,21 @@ def handle(payload):
             log = state / "reads/session.jsonl"
             if log.exists():
                 log.write_text("", encoding="utf-8")
+        # PostCompact 只支持通用输出；上下文由随后的 SessionStart(compact) 注入。
+        if event == "PostCompact":
+            return {}
         notes.append("项目 hooks 已运行：编辑使用 apply_patch；必读文档用独立命令 Get-Content -Raw -Encoding UTF8 -LiteralPath '相对路径' 读取。")
         snap = state / "precompact-state.txt"
         if snap.exists():
-            notes.append(snap.read_text(encoding="utf-8"))
+            notes.append(
+                "压缩前 Git 工作态的历史快照：" + snap.relative_to(ROOT).as_posix()
+                + "。需要此前改动细节时按需读取；当前工作态以 git status / diff 为准。"
+            )
         return {"hookSpecificOutput": {"hookEventName": event, "additionalContext": "\n".join(notes)}}
 
     if event == "PreCompact":
         invoke("precompact-save", base, state)
-        return {"systemMessage": "项目工作态快照已处理；压缩后自动恢复可用快照。"}
+        return {}  # systemMessage 在客户端是警告通道，成功时保持静默。
     if event == "Stop":
         result, err = invoke("stop-check", base, state)
         return {"systemMessage": "\n".join(filter(None, [result.get("systemMessage"), err]))}
@@ -225,6 +254,14 @@ def handle(payload):
             else:
                 state.mkdir(parents=True, exist_ok=True)
                 evidence = {key: payload.get(key) for key in ("session_id", "turn_id", "transcript_path", "tool_use_id")}
+                # 只在本次命令完成的 hook 内绑定当前父调用，不能事后按相似命令猜。
+                if payload.get("transcript_path"):
+                    with Path(payload["transcript_path"]).open(encoding="utf-8") as stream:
+                        for line in stream:
+                            record = json.loads(line)
+                            parent = record.get("payload", {})
+                            if record.get("type") == "response_item" and parent.get("type") == "custom_tool_call":
+                                evidence["parent_call_id"] = parent.get("call_id")
                 waiting = json.loads(pending.read_text(encoding="utf-8")) if pending.exists() else {}
                 waiting[payload.get("tool_use_id")] = dict(evidence, command=command, cwd=cwd)
                 pending.write_text(json.dumps(waiting), encoding="utf-8")
@@ -243,6 +280,7 @@ def handle(payload):
                 "body_chars": len(body), "output_chars": len(output),
                 "full_body_present": body in output, "successful": successful(response),
                 "hook_summary_truncated": output.startswith("Warning: truncated output"),
+                "response_prefix": output[:500],
             }
             state.mkdir(parents=True, exist_ok=True)
             (state / "last-read-failure.json").write_text(json.dumps(diagnostic, ensure_ascii=False), encoding="utf-8")

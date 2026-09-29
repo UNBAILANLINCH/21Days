@@ -18,6 +18,7 @@ namespace Game.Narrative
             public NarrativeCondition[][] Conditions { get; set; } = Array.Empty<NarrativeCondition[]>();
             public Dictionary<string, string> Exits { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
             public string Outcome { get; set; } = "Success";
+            public string[] SetFlags { get; set; } = Array.Empty<string>();
         }
         private readonly Dictionary<string, Stage> stages = new Dictionary<string, Stage>(StringComparer.Ordinal);
         public NarrativeContent(string id, string entry, IEnumerable<Stage> source)
@@ -28,13 +29,15 @@ namespace Game.Narrative
             foreach (Stage stage in source ?? throw new ArgumentNullException(nameof(source)))
             {
                 if (stage == null || string.IsNullOrWhiteSpace(stage.Id) || stages.ContainsKey(stage.Id) ||
-                    !Enum.IsDefined(typeof(StageKind), stage.Kind) || stage.Exits == null || stage.RequiredParts == null)
+                    !Enum.IsDefined(typeof(StageKind), stage.Kind) || stage.Exits == null || stage.RequiredParts == null || stage.SetFlags == null)
                     throw new ArgumentException("剧情节点非法或重复");
                 stages.Add(stage.Id, stage);
             }
             Get(entry);
             foreach (Stage stage in stages.Values)
             {
+                foreach (string flag in stage.SetFlags)
+                    if (string.IsNullOrWhiteSpace(flag)) throw new ArgumentException("剧情标记不可为空：" + stage.Id);
                 foreach (KeyValuePair<string, string> exit in stage.Exits)
                 {
                     if (string.IsNullOrWhiteSpace(exit.Key)) throw new ArgumentException("结果代码不可为空");

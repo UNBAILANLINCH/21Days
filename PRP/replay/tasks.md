@@ -219,7 +219,7 @@
 | D | T13~T15 | ✅ 完成 | **端到端闭环打通**：录 400 tick → 重放 → 世界终态逐位相同、零漂移 |
 | D | 追加修正 | ✅ 完成 | 补 `SeekClockTo` 正规入口 + `RandomService.Reseed`（负对照证明其必要性） |
 | E | T16 / T17 | ✅ 完成（代码已随 8595e7a 提交；本行 2026-09-26 补记） | `Tests/Showcase/Replay/{DemoWorld,ReplayShowcase}.cs`、`Tests/EditMode/Replay/{ReplayFormatTests,StateBufferTests,DriftDetectionTests}.cs` 五个文件均存在且已提交（`git log -- <路径>` 命中 8595e7a，工作区无未提交改动） |
-| E | T18 | ⚠️ 部分（本行 2026-09-26 补记） | 编译 / lint / EditMode / 依赖不变量已复核通过，`prd.md` 13 条验收标准 11 条 ✅、2 条 `[~]`（未捕获异常落盘后「被窗口加载」与「窗口 UI 真实交互」两步没有端到端验证，需人工跑一遍）；G1 体积已回填（**外推**约 690 KB，非真实 5 分钟连续录制实测）；**G3 的 0.2 ms/帧预算 `prd.md` 明确写着「未实测」，没有回填**，需要接真实玩法模块后用 Profiler 对比开关录制的逐帧耗时差 |
+| E | T18 | ⚠️ 部分（2026-09-29更新） | 六实体DemoWorld实录300.096秒、18000 tick、691931 B，G1该范围通过。调用内分配0 B、最大0.221900 ms且一次超预算；真实玩法逐帧Profiler对照及窗口UI真实交互未验收，G3/T18保持未完成。完整证据见下节 |
 
 **波 D 的端到端实测**（`execute_code`，最像真事故的形态：环形缓冲跑满绕圈 → 起点是中途快照 tick 200、
 重放侧全新一局且主种子不同、有一条 `logic.late` 流到 tick 250 才首次取用）：
@@ -271,6 +271,35 @@
 - 变异验证：临时把被测代码改坏（删掉 `names.Sort`），确认对应断言真的转红，再还原。
 - 负对照：让种子不对齐，确认漂移点精确落在「晚出场的流首次取用之后的第一个校验点」。
 - 反空断言：断言「零漂移」时必须同时断言**校验点数 > 0**；断言「序列相同」时必须同时断言**互异值数量**。
+
+### 2026-09-29 实测收尾
+
+- 新增可重复入口：`ReplayShowcase.RecordFiveMinutes_MeasuresSizeAndRecorderCost`，复用真实容器录制器与既有六实体 DemoWorld。预热18000 tick后重新开局，实际墙钟300.096秒、18000 tick、80121渲染帧、单渲染帧最多追2 tick。job `905df82c6e7d4a8e9334e9dca43832d5`：1/1 PASS、0失败/跳过、总时长303.0955578秒；独立读取报告 `Logs/verify/replay/20260929-064018/report.md` 与控制台error=0。
+- 保存文件691931 B，证据副本 `Logs/verify/replay/performance-20260928-224521.replay`；加载后tick 0~17999、18000输入、300哈希、29后续快照。环境：Unity2022.3.62f2、Editor Mono、Windows11、i7-13700H、RTX4060 Laptop、1920×1080，60 tick/s、6实体、106 B状态、哈希间隔60、快照间隔600。
+- RecordTick 平均0.000476 ms、P95 0.000500、P99 0.005100、最大0.221900 ms，超0.2 ms一次；函数内线程累计分配0 B。保留峰值，不宣称性能预算全面通过；G3及T18仍未完成。
+- 局部采样位置为 `DemoRecordStep` 内的 `ReplayRecorder.RecordTick` 调用，用 Stopwatch 统计均值、P95、P99、最大值和超 0.2 ms 次数，用 `GC.GetAllocatedBytesForCurrentThread` 统计该调用内的线程分配；等待、玩法步骤、渲染、保存不计入。此证据仅描述 DemoWorld 的录制函数，**不能替代真实玩法开关录制的逐帧对照与 Profiler 稳态 GC，也不能据此关闭 G3**。
+- 连接恢复方式：Codex 原生 Unity MCP 初始化仍失败；经批准的沙箱外临时协议客户端实际读到 `21Days@6860e04e`、本项目路径与 editor/state，随后在同一已打开编辑器完成刷新与测试。没有运行第二个 batchmode、关闭 Unity 或修改 MCP 配置。
+- 第一轮 EditMode 共 631 项：621 通过、10 项 Mirror 新测试因缺少遥测依赖失败；作者修正 fixture 后单独复跑 Mirror 140/140 通过。Showcase SelfTest 2/2、Dialogue/CharacterPuppet/Mirror/Performance/Replay 合并 23/23 通过，结束后控制台错误为零。报告：`Logs/verify/replay/20260929-055540/report.md`。
+- Replay短闭环复验报告 `Logs/verify/replay/20260929-061846/report.md` PASS：900 tick、34692 B，15个哈希校验点全部一致；负对照首次漂移tick120，共13次漂移、1次快照恢复并到终点。已补正常关闭Boot标题并断言移除，五分钟用例同样通过该启动路径。未采真实玩法Profiler；旧的690 KB外推已由上方实录替代。
+- 最终主协调独立复核：job 1/1、控制台error=0、证据文件691931 B、截图完整、lint/diff exit0。退出测试后 `gc_scan.py` exit1，仅四项既有问题：三处Gameplay命名空间与目录不符、动态字体22699 KB；无InitTestScene残留。本轮未改生产代码、项目设置或持久资产，Replay三个文件冻结待用户审查提交。
+
+本批提交审查（独立于Narrative与UI修复）：
+
+| 文件路径 | 位置 | 改了什么 |
+| --- | --- | --- |
+| `Assets/_Project/Scripts/Tests/Showcase/Replay/ReplayShowcase.cs` | WaitForBootReady、五分钟用例、DemoRecordStep | 正常关闭遮挡标题，实录墙钟五分钟并采调用内耗时/分配，保存及读回证据 |
+| `PRP/replay/prd.md` | 验收标准、实测回填 | 回填实际体积和性能数据，保留G3及窗口交互未验收事实 |
+| `PRP/replay/tasks.md` | T18进度、2026-09-29实测收尾 | 更新真实证据、范围与检查结果，T18保持未完成 |
+
+本次无新结论需另写沉淀；测量范围与限制已在代码注释及本记录说明。未暂存、未提交、未推送。
+
+```text
+test(replay): 补五分钟实录与录制开销证据
+
+- 关闭Boot标题遮挡，复用现有DemoWorld连续实录至少300秒
+- 记录RecordTick耗时与线程分配，保存证据文件并验证读回边界
+- 回填691931B实录数据及超预算峰值，保留真实玩法Profiler和窗口交互待验收项
+```
 
 ### 执行期踩到的坑（收尾要 `/learn` 进 pitfalls.md）
 

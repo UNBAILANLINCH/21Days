@@ -56,9 +56,10 @@
 
 ## Showcase 真实按键用例红：Game 视图没焦点，键盘事件被丢
 - 现象：Taming / Disguise 这类用真实 Input System 按键（而非 Simulate）的回放用例第一轮跑红，检查点显示按键没生效；同样的回放重跑一次、或手动在编辑器里按同一个键却是好的。
-- 根因：Unity 编辑器只把键盘事件路由给当前有焦点的窗口。跑测试时 Game 视图未必在前台，Input System 的事件队列直接丢弃了这些按键，与场景、代码逻辑无关。
-- 正确做法：框架已在 `ShowcaseScenario.ShowcaseSetUp` 里自动 `EditorApplication.ExecuteMenuItem("Window/General/Game")` 聚焦 Game 视图（非批处理时）；若仍红，手动 `execute_menu_item("Window/General/Game")` 再跑，并检查 `FocusGameView` 有没有打 `[VERIFY]` 警告。实测还要求 **Unity 窗口在系统前台**（`isApplicationActive`）：编辑器整体失焦（切到别的应用）时 Input System 会 `ResetAndDisableNonBackgroundDevices`，把键盘复位并停用，虚拟手柄不受影响，只有键盘类用例会红；`get_test_job` 结果里的 `editor_is_focused` 字段可以直接判断是不是这个原因。
-- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #FocusGameView`。日期：2026-09-28。
+- 根因（旧配置）：Game 视图的输入路由限制与编辑器整体失焦时的 `ResetAndDisableNonBackgroundDevices` 会使虚拟键盘事件失效；仅聚焦 Game 视图不能覆盖切到其它应用的情况。
+- 当前做法：`ShowcaseScenario.ShowcaseSetUp` 保存原 `InputSystem.settings` 与 `Application.runInBackground`，创建 `HideAndDontSave` 临时 InputSettings 副本，设为 `IgnoreFocus` / `AllDeviceInputAlwaysGoesToGameView`，并临时开启后台运行。TearDown 的 `finally` 与退出 Play 的兜底回调均调用 `RestoreBackgroundInput`：恢复原设置对象与后台运行值、销毁副本，不写回项目输入资产。`FocusGameView` 仍用于展示回放，但 Unity 系统前台焦点已不是虚拟输入的前提。
+- 若按键检查点仍红，先跑 `ShowcaseSelfTest.Keyboard_WhenGameViewUnfocused_RecolorsSquare`；同 fixture 的 `InputSettings_AfterScenarios_Restored` 检查恢复。`editor_is_focused=false` 仅说明编辑器失焦，不能单独证明当前失败由焦点造成，不靠反复聚焦或永久改项目设置掩盖问题。
+- 关联：`.claude/skills/verify-module/SKILL.md`、`.claude/rules/module-verify.md`、`ShowcaseScenario.cs #ConfigureBackgroundInput / RestoreBackgroundInput`。日期：2026-09-29。
 
 ## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
 - 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
@@ -478,3 +479,9 @@
 - 根因：`SaveAssets()` 保存的是**编辑器内存里全部标脏的资产**，不是「刚才改的那个」；共用一台编辑器时，别的会话进 Play 撑大的 TMP 动态字体图集、测试运行器改过的 Enter Play Mode Options 等都挂在同一个脏列表里，一并被写盘。
 - 正确做法：改单个资产后只调 `AssetDatabase.SaveAssetIfDirty(asset)`（预制体走 `PrefabUtility.SaveAsPrefabAsset`，它自己落盘），**禁止在 MCP 脚本里调 `AssetDatabase.SaveAssets()`**；改完 `git status --short` 核对只多了目标文件，多出来的别人的改动不提交、也不擅自还原（可能是对方还没存完的工作）。本文件「MCP 预制体舞台改动可能不落盘」一条里的 `AssetDatabase.SaveAssets()` 那一步以本条为准。
 - 关联：`4da29a3`；本文件「TMP Dynamic 字体资产进一次 Play 就胖 2 MB」「MCP 预制体舞台改动可能不落盘」「共用一台编辑器的并发会话互相干扰」；`.claude/skills/unity-mcp/SKILL.md`；2026-09-28。
+
+## Codex 必读文档反复重读仍未记账：输出截断与会话记录格式不兼容
+- **现象**：独立 `Get-Content -Raw` 已执行，修改代码仍被必读闸拦住；提高命令输出预算、把文档分成多次读取也未解决。2026-09-29 排查缓存：Performance 指南正文 31931 字符，hook 摘要仅 25707 字符、`full_body_present=false`；另有 adapter.py 正文完整（9369 字符，结果 9371 字符）但 `successful=false` 的旧诊断。缓存只保留各会话最近一次失败，不能据此统计总发生次数。
+- **根因**：三处适配问题叠加。① 命令 stdout、交付给模型的工具结果、PostToolUse 摘要是不同层；增加命令的 `max_output_tokens` 不会解除后两层的截断。本次环境的 hook 摘要约 10000 token 即截断，这不是所有客户端的固定规格。② 旧回退逻辑要求会话文件含 `CommandExecution` 完成事件，但本次会话文件没有该事件；又只检查一条父调用输出，不能累计同一调用的多批交付。③ 旧成功判据在整段文本搜索 `output truncated` / `exit code: 1`，把正文讨论这些字样误判成工具失败；现已先排除完整正文再判工具状态。
+- **正确做法**：保持独立完整读取；长文从同一次成功读取结果按换行分批 `notify({exit_code: result.exit_code, output: chunk})`，全部在同一个父 `functions.exec` 调用内交付，示例见 [Codex hooks 说明](../.codex/hooks/README.md#长文读取示例)。适配器绑定真实 PostToolUse 的父调用，下一次前置事件核验同一调用的交付全文后记账；仍拒绝非零退出、缺段、截断和混入别的调用。不要跨调用拼历史、手填账本、缩减必读清单或关闭 hook。再次失败先查 `.codex/.cache/<会话散列>/last-read-failure.json` 的全文 / 状态 / 截断字段及 `pending-read.json`，不要盲目重复读取。**压缩或清除上下文后账本主动重置是现行设计，需重新读取，不属于本故障。**
+- **关联**：[adapter.py](../.codex/hooks/adapter.py) 的 `successful` / `transcript_response` / `handle`；[test_adapter.py](../.codex/hooks/test_adapter.py) 覆盖正文含错误字样、完整与缺段输出、父调用不匹配、非零退出、延迟记账与压缩重置，2026-09-29 重跑 PASS。此前真实 Performance 长文分批交付后，运行时代码补丁已通过必读闸；这证明本次客户端链路可用，不代表其他客户端格式均已验证。

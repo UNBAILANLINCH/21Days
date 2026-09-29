@@ -1,0 +1,19 @@
+{
+    "id": 9001,
+    "entry": "sample_choices",
+    "nodes": [
+        {
+            "id": "sample_choices", "revision": 1, "kind": "Choice", "speaker": "traveler",
+            "speakerName": "验证见证人", "side": "Right", "expression": "", "clearOther": true,
+            "text": "验证样例：与旅人的任务完成后，可确认这次进展。", "next": "", "outcome": "",
+            "blocking": true, "performance": "",
+            "choices": [
+                { "id": "verify", "text": "确认已完成旅人任务", "next": "", "outcome": "Verified",
+                  "hideWhenUnavailable": false, "unavailableReason": "尚未完成旅人任务", "icon": "",
+                  "anyOf": [ { "all": [ { "fact": "StoryFlag", "key": "quest_completed_1002", "expected": true } ] } ] },
+                { "id": "later", "text": "稍后再来", "next": "", "outcome": "Deferred",
+                  "hideWhenUnavailable": false, "unavailableReason": "", "icon": "", "anyOf": [] }
+            ]
+        }
+    ]
+}

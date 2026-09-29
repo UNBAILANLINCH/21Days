@@ -55,3 +55,40 @@
   覆盖：V13。
   - 证据：code-reviewer 0 BLOCK / 2 WARN / 1 INFO；INFO（Installer 注释）已改；两条 WARN（`MirrorInputPresenter.ShowAsync` 罕见时序下 `imageHandle` 未释放、`SpiritSightPresenter.LateTick` 每帧 `Camera.main`）修改被权限分类器拦下，未修，记入 mirror guide 已知限制待开发者决定；`gc_scan` 只报既有字体资产膨胀。
 - [ ] T14 `/review-change` 列改动清单，按路径提交，等用户授权。
+
+## 2026-09-29 呈现器修复审查
+
+仅包含下表 9 个文件。基础 demo 已在 `eed1a5f` 提交，本批修复波 5 记录的两项呈现器问题；不重复提交基础资产。
+状态：`review-change` 完成，本批未发现阻断提交的问题，可按下表单独提交；未暂存、未提交，等待用户执行提交。
+
+| 文件路径 | 位置（类 / 方法） | 改了什么 |
+| --- | --- | --- |
+| `Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs` | `ShowAsync` / `ComposeAsync` / `Dispose` / `CloseQuietlyAsync` | 明确异步图片所有权，失败或取消后先清视图引用再释放，补关闭失败埋点 |
+| `Assets/_Project/Scripts/Runtime/Mirror/SpiritSightPresenter.cs` | 构造 / `OnBeginCameraRendering` / `Dispose` | SRP 渲染前使用当前主相机，对称订阅与退订 |
+| `Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs` | 异步生命周期用例及受控服务 | 覆盖晚返回、取消、打开失败、重复开关、淡入中关闭与关闭失败 |
+| `Assets/_Project/Scripts/Tests/EditMode/Mirror/SpiritSightPresenterTests.cs` | 渲染与释放用例 | 覆盖切镜、标签变更、禁用、销毁、非 Game 相机及退订 |
+| `Assets/_Project/Scripts/Tests/EditMode/Mirror/SpiritSightPresenterTests.cs.meta` | Unity 生成 GUID | 配套新增测试资产 |
+| `ai-docs/docs/modules/mirror/mirror-module-guide.md` | 生命周期 / 相机 / 验证入口 | 同步实现约束、真实验证证据与已有待办状态 |
+| `ai-docs/docs/modules/mirror/mirror-external-api.md` | 呈现器只读属性 | 更新源码定位 |
+| `ai-docs/docs/modules/mirror/mirror-extension-guide.md` | 新结果图片 / 通灵视条件 | 补异步图片扩展约束，更新源码定位 |
+| `PRP/mirror-core/tasks.md` | 本审查记录 | 固定本批提交范围、收尾门和提交说明 |
+
+- 埋点门：实跑 `instrument-module/scan.py Mirror`，补 `mirror_close_failed`（异常、`disposed`）。`ShowAsync` 取消及作用域销毁是正常退出；普通异常已有 `mirror_view_failed`，图片失败已有 `mirror_image_failed`。面板开关耗时由 `core.ui` 记录，渲染回调不加每帧埋点；其余扫描候选均为本次未改的历史代码。
+- 沉淀门：图片所有权转移与 URP/SRP 相机边界已在本批模块指南和扩展指南说明；审查阶段本次无新结论，不重复追加 pitfalls。不改 lint / rules，未跑行为 eval。
+- 自查：4 个 C# 的 lint、范围内 diff 检查通过；新增测试 `.meta` 存在；无本机标识、`Debug.Break` / `TEMP` / `HACK` 残留；索引为空。
+- 验证证据：首轮 Mirror EditMode job `bbf2d4b2a9c6422fa5879e4731f4b25c` 执行 140 项成功；Showcase `20260929-055540` 六项 PASS。追加埋点后，含 Mirror 的回归 job `0f9f708b6a1e43f1b0786e709e146de6` 为 **461/461 通过、0 失败、0 跳过、11.6726942 秒**。主审直接读取准确 `result.summary` 和控制台错误 0 条，并复核首轮报告及关键截图。新增一行错误埋点未改呈现行为，未为此重复整批视觉回放。
+- 全仓 GC 仍为 exit 1：3 项既有 `Gameplay` / `Game.LailaFace` 命名空间不匹配、1 项既有动态字体膨胀。无本批失效文档引用或缺 `.meta`；这些文件不在本提交范围。
+- 保留限制：相机接线仅覆盖当前 URP/SRP；既有长真形描述溢出、影子偏淡及暗角强度问题未纳入这两项修复。
+
+拟用提交信息（本批同属修复）：
+
+```text
+fix(mirror): 修复结果图片释放与通灵视相机朝向
+
+- 结果图片在异步打开、取消和销毁中按所有权释放
+- 通灵视渲染前对齐当前主相机并在释放时退订
+- 补异步生命周期与相机切换回归、关闭失败埋点
+- 同步模块文档、验证证据与提交范围
+```
+
+按上表路径单独提交；Narrative、Dialogue、Session、Quest、Replay、Laila 美术与场景、字体、渲染配置、MCP 工作流文件均不混入。

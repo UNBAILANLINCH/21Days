@@ -115,7 +115,7 @@ namespace Game.Tests.EditMode.Dialogue
 
         private void RaiseEnded()
         {
-            Ended?.Invoke(new DialogueEndedEvent(1001, "done", false));
+            Ended?.Invoke(new DialogueEndedEvent(1001, "done", false, true));
         }
 
         /// <summary>写盘在线程池上跑，按帧轮询到计数达标；超时判失败而不是挂死。</summary>

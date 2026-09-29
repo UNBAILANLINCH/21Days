@@ -1,5 +1,4 @@
 // 职责：PerformanceValidator 的 EditMode 测试——用内存物体与不落盘的时间轴，逐类覆盖校验规则的正反例。
-//   工程里已没有具体的演员实现，表情轨校验用本文件的测试替身 TestActor。
 // 为什么新建（复用 → 扩展 → 新建）：校验器是新写的编辑器类，没有现成测试可扩展。
 using System.Collections.Generic;
 using System.Linq;
@@ -23,9 +22,8 @@ namespace Game.Tests.EditMode.Editor.Performance
         private PerformanceStage stage;
         private PlayableDirector director;
         private Camera stageCamera;
-        private TestActor actor;
+        private GameObject actor;
         private TimelineAsset timeline;
-        private ExpressionTrack expressionTrack;
         private SubtitleTrack subtitleTrack;
 
         [SetUp]
@@ -46,16 +44,13 @@ namespace Game.Tests.EditMode.Editor.Performance
 
             var actorGo = new GameObject("Actor");
             actorGo.transform.SetParent(root.transform, false);
-            actor = actorGo.AddComponent<TestActor>();
-            actor.SetNames("smile");
+            actor = actorGo;
 
             timeline = Track(ScriptableObject.CreateInstance<TimelineAsset>());
             timeline.durationMode = TimelineAsset.DurationMode.FixedLength;
             timeline.fixedDuration = 8d;
             subtitleTrack = Track(timeline.CreateTrack<SubtitleTrack>(null, "字幕"));
-            expressionTrack = Track(timeline.CreateTrack<ExpressionTrack>(null, "表情"));
             director.playableAsset = timeline;
-            director.SetGenericBinding(expressionTrack, actor);
 
             SetStage(director, stageCamera);
         }
@@ -147,35 +142,6 @@ namespace Game.Tests.EditMode.Editor.Performance
             Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Not.Contain("subtitle_empty"));
         }
 
-        [Test]
-        public void Validate_UnboundExpressionTrack_ReportsUnbound()
-        {
-            director.ClearGenericBinding(expressionTrack);
-
-            PerformanceIssue issue = PerformanceValidator.Validate(root).Single(i => i.Code == "expression_unbound");
-
-            Assert.That(issue.Severity, Is.EqualTo(PerformanceIssueSeverity.Error));
-        }
-
-        [Test]
-        public void Validate_UnknownExpressionName_ReportsUnknown()
-        {
-            AddExpression("angry");
-
-            Assert.That(Codes(PerformanceValidator.Validate(root)), Does.Contain("expression_unknown"));
-        }
-
-        [Test]
-        public void Validate_KnownExpressionName_NoExpressionIssue()
-        {
-            AddExpression("smile");
-
-            List<string> codes = Codes(PerformanceValidator.Validate(root));
-
-            Assert.That(codes, Does.Not.Contain("expression_unknown"));
-            Assert.That(codes, Does.Not.Contain("expression_unbound"));
-        }
-
         [TestCase(0d)]
         [TestCase(8d)]
         [TestCase(12d)]
@@ -210,7 +176,7 @@ namespace Game.Tests.EditMode.Editor.Performance
         public void Validate_PerspectiveBaseCameraAnyLayer_NoCameraIssues()
         {
             stageCamera.cullingMask = ~0;
-            actor.gameObject.layer = 0;
+            actor.layer = 0;
 
             List<string> codes = Codes(PerformanceValidator.Validate(root));
 
@@ -315,17 +281,6 @@ namespace Game.Tests.EditMode.Editor.Performance
             }
         }
 
-        private void AddExpression(string expressionName)
-        {
-            TimelineClip clip = expressionTrack.CreateClip<ExpressionClip>();
-            var asset = Track((Object)clip.asset);
-            using (var so = new SerializedObject(asset))
-            {
-                so.FindProperty("expressionName").stringValue = expressionName;
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-        }
-
         private void AddHold(double time)
         {
             if (timeline.markerTrack == null) timeline.CreateMarkerTrack();
@@ -341,22 +296,5 @@ namespace Game.Tests.EditMode.Editor.Performance
 
         private static List<string> Codes(List<PerformanceIssue> issues) => issues.Select(i => i.Code).ToList();
 
-        /// <summary>测试用演员：表情名单直接给定，不切任何显示（工程里已没有具体演员实现，表情轨校验靠它覆盖）。</summary>
-        private sealed class TestActor : PerformanceActor
-        {
-            private readonly List<string> names = new List<string>();
-
-            public override IReadOnlyList<string> ExpressionNames => names;
-
-            public override void SetExpression(string expressionName)
-            {
-            }
-
-            public void SetNames(params string[] values)
-            {
-                names.Clear();
-                names.AddRange(values);
-            }
-        }
     }
 }

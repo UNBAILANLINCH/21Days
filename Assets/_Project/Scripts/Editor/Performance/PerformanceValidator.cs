@@ -19,7 +19,7 @@ namespace Game.Editor.Performance
     /// <summary>
     /// 演出校验器。规则源自 PRP/performance-pipeline/prp.md 2.8，现只剩世界舞台适用的几条：
     /// 舞台 / Director / 时间轴 / 时长、舞台相机（透视 URP Base、不打 MainCamera 标签；剔除遮罩运行时从主相机拷贝，不查）、
-    /// 演员名单（说话者重名 / 空名 / 头像为空报 Warning）、字幕正文与说话者是否登记（Info，旁白除外）、表情绑定与表情名、
+    /// 演员名单（说话者重名 / 空名 / 头像为空报 Warning）、字幕正文与说话者是否登记（Info，旁白除外）、
     /// 停顿标记位置、Addressables 地址。演员站在世界里，不要求在 Performance 层。
     /// </summary>
     public static class PerformanceValidator
@@ -74,7 +74,7 @@ namespace Game.Editor.Performance
                 CheckCast(stage, issues);
             }
 
-            if (timeline != null) CheckTracks(timeline, director, stage, issues);
+            if (timeline != null) CheckTracks(timeline, stage, issues);
 
             if (!string.IsNullOrEmpty(expectedAddress)) CheckAddress(stageRoot, expectedAddress, issues);
 
@@ -149,7 +149,7 @@ namespace Game.Editor.Performance
             }
         }
 
-        private static void CheckTracks(TimelineAsset timeline, PlayableDirector director, PerformanceStage stage,
+        private static void CheckTracks(TimelineAsset timeline, PerformanceStage stage,
             List<PerformanceIssue> issues)
         {
             double duration = timeline.duration;
@@ -168,8 +168,6 @@ namespace Game.Editor.Performance
 
                 if (track is SubtitleTrack)
                     CheckSubtitleClips(track, stage, issues);
-                else if (track is ExpressionTrack)
-                    CheckExpressionTrack(track, director, issues);
             }
         }
 
@@ -201,28 +199,6 @@ namespace Game.Editor.Performance
             return false;
         }
 
-        private static void CheckExpressionTrack(TrackAsset track, PlayableDirector director, List<PerformanceIssue> issues)
-        {
-            var actor = director.GetGenericBinding(track) as PerformanceActor;
-            if (actor == null)
-            {
-                issues.Add(Error("expression_unbound", $"表情轨「{track.name}」没有绑定演员（轨道左侧的绑定槽是空的），表情不会切换。", track));
-                return;
-            }
-
-            IReadOnlyList<string> names = actor.ExpressionNames;
-            foreach (TimelineClip clip in track.GetClips())
-            {
-                var expression = clip.asset as ExpressionClip;
-                if (expression == null) continue;
-                if (!Contains(names, expression.ExpressionName))
-                    issues.Add(Error(
-                        "expression_unknown",
-                        $"表情轨「{track.name}」在 {clip.start:0.##} 秒处要切「{expression.ExpressionName}」，但演员「{actor.name}」没有这个表情。",
-                        expression));
-            }
-        }
-
         private static void CheckHoldMarkers(TrackAsset track, double duration, List<PerformanceIssue> issues)
         {
             foreach (IMarker marker in track.GetMarkers())
@@ -249,16 +225,6 @@ namespace Game.Editor.Performance
                     "address_missing",
                     $"Addressables 里没有把这个预制体登记成地址「{expectedAddress}」，游戏里按这个 id 播不出来。",
                     stageRoot));
-        }
-
-        private static bool Contains(IReadOnlyList<string> names, string value)
-        {
-            if (names == null) return false;
-            for (int i = 0; i < names.Count; i++)
-            {
-                if (string.Equals(names[i], value, StringComparison.Ordinal)) return true;
-            }
-            return false;
         }
 
         private static PerformanceIssue Error(string code, string message, UnityEngine.Object context) =>

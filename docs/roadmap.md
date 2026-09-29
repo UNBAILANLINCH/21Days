@@ -1,6 +1,6 @@
 # 参考对标与补足路线图
 
-> **状态：2026-09-26 快照，活文档。** 读者：全体开发者、策划、美术。
+> **状态：2026-09-26 基础快照；2026-09-29 同步 Narrative C1–C3/B3 与 W2，其他条目未全量复核。** 读者：全体开发者、策划、美术。
 > 每收一波更新第 5 节的进度列；第 3 节差距矩阵某行做完就把状态改成「完成」，不删行。
 > 要看「框架为什么这么设计」去 [`architecture.md`](architecture.md)，要看「怎么操作」去三份角色手册，
 > 要看「当时刻意没做什么」去 [`history/`](history/)。这份只回答一件事：**对着参考，我们还差什么，按什么顺序补。**
@@ -22,12 +22,12 @@
 
 **现状三句话。** 框架层完整（启动流、UI 四层栈、存档槽位与候选提交、Addressables、Luban、确定性内核与回放、埋点、世界暂停）；
 探索场景表现方向已定并跑通（3D 灰盒 + 拼接小人 + 相机 / 光影 / 渲染分档）；对话与任务两个玩法闭环已接进 Boot 并通过回放验证。
-**但可玩内容只有一张灰盒场景、两段对话、三条任务，全部资产是占位，叙事规则层没接进 Unity，面向玩家的系统 UI（主菜单 / 设置 / 暂停 / 存档 / 加载）一个都没有。**
+**正式内容仍未完成。** Narrative 已接入 Boot，任务标记、条件选项及稳定状态存读档已跑通；标题、设置、暂停、槽位界面已有实现，加载过渡仍待做。验证样例不代表正式章节内容验收。
 
 **最要紧的十件事**（详见第 3、5 节）：
 
 1. 收尾：对话 / 任务两个模块的开发者视觉验收与提交推送，只有人能做（第 5 节 W0）。
-2. Narrative 接线：把已有的纯 C# 剧情规则接进 Unity，让对话选项能改世界、任务完成能写剧情标记（C1–C3）。
+2. Narrative 收尾：C1–C3/B3 最小接线已提交，三条回放已获人工确认；仍需最终提交独立编译与联合回归，证据见 `PRP/narrative-dialogue/tasks.md`。
 3. 游戏级存档会话：保存时机、候选读取与回滚、槽位界面、继续游戏（E1）。任务 / 对话 / 遭遇的存档分区都在等它。
 4. 泛化可交互对象 + 物资箱 + 最小背包 / 奖励（A3、B1）。参考里探索的核心反馈回路，我们一个都没有。
 5. 走 / 跑切换与沉浸模式（A1、A2）。参考里两个最显眼的 HUD 按钮。
@@ -124,7 +124,7 @@
 | IsometricExploration | stable | 不需要 | SampleScene（Boot 真实流程） | 19（另有共享用例在 Monster 测试里） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
 | Disguise | stable | 不需要 | SampleScene（Boot 真实流程） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
 | Taming | seed | 按要求不接 | SampleScene（回放） | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
-| Narrative | 无 | 无 Installer | 无（纯 C# 库） | 4 | 无 | **无，也未登记 `modules.json`** | 阶段迁移 / 条件 / 遭遇仲裁 / 存档 DTO 全是纯逻辑，未接 Unity |
+| Narrative | seed | 是 | SampleScene（Boot 真实流程，回放临时目标） | 22（2026-09-29 实跑通过） | 3 条 | 有，已登记 | C1–C3/B3 已接入并提交；工作区回归及三条回放人工验收通过，最终提交独立验证待补 |
 | Sample | stable | **否** | 无 | 7 | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
@@ -141,7 +141,7 @@
 | --- | --- | --- |
 | dialogue-system | 代码与文档已提交推送 | 开发者视觉验收（`/verify-module Dialogue`）；SampleScene 变更随他人提交 |
 | quest-system | 已按口头授权分三次提交并推送（22f3cc5 / c363891 / 7d02757，2026-09-26 核实在 origin/main） | 面板底板透底实机现象未定位 |
-| narrative-dialogue | T1、T2 完成（纯规则） | T3–T9 全部未做：存储测试、战斗恢复、Prefab 接线、NarrativeController、内容管线、Showcase、文档。**其 prp.md 写于对话系统实现之前，第 3 节多处设计已被取代，执行前要先修订** |
+| narrative-dialogue | PRP 已于2026-09-29修订；C1–C3/B3 最小闭环已提交，三条回放人工验收通过 | 最终提交独立验证、回放停顿改动提交；C5/G5、完整目标中断/全场景恢复、逐节点恢复及真实章节未纳入本批，见 tasks.md |
 | monster-ai | 代码、接线、文档完成 | tasks.md 无勾选格式；视觉与三端输入待人工确认 |
 | replay | 代码已提交 | tasks.md 已于 2026-09-26 补记：T16 / T17 完成，T18 部分（体积为外推值、耗时预算未实测） |
 | character-puppet | 只有 prp.md | 无 tasks.md |
@@ -180,16 +180,16 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | B1 | 奖励与背包 | 物资箱拾取已落地（`Runtime/Loot`，奖励写 `LootSaveData.Items`，`tbitem` 引用），但**没有背包界面**，拾取后看不到自己有什么 | 白盒背包（用户 2026-09-26 要求）：`Inventory` 面板（I / 手柄 RB）列出持有物：名字、数量、品质色，占位图标；读 `LootService.Items`，订阅 `CrateCollectedEvent` 刷新；`tbitem` 补描述 / 类别列；奖励语义（信息 / 物品）仍待策划，表结构两者兼容 | 新模块 Inventory | 无 | M | opus | 白盒完成（2026-09-26）待视觉验收：`Runtime/Inventory/`，B / RB 开面板，筛选全部 / 物品 / 线索，`tbitem` 加 desc / category 两列并新增 1005 破旧信笺（线索）、1006 铜镜碎片（关键物）；无 Showcase；主窗口全量复核已补：EditMode 609 / 609、编译零错误（2026-09-26）；快捷键 B / RB |
 | B2 | 接取 / 完成通知 | 任务只发 4 个事件，无表现 | Core 通用 toast（Top 层，队列，可被沉浸模式隐藏）；订阅 QuestActivated / QuestCompleted | Core/UI + Quest | 无 | S–M | opus | 完成（2026-09-26）待视觉验收；Top 层不随沉浸隐藏，新开局首条主线不弹 |
-| B3 | 任务完成写剧情标记 | PRD 说 Narrative 本期不动 | 任务完成事件 → 剧情标记；对话选项条件读到任务结果 | Quest + Narrative | C2 | S | opus | 待做 |
+| B3 | 任务完成写剧情标记 | Narrative 读取持久任务完成状态，按配置写幂等标记，读档补齐 | 任务完成事件 → 剧情标记；对话选项条件读到任务结果 | Quest + Narrative | C2 | S | opus | 最小闭环已实现并提交；工作区回归与人工验收通过，最终提交独立验证待补 |
 | B4 | 进度重置与已完成列表 | 不做 | 依赖存档会话的「新游戏」；已完成列表页 | Quest + E1 | E1 | S | sonnet | 待做 |
 
 ### C. 叙事接线（`PRP/narrative-dialogue/` T3–T9）
 
 | # | 缺口 | 现状 | 要做什么 | 归属 | 依赖 | 规模 | 派单 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| C1 | NarrativeController + Installer | 纯规则有测试，无 Unity 侧 | 阶段分派（Condition / Dialogue / WaitAction / Battle / End）、遭遇仲裁 → `DialogueService.PlayAsync`、结果回写、Boot 注册 | Narrative | C4 先补文档 | L | opus，PRP（修订后执行） | 待做 |
-| C2 | 剧情标记条件源 | `DefaultDialogueConditionSource` 占位，依赖剧情标记的选项永远不可用 | 实现 `IDialogueConditionSource` 读 Narrative 事实（潜行、伪装、标记、任务结果） | Narrative + Dialogue | C1 | M | opus | 待做 |
-| C3 | 剧情内容进表与校验 | 无 Narrative 表 | Luban：剧情阶段、条件、遭遇规则；导入适配层；死链 / 环路 / 冲突校验（follow-up 第 7 节清单） | Narrative + Tables | C1 | M–L | opus | 待做 |
+| C1 | NarrativeService + Installer | 已注册 Boot，稳定目标对白与身份校验、取消重试、稳定存读档已接通 | Condition / Dialogue / WaitAction / End 与遭遇仲裁；Battle 留给 C5/G5 | Narrative | C4 | L | opus，PRP | 最小闭环已实现并提交；三条回放人工验收通过，最终提交独立验证待补 |
+| C2 | 剧情标记条件源 | NarrativeConditionSource 读取真实玩家状态、槽位标记与目标生命周期；未装 Installer 时保留占位来源 | 选项定时刷新与提交时复验；无来源的敌意/感知条件拒绝用于生产内容 | Narrative + Dialogue | C1 | M | opus | 已实现并提交；工作区回归与人工验收通过，最终提交独立验证待补 |
+| C3 | 剧情内容进表与校验 | 已有三张 Narrative 表、Luban 输出及 Catalog 校验 | 剧情、遭遇、任务标记映射；引用、环路、冲突与未接入能力检查 | Narrative + Tables | C1 | M–L | opus | 最小内容管线已实现并提交；真实章节与完整内容校验工具不在本批，最终提交独立验证待补 |
 | C4 | Narrative 三件套与登记 | 已生成 | `/generate-doc narrative`、`modules.json`、catalog 补行 | 文档 | 无 | S | sonnet | 完成（2026-09-26） |
 | C5 | 战斗结果 → 剧情 | `EncounterStep.PendingResult` 有，消费方无 | **先按支柱重新审视**：支柱说无血条、不做正面战斗，Battle 阶段可能要改成「追逐 / 躲藏 / 辨认」结果 | Narrative + Monster | G5 定义 | M | opus | 待做 |
 
@@ -266,7 +266,7 @@ H0（前置，已完成 2026-09-26）：`GameInput.inputactions` 一次性加齐
 
 **已做**：任务表（Main / Side，目标 TalkTo / ReachLocation / Counter，前置）、激活 / 推进 / 完成连锁、追踪、HUD 任务栏、任务面板（主线置顶）、屏内世界空间头顶标记 + 屏外 HUD 贴边箭头、与对话联动（对话结束推进 TalkTo）、场景到达点、其它模块上报进度的统一入口、存档分区、4 个事件。
 
-**明确不做，需要别人接**：奖励（B1）、接取 / 完成通知（B2）、写剧情标记（B3）、失败与限时、放弃、已完成列表（B4）、任务对话内容（归对话表）、小地图、多语言。
+**Quest 模块边界**：奖励（B1）、接取 / 完成通知（B2）、剧情标记（B3）由外部订阅方承接；B3 已由 Narrative 实现。失败与限时、放弃、已完成列表（B4）、任务对话内容（归对话表）、小地图、多语言不在本模块当前范围。
 
 **接口约定**：任务进度上报走统一入口（Counter 类目标由其它模块按键上报）；四个事件是「已发生事实」，订阅者自己决定表现；任务面板打开时持有一枚世界暂停令牌。
 
@@ -281,7 +281,7 @@ H0（前置，已完成 2026-09-26）：`GameInput.inputactions` 一次性加齐
 | --- | --- | --- | --- | --- |
 | **W0 收尾与修正** | 把已完成的两个模块真正交付，清掉已知小问题 | 复跑协作者两条失败测试并处理（2.5 第 4 条）；C4 Narrative 文档登记；E7 Sample 去留；replay / quest tasks.md 补记；SampleScene 命名残留清理；任务面板透底定位 | `/verify-module Dialogue` 与 `/verify-module Quest` 视觉验收点头；字体资产 Clear Dynamic Data；ToastView 已删（2026-09-28），由 `NotificationView` 承接 | 机器可做项已完成（2026-09-26），余下只能人做 |
 | **W1 探索层闭环** | 对着「旅行小记」把探索层补齐：走跑、沉浸、交互、拾取、通知 | A1、A2、A5、B2、D4、D5 各自独立派单；A3 + B1 合为一个 PRP「interaction-inventory」 | 策划先定 B1「奖励是信息还是物品」；有人看第二个视频回填 1.3 表 | 进行中：A1 / A2 / B2 / D4 / D5 已完成待视觉验收；A5 延后到移动端移植；A3 / B1（Runtime/Loot）由 21days-46 会话接手 |
-| **W2 叙事与存档** | 对话说了什么能改世界，进度能存能读能继续 | 修订 `PRP/narrative-dialogue/prp.md` 后执行 C1、C2、C3、B3；E1 单独 PRP「game-session」 | 策划给第一章剧情阶段表的样例内容 | E1（`PRP/save-session/`）白盒完成（2026-09-26）待视觉验收，回放见 T6；C1/C2/C3/B3 待做 |
+| **W2 叙事与存档** | 对话说了什么能改世界，进度能存能读能继续 | C1–C3/B3 按修订 PRP 已实现；E1 单独按 `PRP/save-session/` 验收 | 策划给第一章剧情阶段表的真实内容 | C1–C3/B3 已提交，2026-09-29 Narrative 22/22、三条回放通过且用户观看确认；这些是工作区结果，最终提交独立验证待补。E1 整体视觉验收不因 Narrative 三条用例通过而自动关闭 |
 | **W3 系统 UI 与演出** | 有一个像游戏的外壳，对话像参考那样动起来 | E2、E3、E4、E5、B4；D1、D2；D3 单独 PRP | 美术给对话框 / 立绘 / 插图规格 | E2 部分完成（标题页转正式），其余待做；D3 已由演出管线 PRP 落地（待验收） |
 | **W4 场景与内容** | 从一张灰盒到多场景正式内容 | A4 PRP「world-scenes」；A6；D6；F4；F5 | F1 剧本、F2 环境、F3 角色与 UI 皮肤持续产出 | 待做 |
 | **W5 自家机制** | 照镜 / 画皮 / 收押 / 镜裂 / 追逐躲藏 | G1–G5 每项先玩法定义，再各开 PRP；C5、E6 随之落地 | 策划写定义文档，`/refine-prd` 逐个精炼 | 待定义 |
@@ -294,7 +294,7 @@ W5 不必等 W4：只要 W2 的 Narrative 接线通了，自家机制就有挂�
 ## 6. 风险与未决问题
 
 1. **参考与支柱的张力**。参考是活动小游戏，奖励驱动、一图多区域、商店兑换。我们是叙事冒险，支柱说一切服务于信息、不做强引导、不做开放世界。照搬参考的物资箱 / 奖励 / 愿望清单会做出另一款游戏。B1 之前策划必须拍板。
-2. **Narrative PRP 已部分失效**。`PRP/narrative-dialogue/prp.md` 与 `follow-up-integration.md` 写于对话系统实现之前，三槽立绘、advance 按钮、已读快进等设计已被二期替代。直接执行会和现有代码打架，先修订。
+2. **Narrative 的验证范围不能外推**。PRP 已于2026-09-29修订并实现最小闭环；旧规格仅供追溯。三条回放不覆盖 C5/G5、任意根作用域中断、全场景恢复事务或真实章节；最终提交独立验证仍待补，详见 `PRP/narrative-dialogue/tasks.md`。
 3. **无血条的对抗还没有定义**。Player / Monster 现在有生命、伤害、攻击冷却，支柱说不做正面战斗、不设血条。C5 与 G5 之前要决定这些字段的去留，否则回放快照格式会反复升版。
 4. **存档格式将频繁变动**。W1–W3 会新增 Inventory、Session、Narrative 分区并改动 Quest 分区。每次改都要走分区版本迁移并补测试，见 `developer-guide.md` 第 9 章。
 5. **多人共用工作区**。至少两条并行会话在同一工作区改 SampleScene 与字体资产。提交按文件挑、不整份暂存（pitfalls「两个会话共用一个工作区」）。场景改动尽量走预制体，减少 `.unity` 冲突。

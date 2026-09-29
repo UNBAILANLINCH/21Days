@@ -74,6 +74,7 @@ namespace Game.Quest
         // int → string 只在对白结束时发生一次，不在每帧路径上。
         private void HandleDialogueEnded(DialogueEndedEvent e)
         {
+            if (!e.Completed) return;
             int advanced = service.Report(QuestObjectiveKind.TalkTo, e.DialogueId.ToString(CultureInfo.InvariantCulture));
             if (advanced == 0) return;
 

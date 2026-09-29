@@ -1,0 +1,39 @@
+<!-- 验证内容，不代表真实章节；条件复用对白 schema，避免两份事实枚举漂移。 -->
+<module name="narrative">
+    <bean name="Exit">
+        <var name="result" type="string"/>
+        <var name="next" type="string"/>
+    </bean>
+    <bean name="Stage">
+        <var name="id" type="string"/>
+        <var name="kind" type="string"/>
+        <var name="payload" type="string"/>
+        <var name="allowEncounter" type="bool"/>
+        <var name="anyOf" type="list,dialogue.ConditionGroup"/>
+        <var name="exits" type="list,Exit"/>
+        <var name="setFlags" type="list,string"/>
+        <var name="outcome" type="string"/>
+    </bean>
+    <bean name="Story">
+        <var name="id" type="string"/>
+        <var name="entry" type="string"/>
+        <var name="stages" type="list,Stage"/>
+    </bean>
+    <bean name="Encounter">
+        <var name="id" type="string"/>
+        <var name="trigger" type="string"/>
+        <var name="targetKind" type="string"/>
+        <var name="priority" type="int"/>
+        <var name="story" type="string"/>
+        <var name="entry" type="string"/>
+        <var name="repeat" type="string"/>
+        <var name="anyOf" type="list,dialogue.ConditionGroup"/>
+    </bean>
+    <bean name="QuestFlag">
+        <var name="questId" type="int"/>
+        <var name="flag" type="string"/>
+    </bean>
+    <table name="TbNarrativeStory" value="Story" index="id" input="narrative" group="c"/>
+    <table name="TbNarrativeEncounter" value="Encounter" index="id" input="*@narrative_encounters.json" group="c"/>
+    <table name="TbNarrativeQuestFlag" value="QuestFlag" index="questId" input="*@narrative_quest_flags.json" group="c"/>
+</module>

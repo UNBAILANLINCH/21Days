@@ -11,6 +11,7 @@ using Game.Core.UI;
 using Game.Dialogue;
 using Game.Monster;
 using Game.Quest;
+using Game.Narrative;
 
 namespace Game.Session
 {
@@ -25,6 +26,7 @@ namespace Game.Session
         private readonly QuestService quests;
         private readonly ISaveService saves;
         private readonly SessionConfig config;
+        private readonly NarrativeService narrative;
 
         /// <remarks>
         /// <see cref="UIService"/> 按具体类型注入（要 <see cref="UIService.TopView"/>，接口上没有），
@@ -39,7 +41,8 @@ namespace Game.Session
             MonsterEncounterState encounter,
             QuestService quests,
             ISaveService saves,
-            SessionConfig config)
+            SessionConfig config,
+            NarrativeService narrative = null)
         {
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
@@ -51,6 +54,7 @@ namespace Game.Session
             // SessionConfig 是 ScriptableObject，判空只用 ==。
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
+            this.narrative = narrative;
         }
 
         /// <summary>
@@ -65,6 +69,8 @@ namespace Game.Session
         public bool IsGameplayState => flow.Current is MonsterEncounterState && step.IsActive;
 
         public bool DialogueRunning => dialogue.IsRunning;
+        public bool NarrativeStable => narrative == null || narrative.CanSave;
+        public void ValidateCandidate(SaveSnapshot candidate) => narrative?.ValidateCandidate(candidate);
 
         // UIView 是 UnityEngine.Object，判空只用 !=。
         public bool AnyPanelOpen => ui.TopView != null;
@@ -77,6 +83,7 @@ namespace Game.Session
 
         public void CaptureEncounter(long tick)
         {
+            narrative?.CaptureIntoPartition();
             EncounterSaveData captured = step.Capture(tick);
 
             // 原地复制进分区，不换实例：别处（MonsterEncounterState 已准备的恢复）可能正拿着这个分区对象。

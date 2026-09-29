@@ -1,7 +1,8 @@
 // 职责：守住「NPC 交互对白（DialogueView.prefab）与时间轴演出对白（PerformanceView.prefab）是同一套视觉」——
 //   按节点名逐项比对两份预制体的布局（RectTransform）、底图（Image）与文字样式（TMP，含字体与材质引用），任何一边被单独改样式就红；
 //   控件同位：两份预制体放进同一个 1920×1080 画布、强制布局后比 LOG / 自动 / 跳过三个控件的屏幕矩形（对白的跳过按钮 ↔ 演出的 SkipRoot），
-//   以及 LOG / 自动两对按钮下 Label / LabelShadow / Hint 的屏幕矩形与样式。
+//   以及 LOG / 自动两对按钮下 Label / LabelShadow / Hint 的屏幕矩形与样式；
+//   记录面板（TranscriptView.prefab，对白与演出共用的 LOG 面板）的「关闭」不得压在两份面板的控件上（同一张画布比屏幕矩形）。
 // 为什么新建：复用——既有 Dialogue 测试都守规则 / 策略，没有预制体样式的守卫；扩展——塞进某个规则测试类职责说不通，
 //   这是跨两个模块预制体的视觉契约，所以单独成类。刻意读真实资产路径：它守的就是这两份预制体本身。
 // Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……），比的正是落盘的值；
@@ -18,6 +19,7 @@ namespace Game.Tests.EditMode.Dialogue
     {
         private const string DialoguePath = "Assets/_Project/Prefabs/UI/DialogueView.prefab";
         private const string PerformancePath = "Assets/_Project/Prefabs/UI/PerformanceView.prefab";
+        private const string TranscriptPath = "Assets/_Project/Prefabs/UI/TranscriptView.prefab";
         private const string ImageType = "Image";
         private const string TextType = "TextMeshProUGUI";
         private const float Tolerance = 0.0001f;
@@ -31,6 +33,9 @@ namespace Game.Tests.EditMode.Dialogue
         // 同位控件：对白面板节点 ↔ 演出面板节点（演出不做倍速，倍速位空着；跳过在演出里是 SkipRoot）。
         private static readonly (string Dialogue, string Performance)[] ControlPairs =
             { ("HistoryButton", "HistoryButton"), ("AutoButton", "AutoButton"), ("SkipButton", "SkipRoot") };
+
+        // 对白面板的四个控件位（演出没有倍速，按对白算；演出的三个控件与对白同位，由 Controls_SitAtSameScreenRect 守住）。
+        private static readonly string[] DialogueControls = { "HistoryButton", "AutoButton", "SpeedButton", "SkipButton" };
 
         // 两边都从同一份按钮结构来的控件：子节点的位置与样式也要一致。
         private static readonly string[] ClonedControls = { "HistoryButton", "AutoButton" };
@@ -154,6 +159,40 @@ namespace Game.Tests.EditMode.Dialogue
             AssertNoDiffs(diffs);
         }
 
+        // 记录面板开着时压在对白 / 演出面板之上（Top 层）：「关闭」若与下层控件重叠，玩家会分不清点的是哪个，视觉上也像盖住了「跳过」。
+        [Test]
+        public void TranscriptClose_DoesNotOverlapPanelControls()
+        {
+            var diffs = new List<string>();
+            var transcript = AssetDatabase.LoadAssetAtPath<GameObject>(TranscriptPath);
+            Assert.That(transcript, Is.Not.Null, "找不到预制体 " + TranscriptPath);
+            GameObject canvas = CreateReferenceCanvas();
+            try
+            {
+                GameObject d = Object.Instantiate(dialogue, canvas.transform, false);
+                GameObject p = Object.Instantiate(performance, canvas.transform, false);
+                GameObject t = Object.Instantiate(transcript, canvas.transform, false);
+                ForceLayout(d);
+                ForceLayout(p);
+                ForceLayout(t);
+                var canvasRect = (RectTransform)canvas.transform;
+                Transform close = Require(t, "TranscriptView", "CloseButton", diffs);
+                if (close != null)
+                {
+                    Rect closeRect = ScreenRect(canvasRect, close);
+                    foreach (string node in DialogueControls)
+                        CheckApart(closeRect, canvasRect, Require(d, "DialogueView", node, diffs), "DialogueView " + node, diffs);
+                    foreach ((string _, string node) in ControlPairs)
+                        CheckApart(closeRect, canvasRect, Require(p, "PerformanceView", node, diffs), "PerformanceView " + node, diffs);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+            Assert.That(diffs, Is.Empty, "记录面板「关闭」与对白 / 演出面板的控件重叠：\n" + string.Join("\n", diffs));
+        }
+
         [Test]
         public void ControlLabels_HistoryAndAuto_MatchDialogueStyle()
         {
@@ -225,6 +264,15 @@ namespace Game.Tests.EditMode.Dialogue
             if (Mathf.Abs(dr.xMin - pr.xMin) > PixelTolerance || Mathf.Abs(dr.yMin - pr.yMin) > PixelTolerance ||
                 Mathf.Abs(dr.xMax - pr.xMax) > PixelTolerance || Mathf.Abs(dr.yMax - pr.yMax) > PixelTolerance)
                 diffs.Add($"{label} 屏幕矩形不同位（1920×1080，左下为原点）：DialogueView={Describe(dr)}，PerformanceView={Describe(pr)}");
+        }
+
+        // 两个屏幕矩形相交（贴边不算）就记一条。
+        private static void CheckApart(Rect closeRect, RectTransform canvas, Transform control, string label, List<string> diffs)
+        {
+            if (control == null) return; // 缺节点 Require 已点名
+            Rect controlRect = ScreenRect(canvas, control);
+            if (closeRect.Overlaps(controlRect))
+                diffs.Add($"TranscriptView CloseButton {Describe(closeRect)} 与 {label} {Describe(controlRect)} 相交（1920×1080，左下为原点）");
         }
 
         private static string Describe(Rect r) => $"x[{r.xMin:0.#},{r.xMax:0.#}] y[{r.yMin:0.#},{r.yMax:0.#}]";

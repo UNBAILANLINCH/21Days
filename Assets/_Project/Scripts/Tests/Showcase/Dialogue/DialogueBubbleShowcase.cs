@@ -38,21 +38,26 @@ namespace Game.Tests.Showcase.Dialogue
                 Assert.That(body, Is.Not.Null);
 
                 yield return Step($"走到{npc.DisplayName}身边");
-                // 从村民绕北侧和桌子东侧前往井边，避开村口演出触发区与桌面碰撞。
-                if (visit == 1)
-                {
-                    yield return WalkTo(new Vector2(4f, 6f), 0.25f);
-                    yield return WalkTo(new Vector2(9f, 6f), 0.25f);
-                }
                 Vector3 position = npc.transform.position;
-                float side = speakerName == "Yao_WellWoman" ? 1f : -1f;
-                if (visit == 2)
+                if (visit == 0)
                 {
-                    yield return WalkTo(new Vector2(9f, 7.4f), 0.15f);
-                    yield return WalkTo(new Vector2(position.x, 7.4f), 0.15f);
+                    // 出生点那一排（z 3.4）上站着长者(-1) / 旅人(2) / 村民(5)，2026-09-30 起都在 Character 层挡人：
+                    // 沿这一排横穿会被挡在长者跟前（还被它的对白抢走交互焦点）。先下到南侧空通道 z≈2.1 再向东，
+                    // 最后从村民东侧 1.4 米站定（碰撞盒半宽 0.8 + 胶囊半径 0.3，再近走不到；交互半径 2 仍然够）。
+                    yield return WalkTo(new Vector2(-4f, 2.1f), 0.25f);
+                    yield return WalkTo(new Vector2(6.4f, 2.1f), 0.25f);
+                    yield return WalkTo(new Vector2(position.x + 1.4f, position.z), 0.25f);
+                }
+                else if (visit == 1)
+                {
+                    // 井边妇人西边是长凳（长凳 x ≤ 7）、东边是塔（塔 x ≥ 9.5，只剩 0.7 米过不去）、北边是后墙，
+                    // 只能从南面接近：沿 x≈6.4 北上到长凳南侧，再站到她西南 1.5 米。
+                    yield return WalkTo(new Vector2(6.4f, 7.3f), 0.25f);
+                    yield return WalkTo(new Vector2(7.4f, 7.4f), 0.25f);
                 }
                 else
-                    yield return WalkTo(new Vector2(position.x + side, position.z), 0.25f);
+                    // 正面：站到她正南 1.4 米（她的碰撞盒南沿 z 8.0，站在 7.4 留出胶囊半径）。
+                    yield return WalkTo(new Vector2(position.x, 7.4f), 0.25f);
                 yield return Check($"交互焦点落在{npc.DisplayName}", () => focus.Current == npc, 3f);
                 yield return Step($"按交互键与{npc.DisplayName}说话", hold: 0f);
                 yield return Input.Press(input.Actions.Gameplay.Interact);

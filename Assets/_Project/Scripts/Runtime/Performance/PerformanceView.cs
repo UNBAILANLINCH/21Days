@@ -2,7 +2,7 @@
 //   左上「LOG」、右上「自动」与「跳过」三个控件（与对白面板 HistoryButton / AutoButton / SkipButton 同位同样式，倍速位空着）；
 //   实现字幕输出端供时间轴字幕轨道调用；字幕逐字揭示（打字机）；每句字幕抛 OnSubtitleShown 供服务记台词。
 //   只显示与抛事件，不注入服务、不读输入、不持有时间轴进度，全部由 PerformanceService 调方法。
-//   逐字进度是文字表现状态（已显示几个字），由服务每帧调 TickTyping 驱动、点击时调 CompleteTyping 补全。
+//   逐字进度是文字表现状态（已显示几个字），由服务每帧调 TickTyping 驱动、打字中连点满次时调 CompleteTyping 补全（连点计数在服务）。
 // 为什么新建（复用 → 扩展 → 新建）：DialogueView 是对白主面板（Popup 层、带选项、倍速与跳过确认），演出要的是 Panel 层全屏、
 //   Esc 关不掉、全屏透明点击区（停顿时点击继续）加三个控件的覆盖层；塞进 DialogueView 会让 Performance 依赖 Dialogue（方向禁止）。
 using System;
@@ -137,7 +137,7 @@ namespace Game.Performance
         /// <summary>演出本身会整层藏 HUD；面板在 Panel 层，这里为 true 只是声明「沉浸模式下也要显示」。</summary>
         public override bool VisibleWhenHudHidden => true;
 
-        /// <summary>全屏点击区被点。服务处理：打字中 = 整句补全；停顿时 = 继续；其余无事，不触发跳过。</summary>
+        /// <summary>全屏点击区被点。服务处理：打字中 = 登记连点（满次整句补全，与对白同一规则）；停顿时 = 继续；其余无事，不触发跳过。</summary>
         public event Action OnTap;
 
         /// <summary>「自动」按钮被点。服务处理：切换自动（同 Auto 键）。</summary>

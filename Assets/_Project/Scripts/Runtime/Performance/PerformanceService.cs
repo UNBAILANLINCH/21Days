@@ -83,6 +83,7 @@ namespace Game.Performance
         private readonly IPublisher<PerformanceEndedEvent> endedPublisher;
         private readonly ITelemetryScope telemetry;
         private readonly Func<Camera> mainCameraProvider;
+        private readonly IClock clock;
         private Transform root;
         private bool running;
         // 代码请求（Confirm / Skip）只置标志，由播放循环在下一帧开头消费，与读动作走同一条处理函数，避免两处逻辑分叉。
@@ -90,11 +91,13 @@ namespace Game.Performance
         private bool pendingSkip;
         // 本段演出已显示过的字幕（台词记录的内容）：每次播放开始清空，面板每显示一句追加一条。
         private readonly List<TranscriptLine> transcriptLines = new List<TranscriptLine>();
+        // 打字中连点补全计数（与对白同一规则，Core 通用类）：每段演出开始按配置新建，换句 / 不在打字 / 开 LOG 时清零。
+        private TapRevealCounter revealTaps;
 
         public PerformanceService(PerformanceConfig config, PerformanceRules rules, IAssetService assets, IUIService ui,
             IInputService input, IWorldPauseService worldPause, ISaveService save,
             IPublisher<PerformanceStartedEvent> startedPublisher, IPublisher<PerformanceEndedEvent> endedPublisher,
-            ITelemetryScope telemetry, Func<Camera> mainCameraProvider = null)
+            ITelemetryScope telemetry, Func<Camera> mainCameraProvider = null, IClock clock = null)
         {
             // ScriptableObject 是 UnityEngine.Object，判空只用 == null。
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -110,6 +113,8 @@ namespace Game.Performance
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
             // 主相机来源默认 Camera.main；测试注入自己的相机，免得被编辑器里打开的场景干扰。
             this.mainCameraProvider = mainCameraProvider ?? (() => Camera.main);
+            // 连点窗口的时间来源；测试注入假时钟，默认本机 unscaled 时间。
+            this.clock = clock ?? new LocalClock();
         }
 
         public bool IsRunning => running;
@@ -122,7 +127,8 @@ namespace Game.Performance
 
         /// <summary>
         /// 代码确认：只在停顿（Holding）时置确认请求，下一帧继续时间轴；其余时候无事。
-        /// 与玩家点击 / 按确认键不同：玩家输入在字幕逐字显示中会先整句补全，本方法不补全、也不因打字而被吞掉。
+        /// 与玩家点击 / 按确认键不同：玩家输入在字幕逐字显示中只登记连点（满次才整句补全，与对白同一规则），
+        /// 本方法不补全、不计连点、也不因打字而被吞掉。
         /// 台词记录（LOG）开着时请求被丢弃（开着期间一切推进都冻结）；代码 <see cref="Skip"/> 不受 LOG 影响。
         /// </summary>
         public void Confirm()
@@ -249,8 +255,9 @@ namespace Game.Performance
             // 台词记录（LOG）：logOpen 在 await 打开之前就置上（面板加载 / 淡入期间也按「开着」冻结），transcript 是打开后的面板。
             bool logOpen = false;
             TranscriptView transcript = null;
-            // 面板点击与 Advance 键共用 HandlePlayerAdvance：打字中 = 整句补全；否则走 Confirm()（只在 Holding 时置确认请求，
-            // 循环里经 HandleConfirm 继续）；非打字、非停顿期间点击无事，不触发跳过；LOG 开着时不处理。view 打开后才赋值。
+            // 面板点击与 Advance 键共用 HandlePlayerAdvance：打字中 = 登记连点，满次（默认 3 下）整句补全，不满次什么都不做，
+            // 两种情况都消费本次输入；否则走 Confirm()（只在 Holding 时置确认请求，循环里经 HandleConfirm 继续）；
+            // 非打字、非停顿期间点击无事，不触发跳过；LOG 开着时不处理、不计数。view 打开后才赋值。
             Action onTap = null;
             // 面板「自动」「LOG」按钮与记录面板「关闭」只置标志，由播放循环在下一帧与对应按键走同一条处理。
             bool autoClicked = false;
@@ -259,9 +266,16 @@ namespace Game.Performance
             Action onAuto = () => autoClicked = true;
             Action onHistory = () => logClicked = true;
             Action onLogDismiss = () => logDismissed = true;
-            Action<string, string> onSubtitle = (speaker, text) => transcriptLines.Add(new TranscriptLine(speaker, text));
+            // 每显示一句字幕：记台词，并清零连点计数（换句从头数）。
+            Action<string, string> onSubtitle = (speaker, text) =>
+            {
+                transcriptLines.Add(new TranscriptLine(speaker, text));
+                revealTaps.Reset();
+            };
             bool subscribed = false;
             transcriptLines.Clear();
+            // 配置里的非法值已按默认兜底（PerformanceConfig.RevealTapCount / TapWindowSeconds），这里不会抛。
+            revealTaps = new TapRevealCounter(config.RevealTapCount, config.TapWindowSeconds);
             try
             {
                 if (hasInput)
@@ -316,6 +330,8 @@ namespace Game.Performance
                     rules.Tick(dt);
                     // 字幕逐字与规则同一个 unscaled dt；停顿期间也推进，停下时正在打的字继续打完；LOG 开着时不打字。
                     if (!logOpen) view.TickTyping(dt);
+                    // 当前句打完（自然打完或连点补全）或没有字幕 → 连点计数清零；换句由 onSubtitle 清零。
+                    if (!view.IsTyping) revealTaps.Reset();
 
                     if (finishedPending)
                     {
@@ -351,8 +367,10 @@ namespace Game.Performance
                     }
                     else if (!logOpen && toggleLog)
                     {
-                        // 开：先置「开着」、先停时间轴，再 await 开面板——加载 / 淡入期间时间轴不走、按键不处理。
+                        // 开：先置「开着」、先停时间轴，再 await 开面板——加载 / 淡入期间时间轴不走、按键不处理；
+                        // 连点计数清零，开 LOG 前后的点击不连成一串。
                         logOpen = true;
+                        revealTaps.Reset();
                         if (rules.Phase == PerformancePhase.Playing) stage.Pause();
                         transcript = await OpenTranscriptAsync(id);
                         if (transcript != null)
@@ -386,7 +404,7 @@ namespace Game.Performance
                     }
 
                     // 先处理本帧的确认、再处理新到的停顿：停顿出现的同一帧按下的键不算确认，免得玩家看不到 ▼ 就被带过去。
-                    // Advance 键与面板点击同一条：打字中只补全，不同时继续（一次按键只消费一次）。
+                    // Advance 键与面板点击同一条：打字中只登记连点（满次补全），不同时继续（一次按键只消费一次）。
                     if (hasInput && actions.Dialogue.Advance.WasPressedThisFrame()) // lint-ok: 演出表现层读动作，不进确定性模拟
                         HandlePlayerAdvance(view);
                     bool confirmRequested = pendingConfirm;
@@ -473,12 +491,14 @@ namespace Game.Performance
             }
         }
 
-        // 玩家输入（面板点击 / Advance 键）：字幕还在逐字显示 → 整句补全，本次输入就此消费；否则按确认处理（仅停顿时生效）。
+        // 玩家输入（面板点击 / Advance 键）：字幕还在逐字显示 → 登记一次连点，满次（相邻间隔不超过窗口）才整句补全；
+        //   不满次什么都不做——两种情况本次输入都就此消费，不当成确认（与对白的三连点同一规则）。
+        //   不在打字（已打完 / 没有字幕）→ 按确认处理（仅停顿时生效）；计数已在播放循环里随「不在打字」清零。
         private void HandlePlayerAdvance(PerformanceView view)
         {
             if (view.IsTyping)
             {
-                view.CompleteTyping();
+                if (revealTaps.RegisterTypingTap(clock.UnscaledTime)) view.CompleteTyping();
                 return;
             }
             Confirm();

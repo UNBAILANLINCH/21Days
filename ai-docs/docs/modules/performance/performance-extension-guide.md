@@ -56,6 +56,9 @@ maturity: stable
 - 调字幕节奏：改 `PerformanceConfig` 三个字段——`subtitleCharactersPerSecond`（字/秒，**0 = 整句直出**）、
   `subtitlePunctuationPauseSeconds`（标点后停顿秒数）、`subtitlePunctuationChars`（哪些字符算标点）；这三项是全局默认，没有像三开关那样的单段覆盖。
 - 调「自动」继续间隔：改 `PerformanceConfig.autoAdvanceSeconds`（默认 1.5 秒，与对白的自动间隔语义一致；资产里填负数 / NaN / 无穷时按默认值兜底），同样是全局默认，没有单段覆盖。
+- 调打字中连点补全：改 `PerformanceConfig.revealTapCount`（默认 3，1 = 点一下就补全）/ `tapWindowSeconds`（默认 0.5 秒，最小 0.05），
+  默认值与 `DialogueConfig` 同名字段一致、各自独立配置；计数逻辑在 Core 通用的 `TapRevealCounter`（对白共用），
+  要改连点规则本身（而不是参数）改那一个类，两边一起生效——不要在 `PerformanceService` 里另写一份计数。
 
 ## 依赖方向约束
 

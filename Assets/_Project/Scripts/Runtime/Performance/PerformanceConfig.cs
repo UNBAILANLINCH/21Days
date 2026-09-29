@@ -1,4 +1,4 @@
-// 职责：演出管线的全局参数——长按跳过秒数、进场黑场时长、停顿提示与跳过提示文案、字幕逐字节奏、「自动」继续间隔、默认策略开关。
+// 职责：演出管线的全局参数——长按跳过秒数、进场黑场时长、停顿提示与跳过提示文案、字幕逐字节奏、打字中连点补全、「自动」继续间隔、默认策略开关。
 // 为什么新建（复用 → 扩展 → 新建）：数值配置按规则进 ScriptableObject；DialogueConfig 是对白专用，
 //   塞进去会让 Performance 依赖 Dialogue（方向禁止），只能新建本模块的配置。
 using UnityEngine;
@@ -9,6 +9,12 @@ namespace Game.Performance
     [CreateAssetMenu(menuName = "21Days/Performance/PerformanceConfig", fileName = "PerformanceConfig")]
     public sealed class PerformanceConfig : ScriptableObject
     {
+        /// <summary>打字中连点几下整句补全的默认值，与 DialogueConfig 的默认值一致（同一套手感）。</summary>
+        public const int DefaultRevealTapCount = 3;
+
+        /// <summary>连点窗口的默认值（秒），与 DialogueConfig 的默认值一致。</summary>
+        public const float DefaultTapWindowSeconds = 0.5f;
+
         [Tooltip("长按跳过键多少秒触发跳过（秒，必须大于 0）。")]
         [Min(0.05f)]
         [SerializeField] private float skipHoldSeconds = 1f;
@@ -34,6 +40,14 @@ namespace Game.Performance
         [Tooltip("字幕逐字时哪些字符算标点（打出后短停顿）；空 = 不停。")]
         [SerializeField] private string subtitlePunctuationChars = "，。！？…；：、,.!?";
 
+        [Tooltip("字幕逐字显示中，连点画面 / 连按确认键几下整句补全（与对白同一规则）；1 = 点一下就补全。补全那次输入不算确认。")]
+        [Min(1)]
+        [SerializeField] private int revealTapCount = DefaultRevealTapCount;
+
+        [Tooltip("连点窗口（秒，unscaled）：相邻两次点击间隔不超过它才累计，超过从 1 重新计。最小 0.05，与对白一致。")]
+        [Min(0.05f)]
+        [SerializeField] private float tapWindowSeconds = DefaultTapWindowSeconds;
+
         [Tooltip("开「自动」后，停顿（▼）处当前句字幕打完再等多少秒自动继续（秒，unscaled）；0 = 打完立即继续。语义同对白的自动间隔。")]
         [Min(0f)]
         [SerializeField] private float autoAdvanceSeconds = PerformancePolicy.DefaultAutoAdvanceSeconds;
@@ -55,6 +69,12 @@ namespace Game.Performance
         /// <summary>字幕标点后停顿秒数；负数按 0 兜底。</summary>
         public float SubtitlePunctuationPauseSeconds => subtitlePunctuationPauseSeconds > 0f ? subtitlePunctuationPauseSeconds : 0f;
         public string SubtitlePunctuationChars => subtitlePunctuationChars;
+
+        /// <summary>打字中连点几下整句补全；资产里被改成小于 1 时按 <see cref="DefaultRevealTapCount"/> 兜底（计数器构造要求至少 1）。</summary>
+        public int RevealTapCount => revealTapCount >= 1 ? revealTapCount : DefaultRevealTapCount;
+
+        /// <summary>连点窗口（秒）；资产里被改成非正数 / NaN 时按 <see cref="DefaultTapWindowSeconds"/> 兜底（计数器构造要求大于 0）。</summary>
+        public float TapWindowSeconds => tapWindowSeconds > 0f ? tapWindowSeconds : DefaultTapWindowSeconds;
 
         /// <summary>
         /// 「自动」继续间隔（秒）；资产里被改成负数 / NaN / 无穷时按 <see cref="PerformancePolicy.DefaultAutoAdvanceSeconds"/> 兜底

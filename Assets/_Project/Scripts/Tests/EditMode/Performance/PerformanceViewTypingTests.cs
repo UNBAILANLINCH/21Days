@@ -1,4 +1,5 @@
-// 职责：锁定演出字幕的逐字显示——开始从 0 字打、推进到全可见、点击补全、打字中 ▼ 不出现打完才出现、速度 0 整句直出、收字幕重置。
+// 职责：锁定演出字幕的逐字显示——开始从 0 字打、推进到全可见、整句补全（CompleteTyping）、打字中 ▼ 不出现打完才出现、速度 0 整句直出、收字幕重置。
+//   面板只管「补全」这个动作；玩家要连点几下才补全（与对白同一三连点规则）由服务计数，见 PerformanceServiceWorldTests 的 PlayerTap_* 用例。
 // 为什么新建：逐字状态在 PerformanceView（MonoBehaviour + TMP），要从真预制体实例化到 Canvas 下才能出 textInfo；
 //   已有的 Performance EditMode 测试都是纯逻辑 / 舞台，放不进去，按「被测类 + Tests」单独成文件。
 using System.Threading;
@@ -109,7 +110,7 @@ namespace Game.Tests.EditMode.Performance
         }
 
         [Test]
-        public void SetHoldPromptVisible_WhenCompletedByTap_ShowsImmediately()
+        public void SetHoldPromptVisible_WhenTypingCompleted_ShowsImmediately()
         {
             Open(35f);
             view.ShowSubtitle("阿米娅", Line, null, PerformanceAvatarSide.Left);

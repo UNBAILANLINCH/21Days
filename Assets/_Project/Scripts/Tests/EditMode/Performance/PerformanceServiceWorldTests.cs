@@ -1,8 +1,10 @@
 // 职责：钉住 PerformanceService 的世界舞台与摆放——舞台相机改 Base / 深度 +1 / 遮罩含主相机遮罩、主相机遮罩演出中为 0、
 //   结束（跳过 / 取消）后主相机与舞台相机原样恢复；按摆放值摆实例、不传摆放保持原位；主相机缺失走退路并告警；
 //   HideHud 时 Hud / Popup 层演出中隐藏、结束按进来前的显隐恢复（对白里插播时 Hud 不被重新亮出来）；
-//   「自动」开着时停顿处过秒数自动继续；台词记录（LOG）开着时导演暂停、关上恢复，演出结束时还开着的 LOG 先于演出面板关掉。
-//   后三条用真实的 PerformanceView / TranscriptView 预制体（按钮点击 → 面板事件 → 服务），假 UI 照 UIService 调面板生命周期。
+//   「自动」开着时停顿处过秒数自动继续；台词记录（LOG）开着时导演暂停、关上恢复，演出结束时还开着的 LOG 先于演出面板关掉；
+//   打字中连点补全（与对白同一规则）：点一两下不补全也不当确认、窗口内第三下补全且不当确认、超窗重计、换句清零、LOG 开着不计数。
+//   这些用例用真实的 PerformanceView / TranscriptView 预制体（按钮点击 → 面板事件 → 服务），假 UI 照 UIService 调面板生命周期；
+//   连点窗口的时间走注入的假时钟，不看 EditMode 下不稳定的帧时间。
 // 为什么新建（复用 → 扩展 → 新建）：现有 Performance 测试都是纯逻辑类（规则 / 策略 / 存档 / 触发判定），没有服务级用例可扩展；
 //   DialogueServiceTests 的假服务是对白专用的私有嵌套类，拿不过来。服务要走真实的相机与舞台组件，只能新建。
 using System;
@@ -52,6 +54,15 @@ namespace Game.Tests.EditMode.Performance
         private const string PerformanceViewPath = "Assets/_Project/Prefabs/UI/PerformanceView.prefab";
         private const string TranscriptViewPath = "Assets/_Project/Prefabs/UI/TranscriptView.prefab";
 
+        /// <summary>
+        /// 连点用例的逐字速度（字 / 秒）：极慢，保证整条用例里字幕一直在打字，补全只可能来自点击。
+        /// EditMode 下 unscaledDeltaTime 会一下累计很多（见自动用例的说明），35 字 / 秒可能在几帧内自己打完。
+        /// </summary>
+        private const float SlowCharactersPerSecond = 0.001f;
+
+        private const string TypingLine = "博士，前面就是村口了。我们先在这里歇一歇，等天黑再进去打听消息。";
+        private const string NextTypingLine = "德克萨斯，你去把车停到后面的林子里。";
+
         private readonly List<Object> created = new List<Object>();
         private RecordingTelemetry telemetry;
         private PerformanceRules rules;
@@ -66,11 +77,13 @@ namespace Game.Tests.EditMode.Performance
         private UniversalAdditionalCameraData stageData;
         private Camera providedMain;
         private FakeUI ui;
+        private FakeClock clock;
 
         [SetUp]
         public void SetUp()
         {
             telemetry = new RecordingTelemetry();
+            clock = new FakeClock();
             config = Track(ScriptableObject.CreateInstance<PerformanceConfig>());
 
             var mainGo = Track(new GameObject("perf_test_main_camera"));
@@ -98,7 +111,7 @@ namespace Game.Tests.EditMode.Performance
             service = new PerformanceService(config, rules, assets, ui,
                 new FakeInput(), new FakeWorldPause(), new FakeSave(),
                 new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
-                telemetry, () => providedMain);
+                telemetry, () => providedMain, clock);
         }
 
         [TearDown]
@@ -375,6 +388,157 @@ namespace Game.Tests.EditMode.Performance
             Assert.That(closePanel, Is.GreaterThan(closeLog), "先关 Top 层的台词记录，再关演出面板");
         }
 
+        [UnityTest]
+        public IEnumerator PlayerTap_WhileTyping_OneOrTwoTapsNeitherRevealNorConfirm()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds, SlowCharactersPerSecond);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            yield return HoldWhileTyping(view);
+            Button tap = Field<Button>(view, "tapArea");
+
+            Tap(tap, 10f);
+            yield return WaitLoopTick();
+            Assert.That(view.IsTyping, Is.True, "打字中点一下不补全");
+            Tap(tap, 10.25f);
+            yield return WaitLoopTick();
+            Assert.That(view.IsTyping, Is.True, "窗口内点两下仍不补全");
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Holding), "打字中的点击被消费，不当成确认");
+            Assert.That(telemetry.Events, Has.No.Member("hold_confirmed"));
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerTap_WhileTyping_ThirdTapInWindowRevealsWithoutConfirm()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds, SlowCharactersPerSecond);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            yield return HoldWhileTyping(view);
+            Button tap = Field<Button>(view, "tapArea");
+
+            Tap(tap, 10f);
+            Tap(tap, 10.25f);
+            Tap(tap, 10.375f);
+            Assert.That(view.IsTyping, Is.False, "窗口内第三下整句补全");
+            yield return WaitLoopTick();
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Holding), "补全那一下也被消费，不当成确认");
+            Assert.That(telemetry.Events, Has.No.Member("hold_confirmed"));
+
+            Tap(tap, 11f);
+            yield return WaitRealtime(() => telemetry.Events.Contains("hold_confirmed"), 5f, "字打完后单点一下即确认继续");
+            Assert.That(rules.Phase, Is.EqualTo(PerformancePhase.Playing));
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerTap_WhileTyping_TapOutsideWindowRestartsCount()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds, SlowCharactersPerSecond);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            view.ShowSubtitle("阿米娅", TypingLine, null, PerformanceAvatarSide.Left);
+            Button tap = Field<Button>(view, "tapArea");
+
+            Tap(tap, 0f);
+            Tap(tap, 0.25f);
+            Tap(tap, 2f);
+            Assert.That(view.IsTyping, Is.True, "第三下离上一下超过窗口，从 1 重新计，不补全");
+            Tap(tap, 2.125f);
+            Assert.That(view.IsTyping, Is.True, "重计后第二下不补全");
+            Tap(tap, 2.25f);
+            Assert.That(view.IsTyping, Is.False, "重计后窗口内第三下补全");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerTap_NewSubtitle_ResetsCount()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds, SlowCharactersPerSecond);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            view.ShowSubtitle("阿米娅", TypingLine, null, PerformanceAvatarSide.Left);
+            Button tap = Field<Button>(view, "tapArea");
+
+            Tap(tap, 0f);
+            Tap(tap, 0.125f);
+            view.ShowSubtitle("陈", NextTypingLine, null, PerformanceAvatarSide.Right);
+            Tap(tap, 0.25f);
+            Assert.That(view.IsTyping, Is.True, "换句后计数清零：上一句的两下不带过来，这一下只算第 1 下");
+            Tap(tap, 0.375f);
+            Assert.That(view.IsTyping, Is.True);
+            Tap(tap, 0.5f);
+            Assert.That(view.IsTyping, Is.False, "新句里连点满三下才补全");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerTap_WhileLogOpen_NotCounted()
+        {
+            PerformanceView view = UseRealViews(PerformancePolicy.DefaultAutoAdvanceSeconds, SlowCharactersPerSecond);
+            UniTask<PerformanceResult> play = service.PlayAsync(Id);
+            AssertRunning(play);
+            view.ShowSubtitle("阿米娅", TypingLine, null, PerformanceAvatarSide.Left);
+            Button tap = Field<Button>(view, "tapArea");
+
+            Tap(tap, 0f);
+            Tap(tap, 0.0625f);
+            Field<Button>(view, "historyButton").onClick.Invoke();
+            yield return WaitRealtime(() => ui.Calls.Contains("Open:" + nameof(TranscriptView)), 5f, "点「LOG」应打开台词记录");
+            Tap(tap, 0.125f);
+            Tap(tap, 0.1875f);
+            Tap(tap, 0.25f);
+            Assert.That(view.IsTyping, Is.True, "LOG 开着时点击不计数、不补全");
+
+            Field<Button>(transcriptView, "close").onClick.Invoke();
+            yield return WaitRealtime(() => ui.Calls.Contains("Close:" + nameof(TranscriptView)), 5f, "点「关闭」应关掉台词记录");
+            Tap(tap, 0.3125f);
+            Assert.That(view.IsTyping, Is.True, "开 LOG 时计数已清零：关掉后这一下只算第 1 下");
+            Tap(tap, 0.375f);
+            Tap(tap, 0.4375f);
+            Assert.That(view.IsTyping, Is.False, "关掉 LOG 后重新连点满三下补全");
+
+            service.Skip();
+            yield return WaitCompletedRealtime(play);
+            Assert.That(Capture(play), Is.Null);
+        }
+
+        /// <summary>显示一句（极慢逐字）并让时间轴走到停顿标记：规则进 Holding 时字幕仍在打字（▼ 被打字门控藏着）。</summary>
+        private IEnumerator HoldWhileTyping(PerformanceView view)
+        {
+            view.ShowSubtitle("阿米娅", TypingLine, null, PerformanceAvatarSide.Left);
+            // EditMode 下时间轴不会自己走到停顿标记：直接给舞台发 HoldMarker 通知，同自动用例。
+            stage.OnNotify(Playable.Null, Track(ScriptableObject.CreateInstance<HoldMarker>()), null);
+            yield return WaitRealtime(() => rules.Phase == PerformancePhase.Holding, 5f, "收到停顿标记后规则应进入 Holding");
+            Assert.That(view.IsTyping, Is.True, "进入停顿时字幕应仍在打字");
+        }
+
+        /// <summary>按假时钟的时间点一下全屏点击区（真实按钮 → 面板 OnTap → 服务）。</summary>
+        private void Tap(Button tap, float unscaledNow)
+        {
+            clock.Now = unscaledNow;
+            tap.onClick.Invoke();
+        }
+
+        /// <summary>等播放循环至少再跑一轮（规则计时前进）：点击若被当成确认，会在这一轮里被处理掉。</summary>
+        private IEnumerator WaitLoopTick()
+        {
+            float elapsed = rules.ElapsedSeconds;
+            yield return WaitRealtime(() => rules.ElapsedSeconds > elapsed, 5f, "播放循环应继续推进");
+        }
+
         // 假服务同步完成，调用返回时应停在播放循环里；提前结束就把异常带进失败信息。
         private void AssertRunning(UniTask<PerformanceResult> play)
         {
@@ -455,14 +619,16 @@ namespace Game.Tests.EditMode.Performance
 
         /// <summary>
         /// 换上真实的 PerformanceView / TranscriptView 预制体（挂在临时画布下），假 UI 打开 / 关闭时调面板的 OnOpenAsync / OnCloseAsync，
-        /// 并重建服务。黑场时长置 0（不起 LitMotion 动画），「自动」间隔按参数写进配置。
+        /// 并重建服务。黑场时长置 0（不起 LitMotion 动画），「自动」间隔按参数写进配置；给了逐字速度就一并写进配置（不给用配置默认值）。
         /// </summary>
-        private PerformanceView UseRealViews(float autoSeconds)
+        private PerformanceView UseRealViews(float autoSeconds, float? subtitleCharactersPerSecond = null)
         {
             using (var so = new SerializedObject(config))
             {
                 so.FindProperty("fadeSeconds").floatValue = 0f;
                 so.FindProperty("autoAdvanceSeconds").floatValue = autoSeconds;
+                if (subtitleCharactersPerSecond.HasValue)
+                    so.FindProperty("subtitleCharactersPerSecond").floatValue = subtitleCharactersPerSecond.Value;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
             var canvas = Track(new GameObject("perf_test_canvas", typeof(RectTransform), typeof(Canvas)));
@@ -478,7 +644,7 @@ namespace Game.Tests.EditMode.Performance
             service = new PerformanceService(config, rules, assets, ui,
                 new FakeInput(), new FakeWorldPause(), new FakeSave(),
                 new FakePublisher<PerformanceStartedEvent>(), new FakePublisher<PerformanceEndedEvent>(),
-                telemetry, () => providedMain);
+                telemetry, () => providedMain, clock);
             return view;
         }
 
@@ -635,6 +801,17 @@ namespace Game.Tests.EditMode.Performance
             public GameInput Actions => null;
             public void EnableMap(string map) { }
             public void DisableMap(string map) { }
+        }
+
+        /// <summary>手动拨的时钟：连点窗口只看 <see cref="UnscaledTime"/>，由用例逐下设置。</summary>
+        private sealed class FakeClock : IClock
+        {
+            public float Now { get; set; }
+            public DateTime UtcNow => new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            public float GameTime => Now;
+            public float UnscaledTime => Now;
+            public float DeltaTime => 0f;
+            public float UnscaledDeltaTime => 0f;
         }
 
         private sealed class FakeWorldPause : IWorldPauseService

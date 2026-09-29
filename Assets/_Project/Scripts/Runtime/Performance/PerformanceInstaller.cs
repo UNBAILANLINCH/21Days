@@ -53,7 +53,8 @@ namespace Game.Performance
                     resolver.Resolve<ISaveService>(),
                     resolver.Resolve<IPublisher<PerformanceStartedEvent>>(),
                     resolver.Resolve<IPublisher<PerformanceEndedEvent>>(),
-                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule),
+                    clock: resolver.Resolve<IClock>()), Lifetime.Singleton)
                 .AsSelf()
                 .As<IPerformanceService>()
                 .As<IGameService>();

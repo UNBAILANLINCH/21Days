@@ -249,7 +249,13 @@ namespace Game.Tests.Showcase.Performance
                 () => dialogueRules != null && dialogueRules.Current != null && dialogueRules.Current.Id == "l1"
                       && FindInDialogueView<Button>("TapArea") != null, 5f);
 
-            yield return Step("点对白区补全第一句", () => TapDialogue());
+            // 打字中补全要连点三下（对白与演出同一规则），同一帧连点三下对白区。
+            yield return Step("连点三下对白区补全第一句", () =>
+            {
+                TapDialogue();
+                TapDialogue();
+                TapDialogue();
+            });
             yield return Check("第一句整句显示，等待推进",
                 () => dialogueRules.Phase == DialogueSaveData.Phase.AwaitAdvance && dialogueRules.Current.Id == "l1", 3f);
 

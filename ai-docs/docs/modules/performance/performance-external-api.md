@@ -18,7 +18,7 @@ maturity: stable
 | `HasPlayed` | `bool HasPlayed(string id)` | 该 id 是否已完整播过或被跳过（读存档分区，用于「只播一次」判断） |
 | `PlayAsync` | `UniTask<PerformanceResult> PlayAsync(string id, CancellationToken ct = default)` | 按 Addressables 地址拉起一段演出并等它结束（成功 / 跳过 / 取消 / 失败见下）；等价于传 `PerformancePlacement.None` |
 | `PlayAsync`（摆放重载） | `UniTask<PerformanceResult> PlayAsync(string id, PerformancePlacement placement, CancellationToken ct = default)` | 同上，演出实例化后 `SetPositionAndRotation` 到 `placement`；`placement.HasValue` 为假（`None`）时保持预制体自身位姿 |
-| `Confirm` | `void Confirm()` | 代码确认继续：正在停顿（Holding）时等价于玩家按确认，否则无事；**不会补全逐字显示中的字幕**（补全只发生在玩家点击 / 按 Advance 键，走 `HandlePlayerAdvance`）；**下一帧播放循环才生效**；**台词记录（LOG）开着时请求被丢弃**（开着期间一切推进都冻结），`Skip()` 不受 LOG 影响 |
+| `Confirm` | `void Confirm()` | 代码确认继续：正在停顿（Holding）时等价于玩家按确认，否则无事；**不会补全逐字显示中的字幕，也不计连点**（补全只发生在玩家打字中连点 / 连按 Advance 键满次时——默认三下、相邻间隔 ≤ 0.5 秒，与对白同一规则——走 `HandlePlayerAdvance`）；**下一帧播放循环才生效**；**台词记录（LOG）开着时请求被丢弃**（开着期间一切推进都冻结），`Skip()` 不受 LOG 影响 |
 | `Skip` | `void Skip()` | 代码跳过：正在播放（Playing/Holding）时等价于长按满，结果记为 Skipped；**不看舞台的 `skippable` 开关**（那只约束玩家长按输入）；**下一帧播放循环才生效** |
 
 ### `PlayAsync` 的语义

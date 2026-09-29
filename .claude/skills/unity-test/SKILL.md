@@ -19,6 +19,7 @@ disable-model-invocation: true
 - **编辑器打开但 MCP 未连接**：停下，让用户在编辑器里跑 Test Runner，或关闭编辑器后再来。
 
 Showcase 回放在独立程序集 `Game.Tests.Showcase`（带停顿与截图，很慢）。`/unity-test PlayMode` 想只跑快测试，就传 `assembly_names` 把它排除掉；**回放不走这里，走 `/verify-module <模块>`**（规范见 `.claude/rules/module-verify.md`）。
+PlayMode 调用过 `guard.js` 的 run_tests 分支：没给任何过滤、`assembly_names` 含 `Game.Tests.Showcase` 却没给 `group_names` / `test_names`、或某条 `group_names` 同时命中两个以上回放模块，都会被直接拒；被拒后传 `assembly_names=["Game.Tests.PlayMode"]` 只跑快测试，或每条 group 只写一个模块、用 `test_names` 点名（范围规则见 `.claude/rules/model-routing.md` 硬规则 6）。
 
 汇报：通过 / 失败 / 跳过数；每个失败用例给名字、断言信息、对应文件行。不贴整份日志。
 

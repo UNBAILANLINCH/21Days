@@ -79,6 +79,8 @@ run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"],
 
 → `get_test_job(job_id, wait_timeout=60)` 循环到完成。**期间不做任何别的 MCP 写操作**（编辑器正在 Play，改资产会被丢弃或写坏 SO）。
 
+这条调用过 `guard.js` 的 run_tests 分支：省掉 `group_names`、或写成一条命中两个以上模块的正则（如 `^Game\\.Tests\\.Showcase\\.`）会被直接拒；一次验多个模块就逐条列出、每条只匹配一个模块，确需全量回归在汇报里写明理由（`.claude/rules/model-routing.md` 硬规则 6）。
+
 ## 7. 收集
 
 1. 读报告：`Logs/verify/<模块小写>/latest.md`（截图路径是相对的 `<run>/NN-xx.png`）。

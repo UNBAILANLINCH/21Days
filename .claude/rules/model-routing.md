@@ -24,6 +24,8 @@ alwaysApply: true
 3. `.claude/agents/` 自定义 agent 必须在 frontmatter 声明 `model:`（code-reviewer 固定 sonnet）。
 4. 档位拿不准 → 就高不就低：先 `opus`；事后发现是机械活，下次降 `sonnet`。
 5. Unity MCP 操作编辑器（建物体、挂组件、跑测试）属于「有明确步骤的执行」，可派 `sonnet`；但涉及场景结构设计的，先由主窗口定方案。
+6. **测试范围写死**：派单涉及跑测试或回放时，prompt 里写明范围——EditMode 写到程序集或 group；回放逐个列出模块，每个模块附一句它为什么受本次改动影响。禁止写「全跑」「相关的都跑」；`PerformanceEvidence` 类耗时实测只在任务本身就是测性能时才点名跑。
+   执行层由 `.claude/hooks/guard.js` 的 run_tests 分支兜底：PlayMode 回放没限定到单个模块直接拒（子代理的调用同样拦）。
 
 ## 与 /dev 复杂度分档的对应
 
@@ -36,3 +38,4 @@ alwaysApply: true
 - [ ] 每个 Agent / `agent()` 调用都带显式 `model`（或该 agent 的 frontmatter 已固定）。
 - [ ] 没有任何 subagent 被派成 `fable`。
 - [ ] 工程/调试 → `opus`；机械/检索 → `sonnet`；设计/规划/验收留在主窗口。
+- [ ] 涉及跑测试 / 回放的派单写死了范围：EditMode 到程序集或 group，回放逐模块列出并各附影响理由，没有「全跑」。

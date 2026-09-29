@@ -5,7 +5,7 @@
 // 规则出处：CLAUDE.md「硬规则」。
 //
 // run_tests 分支 —— 执行载体：settings.json PreToolUse matcher 里的 mcp__UnityMCP__run_tests（子代理的调用也过这里）；
-// 状态锚点：`python .claude/hooks/tests/run.py` 里 GuardRunTests 全绿；
+// 状态锚点：`python .claude/hooks/tests/run.py` 里 GuardRunTestsScope 全绿；
 // 退场条件：回放不再占用共用编辑器（例如挪到独立 CI 机跑）时，连同用例一起删掉这个分支。
 //
 // 本钩子的输出**几乎全是决策**（deny / ask），决策一律不去重：去重掉的那一次

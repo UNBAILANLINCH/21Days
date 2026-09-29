@@ -148,7 +148,7 @@
 ## TMP Dynamic 字体资产进一次 Play 就胖 2 MB，污染 git
 - 现象：中文字体资产提交时才 6 KB，同事拉下来跑一次游戏，`git status` 里它就变成 2 MB 的改动；每个人每次 Play 都产生一份不一样的 diff，合并时天天冲突。
 - 根因：`AtlasPopulationMode.Dynamic` 的字体资产在**编辑器里**是按需栅格化后**写回资产**的——用到哪个字就把它烘进 `.asset` 内嵌的图集贴图，1024×1024 的 Alpha8 贴图序列化成 YAML 就是 2 MB 上下。这是 TMP 有意的设计（下次进 Play 不用重烘），不是 bug，也不会报任何提示。出包后的运行时只在内存里加字，不写回资产，所以**成品不受影响，受影响的只有仓库**。TMP 3.0.7 的 `TMP Settings` 里没有"打包时清掉动态数据"的开关，只能手动清。
-- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。 **Clear Dynamic Data 只清当前引用的那张图集**：Play 期动态扩容时新建的旧图集会以孤立子资产（`… SDF Atlas N`）留在 `.asset` 里，清完文件仍有几 MB；用 `AssetDatabase.RemoveObjectFromAsset` + `DestroyImmediate` 摘掉再 `SaveAssets`（2026-09-28 从 17 MB 清到 6 KB 时发现，HEAD 里 8.5 MB 就是这么来的）。
+- 正确做法：提交前在字体资产的 Inspector 上点 **Clear Dynamic Data**（脚本等价物是 `fontAsset.ClearFontAssetData(true)`，`true` 会把图集缩回 0×0），确认 `.asset` 回到几 KB 再提交。清空**不影响功能**：Dynamic 模式和声明的 1024×1024 图集尺寸、源字体引用都保留着，下次运行第一帧就会重新按需烘（实测从空表起步，首帧 `frameCount=2` 时中文已正常渲染）。 **Clear Dynamic Data 只清当前引用的那张图集**：Play 期动态扩容时新建的旧图集会以孤立子资产（`… SDF Atlas N`）留在 `.asset` 里，清完文件仍有几 MB；用 `AssetDatabase.RemoveObjectFromAsset` + `DestroyImmediate` 摘掉再 `SaveAssets`（2026-09-28 从 17 MB 清到 6 KB 时发现，HEAD 里 8.5 MB 就是这么来的）。（2026-09-29 复核：HEAD 里那份 22.2 MiB 是 `2095933` 有意入库的「动态字形增量」，含 **7 张没人引用的同名 `Atlas 2`** 孤立子资产；按本节口径已清回 6,404 B。口径维持「增量不入库」——缺字由运行时重烘兜住，落盘只调 `AssetDatabase.SaveAssetIfDirty(字体资产)`，不用 `SaveAssets`，理由见本文件「MCP 里调 `AssetDatabase.SaveAssets()`…」一条。）
 - 关联：`Assets/_Project/Art/Fonts/README.md`、`docs/developer-guide.md #11.5`；2026-09-16 上中文字体时踩到。
 
 ## 批处理打包里临时改工程设置，恢复写在「报告结果」之后 = 永远不会恢复
@@ -469,7 +469,7 @@
 - 关联：`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceRulesTests.cs`（`TickAuto_*` 系列，纯 C# 钉边界）、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:289`–`290`；2026-09-28 演出 LOG / 自动那轮。
 
 ## UniTask 的编辑器 PlayerLoop 在 `EditorApplication.isUpdating` 时停摆，EditMode 用例按帧数等待会误报超时
-- 现象：`PerformanceServiceWorldTests` 里等演出收尾的用例，全量跑测试套件时偶发超时，单独跑这条用例却总是通过。
+- 现象：`PerformanceServiceWorldTests` 里等演出收尾的用例，全量跑测试套件时偶发超时，单独跑这条用例却总是通过。（2026-09-29 复跑：同文件的 `PlayAsync_AutoOn_ContinuesAtHoldAfterSecondsWithoutConfirm` 也出现过「全量跑偶发失败、单跑与另一次全量都过」——它已按墙钟等 10 秒，仍可能在编辑器停摆期间耗光预算。见到这条失败先单跑复现一次，别当成改动引入的回归。）
 - 根因：UniTask 的编辑器循环在 `EditorApplication.isPlayingOrWillChangePlaymode || isCompiling || isUpdating` 时整帧跳过（`PlayerLoopHelper.cs:339`）；共用编辑器时别的会话在导入资产 / 编译，`isUpdating` 会为 true 一段时间，这段时间里 `await UniTask.Yield` 根本不推进，「等 N 帧」的循环会把预算的帧数在停摆期间耗光，还没等到条件成立就报超时。
 - 正确做法：EditMode 里等异步任务收尾一律按墙钟时间等待（`Time.realtimeSinceStartup` 起点 + 固定秒数上限，如 10 秒），不要按帧数上限；帧数上限只在能保证编辑器不会被别的会话打断时才可靠。
 - 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:495`–`500`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。

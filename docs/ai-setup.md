@@ -85,6 +85,12 @@ $projectPython = uv python find
 
 非 core 工具组（testing / ui / animation 等）默认关闭，需要时让 Claude 用 `manage_tools` 打开。
 
+### 传输与代理（2026-09-29 实测）
+
+- **Unity 侧 bridge 走 Stdio 传输**（`127.0.0.1:6401`）：只有 stdio 的 MCP 客户端连得上。用 `--transport http` 起的服务端即使 `/health` 通过，也看不到实例（`/api/instances` 返回空、`/api/command` 返回 503）；包自带的 `unity-mcp` CLI 依赖这个 HTTP 模式，所以在当前配置下 CLI 用不了。要让某个客户端连上，用与 `.mcp.json` 一致的 stdio 配置，不要去改 Unity 窗口里的传输方式（会踢掉正在用的客户端）。
+- **本机 `NO_PROXY` 含 `[::1]` 会让 httpx 直接崩**（Windows 代理覆盖表常见的 IPv6 回环写法）：`--transport http` 与 `unity-mcp` CLI 在打印版本横幅那一步就抛 `Invalid port: ':1]'`。要跑它们，先把环境变量收敛成 `NO_PROXY=localhost,127.0.0.1` 并在同一个 shell 里执行。
+- 没有 MCP 客户端、又要动编辑器时，可以直接连桥：握手 `WELCOME UNITY-MCP 1 FRAMING=1\n`，之后每条消息 = 8 字节大端长度 + UTF-8 JSON 负载（`{"type":"<命令>","params":{…}}`），负载为纯文本 `ping` 时回 `pong`。这仍然是「写入编辑器」，照样受「同一时间只写一个编辑器」的约定约束。
+
 ## Claude Code 钩子
 
 钩子在 `.claude/settings.json` 注册，无需额外安装，只要本机有 python3 与 node 就会自动生效。七个钩子各管一件事，详细说明与调试方法见 [`.claude/hooks/README.md`](../.claude/hooks/README.md)。

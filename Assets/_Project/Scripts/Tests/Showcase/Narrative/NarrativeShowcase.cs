@@ -63,6 +63,7 @@ namespace Game.Tests.Showcase.Narrative
             }, 0f);
             yield return Check("确认任务选项置灰，并显示尚未完成的原因", () =>
                 Choice("确认已完成旅人任务") != null && !Choice("确认已完成旅人任务").interactable, 5f);
+            yield return Wait(3f);
             yield return Snapshot("任务未完成·选项置灰");
             yield return ClickWhenReady("稍后再来", () => Choice("稍后再来"), () => playbackDone);
             yield return WaitUntil("对白退出", () => playbackDone, 5f);
@@ -78,6 +79,7 @@ namespace Game.Tests.Showcase.Narrative
             yield return Step("再次查看见证人选项", () => Begin(narrative.StartAsync("sample_options", target.TargetId)), 0f);
             yield return Check("任务完成后确认选项可点击", () =>
                 Choice("确认已完成旅人任务") != null && Choice("确认已完成旅人任务").interactable, 5f);
+            yield return Wait(3f);
             yield return Snapshot("任务完成·选项可用");
             yield return ClickWhenReady("确认已完成旅人任务", () => Choice("确认已完成旅人任务"), () => playbackDone);
             yield return WaitUntil("确认对白结束", () => playbackDone, 5f);
@@ -92,6 +94,7 @@ namespace Game.Tests.Showcase.Narrative
             bool atTitle = false;
             yield return Step("回到标题", () => BeginLeaveToTitle(flow, () => atTitle = true), 0f);
             yield return WaitUntil("标题继续按钮出现", () => atTitle && ui.Get<TitleView>() != null, 20f);
+            yield return Wait(3f);
             yield return Snapshot("存档后·标题继续");
             yield return Step("点继续并恢复世界", () => RequireTitleButton("ContinueButton").onClick.Invoke(), 0f);
             yield return WaitUntil("回到世界", () => flow.Current is MonsterEncounterState && ui.Get<TitleView>() == null, 20f);
@@ -113,6 +116,7 @@ namespace Game.Tests.Showcase.Narrative
             Begin(narrative.StartAsync("sample_options", target.TargetId));
             yield return Check("读档后仍能确认已完成的旅人任务", () =>
                 Choice("确认已完成旅人任务") != null && Choice("确认已完成旅人任务").interactable, 5f);
+            yield return Wait(3f);
             yield return Snapshot("继续后·任务选项保留");
             yield return ClickWhenReady("稍后再来", () => Choice("稍后再来"), () => playbackDone);
         }
@@ -130,11 +134,13 @@ namespace Game.Tests.Showcase.Narrative
             }, 0f);
             yield return Check("确认选项当前置灰", () => Choice("确认已完成旅人任务") != null &&
                 !Choice("确认已完成旅人任务").interactable, 5f);
+            yield return Wait(3f);
             yield return Snapshot("刷新前·选项置灰");
             // 专门验证面板已打开时的服务事件边界；任务完成来源由另两条回放走真实对白。
             yield return Step("通过任务公开接口报告完成，保持选项面板打开", () => quest.Report(QuestObjectiveKind.TalkTo, "1002"), 0f);
             yield return Check("同一面板自动把确认选项变为可点", () => Choice("确认已完成旅人任务") != null &&
                 Choice("确认已完成旅人任务").interactable, 5f);
+            yield return Wait(3f);
             yield return Snapshot("刷新后·选项可用");
             yield return Step("选择刚解锁的确认项", null, 0f);
             yield return ClickWhenReady("确认选项", () => Choice("确认已完成旅人任务"), () => playbackDone);
@@ -156,6 +162,7 @@ namespace Game.Tests.Showcase.Narrative
                 playbackError is OperationCanceledException && !ended.Completed && !QuestCompleted() &&
                 !narrative.IsBusy && !narrative.CanSave && !narrative.Capture().Current.RequestIssued &&
                 ui.Get<DialogueView>() == null, 5f);
+            yield return Wait(3f);
             yield return Snapshot("目标禁用·对白取消且任务未完成");
             yield return Step("启用同一目标，再次交互", () =>
             {
@@ -167,11 +174,13 @@ namespace Game.Tests.Showcase.Narrative
                 narrative.Capture().ConsumedTriggers.SetEquals(active.ConsumedTriggers), 5f);
             yield return Step("点跳过", null, 0f);
             yield return ClickWhenReady("跳过", () => ViewButton<DialogueView>("SkipButton"), () => ui.Get<DialogueSkipConfirmView>() != null);
+            yield return Wait(3f);
             yield return Snapshot("跳过确认");
             yield return Step("确认跳过", null, 0f);
             yield return ClickWhenReady("确认跳过", () => ViewButton<DialogueSkipConfirmView>("ConfirmButton"), () => playbackDone);
             yield return Check("对白收起且旅人任务完成", () => playbackDone && playbackError == null &&
                 ended.Completed && ended.Skipped && QuestCompleted() && ui.Get<DialogueView>() == null, 5f);
+            yield return Wait(3f);
             yield return Snapshot("跳过后·任务完成");
         }
 

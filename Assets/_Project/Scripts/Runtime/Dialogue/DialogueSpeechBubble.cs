@@ -5,6 +5,7 @@
 //   「状态标记」和「台词展示」两种表现绑死，将来单独换气泡样式要动标记。
 using System;
 using Game.Core.Logging;
+using Game.Core.Simulation;
 using LitMotion;
 using LitMotion.Extensions;
 using TMPro;
@@ -16,8 +17,9 @@ namespace Game.Dialogue
     /// <summary>
     /// 世界空间台词气泡。挂在气泡预制体（<c>Prefabs/World/DialogueSpeechBubble.prefab</c>）根上，
     /// 预制体实例作为 NPC 的子物体摆在头顶标记之上；交互组件取 Inspector 的 target，未配时向父级找。
-    /// 朝向相机由预制体实例决定（3D 场景挂 CameraBillboard，2D 场景不旋转）。每帧只做累加、比较与赋值，不分配。
+    /// 朝向相机由预制体实例决定（3D 场景挂 CameraBillboard，2D 场景不旋转）；相机跟随后把气泡约束在视口内。
     /// </summary>
+    [DefaultExecutionOrder(200)]
     public sealed class DialogueSpeechBubble : MonoBehaviour
     {
         private const string NamePrefix = "◌ ";
@@ -38,6 +40,8 @@ namespace Game.Dialogue
         [SerializeField, Min(0f)] private float holdSeconds = 4f;
         [Tooltip("淡出时长（秒，unscaled）。")]
         [SerializeField, Min(0f)] private float fadeSeconds = 0.3f;
+        [Tooltip("气泡与相机画面边缘的最小像素距离。")]
+        [SerializeField, Min(0f)] private float screenPadding = 12f;
 
         private enum Phase
         {
@@ -53,6 +57,12 @@ namespace Game.Dialogue
         private float holdElapsed;
         private MotionHandle fade;
         private Action onFadeCompleted;
+        private RectTransform bubbleRect;
+        private Canvas canvas;
+        private Camera viewCamera;
+        private Vector3 anchorPosition;
+        private Vector3 authoredScale;
+        private readonly Vector3[] corners = new Vector3[4];
 
         /// <summary>气泡是否在显示（含打字、停留、淡出中）。</summary>
         public bool IsShowing => phase != Phase.Hidden;
@@ -65,6 +75,10 @@ namespace Game.Dialogue
 
         private void Awake()
         {
+            bubbleRect = (RectTransform)transform;
+            canvas = GetComponent<Canvas>();
+            anchorPosition = bubbleRect.localPosition;
+            authoredScale = bubbleRect.localScale;
             onFadeCompleted = HideImmediate;
             if (target == null) target = GetComponentInParent<DialogueInteractable>();
             if (target == null)
@@ -89,6 +103,7 @@ namespace Game.Dialogue
         {
             // 沉浸模式下不弹气泡（世界空间提示一律隐藏）。
             if (target != null && target.HiddenByHud) return;
+            viewCamera = canvas != null && canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
             if (fade.IsActive()) fade.Cancel();
             CurrentText = line ?? string.Empty;
             if (root != null) root.SetActive(true);
@@ -158,9 +173,55 @@ namespace Game.Dialogue
                 .BindToAlpha(group);
         }
 
+        private void LateUpdate()
+        {
+            if (!IsShowing || viewCamera == null || !viewCamera.isActiveAndEnabled) return;
+            // 每帧从作者的头顶锚点重算，不能累加上帧修正，否则移动相机后气泡会漂移。
+            bubbleRect.localPosition = anchorPosition;
+            bubbleRect.localScale = authoredScale;
+            Vector3 anchor = viewCamera.WorldToViewportPoint(bubbleRect.position);
+            if (anchor.z <= viewCamera.nearClipPlane) return;
+            Vector2 margin = new Vector2(
+                GameMath.Min(0.25f, screenPadding / GameMath.Max(1f, viewCamera.pixelWidth)),
+                GameMath.Min(0.25f, screenPadding / GameMath.Max(1f, viewCamera.pixelHeight)));
+            Rect bounds = ViewportBounds();
+            // 极近镜头或窄画面放不下时只缩小显示，不改作者尺寸；离开边缘后自动恢复。
+            float fit = GameMath.Min(1f, GameMath.Min(
+                (1f - 2f * margin.x) / GameMath.Max(0.0001f, bounds.width),
+                (1f - 2f * margin.y) / GameMath.Max(0.0001f, bounds.height)));
+            if (fit < 1f)
+            {
+                bubbleRect.localScale = authoredScale * fit;
+                bounds = ViewportBounds();
+            }
+            Vector3 adjusted = anchor;
+            adjusted.x += GameMath.Clamp(0f, margin.x - bounds.xMin, 1f - margin.x - bounds.xMax);
+            adjusted.y += GameMath.Clamp(0f, margin.y - bounds.yMin, 1f - margin.y - bounds.yMax);
+            bubbleRect.position = viewCamera.ViewportToWorldPoint(adjusted);
+        }
+
+        private Rect ViewportBounds()
+        {
+            bubbleRect.GetWorldCorners(corners);
+            Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            for (int i = 0; i < corners.Length; i++)
+            {
+                Vector2 point = viewCamera.WorldToViewportPoint(corners[i]);
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
         private void HideImmediate()
         {
             phase = Phase.Hidden;
+            if (bubbleRect != null)
+            {
+                bubbleRect.localPosition = anchorPosition;
+                bubbleRect.localScale = authoredScale;
+            }
             if (root != null) root.SetActive(false);
             if (group != null) group.alpha = 1f;
         }

@@ -1,7 +1,7 @@
 // 职责：钉住对白历史转成通用记录面板输入的规则——选择项记为说话者「选择」、其余原样；转换后拼出的文字与改用通用面板前逐字相同。
 //   另钉住节点前插播演出的摆放：传了演出锚点 → 演出服务收到锚点的世界位姿；不传 → 收到 PerformancePlacement.None。
-//   以及插播期间场景角色的显隐：演出进行中场景小人的角色根（连同名牌 / 标记）全部隐藏、舞台替身不受影响，
-//   演出完成或被取消后按进来前的 enabled 值恢复。
+//   插播期间场景角色的显隐由演出服务统一处理（PerformanceTriggerRules.HideSceneCharacters，见 PerformanceServiceWorldTests），
+//   本类不再重复覆盖。
 // 为什么新建：DialogueController 依赖 UI / 资源 / 时钟，没有现成的测试类；这里测它公开的纯静态转换 BuildTranscript，
 //   以及插播摆放（真实对白面板预制体 + 假 UI / 假演出服务，演出挂起在第一句前，不走立绘加载与打字），
 //   按「被测类 + Tests」单独成文件，其余表现逻辑仍由 Dialogue 回放覆盖。
@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.CharacterPuppet;
 using Game.Core.Assets;
 using Game.Core.Config;
 using Game.Core.Timing;
@@ -113,48 +112,6 @@ namespace Game.Tests.EditMode.Dialogue
             Assert.That(Capture(present), Is.InstanceOf<OperationCanceledException>());
         }
 
-        [Test]
-        public void PresentAsync_Interlude_HidesSceneCharactersUntilPerformanceCompletes()
-        {
-            SceneCharacters scene = BuildSceneCharacters();
-            SpriteRenderer stageSprite = null;
-            // 模拟舞台：真实演出服务在 PlayAsync 内才异步生成替身小人，它不该被当成场景角色藏掉。
-            performance.OnPlay = () => stageSprite = Puppet(Track(new GameObject("Stage_Amiya")).transform);
-            using var cts = new CancellationTokenSource();
-
-            UniTask<string> present = controller.PresentAsync(new DefaultDialogueConditionSource(), "dialogue:interlude_test",
-                playback, cts.Token);
-
-            Assert.That(controller.Performing, Is.True, "第一句前应进入「演出中」");
-            scene.AssertHidden();
-            Assert.That(stageSprite != null && stageSprite.enabled, Is.True, "舞台替身在 PlayAsync 内生成，不在收集范围，保持显示");
-
-            // 先让规则被外部中断：演出正常播完后对白按「中断」同步收尾，不进立绘加载与打字（EditMode 没有播放循环）。
-            rules.Cancel();
-            performance.Complete();
-
-            Assert.That(controller.Performing, Is.False, "演出播完即解除「演出中」");
-            scene.AssertRestored();
-            Assert.That(Capture(present), Is.InstanceOf<OperationCanceledException>(), "插播期间对白被外部中断 → 按中断收尾");
-        }
-
-        [Test]
-        public void PresentAsync_InterludeCancelled_RestoresSceneCharacters()
-        {
-            SceneCharacters scene = BuildSceneCharacters();
-            using var cts = new CancellationTokenSource();
-
-            UniTask<string> present = controller.PresentAsync(new DefaultDialogueConditionSource(), "dialogue:interlude_test",
-                playback, cts.Token);
-            scene.AssertHidden();
-
-            cts.Cancel();
-
-            Assert.That(controller.Performing, Is.False);
-            scene.AssertRestored();
-            Assert.That(Capture(present), Is.InstanceOf<OperationCanceledException>());
-        }
-
         private static DialogueSaveData.HistoryEntry Entry(string speaker, string text, bool choice = false) =>
             new DialogueSaveData.HistoryEntry { Speaker = speaker, Text = text, IsChoice = choice };
 
@@ -221,87 +178,6 @@ namespace Game.Tests.EditMode.Dialogue
             return obj;
         }
 
-        /// <summary>
-        /// 手搭 SampleScene 同款的三类角色（NPC / 玩家 / 无标记巡逻怪），各带小人与名牌 / 标记 / 光圈，外加一个不属于任何角色的地面。
-        /// 玩家的隐藏纸片进来前就是 enabled = false，用来验证「按原值恢复」而不是一律打开。
-        /// </summary>
-        private SceneCharacters BuildSceneCharacters()
-        {
-            var scene = new SceneCharacters();
-
-            GameObject npc = Track(new GameObject("Npc_Elder"));
-            npc.AddComponent<DialogueInteractable>();
-            scene.Shown.Add(Puppet(Child("PuppetVisual", npc.transform).transform));
-            scene.Shown.Add(Child("MarkerIdle", npc.transform).AddComponent<SpriteRenderer>());
-            scene.Canvases.Add(Child("NameLabel", npc.transform).AddComponent<Canvas>());
-
-            GameObject player = Track(new GameObject("player"));
-            player.AddComponent<DialogueInteractionActor>();
-            GameObject visual = Child("Visual", player.transform);
-            scene.PreHidden = visual.AddComponent<SpriteRenderer>();
-            scene.PreHidden.enabled = false;
-            scene.Shown.Add(Puppet(visual.transform));
-            scene.Shown.Add(Child("SelectRing", player.transform).AddComponent<SpriteRenderer>());
-            scene.Canvases.Add(Child("NameTag", player.transform).AddComponent<Canvas>());
-
-            GameObject patrol = Track(new GameObject("enerme"));
-            scene.Shown.Add(Puppet(Child("Visual", patrol.transform).transform));
-
-            scene.Outsider = Track(new GameObject("Ground")).AddComponent<SpriteRenderer>();
-            return scene;
-        }
-
-        private static GameObject Child(string name, Transform parent)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            return go;
-        }
-
-        // 同 Chibi_<名字>.prefab 的结构：根挂 ChibiPuppet，子物体 Sprite 挂渲染器；返回该渲染器。
-        private static SpriteRenderer Puppet(Transform parent)
-        {
-            GameObject root = Child("Chibi", parent);
-            root.AddComponent<ChibiPuppet>();
-            return Child("Sprite", root.transform).AddComponent<SpriteRenderer>();
-        }
-
-        /// <summary>手搭场景角色的可见组件，及插播中 / 插播后的断言。</summary>
-        private sealed class SceneCharacters
-        {
-            public readonly List<Renderer> Shown = new List<Renderer>();
-            public readonly List<Canvas> Canvases = new List<Canvas>();
-            public Renderer PreHidden { get; set; }
-            public Renderer Outsider { get; set; }
-
-            public void AssertHidden()
-            {
-                foreach (Renderer renderer in Shown)
-                    Assert.That(renderer.enabled, Is.False, "插播中场景角色的渲染器应隐藏：" + PathOf(renderer.transform));
-                foreach (Canvas canvas in Canvases)
-                    Assert.That(canvas.enabled, Is.False, "插播中角色根下的名牌 Canvas 应隐藏：" + PathOf(canvas.transform));
-                Assert.That(PreHidden.enabled, Is.False);
-                Assert.That(Outsider.enabled, Is.True, "不在任何角色根下的场景物体不藏");
-            }
-
-            public void AssertRestored()
-            {
-                foreach (Renderer renderer in Shown)
-                    Assert.That(renderer.enabled, Is.True, "插播结束应恢复：" + PathOf(renderer.transform));
-                foreach (Canvas canvas in Canvases)
-                    Assert.That(canvas.enabled, Is.True, "插播结束名牌 Canvas 应恢复：" + PathOf(canvas.transform));
-                Assert.That(PreHidden.enabled, Is.False, "进来前就关着的渲染器，恢复后仍关着");
-                Assert.That(Outsider.enabled, Is.True);
-            }
-
-            private static string PathOf(Transform node)
-            {
-                string path = node.name;
-                for (Transform parent = node.parent; parent != null; parent = parent.parent) path = parent.name + "/" + path;
-                return path;
-            }
-        }
-
         // 观察一个已完成的 UniTask：返回它抛出的异常（成功返回 null）。假服务都同步收尾，未完成视为用例失败。
         private static Exception Capture(UniTask<string> task)
         {
@@ -317,13 +193,9 @@ namespace Game.Tests.EditMode.Dialogue
             }
         }
 
-        /// <summary>PlayAsync 挂起直到 ct 取消或 <see cref="Complete"/>；记录调用次数、最后一次的 id 与摆放。</summary>
+        /// <summary>PlayAsync 挂起直到 ct 取消；记录调用次数、最后一次的 id 与摆放。</summary>
         private sealed class RecordingPerformanceService : IPerformanceService
         {
-            private UniTaskCompletionSource<PerformanceResult> pending;
-
-            /// <summary>PlayAsync 被调时、返回挂起任务之前回调：模拟舞台在演出服务内部生成。</summary>
-            public Action OnPlay { get; set; }
             public int Calls { get; private set; }
             public string LastId { get; private set; }
             public PerformancePlacement LastPlacement { get; private set; }
@@ -340,22 +212,13 @@ namespace Game.Tests.EditMode.Dialogue
                 LastId = id;
                 LastPlacement = placement;
                 IsRunning = true;
-                OnPlay?.Invoke();
                 var source = new UniTaskCompletionSource<PerformanceResult>();
-                pending = source;
                 ct.Register(() =>
                 {
                     IsRunning = false;
                     source.TrySetCanceled(ct);
                 });
                 return source.Task;
-            }
-
-            /// <summary>让挂起中的演出正常播完（结果 Completed）；等待方的续体同步执行。</summary>
-            public void Complete()
-            {
-                IsRunning = false;
-                pending?.TrySetResult(new PerformanceResult(LastId, PerformanceOutcome.Completed, 0f));
             }
 
             public void Confirm() { }

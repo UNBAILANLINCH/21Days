@@ -44,8 +44,9 @@ maturity: stable
    代码拉起时用 `DialogueService.PlayAsync(id, 锚点)` 把说话的 NPC 传进来。只传 `id`（不带锚点）时插播不摆放，
    世界舞台会生成在世界原点、落到地面以下（演出只有世界舞台一种，带了锚点就一定按锚点摆）。
 6. **场景角色自动隐藏，不用配**：插播期间场景里全部带 `ChibiPuppet` 的角色（玩家、NPC、巡逻怪，连同根下名牌 / 标记 / 光圈）
-   被藏起，演出结束恢复（`DialogueInterludeVisibility`）。新角色要被正确整根藏掉：NPC 根挂 `DialogueInteractable`、玩家根挂
-   `DialogueInteractionActor` 或 `PerformanceTriggerActor`；都不挂的角色按场景顶层物体整棵藏，别把它收进装地形 / 道具的公共容器。
+   被藏起，演出结束恢复；这由 `PerformanceService.PlayAsync` 统一处理（对直接播放、对白插播、场景触发一视同仁），
+   见 `performance-module-guide.md`「世界舞台」一节，本模块不用配也不用改代码。新角色要被正确整根藏掉：优先配
+   `ChibiPuppetMotion.TrackedRoot`，没配时兜底取场景顶层物体整棵藏，别把它收进装地形 / 道具的公共容器。
 
 ## 加一个带树 NPC 并配头顶标记
 
@@ -79,7 +80,7 @@ maturity: stable
 
 同名替换 PNG 不用改预制体；改了结构跑 Showcase 兜底（`Validate()` 会点名漏接字段）。
 
-气泡根宽 400、等比缩放 0.0035（父级缩放为 1 时宽 1.4 世界单位），高度继续自适应。
+气泡根宽 400、等比缩放 0.006（父级缩放为 1 时宽 2.4 世界单位），高度继续自适应。
 调整大小后用 `Bubble_ShowsAboveHead_WithoutPausing` 同时检查文字完整排版与屏幕内可见，不能只凭 TMP 没有溢出判定通过。
 实际探索补跑 `DialogueBubbleShowcase.Exploration_BothSpeakers_KeepBubbleInsideViewport`：通过真实移动和交互输入，
 分别验证村民侧面、井边妇人侧面和正面的完整文字、相机视口边界与淡出；复用现有相机配置，不修改镜头来迁就气泡。

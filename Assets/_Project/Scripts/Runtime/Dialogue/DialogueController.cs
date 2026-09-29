@@ -1,5 +1,5 @@
 // 职责：连接规则、表现策略、TMP 与立绘资源生命周期；复用 UI/Assets 服务；节点前插播演出（按调用方给的锚点摆放，
-//   插播期间经 DialogueInterludeVisibility 藏起场景里全部角色，结束恢复）。
+//   插播期间场景角色的显隐由演出服务统一处理，见 PerformanceTriggerRules.HideSceneCharacters）。
 //   世界暂停与输入图切换由 DialogueService 统一持有，本类不碰。
 using System;
 using System.Collections.Generic;
@@ -26,8 +26,8 @@ namespace Game.Dialogue
     /// 「演出中」（<see cref="Performing"/>）：节点带 <c>PerformanceId</c> 时，摆台词之前先 await 演出服务播完；
     /// 期间语义同「覆盖中」，且点击 / 按键 / 自动 / 倍速 / 跳过全部忽略。时停与输入图由两边服务各自持令牌，本类不碰。
     /// 调用方传了演出锚点（通常是说话的 NPC）时，插播按锚点的世界位姿摆放演出（世界舞台模式据此落位）；不传则不摆放。
-    /// 插播期间场景里的全部角色（玩家、NPC、巡逻怪，连同根下的名牌 / 标记 / 光圈）被藏起，免得与舞台替身小人重影，
-    /// 演出结束（完成 / 跳过 / 取消 / 异常）即按原值恢复（<see cref="DialogueInterludeVisibility"/>）。
+    /// 插播期间场景里全部角色的显隐由演出服务统一隐藏 / 恢复（<see cref="PerformanceTriggerRules.HideSceneCharacters"/>），
+    /// 本类不再重复处理。
     /// </para>
     /// <para>
     /// 角色表不在构造时取：<see cref="DialogueCatalog.Characters"/> 惰性依赖 <c>IConfigService</c> 初始化完成，
@@ -361,8 +361,8 @@ namespace Game.Dialogue
         // 节点前插播演出。只在新进节点（Preparing）时播：跳过快进中略过，存档恢复到已就绪的句子也不重播。
         // 摆放取锚点此刻的世界位姿（锚点为 null 或已销毁 → PerformancePlacement.None，等价于不带摆放的重载）：
         // 世界舞台演出不摆放会生成在原点（落到地面以下），所以对白要把说话的 NPC 作为锚点带进来。
-        // 场景角色：拉起演出之前藏起场景里全部小人的角色根（舞台在 PlayAsync 内异步生成，此刻收集天然不含舞台替身），
-        // 结束时在同一个 finally 里恢复。服务缺席 / 跳过快进中不插播，也就不藏。
+        // 场景角色的隐藏 / 恢复由演出服务统一处理（PerformanceTriggerRules.HideSceneCharacters，见 PerformanceService.PlayAsync），
+        // 对全部入口（直接播放、对白插播、场景触发）一视同仁，本类不再重复藏。
         // 服务缺席记 Warn 后照常摆台词；演出失败记 Error 后照常摆台词；取消原样抛出。
         private async UniTask PerformBeforeNodeAsync(CancellationToken ct)
         {
@@ -383,8 +383,6 @@ namespace Game.Dialogue
             }
             performing = true;
             view.SetInput(false);
-            // 必须在 PlayAsync 之前：进了 PlayAsync 舞台替身小人就可能已生成，会被当成场景角色一起藏掉。
-            PerformanceTriggerRules.HiddenVisuals hiddenCharacters = DialogueInterludeVisibility.HideSceneCharacters();
             try
             {
                 await performance.PlayAsync(node.PerformanceId, PerformancePlacement.FromTransform(performanceAnchor), ct);
@@ -401,9 +399,7 @@ namespace Game.Dialogue
             }
             finally
             {
-                // 完成 / 跳过 / 取消 / 异常都走这里。顺序：先按快照恢复场景角色，再解除「演出中」——
-                // 解除后主循环下一步就摆台词、重开输入，那时角色应已回到画面。
-                PerformanceTriggerRules.RestoreVisuals(hiddenCharacters);
+                // 完成 / 跳过 / 取消 / 异常都走这里，解除「演出中」——主循环下一步就摆台词、重开输入。
                 performing = false;
             }
             // 演出期间对白可能已被外部 Cancel / Restore（generation / visit 变了）：由调用方比对后 continue，这里只处理取消。

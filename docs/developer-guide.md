@@ -449,7 +449,8 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
    `IPerformanceService` 缺席（Boot 没挂 `PerformanceInstaller`）时只记 Warn，不阻塞对白。
    插播按对白带进来的锚点摆放（`PerformancePlacement.FromTransform(锚点)`）：NPC 交互自动以该 NPC 为锚点，代码拉起用
    `DialogueService.PlayAsync(id, 锚点)`；没有锚点就不摆放。插播期间自动藏起场景里全部角色（带 `ChibiPuppet` 的玩家 / NPC / 巡逻怪，
-   连同名牌与标记），演出结束恢复，不用像触发区那样配 `hiddenDuringPlay`；代码直接调 `IPerformanceService.PlayAsync` 不藏。
+   连同名牌与标记），演出结束恢复，不用像触发区那样配 `hiddenDuringPlay`；这由 `PerformanceService.PlayAsync` 统一处理，
+   对直接播放、对白插播、场景触发一视同仁，代码直接调 `IPerformanceService.PlayAsync` 同样会藏。
 
 **演员**：序列帧小人（`ChibiPuppet`），放在演出预制体的 `Actors` 站位根下，接法照 `Editor/Performance/Samples/SceneTalkSampleBuilder.cs`
 （`PuppetVisual` 挂 `CameraBillboard` 指舞台相机，下面嵌套 `Chibi_<名字>` 预制体并停用 `ChibiPuppetMotion`）。动作走时间轴的

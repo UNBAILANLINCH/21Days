@@ -46,8 +46,9 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 ```
 
 - 不引用 Monster / IsometricExploration / Dialogue 任何类型；与 `EncounterSceneView` 的协作全靠**场景接线**（`facingSource` 指向纸片）。
-- 反过来，运行时代码里只有 Dialogue 的 `DialogueInterludeVisibility`（对白插播时藏场景角色）引用 `Game.CharacterPuppet`：
-  只以「物体上有 `ChibiPuppet`」判定这是场景角色，不调它任何方法；其余引用在编辑器工具、Showcase 与 EditMode 测试。
+- 反过来，运行时代码里只有 Performance 的 `PerformanceTriggerRules.HideSceneCharacters`（演出前藏场景角色，对全部入口
+  一视同仁，含对白插播）引用 `Game.CharacterPuppet`：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
+  `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法；其余引用在编辑器工具、Showcase 与 EditMode 测试。
   小人组件改名 / 挪命名空间要同步改那里。
 - 不订阅事件、不注册 DI 服务、不走 Addressables；预制体以场景实例存在。
 

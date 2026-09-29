@@ -45,8 +45,7 @@ maturity: stable
 | `DialogueContent` | 与表无关的内容模型（节点、选项、立绘指令），构造时校验跳转 / 槽位 / 出口 | Catalog 产出，测试可直接 new |
 | `DialogueCharacter` | 角色 → 表情 → Addressables 地址的只读索引 | Catalog 产出 |
 | `DialogueController` | 表现驱动：每帧打字、立绘与选项图标的加载与释放、选项刷新、历史面板、跳过确认、把 View 事件翻成意图 | 根作用域单例；只被 Service 调 |
-| （插播）`IPerformanceService`（`Game.Performance`，可空） | 节点带 `PerformanceId` 时，Controller 摆台词前先 `await PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)`：锚点是 Service 经 `PresentAsync` 带进来的（通常是说话 NPC），为 null 即 `None`、不摆放；`Performing` 期间语义同覆盖中；拉起演出前藏起场景全部角色、同一个 `finally` 里先恢复再解除 `Performing`（`DialogueController.cs:120`、`367`、`387`、`390`、`406`） | `DialogueInstaller` 用 `resolver.TryResolve` 注入，Boot 没挂 `PerformanceInstaller` 时为 null |
-| `DialogueInterludeVisibility` | **静态类**：插播时藏哪些场景角色。`HideSceneCharacters()` 扫一次场景里激活的 `ChibiPuppet`（`FindObjectsByType`，不含未激活）→ `CollectCharacterRoots` 逐个 `ResolveCharacterRoot` 取角色根并去重 → `PerformanceTriggerRules.HideVisuals`；取根 = 向上最近的带 `DialogueInteractable` / `DialogueInteractionActor` / `PerformanceTriggerActor` 的物体，都没有取 `transform.root`（`DialogueInterludeVisibility.cs:33`、`43`、`60`） | Controller 在 `PerformBeforeNodeAsync` 里、`PlayAsync` 之前调一次 |
+| （插播）`IPerformanceService`（`Game.Performance`，可空） | 节点带 `PerformanceId` 时，Controller 摆台词前先 `await PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)`：锚点是 Service 经 `PresentAsync` 带进来的（通常是说话 NPC），为 null 即 `None`、不摆放；`Performing` 期间语义同覆盖中；场景角色的隐藏 / 恢复由 `PerformanceService.PlayAsync` 自己统一处理（对全部入口一视同仁，见 `performance-module-guide.md`），Controller 不再重复（`DialogueController.cs:120`、`367`、`390`） | `DialogueInstaller` 用 `resolver.TryResolve` 注入，Boot 没挂 `PerformanceInstaller` 时为 null |
 | `DialogueView` | `UIView`（Popup 层）：显示文字 / 立绘 / 选项（含图标位）/ 控件，只抛事件，不注入服务 | `IUIService` 按地址实例化 |
 | `DialogueSkipConfirmView` | `UIView`（Popup 层）：「是否跳过剧情？」确认 / 取消，只抛 `OnConfirm / OnCancel` | Controller 在点跳过时开关 |
 | `Game.Core.UI.Views.TranscriptView`（Core，原 `DialogueHistoryView` 下沉重命名，见下「为什么这样设计」） | `UIView`（**Top 层**：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白之上；不进 UI 栈、不改 EventSystem 选中，Esc 与关闭都由调用方处理）：`Show(lines, truncated)` + 纯函数 `Format` 显示记录，格式来自静态 `DialogueController.BuildTranscript`（选择项说话者写「选择」） | Controller 按需开关（`history` 字段） |
@@ -93,9 +92,9 @@ DialogueService.PlayAsync
   ├─ OnStarted → DialogueController.PresentAsync(conditions, "dialogue:<id>", policy, 插播锚点, ct)
   │       每帧：Skipping? → rules.Skip ； Visit 变 → PrepareAsync（SetLine + 立绘）→ rules.Ready
   │       Visit 变 → 节点有 PerformanceId（且非跳过中、Preparing）→ Performing=true
-  │             → DialogueInterludeVisibility.HideSceneCharacters()（藏场景全部角色根；在 PlayAsync 之前，不含舞台替身）
-  │             → await IPerformanceService.PlayAsync(id, PerformancePlacement.FromTransform(插播锚点), ct)（锚点 null = None，不摆放）
-  │             → finally（完成 / 跳过 / 取消 / 异常）：RestoreVisuals 恢复场景角色 → Performing=false
+  │             → await IPerformanceService.PlayAsync(id, PerformancePlacement.FromTransform(插播锚点), ct)（锚点 null = None，不摆放；
+  │                场景角色的隐藏 / 恢复由 PlayAsync 内部统一处理，不含舞台替身，见 performance-module-guide.md）
+  │             → finally（完成 / 跳过 / 取消 / 异常）：Performing=false
   │             → 比对 generation / visit → PrepareAsync
   │             Typing → rules.RevealTo(cps × unscaledΔ) ； policy.TickAuto → Submit(Advance)
   │       View.OnTap → policy.RegisterTap → Submit(Advance) ； View.OnIntent → Submit(Choose)
@@ -130,8 +129,7 @@ DialogueService.PlayAsync
 | `Game.Core.Config`（`IConfigService`）+ 生成物 `cfg.dialogue.*` | 内容表 |
 | `Game.Core.Save`（`ISaveData`） | `DialogueSaveData` 的形状 |
 | `Game.Narrative`（`EncounterContext` / `NarrativeCondition`；Installer 另解析 `NarrativeConditionSource`） | 选项条件与真实事实源；不从表现控制器反向调用 NarrativeService |
-| `Game.Performance`（`IPerformanceService`，可为 null；静态 `PerformanceTriggerRules.HideVisuals` / `RestoreVisuals`；`PerformanceTriggerActor` 作玩家根标记） | 对白节点前插播演出，插播期间藏 / 恢复场景角色；Performance 不反向引用 Dialogue |
-| `Game.CharacterPuppet`（**只用** `ChibiPuppet` 类型本身） | `DialogueInterludeVisibility` 以「有 `ChibiPuppet`」判定场景角色，不调它任何方法；CharacterPuppet 不引用任何玩法模块，不成环 |
+| `Game.Performance`（`IPerformanceService`，可为 null） | 对白节点前插播演出；插播期间场景角色的隐藏 / 恢复由 `PerformanceService.PlayAsync` 内部统一处理，Dialogue 不再自己藏；Performance 不反向引用 Dialogue |
 
 Core 不认识本模块；`IWorldPauseService` 里没有对话名词。Narrative 纯规则不引用 Dialogue；运行协调器经本模块公开服务调用。
 `CameraBillboard`（IsometricExploration）只在场景里挂到标记 / 气泡子物体上，本模块代码不引用它。
@@ -293,7 +291,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | --- | --- |
 | `Prefabs/UI/DialogueInteractHudView.prefab` | `root` / `button` → `Root`（整条胶囊按钮：锚点底部居中、`anchoredPosition (0, 72)`、`sizeDelta (320, 48)`，`HorizontalLayoutGroup`）；`keyLabel` → `KeyBadge/KeyText`（徽章 48×40）；`label` → `Label`（弹性宽度、单行省略号）；`icon` → `Icon`（可空，默认隐藏、不参与布局）。放底部居中而非右下角：右下角已被探索 HUD 的攻击 / 潜行 / 跑步按钮占住，PC 游戏交互提示也惯例在屏幕下方中央；与探索 HUD 的 `InteractPrompt`（y 160）不重叠 |
 | `Prefabs/UI/DialogueSkipConfirmView.prefab` | `message` → `Message`；`confirm` → `ConfirmButton`；`cancel` → `CancelButton`；`defaultSelected`（UIView 通用字段）→ `CancelButton`（打开即选中取消） |
-| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 400、等比缩放 0.0035（父级缩放为 1 时宽 1.4 世界单位）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
+| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 400、等比缩放 0.006（父级缩放为 1 时宽 2.4 世界单位；按探索相机 FOV 20、距离约 18 定，约为 1080p 下画布 1 像素 ≈ 屏幕 1 像素）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
 
 ## 对白面板视觉与演出面板共用规范
 
@@ -341,8 +339,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueCatalogTests.cs`（8 条） | 读真实 `.bytes`：1001 / 1002 结构、立绘指令、每个表情有地址、条件选项、选项图标键 |
 | EditMode | `.../DialogueInteractableTests.cs`（17 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接；`TryGetIconAnchor` 焦点图优先 / 只配可交互图 / 都没配 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueServiceTests.cs`（6 条） | 进行中重入抛 `InvalidOperationException`；未知 id 抛 `ArgumentException` 且不碰暂停 / 输入；Present 异常时清理并发 `OnEnded`；对白期间 Dialogue 图开、Gameplay 图关、Hud 层隐藏，取消 / 异常后对称恢复，进来前关着的 Gameplay 与已隐藏的 Hud 不被打开 / 不被误亮 |
-| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueControllerTests.cs`（7 条） | 静态 `BuildTranscript`：选择项记为说话者「选择」；转换后经 `TranscriptView.Format` 拼出的文本与旧历史面板逐字节一致；`null` / 空历史返回空列表。插播摆放（实例化真实 `DialogueView.prefab` + 假 UI / 假演出服务，停在第一句前的插播点）：传锚点 → 演出服务收到 `HasValue == true` 且位置 / 朝向等于锚点；不传 → 收到 `None`。插播显隐：演出中手搭的 NPC / 玩家 / 巡逻怪根下 Renderer 与名牌 Canvas 全隐、角色根外物体与 `PlayAsync` 内生成的舞台替身不藏；演出播完 / 被取消后按原值恢复 |
-| EditMode | `.../DialogueInterludeVisibilityTests.cs`（4 个方法 / 5 例） | 取根：NPC 取 `DialogueInteractable` 那层（不上到场景容器）、玩家取 Actor 那层（`DialogueInteractionActor` / `PerformanceTriggerActor` 各一例）、无标记小人取场景顶层根、同一根下多个小人去重（null 跳过） |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueControllerTests.cs`（5 条） | 静态 `BuildTranscript`：选择项记为说话者「选择」；转换后经 `TranscriptView.Format` 拼出的文本与旧历史面板逐字节一致；`null` / 空历史返回空列表。插播摆放（实例化真实 `DialogueView.prefab` + 假 UI / 假演出服务，停在第一句前的插播点）：传锚点 → 演出服务收到 `HasValue == true` 且位置 / 朝向等于锚点；不传 → 收到 `None`。插播期间场景角色的显隐已改由 `PerformanceService.PlayAsync` 统一处理，本类不再覆盖（见 `performance-module-guide.md` 的 `PerformanceServiceWorldTests`） |
 | EditMode | `.../DialogueReadStoreTests.cs`（3 条） | 空档案读入为空；写 3 个键后新 store 读回一致且原地填充同一实例；同帧两次对白结束只写一次（计数 `ISaveService` 装饰器包临时目录 `JsonSaveService`） |
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
@@ -364,10 +361,9 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 
 ## 已知约束 / 未做
 
-- **插播藏全部场景角色，不可逐个配置**：凡带 `ChibiPuppet` 的场景角色一律藏（舞台上没有替身的也藏）；不在角色根下的世界物体
-  （物资箱标记等）不藏，任务目标标记在对白期间本来就由 `QuestHudPresenter` 收起。无标记角色兜底取 `transform.root`，
-  以后若场景把角色收进公共容器，容器下的兄弟会一起藏（2026-09-28 核对 SampleScene 无此情况）。只有经 `DialogueController`
-  的插播才藏，代码直接调 `IPerformanceService.PlayAsync` 不藏。
+- **插播藏全部场景角色，不可逐个配置**：场景角色的隐藏 / 恢复现由 `PerformanceService.PlayAsync` 统一处理，对全部入口
+  （直接播放、对白插播、场景触发）一视同仁，取根、去重、兜底等细节见 `performance-module-guide.md`「世界舞台」一节；
+  本模块只负责把演出 id 与摆放锚点传给服务，不再自己实现隐藏。
 - **非阻塞旁白未实现**：节点 `blocking` 字段与 `DialogueRules.Blocking`（`DialogueRules.cs:39`）保留，但
   Service 对整段对白一律暂停世界、一律等点击推进。
 - **跳过确认后不可撤销**：确认后本段内一直跳过。

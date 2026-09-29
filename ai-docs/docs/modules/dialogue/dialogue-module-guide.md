@@ -40,6 +40,7 @@ maturity: stable
 | `DialoguePlaybackPolicy` | **纯 C#** 表现策略：点击何时算补全 / 推进、倍速档、自动计时、跳过标记；时间由调用方传入 | Service 惰性建一个，每段对白 `ResetForDialogue`（`DialogueService.cs:138`） |
 | `DialogueMotionSettings` | 面板动效参数的校验后快照（`readonly struct`，不引 UnityEngine；构造函数为 `(portraitSlideDistance, portraitSlideSeconds, portraitCrossfadeSeconds, nameTagPunchSeconds, nameTagPunchScale)`，不含压暗参数），挂在 `DialoguePlaybackSettings.Motion` 上 | Controller 打开面板后 `view.SetMotion(policy.Settings.Motion)` |
 | `Game.Core.UI.TypingCadence`（`Assets/_Project/Scripts/Core/UI/TypingCadence.cs`，已下沉到 Core，供 Performance 字幕逐字复用） | **纯 C#** 打字节奏：本帧字符预算 → 新显示字数，标点后先耗停顿预算 | Controller 每段对白按 `policy.Settings` 建一个，每句 `Reset`、每帧 `Advance` |
+| `Game.Core.UI.TapRevealCounter`（`Assets/_Project/Scripts/Core/UI/TapRevealCounter.cs`，从本类抽出下沉到 Core，演出字幕共用同一手感） | **纯 C#** 打字中连点计数：相邻间隔 ≤ 窗口才累计，满次返回 true 并清零，超窗从 1 重计；时间由调用方传入 | `DialoguePlaybackPolicy` 构造时按 `RevealTapCount` / `TapWindowSeconds` 建一个，Typing 阶段 `RegisterTypingTap`，其余阶段与换节点 `Reset` |
 | `DialoguePortraitSlot` | View 私用的普通类（`internal`，非组件）：一个头像槽的入场 / 退场 / 交叉淡化状态机（无压暗、无缩放），持有该槽的补间句柄与运行时残影 | `DialogueView` 每槽一个，首次打开时建 |
 | `DialogueCatalog` | Luban 表 → `DialogueContent` / `DialogueCharacter` 的翻译与缓存，首次访问才读表 | 根作用域单例 |
 | `DialogueContent` | 与表无关的内容模型（节点、选项、立绘指令），构造时校验跳转 / 槽位 / 出口 | Catalog 产出，测试可直接 new |
@@ -178,10 +179,10 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | --- | --- | --- |
 | 打字 | 每帧预算 `CharactersPerSecond × 倍速 × UnscaledDeltaTime` 交给 `Game.Core.UI.TypingCadence.Advance` 换算显示字数，按 TMP 解析后的可见字符数计（富文本标签不计，`DialogueView.VisibleText` 给出解析后的字符序列） | `DialogueController.cs`（Typing 分支）；`Core/UI/TypingCadence.cs` |
 | 标点停顿 | 打出 `punctuationChars` 里的字后停 `punctuationPauseSeconds`（按「秒 × 基础速度」个字符预算扣，所以倍速下同比缩短，与自动间隔语义一致）；连续标点只在最后一个后停一次；句末标点不停；三连点补全 / 跳过直接 `RevealTo` 全量，不经节奏 | `Core/UI/TypingCadence.cs` |
-| 三连点补全 | Typing 中**相邻两次**点击间隔 ≤ `tapWindowSeconds` 才累计，满 `revealTapCount` 次补全；超窗从 1 重计 | `DialoguePlaybackPolicy.cs:57` |
+| 三连点补全 | Typing 中**相邻两次**点击间隔 ≤ `tapWindowSeconds` 才累计，满 `revealTapCount` 次补全；超窗从 1 重计；演出字幕打字中用同一规则（同一个计数类） | `DialoguePlaybackPolicy.cs:61`（按阶段分派）；`Core/UI/TapRevealCounter.cs`（计数） |
 | 推进 | AwaitAdvance 单点即推进；Reveal / Advance 都提交 `Advance` 意图，规则自己区分补全与推进 | `DialogueRules.cs:76`；`DialogueController.cs:238` |
-| 倍速 | `speedSteps` 循环（默认 x1/x2/x4），同时缩放打字速度与自动间隔；每段对白回 0 档 | `DialoguePlaybackPolicy.cs:38` |
-| 自动 | AwaitAdvance 停留满 `autoAdvanceSeconds / 倍速` 自动推进；换节点清零 | `DialoguePlaybackPolicy.cs:78` |
+| 倍速 | `speedSteps` 循环（默认 x1/x2/x4），同时缩放打字速度与自动间隔；每段对白回 0 档 | `DialoguePlaybackPolicy.cs:42` |
+| 自动 | AwaitAdvance 停留满 `autoAdvanceSeconds / 倍速` 自动推进；换节点清零 | `DialoguePlaybackPolicy.cs:77` |
 | 跳过 | 点跳过先开确认弹窗，**确认**后才开始；一经开始持续到本段结束；同步快进所有台词（记历史、写已读），**停在选项**；选完后继续跳到下一个选项或结束；`DialogueResult.Skipped = true`。取消则关弹窗照常继续 | `DialogueRules.cs:105`；`DialogueController.cs:117`、`398` |
 | 头像 | 按说话者站位分左右两槽：槽 0 = 左侧头像位、从左滑入淡入；槽 1 = 右侧头像位、从右滑入淡入（角色表 `side: Left/Right` 决定用哪槽，即头像出现在面板左侧还是右侧）。同一时刻只显示说话者那一槽：`speaking == false`（非说话者、旁白）视作该槽收起，等同传 null。Controller 先把新节点头像**全部加载完**再逐槽 `SetPortrait`（加载期间旧图照常显示），由 View 按变化选动效：空 → 有 = 从本槽方向滑入 `portraitSlideDistance` + 淡入（`portraitSlideSeconds`，OutCubic）；有 → 空 = 反向滑出 + 淡出（InCubic）后隐藏；同槽换图 = 交叉淡化（`portraitCrossfadeSeconds`，运行时残影 Image `<槽名>Ghost` 显示旧图淡出）；**没有压暗、没有缩放**；头像框 `avatarFrame` 只跟左槽（槽 0）显隐、`avatarFrameRight` 只跟右槽（槽 1）显隐，各自独立 | `DialoguePortraitSlot.cs`；`DialogueController.cs`（`PrepareAsync`） |
 | 立绘动效时序 | 全部 `UpdateIgnoreTimeScale`；同槽再触发先 Cancel（入场中换表情先 `Complete` 入场）；面板 `OnDisable` 全部掐断并直接置终态、`OnOpenAsync` 清空两槽；存档恢复（此刻已是 Typing / AwaitAdvance）传 `instant: true` 直接置终态。上一节点的立绘句柄留到再下一次换节点 / 收尾才释放，保证退场与残影期间旧图有效 | `DialogueView.cs`（`OnDisable`、`OnOpenAsync`）；`DialogueController.cs`（`retiring`） |
@@ -335,6 +336,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | --- | --- | --- |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Dialogue/DialogueRulesTests.cs`（8 条） | 补全 / 恢复不重记历史、选项复验、Skip 停在选项 / 写已读 / 环路抛错 / Generation 不符 |
 | EditMode | `.../DialoguePlaybackPolicyTests.cs`（14 条） | 三连点窗口、倍速循环、自动计时、重置、非法参数（含标点停顿为负、标点字符 null、动效参数缺省 / 未初始化 / 越界） |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/TapRevealCounterTests.cs`（7 条） | 连点计数本身：窗口内第三下补全并清零、间隔恰等于窗口仍算、超窗重计、`Reset`、次数 1 每下都补全、非法参数；对白按阶段的用法仍由 `DialoguePlaybackPolicyTests` 钉住（两边都保留） |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/TypingCadenceTests.cs`（12 条，已随类下沉到 Core） | 无标点时与旧「累加取整」一致、标点后停顿、停顿中显示字数不变、停顿 0 / 标点表空退化、x2 下停顿减半、连续标点只停一次、句末不停、单帧大预算、Reset、非法参数 |
 | EditMode | `.../DialogueCatalogTests.cs`（8 条） | 读真实 `.bytes`：1001 / 1002 结构、立绘指令、每个表情有地址、条件选项、选项图标键 |
 | EditMode | `.../DialogueInteractableTests.cs`（17 条，含参数化） | 三维距离判范围、无树台词按序循环、有树未绑定 / 无树无台词不可交互、`SelectNearest` 跳过超范围；交互提示键位显示串为空回退「E」、「对话 · 名字」拼接；`TryGetIconAnchor` 焦点图优先 / 只配可交互图 / 都没配 |

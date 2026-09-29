@@ -265,9 +265,18 @@ namespace Game.Tests.Showcase.Replay
         }
 
         // 复用本文件的容器、示范世界和录制接线；只测 RecordTick，不把等待、玩法或渲染耗时算进录制预算。
+        // 默认跳过：不用 [Explicit]（UTF 1.1.33 下按模块 group 正则匹配到全名时仍会被跑起来），改用一次性开关；
+        // 规则依据 .claude/rules/model-routing.md 硬规则 6（耗时实测只在任务本身就是测性能时才跑）。
         [UnityTest, Category("PerformanceEvidence"), Timeout(420000)]
         public IEnumerator RecordFiveMinutes_MeasuresSizeAndRecorderCost()
         {
+            if (!ShowcaseOptions.ConsumePerformanceEvidenceOptIn())
+            {
+                Assert.Ignore("这是约 5 分钟的耗时实测，默认跳过。要跑：先点菜单「21Days/验证/下一次运行耗时实测（PerformanceEvidence）」，"
+                    + "再用 test_names 点名这条用例（Game.Tests.Showcase.Replay.ReplayShowcase.RecordFiveMinutes_MeasuresSizeAndRecorderCost）；"
+                    + "开关跑一次后自动复位。");
+            }
+
             yield return Step("连接真实录制器，准备五分钟实测", ConnectServices, 0f);
             Assert.That(recorder != null && recorder.Enabled && runner != null, Is.True);
             recordTicks = Mathf.RoundToInt(300f / runner.Clock.FixedDeltaTime);

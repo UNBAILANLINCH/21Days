@@ -30,6 +30,9 @@ namespace Game.Tests.Showcase
         /// <summary>节奏倍率存在 EditorPrefs 里的键；ShowcaseMenu 写它，HoldScale 读它。</summary>
         public const string HoldScaleKey = "Game.Verify.HoldScale";
 
+        /// <summary>一次性开关（耗时实测 PerformanceEvidence）存在 EditorPrefs 里的键；ShowcaseMenu 写它，Consume 读后清掉。</summary>
+        public const string PerformanceEvidenceOptInKey = "Game.Verify.PerformanceEvidenceOptIn";
+
         /// <summary>框架落地后唯一的常驻场景；存在才加载，现在还没有也不影响回放。</summary>
         public const string BootScenePath = "Assets/_Project/Scenes/Boot.unity";
 
@@ -61,6 +64,30 @@ namespace Game.Tests.Showcase
                 return 1f;
 #endif
             }
+        }
+
+        /// <summary>
+        /// 读取「下一次运行耗时实测」的一次性开关，读到后立刻清掉，返回读到的值。
+        /// 批处理与非编辑器环境一律返回 false（实测只由开发者在编辑器里显式打开）。
+        /// </summary>
+        public static bool ConsumePerformanceEvidenceOptIn()
+        {
+            if (Application.isBatchMode)
+            {
+                return false;
+            }
+
+#if UNITY_EDITOR
+            bool optIn = UnityEditor.EditorPrefs.GetBool(PerformanceEvidenceOptInKey, false);
+            if (optIn)
+            {
+                UnityEditor.EditorPrefs.DeleteKey(PerformanceEvidenceOptInKey);
+            }
+
+            return optIn;
+#else
+            return false;
+#endif
         }
 
         /// <summary>

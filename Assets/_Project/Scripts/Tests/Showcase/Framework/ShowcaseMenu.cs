@@ -66,6 +66,24 @@ namespace Game.Tests.Showcase
             EditorUtility.RevealInFinder(root);
         }
 
+        private const string EvidenceMenu = MenuRoot + "下一次运行耗时实测（PerformanceEvidence）";
+
+        /// <summary>打开一次性开关：下一次点名跑耗时实测用例时才真跑，跑完自动复位。</summary>
+        [MenuItem(EvidenceMenu)]
+        public static void EnablePerformanceEvidenceOnce()
+        {
+            EditorPrefs.SetBool(ShowcaseOptions.PerformanceEvidenceOptInKey, true);
+            Debug.Log($"{ShowcaseOptions.Prefix} 已打开耗时实测开关：下一次运行 RecordFiveMinutes_MeasuresSizeAndRecorderCost "
+                      + "会真跑约 5 分钟，跑完自动复位。");
+        }
+
+        [MenuItem(EvidenceMenu, true)]
+        private static bool EnablePerformanceEvidenceOnceValidate()
+        {
+            Menu.SetChecked(EvidenceMenu, EditorPrefs.GetBool(ShowcaseOptions.PerformanceEvidenceOptInKey, false));
+            return true;
+        }
+
         private static void SetHoldScale(float scale)
         {
             EditorPrefs.SetFloat(ShowcaseOptions.HoldScaleKey, scale);

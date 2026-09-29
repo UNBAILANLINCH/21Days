@@ -56,7 +56,7 @@ maturity: stable
     → 按 Activated → Progressed → Completed → TrackingChanged 顺序发布 MessagePipe 事件
 
 场景侧：QuestObjectiveDriver.Tick 测距 InProgress 里的 ReachLocation 当前目标 → service.Report
-        DialogueService.OnEnded → service.Report(TalkTo, dialogueId.ToString())
+        DialogueService.OnEnded 且 Completed=true → service.Report(TalkTo, dialogueId.ToString())
 表现：QuestHudPresenter.Tick → binder.TryResolveTarget（得 Position 测距 / Anchor 标记；NPC 的 Anchor 优先取其对话图标锚点，
       次选碰撞体顶部 + MarkerLift，再次位置上方 LocationMarkerHeight）→ marker.Show(Anchor) 常驻摆位
       → SceneCamera.WorldToViewportPoint(Anchor) → QuestGuidanceMath.Solve(viewport, hud.CanvasSize, EdgeMargin)
@@ -83,7 +83,7 @@ maturity: stable
 `Game.Quest → Game.Core`（UI / Save / Config / Timing / Input / Events / Telemetry / Boot / Assets / Logging / `Simulation.GameMath`），
 `Game.Quest → Game.Dialogue`（只用 `DialogueService` 的 `OnStarted/OnEnded` 与 `IsRunning`、`DialogueSceneBinder.Actor/Bound`、
 `DialogueInteractable.DialogueId/transform/SetMarkerOverridden`（`internal`）、`DialogueInteractableMarker.TryGetIconAnchor`），
-`Game.Quest → Game.Session`（只用 `SessionStartedEvent`，`QuestService.cs:123` 订阅）。`Game.Dialogue`、`Game.Narrative`、`Game.Core` 不认识 `Game.Quest`；
+`Game.Quest → Game.Session`（只用 `SessionStartedEvent`，`QuestService.cs:123` 订阅）。`Game.Dialogue`、`Game.Core` 不认识 `Game.Quest`；Narrative 运行适配只读完成事件及存档 DTO，用于配置标记同步；
 反向调用方：`Game.Session`（`SaveTriggerBridge` 订阅任务事件、`SessionStateAdapter` 读 `QuestService`）、`Game.Loot`（`Report(Counter)`）、
 `Game.IsometricExploration`（`ResetProgress`、`QuestSceneBinder.SceneCamera/PlayerAnchor`、`QuestGuidanceMath.Solve`）。
 Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦），新增 Quest → Session 依赖前先想清楚能否改走 Core 事件。

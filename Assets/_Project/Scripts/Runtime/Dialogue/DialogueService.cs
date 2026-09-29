@@ -96,8 +96,15 @@ namespace Game.Dialogue
         /// <exception cref="ArgumentException">未知对白 id，或播放配置非法。</exception>
         /// <exception cref="InvalidOperationException">已有对白在进行。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/> 取消（规则已 Cancel）或对白被外部中断。</exception>
-        public async UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)
+        public UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, CancellationToken ct = default)
         {
+            return PlayAsync(dialogueId, performanceAnchor, TargetPrefix + dialogueId, ct);
+        }
+
+        /// <summary>叙事调用方传稳定目标 ID，使每次条件复验读取同一真实目标。</summary>
+        public async UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, string targetId, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(targetId)) throw new ArgumentException("对白目标身份不可为空", nameof(targetId));
             telemetry.Track("play_requested", ("id", dialogueId));
             if (running)
             {
@@ -141,10 +148,9 @@ namespace Game.Dialogue
                     try
                     {
                         OnStarted?.Invoke(new DialogueStartedEvent(dialogueId));
-                        outcome = await controller.PresentAsync(conditions, TargetPrefix + dialogueId, playback,
+                        outcome = await controller.PresentAsync(conditions, targetId, playback,
                             performanceAnchor, ct);
                         skipped = playback.Skipping;
-                        completed = true;
                     }
                     finally
                     {
@@ -154,6 +160,7 @@ namespace Game.Dialogue
                         if (gameplayWasEnabled) input.EnableMap(InputService.GameplayMap);
                     }
                 }
+                completed = true;
             }
             catch (OperationCanceledException)
             {
@@ -170,7 +177,7 @@ namespace Game.Dialogue
                 if (!completed && rules.Phase != DialogueSaveData.Phase.Closed) rules.Cancel();
                 running = false;
                 telemetry.Track("ended", ("id", dialogueId), ("outcome", outcome), ("skipped", skipped), ("completed", completed));
-                OnEnded?.Invoke(new DialogueEndedEvent(dialogueId, outcome, skipped));
+                OnEnded?.Invoke(new DialogueEndedEvent(dialogueId, outcome, skipped, completed));
             }
             return new DialogueResult(dialogueId, outcome, skipped);
         }

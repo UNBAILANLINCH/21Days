@@ -18,7 +18,8 @@ maturity: stable
 | `IsRunning` | `bool IsRunning { get; }` | 含打开面板、展示、收尾整个过程 |
 | `OnStarted` | `event Action<DialogueStartedEvent>` | 已暂停世界、已关 Gameplay 图之后 |
 | `OnChoiceSelected` | `event Action<DialogueChoiceSelectedEvent>` | 玩家选定一个选项（规则已接受） |
-| `OnEnded` | `event Action<DialogueEndedEvent>` | 成功 / 取消 / 失败都触发；非成功时 `Outcome` 为空；已恢复输入、已释放暂停 |
+| `OnEnded` | `event Action<DialogueEndedEvent>` | 成功 / 取消 / 失败都触发；必须看 Completed 判定是否抵达出口，不能用 Outcome 判定；正常收尾后输入与暂停已恢复 |
+| `PlayAsync`（稳定目标） | `UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, string targetId, CancellationToken ct = default)` | 叙事调用方传已登记的稳定目标 ID；每次条件复验使用该 ID，空白 ID 抛 ArgumentException |
 
 `PlayAsync` 的异常：
 
@@ -35,7 +36,7 @@ maturity: stable
 | `DialogueResult` | `int DialogueId`、`string Outcome`（End 节点或选项的出口码，如 `Accepted`）、`bool Skipped` |
 | `DialogueStartedEvent` | `int DialogueId` |
 | `DialogueChoiceSelectedEvent` | `int DialogueId`、`string NodeId`（选项所在节点）、`string ChoiceId` |
-| `DialogueEndedEvent` | 同 `DialogueResult` |
+| `DialogueEndedEvent` | `int DialogueId`、`string Outcome`、`bool Skipped`、`bool Completed`；构造函数四参全部显式传入；正常/跳过抵达出口且收尾成功为 true，取消/异常为 false |
 
 事件是 C# `event`，不是 MessagePipe；订阅方自己负责退订。
 
@@ -74,12 +75,12 @@ maturity: stable
 ## `Game.Dialogue.IDialogueConditionSource`（Narrative 替换点）
 
 ```csharp
-EncounterContext Snapshot(string targetId);   // targetId 形如 "dialogue:1001"
+EncounterContext Snapshot(string targetId);   // 旧重载为 dialogue:1001；叙事重载为稳定目标 ID
 ```
 
 - 选项可用性**定时刷新**（unscaled 每 0.25 s，进入节点与提交后强制）时与**提交选择**时各取一次，实现必须廉价、无副作用、不抛。
-- 当前注册的是占位 `DefaultDialogueConditionSource`（正向事实全真、无剧情标记）。
-  Narrative 接线后在 `DialogueInstaller` 替换注册（`DialogueInstaller.cs:51`），见 extension-guide。
+- 装有 NarrativeInstaller 时注册 NarrativeConditionSource（真实玩家状态/当前槽位标记）；否则保留 DefaultDialogueConditionSource 占位。未登记的叙事目标按不可用处理。
+  条件源选择由 `DialogueInstaller` 完成，见 extension-guide。
 
 ## `Game.Dialogue.DialogueConfig`（ScriptableObject）
 

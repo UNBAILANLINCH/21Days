@@ -50,6 +50,18 @@ namespace Game.Tests.Showcase.Exploration
         /// <summary>摇杆推动的时长（真实时间）。步行 3 m/s、奔跑 5 m/s，0.6 秒足够拉开差距。</summary>
         private const float StickSeconds = 0.6f;
 
+        /// <summary>
+        /// 走跑对比的起点相对出生点的偏移：往南 1.4 m，落在 z≈2 的空通道上。出生点那一排（z 3.4）往东 1.9 m 就是长者，
+        /// NPC 挡人以后奔跑 0.6 s（约 3 m）会被截在 1.9 m、比不出差距；z 2 这条向东到 x 6 都是空地（NPC 正面挡到 z 2.75）。
+        /// </summary>
+        private static readonly Vector2 RunLaneOffset = new Vector2(0f, -1.4f);
+
+        /// <summary>
+        /// 塔体淡出用例里「挪回开阔地」的落点：长者 (-1, 3.4) 与旅人 (2, 3.4) 之间、往南 1.4 m，左右和身后都离 NPC 1.5 m 以上，纸片不叠。
+        /// 原来的 (2, 3.4) 正是旅人站位，NPC 挡人后会瞬移进他身体里。
+        /// </summary>
+        private static readonly Vector2 OpenGround = new Vector2(0.5f, 2f);
+
         /// <summary>Crate_A 在场景 XZ (7.5, 5.8)；玩家放到它南侧 0.9 m，在交互半径 1.5 内、离村民对白半径足够远。</summary>
         private static readonly Vector2 NearCrateA = new Vector2(7.5f, 4.9f);
 
@@ -108,19 +120,19 @@ namespace Game.Tests.Showcase.Exploration
             yield return Snapshot("控件初始·散步");
 
             EncounterSceneView view = UnityEngine.Object.FindObjectOfType<EncounterSceneView>();
-            Vector2 spawn = view == null ? Vector2.zero : view.PlayerStart;
+            Vector2 lane = (view == null ? Vector2.zero : view.PlayerStart) + RunLaneOffset;
             Vector2 start = default;
             float walked = 0f;
-            yield return Step("玩家回出生点，摇杆向右推 0.6 秒（散步）", () =>
+            yield return Step("玩家挪到出生点南侧 1.4 米的空地，摇杆向右推 0.6 秒（散步）", () =>
             {
-                playerRules.Reset(spawn);
-                start = spawn;
+                playerRules.Reset(lane);
+                start = lane;
             }, 0f);
             yield return Input.HoldStick(Vector2.right, StickSeconds);
             walked = Vector2.Distance(start, playerModel.Position);
             yield return Check($"散步有位移（{walked:0.00} m）", () => walked > 0.3f);
 
-            yield return Step("玩家回出生点，按一下走跑键（Gameplay/Run）", () => playerRules.Reset(spawn), 0f);
+            yield return Step("玩家回到同一起点，按一下走跑键（Gameplay/Run）", () => playerRules.Reset(lane), 0f);
             yield return PulseRun();
             yield return Check("进入奔跑模式（PlayerModel.IsRunning = true）",
                 () => playerModel.IsRunning, 3f);
@@ -354,7 +366,7 @@ namespace Game.Tests.Showcase.Exploration
             yield return Step("等淡出过渡走完", null, 0.5f);
             yield return Snapshot("塔挡视线·半透明");
 
-            yield return Step("把玩家挪回开阔地 (2, 3.4)", () => playerRules.Reset(new Vector2(2f, 3.4f)));
+            yield return Step("把玩家挪回开阔地（长者与旅人之间靠南 (0.5, 2)）", () => playerRules.Reset(OpenGround));
             yield return Check("塔体恢复原材质（过渡结束后换回）",
                 () => !tower.IsFaded && towerRenderer.sharedMaterial != tower.FadedMaterial, 3f);
             yield return Snapshot("离开·塔体恢复");

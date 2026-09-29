@@ -177,7 +177,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 | 字段 | 默认值 | 作用 |
 | --- | --- | --- |
-| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 只勾 `Ground`，旧验证场景已删 |
+| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 勾 `Ground` + `Character`（1280）：灰盒在 `Ground`（8），可对话 NPC 的根节点在 `Character`（10），根上 BoxCollider 1.6×1.6×0.6 挡人。NPC 不放 `Ground`（会被 `OccluderFadePresenter` 当遮挡物淡出、被贴地射线打到盒顶），也不勾 `Default`（玩家、巡逻怪都在 Default）；旧验证场景已删 |
 | `obstacleBottomOffset` | 0.35 | 胶囊下沿离脚底高度；须高于单级台阶 |
 | `obstacleTopOffset` | 1.5 | 胶囊上沿离脚底高度；更高的悬空几何不挡人 |
 | `obstacleRadius` | 0.3 | 胶囊半径，与 player 的 CapsuleCollider 一致 |
@@ -236,4 +236,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
   `PreviousPosition` 用例与 `EncounterStepTests`，并在 60 Hz 以外的刷新率下目测跑动与贴墙滑动。
 - 改遮挡碰撞字段或 `EncounterCollision`：跑 `EncounterStepTests` 与 Exploration Showcase 的
   `Collision_FenceBlocksPlayer` / `MultiLevel_RampLeadsToDeck`，并跑 IsometricExploration Showcase 确认潜行走廊（z 3.4）没被挡。
+- 往 SampleScene 加可对话角色（`DialogueInteractable`）：根节点放 `Character` 层、根上留非 trigger 碰撞体；EditMode
+  `SampleSceneObstacleWiringTests` 检查每个可对话物体的碰撞体层都在 `obstacleMask` 里。出生点那一排（z 3.4）上站着长者 / 旅人 / 村民，
+  回放沿这一排横穿会被挡住，改走 z≈2 的南侧空通道或北侧 `RouteToPatrol`。
 - 完成场景接线后：跑 Monster Showcase、资产体检、lint、文档检查并让开发者看画面。

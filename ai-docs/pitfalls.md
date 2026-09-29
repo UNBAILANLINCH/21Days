@@ -491,3 +491,9 @@
 - 根因：`RefreshUnity` 的闸门读 `MCPForUnity.Editor.Services.TestRunStatus.IsRunning`（静态标志，开跑 `MarkStarted`、收尾 `MarkFinished`）。发起测试的 MCP 客户端中途断开 / 会话被中止时收尾没走到，标志就停在 true；而 `clear_stuck` 清的是 `TestJobManager._currentJobId`，跟它不是同一个东西。
 - 正确做法：先用 `execute_code` 读 `isPlaying` / 控制台确认没有真在跑；确系孤儿再反射调 `TestRunStatus.MarkFinished()`（`internal static`，程序集 `MCPForUnity.Editor`）。2026-09-30 实测：上一会话中断留下 PlayMode 标志、`staleMinutes=32.5`，清掉后 `refresh_unity` 立刻可用。
 - 关联：`Library/PackageCache/com.coplaydev.unity-mcp@*/Editor/Services/TestRunStatus.cs`、`Editor/Tools/RefreshUnity.cs:28`、`Editor/Tools/RunTests.cs`（`clear_stuck`）；`.claude/skills/unity-mcp/SKILL.md` 故障排查表；2026-09-30。
+
+## 编辑器没焦点时 Unity 不自动重编译，跑测试用的是旧程序集
+- 现象：改完回放脚本直接 `run_tests` 重跑，报告里的坐标与失败项和改之前一模一样，看着像「改的代码没生效」；`Library/ScriptAssemblies/Game.Tests.Showcase.dll` 的时间戳停在改文件之前。
+- 根因：Unity 只在编辑器窗口有焦点时自动刷新资产（Auto Refresh 的行为），编辑器在后台时改 `.cs` **不会**触发编译；MCP 的测试任务用当前已加载的程序集跑，不会替你编译一次。共用编辑器 / 无人值守时最容易踩。
+- 正确做法：改完代码再跑测试或回放，先过编译门——`refresh_unity(mode="force", scope="scripts", compile="request")`，然后核对 `Library/ScriptAssemblies/<目标程序集>.dll` 的时间戳晚于改动时间，再 `read_console` 看有没有编译错误。2026-09-30 验 Dialogue 回放时白跑了一轮（3.5 分钟）才发现。
+- 关联：`.claude/skills/verify-module/SKILL.md` 第 2 步（编译门）、`.claude/skills/unity-mcp/SKILL.md` 纪律 3；`ai-docs/pitfalls.md`「MCP 测试任务被中断后…」；2026-09-30。

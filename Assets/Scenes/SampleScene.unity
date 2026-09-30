@@ -2637,7 +2637,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 39325d2e3e8920d4e94855bafaac77e2, type: 2}
+  - {fileID: 2100000, guid: be907cf35ef4961418b69b6a3b6bda89, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3022,7 +3022,7 @@ GameObject:
   - component: {fileID: 428793220}
   - component: {fileID: 428793219}
   - component: {fileID: 428793218}
-  m_Layer: 10
+  m_Layer: 0
   m_Name: Yao_WellWoman
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3101,7 +3101,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.6, y: 1.6, z: 0.6}
+  m_Size: {x: 1.6, y: 1.6, z: 0.2}
   m_Center: {x: 0, y: 0.8, z: 0}
 --- !u!4 &428793222
 Transform:
@@ -4159,7 +4159,7 @@ GameObject:
   - component: {fileID: 611298129}
   - component: {fileID: 611298128}
   - component: {fileID: 611298127}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Crate_C
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5320,7 +5320,7 @@ GameObject:
   - component: {fileID: 1045714295}
   - component: {fileID: 1045714294}
   - component: {fileID: 1045714293}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Crate_B
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6462,6 +6462,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Chibi_amiya
       objectReference: {fileID: 0}
+    - target: {fileID: 8819136145077949482, guid: 446bf25c10a239040a75cfe21194ceae, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: be907cf35ef4961418b69b6a3b6bda89, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6486,7 +6490,7 @@ GameObject:
   - component: {fileID: 1216856971}
   - component: {fileID: 1216856975}
   - component: {fileID: 1216856976}
-  m_Layer: 10
+  m_Layer: 0
   m_Name: Npc_Villager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6548,7 +6552,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.6, y: 1.6, z: 0.6}
+  m_Size: {x: 1.6, y: 1.6, z: 0.2}
   m_Center: {x: 0, y: 0.8, z: 0}
 --- !u!4 &1216856974
 Transform:
@@ -7613,7 +7617,7 @@ GameObject:
   - component: {fileID: 1360924840}
   - component: {fileID: 1360924839}
   - component: {fileID: 1360924843}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Crate_A
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8173,7 +8177,7 @@ GameObject:
   - component: {fileID: 1438284536}
   - component: {fileID: 1438284537}
   - component: {fileID: 1438284538}
-  m_Layer: 10
+  m_Layer: 0
   m_Name: Npc_Traveler
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8216,7 +8220,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.6, y: 1.6, z: 0.6}
+  m_Size: {x: 1.6, y: 1.6, z: 0.2}
   m_Center: {x: 0, y: 0.8, z: 0}
 --- !u!4 &1438284535
 Transform:
@@ -9492,7 +9496,7 @@ GameObject:
   - component: {fileID: 1583597197}
   - component: {fileID: 1583597198}
   - component: {fileID: 1583597199}
-  m_Layer: 10
+  m_Layer: 0
   m_Name: Npc_Elder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9535,7 +9539,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.6, y: 1.6, z: 0.6}
+  m_Size: {x: 1.6, y: 1.6, z: 0.2}
   m_Center: {x: 0, y: 0.8, z: 0}
 --- !u!4 &1583597196
 Transform:

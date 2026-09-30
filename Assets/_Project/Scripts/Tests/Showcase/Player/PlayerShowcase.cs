@@ -25,10 +25,7 @@ namespace Game.Tests.Showcase.Player
     [Category("Showcase")]
     public sealed class PlayerShowcase : ShowcaseScenario
     {
-        /// <summary>
-        /// 走 / 跑对比的推杆时长。步行 3、奔跑 5：出生点 (-4,3.4) 右走本应 2.1 米，但长者（x -1）挡人，实测停在 x≈-2.12（1.88 米）；
-        /// 再左跑 3.5 米，终点 x≈-5.62，碰不到左墙（x -6，胶囊半径 0.3 停在 -5.7）。奔跑仍明显大于步行，比较照样成立。
-        /// </summary>
+        /// <summary>走 / 跑对比的推杆时长。步行 3、奔跑 5：出生点 (-4,3.4) 右走 2.1 米、左跑 3.5 米，终点 x≈-5.4，碰不到左墙（x -6）。</summary>
         private const float CompareSeconds = 0.7f;
 
         /// <summary>镜碎页交回后重进遭遇（卸载并重载场景）的上限（真实秒），同 MirrorShowcase。</summary>

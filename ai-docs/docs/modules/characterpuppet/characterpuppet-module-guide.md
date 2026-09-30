@@ -59,6 +59,8 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 `Art/Sprites/Characters/Puppet/`、`chr_chibi_*` 动画）已于 2026-09-28 删除，要追溯看 git 历史与 `PRP/character-puppet/`。
 
 - 材质 `Art/Materials/Character/M_SpriteDepthClip`（与原纸片一致，可被灰盒遮挡），sortingLayer `Default`。
+  SampleScene 里玩家的 `Chibi_amiya/Sprite` 在场景实例上覆写成 `M_SpriteDepthClip_Player`（带深度偏移，与同排 NPC 重叠时玩家在前），
+  约定与取值见 `isometricexploration-module-guide.md`「纸片深度偏移」；预制体本身与生成工具仍写基础材质。
 - `parts` 数组挂唯一的 `Sprite` 渲染器，`SetTint` 只作用于数组里的渲染器。
 
 ## 驱动数据流

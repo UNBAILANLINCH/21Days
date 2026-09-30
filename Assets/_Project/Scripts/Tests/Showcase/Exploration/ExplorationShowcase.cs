@@ -51,18 +51,22 @@ namespace Game.Tests.Showcase.Exploration
         private const float StickSeconds = 0.6f;
 
         /// <summary>
-        /// 走跑对比的起点相对出生点的偏移：往南 1.4 m，落在 z≈2 的空通道上。出生点那一排（z 3.4）往东 1.9 m 就是长者，
-        /// NPC 挡人以后奔跑 0.6 s（约 3 m）会被截在 1.9 m、比不出差距；z 2 这条向东到 x 6 都是空地（NPC 正面挡到 z 2.75）。
+        /// 走跑对比的起点相对出生点的偏移：往南 1.4 m，落在 z≈2 的空通道上。NPC 不挡人（只有灰盒与挡人道具挡），
+        /// 但出生点那一排（z 3.4）往东 3 m 会从长者 (-1, 3.4) 身上穿过：截图里两张纸片叠在一起，还会进他的对白交互半径（2）。
+        /// z 2 这条向东到 x 6 都是空地，走跑位移不受任何东西干扰。
         /// </summary>
         private static readonly Vector2 RunLaneOffset = new Vector2(0f, -1.4f);
 
         /// <summary>
-        /// 塔体淡出用例里「挪回开阔地」的落点：长者 (-1, 3.4) 与旅人 (2, 3.4) 之间、往南 1.4 m，左右和身后都离 NPC 1.5 m 以上，纸片不叠。
-        /// 原来的 (2, 3.4) 正是旅人站位，NPC 挡人后会瞬移进他身体里。
+        /// 塔体淡出用例里「挪回开阔地」的落点：长者 (-1, 3.4) 与旅人 (2, 3.4) 之间、往南 1.4 m，左右和身后都离 NPC 1.5 m 以上。
+        /// 原来的 (2, 3.4) 正是旅人站位：NPC 不挡人，瞬移过去功能上没问题，但截图里玩家和旅人两张纸片重叠，看不清塔体恢复。
         /// </summary>
         private static readonly Vector2 OpenGround = new Vector2(0.5f, 2f);
 
-        /// <summary>Crate_A 在场景 XZ (7.5, 5.8)；玩家放到它南侧 0.9 m，在交互半径 1.5 内、离村民对白半径足够远。</summary>
+        /// <summary>
+        /// Crate_A 在场景 XZ (7.5, 5.8)；玩家放到它南侧 0.9 m，在交互半径 1.5 内、离村民对白半径足够远。
+        /// 箱子挡人（根节点在 Obstacle 层，碰撞盒 0.8×0.6×0.8，南沿 z 5.4）：胶囊半径 0.3 的玩家站在 z 4.9 不与它重叠。
+        /// </summary>
         private static readonly Vector2 NearCrateA = new Vector2(7.5f, 4.9f);
 
         private IUIService ui;

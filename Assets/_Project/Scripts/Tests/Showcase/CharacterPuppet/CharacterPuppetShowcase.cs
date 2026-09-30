@@ -34,16 +34,10 @@ namespace Game.Tests.Showcase.CharacterPuppet
         private const string PuppetPath = "player/Visual/Chibi_amiya";
         private const string PuppetConfigPath = "Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset";
 
-        /// <summary>
-        /// 左右走各推多久：步行 3，出生点 (-4,3.4) 向右 1 秒本应到 x≈-1，但长者（x -1）挡人，约 0.65 秒就停在 x≈-2.12；
-        /// 采样从 0.3 秒开始，走路态照样采得到。再向左 3 米回到 x≈-5.1，碰不到左墙（x -6）。
-        /// </summary>
+        /// <summary>左右走各推多久：步行 3，出生点 (-4,3.4) 向右 1 秒到 x≈-1、再向左回到原处，碰不到左墙（x -6）。</summary>
         private const float TurnSeconds = 1f;
 
-        /// <summary>
-        /// 走跑对比各推多久：向右走 0.8 秒本应 2.4 米，被长者挡在 x≈-2.12（1.88 米，约 0.65 秒后停下；2026-09-30 实测步频检查仍是 1.00）；
-        /// 再向左跑 0.6 秒（3 米），终点 x≈-5.1，仍在画面内、碰不到左墙。
-        /// </summary>
+        /// <summary>走跑对比各推多久：向右走 0.8 秒（2.4 米）、向左跑 0.6 秒（3 米），终点 x≈-4.6，仍在画面内、碰不到左墙。</summary>
         private const float WalkSeconds = 0.8f;
         private const float RunSeconds = 0.6f;
 

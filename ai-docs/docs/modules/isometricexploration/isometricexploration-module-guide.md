@@ -72,7 +72,7 @@ Encounter
 
 ```text
 Crates
-├─ Crate_A（SupplyCrate + SupplyCrateMarker + ExplorationPointOfInterest(Crate) + BoxCollider）
+├─ Crate_A（Obstacle 层；SupplyCrate + SupplyCrateMarker + ExplorationPointOfInterest(Crate) + BoxCollider 0.8×0.6×0.8，挡人）
 │  ├─ Closed / Opened（两套外观）
 │  └─ Marker（头顶标记：SpriteRenderer + CameraBillboard）
 ├─ Crate_B（同构）
@@ -116,8 +116,10 @@ GlobalVolume（场景根，Global + ExplorationVolumeProfile）
 `Environment_Graybox` 下全部物体统一放在新建 Layer `Ground`（slot 8，`ProjectSettings/TagManager.asset`），
 `Encounter/EncounterSceneView.groundMask` 只勾这一层，供贴地射线专用；这一层只用于贴地探测，
 不代表玩法碰撞层，新增环境物体记得同样放进 `Ground` 层，否则角色纸片走上去不会贴地。
-波 9 起 `EncounterSceneView.obstacleMask` 也只勾 `Ground`：这一层里「高于脚底 0.35、低于脚底 1.5」的部分会挡住玩家
-（墙、围栏、长椅、路障、栏杆、塔）；0.3 的台阶、坡面、桥底与甲板底不挡。NPC / 物资箱在 Default 层，不挡路。
+波 9 起 `EncounterSceneView.obstacleMask` 勾 `Ground`，2026-09-30 起再勾 `Obstacle`（第 10 层，合计 1280）：这两层里
+「高于脚底 0.35、低于脚底 1.5」的部分会挡住玩家（`Ground`：墙、围栏、长椅、路障、栏杆、塔；`Obstacle`：物资箱根节点）；
+0.3 的台阶、坡面、桥底与甲板底不挡。`Obstacle` 专放「挡人、但不是地面也不是遮挡物的道具」，不参与贴地与遮挡淡出。
+NPC 在 Default 层，**不挡人**，玩家可以穿过，前后关系靠下文「表现层」的纸片深度偏移。接线步骤见 monster-module-guide「修改时检查」。
 新加的可站立平台若底面离地低于 1.5 m，人会被它从侧面挡住——想让人从下面走过就把底面放到 1.5 m 以上。
 
 ## 遮挡半透明（波 9 建，波 10 改粗射线 + 过渡）
@@ -165,7 +167,8 @@ player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
 
 `enerme` 同构（Visual 纸片同样停用、sprite 为空）；`SelectRing` 同样已启用并赋给
 `monsterStateIndicator`；`NameTag` 文字为「巡逻者」；`enerme/Visual` 的 `localPosition.z` 仍为
-`0.05`，避免两角色重合时与 `player/Visual` 发生 z-fighting。
+`0.05`，避免两角色重合时与 `player/Visual` 发生 z-fighting（早期做法；玩家与任何角色打平时的前后现在由玩家材质的
+深度偏移统一保证，见「表现层」）。
 
 根节点缩放已归一为 `(1, 1, 1)`，`BlobShadow` / `SelectRing` / `NameTag` 的局部尺寸此前需要按非等比
 根缩放换算的问题已不存在；新角色若根节点仍做非等比缩放，才需要按对应轴换算。新增角色纸片的完整
@@ -296,6 +299,26 @@ Profile，不要新建 Volume。
 Pass）；`BlobShadow`/`SelectRing` 这类贴地特效纸片用普通 `Sprite-Unlit-Default` 材质即可，
 不需要深度裁剪。
 
+### 纸片深度偏移（玩家压在同排角色前面，2026-09-30）
+
+- **为什么需要**：纸片经 `CameraBillboard` 转成与相机成像平面平行，站在同一排（同 z、同地面高度）的两个角色观察深度
+  **完全相同**（实测出生点那一排 z 3.4 的 NPC 小人都是 16.5870），深度缓冲分不出前后，重叠处两张图的像素交错显示（z-fighting）。
+  NPC 不挡人（见上文「场景结构」的 obstacleMask），玩家随时可能与 NPC 叠在一起，所以要在渲染上分出前后，而不是靠碰撞把人隔开。
+- **做法**：`SpriteDepthClip` 着色器的材质属性 `_DepthBias`（世界单位，放在 `UnityPerMaterial`，SRP Batcher 兼容）：
+  顶点阶段把裁剪空间深度换成「沿观察方向往相机挪 `_DepthBias`」那一点的深度，xy 与 w 不动，画面位置不变；
+  `UniversalForward` / `DepthOnly` / `DepthNormals` 三个 Pass 用同一个 `ApplyDepthBias`，深度预通道与前向通道一致；
+  `ShadowCaster` 不加（阴影图从光源方向渲染，偏移只会挪影子）。仍是 Alpha Test + ZWrite，**不许改成透明队列**（会丢掉与灰盒的遮挡）。
+- **谁用**：只有玩家。`Art/Materials/Character/M_SpriteDepthClip_Player.mat`（同一着色器，`_DepthBias = 0.02`）挂在 SampleScene
+  `player/Visual/Chibi_amiya/Sprite`（预制体实例上的材质覆写）与 `player/Visual` 的隐藏纸片上；NPC、巡逻者与 `Chibi_*` 预制体本身都用
+  基础材质 `M_SpriteDepthClip`（偏移 0）。效果：与任何角色深度打平或差不到 0.02 时玩家稳定画在前面；深度差大于约 0.05 时仍按真实深度遮挡。
+- **取值 0.02 的依据**（算式在着色器文件头）：相机 FOV 20、俯角 38°、偏移 (0, 11.81, −14)、Near 0.5，画面内角色观察深度 15.6～24.8 m；
+  保守按 24 位深度，25 m 处一个刻度约 25² / 0.5 × 2⁻²⁴ ≈ 7.5e-5 m，0.02 约为 270 个刻度（打平时稳），又小于 0.05（不颠倒真实前后）。
+  改相机远近 / 近裁剪面、或把角色放到更远处时按同一算式复核。
+- **守卫**：EditMode `Tests/EditMode/CharacterPuppet/SpriteDepthBiasWiringTests.cs`——两份材质只差 `_DepthBias`（玩家在 (0, 0.05) 内、基础为 0、
+  渲染队列一致），SampleScene 玩家根下用该着色器的渲染器全是玩家材质、其余角色全是 0。`FramePuppetGenerator` 重跑会把预制体材质写回基础材质，
+  场景里的覆写一般保得住；给玩家换角色预制体时覆写会丢，要重新把小人 `Sprite` 的材质换成 `M_SpriteDepthClip_Player`，这条测试会报出来。
+- 头顶名字 `NameTag`（World Space Canvas）不走这套材质，重叠时的样子见「已知限制」。
+
 `SpriteImportProcessor`（`Assets/_Project/Scripts/Editor/Importers/SpriteImportProcessor.cs`）已改为
 高清手绘预设（Bilinear / mipmap / Compressed / PPU 100），新角色/环境纸片素材导入时按这份预设走，
 不要手改单张贴图的导入设置。
@@ -368,7 +391,7 @@ offset = camera.position - target.position
 `SmoothCameraFollow` 标了 `[DefaultExecutionOrder(50)]`：必须排在 `EncounterSceneView`（默认 0，LateUpdate 里把逻辑位置
 插值写成本帧的角色 Transform 位置）之后、`ChibiPuppetMotion`（100）之前，保证本组件跟随的是本帧刚投影好的位置。
 
-当前工作区 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 15（原基线 28，独立构图调参）、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
+当前工作区 `SampleScene` 里 `Main Camera` 的具体接线：透视、FOV 20（原基线 28，327304f 为拉远视距改到 20）、旋转 `(38, 0, 0)`，Near 0.5 / Far 100；
 按保存的相机与玩家位置，`Start` 记录的 `offset` 为 `(0, 11.8116, -14)`；`UniversalAdditionalCameraData.rendererIndex`
 = 1（对应表现层里的 `UniversalRenderer` / `UniversalRenderer_Mobile`，不是索引 0 的 `Renderer2D`），
 Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 / 偏移）在编辑器里调 `Main Camera`
@@ -490,7 +513,7 @@ ResetButton
 
 ### 关卡设计约束（遮挡）
 
-- 相机在玩家**南侧**、俯角约 38°、FOV 28（长焦）：近处的高物体在屏幕上占比很大。凡是**高于 1.5 m 且位于可行走区域南侧**
+- 相机在玩家**南侧**、俯角约 38°、FOV 20（长焦）：近处的高物体在屏幕上占比很大。凡是**高于 1.5 m 且位于可行走区域南侧**
   的物体，都会在某些站位挡住玩家，**必须挂 `SceneOccluder`**（`fadedMaterial` 拖 `M_Graybox_Faded.mat`，放在 `Ground` 层，
   带 Collider——没有 Collider 扫不到）；北侧的墙挂上也无害（玩家贴墙北侧走时视线会穿过它）。
 - 美术替换时把高物体（塔、树、建筑）尽量放到可行走区域**北侧或边缘**，少让它们站在玩家与相机之间。
@@ -535,7 +558,8 @@ ResetButton
 - 改配置字段：同步配置资产和本指南；
 - 改渲染分档 / 光影 / 后处理：高低档一起改（`UniversalRP*.asset` 与对应 `UniversalRenderer*.asset`、
   `QualitySettings.asset` 映射），跑 `RenderPipelineTiersTests`；
-- 改角色纸片材质：确认仍用 `M_SpriteDepthClip`，不要回退到 URP 默认 Sprite 材质（会丢失遮挡与 SSAO）；
+- 改角色纸片材质：确认仍用 `M_SpriteDepthClip`（玩家用 `M_SpriteDepthClip_Player`），不要回退到 URP 默认 Sprite 材质（会丢失遮挡与 SSAO）；
+  改 `SpriteDepthClip.shader` 的深度计算时三个相机视角 Pass 一起改，跑 `SpriteDepthBiasWiringTests` 并在 Play 里让玩家与同排 NPC 重叠看一眼；
 - 改灰盒/环境模型：新对象挂在 `Environment_Graybox` 下，不要改动 `PlayerSpawn` / `PatrolPoint0` /
   `PatrolPoint1` 的位置；新增的可站立物体要放进 `Ground` 层，否则贴地射线打不到，角色纸片会悬空；
 - 改贴地参数（`groundMask` / `groundProbeHeight` / `groundProbeDepth` / `maxStepHeight`）：跑

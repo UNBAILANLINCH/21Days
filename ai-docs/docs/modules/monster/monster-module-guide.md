@@ -177,7 +177,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 | 字段 | 默认值 | 作用 |
 | --- | --- | --- |
-| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 勾 `Ground` + `Character`（1280）：灰盒在 `Ground`（8），可对话 NPC 的根节点在 `Character`（10），根上 BoxCollider 1.6×1.6×0.6 挡人。NPC 不放 `Ground`（会被 `OccluderFadePresenter` 当遮挡物淡出、被贴地射线打到盒顶），也不勾 `Default`（玩家、巡逻怪都在 Default）；旧验证场景已删 |
+| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 勾 `Ground` + `Obstacle`（1280）：灰盒在 `Ground`（8），挡人的道具（物资箱 `Crate_A/B/C` 的根节点，BoxCollider 0.8×0.6×0.8）在 `Obstacle`（10）——语义是「挡人、但不是地面也不是遮挡物的道具」。道具不放 `Ground`（会被 `OccluderFadePresenter` 当遮挡物淡出换材质、被贴地射线打到顶面把人抬上去），也不勾 `Default`（玩家、巡逻怪、NPC 都在 Default）。**NPC 不挡人**（用户 2026-09-30 定）：可对话角色根节点留在 Default，玩家可以穿过；两张纸片前后分明靠玩家材质的深度偏移（`M_SpriteDepthClip_Player`，见 `isometricexploration-module-guide.md`「表现层」），不靠碰撞隔开；旧验证场景已删 |
 | `obstacleBottomOffset` | 0.35 | 胶囊下沿离脚底高度；须高于单级台阶 |
 | `obstacleTopOffset` | 1.5 | 胶囊上沿离脚底高度；更高的悬空几何不挡人 |
 | `obstacleRadius` | 0.3 | 胶囊半径，与 player 的 CapsuleCollider 一致 |
@@ -236,7 +236,11 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
   `PreviousPosition` 用例与 `EncounterStepTests`，并在 60 Hz 以外的刷新率下目测跑动与贴墙滑动。
 - 改遮挡碰撞字段或 `EncounterCollision`：跑 `EncounterStepTests` 与 Exploration Showcase 的
   `Collision_FenceBlocksPlayer` / `MultiLevel_RampLeadsToDeck`，并跑 IsometricExploration Showcase 确认潜行走廊（z 3.4）没被挡。
-- 往 SampleScene 加可对话角色（`DialogueInteractable`）：根节点放 `Character` 层、根上留非 trigger 碰撞体；EditMode
-  `SampleSceneObstacleWiringTests` 检查每个可对话物体的碰撞体层都在 `obstacleMask` 里。出生点那一排（z 3.4）上站着长者 / 旅人 / 村民，
-  回放沿这一排横穿会被挡住，改走 z≈2 的南侧空通道或北侧 `RouteToPatrol`。
+- 往 SampleScene 加挡人道具（物资箱等）：① 根节点放 `Obstacle` 层（第 10 层，不放 `Ground`）；② 根上留启用的非 trigger 碰撞体，
+  竖直范围要够得着扫掠胶囊——根节点贴地时盒顶须高过 `obstacleBottomOffset`（0.35），箱子 0.6 高（center.y 0.3）即可；
+  ③ 子物体（外观、头顶标记）不挂碰撞体，层保持 Default；④ 跑 EditMode `SampleSceneObstacleWiringTests`，它检查凡挂 `SupplyCrate`
+  的物体都有这样的碰撞体、层在 `obstacleMask` 里且不在 `Ground`；新道具不是箱子时照同样的接法，并把它加进该测试的检查范围；
+  ⑤ 回放的走位要绕开它（`WalkTo` 是真走，会被挡），开箱站位离箱子中心 ≥ 半宽 + 胶囊半径 0.3。
+- NPC 不挡人：可对话角色（`DialogueInteractable`）的碰撞体留在 Default 层、不进 `obstacleMask`（同一测试有反向用例守着）；
+  玩家与 NPC 同排重叠时的前后关系靠纸片深度偏移，改角色材质前读 `isometricexploration-module-guide.md`「表现层」。
 - 完成场景接线后：跑 Monster Showcase、资产体检、lint、文档检查并让开发者看画面。

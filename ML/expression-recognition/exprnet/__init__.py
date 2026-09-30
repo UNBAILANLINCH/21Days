@@ -9,6 +9,7 @@
     python -m exprnet.evaluate  重新评估一个训练产物
     python -m exprnet.export    导出 ONNX + 元数据并自检
     python -m exprnet.coverage  绑定覆盖度报告
+    python -m exprnet.golden_check  金标开发集 / 测试集护栏检查
 """
 
 __version__ = "0.1.0"

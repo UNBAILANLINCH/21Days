@@ -9,6 +9,9 @@ energy = −T·(max(z) + log Σ exp(z − max(z)))，z = logits / T，手动展�
     2. 图里所有算子都在 configs/sentis_ops.txt 里，且 opset 为 15、无自定义域
     3. 文件 < 1 MB
 
+元数据 onnx.sha256 是最终写盘的 ONNX 文件字节的 SHA-256（规格 §7.4），防同名模型与 JSON 错配；
+verify_pair 按它核对一对 ONNX + JSON。类别集模型另写 label_set 块（类别集名、各类由哪些标注类组成、集外类）。
+
 用法示例（在 ML/expression-recognition 目录下）：
     python -m exprnet.export --run artifacts/runs/rf_synth
     python -m exprnet.export --run artifacts/runs/rf_synth --rig configs/rigs/my_rig.yaml --name rf_my_rig
@@ -17,6 +20,8 @@ energy = −T·(max(z) + log Σ exp(z − max(z)))，z = logits / T，手动展�
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
+import json
 import sys
 import warnings
 from pathlib import Path
@@ -163,7 +168,48 @@ def export_onnx(deploy: DeployModel, rig: Rig, out_path: Path, n_check: int = 10
     }
 
 
-def build_metadata(name: str, ckpt: dict, rig: Rig, canonical: Canonical, checks: dict, metrics: dict | None, onnx_file: str) -> dict:
+def onnx_sha256(path: str | Path) -> str:
+    """ONNX 文件字节的 SHA-256（十六进制小写）。"""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def verify_pair(onnx_path: str | Path, json_path: str | Path) -> tuple[bool, str]:
+    """核对一对导出产物：JSON 的 onnx.sha256 必须等于 ONNX 文件字节的摘要。返回 (是否一致, 中文说明)。"""
+    meta = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    want = (meta.get("onnx") or {}).get("sha256")
+    if not want:
+        return False, f"{Path(json_path).name} 没有 onnx.sha256 字段（旧版导出），无法核对配对"
+    got = onnx_sha256(onnx_path)
+    if got != want:
+        return False, f"{Path(onnx_path).name} 的 SHA-256 为 {got[:16]}…，元数据记录的是 {want[:16]}…：模型与 JSON 不是一对"
+    return True, f"配对一致（SHA-256 {got[:16]}…）"
+
+
+def _label_set_block(ls: dict) -> dict:
+    return {
+        "name": ls["name"],
+        "classes": [{"key": c["key"], "zh": c["zh"], "from": list(c["from"])} for c in ls["classes"]],
+        "drop": list(ls.get("drop") or []),
+        "annotation_labels": list(ls.get("annotation_keys") or []),
+        "notes": "labels 即类别集的类（顺序即 probs 顺序）；标注仍按 annotation_labels 采集，评估时按 from 映射；"
+                 "drop 里的标注类是集外类，不进训练正样本，评估时只报告预测去向、不计入指标",
+    }
+
+
+def _variant_filter_block(vf: dict) -> dict:
+    return {
+        "rel_residual_threshold": vf["rel_residual_threshold"],
+        "probe_intensity": vf["probe_intensity"],
+        "rig": vf["rig"],
+        "rig_hash": vf["rig_hash"],
+        "dropped": [{k: r[k] for k in ("class", "emotion", "variant", "choose", "source", "aus", "rel_residual")}
+                    for r in vf.get("dropped", [])],
+        "notes": vf.get("note") or "这些合成变体在训练绑定下做不出来（核心 AU 投影后相对残差 ≥ 阈值），没有进训练目标",
+    }
+
+
+def build_metadata(name: str, ckpt: dict, rig: Rig, canonical: Canonical, checks: dict, metrics: dict | None, onnx_file: str,
+                   onnx_digest: str | None = None) -> dict:
     train_rig_hash = ckpt.get("train_rig_hash")
     rig_hash = rig.config_hash()
     summary = {}
@@ -188,14 +234,21 @@ def build_metadata(name: str, ckpt: dict, rig: Rig, canonical: Canonical, checks
             summary["caveat"] = "含公开集数据，指标只说明原型能跑"
         else:
             summary["caveat"] = "只用合成数据：验证集与训练集同源、金标由同一套 FACS 先验手写，指标只证明流程跑通，不能证明泛化"
-    return {
+    onnx_block = {"file": onnx_file, "opset": OPSET, "inputs": checks["io"]["inputs"], "outputs": checks["io"]["outputs"],
+                  "notes": "sliders 按下面 sliders 列表的顺序排列；probs 已做温度校准；energy 越大越不像任何表情"}
+    if onnx_digest is not None:
+        onnx_block["sha256"] = onnx_digest
+    meta = {
         "schema_version": SCHEMA_VERSION,
         "name": name,
         "created": _dt.date.today().isoformat(),
-        "onnx": {"file": onnx_file, "opset": OPSET, "inputs": checks["io"]["inputs"], "outputs": checks["io"]["outputs"],
-                 "notes": "sliders 按下面 sliders 列表的顺序排列；probs 已做温度校准；energy 越大越不像任何表情"},
+        "onnx": onnx_block,
         "model": {"arch": ckpt["model_name"], "config": ckpt["model_cfg"], "params": ckpt.get("params")},
         "labels": [{"key": k, "zh": z} for k, z in zip(ckpt["class_keys"], ckpt["class_zh"])],
+    }
+    if ckpt.get("label_set"):
+        meta["label_set"] = _label_set_block(ckpt["label_set"])
+    return meta | {
         "sliders": rig.slider_meta(),
         "temperature": float(ckpt["temperature"]),
         "energy_threshold": float(ckpt["energy_threshold"]),
@@ -211,7 +264,8 @@ def build_metadata(name: str, ckpt: dict, rig: Rig, canonical: Canonical, checks
         "commercial_use_allowed": bool(ckpt.get("commercial_use_allowed", False)),
         "metrics_summary": summary,
         "checks": {k: v for k, v in checks.items() if k != "io"},
-    }
+    } | ({"training_variant_filter": _variant_filter_block(ckpt["variant_filter"])}
+         if (ckpt.get("variant_filter") or {}).get("enabled") else {})
 
 
 def _threshold_block(ckpt: dict, metrics: dict | None) -> dict:
@@ -260,9 +314,10 @@ def run_export(run_dir: Path, rig_path: Path | None = None, name: str | None = N
     deploy = DeployModel(rig, canonical, classifier, ckpt["temperature"])
     log(f"[导出] 模型 {ckpt['model_name']}，绑定 {rig.name}（{rig.num_sliders} 根滑杆），opset {OPSET}")
     checks = export_onnx(deploy, rig, onnx_path, n_check=n_check)
+    digest = onnx_sha256(onnx_path)  # 导出与自检之后 ONNX 不再改写，这就是最终写盘的字节
     metrics_file = Path(run_dir) / "metrics.json"
     metrics = load_json(metrics_file) if metrics_file.exists() else None
-    meta = build_metadata(name, ckpt, rig, canonical, checks, metrics, onnx_path.name)
+    meta = build_metadata(name, ckpt, rig, canonical, checks, metrics, onnx_path.name, onnx_digest=digest)
     save_json(meta, json_path)
 
     n = checks["numeric"]; o = checks["operators"]; s = checks["size"]
@@ -273,6 +328,9 @@ def run_export(run_dir: Path, rig_path: Path | None = None, name: str | None = N
         log(f"          清单外算子：{', '.join(o['outside_whitelist'])}")
     log(f"          opset：{o['opset_imports']}")
     log(f"[自检 3] 文件大小：{'通过' if s['ok'] else '失败'}  {s['bytes'] / 1024:.1f} KB（上限 1024 KB）")
+    log(f"[导出] ONNX SHA-256：{digest}")
+    if ckpt.get("label_set"):
+        log(f"[导出] 类别集 {ckpt['label_set']['name']}：labels = {', '.join(ckpt['class_keys'])}")
     if not checks["ok"]:
         f_onnx = onnx_path.with_suffix(".failed.onnx")
         f_json = json_path.with_suffix(".failed.json")

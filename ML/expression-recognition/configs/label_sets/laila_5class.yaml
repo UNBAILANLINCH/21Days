@@ -1,0 +1,25 @@
+# 类别集：laila 捏脸表情识别的验收类别集（五类）
+#
+# 出处：PRP/laila-expression-recognition/spec.md §15.1（阶段门 A 审阅结论，2026-09-30）。
+# 依据：analysis/laila_upper_bound/REPORT.md §7——按现有 22 个形态，恐惧（做不出 AU1+2+4 的眉形）与
+#       厌恶（做不出 AU9 皱鼻）即使在乐观上限下也只有 0.64 左右；五类方案每类的语义保真都在 0.65 以上。
+#
+# 写法（exprnet.common.apply_label_set 校验）：
+#   classes：输出类，顺序即 ONNX probs 的顺序（导出元数据 labels 原样写出）；
+#            from 是由哪些标注类（configs/labels.yaml 的类）组成。合成数据里合并类的样本由成员各出一半，总数与其他类相同。
+#   drop   ：集外类。不进正样本；评估金标时它的样本只报告预测去向，不计入任何指标（规格 §15.2）。
+#   每个标注类必须恰好出现一次：要么在某个类的 from 里，要么在 drop 里。
+# 标注协议不变（规格 §15.2）：标注者仍在七类加「不明确 / 混合」里选，金标文件照原样存七类标注，评估时按 from 映射。
+# 改这个文件（增删类、换顺序、改 from）必须重训、重导出、重新冻结测试（规格 §11.2），不能只在 UI 隐藏。
+
+name: laila_5class
+description: laila 验收类别集：中性、高兴、悲伤、惊讶/恐惧、愤怒；厌恶为集外类（规格 §15.1）
+
+classes:
+  - {key: neutral,       zh: 中性,      from: [neutral]}
+  - {key: happy,         zh: 高兴,      from: [happy]}
+  - {key: sad,           zh: 悲伤,      from: [sad]}
+  - {key: surprise_fear, zh: 惊讶/恐惧, from: [surprise, fear]}
+  - {key: angry,         zh: 愤怒,      from: [angry]}
+
+drop: [disgust]

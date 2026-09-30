@@ -122,6 +122,40 @@ def test_deploy_matches_rig_forward(canonical, labels, sample_rig):
     assert torch.allclose(p, ref, atol=1e-5)
 
 
+def test_onnx_sha256_pairs_model_and_json(tmp_path, canonical, labels, sample_rig):
+    """规格 §7.4：元数据 onnx.sha256 是最终写盘的 ONNX 字节的摘要；改一个字节就对不上。"""
+    import hashlib
+
+    from exprnet.export import onnx_sha256, verify_pair
+
+    run = _fake_run(tmp_path, canonical, labels, sample_rig, "resmlp")
+    ok, onnx_path, json_path = run_export(run, out_dir=tmp_path / "out", name="m", n_check=100, log=lambda *_: None)
+    meta = json.loads(json_path.read_text(encoding="utf-8"))
+    data = onnx_path.read_bytes()
+    assert ok and meta["onnx"]["sha256"] == hashlib.sha256(data).hexdigest() == onnx_sha256(onnx_path)
+    assert len(meta["onnx"]["sha256"]) == 64 and "label_set" not in meta  # 默认七类不写 label_set 块
+    assert verify_pair(onnx_path, json_path)[0]
+
+    tampered = tmp_path / "tampered.onnx"
+    buf = bytearray(data)
+    buf[len(buf) // 2] ^= 0x01
+    tampered.write_bytes(bytes(buf))
+    good, msg = verify_pair(tampered, json_path)
+    assert not good and "不是一对" in msg
+
+    # 同名重导出另一个模型：新 JSON 与旧 ONNX 对不上
+    torch.manual_seed(1)
+    run2 = tmp_path / "run2"
+    run2.mkdir()
+    ck = torch.load(run / "ckpt.pt", weights_only=False)
+    ck["state_dict"] = build_model("resmlp", MODEL_CFG, canonical, labels.num_classes).state_dict()
+    torch.save(ck, run2 / "ckpt.pt")
+    old = tmp_path / "old.onnx"
+    old.write_bytes(data)
+    _, _, json2 = run_export(run2, out_dir=tmp_path / "out", name="m", n_check=100, log=lambda *_: None)
+    assert not verify_pair(old, json2)[0]
+
+
 def test_failed_check_renames(tmp_path, canonical, labels, sample_rig, monkeypatch):
     import exprnet.export as ex
 

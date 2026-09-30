@@ -1,13 +1,19 @@
 """评估（DESIGN §7）：accuracy、macro-F1、逐类 P/R/F1、混淆矩阵、ECE（15 桶，校准前后）、
-OOD AUROC 与 FPR@95TPR、金标捏脸集逐条结果；写 metrics.json 与 report.md。
+OOD AUROC 与 FPR@95TPR、最终判定口径（规格 §7.2 / §11.2）、金标捏脸集逐条结果；写 metrics.json 与 report.md。
+
+金标护栏（规格 §6.3、§10，检查逻辑在 golden_check.py）：金标的绑定名 / rig_hash 与模型训练绑定不符时报错退出，
+只有 --allow-golden-skip 才降级为跳过并在报告里写明；值、标签、id 不合法一律报错。
+类别集模型评金标时，标注类按类别集的 from 映射；集外类样本单独报告预测去向，不计入任何指标（规格 §15.2）。
 
 用法示例（在 ML/expression-recognition 目录下）：
     python -m exprnet.evaluate --run artifacts/runs/rf_synth
     python -m exprnet.evaluate --run artifacts/runs/rf_synth --golden golden/sample_rig.json --npz data/features/ckplus.npz
+    python -m exprnet.evaluate --run artifacts/runs/laila_resmlp_v1 --golden golden/laila_dev.json --tag dev
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -15,14 +21,23 @@ import numpy as np
 import torch
 
 from .calibrate import decide, energy_np, softmax_np
-from .common import make_parser, load_json, load_labels, rel_to_project, resolve_cli_path, save_json
+from .common import UNKNOWN_LABEL, labels_of_ckpt, load_json, make_parser, rel_to_project, resolve_cli_path, save_json
 from .datasets import apply_baseline, load_features, neutral_baseline
+from .golden_check import (HUMAN_STATUS, STATUS_PLACEHOLDER_ZH, GoldenError, check_entries, format_problems, load_golden,
+                           normalize_expect, rig_mismatch, status_zh)
 from .rig import Rig, identity_rig, rig_from_dict
+
+REJECT_ZH = "认不出"
+TAG_RX = re.compile(r"^[A-Za-z0-9_-]+$")
 
 N_BINS = 15
 DISCLAIMER_SYNTH = (
     "只用合成数据训练：验证集与训练集由同一个合成器、同一套 FACS 先验生成（同源），金标集也是按同一套先验手写的占位，"
     "**这些数字只能证明流程跑通，不能证明泛化**。正式口径要看真人捏脸盲标的金标集（DESIGN §7）。"
+)
+DISCLAIMER_SYNTH_HUMAN_GOLDEN = (
+    "只用合成数据训练：验证集与训练集由同一个合成器、同一套 FACS 先验生成（同源），**验证集上的数字只能证明流程跑通**；"
+    "泛化看下文的人工盲标金标结果（规格 §11.2）。"
 )
 DISCLAIMER_REAL = "训练数据含公开集（仅限非商用研究）。公开集上的准确率只说明原型能跑，发布口径看金标捏脸集（DESIGN §7）。"
 
@@ -52,6 +67,45 @@ def classification_metrics(y_true: np.ndarray, y_pred: np.ndarray, class_keys: l
         "macro_f1": float(np.mean(f1s)) if f1s else float("nan"),
         "per_class": per,
         "confusion": cm.tolist(),
+    }
+
+
+def open_set_metrics(y_true: np.ndarray, y_pred: np.ndarray, class_keys: list[str]) -> dict:
+    """最终判定口径（规格 §7.2、§11.2）。y_true = -1 表示 unknown 真值；y_pred = -1 表示判「认不出」。
+
+    混淆矩阵 (C+1)×(C+1)：行 = 各类 + unknown 真值行，列 = 各类 + 「认不出」列。
+    召回的分母是该类全部真值样本（被拒识计为漏判）；precision 的分母是被判成该类的全部样本（含 unknown 真值被误判成它）；
+    已知类 macro-F1 只对有样本的类取平均；unknown 拒识率只在 unknown 真值样本上算。
+    """
+    C = len(class_keys)
+    y_true = np.asarray(y_true, dtype=np.int64)
+    y_pred = np.asarray(y_pred, dtype=np.int64)
+    cm = np.zeros((C + 1, C + 1), dtype=np.int64)
+    for t, p in zip(y_true, y_pred):
+        cm[C if t < 0 else t, C if p < 0 else p] += 1
+    per, f1s = [], []
+    for c in range(C):
+        tp, sup, pred_n = int(cm[c, c]), int(cm[c].sum()), int(cm[:, c].sum())
+        prec = tp / pred_n if pred_n else 0.0
+        rec = tp / sup if sup else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+        per.append({"key": class_keys[c], "support": sup, "recall": float(rec), "precision": float(prec), "f1": float(f1),
+                    "reject_rate": float(cm[c, C] / sup) if sup else None})
+        if sup:
+            f1s.append(f1)
+    known = y_true >= 0
+    n_known, n_unk = int(known.sum()), int((~known).sum())
+    return {
+        "n_known": n_known,
+        "n_unknown": n_unk,
+        "known_accuracy": float((y_pred[known] == y_true[known]).mean()) if n_known else None,
+        "known_macro_f1": float(np.mean(f1s)) if f1s else None,
+        "known_reject_rate": float((y_pred[known] < 0).mean()) if n_known else None,
+        "unknown_reject_rate": float((y_pred[~known] < 0).mean()) if n_unk else None,
+        "per_class": per,
+        "confusion": cm.tolist(),
+        "rows": list(class_keys) + [UNKNOWN_LABEL],
+        "cols": list(class_keys) + [REJECT_ZH],
     }
 
 
@@ -135,25 +189,36 @@ def thresholds_of(ckpt: dict) -> dict[str, float]:
 
 
 def evaluate_golden(golden_path: Path, rig: Rig, classifier, canonical, ckpt: dict,
-                    thresholds: dict[str, float] | None = None) -> dict | None:
-    """金标捏脸集：每条是一组滑杆值 + 期望标签（或 unknown）。走完整部署图（与 ONNX 同一套公式）。
-    逐条结果按当前阈值判定；thresholds 里的每个阈值另算一份通过率摘要（对照用）。"""
+                    thresholds: dict[str, float] | None = None, allow_skip: bool = False) -> dict:
+    """金标捏脸集：每条是一组滑杆值 + 期望标签（标注类或 unknown）。走完整部署图（与 ONNX 同一套公式）。
+    逐条结果按当前阈值判定；thresholds 里的每个阈值另算一份通过率摘要（对照用）。
+
+    护栏：绑定名 / rig_hash 不符时抛 GoldenError（allow_skip=True 时返回带 skipped 的结果）；
+    值、标签、id 不合法一律抛 GoldenError。类别集模型：expect 按 from 映射，集外类不计入任何指标，另报预测去向。
+    """
     from .export import DeployModel
 
-    g = load_json(golden_path)
-    if g.get("rig") != rig.name:
-        return {"file": rel_to_project(golden_path), "skipped": f"金标集对应绑定 {g.get('rig')}，当前绑定 {rig.name}，跳过"}
+    file = rel_to_project(golden_path)
+    g = load_golden(golden_path)
+    mm = rig_mismatch(g, rig, file)
+    if mm:
+        if allow_skip:
+            return {"file": file, "rig": g.get("rig"), "model_rig": rig.name,
+                    "skipped": f"{mm}；已按 --allow-golden-skip 降级为跳过，本次没有金标结果"}
+        raise GoldenError(f"{mm}。金标只能评同一绑定训练的模型；确实要跳过请加 --allow-golden-skip（报告里会写明跳过）")
+    labels = labels_of_ckpt(ckpt)
+    problems = check_entries(g, rig, labels.annotation_keys, file)
+    if problems:
+        raise GoldenError(f"金标 {file} 有 {len(problems)} 个问题，不能用于评估：\n{format_problems(problems)}")
     keys = ckpt["class_keys"]
-    rows, expect, ids, notes = [], [], [], []
+    rows, expect, targets, ids, notes = [], [], [], [], []
     for e in g["entries"]:
-        unknown_keys = [k for k in e["sliders"] if k not in rig.keys]
-        if unknown_keys:
-            raise ValueError(f"金标 {e['id']} 用了绑定里没有的滑杆：{unknown_keys}")
         v = rig.defaults.copy()
         for k, val in e["sliders"].items():
             v[rig.keys.index(k)] = val
         rows.append(v)
         expect.append(e["expect"])
+        targets.append(labels.map_annotation(normalize_expect(e["expect"])))  # 集外类为 None
         ids.append(e["id"])
         notes.append(e.get("note", ""))
     deploy = DeployModel(rig, canonical, classifier, ckpt["temperature"]).eval()
@@ -165,56 +230,91 @@ def evaluate_golden(golden_path: Path, rig: Rig, classifier, canonical, ckpt: di
     n_ok = 0
     per_cls: dict[str, list[int]] = {}
     for i in range(len(rows)):
-        pred = "unknown" if dec[i] < 0 else keys[dec[i]]
-        ok = pred == expect[i]
-        n_ok += ok
-        per_cls.setdefault(expect[i], [0, 0])
-        per_cls[expect[i]][0] += ok
-        per_cls[expect[i]][1] += 1
+        pred = UNKNOWN_LABEL if dec[i] < 0 else keys[dec[i]]
         top = int(p[i].argmax())
-        entries.append({"id": ids[i], "expect": expect[i], "pred": pred, "ok": bool(ok),
-                        "top1": keys[top], "top1_prob": float(p[i, top]), "energy": float(en[i]), "note": notes[i]})
-    known = [e for e in entries if e["expect"] != "unknown"]
-    unk = [e for e in entries if e["expect"] == "unknown"]
-    exp = np.array(expect)
-    is_known = exp != "unknown"
+        ent = {"id": ids[i], "expect": expect[i], "pred": pred, "ok": None,
+               "top1": keys[top], "top1_prob": float(p[i, top]), "energy": float(en[i]), "note": notes[i]}
+        if targets[i] is None:
+            ent["out_of_set"] = True  # 集外类：只报告去向，不计入任何指标
+        else:
+            ok = pred == targets[i]
+            ent["ok"] = bool(ok)
+            n_ok += ok
+            per_cls.setdefault(expect[i], [0, 0])
+            per_cls[expect[i]][0] += ok
+            per_cls[expect[i]][1] += 1
+            if targets[i] != expect[i]:
+                ent["target"] = targets[i]
+        entries.append(ent)
+    tgt = np.array([t if t is not None else "" for t in targets])
+    scored = np.array([t is not None for t in targets], dtype=bool)
+    is_unk = tgt == UNKNOWN_LABEL
+    is_known = scored & ~is_unk
+    known = [e for e, k in zip(entries, is_known) if k]
+    unk = [e for e, u in zip(entries, is_unk) if u]
     by_thr = {}
     for name, t in (thresholds or {}).items():
         d = decide(p, en, t, ckpt["min_confidence"])
-        pred_t = np.array(["unknown" if k < 0 else keys[k] for k in d])
+        pred_t = np.array([UNKNOWN_LABEL if k < 0 else keys[k] for k in d])
         by_thr[name] = {
             "threshold": float(t),
             "known_pass": int((d[is_known] >= 0).sum()),
-            "known_correct": int((pred_t[is_known] == exp[is_known]).sum()),
+            "known_correct": int((pred_t[is_known] == tgt[is_known]).sum()),
             "n_known": int(is_known.sum()),
-            "weird_reject": int((d[~is_known] < 0).sum()),
-            "n_weird": int((~is_known).sum()),
+            "weird_reject": int((d[is_unk] < 0).sum()),
+            "n_weird": int(is_unk.sum()),
             "known_pass_energy_only": int((en[is_known] <= t).sum()),
         }
-    return {
-        "file": rel_to_project(golden_path),
+    y_true = np.array([keys.index(t) if t != UNKNOWN_LABEL else -1 for t in tgt[scored]], dtype=np.int64)
+    n_scored = int(scored.sum())
+    out = {
+        "file": file,
         "rig": rig.name,
+        "status": g.get("status"),
+        "status_zh": status_zh(g.get("status")),
+        "human_labeled": g.get("status") == HUMAN_STATUS,
         "n": len(entries),
         "n_known": len(known),
         "n_weird": len(unk),
         "known_correct": int(sum(e["ok"] for e in known)),
         "weird_correct": int(sum(e["ok"] for e in unk)),
         "by_threshold": by_thr,
-        "accuracy": n_ok / len(entries) if entries else float("nan"),
+        "accuracy": n_ok / n_scored if n_scored else float("nan"),
         "known_accuracy": float(np.mean([e["ok"] for e in known])) if known else None,
         "unknown_detection": float(np.mean([e["ok"] for e in unk])) if unk else None,
         "per_expect": {k: {"ok": v[0], "n": v[1]} for k, v in per_cls.items()},
+        "final": open_set_metrics(y_true, dec[scored], keys),
         "entries": entries,
     }
+    if labels.label_set:
+        dest: dict[str, dict[str, int]] = {}
+        for e in entries:
+            if e.get("out_of_set"):
+                dest.setdefault(e["expect"], {})
+                dest[e["expect"]][e["pred"]] = dest[e["expect"]].get(e["pred"], 0) + 1
+        out["label_set"] = labels.label_set["name"]
+        out["out_of_set"] = {"classes": labels.dropped, "n": int((~scored).sum()), "destinations": dest,
+                             "note": "集外类样本只报告预测去向，不计入任何指标（规格 §15.2）"}
+    return out
 
 
 # ---------------------------------------------------------------- 整体评估
 
 
+def output_names(tag: str | None) -> tuple[str, str]:
+    """评估产物文件名：不给 tag 时是 metrics.json / report.md；给了是 metrics_<tag>.json / report_<tag>.md。"""
+    if tag is None:
+        return "metrics.json", "report.md"
+    if not TAG_RX.match(tag):
+        raise ValueError(f"--tag 只能用字母、数字、下划线、连字符：{tag!r}")
+    return f"metrics_{tag}.json", f"report_{tag}.md"
+
+
 def evaluate_run(run_dir: Path, golden: Path | None = None, npz: list[Path] | None = None, write: bool = True,
-                 extra: dict | None = None, log=print) -> dict:
+                 extra: dict | None = None, log=print, allow_golden_skip: bool = False, tag: str | None = None) -> dict:
     from .models import count_params, load_checkpoint
 
+    metrics_name, report_name = output_names(tag)
     run_dir = Path(run_dir)
     classifier, ckpt, canonical = load_checkpoint(run_dir)
     keys = ckpt["class_keys"]
@@ -258,6 +358,9 @@ def evaluate_run(run_dir: Path, golden: Path | None = None, npz: list[Path] | No
     }
     dec_val = decide(p_after, e_id, thr, ckpt["min_confidence"])
     ood["id_unknown_rate_with_min_conf"] = float((dec_val < 0).mean())
+    val_final = {"view": val["view"], **open_set_metrics(y_val, dec_val, keys),
+                 "note": "按当前阈值最终判定（规格 §7.2）：被拒识计为该类漏判；合成验证集没有 unknown 真值行，"
+                         "怪脸拒识率见「认不出」一节的留出集拒识率"}
 
     # 各阈值规则的对照（DESIGN §6）：分布内通过率、留出负样本拒识率
     p_ood = softmax_np(logits_of(classifier, ev["negp_heldout"], mask) / T)
@@ -300,6 +403,7 @@ def evaluate_run(run_dir: Path, golden: Path | None = None, npz: list[Path] | No
         "val": val,
         "val_raw": {"view": "原值（未投影）", "accuracy": val_raw["accuracy"], "macro_f1": val_raw["macro_f1"]},
         "val_by_source": by_src,
+        "val_final": val_final,
         "calibration": calib,
         "ood": ood,
         "thresholds": thresholds,
@@ -308,19 +412,22 @@ def evaluate_run(run_dir: Path, golden: Path | None = None, npz: list[Path] | No
     }
 
     rig = rig_of_ckpt(ckpt, canonical)
-    if golden is not None and Path(golden).exists():
-        metrics["golden"] = evaluate_golden(Path(golden), rig, classifier, canonical, ckpt, thr_all)
+    if golden is not None:  # 文件缺失、绑定不符、数据不合法都抛 GoldenError，不再静默跳过
+        metrics["golden"] = evaluate_golden(Path(golden), rig, classifier, canonical, ckpt, thr_all,
+                                            allow_skip=allow_golden_skip)
+        if "skipped" in metrics["golden"]:
+            log(f"[评估] 金标已跳过：{metrics['golden']['skipped']}")
         for name, st in (metrics["golden"].get("by_threshold") or {}).items():
             by_rule[name].update({"golden_known_pass": st["known_pass"], "golden_known_correct": st["known_correct"],
                                   "golden_n_known": st["n_known"], "golden_weird_reject": st["weird_reject"],
                                   "golden_n_weird": st["n_weird"]})
 
-    labels = load_labels()
+    labels = labels_of_ckpt(ckpt)  # 类别集模型：公开集的标注类按 from 映射，集外类丢弃
     for p in npz or []:
         fs = load_features(p, canonical)
-        norm = [labels.normalize(l) if l else None for l in fs.label]
-        keep = np.array([k in keys for k in norm])  # 只评训练时启用的类别
-        y = np.array([keys.index(k) for k, ok in zip(norm, keep) if ok], dtype=np.int64)
+        idx = [labels.to_class_index(l) if l else None for l in fs.label]
+        keep = np.array([i is not None for i in idx], dtype=bool)  # 只评训练时启用的类别
+        y = np.array([i for i in idx if i is not None], dtype=np.int64)
         X = fs.x[keep]
         test = fs.split[keep] == "test"
         use = test if test.any() else np.ones(len(X), bool)
@@ -338,11 +445,13 @@ def evaluate_run(run_dir: Path, golden: Path | None = None, npz: list[Path] | No
         metrics["external"][fs.dataset] = r
         log(f"[评估] 外部集 {fs.dataset}：acc {r['accuracy']:.4f}，macro-F1 {r['macro_f1']:.4f}（{r['split_used']}，n={r['n']}）")
 
+    if tag is not None:
+        metrics["eval_tag"] = tag
     if extra:
         metrics.update(extra)
     if write:
-        save_json(metrics, run_dir / "metrics.json")
-        (run_dir / "report.md").write_text(render_report(metrics, ckpt), encoding="utf-8", newline="\n")
+        save_json(metrics, run_dir / metrics_name)
+        (run_dir / report_name).write_text(render_report(metrics, ckpt), encoding="utf-8", newline="\n")
     return metrics
 
 
@@ -353,17 +462,49 @@ def _f(v, nd=4):
     return "—" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{v:.{nd}f}"
 
 
+def _confusion_lines(fin: dict, zh: dict) -> list[str]:
+    """最终判定混淆矩阵：行 = 各类（+ unknown 真值行，有样本时），列 = 各类 + 「认不出」。"""
+    rows, cols, cm = fin["rows"], fin["cols"], fin["confusion"]
+    L = ["| 真值 \\ 判定 | " + " | ".join(cols) + " |", "| --- | " + " | ".join("---" for _ in cols) + " |"]
+    for i, (k, row) in enumerate(zip(rows, cm)):
+        if i == len(rows) - 1 and not fin["n_unknown"]:
+            continue
+        L.append(f"| {k if k == UNKNOWN_LABEL else f'{k}（{zh.get(k, k)}）'} | " + " | ".join(str(x) for x in row) + " |")
+    return L
+
+
+def _per_class_lines(fin: dict, zh: dict) -> list[str]:
+    L = ["| 类别 | 样本数 | 召回（被拒计漏判） | 精确率 | F1 | 被拒比例 |", "| --- | --- | --- | --- | --- | --- |"]
+    for r in fin["per_class"]:
+        L.append(f"| {r['key']}（{zh.get(r['key'], r['key'])}） | {r['support']} | {_f(r['recall'], 3)} | {_f(r['precision'], 3)} | "
+                 f"{_f(r['f1'], 3)} | {_f(r['reject_rate'], 3)} |")
+    return L
+
+
 def render_report(m: dict, ckpt: dict) -> str:
     keys = ckpt["class_keys"]
     zh = dict(zip(ckpt["class_keys"], ckpt["class_zh"]))
+    g = m.get("golden")
+    human_golden = bool(g and g.get("human_labeled"))
     L = []
-    L.append(f"# 训练报告：{m['run']}\n")
-    L.append(f"> {DISCLAIMER_SYNTH if m['commercial_use_allowed'] else DISCLAIMER_REAL}\n")
+    L.append(f"# 训练报告：{m['run']}" + (f"（评估标签 {m['eval_tag']}）" if m.get("eval_tag") else "") + "\n")
+    if m["commercial_use_allowed"]:
+        L.append(f"> {DISCLAIMER_SYNTH_HUMAN_GOLDEN if human_golden else DISCLAIMER_SYNTH}\n")
+    else:
+        L.append(f"> {DISCLAIMER_REAL}\n")
     L.append("## 概况\n")
     L.append(f"- 模型：`{m['model']}`，参数量 {m['params']:,}")
     L.append(f"- 类别：{', '.join(f'{k}（{zh[k]}）' for k in keys)}")
+    ls = ckpt.get("label_set")
+    if ls:
+        L.append(f"- 类别集：`{ls['name']}`（{ls.get('file') or '—'}）："
+                 + "，".join(f"{c['key']} ← {'+'.join(c['from'])}" for c in ls["classes"])
+                 + (f"；集外类 {', '.join(ls['drop'])}（不进正样本，评估时只报告去向）" if ls.get("drop") else ""))
     rig = ckpt.get("train_rig") or {}
     L.append(f"- 训练绑定：{rig.get('name', 'identity')}，哈希 `{str(ckpt.get('train_rig_hash'))[:16]}…`")
+    vf = ckpt.get("variant_filter") or {}
+    if vf.get("enabled"):
+        L.append(f"- 按绑定剔除变体：已打开，剔除 {len(vf.get('dropped', []))} 个（见下文「训练目标剔除的变体」）")
     L.append(f"- 可商用：{'是（只用合成数据）' if m['commercial_use_allowed'] else '否（含公开集）'}")
     L.append("- 数据来源：")
     for s in m["data_sources"]:
@@ -372,6 +513,21 @@ def render_report(m: dict, ckpt: dict) -> str:
         t = m["training"]
         L.append(f"- 训练：跑了 {t['epochs_run']} 个 epoch，最佳 epoch {t['best_epoch']}（验证 macro-F1 {_f(t['best_val_macro_f1'])}），用时 {t['seconds']:.0f} 秒")
     L.append("")
+    if vf.get("enabled"):
+        L.append("## 训练目标剔除的变体（按绑定，规格 §15.2）\n")
+        L.append(f"- 规则：变体的核心 AU（aus + 所选备选；optional 不加）按统一强度 {vf['probe_intensity']:g} 摆出 → "
+                 f"投影到训练绑定 {vf['rig']}（哈希 `{vf['rig_hash'][:16]}…`）→ 相对残差 ≥ {vf['rel_residual_threshold']:g} 就不进训练目标；"
+                 "带 choose 的变体逐个备选判断，只剔除做不出来的那个备选（剩下的备选平分，变体权重按保留比例缩小）。")
+        if vf.get("note"):
+            L.append(f"- {vf['note']}")
+        L.append(f"- 检查了 {vf['n_checked']} 个变体 / 备选，剔除 {len(vf['dropped'])} 个。\n")
+        L.append("| 类别 | 标注类 | 变体 # | 备选 # | 出处 | 核心 AU | 相对残差 | 剔除 | 说明 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        dropped = {(r["emotion"], r["variant"], r["choose"]) for r in vf["dropped"]}
+        for r in vf["variants"]:
+            mark = "**剔除**" if (r["emotion"], r["variant"], r["choose"]) in dropped else ""
+            L.append(f"| {r['class']} | {r['emotion']} | {r['variant']} | {'—' if r['choose'] is None else r['choose']} | {r['source']} | "
+                     f"{'+'.join(r['aus']) or '（无，不判）'} | {_f(r['rel_residual'], 3)} | {mark} | {r.get('note', '').replace('|', '&#124;')} |")
+        L.append("")
     v = m["val"]
     L.append(f"## 验证集（{v['view']}，n={v['n']}）\n")
     L.append(f"- accuracy **{_f(v['accuracy'])}**，macro-F1 **{_f(v['macro_f1'])}**")
@@ -386,6 +542,15 @@ def render_report(m: dict, ckpt: dict) -> str:
     L.append("| --- | " + " | ".join("---" for _ in keys) + " |")
     for k, row in zip(keys, v["confusion"]):
         L.append(f"| {k} | " + " | ".join(str(x) for x in row) + " |")
+    vfin = m.get("val_final")
+    if vfin:
+        L.append("\n### 最终判定口径（规格 §7.2 / §11.2）\n")
+        L.append(f"- 最终判对率 **{_f(vfin['known_accuracy'])}**，最终 macro-F1 **{_f(vfin['known_macro_f1'])}**，"
+                 f"已知类被拒识比例 **{_f(vfin['known_reject_rate'])}**")
+        L.append(f"- 注：{vfin['note']}\n")
+        L += _per_class_lines(vfin, zh)
+        L.append("")
+        L += _confusion_lines(vfin, zh)
     c = m["calibration"]
     L.append("\n## 校准\n")
     L.append(f"- 温度 T = {_f(c['temperature'])}")
@@ -419,19 +584,42 @@ def render_report(m: dict, ckpt: dict) -> str:
     else:
         L.append(f"- energy_threshold = {_f(o['energy_threshold'])}：验证集通过率 {_f(o['id_pass_rate'])}，留出负样本拒识率 {_f(o['ood_reject_rate'])}")
         L.append(f"- 加上 min_confidence = {_f(ckpt['min_confidence'], 2)} 后，验证集被判「认不出」的比例 {_f(o['id_unknown_rate_with_min_conf'])}")
-    g = m.get("golden")
     L.append("\n## 金标捏脸集\n")
     if not g:
         L.append("- 未评估（没有提供金标文件）")
     elif "skipped" in g:
-        L.append(f"- {g['skipped']}")
+        L.append(f"- **已跳过**：{g['skipped']}")
     else:
-        L.append(f"- 文件 `{g['file']}`（绑定 {g['rig']}），共 {g['n']} 条：总准确率 **{_f(g['accuracy'])}**，"
-                 f"已知类 {g['known_correct']}/{g['n_known']}，怪脸 {g['weird_correct']}/{g['n_weird']}（按当前阈值）")
-        L.append("- 注意：这是按 FACS 原型手写的占位金标，与合成器同源，不能证明泛化（DESIGN §7）\n")
-        L.append("| id | 期望 | 判定 | 对 | top1 | top1 概率 | energy | 备注 |\n| --- | --- | --- | --- | --- | --- | --- | --- |")
+        n_oos = (g.get("out_of_set") or {}).get("n", 0)
+        L.append(f"- 文件 `{g['file']}`（绑定 {g['rig']}）；状态：**{g.get('status_zh', STATUS_PLACEHOLDER_ZH)}**"
+                 f"（文件 status：{g.get('status')}）")
+        L.append(f"- 共 {g['n']} 条：总准确率 **{_f(g['accuracy'])}**，已知类 {g['known_correct']}/{g['n_known']}，"
+                 f"怪脸 {g['weird_correct']}/{g['n_weird']}（按当前阈值）"
+                 + (f"；集外类 {n_oos} 条单独报告，不计入任何指标" if n_oos else ""))
+        if not g.get("human_labeled"):
+            L.append("- 注意：这是按 FACS 原型手写的占位金标，与合成器同源，不能证明泛化（DESIGN §7）")
+        fin = g.get("final")
+        if fin:
+            L.append("\n### 最终判定口径（规格 §11.2）\n")
+            L.append(f"- 已知类最终判对率 **{_f(fin['known_accuracy'])}**（被拒识也计为错误），已知类 macro-F1 **{_f(fin['known_macro_f1'])}**，"
+                     f"已知类被拒识比例 **{_f(fin['known_reject_rate'])}**；unknown 拒识率 **{_f(fin['unknown_reject_rate'])}**"
+                     f"（{fin['n_known']} 个已知类样本，{fin['n_unknown']} 个 unknown 样本）")
+            L.append("- 召回分母是该类全部样本（被拒识计为漏判）；精确率分母是被判成该类的全部样本（含 unknown 被误判成它）；"
+                     "macro-F1 只对有样本的类取平均\n")
+            L += _per_class_lines(fin, zh)
+            L.append("\n混淆矩阵（行 = 真值，含 unknown 真值行；列 = 判定，含「认不出」列）：\n")
+            L += _confusion_lines(fin, zh)
+        oos = g.get("out_of_set")
+        if oos and oos["n"]:
+            L.append(f"\n### 集外类的预测去向（{', '.join(oos['classes'])}；不计入任何指标，规格 §15.2）\n")
+            L.append("| 标注类 | 条数 | 去向 |\n| --- | --- | --- |")
+            for k, d in oos["destinations"].items():
+                L.append(f"| {k} | {sum(d.values())} | " + "，".join(f"{p} {n}" for p, n in sorted(d.items(), key=lambda kv: -kv[1])) + " |")
+        L.append("\n| id | 期望 | 判定 | 对 | top1 | top1 概率 | energy | 备注 |\n| --- | --- | --- | --- | --- | --- | --- | --- |")
         for e in g["entries"]:
-            L.append(f"| {e['id']} | {e['expect']} | {e['pred']} | {'✓' if e['ok'] else '✗'} | {e['top1']} | {_f(e['top1_prob'], 3)} | {_f(e['energy'], 2)} | {e['note']} |")
+            exp = e["expect"] + (f" → {e['target']}" if e.get("target") else "") + ("（集外）" if e.get("out_of_set") else "")
+            ok = "—" if e["ok"] is None else ("✓" if e["ok"] else "✗")
+            L.append(f"| {e['id']} | {exp} | {e['pred']} | {ok} | {e['top1']} | {_f(e['top1_prob'], 3)} | {_f(e['energy'], 2)} | {e['note']} |")
     if m.get("external"):
         L.append("\n## 外部数据集\n")
         for name, r in m["external"].items():
@@ -446,15 +634,28 @@ def render_report(m: dict, ckpt: dict) -> str:
 
 
 def main(argv=None) -> int:
-    ap = make_parser("python -m exprnet.evaluate", "重新评估一个训练产物，重写其中的 metrics.json 与 report.md。")
+    ap = make_parser("python -m exprnet.evaluate",
+                     "重新评估一个训练产物，重写其中的 metrics.json 与 report.md（给 --tag 时写 metrics_<tag>.json / report_<tag>.md）。")
     ap.add_argument("--run", required=True, help="训练产物目录，如 artifacts/runs/rf_synth")
-    ap.add_argument("--golden", default=None, help="金标集 json（默认用训练配置里的 golden）")
+    ap.add_argument("--golden", default=None, help="金标集 json（默认用训练配置里的 golden）；写 none 表示不评金标")
+    ap.add_argument("--allow-golden-skip", action="store_true",
+                    help="金标的绑定名 / rig_hash 与模型训练绑定不符时降级为跳过（默认报错退出），报告里会写明跳过")
+    ap.add_argument("--tag", default=None,
+                    help="评估标签：报告写到 metrics_<tag>.json / report_<tag>.md，开发集与测试集的评估互不覆盖（只能用字母、数字、_、-）")
     ap.add_argument("--npz", nargs="*", default=[], help="额外评估的特征缓存 npz（有官方 test 划分时只评 test）")
     args = ap.parse_args(argv)
     run_dir = resolve_cli_path(args.run)
+    try:
+        metrics_name, report_name = output_names(args.tag)
+    except ValueError as e:
+        ap.error(str(e))
     old = load_json(run_dir / "metrics.json") if (run_dir / "metrics.json").exists() else {}
-    golden = resolve_cli_path(args.golden) if args.golden else None
-    if golden is None:
+    if args.golden is not None and args.golden.lower() == "none":
+        golden = None
+    elif args.golden:
+        golden = resolve_cli_path(args.golden)
+    else:
+        golden = None
         import yaml
 
         snap = run_dir / "config.yaml"
@@ -464,14 +665,24 @@ def main(argv=None) -> int:
             g = (yaml.safe_load(snap.read_text(encoding="utf-8")) or {}).get("golden")
             golden = resolve_path(g) if g else None
     extra = {"training": old["training"]} if "training" in old else None
-    m = evaluate_run(run_dir, golden=golden, npz=[resolve_cli_path(p) for p in args.npz], extra=extra)
+    try:
+        m = evaluate_run(run_dir, golden=golden, npz=[resolve_cli_path(p) for p in args.npz], extra=extra,
+                         allow_golden_skip=args.allow_golden_skip, tag=args.tag)
+    except GoldenError as e:
+        print(f"[错误] {e}", file=sys.stderr)
+        print("[错误] 评估中止，没有写任何报告", file=sys.stderr)
+        return 2
     print(f"[评估] 验证集 acc {m['val']['accuracy']:.4f}，macro-F1 {m['val']['macro_f1']:.4f}；"
           f"ECE {m['calibration']['ece_before']:.4f} → {m['calibration']['ece_after']:.4f}；"
           f"OOD AUROC {m['ood']['auroc']:.4f}，FPR95 {m['ood']['fpr95']:.4f}")
+    vf = m["val_final"]
+    print(f"[评估] 验证集最终判定：判对率 {vf['known_accuracy']:.4f}，macro-F1 {vf['known_macro_f1']:.4f}，"
+          f"已知类被拒 {vf['known_reject_rate']:.4f}")
     g = m.get("golden")
     if g and "accuracy" in g:
-        print(f"[评估] 金标准确率 {g['accuracy']:.4f}（{g['n']} 条；已知类 {g['known_correct']}/{g['n_known']}，怪脸 {g['weird_correct']}/{g['n_weird']}）")
-    print(f"[评估] 报告：{rel_to_project(run_dir / 'report.md')}")
+        print(f"[评估] 金标（{g['status_zh']}）准确率 {g['accuracy']:.4f}（{g['n']} 条；已知类 {g['known_correct']}/{g['n_known']}，"
+              f"怪脸 {g['weird_correct']}/{g['n_weird']}）")
+    print(f"[评估] 报告：{rel_to_project(run_dir / report_name)}、{rel_to_project(run_dir / metrics_name)}")
     return 0
 
 

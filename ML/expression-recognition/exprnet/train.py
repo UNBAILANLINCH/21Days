@@ -8,10 +8,17 @@
     metrics.json     指标
     report.md        中文报告
 
+类别集（--label-set）：输出类换成类别集里的类，合并类的合成样本由成员类各出一半，集外类不进正样本。
+按绑定剔除变体（--drop-infeasible-variants）：核心 AU 投影到训练绑定后相对残差 ≥ 阈值的变体 / 备选不进训练目标，
+剔除清单写进 ckpt 与 report.md。
+金标在训练开始前就查：绑定名 / rig_hash 不符时报错退出（--allow-golden-skip 降级为跳过），值 / 标签 / id 不合法报错。
+
 用法示例（在 ML/expression-recognition 目录下）：
     python -m exprnet.train --name rf_synth
     python -m exprnet.train --name mlp_synth --model resmlp
     python -m exprnet.train --name rf_mix --npz data/features/rafdb.npz data/features/ckplus.npz
+    python -m exprnet.train --name laila_cand_opt_5c_resmlp --model resmlp --golden none \\
+        --rig analysis/laila_upper_bound/laila_candidate_optimistic.yaml --label-set laila_5class --drop-infeasible-variants
 """
 
 from __future__ import annotations
@@ -30,11 +37,12 @@ import yaml
 from .augment import intensity_scale, mirror, mixup, pick_projection
 from .calibrate import energy_np, fit_temperature, pick_threshold
 from .canonical import load_canonical
-from .common import (make_parser, ARTIFACTS_DIR, CONFIG_DIR, load_labels, load_yaml, portable_path, rel_to_project,
-                     resolve_cli_path, resolve_path, set_seed)
+from .common import (make_parser, ARTIFACTS_DIR, CONFIG_DIR, label_set_path, load_label_set, load_labels, load_yaml,
+                     portable_path, rel_to_project, resolve_cli_path, resolve_path, set_seed)
 from .datasets import build_train_data
 from .evaluate import classification_metrics, evaluate_run, logits_of
-from .facs import FacsSynthesizer
+from .facs import FacsSynthesizer, plan_variant_filter
+from .golden_check import GoldenError, check_entries, format_problems, load_golden, rig_mismatch
 from .losses import ExprLoss
 from .models import build_model, count_params
 from .rig import load_rig
@@ -61,16 +69,61 @@ def _param_groups(model: torch.nn.Module, wd: float):
     return [{"params": decay, "weight_decay": wd}, {"params": no_decay, "weight_decay": 0.0}]
 
 
+def precheck_golden(golden: Path, rig, annotation_keys: list[str], allow_skip: bool, log=print) -> None:
+    """训练开始前查金标，免得训完才发现绑定不符：不符时报错（allow_skip 时只提示，评估阶段跳过），数据不合法报错。"""
+    g = load_golden(golden)
+    mm = rig_mismatch(g, rig, rel_to_project(golden))
+    if mm:
+        if allow_skip:
+            log(f"[金标] {mm}；已按 --allow-golden-skip 降级为跳过")
+            return
+        raise GoldenError(f"{mm}。换对应绑定的金标，或加 --golden none 不评金标；确实要跳过请加 --allow-golden-skip")
+    problems = check_entries(g, rig, annotation_keys, rel_to_project(golden))
+    if problems:
+        raise GoldenError(f"金标 {rel_to_project(golden)} 有 {len(problems)} 个问题：\n{format_problems(problems)}")
+
+
+def _variant_filter(cfg: dict, canonical, labels, facs_cfg: dict, rig, log=print) -> dict:
+    """按绑定定剔除清单（配置 infeasible_variants）。没打开时返回 {"enabled": False}。"""
+    fcfg = cfg.get("infeasible_variants") or {}
+    if not fcfg.get("drop"):
+        return {"enabled": False}
+    probe = FacsSynthesizer(canonical, labels.keys, cfg=facs_cfg, class_members=labels.members())
+    info = plan_variant_filter(probe, rig, float(fcfg.get("rel_residual_threshold", 0.9)),
+                               float(fcfg.get("probe_intensity", 0.6)))
+    if rig.identity:
+        log(f"[变体剔除] 已打开，但{info['note']}")
+        return info
+    log(f"[变体剔除] 绑定 {rig.name}，阈值：相对残差 ≥ {info['rel_residual_threshold']:g}（统一强度 {info['probe_intensity']:g}），"
+        f"检查 {info['n_checked']} 个变体 / 备选，剔除 {len(info['dropped'])} 个")
+    for r in info["dropped"]:
+        alt = f" 备选 #{r['choose']}" if r["choose"] is not None else ""
+        log(f"           - {r['class']}（{r['emotion']}）变体 #{r['variant']}{alt} [{r['source']}] "
+            f"{'+'.join(r['aus'])}：相对残差 {r['rel_residual']:.3f}")
+    return info
+
+
 def train(cfg: dict, name: str, out_root: Path | None = None, log=print, use_cache: bool = True) -> Path:
     t0 = time.time()
     seed = int(cfg.get("seed", 0))
     set_seed(seed)
     torch.set_num_threads(max(1, min(8, torch.get_num_threads())))
     labels = load_labels(cfg.get("labels"))
+    if cfg.get("label_set"):
+        labels = load_label_set(cfg["label_set"], base=labels)
+        log(f"[类别] 类别集 {labels.label_set['name']}：" + "，".join(
+            f"{c['key']} ← {'+'.join(c['from'])}" for c in labels.label_set["classes"])
+            + (f"；集外类 {', '.join(labels.dropped)}（不进正样本）" if labels.dropped else ""))
     canonical = load_canonical(cfg.get("canonical"))
     facs_cfg = load_yaml(resolve_path(cfg.get("facs") or CONFIG_DIR / "facs.yaml"))
-    synth = FacsSynthesizer(canonical, labels.keys, cfg=facs_cfg)
     rig = load_rig(cfg.get("rig"), canonical)
+    golden = resolve_path(cfg["golden"]) if cfg.get("golden") else None
+    allow_golden_skip = bool(cfg.get("golden_allow_skip", False))
+    if golden is not None:
+        precheck_golden(golden, rig, labels.annotation_keys, allow_golden_skip, log=log)
+    vfilter = _variant_filter(cfg, canonical, labels, facs_cfg, rig, log=log)
+    synth = FacsSynthesizer(canonical, labels.keys, cfg=facs_cfg, class_members=labels.members(),
+                            exclude=vfilter.get("dropped"))
     run_dir = (out_root or ARTIFACTS_DIR / "runs") / name
     run_dir.mkdir(parents=True, exist_ok=True)
     log(f"[训练] 产物目录 {rel_to_project(run_dir)}")
@@ -181,6 +234,8 @@ def train(cfg: dict, name: str, out_root: Path | None = None, log=print, use_cac
         "params": n_params,
         "class_keys": labels.keys,
         "class_zh": labels.zh,
+        "label_set": labels.label_set,
+        "variant_filter": vfilter,
         "canonical_names": canonical.names,
         "masked_names": canonical.masked_names,
         "temperature": T,
@@ -205,8 +260,7 @@ def train(cfg: dict, name: str, out_root: Path | None = None, log=print, use_cac
 
     training = {"epochs_run": len(history), "best_epoch": best[1], "best_val_macro_f1": best[0],
                 "seconds": time.time() - t0, "history": history}
-    golden = resolve_path(cfg["golden"]) if cfg.get("golden") else None
-    m = evaluate_run(run_dir, golden=golden, extra={"training": training}, log=log)
+    m = evaluate_run(run_dir, golden=golden, extra={"training": training}, log=log, allow_golden_skip=allow_golden_skip)
     log(f"[评估] 验证 acc {m['val']['accuracy']:.4f}，macro-F1 {m['val']['macro_f1']:.4f}；"
         f"ECE {m['calibration']['ece_before']:.4f} → {m['calibration']['ece_after']:.4f}；"
         f"OOD AUROC {m['ood']['auroc']:.4f}，FPR95 {m['ood']['fpr95']:.4f}")
@@ -226,7 +280,7 @@ def _snapshot(cfg: dict, run_dir: Path) -> None:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
     snap = run_dir / "config_snapshot"
     snap.mkdir(exist_ok=True)
-    for key in ("labels", "canonical", "facs", "rig"):
+    for key in ("labels", "canonical", "facs", "rig", "label_set"):
         p = cfg.get(key)
         if p:
             src = resolve_path(p)
@@ -245,6 +299,14 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=None, help="随机种子（覆盖配置）")
     ap.add_argument("--rig", default=None, help="绑定配置 yaml；写 none 表示单位绑定（覆盖配置）")
     ap.add_argument("--golden", default=None, help="金标集 json；写 none 表示不评金标（覆盖配置）")
+    ap.add_argument("--allow-golden-skip", action="store_true",
+                    help="金标的绑定名 / rig_hash 与训练绑定不符时降级为跳过（默认报错退出），报告里会写明跳过")
+    ap.add_argument("--label-set", default=None,
+                    help="类别集：configs/label_sets/ 下的名字（如 laila_5class）或 yaml 路径；写 none 表示用默认七类（覆盖配置）")
+    ap.add_argument("--drop-infeasible-variants", action="store_true",
+                    help="按训练绑定剔除做不出来的合成变体（核心 AU 投影后相对残差 ≥ 阈值），剔除清单写进报告与 ckpt")
+    ap.add_argument("--infeasible-threshold", type=float, default=None,
+                    help="变体剔除的相对残差阈值（覆盖配置，默认 0.9）")
     ap.add_argument("--n-per-class", type=int, default=None, help="合成数据每类样本数（覆盖配置里 synthetic 来源）")
     ap.add_argument("--npz", nargs="*", default=None, help="追加公开集特征缓存 npz 作为训练来源（会使 commercial_use_allowed=false）")
     ap.add_argument("--no-synthetic", action="store_true", help="不用合成数据（只用 --npz）")
@@ -266,6 +328,17 @@ def main(argv=None) -> int:
         cfg["rig"] = None if args.rig.lower() == "none" else portable_path(resolve_cli_path(args.rig))
     if args.golden is not None:
         cfg["golden"] = None if args.golden.lower() == "none" else portable_path(resolve_cli_path(args.golden))
+    if args.allow_golden_skip:
+        cfg["golden_allow_skip"] = True
+    if args.label_set is not None:
+        cfg["label_set"] = None if args.label_set.lower() == "none" else portable_path(label_set_path(args.label_set))
+    if args.drop_infeasible_variants or args.infeasible_threshold is not None:
+        fv = cfg.get("infeasible_variants") or {}
+        cfg["infeasible_variants"] = fv
+        if args.drop_infeasible_variants:
+            fv["drop"] = True
+        if args.infeasible_threshold is not None:
+            fv["rel_residual_threshold"] = args.infeasible_threshold
     srcs = cfg["data"]["sources"]
     if args.no_synthetic:
         srcs = [s for s in srcs if s["kind"] != "synthetic"]
@@ -278,7 +351,11 @@ def main(argv=None) -> int:
     if not srcs:
         ap.error("没有任何训练数据来源")
     cfg["data"]["sources"] = srcs
-    train(cfg, args.name, use_cache=not args.no_cache)
+    try:
+        train(cfg, args.name, use_cache=not args.no_cache)
+    except (GoldenError, FileNotFoundError) as e:
+        print(f"[错误] {e}", file=sys.stderr)
+        return 2
     return 0
 
 

@@ -8,7 +8,17 @@ labels: configs/labels.yaml
 canonical: configs/canonical.yaml
 facs: configs/facs.yaml
 rig: configs/rigs/sample_rig.yaml    # 绑定配置；写 null 表示单位绑定（输入直接是规范空间 51 维）
-golden: golden/sample_rig.json       # 金标集；与 rig 不匹配时跳过
+golden: golden/sample_rig.json       # 金标集；绑定名 / rig_hash 与 rig 不符时报错退出（训练开始前就查）
+golden_allow_skip: false             # true = 金标绑定不符时降级为跳过，并在报告里写明（命令行 --allow-golden-skip）
+label_set: null                      # 类别集 yaml（如 configs/label_sets/laila_5class.yaml）；null = 直接用 labels 里的全部类别（默认七类）
+
+# 按绑定剔除做不出来的合成变体（规格 §15.2）：变体的核心 AU 按统一强度摆出、投影到当前绑定后，
+# 相对残差 ≥ 阈值就不进训练目标；带 choose（多选一）的变体逐个备选判断，只剔除做不出来的那个备选。
+# 剔除清单写进训练报告与 ckpt。单位绑定下投影无损，不剔除任何变体。命令行 --drop-infeasible-variants 打开。
+infeasible_variants:
+  drop: false
+  rel_residual_threshold: 0.9
+  probe_intensity: 0.6               # 摆核心 AU 用的统一强度（C 档中上）
 
 model:
   name: regionformer                 # regionformer（默认）| resmlp（基线）

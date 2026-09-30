@@ -4,10 +4,16 @@
        → 低强度干扰 AU → 随机眼球朝向（屏蔽维）→ 左右不对称抖动 → 高斯噪声 → 裁剪到 [0,1]。
        其中 clean_fraction 比例的「干净稀疏样本」跳过干扰 AU、眼球朝向、抖动与噪声，只保留核心 AU。
 负样本：随机滑杆组合（随机稀疏度）+ 拮抗表情基同时拉满，去掉与任一类正样本最近邻过近的。
+
+类别集（configs/label_sets/）：一个输出类可以由几个标注类组成（class_members），样本由各成员类平均分摊
+（每类总数不变，成员各出一半 / 三分之一……余数给排在前面的成员）；集外类不在任何输出类里，不进正样本。
+按绑定剔除做不出来的变体：variant_residuals 逐个变体（带 choose 的逐个备选）按统一强度摆出核心 AU、投影到绑定，
+算相对残差；plan_variant_filter 按阈值定剔除清单，交给合成器的 exclude 参数。
 """
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,10 +58,18 @@ class _Variant:
     drop_one_of: list[str]
     drop_prob: float
     weight: float
+    note: str = ""
 
 
 class FacsSynthesizer:
-    def __init__(self, canonical: Canonical, class_keys: list[str], cfg: dict | None = None, cfg_path: str | Path | None = None):
+    """class_keys：输出类（顺序即 y 的下标）。
+    class_members：{输出类: [facs.yaml 里的情绪 key]}，缺省时每类就是它自己（默认七类）。
+    exclude：要剔除的变体，[{emotion, variant, choose}]，variant 是 facs.yaml 里的原始下标，
+             choose 为 None 表示整条变体，否则只剔除那一个备选（剩下的备选平分，变体权重按保留比例缩小）。
+    """
+
+    def __init__(self, canonical: Canonical, class_keys: list[str], cfg: dict | None = None, cfg_path: str | Path | None = None,
+                 class_members: dict[str, list[str]] | None = None, exclude: list[dict] | None = None):
         if cfg is None:
             cfg = load_yaml(resolve_path(cfg_path or CONFIG_DIR / "facs.yaml"))
         self.cfg = cfg
@@ -91,9 +105,15 @@ class FacsSynthesizer:
         self.side_R = np.array([s == "R" for s in canonical.sides])
         self.paired = np.array([s != "C" for s in canonical.sides])
 
-        # 情绪变体
+        # 输出类 → 情绪（标注类）；默认每类就是它自己
+        members = class_members or {}
+        self.class_members: dict[str, list[str]] = {k: list(members.get(k) or [k]) for k in self.class_keys}
+
+        # 情绪变体（按情绪 key 存；默认七类时情绪 key 就是输出类 key）
         self.variants: dict[str, list[_Variant]] = {}
-        for key in self.class_keys:
+        for key in [e for k in self.class_keys for e in self.class_members[k]]:
+            if key in self.variants:
+                raise ValueError(f"情绪「{key}」被分进了不止一个输出类")
             if key not in cfg["emotions"]:
                 raise ValueError(f"facs.yaml 里没有类别「{key}」的原型；labels.yaml 启用的每个类别都要有")
             vs = []
@@ -110,12 +130,41 @@ class FacsSynthesizer:
                     drop_one_of=list(v.get("drop_one_of") or []),
                     drop_prob=float(v.get("drop_prob", 0.0)),
                     weight=float(v.get("weight", 1.0)),
+                    note=str(v.get("note") or ""),
                 )
                 for au in list(var.aus) + [a for c in var.choose for a in c] + list(var.optional):
                     if au not in self.au_vec:
                         raise ValueError(f"{key} 用到了未映射的 {au}")
                 vs.append(var)
             self.variants[key] = vs
+        if exclude:
+            self._apply_exclusions(exclude)
+
+    def _apply_exclusions(self, exclude: list[dict]) -> None:
+        """按剔除清单删变体 / 备选。备选部分剔除时，剩下的备选仍等概率抽，变体权重乘保留比例
+        （等价于「原分布里只留做得出来的那部分再归一」）。某个情绪的变体全被剔除时报错。"""
+        by_var: dict[tuple[str, int], set] = {}
+        for e in exclude:
+            emo, vi = str(e["emotion"]), int(e["variant"])
+            if emo not in self.variants or not 0 <= vi < len(self.variants[emo]):
+                raise ValueError(f"剔除清单里的变体不存在：{emo} #{vi}")
+            ci = e.get("choose")
+            by_var.setdefault((emo, vi), set()).add(None if ci is None else int(ci))
+        for emo, vs in self.variants.items():
+            kept = []
+            for vi, var in enumerate(vs):
+                drops = by_var.get((emo, vi))
+                if not drops:
+                    kept.append(var)
+                    continue
+                if None in drops or not var.choose:
+                    continue  # 整条变体剔除
+                alts = [c for ci, c in enumerate(var.choose) if ci not in drops]
+                if alts:
+                    kept.append(dataclasses.replace(var, choose=alts, weight=var.weight * len(alts) / len(var.choose)))
+            if not kept:
+                raise ValueError(f"情绪「{emo}」的变体全部被剔除（在当前绑定下都做不出来）：请在类别集里把它列入 drop，或检查绑定")
+            self.variants[emo] = kept
 
     # ------------------------------------------------------------ 采样零件
     def _sample_value(self, spec: str, rng: np.random.Generator) -> float:
@@ -172,7 +221,18 @@ class FacsSynthesizer:
 
     # ------------------------------------------------------------ 正样本
     def sample_class(self, key: str, n: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
-        """返回 (X [n, D], clean [n] bool)。干净样本数 = round(n · clean_fraction)，位置随机。"""
+        """输出类 key 的 n 个样本，返回 (X [n, D], clean [n] bool)。
+        由几个情绪组成时各情绪平分 n（余数给排在前面的），按成员顺序拼接；只有一个成员时与原先完全相同。"""
+        members = self.class_members[key]
+        if len(members) == 1:
+            return self._sample_emotion(members[0], n, rng)
+        m = len(members)
+        counts = [n // m + (1 if i < n % m else 0) for i in range(m)]
+        parts = [self._sample_emotion(emo, c, rng) for emo, c in zip(members, counts)]
+        return np.concatenate([p[0] for p in parts]), np.concatenate([p[1] for p in parts])
+
+    def _sample_emotion(self, key: str, n: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+        """情绪 key 的 n 个样本。干净样本数 = round(n · clean_fraction)，位置随机。"""
         vs = self.variants[key]
         w = np.array([v.weight for v in vs], dtype=np.float64)
         w /= w.sum()
@@ -196,6 +256,36 @@ class FacsSynthesizer:
             ys.append(np.full(n_per_class, c, dtype=np.int64))
         X, y = np.concatenate(xs), np.concatenate(ys)
         return (X, y, np.concatenate(cs)) if return_clean else (X, y)
+
+    # ------------------------------------------------------------ 按绑定判变体做不做得出来
+    def variant_residuals(self, rig, intensity: float = 0.6) -> list[dict]:
+        """逐个变体（带 choose 的逐个备选）：核心 AU（aus + 该备选；optional 不加、drop_one_of 不删）
+        按统一强度摆出 → 屏蔽维置零 → 投影到绑定 → 相对残差 ||x − x̂||² / ||x||²。
+        单侧 AU 取左侧（random 也取左侧）。没有核心 AU 的变体（中性）不判，rel_residual 为 None。
+        variant 是当前变体列表里的下标：要在未剔除的合成器上调用，下标才对得上 facs.yaml。"""
+        mask = self.canonical.mask_vector
+        rows = []
+        for cls in self.class_keys:
+            for emo in self.class_members[cls]:
+                for vi, var in enumerate(self.variants[emo]):
+                    alts = list(enumerate(var.choose)) if var.choose else [(None, {})]
+                    for ci, alt in alts:
+                        aus = dict(var.aus)
+                        aus.update(alt)
+                        row = {"class": cls, "emotion": emo, "variant": vi, "choose": ci, "source": var.source,
+                               "note": var.note, "aus": list(aus), "rel_residual": None}
+                        if aus:
+                            x = np.zeros(self.D)
+                            for au in aus:
+                                side = var.unilateral.get(au)
+                                x = self._combine(x, self._au_contrib(au, intensity, "L" if side == "random" else side))
+                            x = np.clip(x, 0.0, 1.0) * mask
+                            den = float((x**2).sum())
+                            if den > 1e-12:
+                                _, xh = rig.project(x[None], mask)
+                                row["rel_residual"] = float(((x - xh[0].astype(np.float64)) ** 2).sum() / den)
+                        rows.append(row)
+        return rows
 
     # ------------------------------------------------------------ 负样本
     def negatives(self, n: int, seed: int, rig=None, reference: np.ndarray | None = None) -> np.ndarray:
@@ -277,6 +367,29 @@ def _nn_distance(a: np.ndarray, ref: np.ndarray, chunk: int = 2048) -> np.ndarra
         d2 = (x**2).sum(1)[:, None] + rn[None, :] - 2 * x @ ref.T
         out[s : s + chunk] = np.sqrt(np.maximum(d2.min(1), 0))
     return out
+
+
+def plan_variant_filter(synth: FacsSynthesizer, rig, threshold: float = 0.9, intensity: float = 0.6) -> dict:
+    """按绑定定剔除清单：相对残差 ≥ threshold 的变体 / 备选不进训练目标（规格 §15.2）。
+    synth 必须是未剔除的合成器（variant 下标对应 facs.yaml）。单位绑定下投影无损，不剔除任何变体。"""
+    if not 0.0 < float(threshold) <= 1.0:
+        raise ValueError(f"变体剔除阈值必须在 (0, 1] 内：{threshold}")
+    rows = synth.variant_residuals(rig, intensity)
+    dropped = [r for r in rows if r["rel_residual"] is not None and r["rel_residual"] >= threshold]
+    info = {
+        "enabled": True,
+        "rel_residual_threshold": float(threshold),
+        "probe_intensity": float(intensity),
+        "rig": rig.name,
+        "rig_identity": bool(rig.identity),
+        "rig_hash": rig.config_hash(),
+        "n_checked": sum(r["rel_residual"] is not None for r in rows),
+        "dropped": dropped,
+        "variants": rows,
+    }
+    if rig.identity:
+        info["note"] = "当前是单位绑定（没有绑定配置）：投影无损，所有变体都做得出来，不剔除任何变体"
+    return info
 
 
 def variant_sources(cfg: dict, class_keys: list[str]) -> dict[str, dict[str, int]]:

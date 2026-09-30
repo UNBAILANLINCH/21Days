@@ -83,6 +83,26 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 - “所有项目聊天自动注册 MCP、持续保活”尚未完成；不能把已注册项目 hooks 当成该能力已实现。连接成功以本会话实际读取目标编辑器为准，测试/域重载期间出现短暂断连时先等待再重连，不反复重启健康 bridge。
 - `.codex/hooks/README.md`、`adapter.py`、`test_adapter.py` 当前属于其它聊天的未提交压缩输出修复；按该聊天证据单独审查，不混入气泡或 Narrative 提交。
 
+### 1.7 laila 捏脸表情识别：阶段门 A 已过，从阶段门 B 接着做
+
+规格是 [`PRP/laila-expression-recognition/spec.md`](PRP/laila-expression-recognition/spec.md)，**先读 §15 的审阅结论**。网络代码在 `ML/expression-recognition/`（独立 Python 项目，README 里有环境与命令）。
+
+- **已定（2026-09-30）**：规格通过阶段门 A，12 维输入契约与按钮触发不变。**验收类别改为五类**：neutral、happy、sad、surprise_fear（惊讶与恐惧合并）、angry；厌恶是集外类，完整七类只作不承诺的争取目标。
+  依据是上限分析 [`ML/expression-recognition/analysis/laila_upper_bound/REPORT.md`](ML/expression-recognition/analysis/laila_upper_bound/REPORT.md)：laila 现有 22 个形态做不出恐惧要的「又抬又皱」眉形，也做不出厌恶要的皱鼻，这两类在乐观上限下也只有 0.64 左右。
+- **网络侧已做完**（`0f43f1e`）：类别集 `--label-set laila_5class`、按绑定剔除做不出来的合成变体、导出元数据的 ONNX sha256、评估器护栏（绑定不符直接报错、`golden_check` 查开发集和测试集不串组、`--tag` 分开报告）、12 维契约测试。不要在 Unity 侧再实现一遍「12 维 → 规范空间」的换算或 softmax。
+- **下一步按顺序**：
+  1. **阶段门 B 几何校准**（要用编辑器）：按 spec §5.3 逐轴看形变，写出 `ML/expression-recognition/configs/rigs/laila_rig.yaml`（`laila_v1`）和 `laila-binding-review.md`。先确认三件事：
+     - `Brow_*_Up` 是否带内眉上抬；
+     - 嘴角 Out 是不是横拉，In 是噘嘴还是抿紧（抿紧的话愤怒有救）；
+     - `Mouth_UpperLip_Up.001` 是否带动鼻翼（决定厌恶能不能回来）。
+     这个文件建好之前，契约测试里那一条会一直跳过，这是正常的。
+  2. **Unity 侧接入**（spec §8–§9）：probs 的类别维是 **5**，不是 7（见 §15.2）。
+  3. **采集工具与人工盲标**：要 3 个人独立盲标，这需要外部人手。仍按七类加「不明确」来采和标，评估时自动映射成五类。
+  4. **正式训练与导出**：命令见 spec §7.1，额外加 `--label-set laila_5class --drop-infeasible-variants`。
+- **别做**：
+  - 不要用 `analysis/laila_upper_bound/` 里的两份候选绑定导出部署，它们的系数都没有经过几何校准；
+  - 模型训练用了公开集的，一律不得随包发布，元数据里 `commercial_use_allowed` 会是 false。
+
 ---
 
 ## 2. 等拍板，不要自己决定

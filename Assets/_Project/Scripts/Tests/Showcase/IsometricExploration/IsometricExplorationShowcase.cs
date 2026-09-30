@@ -19,6 +19,7 @@ using Game.Monster;
 using Game.Player;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace Game.Tests.Showcase.IsometricExploration
@@ -39,9 +40,9 @@ namespace Game.Tests.Showcase.IsometricExploration
         public IEnumerator CameraDistanceCulling_HidesDistantVisualAndRestoresIt()
         {
             yield return EnterWorld();
-            Camera camera = FindRequired<Camera>("Main Camera");
-            CameraDistanceCulling culling = FindRequired<CameraDistanceCulling>("Main Camera");
-            SmoothCameraFollow follow = FindRequired<SmoothCameraFollow>("Main Camera");
+            Camera camera = FindExplorationCamera();
+            CameraDistanceCulling culling = RequireOnCamera<CameraDistanceCulling>(camera);
+            SmoothCameraFollow follow = RequireOnCamera<SmoothCameraFollow>(camera);
             bool followWasEnabled = follow.enabled;
             var marker = Track(GameObject.CreatePrimitive(PrimitiveType.Cube));
             marker.name = "DistanceCullingDemo";
@@ -141,6 +142,65 @@ namespace Game.Tests.Showcase.IsometricExploration
         }
 
         // ───────────────────────── 进场与驱动 ─────────────────────────
+
+        /// <summary>SampleScene 里探索主相机的物体名（场景根节点）。</summary>
+        private const string ExplorationCameraName = "Main Camera";
+
+        /// <summary>
+        /// 取 SampleScene 里的探索主相机。不能用 <see cref="ShowcaseScenario.FindRequired{T}"/> 按名字全局找：
+        /// Boot 常驻场景也有一台同名「Main Camera」，进世界后 <c>FallbackCamera</c> 只禁用它的 Camera 组件、物体仍激活
+        /// （要靠它收场景卸载事件，回标题时重新启用），<c>GameObject.Find</c> 取到的是 Boot 那台。
+        /// 所以限定在 SampleScene 的根物体里按名字取，再核对它就是正在渲染的 <c>Camera.main</c>——
+        /// 截图采样的前提是画面由这台相机画出。取不到或不在渲染属于前置条件不成立，直接中断。
+        /// </summary>
+        private static Camera FindExplorationCamera()
+        {
+            string sceneName = System.IO.Path.GetFileNameWithoutExtension(ShowcaseOptions.DemoScenePath);
+            Scene scene = SceneManager.GetSceneByName(sceneName);
+            if (!scene.isLoaded)
+            {
+                Assert.Fail($"场景 {sceneName} 未加载，取不到探索主相机。");
+                return null;
+            }
+
+            Camera found = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.name == ExplorationCameraName)
+                {
+                    found = root.GetComponent<Camera>();
+                    break;
+                }
+            }
+
+            if (found == null)
+            {
+                Assert.Fail($"场景 {sceneName} 的根节点里没有带 Camera 的「{ExplorationCameraName}」。");
+                return null;
+            }
+
+            if (!found.isActiveAndEnabled || Camera.main != found)
+            {
+                string main = Camera.main == null ? "null" : $"{Camera.main.name}（{Camera.main.gameObject.scene.name}）";
+                Assert.Fail($"{sceneName} 的「{ExplorationCameraName}」没有在渲染或不是 Camera.main"
+                            + $"（isActiveAndEnabled={found.isActiveAndEnabled}，Camera.main={main}）。");
+                return null;
+            }
+
+            return found;
+        }
+
+        /// <summary>取探索主相机物体上的组件，没挂直接中断（前置条件不成立）。</summary>
+        private static T RequireOnCamera<T>(Camera camera) where T : Component
+        {
+            T component = camera.GetComponent<T>();
+            if (component == null)
+            {
+                Assert.Fail($"{camera.gameObject.scene.name} 的「{camera.name}」上没有 {typeof(T).Name} 组件。");
+            }
+
+            return component;
+        }
 
         /// <summary>怪物在朝东巡逻、已走过楼梯口前方：推导见文件头「站位与时机」。</summary>
         private bool MonsterLeavesStairsFoot()

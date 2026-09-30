@@ -70,6 +70,26 @@ def run_js_hook(stem: str, payload: dict, timeout: int = 60) -> tuple[int, str, 
                 json.dumps(payload, ensure_ascii=False).encode("utf-8"), timeout)
 
 
+#: require 钩子脚本、调用导出的纯函数；参数与返回值都走 JSON（stdin 进、stdout 出），避开命令行引号转义
+_JS_CALL = (
+    "const m=require(process.argv[1]);let r='';process.stdin.setEncoding('utf8');"
+    "process.stdin.on('data',c=>r+=c).on('end',()=>{"
+    "process.stdout.write(JSON.stringify(m[process.argv[2]](...JSON.parse(r))));});"
+)
+
+
+def call_js(stem: str, func: str, *args):
+    """L1 测 JS 钩子的判据：`call_js("guard", "gitSubcommands", "git -C x commit")`。"""
+    node = node_exe()
+    if not node:
+        raise RuntimeError("没装 node")
+    code, out, err = _run([node, "-e", _JS_CALL, str(HOOKS / (stem + ".js")), func],
+                          json.dumps(list(args), ensure_ascii=False).encode("utf-8"), 60)
+    if code != 0:
+        raise RuntimeError("调用 %s.%s 失败：%s" % (stem, func, err.strip()))
+    return json.loads(out) if out.strip() else None
+
+
 def _run(cmd: list[str], data: bytes, timeout: int) -> tuple[int, str, str]:
     env = dict(os.environ)
     # 父会话的 CLAUDE_SESSION_ID 会污染「没传 session_id」的用例，清掉

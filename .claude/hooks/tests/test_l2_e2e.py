@@ -7,7 +7,10 @@ L1 保证判据算得对，L2 保证「钩子被真的调起来时」行为对 �
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import hookenv
 from hookenv import bash_payload, edit_payload, run_js_hook, run_py_hook
@@ -249,6 +252,129 @@ class Guard(unittest.TestCase):
             "tool_name": "Bash",
             "tool_input": {"command": "git commit -m 'x\n\nCo-Authored-By: Claude <a@b>'"}})
         self.assertEqual(_decision(out).get("permissionDecision"), "deny")
+
+
+@unittest.skipIf(hookenv.node_exe() is None, "没装 node")
+class GuardGitGlobalOptions(unittest.TestCase):
+    """guard.js：git 子命令前带全局选项（本工程推荐的 `git -C <路径>`）时，三道 git 判据照样生效。
+
+    2026-09-30 两次带 AI 署名的提交就是 `git -C … commit` 绕过了整串正则。
+    """
+
+    SIG = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+
+    def _decide(self, cmd):
+        _, out, _ = run_js_hook("guard", {"session_id": hookenv.new_sid(), "tool_name": "Bash",
+                                          "tool_input": {"command": cmd}})
+        return _decision(out).get("permissionDecision"), out
+
+    def _assert(self, cmd, want):
+        got, out = self._decide(cmd)
+        self.assertEqual(got, want, "%r → %s" % (cmd, out.strip() or "零输出"))
+
+    def test_c_path_commit_asks(self):
+        self._assert('git -C D:/x commit -m "修 guard"', "ask")
+
+    def test_c_quoted_path_heredoc_signature_denied(self):
+        self._assert("git -C \"D:/a b\" commit -F - <<'EOF'\nfix(harness): x\n\n%s\nEOF" % self.SIG, "deny")
+
+    def test_c_m_signature_denied(self):
+        self._assert('git -C D:/x commit -m "x\n\n%s"' % self.SIG, "deny")
+
+    def test_config_option_commit_asks(self):
+        self._assert("git -c user.name=x commit", "ask")
+
+    def test_stacked_options_commit_asks(self):
+        self._assert('git --no-pager -c "user.name=A B" -C "D:/a b" --git-dir=D:/x/.git -P commit -m y', "ask")
+
+    def test_c_push_asks(self):
+        self._assert("git -C D:/x push origin main", "ask")
+
+    def test_c_reset_hard_denied(self):
+        self._assert("git -C D:/x reset --hard", "deny")
+
+    def test_c_checkout_dashdash_denied(self):
+        self._assert("git -C D:/x checkout -- file", "deny")
+
+    def test_c_readonly_passes(self):
+        for cmd in ("git -C D:/x status", "git -C D:/x log", "git -C D:/x diff",
+                    "git -C D:/x reset --soft HEAD~1", "git -C D:/x checkout -b feat"):
+            with self.subTest(cmd=cmd):
+                self._assert(cmd, None)
+
+    def test_plain_forms_unchanged(self):
+        """不带全局选项的原有写法，结论与改前一致"""
+        for cmd, want in (("git commit -m x", "ask"), ("git push", "ask"),
+                          ("git commit -m 'x\n\n%s'" % self.SIG, "deny"),
+                          ("git reset --hard", "deny"), ("git checkout -- a.cs", "deny"),
+                          ("git clean -fd", "deny"), ("git restore a.cs", "deny"),
+                          ("git status", None), ("git log --oneline -5", None)):
+            with self.subTest(cmd=cmd):
+                self._assert(cmd, want)
+
+    def test_compound_commands(self):
+        self._assert("git -C D:/x add a.cs && git -C D:/x commit -m y", "ask")
+        self._assert("git -C D:/x status; git -C D:/x reset --hard", "deny")
+        self._assert("git -C D:/x status\ngit -C D:/x checkout -- a.cs", "deny")
+
+    def test_commit_message_mentioning_discard_asks(self):
+        """提交信息里提到 reset --hard：含 commit 先落到 ask，不误拒（顺序同旧判据）"""
+        self._assert("git -C D:/x commit -m 'fix: 拦 git -C x reset --hard'", "ask")
+
+    def test_mention_in_echo_asks(self):
+        """口径沿用旧判据：引号里提到 git commit 也问一次（bash -c "git …" 同理被认出）"""
+        self._assert('echo "git commit"', "ask")
+        self._assert('bash -c "git -C D:/x commit -m y"', "ask")
+
+    def test_unterminated_quote_fails_open(self):
+        self._assert('git -C "D:/x commit', None)
+
+
+@unittest.skipIf(hookenv.node_exe() is None, "没装 node")
+class GuardCommitMessageFile(unittest.TestCase):
+    """guard.js：`git commit -F <文件>`（commit-convention 推荐写法）的信息文件也查署名；读不到落回 ask"""
+
+    SIG = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="guard-msgfile-e2e-"))
+        (cls.tmp / "sub").mkdir()
+        (cls.tmp / "signed.txt").write_text("fix(harness): x\n\n%s\n" % cls.SIG, encoding="utf-8")
+        (cls.tmp / "clean.txt").write_text("fix(harness): x\n", encoding="utf-8")
+        (cls.tmp / "sub" / "msg.txt").write_text("fix: x\n\n%s\n" % cls.SIG, encoding="utf-8")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _decide(self, cmd, cwd=None):
+        payload = {"session_id": hookenv.new_sid(), "tool_name": "Bash", "tool_input": {"command": cmd}}
+        if cwd:
+            payload["cwd"] = cwd
+        _, out, _ = run_js_hook("guard", payload)
+        return _decision(out)
+
+    def test_signed_file_denied(self):
+        d = self._decide('git -C D:/x commit -F "%s" -- a.cs' % (self.tmp / "signed.txt").as_posix())
+        self.assertEqual(d.get("permissionDecision"), "deny")
+        self.assertIn("signed.txt", d.get("permissionDecisionReason", ""), "拒绝理由要点名是哪个文件")
+
+    def test_clean_file_asks(self):
+        d = self._decide('git commit --file="%s"' % (self.tmp / "clean.txt").as_posix())
+        self.assertEqual(d.get("permissionDecision"), "ask")
+
+    def test_missing_file_asks(self):
+        d = self._decide('git commit -F "%s"' % (self.tmp / "不存在.txt").as_posix())
+        self.assertEqual(d.get("permissionDecision"), "ask", "读不到文件 fail-open，落回原来的 ask")
+
+    def test_relative_path_with_c_resolved(self):
+        d = self._decide('git -C "%s" -C sub commit -F msg.txt' % self.tmp.as_posix())
+        self.assertEqual(d.get("permissionDecision"), "deny")
+
+    def test_relative_path_with_payload_cwd_resolved(self):
+        d = self._decide("git commit -Fsigned.txt", cwd=str(self.tmp))
+        self.assertEqual(d.get("permissionDecision"), "deny")
 
 
 @unittest.skipIf(hookenv.node_exe() is None, "没装 node")

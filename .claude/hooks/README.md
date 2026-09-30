@@ -8,7 +8,7 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 
 | 文件 | 事件 | matcher | 做什么 | 退出语义 |
 | --- | --- | --- | --- | --- |
-| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent\|mcp__UnityMCP__run_tests` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`、Luban 生成的 `Core/Config/Generated/` 与 `Data/Config/`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒；会丢工作区的 git 操作直接拒；Bash 里出现 `cd` / `pushd` 直接拒（带 cd 的相对路径过不了 `.env` Read deny 的静态检查，自动模式也弹确认；拒掉让调用方改绝对路径重发）；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传）；`run_tests` 跑 PlayMode 回放没限定到单个模块直接拒（现扫 `Tests/Showcase/` 下的模块清单比对 `group_names` 正则；`assembly_names` 不含回放程序集、`test_names` 点名、`clear_stuck` 只清孤儿任务都放行，判据自身出错 fail-open） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
+| `guard.js` | PreToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent\|mcp__UnityMCP__run_tests` | 拦 Unity 生成物写入（`Library/` `Temp/` `*.meta` `*.csproj` `packages-lock.json`、Luban 生成的 `Core/Config/Generated/` 与 `Data/Config/`）；`ProjectSettings/`、`Packages/manifest.json` 改为弹确认；`git commit/push` 弹确认，提交信息带 AI 署名直接拒（`-F` / `--file` 给的信息文件也读前 64 KB 查，相对路径按 `-C` 叠加、否则按 cwd 解析；读不到落回确认）；会丢工作区的 git 操作直接拒（git 判据按子命令判，先跳过 `-C <路径>`、`-c <键=值>`、`--no-pager` 等全局选项，复合命令逐个识别）；Bash 里出现 `cd` / `pushd` 直接拒（带 cd 的相对路径过不了 `.env` Read deny 的静态检查，自动模式也弹确认；拒掉让调用方改绝对路径重发）；`Agent` 派单漏传 `model` 或派成 `fable` 直接拒，`fork` 弹确认（frontmatter 已声明 `model:` 的自定义 agent 免传）；`run_tests` 跑 PlayMode 回放没限定到单个模块直接拒（现扫 `Tests/Showcase/` 下的模块清单比对 `group_names` 正则；`assembly_names` 不含回放程序集、`test_names` 点名、`clear_stuck` 只清孤儿任务都放行，判据自身出错 fail-open） | 永远 exit 0，deny / ask 走 JSON `permissionDecision` |
 | `required-reads.py` | PostToolUse | `Read\|Bash` | 记账：`Read` 记 `file_path`；`Bash` 从 `cat` / `head` / `tail` / `sed -n` / `less` / `type` 里解析出被读的文件（不在管道里、没有重定向、文件真实存在才算；`2>/dev/null` 不影响）。都写进 `.claude/.cache/reads/<会话>.jsonl` | 永远 exit 0，零输出 |
 | `required-reads.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 按 `required_reads.json` 查必读项读过没有，缺了就拒（拒绝理由里写明两条解锁路径） | 永远 exit 0，deny 走 JSON `permissionDecision` |
 | `knowledge-routing.py` | PreToolUse | `Edit\|Write\|MultiEdit` | 提示该文件适用的 `.claude/rules/` 规则与模块 guide，走 `additionalContext` 注入；**同一条提示文本**每会话只注入一次 | 永远 exit 0，**从不阻断** |
@@ -69,7 +69,7 @@ python .claude/hooks/tests/run.py     # L1 纯函数 + L2 端到端，一条命�
 ```
 
 - **L1**（`tests/test_l1_units.py`）：判据算得对不对 —— Bash 读取解析、路径归一化、
-  `${seg:N}` 展开、连续性计数状态机、去重。
+  `${seg:N}` 展开、连续性计数状态机、去重、`guard.js` 的 git 调用识别与提交信息文件解析（`hookenv.call_js` 经 node require 调纯函数）。
 - **L2**（`tests/test_l2_e2e.py`）：钩子被真的调起来时行为对不对 —— 子进程喂真实 stdin JSON，
   断言退出码与输出里该出现 / 不该出现什么。`guard.js` 也在里面（没装 node 时自动跳过）。
 - `/gc` 会跑这个入口。加了新判据或新提示**就补一条用例**，没有用例的判据等于没加。
@@ -160,6 +160,14 @@ printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene
 printf '{"tool_name":"Bash","tool_input":{"command":"cd E:/x && head -20 a.cs"}}' \
   | node .claude/hooks/guard.js   # → deny
 printf '{"tool_name":"Bash","tool_input":{"command":"head -20 E:/x/a.cs"}}' \
+  | node .claude/hooks/guard.js   # → 零输出
+```
+
+```bash
+# 7c) guard.js —— git 子命令前的全局选项要跳过（本工程推荐 git -C 代替 cd）
+printf '{"tool_name":"Bash","tool_input":{"command":"git -C E:/x reset --hard"}}' \
+  | node .claude/hooks/guard.js   # → deny
+printf '{"tool_name":"Bash","tool_input":{"command":"git -C E:/x status"}}' \
   | node .claude/hooks/guard.js   # → 零输出
 ```
 

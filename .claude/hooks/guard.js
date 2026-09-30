@@ -8,11 +8,17 @@
 // 状态锚点：`python .claude/hooks/tests/run.py` 里 GuardRunTestsScope 全绿；
 // 退场条件：回放不再占用共用编辑器（例如挪到独立 CI 机跑）时，连同用例一起删掉这个分支。
 //
+// Bash 里的 git 判据（提交授权 / 署名 / 丢弃改动）按子命令判，先跳过 `-C <路径>`、`-c <键=值>` 等全局选项
+// （gitSubcommands）：本工程 Bash 不写 cd、改写 `git -C`，整串正则认不出这种写法。
+// `commit -F <文件>` 的信息文件也读前 64 KB 查署名（signedMessageFile），读不到就落回 ask。
+// 状态锚点：run.py 里 GuardGitGlobalOptions / GuardCommitMessageFile / GitSubcommandParse / GitMessageFile 全绿。
+//
 // 本钩子的输出**几乎全是决策**（deny / ask），决策一律不去重：去重掉的那一次
 // 就是护栏漏掉的那一次。只有挂在 ask 上的背景说明走 shouldEmitOnce()，每会话说一次。
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -41,7 +47,8 @@ if (require.main === module) {
   process.stdin.on('data', (c) => (raw += c));
   process.stdin.on('end', () => main(raw));
 }
-module.exports = { listArg, showcaseModules, modulesMatchedBy, runTestsVerdict };
+module.exports = { listArg, showcaseModules, modulesMatchedBy, runTestsVerdict,
+  gitSubcommands, gitVerdict, commitMessageFiles, resolveGitPath };
 
 function main(raw) {
   let input;
@@ -71,18 +78,16 @@ function main(raw) {
     if (/(^|[;&|(\n]\s*)(cd|pushd)(\s|$)/.test(cmd)) {
       return decide('deny', 'Bash 不写 cd / pushd：路径写绝对路径或相对工程根（CLAUDE.md「验证与工具」）。带 cd 的相对路径过不了 .env Read deny 的静态检查，会弹确认');
     }
-    if (/\bgit\s+commit\b/.test(cmd) && /Co-Authored-By:\s*Claude|Claude-Session:|Generated with.{0,4}Claude Code|🤖/i.test(cmd)) {
-      return decide('deny', '提交信息带 AI 署名或会话链接，去掉后重试（docs/commit-convention.md）');
-    }
-    if (/\bgit\s+(commit|push)\b/.test(cmd)) {
+    const g = gitVerdict(cmd, input.cwd);   // 自带 try/catch：解析或读文件出错都返回 null / 落回 ask，走 fail-open
+    if (g && g.commitNote) {
       // ask 本身**每次都要问**——要人点头的事去重掉一次，就是护栏漏掉一次。
       // 只有附带的那句背景说明按会话去重：它每次都一样，说第二遍起只是在烧上下文。
       const note = '本工程的提交约定：改动攒在工作区，收敛后列清单给用户逐次授权；'
         + '提交信息按 docs/commit-convention.md，不带任何 AI 署名尾注。';
       const ctx = shouldEmitOnce(sessionId(input), note, 'guard-commit') ? note : '';
-      return decide('ask', 'git commit / push 需要用户逐次授权', ctx);
+      return decide(g.decision, g.reason, ctx);
     }
-    if (/\bgit\s+(reset\s+--hard|clean\b|checkout\s+--\s|restore\b)/.test(cmd)) return decide('deny', '会丢弃工作区改动的 git 操作，请用户手动执行');
+    if (g) return decide(g.decision, g.reason);
     if (/(^|[\s;&|])(rm|rmdir|del|Remove-Item)\b[^\n]*\b(Assets|ProjectSettings|Packages|\.git)\b/i.test(cmd)) return decide('ask', '删除工程目录内容，需确认');
   }
 
@@ -142,6 +147,323 @@ function shouldEmitOnce(sid, text, tag) {
     fs.appendFileSync(fp, key + '\n', 'utf8');
   } catch { /* 记不下就下次再说一遍，不该因此吞掉这一次 */ }
   return true;
+}
+
+// ── Bash 里的 git 调用（规则出处 CLAUDE.md「硬规则」、docs/commit-convention.md）──────────
+// 旧判据是 `\bgit\s+commit\b` 这类整串正则，子命令前一带全局选项（`git -C <路径> commit`）就全部失配，
+// 提交授权、署名拦截、丢弃改动三道检查一起失效（2026-09-30 有两次带署名的提交因此没拦下）。
+//
+// 口径沿用旧正则：命令文本**任何位置**出现的 git 都算，引号、$( )、反引号、heredoc 正文里的
+// 也当一段命令文本再识别一遍。这样 `bash -c "git …"`、`powershell -Command "git …"` 不用逐个列举；
+// 代价是 `echo "git commit"` 这类「提到」也算调用 —— 与旧判据一致，commit / push 多问一次。
+
+// 带值的全局选项（值可能带引号、含空格；`--git-dir=…` 这种等号写法走下面的通用分支）
+const GIT_VALUE_OPTS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace',
+  '--config-env', '--super-prefix', '--attr-source']);
+const GIT_MAX_DEPTH = 4;     // 引号 / $( ) / heredoc 的递归层数上限
+const GIT_MAX_TEXTS = 200;   // 一条命令最多识别多少段文本，防病态输入拖慢钩子
+const AI_SIGNATURE = /Co-Authored-By:\s*Claude|Claude-Session:|Generated with.{0,4}Claude Code|🤖/i;
+
+// 返回命令里每个 git 调用：[{ sub: 小写子命令, args: 其后的参数词（已去引号）, dirs: 依次出现的 -C 值 }]。
+// 跳过的全局选项：GIT_VALUE_OPTS 里的连同其值；其余以 - 开头的词（--no-pager / -P / -p / --bare /
+// --literal-pathspecs / --git-dir=… 等）当无值开关。`-c alias.<名>=<值>` 定义的别名解析回真实子命令。
+function gitSubcommands(cmd) {
+  const calls = [];
+  const queue = [[String(cmd == null ? '' : cmd), 0]];
+  for (let n = 0; queue.length && n < GIT_MAX_TEXTS; n++) {
+    const [text, depth] = queue.shift();
+    if (!/git/i.test(text)) continue;
+    const nested = [];
+    for (const words of shellCommands(text, nested)) collectGitCalls(words, calls, nested);
+    if (depth < GIT_MAX_DEPTH) for (const t of nested) queue.push([t, depth + 1]);
+  }
+  return calls;
+}
+
+function isGitWord(w) {
+  return /^git(\.exe)?$/i.test(String(w).replace(/\\/g, '/').split('/').pop());
+}
+
+function collectGitCalls(words, calls, nested) {
+  for (let k = 0; k < words.length; k++) {
+    if (!isGitWord(words[k])) continue;
+    const aliases = {};
+    const dirs = [];
+    let j = k + 1;
+    while (j < words.length && words[j].startsWith('-')) {
+      if (!GIT_VALUE_OPTS.has(words[j])) { j += 1; continue; }
+      if (words[j] === '-c' && j + 1 < words.length) noteAlias(words[j + 1], aliases, nested);
+      if (words[j] === '-C' && j + 1 < words.length) dirs.push(words[j + 1]);
+      j += 2;
+    }
+    if (j >= words.length) continue;
+    let sub = words[j].toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(aliases, sub)) sub = aliases[sub];
+    if (!sub) continue;
+    calls.push({ sub, args: words.slice(j + 1), dirs });
+    k = j;   // 选项值与子命令不再当 git 词重扫；参数里若还有 git 照样识别
+  }
+}
+
+// `-c alias.ci=commit` → ci 视作 commit；`-c 'alias.x=!git commit …'` 是外壳别名，值当一段命令文本再识别
+function noteAlias(kv, aliases, nested) {
+  const m = /^alias\.([^=]+)=([\s\S]*)$/i.exec(kv);
+  if (!m) return;
+  const body = m[2].trim();
+  if (body.startsWith('!')) nested.push(body.slice(1));
+  else if (body) aliases[m[1].toLowerCase()] = body.split(/\s+/)[0].toLowerCase();
+}
+
+// 把一段 shell 文本切成简单命令的词表（词已去引号），遇 ; & | ( ) 换行断开。
+// 引号内容、$( ) 与反引号内部、heredoc 正文另存进 nested，由 gitSubcommands 当独立文本再识别。
+// 只求够用且不抛：不认识的语法按普通字符处理，引号 / 括号没闭合就吃到结尾。
+function shellCommands(s, nested) {
+  const cmds = [];
+  const heredocs = [];   // 本行登记的 heredoc，换行后按顺序读正文
+  let words = [];
+  let cur = null;        // 正在拼的词；null 表示处在词间空白
+  const add = (t) => { cur = (cur === null ? '' : cur) + t; };
+  const endWord = () => { if (cur !== null) { words.push(cur); cur = null; } };
+  const endCmd = () => { endWord(); if (words.length) cmds.push(words); words = []; };
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === '\\') {
+      if (s[i + 1] === '\n') { i += 2; continue; }                          // 续行
+      if (s[i + 1] === '\r' && s[i + 2] === '\n') { i += 3; continue; }
+      if (i + 1 < s.length) add(s[i + 1]);
+      i += 2;
+      continue;
+    }
+    if (ch === "'") {
+      let e = s.indexOf("'", i + 1);
+      if (e < 0) e = s.length;
+      const body = s.slice(i + 1, e);
+      nested.push(body); add(body); i = e + 1;
+      continue;
+    }
+    if (ch === '"') {
+      let j = i + 1, body = '';
+      while (j < s.length && s[j] !== '"') {
+        if (s[j] === '\\' && j + 1 < s.length && '"\\$`\n'.includes(s[j + 1])) {
+          if (s[j + 1] !== '\n') body += s[j + 1];
+          j += 2;
+        } else body += s[j++];
+      }
+      nested.push(body); add(body); i = j + 1;
+      continue;
+    }
+    if (ch === '`') {
+      let e = s.indexOf('`', i + 1);
+      if (e < 0) e = s.length;
+      const body = s.slice(i + 1, e);
+      nested.push(body); add('`' + body + '`'); i = e + 1;
+      continue;
+    }
+    if (ch === '$' && s[i + 1] === '(') {
+      const e = closingParen(s, i + 1);
+      const body = s.slice(i + 2, e);
+      nested.push(body); add('$(' + body + ')'); i = e + 1;
+      continue;
+    }
+    if (ch === '<' && s.startsWith('<<<', i)) { endWord(); i += 3; continue; }   // here-string：后面那个词照常成词
+    if (ch === '<' && s[i + 1] === '<') {                                        // heredoc：登记结束符
+      endWord();
+      i += 2;
+      let tabs = false;
+      if (s[i] === '-') { tabs = true; i++; }
+      while (s[i] === ' ' || s[i] === '\t') i++;
+      let delim = '';
+      while (i < s.length && !/[\s;&|()<>]/.test(s[i])) {
+        if (s[i] === "'" || s[i] === '"') {
+          let e = s.indexOf(s[i], i + 1);
+          if (e < 0) e = s.length;
+          delim += s.slice(i + 1, e); i = e + 1;
+        } else if (s[i] === '\\') { delim += s[i + 1] || ''; i += 2; }
+        else delim += s[i++];
+      }
+      if (delim) heredocs.push({ delim, tabs });
+      continue;
+    }
+    if (ch === '\n') {
+      endCmd();
+      i++;
+      while (heredocs.length) {   // 正文读到单独一行的结束符为止；找不到就吃到结尾
+        const { delim, tabs } = heredocs.shift();
+        const lines = [];
+        while (i < s.length) {
+          let nl = s.indexOf('\n', i);
+          if (nl < 0) nl = s.length;
+          const line = s.slice(i, nl);
+          i = nl + 1;
+          const bare = line.replace(/\r$/, '');
+          if ((tabs ? bare.replace(/^\t+/, '') : bare) === delim) break;
+          lines.push(line);
+        }
+        nested.push(lines.join('\n'));
+      }
+      continue;
+    }
+    if (ch === ';' || ch === '|' || ch === '(' || ch === ')') { endCmd(); i++; continue; }
+    if (ch === '&') {
+      if (s[i + 1] === '>') { endWord(); i += 2; if (s[i] === '>') i++; continue; }   // &> / &>> 重定向
+      endCmd(); i++;
+      continue;
+    }
+    if (ch === '<' || ch === '>') {   // 重定向符号不成词（>& >| >> 一并吞掉），目标文件照常成词
+      endWord(); i++;
+      while (s[i] === '>' || s[i] === '&' || s[i] === '|') i++;
+      continue;
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\r') { endWord(); i++; continue; }
+    add(ch); i++;
+  }
+  endCmd();
+  return cmds;
+}
+
+// s[open] 是 `(`，返回配对 `)` 的下标；跳过引号内的括号；没配上返回 s.length
+function closingParen(s, open) {
+  let depth = 0;
+  for (let j = open; j < s.length; j++) {
+    const c = s[j];
+    if (c === '\\') { j++; continue; }
+    if (c === "'") {
+      const e = s.indexOf("'", j + 1);
+      if (e < 0) return s.length;
+      j = e;
+      continue;
+    }
+    if (c === '"') {
+      let e = j + 1;
+      while (e < s.length && s[e] !== '"') e += s[e] === '\\' ? 2 : 1;
+      if (e >= s.length) return s.length;
+      j = e;
+      continue;
+    }
+    if (c === '(') depth++;
+    else if (c === ')' && --depth === 0) return j;
+  }
+  return s.length;
+}
+
+// 会丢弃工作区改动的调用（口径同旧判据：reset --hard / clean / checkout -- / restore）
+function discardsWorktree(c) {
+  if (c.sub === 'reset') return c.args.includes('--hard');
+  if (c.sub === 'checkout') return c.args.includes('--');
+  return c.sub === 'clean' || c.sub === 'restore';
+}
+
+// ── 提交信息文件（`git commit -F <文件>`，commit-convention 推荐的写法）──────────────
+// 信息在文件里、不在命令文本里，整串查署名看不到它，只能读文件。
+// 读不到 / 不是普通文件 / 编码坏 → 当没读到（fail-open，落回 ask）；超过 64 KB 只看前 64 KB。
+const MSG_FILE_LIMIT = 64 * 1024;
+// commit 里吃一个值的选项：值要跳过，免得 `-m "-F x"` 里的说明文字被当成 -F
+const COMMIT_LONG_WITH_VALUE = new Set(['--message', '--reuse-message', '--reedit-message', '--template',
+  '--author', '--date', '--fixup', '--squash', '--cleanup', '--trailer', '--pathspec-from-file']);
+
+// commit 参数里 -F / --file 给出的文件：-F <路径>、-F<路径>、-aF <路径>（捆绑短选项）、--file <路径>、
+// --file=<路径>（git 认唯一前缀，--fil 同理）。`-` 是标准输入，跳过；遇 `--` 停，其后是路径规格。
+function commitMessageFiles(args) {
+  const files = [];
+  const a = Array.isArray(args) ? args.map(String) : [];
+  for (let i = 0; i < a.length; i++) {
+    const w = a[i];
+    if (w === '--') break;
+    const long = /^--fil(?:e)?(?:=([\s\S]*))?$/.exec(w);
+    if (long) {
+      const v = long[1] !== undefined ? long[1] : a[++i];
+      if (v !== undefined) files.push(v);
+      continue;
+    }
+    if (COMMIT_LONG_WITH_VALUE.has(w)) { i++; continue; }
+    if (!/^-[^-]/.test(w)) continue;
+    for (let k = 1; k < w.length; k++) {   // 短选项逐字看：F 取本词剩余或下一个词；m c C t 的值同理，要跳过
+      const ch = w[k];
+      if (ch === 'F') {
+        const v = w.slice(k + 1) || a[++i];
+        if (v !== undefined) files.push(v);
+        break;
+      }
+      if ('mcCt'.includes(ch)) { if (k === w.length - 1) i++; break; }
+      if ('Su'.includes(ch)) break;        // 可选值只能贴着写，本词剩余就是值
+    }
+  }
+  return files.filter((f) => f && f !== '-');
+}
+
+// Git Bash 的 /d/x 形态 → D:/x；~ → 家目录。其余原样交给 path.resolve
+function hostPath(p) {
+  let s = String(p);
+  if (s === '~' || s.startsWith('~/')) s = os.homedir() + s.slice(1);
+  if (process.platform === 'win32') {
+    const m = /^\/([a-zA-Z])(\/|$)/.exec(s);
+    if (m) s = m[1].toUpperCase() + ':/' + s.slice(3);
+  }
+  return s;
+}
+
+// 按 git -C 语义解析路径：多个 -C 依次叠加（后一个相对路径接在前一个上，空串不改目录），再解析 p
+function resolveGitPath(p, dirs, base) {
+  let cur = path.resolve(hostPath(base));
+  for (const d of dirs || []) if (d) cur = path.resolve(cur, hostPath(d));
+  return path.resolve(cur, hostPath(p));
+}
+
+// 读文件前 MSG_FILE_LIMIT 字节按 UTF-8 解码；任何失败返回 null
+function readMessageHead(file) {
+  let fd;
+  try {
+    if (!fs.statSync(file).isFile()) return null;   // FIFO、设备、目录一律不读，读了可能卡住
+    fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(MSG_FILE_LIMIT);
+    const n = fs.readSync(fd, buf, 0, MSG_FILE_LIMIT, 0);
+    // 截断处可能切在多字节字符中间：stream 模式把残尾留着不报错，真正的坏编码照样抛
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf.subarray(0, n), { stream: n === MSG_FILE_LIMIT });
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* 关不上也不影响决策 */ } }
+  }
+}
+
+// 这次 commit 的 -F 文件里带署名就返回该文件名（命令里写的原样），否则 null。自身出错也返回 null（fail-open）
+function signedMessageFile(call, cwd) {
+  try {
+    const base = cwd || path.resolve(__dirname, '..', '..');   // 钩子输入没给 cwd 就按工程根
+    for (const f of commitMessageFiles(call.args)) {
+      const text = readMessageHead(resolveGitPath(f, call.dirs, base));
+      if (text !== null && AI_SIGNATURE.test(text)) return f;
+    }
+  } catch { /* 见上 */ }
+  return null;
+}
+
+// Bash 命令的 git 决策。放行返回 null，否则 { decision, reason, commitNote? }。cwd 取钩子输入里的 cwd。
+// 顺序沿用旧判据：署名 deny → commit / push ask → 丢弃改动 deny。含 commit 的命令先落到 ask，
+// 提交信息里提到 `git reset --hard` 不会被误拒，人点头前也看得到整条命令。
+// 署名按整条命令文本查（heredoc 与 -m 都在里面），再读 -F / --file 给的文件查，前提是识别出了 commit 子命令。
+function gitVerdict(cmd, cwd) {
+  let calls;
+  try { calls = gitSubcommands(cmd); } catch { return null; }   // 解析自身出错 → fail-open
+  const has = (sub) => calls.some((c) => c.sub === sub);
+  if (has('commit') && AI_SIGNATURE.test(String(cmd))) {
+    return { decision: 'deny', reason: '提交信息带 AI 署名或会话链接，去掉后重试（docs/commit-convention.md）' };
+  }
+  for (const c of calls) {
+    const f = c.sub === 'commit' ? signedMessageFile(c, cwd) : null;
+    if (f) return { decision: 'deny', reason: `提交信息文件 ${f} 里带 AI 署名或会话链接，从文件里删掉后重试（docs/commit-convention.md）` };
+  }
+  if (has('commit') || has('push')) {
+    return { decision: 'ask', reason: 'git commit / push 需要用户逐次授权', commitNote: true };
+  }
+  const bad = calls.find(discardsWorktree);
+  if (bad) {
+    const shown = `git ${bad.sub} ${bad.args.join(' ')}`.trim();
+    const label = shown.length > 60 ? shown.slice(0, 60) + '…' : shown;
+    return { decision: 'deny', reason: `会丢弃工作区改动的 git 操作（${label}），由用户手动执行` };
+  }
+  return null;
 }
 
 // ── run_tests 回放范围（规则出处 .claude/rules/model-routing.md 硬规则 6）──────────────

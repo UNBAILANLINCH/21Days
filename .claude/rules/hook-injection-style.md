@@ -66,8 +66,13 @@ alwaysApply: false
 - 拦截与提示的**识别效果相同**：8 个子代理的对照实验里，无提示组 0/2 发现问题，
   advisory 组 3/3 点名并停手。活性成分是「提示 + 自查引导」，不是阻断本身。
 
-本工程目前只有 `required-reads.py` 的缺必读、和 `guard.js` 的生成物 / 签名 / 派单
-这几条硬不变量在 deny，别再加第三类。
+现役决策以代码为准，现扫：`grep -nE "'(deny|ask)'|\"deny\"" .claude/hooks/guard.js .claude/hooks/required-reads.py`。
+- **deny**：写 Unity / Luban 生成物；Bash 里 `cd` / `pushd`；提交信息带 AI 署名；丢工作区的 git 操作；
+  派单漏传 `model` 或派成 `fable`；`run_tests` 的 PlayMode 回放没限定到单个模块；缺必读（`required-reads.py`）。
+- **ask**：改 `ProjectSettings/` 或 `Packages/manifest.json`；`git commit` / `push`；删工程目录内容；派 `fork` 子代理。
+
+新增 deny 三样齐了才上，缺一样就做成 ask 或提示：解锁是一条确定命令且写进拒绝理由（上文）；
+`tests/` 有用例钉住该拦的和该放的（第 7 节）；拒绝理由写明规则出处（`CLAUDE.md` / `.claude/rules/` 的具体条目）。
 
 ## 6. 成功静默，失败冗余
 
@@ -90,6 +95,6 @@ alwaysApply: false
 - [ ] 只在写操作上注入；读操作静默。
 - [ ] 提示走 `should_emit` / `shouldEmitOnce` 去重；deny / ask 没有被去重。
 - [ ] 单条 ≤ 4 行；背景已下沉到规则或 `ai-docs/`。
-- [ ] 新增的 deny 有一条确定命令能解锁，且写在了拒绝理由里；否则改成提示。
+- [ ] 新增的 deny 满足第 5 节三样（确定命令解锁并写进理由、有用例、写明规则出处）；否则改成 ask 或提示。
 - [ ] 无事发生时零输出；异常时 fail-open（`required-reads.py` 的 deny 除外）。
 - [ ] 判据是纯函数，`.claude/hooks/tests/` 里有对应用例，`run.py` 全绿。

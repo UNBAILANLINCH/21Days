@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """L1 纯函数测试：判据本身对不对，不起子进程。
 
-覆盖三样：
+覆盖四样：
   · required-reads 的 Bash 读取解析 / 路径归一化 / `${seg:N}` 占位符展开
   · doom-loop 的连续性计数状态机
   · _hook_common 的同会话去重
+  · guard.js 的 git 调用识别（经 node require 调纯函数，没装 node 时跳过）
 """
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import hookenv
 from hookenv import ROOT
@@ -236,6 +241,151 @@ class EmitDedupe(unittest.TestCase):
     def test_fingerprint_stable(self):
         self.assertEqual(common.fingerprint("abc", "t"), common.fingerprint("abc", "t"))
         self.assertNotEqual(common.fingerprint("abc", "t"), common.fingerprint("abd", "t"))
+
+
+@unittest.skipIf(hookenv.node_exe() is None, "没装 node")
+class GitSubcommandParse(unittest.TestCase):
+    """guard.js gitSubcommands：跳过全局选项取子命令；复合命令逐个识别"""
+
+    def _parse(self, cmd):
+        return hookenv.call_js("guard", "gitSubcommands", cmd)
+
+    def _subs(self, cmd):
+        return [c["sub"] for c in self._parse(cmd)]
+
+    def test_skips_global_options(self):
+        for cmd in ("git -C D:/x commit", "git -c user.name=x commit", "git --no-pager commit",
+                    "git -P commit", "git --literal-pathspecs commit", "git --git-dir=D:/x/.git commit",
+                    "git --work-tree D:/x commit", "git --namespace n --bare commit"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self._subs(cmd), ["commit"])
+
+    def test_stacked_options_and_quoted_values(self):
+        """-C 路径带引号含空格、-c 值里带引号，多个选项叠着写"""
+        cmd = 'git -C "D:/a b" -c "user.name=A B" --no-pager -C sub -c core.x="1 2" commit -m "x y"'
+        self.assertEqual(self._parse(cmd),
+                         [{"sub": "commit", "args": ["-m", "x y"], "dirs": ["D:/a b", "sub"]}])
+
+    def test_compound_each_call(self):
+        cmd = "git -C D:/x add a && git -C D:/x commit -m y; git -C D:/x push | cat\ngit -C D:/x status"
+        self.assertEqual(self._subs(cmd), ["add", "commit", "push", "status"])
+
+    def test_heredoc_message_is_not_args(self):
+        """heredoc 正文不算 commit 的参数（署名检查另按整条命令查）"""
+        cmd = "git -C D:/x commit -F - <<'EOF'\nfix: x\nEOF"
+        self.assertEqual(self._parse(cmd), [{"sub": "commit", "args": ["-F", "-"], "dirs": ["D:/x"]}])
+
+    def test_alias_defined_by_c(self):
+        self.assertEqual(self._subs("git -c alias.ci=commit ci -m y"), ["commit"])
+        self.assertIn("commit", self._subs("git -c 'alias.x=!git commit -m y' x"))
+
+    def test_wrapped_and_substituted(self):
+        """包在 bash -c 引号里、路径用 $( ) 算出来的，照样认"""
+        self.assertEqual(self._subs('bash -c "git -C \'D:/a b\' commit -m y"'), ["commit"])
+        self.assertEqual(self._subs("git -C $(pwd) commit -m y"), ["commit"])
+        self.assertEqual(self._subs('git -C "$(pwd)" push'), ["push"])
+
+    def test_mention_in_quotes_counts(self):
+        """口径沿用旧整串正则：引号里提到的 git commit 也算（宁可多问一次）"""
+        self.assertEqual(self._subs('echo "git commit"'), ["commit"])
+
+    def test_not_git(self):
+        for cmd in ("", "gitk --all", "echo commit", "ls .gitignore", "python x.py commit"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self._parse(cmd), [])
+
+    def test_unterminated_quote_does_not_throw(self):
+        """引号没闭合：不抛、识别不出子命令（bash 自己也会报语法错，不构成绕过）"""
+        self.assertEqual(self._parse('git -C "D:/x commit'), [])
+
+
+@unittest.skipIf(hookenv.node_exe() is None, "没装 node")
+class GitMessageFile(unittest.TestCase):
+    """guard.js：commit -F / --file 给的提交信息文件也查署名；读不到、太大、编码坏都落回 ask"""
+
+    SIG = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="guard-msgfile-"))
+        (cls.tmp / "sub" / "inner").mkdir(parents=True)
+        cls.other = cls.tmp / "other"
+        cls.other.mkdir()
+        files = {
+            "signed.txt": "fix(harness): x\n\n%s\n" % cls.SIG,
+            "clean.txt": "fix(harness): x\n",
+            "sub/inner/signed.txt": "fix: x\n\n%s\n" % cls.SIG,
+            # 署名在 64 KB 之后：只读前 64 KB，看不到 → ask（fail-open 的边界）
+            "tail.txt": "a" * (70 * 1024) + "\n" + cls.SIG,
+            # 署名在开头、64 KB 截断处切在中文字符中间：不能因为截断当成坏编码
+            "cjk.txt": cls.SIG + "\n" + "中" * 30000,
+        }
+        for rel, text in files.items():
+            (cls.tmp / rel).write_text(text, encoding="utf-8")
+        (cls.tmp / "bad.txt").write_bytes(b"\xff\xfe\xfa " + cls.SIG.encode("ascii"))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _p(self, rel=""):
+        return (self.tmp / rel).as_posix() if rel else self.tmp.as_posix()
+
+    def _decision(self, cmd, cwd=None):
+        v = hookenv.call_js("guard", "gitVerdict", cmd, cwd)
+        return v and v["decision"]
+
+    def test_option_forms(self):
+        files = lambda args: hookenv.call_js("guard", "commitMessageFiles", args)  # noqa: E731
+        for args, want in ((["-F", "m.txt"], ["m.txt"]), (["-Fm.txt"], ["m.txt"]),
+                           (["-aF", "m.txt"], ["m.txt"]), (["--file", "m.txt"], ["m.txt"]),
+                           (["--file=m.txt"], ["m.txt"]), (["--fil=m.txt"], ["m.txt"]),
+                           (["-F", "m.txt", "--", "a.cs"], ["m.txt"]),
+                           (["-F", "-"], []), (["-m", "-F x"], []), (["-am", "-F"], []),
+                           (["--", "-F", "m.txt"], [])):
+            with self.subTest(args=args):
+                self.assertEqual(files(args), want)
+
+    def test_c_stacks_like_git(self):
+        """多个 -C 依次叠加；绝对路径的 -C 重新起算；空串不改目录"""
+        resolve = lambda p, dirs: hookenv.call_js("guard", "resolveGitPath", p, dirs, self._p())  # noqa: E731
+        same = lambda a, b: self.assertEqual(os.path.normcase(os.path.normpath(a)),  # noqa: E731
+                                             os.path.normcase(os.path.normpath(b)))
+        same(resolve("m.txt", ["sub", "inner"]), self.tmp / "sub" / "inner" / "m.txt")
+        same(resolve("m.txt", ["sub", self.other.as_posix()]), self.other / "m.txt")
+        same(resolve("m.txt", ["", "sub"]), self.tmp / "sub" / "m.txt")
+
+    def test_signed_file_denied(self):
+        for cmd in ('git commit -F "%s"' % self._p("signed.txt"),
+                    'git commit --file="%s" -- a.cs' % self._p("signed.txt"),
+                    'git -C D:/x commit -aF "%s"' % self._p("signed.txt")):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self._decision(cmd), "deny")
+
+    def test_clean_and_missing_file_ask(self):
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("clean.txt")), "ask")
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("不存在.txt")), "ask")
+
+    def test_relative_path_follows_c(self):
+        self.assertEqual(self._decision('git -C "%s" -C sub -C inner commit -F signed.txt' % self._p()), "deny")
+        self.assertEqual(self._decision('git -C "%s" commit -F clean.txt' % self._p()), "ask")
+
+    def test_relative_path_follows_cwd(self):
+        """没有 -C 按钩子输入的 cwd 解析；没给 cwd 按工程根（那里没有这个文件 → ask）"""
+        self.assertEqual(self._decision("git commit -F signed.txt", self._p()), "deny")
+        self.assertEqual(self._decision("git commit -F signed.txt"), "ask")
+
+    def test_fail_open_boundaries(self):
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("bad.txt")), "ask", "编码坏")
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("tail.txt")), "ask", "署名在 64 KB 之后")
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("cjk.txt")), "deny", "截断切在多字节字符中间")
+        self.assertEqual(self._decision('git commit -F "%s"' % self._p("sub")), "ask", "目录不是普通文件")
+
+    @unittest.skipUnless(os.name == "nt", "Git Bash 路径形态只在 Windows 上换算")
+    def test_git_bash_drive_path(self):
+        posix = self._p("signed.txt")   # 形如 C:/Users/…
+        msys = "/" + posix[0].lower() + posix[2:]
+        self.assertEqual(self._decision('git commit -F "%s"' % msys), "deny")
 
 
 if __name__ == "__main__":

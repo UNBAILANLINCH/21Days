@@ -192,6 +192,26 @@ namespace Game.Tests.EditMode.Core
             Assert.That(service.IsLayerVisible(UILayer.Popup), Is.True, "没设过的层默认可见");
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Shutdown_ReleasesDisabledViews_AndIsIdempotent(bool quitting)
+        {
+            LogAssert.Expect(LogType.Warning, new Regex("还没初始化就要开 PlainView"));
+            service.OpenAsync<PlainView>().GetAwaiter().GetResult();
+
+            if (quitting)
+                typeof(UIService).GetMethod("ReleaseAllViews", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic).Invoke(service, null);
+            else service.Dispose();
+
+            Assert.That(assets.LastReleasedWasActive, Is.False,
+                "资源服务释放字体依赖时面板必须已停用；实际 TMP 禁用回调由 Player 退出回归验证");
+            Assert.That(service.Get<PlainView>(), Is.Null);
+            Assert.That(assets.LiveInstanceCount, Is.Zero);
+            service.Dispose();
+            Assert.That(assets.ReleaseCount, Is.EqualTo(1), "退出事件与容器销毁不能重复释放面板");
+        }
+
         [Test]
         public void IsLayerVisible_FullScreenPanelOpenOrHudHidden_StillReportsLayerSwitchOnly()
         {
@@ -455,6 +475,8 @@ namespace Game.Tests.EditMode.Core
             /// <summary>归还过几次。</summary>
             public int ReleaseCount { get; private set; }
 
+            public bool LastReleasedWasActive { get; private set; }
+
             /// <summary>还没归还、也还没销毁的实例数。</summary>
             public int LiveInstanceCount
             {
@@ -549,6 +571,7 @@ namespace Game.Tests.EditMode.Core
 
             public void ReleaseInstance(GameObject instance)
             {
+                LastReleasedWasActive = instance != null && instance.activeSelf;
                 ReleaseCount++;
                 if (instance != null)
                 {

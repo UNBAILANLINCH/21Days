@@ -209,6 +209,38 @@ namespace Game.Tests.EditMode.LailaFace
             handle.OnPointerUp(pointer);
         }
 
+        [Test]
+        public void EditorPreview_CapturedCallbackAfterDestroy_DoesNotAccessDestroyedObject()
+        {
+            var callback = (EditorApplication.CallbackFunction)System.Delegate.CreateDelegate(
+                typeof(EditorApplication.CallbackFunction), face,
+                typeof(FaceBlendShapeController).GetMethod("RefreshEditorPoints", BindingFlags.Instance | BindingFlags.NonPublic));
+            Object.DestroyImmediate(root);
+            Assert.That(face == null, Is.True);
+            Assert.DoesNotThrow(() => callback());
+        }
+
+        [Test]
+        public void EditorPreview_DestroyCleanup_UnsubscribesCallback()
+        {
+            var callback = (EditorApplication.CallbackFunction)System.Delegate.CreateDelegate(
+                typeof(EditorApplication.CallbackFunction), face,
+                typeof(FaceBlendShapeController).GetMethod("RefreshEditorPoints", BindingFlags.Instance | BindingFlags.NonPublic));
+            EditorApplication.update -= callback;
+            EditorApplication.update += callback;
+            try
+            {
+                typeof(FaceBlendShapeController).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(face, null);
+                var field = typeof(EditorApplication).GetField("update", BindingFlags.Static | BindingFlags.Public);
+                Assert.That(field, Is.Not.Null);
+                var callbacks = field.GetValue(null) as System.Delegate;
+                if (callbacks != null)
+                    foreach (System.Delegate subscribed in callbacks.GetInvocationList())
+                        Assert.That(subscribed.Equals(callback), Is.False);
+            }
+            finally { EditorApplication.update -= callback; }
+        }
+
         private GameObject Child(string name)
         {
             var child = new GameObject(name);

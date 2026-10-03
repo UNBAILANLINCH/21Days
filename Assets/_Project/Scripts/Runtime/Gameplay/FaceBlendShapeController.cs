@@ -57,7 +57,7 @@ namespace Game.LailaFace
 
         private void RefreshEditorPoints()
         {
-            if (Application.isPlaying || !isActiveAndEnabled || !gameObject.scene.IsValid() || previewHandles == null) return;
+            if (this == null || Application.isPlaying || !isActiveAndEnabled || !gameObject.scene.IsValid() || previewHandles == null) return;
             previewFrame++;
             foreach (FaceDragHandle handle in previewHandles)
                 if (handle != null && handle.isActiveAndEnabled) handle.RefreshGrabPoint();
@@ -240,6 +240,9 @@ namespace Game.LailaFace
 
         private void OnDestroy()
         {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.update -= RefreshEditorPoints;
+#endif
             if (surfaceMesh != null)
             {
                 if (Application.isPlaying) Destroy(surfaceMesh);

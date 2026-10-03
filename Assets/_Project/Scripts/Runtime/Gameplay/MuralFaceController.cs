@@ -34,6 +34,15 @@ namespace Game.LailaFace
         [SerializeField]
         private float shadowSoftness = 0.12f;
 
+        [Tooltip("仅 laila 场景的阴影过渡下限；不降低拖动幅度或整体加亮。设为 0 使用原 Shadow Softness。")]
+        [Range(0f, 0.5f)]
+        [SerializeField]
+        private float lailaMinimumShadowSoftness = 0.28f;
+
+        [Tooltip("仅在 laila Play 中创建抓点提示与右手光标，不保存场景。")]
+        [SerializeField]
+        private bool lailaPointerFeedback = true;
+
         [Header("边缘与纸张")]
         [SerializeField]
         private Color rimColor = new(1f, 0.76f, 0.47f, 1f);
@@ -78,6 +87,16 @@ namespace Game.LailaFace
             Apply();
         }
 
+        private void Start()
+        {
+            if (Application.isPlaying && lailaPointerFeedback
+                && gameObject.scene.path == "Assets/_Project/Scenes/laila.unity"
+                && GetComponent<Game.Gameplay.FacePointerFeedback>() == null)
+            {
+                gameObject.AddComponent<Game.Gameplay.FacePointerFeedback>();
+            }
+        }
+
         [ContextMenu("Apply Mural Style")]
         public void Apply()
         {
@@ -98,7 +117,9 @@ namespace Game.LailaFace
             propertyBlock.SetVector(ShadowDirectionId, shadowLightDirection);
             propertyBlock.SetFloat(ShadowStrengthId, shadowStrength);
             propertyBlock.SetFloat(ShadowThresholdId, shadowThreshold);
-            propertyBlock.SetFloat(ShadowSoftnessId, shadowSoftness);
+            float softness = gameObject.scene.path == "Assets/_Project/Scenes/laila.unity"
+                ? Mathf.Max(shadowSoftness, lailaMinimumShadowSoftness) : shadowSoftness; // lint-ok: 材质阴影过渡参数，不参与玩法重放数值
+            propertyBlock.SetFloat(ShadowSoftnessId, softness);
             propertyBlock.SetColor(RimColorId, rimColor);
             propertyBlock.SetFloat(RimPowerId, rimPower);
             propertyBlock.SetFloat(RimStrengthId, rimStrength);

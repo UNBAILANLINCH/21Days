@@ -1,4 +1,6 @@
-"""laila 12 维输入契约（规格 PRP/laila-expression-recognition/spec.md §4.1、§7.4、§15.1）。
+"""历史 laila_v1 的 12 维输入契约（训练 PRP §4.1、§7.4、§15.1）。
+
+当前 31 形态模型的拟定 17 维 v2 契约见 PRP §16；本文件通过不代表 v2 校准或训练完成。
 
 - 契约常量照抄规格 §4.1：12 个 key、顺序、范围、default = 0、上唇 / 下唇只有 pos；
 - analysis/laila_upper_bound/ 下两份候选绑定都要符合契约（它们只是分析用候选，不许冒充正式绑定 laila_v1）；

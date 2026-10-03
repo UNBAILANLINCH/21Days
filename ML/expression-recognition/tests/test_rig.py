@@ -5,7 +5,8 @@ import copy
 import numpy as np
 import pytest
 
-from exprnet.rig import identity_rig, rig_from_dict
+from exprnet.common import CONFIG_DIR
+from exprnet.rig import identity_rig, load_rig, rig_from_dict
 
 
 def test_zero_sliders_give_zero(sample_rig, canonical):
@@ -92,3 +93,25 @@ def test_sample_rig_shape(sample_rig):
     bipolar = sum(1 for s in sample_rig.sliders if s.min < 0 < s.max)
     assert bipolar >= 16
     assert all(s.default == 0 for s in sample_rig.sliders)
+
+
+def test_laila_geometry_side_and_shared_brow(canonical):
+    """旧 laila_v1：L 是画面左/角色右；共享内眉半幅不提前饱和，不证明新版几何校准。"""
+    rig = load_rig(CONFIG_DIR / "rigs" / "laila_rig.yaml", canonical)
+    s = np.zeros((5, 12))
+    s[0, rig.keys.index("mouth_corner_L_y")] = 1
+    s[1, rig.keys.index("mouth_corner_R_y")] = -1
+    s[2, :2] = 0.5
+    s[3, :2] = 1
+    s[4, 10:] = 1
+    x = rig.forward(s)
+    assert x[0, canonical.index("mouthSmileRight")] == 1
+    assert x[0, canonical.index("mouthSmileLeft")] == 0
+    assert x[1, canonical.index("mouthFrownLeft")] == 1
+    assert x[1, canonical.index("mouthFrownRight")] == 0
+    assert x[2, canonical.index("browInnerUp")] == pytest.approx(0.5)
+    assert x[3, canonical.index("browInnerUp")] == 1
+    assert x[4, canonical.index("jawOpen")] == 0
+    assert x[4, canonical.index("mouthUpperUpLeft")] == 1
+    assert x[4, canonical.index("mouthLowerDownRight")] == 1
+    assert not rig.reachable()[canonical.index("cheekSquintLeft")]

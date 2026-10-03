@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "delta": "(0.0000000, 0.0078172, 0.0000000)",
+    "distance": 0.007817194,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_LowerLip",
+    "delta": "(0.0000000, -0.0076919, 0.0000000)",
+    "distance": 0.007691875,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "delta": "(0.0000000, 0.0126961, 0.0000000)",
+    "distance": 0.0126961172,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "delta": "(0.0001777, 0.0031991, 0.0000000)",
+    "distance": 0.00320400367,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "delta": "(0.0000000, 0.0118074, 0.0000000)",
+    "distance": 0.0118073821,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "delta": "(0.0000000, 0.0059716, 0.0000000)",
+    "distance": 0.00597159564,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "delta": "(0.0036008, 0.0157263, 0.0000000)",
+    "distance": 0.0161332544,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "delta": "(0.0000000, 0.0078172, 0.0000000)",
+    "distance": 0.007817194,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "delta": "(0.0000000, 0.0126410, 0.0000000)",
+    "distance": 0.0126409829,
+    "transformMatchesCollider": true,
+    "weight": 100.0,
+    "pass": true
+  }
+]

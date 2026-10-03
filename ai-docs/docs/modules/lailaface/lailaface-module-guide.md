@@ -9,13 +9,15 @@ maturity: seed
 
 > 改 `Assets/_Project/Scripts/Runtime/Gameplay/` 中与 Head-topo 面部控制相关的代码前读这份。
 > 这是复刻莱拉脸部玩法的原型模块，当前只服务 `Assets/_Project/Scenes/laila.unity`。
+当前状态（2026-10-03）：启用 `Head-topo-expression-extended-brow-regions-refined3 1.fbx`，31 形态、17 区。
+训练入口是 [训练 PRP §16](../../../../PRP/laila-expression-recognition/spec.md#16-当前模型的训练执行顺序2026-10-03)；资产逐项去留见 [文件清单](../../../../PRP/laila-expression-recognition/asset-disposition.md)。
 
 ## 职责边界
 
 | 做 | 不做 |
 | --- | --- |
-| 缓存当前脸部网格的 BlendShape 名称与索引（扩展 FBX 为 22 个） | 不修改 Blender 源文件或重新生成 BlendShape |
-| 12 个控制区：原有垂直拖拽、嘴角水平拖拽、独立上下唇与眼球旋转 | 不直接读取 `Input.mousePosition` 或 `Input.touches` |
+| 缓存当前脸部网格的 31 个 BlendShape 名称与索引 | 不修改 Blender 源文件或重新生成 BlendShape |
+| 17 个控制区：6 段眉毛、4 眼皮、2 嘴角、3 唇区、2 视线 | 不直接读取 `Input.mousePosition` 或 `Input.touches` |
 | 给 Head-topo 提供局部壁画感材质 | 不添加全局 URP Renderer Feature，不影响其他场景 |
 | 在 laila 场景中提供可回放的数值验证 | 不接入正式游戏流程、存档或跨场景状态 |
 
@@ -25,6 +27,8 @@ maturity: seed
 | --- | --- | --- |
 | `FaceBlendShapeController` | `Assets/_Project/Scripts/Runtime/Gameplay/FaceBlendShapeController.cs` | 缓存 Renderer，提供单个权重、成对权重与 Reset API |
 | `FaceDragHandle` | `Assets/_Project/Scripts/Runtime/Gameplay/FaceDragHandle.cs` | 接收 EventSystem 指针拖拽，写成对 / 单键权重，或旋转眼球 Pivot |
+| `FacePointerFeedback` | `Assets/_Project/Scripts/Runtime/Gameplay/FacePointerFeedback.cs` | 真实拾取与遮挡检查、抓点提示、三态右手光标及取消捕获 |
+| `LailaBlendShapeOrder` | `Assets/_Project/Scripts/Editor/Tools/LailaBlendShapeOrder.cs` | 当前正式 FBX 导入时按部位排序，保留名称及帧数据 |
 | `MuralFace` Shader | `Assets/_Project/Art/Shaders/MuralFace.shader` | 只负责 Head-topo 的分层明暗、边缘光和轻微颗粒 |
 | `MuralFaceController` | `Assets/_Project/Scripts/Runtime/Gameplay/MuralFaceController.cs` | 在 Head-topo Inspector 调整阴影方向、阴影强度、边缘光和纸张颗粒 |
 | `LailaFaceShowcase` | `Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs` | 回放 16 个形变、成对映射与重置 |
@@ -33,6 +37,8 @@ maturity: seed
 当前没有 ScriptableObject：BlendShape 名称是模型的固定资产接口；成对范围为 `-1..1`，唇部单键范围为 `0..100`，眼球角度在控制区 Inspector 配置。
 
 ## 控制映射
+
+以下为旧 12 区兼容映射；当前分段模型以文末 2026-10-02/03 记录和训练 PRP §16 为准，不将整眉键或 `.001` 唇键用于当前模型。
 
 原有 8 个控制区保留 Up / Down 成对映射：
 
@@ -140,7 +146,7 @@ Head-topo 的材质使用 `MuralFace` Shader；材质资产位于 `Assets/_Proje
 | --- | --- | --- |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs` | 16 个名称、左嘴角 Up/Down、右上眼皮 Up/Down、Reset |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/LailaFace/FaceDragHandleTests.cs` | 双唇单键钳位与收回、嘴角双轴、旧行为、指针隔离、左右眼固定中心旋转与复位 |
-| 场景 | `Assets/_Project/Scenes/laila.unity` | 扩展脸部与 12 个启用控制区 |
+| 场景 | `Assets/_Project/Scenes/laila.unity` | 当前 31 形态脸部与 17 个启用控制区 |
 
 Showcase 直接加载 `laila.unity`，这是遵循本任务“测试场景在 laila、其他场景不改”的特例；没有额外创建 `Scenes/Verify/LailaFace.unity`。
 
@@ -148,21 +154,9 @@ Showcase 直接加载 `laila.unity`，这是遵循本任务“测试场景在 la
 
 ### 新 FBX 导入检查与 EditMode 实测（2026-09-28）
 
-本次使用临时命令行 MCP 客户端实际读取 `21Days` 编辑器；Codex 原生 MCP 客户端的初始化失败尚未解决，不能将两者混为同一连接状态。活动场景为 `laila`，未进入 Play 模式，也未运行 Showcase。全量 EditMode 测试通过：1028 通过、0 失败、0 跳过，用时约 41.78 秒，任务 ID 为 `eb2d10e1d5ba4bb4be14c7231f2e9176`。测试后 Console 中包含异常路径测试刻意产生的错误日志，不能据此认定测试失败；全量测试通过也不代表新模型的外观和交互已验收。
-
-以下为当时编辑器实时状态，不保证与尚未保存的场景文件一致：
-
-| 检查项 | 结果 |
-| --- | --- |
-| 旧 `Head-topo` | 已停用；其原有控制区未移动或重建 |
-| 新模型根节点 `Head-topo-expression-extended2` | 额外挂有使用旧 `Head-topo.fbx` 网格的 `SkinnedMeshRenderer`；两个面部控制器的 `faceRenderer` 都指向该 Renderer，而非真实脸部子节点 |
-| 真实脸部子节点 `Eve` | 使用新 FBX 网格，5 个材质槽仍为 FBX 内嵌材质，未应用 `M_LailaFace_Mural` |
-| 正反朝向 | 相机位于 Z = -10、旋转为零；眼球父节点位于 Z ≈ +0.0702，支持当前画面是在观察头部背侧的判断 |
-| 眼球层级 | 左右 `Eye_*_Pivot` 均保留，眼球和角膜为其子物体，局部位置为零；尚未进行 Unity 运行时转动验收 |
-
-离线比较新旧 FBX 的脸部顶点、面索引及导出法线均相同，1068 个面的几何朝向与法线一致；没有证据支持将这次背面画面归因于“平滑：面”。新文件 `Assets/_Project/Art/fbx/Head-topo-expression-extended2.fbx` 导出了 22 个形态：原有 16 个、4 个嘴角横向形态，以及 `Mouth_UpperLip_Up.001` / `Mouth_LowerLip_Down.001`。不带后缀的上下唇四键未见于该 FBX，需核对导出资产，不能将 Blender 源文件的 Key 数量直接当作 Unity 导入结果。
-
-`FaceBlendShapeController.BlendShapeCount` 是 `Awake` / `RebuildCache` 后的缓存数量；EditMode 下读取到 0 不能证明网格没有 BlendShape。本次只检查和测试、增量记录文档，没有修改场景、模型、材质或控制器代码。新模型的 Renderer 接线、正面显示、上下唇四键和新增交互仍未验收通过。
+历史诊断：旧 Head-topo 停用，但扩展模型控制器曾误指向根节点上的旧网格 Renderer；真实 Eve 的 5 个槽仍为内嵌材质。相机与眼球位置支持当时观察背侧，源网格 1068 个面与法线一致，不能归因于平滑设置。
+旧 extended2 实际导出 22 形态，唇部为 `.001` 两键；不要将 Blender Key 数量直接当作 Unity 形态数。缓存需 Awake/RebuildCache 初始化，EditMode 读到 0 不证明网格无形态。
+当时临时 stdio 客户端实测全量 EditMode 1028/1028（任务 `eb2d10e1d5ba4bb4be14c7231f2e9176`），不代表外观或接线已验收；原生客户端初始化失败不能称原生连接成功。
 
 ## 已知限制
 
@@ -201,18 +195,8 @@ Console 读取到 0 条错误；本轮是材质外观检查，未运行自动化
 
 ### 控制区触控失败检查（2026-09-28，只读诊断）
 
-本次读取的是编辑器中未保存的 `laila`（`scene.isDirty = true`），未进 Play、未执行一键菜单、未保存或改动场景。当前状态与前面的阶段记录不同：
-
-| 检查项 | 实测结果 |
-| --- | --- |
-| 控制区 | 旧 `Head-topo` 下有停用的 8 个；可见 `Eve` 下另有启用的 8 个 |
-| 新控制区的 `FaceDragHandle.face` | 全部仍指向停用的旧 `Head-topo` 控制器，而非 `Eve` 上的控制器 |
-| 当前可见 `Eve` | `FaceBlendShapeController.faceRenderer` 指向自身 Renderer，但 Renderer 的 `sharedMesh` 已指向旧 `Head-topo.fbx`，只有原有 16 个形态 |
-| Console | 8 条各控制类型“没有找到对应的 BlendShape”错误；源码 `FaceDragHandle.Start` 在检查失败后禁用拖拽组件 |
-| 输入接线 | `InputSystemUIInputModule` 与 `PhysicsRaycaster` 启用；`UI/Point`、`UI/Click` 均有鼠标、笔和触屏绑定 |
-| 碰撞体射线 | 同步物理变换后，对每个控制区中心直接调用 `PhysicsRaycaster.Raycast`，8/8 命中自身，无需据此重建碰撞体或移动控制区 |
-
-明确的修复点是将 **可见 `Eve` 下的 8 个拖拽区 `face` 引用**改为 `Eve` 的 `FaceBlendShapeController`；旧控制器因所在物体停用，不会正常初始化缓存，且 `FaceDragHandle.Awake` 只在 `face == null` 时查找父级，不会自动纠正一个非空但指错对象的引用。修正后需重新进入 Play 验证，不能只在已被 `Start` 禁用的运行态中拖引用就认定修复完成。
+历史只读诊断来自未保存场景：可见 Eve 下 8 个控制区误指停用旧控制器，Eve 网格也误用 16 形态旧版；Start 因缺名称禁用组件，出现 8 条错误。
+输入动作与 PhysicsRaycaster 有效，8/8 射线命中自身，不能据此重建碰撞体；应修正 face 与 sharedMesh 引用。Awake 只在 face 为 null 时自动查找，非空错引用不会自愈；修正后重新进入 Play 验证，不在已禁用的运行态只拖引用就宣称完成。
 
 现有 `FaceDragHandle.FaceControl` 仅包含原有 8 种控制，嘴角 Up/Down 不是上下唇独立控制。用户已确认本版只保留上唇 Up、下唇 Down 两个开口形态，这是预期设计，不要求补齐四键或重新导出。接入时可增加两个控制区，各自控制一个形态的 0–100 权重，回到 0 即收回至 Basis；现有拖拽脚本强制要求 Up/Down 两个 Key，需扩展单形态映射，不能直接伪造不存在的反向 Key。
 
@@ -320,5 +304,97 @@ Basis 的左右匹配为一一对应，位置误差为零；右侧 Out 影响 10
 它不代替上下唇组合、牙龈遮挡或 Unity 导入验收。本次没有修改 Unity 场景或 FBX。
 
 - 当前文档状态为 `seed`：原型代码与 laila 接线已落地；已有数值和运行态事件链验证，实际设备输入与视觉组合验收仍需确认。
+### 上唇镜像与分段眉毛源文件（2026-10-01）
+
+另存 `PRP/Head-topo-expression-extended-brow-regions.blend`，原源文件未覆盖。
+基于磁盘已保存版本，不包含 Blender 会话中尚未保存的修改。
+初次制作时 `Mouth_UpperLipL_Up` 已为空，完整镜像把 R 也覆盖为空。
+初次验证仅比较镜像等式，未断言源形变非空，因此此前“上唇已完成”的结论无效。
+
+旧 `Brow_L/R_Up/Down` 在新文件中替换为 `Brow_L/R_Inner/Mid/Outer_Up/Down` 共 12 键：
+Inner 为眉头、Mid 为眉中、Outer 为眉尾。沿眉部横向平滑分配原形变，
+同侧同方向三段全开时还原原整眉；不新建脸颊形变。
+新文件共 33 键（含 Basis）、1091 顶点，保存时全部权重归零。
+重新打开文件后逐顶点验证：三段叠加还原、Basis 与其他 Key 保持原样通过；上唇须使用以下修正版。
+尚未完成视觉组合验收；没有更新 FBX、Unity 控制区或训练映射，旧运行时接线记录仍适用于旧资产。
+
+制作与保存前检查脚本为 `PRP/laila-expression-recognition/refine_shape_keys.py`，
+须通过 Blender 执行；输出已存在时拒绝覆盖。脚本先退出编辑模式，避免保存时旧编辑缓存覆盖 Key 修改。
+
+#### 上唇恢复与眉毛增幅修正版（2026-10-01）
+
+当前修正版为 `PRP/Head-topo-expression-extended-brow-regions-refined.blend`。
+从源 `.blend1` 恢复非空 L 上唇，核对备份 Basis 一致后镜像到 R；
+重新打开验证 L/R 均影响 71 个顶点，最大位移约 0.007868 Blender 局部单位，镜像误差小于 1e-7。
+原 L 包含双侧和中线形变，这里仍按其完整位移镜像，不改变影响范围。
+脚本新增非空检查，空 L 不再直接覆盖 R。
+
+眉头上抬不变，眉中上抬增幅 25%、眉尾上抬增幅 40%；
+眉头/眉中/眉尾下压分别增幅 20%/25%/35%，保留原方向与作用顶点。
+六区域各取 Down/零/Up（同区 Up/Down 互斥），共 729 个极值组合：
+相比增强前没有新增翻面、三角面面积低于 Basis 的 15% 的退化、眉部非相邻三角面自相交或与现有眼部网格相交。
+重新打开后验证其他 Key 和 Basis 不变，权重为零。
+这些是离散极值的网格检查，不保证任意中间权重、眼皮形变叠加或最终材质外观；未更新 FBX/Unity/训练映射。
+
 - `MuralFace` 当前按“聊斋古画”处理：方向性分层阴影、冷墨轮廓、冷月边缘光、旧纸颗粒与极弱朱砂洗染；使用程序化颗粒，不提供墙面纹理输入。需要真实墙面纹理时再增加 `_GrainMap`，不要把纹理硬编码进 Shader。
-- 当前 12 个启用控制区支持嘴角水平 / 垂直、双唇单键和独立双眼旋转；不包含镜像联动、形变跟随或表情预设。
+### 眉毛与唇色（2026-10-01）
+
+`MuralFace.shader` 原先声明了 `_BaseMap`，但没有采样。现在将采样颜色乘入脸部明暗，
+默认白图保留原行为。`M_LailaFace_Mural.mat` 已通过 Unity 材质工具绑定
+`Assets/_Project/Art/Textures/Laila/T_LailaFace_BrowsLips.png`（2048×2048、现有镜像 UV）。
+贴图以白底保存颜色倍率，补充深褐眉毛、柔和唇色及细嘴缝，UV 岛外扩展六像素减少过滤接缝。
+没有更改脸部顶点、控制区、FBX 或共享渲染配置；贴图 `.meta` 由 Unity 导入生成。
+
+Blender 上色版本另存 `PRP/Head-topo-expression-extended-brow-regions-refined-painted.blend`，
+内嵌贴图，材质预览可见。制作脚本为 `PRP/laila-expression-recognition/paint_face.py`。
+重新打开验证全部 33 个 Key 的名称与坐标、UV 和面数量保持原样，权重为零。
+Unity 当前仍使用原 22 形态 FBX；新 33 键源模型没有在本轮替换进 Unity。
+
+Main Camera 实际渲染已确认颜色位置，临时截图为 `Temp/LailaFaceChecks/laila-brows-lips.png`。
+临时将 `Brow_L_Up` 和 `Mouth_UpperLip_Up.001` 设为 100 后烘焙比较：
+100 个顶点发生位移，1226 个 UV 全部保持一致，检查后恢复权重并销毁临时网格。
+ShaderHasError 为 false，Console 读取到零条错误；未运行完整表情组合或 PlayMode 验收。
+
+
+### 分段眉毛模型接线（2026-10-02，取代上面的旧资产记录）
+
+当前启用模型为 `Head-topo-expression-extended-brow-regions-refined3 1.fbx`，
+脸部 `Eve` 实际导入 31 个 BlendShape；以 Unity 实测名称为准，不按 Blender Key 数量推算。
+`FaceBlendShapeController` 与 `MuralFaceController` 的 Renderer 已指向当前 `Eve`，
+全部控制区的 Face 引用及两个眼球 Pivot 引用已恢复。旧模型留作停用备份。
+
+`FaceDragHandle` 增加可选 `upShapeOverride` / `downShapeOverride`，留空沿用旧模型映射。
+两侧原整眉控制区改为 Mid，新增 Inner / Outer；上唇改为左右两区，
+分别映射 `Mouth_UpperLipL_Up` / `Mouth_UpperLipR_Up`，下唇映射 `Mouth_LowerLip_Down`。
+合计 17 区：嘴角 2、眉毛 6、眼皮 4、上唇 2、下唇 1、视线 2。
+上唇 Key 本身仍包含跨中线形变，左右控制区不代表几何已经完全单侧化。
+
+按用户要求，已有控制布局整体向世界 Z 正方向平移 5.56，未按形变重新逐点定位；
+已有位置从操作前四位小数快照恢复，坐标精度约 0.0001 世界单位。
+原拾取中心、半径和尺寸恢复；新增控制点单独布置。
+Scene 开启 Gizmos 后可见青色控制点与拾取范围，Game 不绘制标记。
+
+定向 EditMode 9/9 通过（任务 `61b80c9085eb415587a6f1ff67de00fb`）；
+运行态 17/17 控制区中心射线首命中自身，形态模拟拖拽达到 50 权重、成对反向权重为零，
+视线引用有效并可复位。检查后恢复形态权重并退出 Play，Console 零错误。
+这是事件链检查，不等同于真实鼠标或移动端验收。
+
+手绘图片已另存 `Assets/_Project/Art/Textures/Laila/T_LailaFace_BrowsLips_HandPainted.png`，
+脸部材质使用此图；当前 FBX 的眼球、角膜、牙龈和牙齿映射已恢复。
+双眼与角膜的最终世界缩放匹配旧模型，局部位置与旋转保持原样。
+
+#### 后续交付状态（2026-10-03）
+
+当前正式 FBX 已应用嘴部修复；最终可编辑源文件为
+`PRP/laila-mouth-repair-20261002/mouth-repaired.blend`，制作脚本为
+`PRP/laila-expression-recognition/repair_mouth_shape_keys.py`。
+此版本左右上唇改为互补平滑分区，取代上文旧版跨中线叠加的限制记录。
+具体几何验收范围与内部口腔交叠限制见同目录 `acceptance-report.md`。
+
+控制点后续已支持网格表面跟随及眼球刚体跟随；运行态提供实际射线驱动的抓点提示、
+三态右手光标与取消捕获。模型导入后按嘴、眼、眉排列 BlendShape，保留名称与每帧几何。
+当前停用备份是最早的 `Head-topo.fbx`（16 形态），仍被正式场景引用，应保留。
+无正式引用的 `Head-topo-expression-extended2.fbx` 和 `Head-topo-expression-extended-brow-regions-refined3.fbx` 已移除；
+PRP 历史场景快照仍引用这些旧版本，不是正式运行依赖，不能保证删除后的快照完整恢复。
+2026-10-03 定向 EditMode：10/10，任务 `c1ba2de7a77549778f71cd296c56fd2e`；六个 C# lint 通过，Console 零错误。
+埋点扫描为原有失败日志与表现查询，不加高频埋点；`gc_scan` 仍有三个既有命名空间问题，Unity 序列化 diff 有尾空格。

@@ -1,0 +1,78 @@
+# 历史：2026-10-01 旧 extended2 头模的 12 维 laila_v1 绑定。
+# 当前 31 形态模型使用拟定 17 维 v2 契约；先按训练 PRP §16 校准，禁止将本文件当作新版正式绑定。
+# L/R key 保持既有输入契约；源形态按画面侧命名，规范基按角色解剖侧命名，故左右互换。
+# 系数是工程归一化约定：单侧已确认动作满幅为 1；共享内眉各占 0.5。
+# 不表示已测得 ARKit/FACS 强度，也不表示人类语义验收通过。
+name: laila_v1
+sliders:
+  - key: brow_L_y
+    zh: 画面左眉上下
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpRight: 1.0, browInnerUp: 0.5}
+    neg: {browDownRight: 1.0}
+  - key: brow_R_y
+    zh: 画面右眉上下
+    range: [-1, 1]
+    default: 0
+    pos: {browOuterUpLeft: 1.0, browInnerUp: 0.5}
+    neg: {browDownLeft: 1.0}
+  - key: eye_L_upper_y
+    zh: 画面左上眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideRight: 1.0}
+    neg: {eyeBlinkRight: 1.0}
+  - key: eye_L_lower_y
+    zh: 画面左下眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeSquintRight: 1.0}
+    neg: {}
+  - key: eye_R_upper_y
+    zh: 画面右上眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeWideLeft: 1.0}
+    neg: {eyeBlinkLeft: 1.0}
+  - key: eye_R_lower_y
+    zh: 画面右下眼皮
+    range: [-1, 1]
+    default: 0
+    pos: {eyeSquintLeft: 1.0}
+    neg: {}
+  - key: mouth_corner_L_y
+    zh: 画面左嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileRight: 1.0}
+    neg: {mouthFrownRight: 1.0}
+  - key: mouth_corner_R_y
+    zh: 画面右嘴角上下
+    range: [-1, 1]
+    default: 0
+    pos: {mouthSmileLeft: 1.0}
+    neg: {mouthFrownLeft: 1.0}
+  - key: mouth_corner_L_x
+    zh: 画面左嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchRight: 1.0}
+    # 有内收与前凸，但完整噘嘴语义证据不足；暂不映射 mouthPucker。
+    neg: {}
+  - key: mouth_corner_R_x
+    zh: 画面右嘴角外拉内收
+    range: [-1, 1]
+    default: 0
+    pos: {mouthStretchLeft: 1.0}
+    neg: {}
+  - key: upper_lip
+    zh: 上唇上提
+    range: [0, 1]
+    default: 0
+    pos: {mouthUpperUpLeft: 1.0, mouthUpperUpRight: 1.0}
+  - key: lower_lip
+    zh: 下唇下拉
+    range: [0, 1]
+    default: 0
+    pos: {mouthLowerDownLeft: 1.0, mouthLowerDownRight: 1.0}

@@ -1,0 +1,23 @@
+[
+  {
+    "test": "manual collider authority",
+    "center": "(0.00200000, 0.00300000, 0.00400000)",
+    "expected": "(0.00200000, 0.00300000, 0.00400000)",
+    "radius": 0.002048648,
+    "expectedRadius": 0.002048648,
+    "pass": true
+  },
+  {
+    "test": "controller offset applied",
+    "distance": 0.00200001872,
+    "offset": 0.0055,
+    "expectedOffset": 0.0055,
+    "pass": true
+  },
+  {
+    "test": "radius never overwritten",
+    "radius": 0.002048648,
+    "expectedRadius": 0.002048648,
+    "pass": true
+  }
+]

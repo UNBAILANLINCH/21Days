@@ -1,0 +1,26 @@
+[
+  {
+    "target": "Eve",
+    "editor": "UnityEditor.GameObjectInspector",
+    "serialized": true,
+    "shapeCount": 31
+  },
+  {
+    "target": "Eve",
+    "editor": "UnityEditor.SkinnedMeshRendererEditor",
+    "serialized": true,
+    "shapeCount": 31
+  },
+  {
+    "target": "Control_UpperLip_L",
+    "editor": "UnityEditor.GenericInspector",
+    "serialized": true,
+    "shapeCount": 31
+  },
+  {
+    "test": "native blendshape property",
+    "editor": "UnityEditor.SkinnedMeshRendererEditor",
+    "count": 31,
+    "pass": true
+  }
+]

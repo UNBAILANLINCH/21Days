@@ -4,6 +4,8 @@
 
 - 设计：[DESIGN.md](DESIGN.md)（需求与设计决定以它为准）
 - 参考文献与数据集授权核对：[REFERENCES.md](REFERENCES.md)
+- 当前莱拉训练入口：[训练 PRP §16](../../PRP/laila-expression-recognition/spec.md#16-当前模型的训练执行顺序2026-10-03)。新模型为 31 形态、17 个非视线输入轴，v2 绑定尚待几何校准。
+- [laila-binding-review.md](configs/rigs/laila-binding-review.md) 与 `configs/rigs/laila_rig.yaml` 是旧模型的 12 维 `laila_v1` 历史记录，不能直接用于当前分段模型的正式训练；保留用于旧实验复现。
 - 本目录是独立的 Python 子项目，不含任何 Unity 侧工作。
 
 ## ⚠ 授权警告
@@ -33,7 +35,7 @@ configs/
 golden/sample_rig.json 金标捏脸集占位（与合成器同源，不能证明泛化）
 analysis/laila_upper_bound/  laila 12 维输入的可分性上限分析（REPORT.md）与两份分析用候选绑定（不是正式绑定）
 exprnet/               代码（见下）
-tests/                 pytest，不联网、不需要数据集（test_laila_contract.py 是 laila 12 维契约测试）
+tests/                 pytest，不联网、不需要数据集（test_laila_contract.py 目前仅验证旧版 12 维契约；新版 17 维待补）
 pytest.ini             让 pytest 以本目录为根（缓存不落到仓库根）
 requirements.txt       训练 / 导出 / 测试依赖
 requirements-extract.txt  抽特征依赖（mediapipe、opencv）
@@ -52,7 +54,7 @@ python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-extract.txt
 ```
 
-- torch 用 CPU 版就够：模型只有几万到十几万参数，合成数据训一次 CPU 上 3 分钟左右。
+- 可先用 CPU 版 torch 跑 ResMLP 基线；耗时取决于机器、样本量与绑定投影，不保证固定分钟数。
 - 在仓库根目录运行也行，把本目录加进 `PYTHONPATH`：`PYTHONPATH=ML/expression-recognition ML/expression-recognition/.venv/Scripts/python -m exprnet.train ...`（Git Bash 写法）。
 - 输出重定向到文件时中文乱码，可设 `PYTHONIOENCODING=utf-8`。
 
@@ -69,7 +71,7 @@ python -m pytest tests -q
 # 在仓库根目录：ML/expression-recognition/.venv/Scripts/python -m pytest ML/expression-recognition/tests -q
 ```
 
-不联网、不需要数据集。`tests/test_mediapipe_optional.py` 只有在装了 mediapipe、`.cache/face_landmarker.task` 已存在时才跑，否则自动跳过。`tests/test_laila_contract.py` 里检查正式绑定 `configs/rigs/laila_rig.yaml` 的那一条，在文件不存在时跳过（等阶段门 B 几何校准定稿），跳过理由会打印出来；pytest 加 `-rs` 可以看到。
+不联网、不需要数据集。`tests/test_mediapipe_optional.py` 只有在装了 mediapipe、`.cache/face_landmarker.task` 已存在时才跑，否则自动跳过。`tests/test_laila_contract.py` 仍检查旧 `laila_v1`，通过不代表新模型契约通过；v2 定稿后应增加 17 维独立测试。pytest 加 `-rs` 可以看到跳过理由。
 
 ### 训练 `python -m exprnet.train`
 

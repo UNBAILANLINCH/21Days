@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(-0.0027831, -0.0141157, 0.0000000)",
+    "followingError": 1.86264515E-08,
+    "hit": "Control_Brow_R_Mid",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(0.0021147, 0.0027491, 0.0000000)",
+    "followingError": 1.49011612E-08,
+    "hit": "Control_Brow_L_Inner",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(0.0051591, -0.0117335, 0.0000000)",
+    "followingError": 3.003425E-08,
+    "hit": "Control_Brow_L_Mid",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(-0.0020301, 0.0022839, 0.0000000)",
+    "followingError": 0.0,
+    "hit": "Control_Brow_R_Inner",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(-0.0014270, -0.0101346, 0.0000000)",
+    "followingError": 3.7252903E-09,
+    "hit": "Control_Brow_R_Outer",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Down",
+    "up": 0.0,
+    "down": 99.9999847,
+    "delta": "(0.0023427, -0.0070920, 0.0000000)",
+    "followingError": 1.49011612E-08,
+    "hit": "Control_Brow_L_Outer",
+    "marker": true,
+    "pass": true
+  }
+]

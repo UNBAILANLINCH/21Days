@@ -1,0 +1,67 @@
+{
+  "source_file": "candidate3-teeth.json",
+  "source_sha256": "4aba8acde6f7ee5326fe6d0aca122c42e9ae32ffb2b06751b1adefda1422ae14",
+  "source_bytes": 39404704,
+  "meaning": "���Ƕ����������ǿɼ�覴���������֤������Ȩ���޴�ģ",
+  "baseline_pair_counts": {
+    "Circle.003": 676,
+    "Circle.002": 370
+  },
+  "single_pair_counts": {
+    "Mouth_L_Up": {
+      "Circle.003": 724,
+      "Circle.002": 312
+    },
+    "Mouth_L_Down": {
+      "Circle.003": 733,
+      "Circle.002": 392
+    },
+    "Mouth_R_Up": {
+      "Circle.003": 724,
+      "Circle.002": 312
+    },
+    "Mouth_R_Down": {
+      "Circle.003": 731,
+      "Circle.002": 392
+    },
+    "Mouth_LowerLip_Down": {
+      "Circle.003": 610,
+      "Circle.002": 370
+    },
+    "Mouth_L_Out": {
+      "Circle.003": 852,
+      "Circle.002": 361
+    },
+    "Mouth_L_In": {
+      "Circle.003": 552,
+      "Circle.002": 371
+    },
+    "Mouth_R_Out": {
+      "Circle.003": 852,
+      "Circle.002": 361
+    },
+    "Mouth_R_In": {
+      "Circle.003": 552,
+      "Circle.002": 371
+    },
+    "Mouth_UpperLipR_Up": {
+      "Circle.003": 680,
+      "Circle.002": 212
+    },
+    "Mouth_UpperLipL_Up": {
+      "Circle.003": 680,
+      "Circle.002": 212
+    }
+  },
+  "combination_count": 648,
+  "combination_pair_count_ranges": {
+    "Circle.003": {
+      "min": 336,
+      "max": 1076
+    },
+    "Circle.002": {
+      "min": 14,
+      "max": 420
+    }
+  }
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "stage": "maximum",
+    "state": "geometry",
+    "feedback": "普通",
+    "marker": false,
+    "current": null
+  },
+  {
+    "stage": "maximum",
+    "state": "idle",
+    "feedback": "普通",
+    "marker": false,
+    "current": null
+  },
+  {
+    "stage": "maximum",
+    "state": "hover",
+    "feedback": "可抓取",
+    "marker": true,
+    "current": "Control_UpperLip_L"
+  },
+  {
+    "stage": "maximum",
+    "state": "grab",
+    "feedback": "抓取中",
+    "marker": true,
+    "current": "Control_UpperLip_L"
+  }
+]

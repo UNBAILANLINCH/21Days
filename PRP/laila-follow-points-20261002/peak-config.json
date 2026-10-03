@@ -1,0 +1,65 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "vertex": 204,
+    "surface": "(0.0099109, -0.0406745, -0.1301403)",
+    "grab": "(0.0099109, -0.0406745, -0.1336402)",
+    "screenAlignmentError": 0.0
+  },
+  {
+    "name": "Control_LowerLip",
+    "vertex": 8,
+    "surface": "(0.0000000, -0.0679909, -0.1188068)",
+    "grab": "(0.0000000, -0.0679909, -0.1223068)",
+    "screenAlignmentError": 3.05175781E-05
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "vertex": 320,
+    "surface": "(0.0440759, 0.0731798, -0.1228610)",
+    "grab": "(0.0418725, 0.0692263, -0.1170000)",
+    "screenAlignmentError": 12.2203455
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "vertex": 1143,
+    "surface": "(-0.0122226, 0.0731700, -0.1287614)",
+    "grab": "(-0.0159275, 0.0692263, -0.1320498)",
+    "screenAlignmentError": 14.6098871
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "vertex": 954,
+    "surface": "(-0.0440759, 0.0731798, -0.1228610)",
+    "grab": "(-0.0429275, 0.0692263, -0.1170000)",
+    "screenAlignmentError": 11.1156492
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "vertex": 327,
+    "surface": "(0.0122226, 0.0731700, -0.1287614)",
+    "grab": "(0.0148725, 0.0692263, -0.1321542)",
+    "screenAlignmentError": 12.8286266
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "vertex": 317,
+    "surface": "(0.0676741, 0.0718881, -0.1100060)",
+    "grab": "(0.0688725, 0.0692263, -0.1170000)",
+    "screenAlignmentError": 7.88187075
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "vertex": 1063,
+    "surface": "(-0.0099109, -0.0406745, -0.1301403)",
+    "grab": "(-0.0099109, -0.0406745, -0.1336402)",
+    "screenAlignmentError": 0.0
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "vertex": 949,
+    "surface": "(-0.0676741, 0.0718881, -0.1100060)",
+    "grab": "(-0.0699275, 0.0692263, -0.1170000)",
+    "screenAlignmentError": 9.416574
+  }
+]

@@ -9,6 +9,7 @@
 //      分成两层之后，InputService 继续服务那些场合，一个字都不用改。
 
 using System.Threading;
+using System;
 using Cysharp.Threading.Tasks;
 using Game.Core.Boot;
 using Game.Core.Input;
@@ -36,7 +37,7 @@ namespace Game.Core.Simulation
     /// <see cref="Initialize"/> 里的说明。
     /// </para>
     /// </summary>
-    public sealed class LiveInputSource : IInputSource, IGameService
+    public sealed class LiveInputSource : IInputSource, IGameService, IDisposable
     {
         private const string MoveActionPath = "Gameplay/Move";
         private const string ConfirmActionPath = "Gameplay/Confirm";
@@ -46,6 +47,7 @@ namespace Game.Core.Simulation
         private const string DisguiseActionPath = "Gameplay/Disguise";
         private const string AttackActionPath = "Gameplay/Attack";
         private const string RunActionPath = "Gameplay/Run";
+        private const string TameActionPath = "Gameplay/Tame";
 
         private readonly IInputService inputService;
 
@@ -57,6 +59,10 @@ namespace Game.Core.Simulation
         private InputAction disguiseAction;
         private InputAction attackAction;
         private InputAction runAction;
+        private InputAction tameAction;
+        private bool pendingTame;
+        private uint queuedButtons;
+        private int queuedSelection;
 
         private InputCommand current;
         private bool ready;
@@ -88,6 +94,29 @@ namespace Game.Core.Simulation
         /// 重放时读不到这一路，录像就会分叉。置位与清位由持有该按钮的一方负责；这里不校验位，也不清。
         /// </summary>
         public uint HeldButtons { get; set; }
+
+        /// <summary>软件界面请求下一 tick 记录一次按钮与选择槽位，玩法不得直接改控制状态。</summary>
+        public void QueueSelection(int slot, uint button)
+        {
+            if (slot < 1) throw new ArgumentOutOfRangeException(nameof(slot));
+            queuedSelection = slot;
+            queuedButtons = button;
+        }
+
+        public void ClearQueuedSelection()
+        {
+            queuedSelection = 0;
+            queuedButtons = 0;
+            pendingTame = false;
+        }
+
+        private void OnTame(InputAction.CallbackContext context) => pendingTame = true;
+
+        public void Dispose()
+        {
+            if (tameAction != null) tameAction.performed -= OnTame;
+            ClearQueuedSelection();
+        }
 
         /// <summary>
         /// 缓存动作引用。要求注册顺序排在 <see cref="IInputService"/> 之后，
@@ -160,6 +189,8 @@ namespace Game.Core.Simulation
             disguiseAction = FindAction(asset, DisguiseActionPath);
             attackAction = FindAction(asset, AttackActionPath);
             runAction = FindAction(asset, RunActionPath);
+            tameAction = FindAction(asset, TameActionPath);
+            if (tameAction != null) tameAction.performed += OnTame;
             ready = true;
             initFailed = false;
         }
@@ -195,7 +226,7 @@ namespace Game.Core.Simulation
 
             Vector2 axis0 = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
 
-            uint buttons = HeldButtons;
+            uint buttons = HeldButtons | queuedButtons;
             if (confirmAction != null && confirmAction.IsPressed())
             {
                 buttons |= InputCommand.ButtonConfirm;
@@ -230,11 +261,16 @@ namespace Game.Core.Simulation
             {
                 buttons |= InputCommand.ButtonRun;
             }
+            if (pendingTame || (tameAction != null && tameAction.IsPressed())) buttons |= InputCommand.ButtonTame;
+            // performed 锁存与按住状态分开：两次短按之间没采到松开 tick 时，第二个按下沿也不能丢。
+            if (pendingTame || (queuedButtons & InputCommand.ButtonTame) != 0) buttons |= InputCommand.ButtonTamePressed;
+            var selection = new Vector2(queuedSelection, 0f);
+            ClearQueuedSelection();
 
             // HeldButtons（软件侧按住位）已在上面作为初值 OR 进来。
             // Axis1 / Pointer 当前没有对应动作，恒为零；Flags 预留，恒为 0。
             // bit31 的 QA 打点标记不在这里置位——它不来自动作图，由录制系统的热键按到命令上。
-            current = new InputCommand(axis0, Vector2.zero, buttons, Vector2.zero, 0);
+            current = new InputCommand(axis0, selection, buttons, Vector2.zero, 0);
         }
 
         private static InputAction FindAction(InputActionAsset asset, string path)

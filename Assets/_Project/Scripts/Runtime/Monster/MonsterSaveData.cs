@@ -25,6 +25,19 @@ namespace Game.Monster
         public ulong PatrolRandomState { get; set; }
         public float[] WaypointX { get; set; } = Array.Empty<float>();
         public float[] WaypointY { get; set; } = Array.Empty<float>();
+        public bool HasSameState(MonsterSaveData other)
+        {
+            if (other == null || PositionX != other.PositionX || PositionY != other.PositionY || FacingX != other.FacingX || FacingY != other.FacingY
+                || TargetX != other.TargetX || TargetY != other.TargetY || Mode != other.Mode || Health != other.Health
+                || WaypointIndex != other.WaypointIndex || Alert != other.Alert || PatrolWalkElapsed != other.PatrolWalkElapsed
+                || NextPauseAfter != other.NextPauseAfter || PatrolPauseLeft != other.PatrolPauseLeft || AlertAtLoss != other.AlertAtLoss
+                || AlertDecayElapsed != other.AlertDecayElapsed || HostileLostElapsed != other.HostileLostElapsed
+                || AttackCooldownLeft != other.AttackCooldownLeft || PatrolRandomState != other.PatrolRandomState
+                || WaypointX.Length != other.WaypointX.Length || WaypointY.Length != other.WaypointY.Length) return false;
+            for (int i = 0; i < WaypointX.Length; i++)
+                if (WaypointX[i] != other.WaypointX[i] || WaypointY[i] != other.WaypointY[i]) return false;
+            return true;
+        }
         public void Validate()
         {
             if (float.IsNaN(PositionX) || float.IsInfinity(PositionX)) throw new ArgumentException("PositionX 非有限值");
@@ -54,4 +67,3 @@ namespace Game.Monster
         }
     }
 }
-

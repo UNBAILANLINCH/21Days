@@ -15,15 +15,18 @@ namespace Game.Monster
         private readonly MonsterConfig config;
         private readonly MonsterModel model;
         private readonly IRandomStream patrolRandom;
+        private readonly IRandomService random;
         private readonly ITelemetryScope telemetry;
         private readonly float coneCosine;
         private Vector2[] waypoints = Array.Empty<Vector2>();
 
-        public MonsterRules(MonsterConfig config, MonsterModel model, IRandomService random, ITelemetryScope telemetry)
+        public MonsterRules(MonsterConfig config, MonsterModel model, IRandomService random, ITelemetryScope telemetry,
+            string patrolStream = "logic.monster.patrol")
         {
             this.config = config == null ? throw new ArgumentNullException(nameof(config)) : config;
             this.model = model ?? throw new ArgumentNullException(nameof(model));
-            patrolRandom = (random ?? throw new ArgumentNullException(nameof(random))).Stream("logic.monster.patrol");
+            this.random = random ?? throw new ArgumentNullException(nameof(random));
+            patrolRandom = random.Stream(patrolStream);
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
             if (config.PatrolSpeed <= 0f || config.AlertSpeedMultiplier <= 0f || config.HostileSpeedMultiplier <= 0f
                 || config.VisionAngle <= 0f || config.VisionAngle >= 360f || config.HostileRadius <= 0f
@@ -42,6 +45,8 @@ namespace Game.Monster
 
         public MonsterModel Model => model;
         public int AttackDamage => config.AttackDamage;
+        public MonsterRules CreateForActor(string stableId) => new MonsterRules(config, new MonsterModel(), random,
+            telemetry, "logic.monster.patrol." + stableId);
 
         public bool Detects(in PlayerSnapshot target) => model.Health > 0 && Sense(in target) > 0;
 

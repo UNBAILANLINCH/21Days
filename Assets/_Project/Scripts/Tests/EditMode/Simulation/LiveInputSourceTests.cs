@@ -15,6 +15,21 @@ namespace Game.Tests.EditMode.Simulation
     public sealed class LiveInputSourceTests
     {
         [Test]
+        public void QueuedTame_PreservesConsecutivePresses()
+        {
+            var source = new LiveInputSource(new UnreadyInput());
+            source.QueueSelection(2, InputCommand.ButtonTame);
+            source.Sample(0);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.True);
+            source.QueueSelection(3, InputCommand.ButtonTame);
+            source.Sample(1);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.True);
+            Assert.That(source.Current.Axis1.x, Is.EqualTo(3f));
+            source.Sample(2);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.False);
+        }
+
+        [Test]
         public void Sample_WithHeldButtons_OrsThemIntoTheCommand()
         {
             var source = new LiveInputSource(new UnreadyInput());
@@ -46,6 +61,23 @@ namespace Game.Tests.EditMode.Simulation
             public GameInput Actions => null;
             public void EnableMap(string map) { }
             public void DisableMap(string map) { }
+        }
+
+        [Test]
+        public void QueueSelection_IsRecordedForOneTickAndClearedOnUnload()
+        {
+            var source = new LiveInputSource(new UnreadyInput());
+            source.QueueSelection(3, InputCommand.ButtonSelectControl);
+            source.Sample(0);
+            Assert.That(source.Current.Axis1.x, Is.EqualTo(3f));
+            Assert.That(source.Current.HasButton(InputCommand.ButtonSelectControl), Is.True);
+            source.Sample(1);
+            Assert.That(source.Current.Axis1, Is.EqualTo(Vector2.zero));
+            Assert.That(source.Current.HasButton(InputCommand.ButtonSelectControl), Is.False);
+            source.QueueSelection(2, InputCommand.ButtonTame);
+            source.ClearQueuedSelection();
+            source.Sample(2);
+            Assert.That(source.Current.Buttons, Is.Zero);
         }
     }
 }

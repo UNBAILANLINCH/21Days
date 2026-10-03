@@ -19,6 +19,7 @@ namespace Game.Monster
         private readonly MonsterModel monster;
         private readonly IGameFlow flow;
         private readonly SimulationRunner runner;
+        private readonly LiveInputSource input;
         private EncounterSceneView view;
         private EncounterSaveData restore;
         public bool NavigationBlocked { get; set; }
@@ -32,9 +33,10 @@ namespace Game.Monster
         public void ClearPreparedRestore() => restore = null;
 
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
-            MonsterModel monster, IGameFlow flow, SimulationRunner runner) : base(assets)
+            MonsterModel monster, IGameFlow flow, SimulationRunner runner, LiveInputSource input = null) : base(assets)
         {
             this.runner = runner;
+            this.input = input;
             this.step = step;
             this.player = player;
             this.monster = monster;
@@ -61,10 +63,12 @@ namespace Game.Monster
 
             try
             {
+                view.ConfigureTaming(step);
                 if (restore != null) step.Restore(restore);
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
                 view.Bind(player, monster, ReadInterpolationAlpha);
+                view.BindControl(step, RequestControl);
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
             }
@@ -80,6 +84,7 @@ namespace Game.Monster
 
         protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
+            if (input != null) input.ClearQueuedSelection();
             step.End();
             if (view != null)
             {
@@ -90,6 +95,12 @@ namespace Game.Monster
             }
 
             return UniTask.CompletedTask;
+        }
+
+        private void RequestControl(int slot, bool tame)
+        {
+            if (input != null && step.IsActive && !runner.IsPaused)
+                input.QueueSelection(slot, tame ? InputCommand.ButtonTame : InputCommand.ButtonSelectControl);
         }
 
         // 渲染插值比例：实时模式取推进器余量 / 步长；重放（Driven）由播放器逐 tick 推进、余量恒为 0，

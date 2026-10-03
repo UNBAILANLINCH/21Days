@@ -3,6 +3,9 @@
 using Game.Core.Replay;
 using Game.Core.Simulation;
 using Game.Player;
+using Game.Taming;
+using Game.Core.Telemetry;
+using System;
 using UnityEngine;
 
 namespace Game.Monster
@@ -12,11 +15,36 @@ namespace Game.Monster
         public enum Result : byte { None, Victory, Defeat, Aborted }
         private readonly PlayerRules player;
         private readonly MonsterRules monster;
+        private Vector2[][] authoredRoutes;
 
         public EncounterStep(PlayerRules player, MonsterRules monster)
         {
             this.player = player;
             this.monster = monster;
+            Taming = new TamingRules(player, monster, NullTelemetryScope.Instance);
+        }
+
+        public TamingRules Taming { get; }
+        public string CurrentControlId => Taming.CurrentControlId;
+
+        public void ConfigureTaming(string playerId, string playerName, string[] ids, string[] names, Vector2[][] routes)
+        {
+            if (ids == null || names == null || routes == null || ids.Length == 0 || ids.Length > 128
+                || ids.Length != names.Length || ids.Length != routes.Length)
+                throw new ArgumentException("巡逻者身份和路线数量不匹配");
+            var unique = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal) { playerId };
+            for (int i = 0; i < ids.Length; i++)
+                if (string.IsNullOrWhiteSpace(ids[i]) || ids[i].Length > 128 || !unique.Add(ids[i]) || string.IsNullOrWhiteSpace(names[i])
+                    || routes[i] == null || routes[i].Length == 0 || routes[i].Length > 1024)
+                    throw new ArgumentException("场景巡逻者稳定标识缺失或重复：" + ids[i]);
+            Taming.Configure(playerId, playerName);
+            authoredRoutes = new Vector2[routes.Length][];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                MonsterRules rules = i == 0 ? monster : monster.CreateForActor(ids[i]);
+                authoredRoutes[i] = (Vector2[])routes[i].Clone();
+                Taming.RegisterTarget(ids[i], names[i], rules);
+            }
         }
 
         public bool IsActive { get; private set; }
@@ -50,13 +78,22 @@ namespace Game.Monster
         {
             Tick = tick, Active = IsActive, EncounterId = EncounterId, ActivationId = ActivationId,
             Result = PendingResult, ResultConsumed = ResultConsumed, Player = player.Model.Capture(), Monster = monster.Capture(),
+            TamingTargets = Taming.Capture(), ControlledActorId = CurrentControlId, PlayerActorId = Taming.PlayerId, PreviousTame = Taming.PreviousToggle,
         };
         public void Restore(EncounterSaveData saved)
         {
             if (saved == null) throw new System.ArgumentNullException(nameof(saved));
             saved.Validate();
+            if (saved.TamingTargets != null && saved.PlayerActorId != Taming.PlayerId)
+                throw new ArgumentException("存档玩家稳定标识与场景不匹配");
+            Taming.ValidateRestore(saved.TamingTargets);
             player.Model.Restore(saved.Player);
-            monster.Restore(saved.Monster);
+            if (saved.TamingTargets == null)
+            {
+                ResetAdditionalTargets();
+                monster.Restore(saved.Monster);
+            }
+            Taming.Restore(saved.TamingTargets, saved.ControlledActorId, saved.PreviousTame);
             IsActive = saved.Active;
             EncounterId = saved.EncounterId;
             ActivationId = saved.ActivationId;
@@ -68,13 +105,25 @@ namespace Game.Monster
         {
             player.Reset(playerSpawn);
             monster.Reset(patrolPoints);
+            ResetAdditionalTargets();
+            Taming.Reset();
             EncounterId = ActivationId = 0;
             PendingResult = Result.None;
             ResultConsumed = false;
             IsActive = true;
         }
 
-        public void End() => IsActive = false;
+        public void End()
+        {
+            IsActive = false;
+            Taming.TryControl(Taming.PlayerId);
+        }
+
+        private void ResetAdditionalTargets()
+        {
+            if (authoredRoutes == null) return;
+            for (int i = 1; i < authoredRoutes.Length; i++) Taming.GetTarget(Taming.TargetIds[i]).Reset(authoredRoutes[i]);
+        }
 
         /// <summary>
         /// 把玩家逻辑位置改成表现层碰撞解算后的结果（PRP/exploration-whitebox 波 9）。
@@ -105,39 +154,52 @@ namespace Game.Monster
                 // 本 tick 双方规则都不推进：仍把上一 tick 位置对齐，否则视图会在结算前最后一步的两点间来回插值。
                 player.Model.SyncPreviousPosition();
                 monster.Model.SyncPreviousPosition();
+                foreach (string id in Taming.TargetIds) Taming.GetTarget(id).Model.SyncPreviousPosition();
                 return;
             }
 
             InputCommand command = context.Input;
+            string requested = SelectionId(command.Axis1.x);
+            if (command.HasButton(InputCommand.ButtonSelectControl)) Taming.TryControl(requested);
+            if (command.HasButton(InputCommand.ButtonTamePressed)) Taming.ProcessToggle(false);
+            Taming.ProcessToggle(command.HasButton(InputCommand.ButtonTame) && (command.Axis1.x == 0f || requested != null), requested);
+            bool enemyControlled = Taming.IsControllingEnemy;
             var playerIntent = new PlayerIntent(
-                command.Axis0,
-                command.HasButton(InputCommand.ButtonSneak),
-                command.HasButton(InputCommand.ButtonDisguise),
-                command.HasButton(InputCommand.ButtonAttack),
-                command.HasButton(InputCommand.ButtonRun));
+                enemyControlled ? Vector2.zero : command.Axis0,
+                !enemyControlled && command.HasButton(InputCommand.ButtonSneak),
+                !enemyControlled && command.HasButton(InputCommand.ButtonDisguise),
+                !enemyControlled && command.HasButton(InputCommand.ButtonAttack),
+                !enemyControlled && command.HasButton(InputCommand.ButtonRun));
             bool attacked = player.Step(in playerIntent, context.DeltaTime);
             PlayerSnapshot target = player.Model.Snapshot;
-            MonsterModel enemy = monster.Model;
-            if (attacked && enemy.Health > 0
-                && GameMath.Distance(target.Position, enemy.Position) <= player.AttackRange)
+            foreach (string id in Taming.TargetIds)
             {
+                MonsterRules rules = Taming.GetTarget(id);
+                MonsterModel enemy = rules.Model;
+                if (!attacked || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
+                    || GameMath.Distance(target.Position, enemy.Position) > player.AttackRange) continue;
                 Vector2 difference = enemy.Position - target.Position;
                 if (GameMath.SqrMagnitude(difference) == 0f
                     || GameMath.Dot(target.Facing, GameMath.Normalize(difference)) >= 0f)
                 {
                     var damage = new DamageIntent(player.AttackDamage);
-                    monster.ApplyDamage(in damage, in target);
+                    rules.ApplyDamage(in damage, in target);
                 }
             }
 
-            var monsterIntent = new MonsterIntent(target, context.DeltaTime);
-            if (monster.Step(in monsterIntent))
-            {
-                var damage = new DamageIntent(monster.AttackDamage);
-                player.ApplyDamage(in damage);
-            }
+            Taming.AdvanceTargets(command.Axis0, context.DeltaTime);
+            if (EncounterId != 0 && Taming.IsTamed && PendingResult == Result.None) AbortBattle();
             if (EncounterId != 0 && PendingResult == Result.None)
                 PendingResult = player.Model.Health == 0 ? Result.Defeat : monster.Model.Health == 0 ? Result.Victory : Result.None;
+        }
+
+        private string SelectionId(float selection)
+        {
+            // 0 表示没有定向请求；1 对应玩家，后续槽位按场景显式数组顺序映射稳定 ID。
+            if (float.IsNaN(selection) || float.IsInfinity(selection) || selection < 1f
+                || selection > Taming.TargetIds.Count + 1 || selection != (int)selection) return null;
+            int index = (int)selection - 1;
+            return index == 0 ? Taming.PlayerId : index <= Taming.TargetIds.Count ? Taming.TargetIds[index - 1] : null;
         }
 
         public void Serialize(IStateWriter writer)
@@ -147,6 +209,16 @@ namespace Game.Monster
             writer.WriteLong(ActivationId);
             writer.WriteByte((byte)PendingResult);
             writer.WriteBool(ResultConsumed);
+            WriteId(writer, Taming.PlayerId);
+            WriteId(writer, CurrentControlId);
+            writer.WriteBool(Taming.PreviousToggle);
+            writer.WriteInt(Taming.TargetIds.Count);
+            foreach (string id in Taming.TargetIds)
+            {
+                WriteId(writer, id);
+                writer.WriteBool(Taming.IsTargetTamed(id));
+                Taming.GetTarget(id).Serialize(writer);
+            }
         }
 
         public void Deserialize(IStateReader reader)
@@ -156,6 +228,35 @@ namespace Game.Monster
             ActivationId = reader.ReadLong();
             PendingResult = (Result)reader.ReadByte();
             ResultConsumed = reader.ReadBool();
+            if (ReadId(reader) != Taming.PlayerId) throw new InvalidOperationException("回放玩家标识与场景不匹配");
+            string controlled = ReadId(reader);
+            bool held = reader.ReadBool();
+            int count = reader.ReadInt();
+            if (count != Taming.TargetIds.Count) throw new InvalidOperationException("回放巡逻者数量与场景不匹配");
+            var flags = new bool[count];
+            for (int i = 0; i < count; i++)
+            {
+                string id = ReadId(reader);
+                if (id != Taming.TargetIds[i]) throw new InvalidOperationException("回放巡逻者标识与场景不匹配");
+                flags[i] = reader.ReadBool();
+                Taming.GetTarget(id).Deserialize(reader);
+            }
+            Taming.RestoreReplayFlags(flags, controlled, held);
+        }
+
+        private static void WriteId(IStateWriter writer, string id)
+        {
+            writer.WriteInt(id.Length);
+            foreach (char c in id) writer.WriteUShort(c);
+        }
+
+        private static string ReadId(IStateReader reader)
+        {
+            int count = reader.ReadInt();
+            if (count < 1 || count > 128) throw new InvalidOperationException("回放标识长度非法");
+            var chars = new char[count];
+            for (int i = 0; i < count; i++) chars[i] = (char)reader.ReadUShort();
+            return new string(chars);
         }
     }
 }

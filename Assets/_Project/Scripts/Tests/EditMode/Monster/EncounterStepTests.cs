@@ -1,5 +1,6 @@
 // 职责：补齐普通攻击距离、朝向、按钮边缘和击杀的回归证据。
 using Game.Core.Simulation;
+using Game.Core.Replay;
 using Game.Core.Telemetry;
 using Game.Monster;
 using Game.Player;
@@ -10,6 +11,106 @@ namespace Game.Tests.EditMode.Monster
 {
     public sealed class EncounterStepTests
     {
+        [Test]
+        public void TamePressLatch_AllowsFastSecondPress_ButHeldButtonDoesNotRepeat()
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var random = new RandomService(21ul);
+                var player = new PlayerRules(pc, new PlayerModel(), NullTelemetryScope.Instance);
+                var monster = new MonsterRules(mc, new MonsterModel(), random, NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, monster);
+                step.Begin(Vector2.zero, new[] { new Vector2(10, 0) });
+                var pressed = new InputCommand(Vector2.zero, Vector2.zero, InputCommand.ButtonTame | InputCommand.ButtonTamePressed, Vector2.zero, 0);
+                var context = new SimulationContext(0, 0f, in pressed, random);
+                step.Step(in context);
+                Assert.That(step.Taming.IsControllingEnemy, Is.True);
+                var held = new InputCommand(Vector2.zero, Vector2.zero, InputCommand.ButtonTame, Vector2.zero, 0);
+                context = new SimulationContext(1, 0f, in held, random);
+                step.Step(in context);
+                Assert.That(step.Taming.IsControllingEnemy, Is.True, "长按不能反复切换");
+                context = new SimulationContext(2, 0f, in pressed, random);
+                step.Step(in context);
+                Assert.That(step.CurrentControlId, Is.EqualTo(step.Taming.PlayerId), "新按下沿不依赖采到松开 tick");
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void MultiActorReplay_RoundTripsBeforeAndAfterBegin(bool active)
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var player = new PlayerRules(pc, new PlayerModel(), NullTelemetryScope.Instance);
+                var monster = new MonsterRules(mc, new MonsterModel(), new RandomService(21ul), NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, monster);
+                Vector2[] route = { new Vector2(10, 0) };
+                step.ConfigureTaming("player", "玩家", new[] { "a", "b" }, new[] { "甲", "乙" }, new[] { route, new[] { new Vector2(20, 0) } });
+                if (active)
+                {
+                    step.Begin(Vector2.zero, route);
+                    step.Taming.TryTame("a");
+                    step.Taming.TryTame("b");
+                    step.Taming.TryControl("b");
+                }
+                var bytes = new StateBuffer();
+                step.Serialize(bytes);
+                step.Begin(Vector2.zero, route);
+                step.Deserialize(bytes);
+                Assert.That(bytes.Remaining, Is.Zero);
+                Assert.That(step.IsActive, Is.EqualTo(active));
+                Assert.That(step.CurrentControlId, Is.EqualTo(active ? "b" : "player"));
+                Assert.That(step.Taming.IsTargetTamed("a"), Is.EqualTo(active));
+                Assert.That(step.Taming.IsTargetTamed("b"), Is.EqualTo(active));
+                var roundTrip = new StateBuffer();
+                step.Serialize(roundTrip);
+                Assert.That(roundTrip.Length, Is.EqualTo(bytes.Length));
+                for (int i = 0; i < bytes.Length; i++) Assert.That(roundTrip.GetBuffer()[i], Is.EqualTo(bytes.GetBuffer()[i]), "字节 " + i);
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
+
+        [Test]
+        public void MultiActorRestore_RejectsMismatchBeforeMutation_AndRestoresBothOwners()
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var player = new PlayerRules(pc, new PlayerModel(), NullTelemetryScope.Instance);
+                var monster = new MonsterRules(mc, new MonsterModel(), new RandomService(21ul), NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, monster);
+                Vector2[] route = { new Vector2(10, 0) };
+                step.ConfigureTaming("player", "玩家", new[] { "a", "b" }, new[] { "甲", "乙" }, new[] { route, new[] { new Vector2(20, 0) } });
+                step.Begin(Vector2.zero, route);
+                step.Taming.TryTame("a");
+                step.Taming.TryTame("b");
+                step.Taming.TryControl("b");
+                var saved = step.Capture(1);
+                step.Begin(Vector2.one, route);
+                Assert.That(step.Taming.GetTarget("b").Model.Position, Is.EqualTo(new Vector2(20, 0)));
+                saved.TamingTargets[1].Id = "unknown";
+                Assert.Throws<System.ArgumentException>(() => step.Restore(saved));
+                Assert.That(player.Model.Position, Is.EqualTo(Vector2.one), "错误目标不能部分改写玩家");
+                saved.TamingTargets[1].Id = "b";
+                step.Restore(saved);
+                Assert.That(step.CurrentControlId, Is.EqualTo("b"));
+                Assert.That(step.Taming.TryControl("a"), Is.True);
+                Assert.That(step.Taming.TryControl("b"), Is.True);
+                saved.TamingTargets = null;
+                step.Restore(saved);
+                Assert.That(step.CurrentControlId, Is.EqualTo("player"));
+                Assert.That(step.Taming.IsTargetTamed("b"), Is.False, "旧档默认未驯服");
+                Assert.That(step.Taming.GetTarget("b").Model.Position, Is.EqualTo(new Vector2(20, 0)));
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
+
         [TestCase(0.5f, true)]
         [TestCase(1.1f, false)]
         [TestCase(-0.5f, false)]

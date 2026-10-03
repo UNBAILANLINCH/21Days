@@ -77,7 +77,7 @@ namespace Game.Core.Replay
         /// <para>升到 4（2026-09-26）：某个已注册回放状态的 Serialize 字段变了同样改变快照字节布局——
         /// 玩家状态在流末尾追加了奔跑模式与上 tick 奔跑键两项，v3 快照按新布局读会错位，故拒收。</para>
         /// </summary>
-        public const ushort CurrentFormatVersion = 4;
+        public const ushort CurrentFormatVersion = 5;
 
         /// <summary>
         /// 当前代码还能正确解读的最老格式版本。比它更老的文件会被明确拒掉（报「哪个版本」），
@@ -88,7 +88,7 @@ namespace Game.Core.Replay
         /// 抬到 2 就意味着 v1 回放一律拒收。到那一刻再做决定，但别让代码在那天才第一次长出这个概念。
         /// </para>
         /// </summary>
-        public const ushort MinimumReadableFormatVersion = 4;
+        public const ushort MinimumReadableFormatVersion = 5;
 
         /// <summary>
         /// 回放文件的推荐扩展名。**只是约定，不是格式的一部分**：

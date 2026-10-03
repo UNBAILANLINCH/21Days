@@ -49,6 +49,11 @@ namespace Game.Core.Simulation
         /// 位掩码只是追加一位，命令字节布局不变。
         /// </summary>
         public const uint ButtonRun = 1u << 6;
+        /// <summary>驯服动作与界面定向选择。选择槽位记录在 Axis1.x，保留 31 字节布局。</summary>
+        public const uint ButtonTame = 1u << 7;
+        public const uint ButtonSelectControl = 1u << 8;
+        /// <summary>本 tick 收到新的驯服按下事件；即使两次短按间未采到松开，也保留新按下沿。</summary>
+        public const uint ButtonTamePressed = 1u << 9;
 
         /// <summary>
         /// QA 打点标记位。**不来自动作图**，<see cref="LiveInputSource"/> 永远不会置它；

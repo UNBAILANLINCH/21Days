@@ -97,6 +97,10 @@ namespace Game.Session
             target.ResultConsumed = captured.ResultConsumed;
             target.Player = captured.Player;
             target.Monster = captured.Monster;
+            target.TamingTargets = captured.TamingTargets;
+            target.ControlledActorId = captured.ControlledActorId;
+            target.PlayerActorId = captured.PlayerActorId;
+            target.PreviousTame = captured.PreviousTame;
         }
 
         public void PrepareRestore(bool fromSave)

@@ -576,3 +576,15 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
 ### 16.5 文件与提交规则
 
 只提交源码、配置、规格、可编辑最终模型和精选验收证据；训练环境、原图、投影缓存、权重和试验产物留在已有忽略目录。正式部署的 ONNX/JSON 待验收后放入 Assets 并提交配套 meta。详细文件去留见 [asset-disposition.md](asset-disposition.md)。旧模型备份与训练证据不是同一回事，不能为了清理工作区删掉唯一的原件回滚来源。
+
+## 17. 当前工程候选接手入口（2026-10-03）
+
+2026-10-04收尾：按用户意愿暂停新模型训练、补采及扩类推进，仅保存本地标注器、raw17数据适配和配套测试／文档。本节为当前入口；输入契约继续按§16，旧v1仍只供历史复现。暂停不表示完成准确率或独立语义验收，现部署模型和阈值未修改。
+
+本地工具由`ML/expression-recognition/launch_annotator.cmd`启动，固定139张匿名dev图、仅两个近邻组；原七类＋ambiguous与空值、备注、history独立保存。字段／保存位置／恢复和适配详情见[辅助标注器说明](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md)。
+
+适配器按UUID／快照和图片hash关联完整17轴、31权重与单人开发意见，输出成对51D／59D候选及manifest；不随机拆train/test，不将单人意见当golden。surprise/fear仅在五类视图合并，disgust／ambiguous／空值默认不进五类监督；疑惑仅是保留原文证据的review tag，无辜／茫然不自动等同疑惑。候选包不能直接喂现有51D训练加载器。
+
+最新r696保持139个稳定ID，116张有分类／23张带备注空值，94张五类候选；现ONNX离线argmax一致65、最终一致45、拒识36，非独立泛化准确率。27张含疑惑备注全部argmax中性，最终中性23／拒识4，仅报输出分布不计错。相关测试56通过，59D还原raw17最大误差4.76837e-8；旧r562另目录复现63／43／36，旧证据未覆盖。
+
+原始标签与历史继续留在既有忽略范围，字节哈希核验备份为`ML/expression-recognition/artifacts/laila_v2_candidate/label-backup-20261004-precommit/`；本次Git仅保存工具／适配schema、候选配置、测试及说明，不宣称标签已Git版控。环境、图片、模型、训练与诊断缓存不加入；实验文件不删除。独立多人复核、训练加载器、锁测与部署验收均未完成。

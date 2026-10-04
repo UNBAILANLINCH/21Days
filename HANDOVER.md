@@ -107,6 +107,24 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 
 ### 1.8 Rhythm 四轨音游：先补诊断与试听闭环
 
+本次本地保存：运行时、曲库资产/场景及完整测试依赖已提交为`15c94f6f1069efee4ff9f2202a42c647e94cd6e4`（2026-10-05 02:23:00 +08:00），接续原HEAD，无历史重写或推送。下方各轮“未提交/待补验/交还场景”描述当轮节点，最新验证与真人状态以上方收尾及下方最新诊断为准；验收证据执行时间保持真实。
+
+提交前最新真人主轮诊断（2026-10-05 03:25:01 UTC）：33输入/32匹配/32有效、MAD24.61ms、估计+151.53ms、原补偿+140.27ms，四块中位136.30/162.87/184.94/147.51ms，跨度48.65ms，结果Drift；数据完整，根因尚未解决。现有代码只允许Stable/Suggested候选，Drift数值与候选试听仍被隐藏；低可信试听只是提议，未实现。Boot迁移与正式UI prefab延期，一曲一谱、无多难度需求，两新曲听感暂不调整。
+
+2026-10-05 真人校准诊断修复已应用：Drift/不可恢复结果禁用8拍补测，State也拒绝强制事件；显示分段跨度与20ms上限，不放宽阈值。本机JSON保留最近5轮，每轮256条/128KB，区分runtime与隔离测试；保存失败在结果页提示，原补偿不变。Unity编译/lint通过，EditMode44/44，提示微调后受影响33/33；Showcase2/2见`Logs/verify/rhythm/20261005-110306/report.md`，最终保存失败/取消补验1/1见`Logs/verify/rhythm/20261005-110957/report.md`，检查点失败/运行时异常均0。Unity已归还RhythmDemo，场景干净、非Play/编译、倍率1。历史真人失败缺原始样本，不能宣称真人已通过；继续排查仅需正常一轮并保留原值。[实施记录](PRP/rhythm-real-calibration-diagnostic-20261005/implementation-report.md)。无提交/打包/Laila修改；gc仍有4项既有问题。
+
+**2026-10-05 两项缺陷已修复并定向验收**：非法时钟先守卫后诊断，明确 Reason 停局并清理；校准 fixture 的松开改为单调预定时间，真实 InputSystem 对照证实旧序列丢6/32拍得到Drift，修复后32/32得到Suggested（80ms、MAD45ms、分块差0），不改质量门。定向EditMode35/35；首轮六项4通过/2失败保留，修复fixture隔离后仅补验两项2/2，`Logs/verify/rhythm/20261005-031538/report.md` PASS、检查点失败0/异常0。六项各有通过证据，不冒充一次全绿或全仓重跑。Unity实际归还干净LailaRecognitionPlaytest、idle/非Play/无编译测试、timeScale/倍率1、Console error0，无临时测试场景。详见[本轮交付](PRP/rhythm-final-regression-fix-20261005/implementation-report.md)。三正式谱、Boot/prefab、Laila与asmdef未编辑，未提交/index/push/build；仍待物理/真人及音乐贴合度验收。
+
+**2026-10-05 历史冻结验收**：最终同代次修复后EditMode171/171；八项定向Showcase7通过/1失败，五项新增曲库回放全部通过。确认式校准Suggested预设收到Drift，当时原因未定位，完整报告 `Logs/verify/rhythm/20261005-014637/report.md` 为FAIL，继续保留；此节点的待定位项已由上方本轮修复关闭。具体接口和文件边界见[实施记录](PRP/rhythm-library-integration-20261005/implementation-report.md)。
+
+**曲库与乐师接口增量（2026-10-05）**：[当前实施与证据](PRP/rhythm-library-integration-20261005/implementation-report.md)。独立 RhythmDemo 已新增 runtime 滚动曲库与当前谱面详情、不可变完整单局结果、v2 个人纪录/legacy 分离/原字节备份和永久歌曲开放；一曲一谱。外部请求分驯服浏览与当前控制演奏资格，Combat 只接注入策略/成功失败 hook，不写个人纪录；未接真实乐师 adapter、Boot、正式 prefab、伤害值或失败惩罚。ClearExternal 供复用状态回普通自由局，消费者实例内去重不等于跨世界存档事务。现有世界暂停语义未改。首个冻结快照 EditMode171/171；之后已补校准/中断回调重入代次保护，最终运行结果以实施记录为准。首次 Showcase 请求因外部窗口进入Play而执行0项被拒，未擅停运行；后续五项曲库回放通过，历史整体7通过/1失败与定向修复证据见上方。三正式谱/项目设置hash不变，真实progress档实际不存在，故无空假备份；备份与IO故障测试仅隔离临时档。本批未提交、构建或上传。
+
+**确认式校准收尾（2026-10-04）**：[实现与接口清单](PRP/rhythm-calibration-review-20261004/implementation-report.md)。固定8+32主轮、分类原因、分块覆盖/漂移检查、明确应用才保存、保留继续、原值/候选参考拍反馈和一次主动8拍补测已实现；试听中断回候选页显示原因，补测MAD上限取当前配置。跨轨组合复用Tap/Hold，仅补验证，无新类型/练习UI，三正式谱及项目设置hash不变。最终运行时代码EditMode131/131；旧生命周期与组合通过。新校准先后遇整数滑块断言及协程发键抖动两项fixture失败，保留历史报告，未放宽质量门；修正后定向1/1（95.47秒）、检查点失败0/异常0，报告`Logs/verify/rhythm/20261004-230245/report.md`。预设事件时间戳经真实InputSystem接线，不等于真人跟拍或物理延迟验证；质量阈值仍待真人验证。本批未提交、构建或上传。
+
+此校准轮收尾实际读取：Unity为干净RhythmDemo三根节点、idle/非Play/无运行测试、倍率1、Console error=[]，无临时测试场景残留。文档gc仍有3处Gameplay命名空间不匹配与共享动态字体缓存，共4处；未改Laila并行代码或清字体。不是沿用上一选曲轮的Laila场景交还状态。
+
+**选曲扩展交接（2026-10-04）**：[实际验收记录](PRP/rhythm-song-progression-20261004/stage-report.md)。正式三曲选曲、60% 达标、虫儿飞解锁两曲与独立最高分/通关档案已接入；两新谱为 164/229 枚自动测试谱，尚未人工音乐校准。Unity 编译成功，EditMode 120/120，原四项 Showcase 通过；首次新增长流程因默认 180 秒超时中止，保留该失败记录，已完成入门锁定/解锁与吉他全曲。文字布局已修，长测试明确 360 秒 Timeout；定向补验 1/1（81.66 秒）实际完成 Attention 229 Perfect、15 Hold、Miss=0，换曲清零、重试中断、实际写盘和重入恢复三曲进度通过，报告 `Logs/verify/rhythm/20261004-205648/report.md`。前置 fixture 明确预置已验证入门/吉他成绩，不冒充完整长流程重跑；截图核对无旧重叠，模块审查 PASS。编辑器已交还干净 LailaRecognitionPlaytest、非 Play、无测试、倍率 1、Console error=[]，项目设置 hash 未变。剩余人工试听/物理延迟、OS 重启与慢写/保存失败注入未验收；本批未提交或构建。
+
 接手入口为 [四轨后续规格](PRP/rhythm-followup/spec.md)，当前实现见 [模块指南](ai-docs/docs/modules/rhythm/rhythm-module-guide.md)。**2026-10-04 已取消伪透视并提交等宽四轨（627f656）；本轮并行推进诊断、试听工具和运行时生命周期，Unity 自动验收已通过，人工验收仍待确认。** `PRP/music/spec.md` 是单键打印机候选玩法，不能覆盖当前四轨规则。
 
 - **P0 实现**：有限容量诊断记录与纯逻辑回放已接入，结束后“保存本轮诊断”显式导出 `.rhd`，不写玩家 Profile；[诊断接口](PRP/rhythm-followup/diagnostics-api.md)。[试听定位工具](PRP/rhythm-audio-review-20261003/locator/README.md) 已有真实 Chrome 测试，项目根运行 `node PRP/rhythm-audio-review-20261003/locator/server.mjs` 后打开 `http://127.0.0.1:8766`；逐音符声部和候选仍须人工审核，未改正式谱。

@@ -29,7 +29,7 @@ MonoBehaviour:
   notes:
   - id: legacy-0
     lane: 0
-    timeMs: 464
+    timeMs: 870
     type: 0
     durationMs: 0
   - id: legacy-1
@@ -84,7 +84,7 @@ MonoBehaviour:
     durationMs: 0
   - id: legacy-11
     lane: 3
-    timeMs: 8039
+    timeMs: 8020
     type: 0
     durationMs: 0
   - id: legacy-12
@@ -99,7 +99,7 @@ MonoBehaviour:
     durationMs: 0
   - id: legacy-14
     lane: 3
-    timeMs: 9786
+    timeMs: 11520
     type: 0
     durationMs: 0
   - id: legacy-15
@@ -239,7 +239,7 @@ MonoBehaviour:
     durationMs: 0
   - id: legacy-42
     lane: 0
-    timeMs: 30459
+    timeMs: 30160
     type: 0
     durationMs: 0
   - id: legacy-43
@@ -264,7 +264,7 @@ MonoBehaviour:
     durationMs: 0
   - id: legacy-47
     lane: 0
-    timeMs: 33058
+    timeMs: 33470
     type: 0
     durationMs: 0
   - id: legacy-48
@@ -280,6 +280,11 @@ MonoBehaviour:
   - id: legacy-50
     lane: 2
     timeMs: 35410
+    type: 0
+    durationMs: 0
+  - id: legacy-51
+    lane: 3
+    timeMs: 36300
     type: 0
     durationMs: 0
   - id: legacy-52
@@ -299,22 +304,7 @@ MonoBehaviour:
     durationMs: 0
   - id: legacy-55
     lane: 2
-    timeMs: 39466
-    type: 0
-    durationMs: 0
-  - id: review-12c48715-e5c6-4006-ac45-07823167870a
-    lane: 2
-    timeMs: 33058
-    type: 1
-    durationMs: 1165
-  - id: review-d0962855-301e-496b-a356-0e6c25eb0890
-    lane: 0
-    timeMs: 35388
-    type: 1
-    durationMs: 1020
-  - id: review-b359c4b0-e7b9-4a30-ae58-583f77693c5c
-    lane: 1
-    timeMs: 37136
+    timeMs: 38730
     type: 0
     durationMs: 0
   bpmSegments: []
@@ -327,25 +317,3 @@ MonoBehaviour:
   calibrationWindowMs: 250
   calibrationMaxMadMs: 30
   farWidthRatio: 0.32
-  practiceDurationSeconds: 9
-  practiceNotes:
-  - id: practice-tap-d
-    lane: 0
-    timeMs: 1000
-    type: 0
-    durationMs: 0
-  - id: practice-tap-f
-    lane: 1
-    timeMs: 2000
-    type: 0
-    durationMs: 0
-  - id: practice-hold-j
-    lane: 2
-    timeMs: 3000
-    type: 1
-    durationMs: 2000
-  - id: practice-hold-k
-    lane: 3
-    timeMs: 6000
-    type: 1
-    durationMs: 2000

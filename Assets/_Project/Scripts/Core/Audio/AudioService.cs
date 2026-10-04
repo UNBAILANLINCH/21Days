@@ -66,6 +66,9 @@ namespace Game.Core.Audio
         /// 永远只由**最新**的那个请求驱动。
         /// </summary>
         private int bgmRequestId;
+        private AudioPlayback scheduledPlayback;
+        private bool resumeBgm;
+        private int suspendedBgmRequest;
 
         private bool disposed;
 
@@ -344,6 +347,53 @@ namespace Game.Core.Audio
             StopBgmAsync(ResolveFade(fadeSeconds)).Forget();
         }
 
+        public AudioPlayback PlayScheduledClip(AudioClip clip, float startSeconds, float delaySeconds)
+        {
+            ThrowIfDisposed();
+            if (clip == null) throw new ArgumentNullException(nameof(clip));
+            if (root == null) throw new InvalidOperationException("音频服务尚未初始化");
+            if (float.IsNaN(startSeconds) || float.IsInfinity(startSeconds) || startSeconds < 0f || startSeconds >= clip.length)
+                throw new ArgumentOutOfRangeException(nameof(startSeconds));
+            if (float.IsNaN(delaySeconds) || float.IsInfinity(delaySeconds) || delaySeconds < 0.1f)
+                throw new ArgumentOutOfRangeException(nameof(delaySeconds));
+            if (clip.loadState != AudioDataLoadState.Loaded) throw new InvalidOperationException("音频数据尚未加载");
+            if (scheduledPlayback != null) scheduledPlayback.Dispose();
+            resumeBgm = bgmSource != null && bgmSource.isPlaying;
+            suspendedBgmRequest = bgmRequestId;
+            if (resumeBgm) bgmSource.Pause();
+            var host = new GameObject("ScheduledAudio");
+            host.transform.SetParent(root.transform);
+            var source = host.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = false;
+            source.clip = clip;
+            source.timeSamples = (int)(startSeconds * clip.frequency);
+            source.volume = BgmSourceLevel;
+            double dspNow = 0;
+            double inputNow = 0;
+            double bestSpan = double.PositiveInfinity;
+            // 夹取两个时钟，选调用跨度最小的样本；是软件映射近似，不是硬件延迟测量。
+            for (int i = 0; i < 16; i++)
+            {
+                double before = Time.realtimeSinceStartupAsDouble;
+                double dsp = AudioSettings.dspTime;
+                double after = Time.realtimeSinceStartupAsDouble;
+                if (after - before >= bestSpan) continue;
+                bestSpan = after - before; dspNow = dsp; inputNow = (before + after) * 0.5;
+            }
+            source.PlayScheduled(dspNow + delaySeconds);
+            scheduledPlayback = new AudioPlayback(source, dspNow + delaySeconds, inputNow + delaySeconds, ReleaseScheduled);
+            return scheduledPlayback;
+        }
+
+        private void ReleaseScheduled(AudioPlayback playback)
+        {
+            if (scheduledPlayback != playback) return;
+            scheduledPlayback = null;
+            if (!disposed && resumeBgm && suspendedBgmRequest == bgmRequestId && bgmSource != null) bgmSource.UnPause();
+            resumeBgm = false;
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -352,6 +402,7 @@ namespace Game.Core.Audio
             }
 
             disposed = true;
+            if (scheduledPlayback != null) scheduledPlayback.Dispose();
             Application.quitting -= ReleaseAllHandles;
 
             if (lifetimeCts != null)
@@ -438,6 +489,7 @@ namespace Game.Core.Audio
             }
 
             float sfxLevel = SfxSourceLevel;
+            if (scheduledPlayback != null) scheduledPlayback.SetVolume(BgmSourceLevel);
             for (int i = 0; i < sfxSources.Length; i++)
             {
                 if (sfxSources[i] != null)

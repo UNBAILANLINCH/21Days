@@ -21,6 +21,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | 模块 | 状态 | 文档目录 |
 | --- | --- | --- |
 | Sample | 三件套齐备（**同时是模块文档的样例**） | [`modules/sample/`](modules/sample/sample-module-guide.md) |
+| Rhythm | PC 四轨独立试玩；《虫儿飞》40 秒片段，手动延迟补偿；音乐贴合与手感待人工验收 | [`modules/rhythm/`](modules/rhythm/rhythm-module-guide.md) |
 | Player | 三件套齐备；Unity 场景接线待完成 | [`modules/player/`](modules/player/player-module-guide.md) |
 | Monster | 三件套齐备；Unity 场景接线待完成 | [`modules/monster/`](modules/monster/monster-module-guide.md) |
 | Disguise | 伪装禁攻规则与回放 | [`modules/disguise/`](modules/disguise/disguise-module-guide.md) |

@@ -60,6 +60,9 @@ namespace Game.Core.Simulation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Abs(int value) => Mathf.Abs(value);
 
+        /// <summary>双精度时间差的绝对值，避免歌曲时间降为 float。</summary>
+        public static double Abs(double value) => System.Math.Abs(value);
+
         /// <summary>取较小值，转发 <see cref="Mathf.Min(float, float)"/>。</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float Min(float a, float b) => Mathf.Min(a, b);

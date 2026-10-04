@@ -1,0 +1,319 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e9f811916d55314896aef57330f56c5, type: 3}
+  m_Name: ChongErFei
+  m_EditorClassIdentifier: 
+  song: {fileID: 8300000, guid: 537d244ab63848142a4f4676111ec49c, type: 3}
+  input: {fileID: 11400000, guid: 2556934514d0c344b88bb8b58ea7b043, type: 2}
+  clipStartSeconds: 16
+  durationSeconds: 40
+  approachSeconds: 2.5
+  countdownSeconds: 3
+  perfectMs: 65
+  goodMs: 140
+  noteTimes: []
+  noteLanes: 
+  schemaVersion: 2
+  chartId: chongerfei-demo
+  audioKey: ChongErFei
+  laneCount: 4
+  notes:
+  - id: legacy-0
+    lane: 0
+    timeMs: 870
+    type: 0
+    durationMs: 0
+  - id: legacy-1
+    lane: 1
+    timeMs: 1620
+    type: 0
+    durationMs: 0
+  - id: legacy-2
+    lane: 2
+    timeMs: 2290
+    type: 0
+    durationMs: 0
+  - id: legacy-3
+    lane: 3
+    timeMs: 2790
+    type: 0
+    durationMs: 0
+  - id: legacy-4
+    lane: 2
+    timeMs: 3370
+    type: 0
+    durationMs: 0
+  - id: legacy-5
+    lane: 1
+    timeMs: 3950
+    type: 0
+    durationMs: 0
+  - id: legacy-6
+    lane: 0
+    timeMs: 5110
+    type: 0
+    durationMs: 0
+  - id: legacy-7
+    lane: 2
+    timeMs: 5700
+    type: 0
+    durationMs: 0
+  - id: legacy-8
+    lane: 1
+    timeMs: 6280
+    type: 0
+    durationMs: 0
+  - id: legacy-9
+    lane: 3
+    timeMs: 6940
+    type: 0
+    durationMs: 0
+  - id: legacy-10
+    lane: 0
+    timeMs: 7440
+    type: 0
+    durationMs: 0
+  - id: legacy-11
+    lane: 3
+    timeMs: 8020
+    type: 0
+    durationMs: 0
+  - id: legacy-12
+    lane: 1
+    timeMs: 8610
+    type: 0
+    durationMs: 0
+  - id: legacy-13
+    lane: 2
+    timeMs: 9480
+    type: 0
+    durationMs: 0
+  - id: legacy-14
+    lane: 3
+    timeMs: 11520
+    type: 0
+    durationMs: 0
+  - id: legacy-15
+    lane: 0
+    timeMs: 12100
+    type: 0
+    durationMs: 0
+  - id: legacy-16
+    lane: 0
+    timeMs: 13270
+    type: 0
+    durationMs: 0
+  - id: legacy-17
+    lane: 1
+    timeMs: 13850
+    type: 0
+    durationMs: 0
+  - id: legacy-18
+    lane: 2
+    timeMs: 14430
+    type: 0
+    durationMs: 0
+  - id: legacy-19
+    lane: 3
+    timeMs: 15020
+    type: 0
+    durationMs: 0
+  - id: legacy-20
+    lane: 2
+    timeMs: 15600
+    type: 0
+    durationMs: 0
+  - id: legacy-21
+    lane: 1
+    timeMs: 16180
+    type: 0
+    durationMs: 0
+  - id: legacy-22
+    lane: 0
+    timeMs: 16770
+    type: 0
+    durationMs: 0
+  - id: legacy-23
+    lane: 2
+    timeMs: 17930
+    type: 0
+    durationMs: 0
+  - id: legacy-24
+    lane: 1
+    timeMs: 18510
+    type: 0
+    durationMs: 0
+  - id: legacy-25
+    lane: 3
+    timeMs: 19090
+    type: 0
+    durationMs: 0
+  - id: legacy-26
+    lane: 0
+    timeMs: 19680
+    type: 0
+    durationMs: 0
+  - id: legacy-27
+    lane: 3
+    timeMs: 20260
+    type: 0
+    durationMs: 0
+  - id: legacy-28
+    lane: 1
+    timeMs: 20840
+    type: 0
+    durationMs: 0
+  - id: legacy-29
+    lane: 2
+    timeMs: 21430
+    type: 0
+    durationMs: 0
+  - id: legacy-30
+    lane: 3
+    timeMs: 22580
+    type: 0
+    durationMs: 0
+  - id: legacy-31
+    lane: 0
+    timeMs: 23760
+    type: 0
+    durationMs: 0
+  - id: legacy-32
+    lane: 0
+    timeMs: 24340
+    type: 0
+    durationMs: 0
+  - id: legacy-33
+    lane: 1
+    timeMs: 24920
+    type: 0
+    durationMs: 0
+  - id: legacy-34
+    lane: 2
+    timeMs: 25500
+    type: 0
+    durationMs: 0
+  - id: legacy-35
+    lane: 3
+    timeMs: 26090
+    type: 0
+    durationMs: 0
+  - id: legacy-36
+    lane: 2
+    timeMs: 26670
+    type: 0
+    durationMs: 0
+  - id: legacy-37
+    lane: 1
+    timeMs: 27250
+    type: 0
+    durationMs: 0
+  - id: legacy-38
+    lane: 0
+    timeMs: 27830
+    type: 0
+    durationMs: 0
+  - id: legacy-39
+    lane: 2
+    timeMs: 28420
+    type: 0
+    durationMs: 0
+  - id: legacy-40
+    lane: 1
+    timeMs: 29000
+    type: 0
+    durationMs: 0
+  - id: legacy-41
+    lane: 3
+    timeMs: 29580
+    type: 0
+    durationMs: 0
+  - id: legacy-42
+    lane: 0
+    timeMs: 30160
+    type: 0
+    durationMs: 0
+  - id: legacy-43
+    lane: 3
+    timeMs: 30740
+    type: 0
+    durationMs: 0
+  - id: legacy-44
+    lane: 1
+    timeMs: 31360
+    type: 0
+    durationMs: 0
+  - id: legacy-45
+    lane: 2
+    timeMs: 31910
+    type: 0
+    durationMs: 0
+  - id: legacy-46
+    lane: 3
+    timeMs: 32490.000000000004
+    type: 0
+    durationMs: 0
+  - id: legacy-47
+    lane: 0
+    timeMs: 33470
+    type: 0
+    durationMs: 0
+  - id: legacy-48
+    lane: 0
+    timeMs: 34240
+    type: 0
+    durationMs: 0
+  - id: legacy-49
+    lane: 1
+    timeMs: 34820
+    type: 0
+    durationMs: 0
+  - id: legacy-50
+    lane: 2
+    timeMs: 35410
+    type: 0
+    durationMs: 0
+  - id: legacy-51
+    lane: 3
+    timeMs: 36300
+    type: 0
+    durationMs: 0
+  - id: legacy-52
+    lane: 2
+    timeMs: 36750
+    type: 0
+    durationMs: 0
+  - id: legacy-53
+    lane: 1
+    timeMs: 37450
+    type: 0
+    durationMs: 0
+  - id: legacy-54
+    lane: 0
+    timeMs: 38030
+    type: 0
+    durationMs: 0
+  - id: legacy-55
+    lane: 2
+    timeMs: 38730
+    type: 0
+    durationMs: 0
+  bpmSegments: []
+  chartOffsetMs: 0
+  finishBufferSeconds: 0.1
+  calibrationBpm: 120
+  calibrationWarmupBeats: 8
+  calibrationSampleBeats: 32
+  calibrationMinimumSamples: 24
+  calibrationWindowMs: 250
+  calibrationMaxMadMs: 30
+  farWidthRatio: 0.32

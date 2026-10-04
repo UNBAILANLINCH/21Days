@@ -8,6 +8,11 @@
     }
   },
   "modules": {
+    "rhythm": {
+      "src": "Assets/_Project/Scripts/Runtime/Rhythm",
+      "docs": "ai-docs/docs/modules/rhythm",
+      "status": "ready"
+    },
     "disguise": {
       "src": "Assets/_Project/Scripts/Runtime/Disguise",
       "docs": "ai-docs/docs/modules/disguise",

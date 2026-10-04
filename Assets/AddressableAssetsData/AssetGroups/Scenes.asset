@@ -17,6 +17,11 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: fd025ba1153228a44a083410d7c78aa7
   m_SerializeEntries:
+  - m_GUID: 12405b41aa0cf5e428010ce95403b1c1
+    m_Address: RhythmDemoScene
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8c9cfa26abfee488c85f1582747f6a02
     m_Address: IsometricEncounter
     m_ReadOnly: 0

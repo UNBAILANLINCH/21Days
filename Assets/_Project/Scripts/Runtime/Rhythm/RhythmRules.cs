@@ -27,6 +27,9 @@ namespace Game.Rhythm
         public int Count => times.Length;
         public bool Finished => Perfect + Good + Miss == Count;
         public double OffsetMs { get; }
+        public double PerfectMs => perfectMs;
+        public double GoodMs => goodMs;
+        public double ChartOffsetMs { get; }
         public double LastEndSeconds { get; }
 
         public RhythmRules(double[] times, int[] lanes, double perfectMs, double goodMs, double offsetMs, ITelemetryScope telemetry)
@@ -73,6 +76,7 @@ namespace Game.Rhythm
             this.perfectMs = perfectMs;
             this.goodMs = goodMs;
             OffsetMs = offsetMs;
+            ChartOffsetMs = chartOffsetMs;
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
         }
 
@@ -95,6 +99,8 @@ namespace Game.Rhythm
         public int NoteLane(int note) => notes[note].Lane;
         public RhythmNoteType NoteType(int note) => notes[note].Type;
         public string NoteId(int note) => notes[note].Id;
+        /// <summary>诊断/回放读取原始毫秒记录副本；不重复编译秒时间或修改规则状态。</summary>
+        public RhythmNoteData[] CopyNotes() => (RhythmNoteData[])notes.Clone();
 
         public RhythmHitResult Hit(in RhythmHitIntent intent)
         {

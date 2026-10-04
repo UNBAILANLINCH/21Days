@@ -382,7 +382,7 @@ namespace Game.Core.Audio
                 bestSpan = after - before; dspNow = dsp; inputNow = (before + after) * 0.5;
             }
             source.PlayScheduled(dspNow + delaySeconds);
-            scheduledPlayback = new AudioPlayback(source, dspNow + delaySeconds, inputNow + delaySeconds, ReleaseScheduled);
+            scheduledPlayback = new AudioPlayback(source, dspNow + delaySeconds, inputNow + delaySeconds, bestSpan, ReleaseScheduled);
             return scheduledPlayback;
         }
 

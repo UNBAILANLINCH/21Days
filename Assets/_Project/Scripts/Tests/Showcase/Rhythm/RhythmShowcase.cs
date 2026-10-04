@@ -49,13 +49,12 @@ namespace Game.Tests.Showcase.Rhythm
             }, 0f);
             yield return Check("倒数与音乐时间轴已开始", () => state.IsPlaying, 5f);
             var playbackField = typeof(RhythmState).GetField("playback", BindingFlags.Instance | BindingFlags.NonPublic);
-            var queueField = typeof(RhythmState).GetField("inputQueue", BindingFlags.Instance | BindingFlags.NonPublic);
-            var watermarkField = typeof(RhythmInputQueue).GetField("watermark", BindingFlags.Instance | BindingFlags.NonPublic);
+            var boundaryField = typeof(RhythmState).GetField("completedInputBoundary", BindingFlags.Instance | BindingFlags.NonPublic);
             System.Action<InputAction.CallbackContext> observe = context =>
             {
                 var clock = (AudioPlayback)playbackField.GetValue(state);
                 if (clock == null) return;
-                Debug.Log($"[VERIFY][Rhythm] 时间证据 event={context.time:F6}, realtime={Time.realtimeSinceStartupAsDouble:F6}, mapped={clock.PositionAtInputTime(context.time):F6}, dsp={clock.Position:F6}, watermark={(double)watermarkField.GetValue(queueField.GetValue(state)):F6}");
+                Debug.Log($"[VERIFY][Rhythm] 时间证据 event={context.time:F6}, realtime={Time.realtimeSinceStartupAsDouble:F6}, mapped={clock.PositionAtInputTime(context.time):F6}, dsp={clock.Position:F6}, completedBatch={(double)boundaryField.GetValue(state):F6}");
             };
             for (int lane = 0; lane < 4; lane++) { state.LaneAction(lane).performed += observe; state.LaneAction(lane).canceled += observe; }
             for (int i = 0; i < 4; i++)
@@ -167,6 +166,185 @@ namespace Game.Tests.Showcase.Rhythm
             yield return saves.ReadProfileAsync<RhythmCalibrationData>("rhythm-calibration").ContinueWith(data => calibrated = data).ToCoroutine();
             yield return Check("校准替换输入补偿，视觉值保持独立", () => calibrated.OffsetMs > 30 && calibrated.OffsetMs < 140 && calibrated.VisualOffsetMs == 125);
             yield return Snapshot("校准质量与独立偏移");
+        }
+
+        [UnityTest]
+        public IEnumerator ScheduledStop_InterruptionsAndDiagnosticReplay_Work()
+        {
+            yield return WaitUntil("音游准备界面", () => ResolveService<IGameFlow>() != null && ResolveService<IGameFlow>().Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":0.5,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"short-tap\",\"lane\":0,\"timeMs\":100,\"type\":0,\"durationMs\":0}]}", config);
+            scenarioState = new RhythmState(config, ResolveService<IUIService>(), ResolveService<IAudioService>(), ResolveService<ISaveService>(),
+                flow, ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>();
+            var view = ResolveService<IUIService>().Get<RhythmView>();
+            bool originalPause = AudioListener.pause;
+            var originalMode = InputSystem.settings.updateMode;
+            try
+            {
+                yield return Step("启动短片段并阻塞主线程跨过排程终点", scenarioState.StartRound, 0f);
+                yield return Check("音频句柄已建立", () => scenarioState.IsPlaying, 5f);
+                yield return WaitUntil("排程终点之前", () => scenarioState.SongSeconds >= 0.35, 3f);
+                var playback = (AudioPlayback)typeof(RhythmState).GetField("playback", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(scenarioState);
+                var source = (AudioSource)typeof(AudioPlayback).GetField("source", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(playback);
+                System.Threading.Thread.Sleep(350);
+                Assert.That(source.isPlaying, Is.False, "主线程未 Tick，音频仍须按 DSP 排程结束");
+                Assert.That(scenarioState.IsPlaying, Is.True, "句柄保留到输入批次结算");
+                typeof(RhythmState).GetMethod("FocusLost", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(scenarioState, null);
+                Assert.That(scenarioState.IsPlaying, Is.False);
+                var recorded = scenarioState.LastDiagnostic;
+                Assert.That(recorded, Is.Not.Null);
+                Assert.That(recorded.Commands[recorded.Commands.Count - 1].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.FocusLost));
+                using (var stream = new System.IO.MemoryStream())
+                {
+                    RhythmDiagnosticCodec.Write(stream, recorded);
+                    stream.Position = 0;
+                    Assert.That(RhythmDiagnosticReplay.Run(RhythmDiagnosticCodec.Read(stream)).Matches, Is.True);
+                }
+                Assert.That(FindDeep<Button>(view.transform, "DiagnosticExportButton").interactable, Is.True);
+                yield return Step("连续重试二十次，每次使用新会话", null, 0f);
+                int previousSession = recorded.SessionHeader.Session;
+                for (int retry = 0; retry < 20; retry++)
+                {
+                    scenarioState.StartRound();
+                    yield return Check("重试已建立", () => scenarioState.IsPlaying, 5f);
+                    Assert.That(scenarioState.Rules.Score, Is.Zero);
+                    AudioListener.pause = true;
+                    scenarioState.Tick();
+                    AudioListener.pause = false;
+                    Assert.That(scenarioState.IsPlaying, Is.False);
+                    Assert.That(scenarioState.LastDiagnostic.Commands[scenarioState.LastDiagnostic.Commands.Count - 1].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.AudioPaused));
+                    Assert.That(scenarioState.LastDiagnostic.SessionHeader.Session, Is.GreaterThan(previousSession));
+                    previousSession = scenarioState.LastDiagnostic.SessionHeader.Session;
+                }
+                foreach (var mode in new[] { InputSettings.UpdateMode.ProcessEventsInFixedUpdate, InputSettings.UpdateMode.ProcessEventsManually })
+                {
+                    InputSystem.settings.updateMode = mode;
+                    scenarioState.StartRound();
+                    Assert.That(scenarioState.IsPlaying, Is.False, "不支持的输入模式必须在排程之前拒绝");
+                }
+                InputSystem.settings.updateMode = originalMode;
+                scenarioState.StartRound();
+                yield return Check("应用暂停测试已开始", () => scenarioState.IsPlaying, 5f);
+                var applicationPause = typeof(RhythmView).GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic);
+                applicationPause.Invoke(view, new object[] { true });
+                Assert.That(scenarioState.IsPlaying, Is.False);
+                Assert.That(scenarioState.LastDiagnostic.Commands[scenarioState.LastDiagnostic.Commands.Count - 1].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.ApplicationPaused));
+                scenarioState.StartRound();
+                Assert.That(scenarioState.IsPlaying, Is.False, "应用仍暂停时不能重开");
+                applicationPause.Invoke(view, new object[] { false });
+                scenarioState.StartRound();
+                yield return Check("恢复后建立新会话", () => scenarioState.IsPlaying, 5f);
+                InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsInFixedUpdate;
+                scenarioState.Tick();
+                Assert.That(scenarioState.IsPlaying, Is.False, "演奏中模式切换必须终止");
+                Assert.That(scenarioState.LastDiagnostic.Commands[scenarioState.LastDiagnostic.Commands.Count - 1].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.InputModeChanged));
+            }
+            finally
+            {
+                AudioListener.pause = originalPause;
+                InputSystem.settings.updateMode = originalMode;
+                typeof(RhythmView).GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, new object[] { false });
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DiagnosticExportButton_WritesUniqueFilesAndReportsFailure()
+        {
+            yield return WaitUntil("音游准备界面", () => ResolveService<IGameFlow>() != null && ResolveService<IGameFlow>().Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":0.5,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"export-tap\",\"lane\":0,\"timeMs\":100,\"type\":0,\"durationMs\":0}]}", config);
+            scenarioState = new RhythmState(config, ResolveService<IUIService>(), ResolveService<IAudioService>(), ResolveService<ISaveService>(),
+                flow, ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            var ui = ResolveService<IUIService>();
+            var view = ui.Get<RhythmView>();
+            var export = FindDeep<Button>(view.transform, "DiagnosticExportButton");
+            string isolatedRoot = PlatformServiceBase.SaveRootOverride;
+            Assert.That(isolatedRoot, Is.Not.Null.And.Not.Empty);
+            string folder = System.IO.Path.Combine(isolatedRoot, "rhythm-diagnostics");
+            System.IO.Directory.CreateDirectory(folder);
+            string sentinel = System.IO.Path.Combine(folder, "do-not-overwrite.rhd");
+            byte[] sentinelBytes = { 21, 4, 99 };
+            System.IO.File.WriteAllBytes(sentinel, sentinelBytes);
+            bool originalPause = AudioListener.pause;
+            try
+            {
+                Assert.That(export.interactable, Is.False);
+                yield return Step("从真实面板开始，再失焦结束生成记录", () => FindDeep<Button>(view.transform, "StartButton").onClick.Invoke(), 0f);
+                yield return Check("导出测试会话已建立", () => scenarioState.IsPlaying, 5f);
+                scenarioState.Tick();
+                typeof(RhythmState).GetMethod("FocusLost", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(scenarioState, null);
+                Assert.That(export.interactable, Is.True);
+                yield return Step("自动化触发面板导出按钮两次", () => { export.onClick.Invoke(); export.onClick.Invoke(); }, 0f);
+                string[] firstFiles = System.IO.Directory.GetFiles(folder, "session-*.rhd");
+                yield return Check("两次按钮点击写成不同文件", () => firstFiles.Length == 2);
+                byte[][] originalBytes = { System.IO.File.ReadAllBytes(firstFiles[0]), System.IO.File.ReadAllBytes(firstFiles[1]) };
+                foreach (string file in firstFiles) AssertExport(file, scenarioState.LastDiagnostic.SessionHeader.Session, RhythmDiagnosticData.Reason.FocusLost);
+                yield return Check("实际通知面板显示保存成功", () => NotificationTitle(ui) == "本轮诊断已保存", 8f);
+                yield return Snapshot("诊断按钮保存成功");
+                yield return Step("重新开始时禁止导出，音频暂停后保存新会话", () => FindDeep<Button>(view.transform, "StartButton").onClick.Invoke(), 0f);
+                yield return Check("新会话已建立", () => scenarioState.IsPlaying, 5f);
+                Assert.That(export.interactable, Is.False);
+                export.onClick.Invoke(); // 直接触发事件也须被 State 防重入守卫挡住。
+                Assert.That(System.IO.Directory.GetFiles(folder, "session-*.rhd").Length, Is.EqualTo(2));
+                AudioListener.pause = true;
+                scenarioState.Tick();
+                AudioListener.pause = originalPause;
+                export.onClick.Invoke();
+                string[] allFiles = System.IO.Directory.GetFiles(folder, "session-*.rhd");
+                yield return Check("新会话新增文件，旧文件与哨兵未覆盖", () => allFiles.Length == 3 &&
+                    System.Linq.Enumerable.SequenceEqual(System.IO.File.ReadAllBytes(firstFiles[0]), originalBytes[0]) &&
+                    System.Linq.Enumerable.SequenceEqual(System.IO.File.ReadAllBytes(firstFiles[1]), originalBytes[1]) &&
+                    System.Linq.Enumerable.SequenceEqual(System.IO.File.ReadAllBytes(sentinel), sentinelBytes));
+                foreach (string file in allFiles)
+                    if (file != firstFiles[0] && file != firstFiles[1]) AssertExport(file, scenarioState.LastDiagnostic.SessionHeader.Session, RhythmDiagnosticData.Reason.AudioPaused);
+                var retained = scenarioState.LastDiagnostic;
+                string blockedRoot = System.IO.Path.Combine(isolatedRoot, "blocked-export-root");
+                System.IO.File.WriteAllBytes(blockedRoot, sentinelBytes);
+                ExpectErrorLogs("导出目录故意被文件占用", message => message.Contains("rhythm/diagnostic_save_failed"));
+                PlatformServiceBase.SaveRootOverride = blockedRoot;
+                yield return Step("导出按钮遇到不可写目录", () => export.onClick.Invoke(), 0f);
+                PlatformServiceBase.SaveRootOverride = isolatedRoot;
+                yield return Check("失败通知显示且内存记录和已有文件仍保留", () => NotificationTitle(ui) == "诊断未保存" &&
+                    ReferenceEquals(scenarioState.LastDiagnostic, retained) && export.interactable &&
+                    System.IO.Directory.GetFiles(folder, "session-*.rhd").Length == 3, 12f);
+                yield return Snapshot("诊断导出失败反馈");
+                yield return Step("恢复目录后从同一按钮重试导出", () => export.onClick.Invoke(), 0f);
+                yield return Check("恢复后第四份文件可回读", () => System.IO.Directory.GetFiles(folder, "session-*.rhd").Length == 4);
+                foreach (string file in System.IO.Directory.GetFiles(folder, "session-*.rhd"))
+                {
+                    using (var stream = System.IO.File.OpenRead(file)) Assert.That(RhythmDiagnosticReplay.Run(RhythmDiagnosticCodec.Read(stream)).Matches, Is.True);
+                }
+            }
+            finally
+            {
+                PlatformServiceBase.SaveRootOverride = isolatedRoot;
+                AudioListener.pause = originalPause;
+            }
+        }
+
+        private static void AssertExport(string file, int session, RhythmDiagnosticData.Reason reason)
+        {
+            using (var stream = System.IO.File.OpenRead(file))
+            {
+                var restored = RhythmDiagnosticCodec.Read(stream);
+                Assert.That(restored.SessionHeader.Session, Is.EqualTo(session));
+                Assert.That(restored.Commands[restored.Commands.Count - 1].EndReason, Is.EqualTo(reason));
+                Assert.That(RhythmDiagnosticReplay.Run(restored).Matches, Is.True);
+            }
+        }
+
+        private static string NotificationTitle(IUIService ui)
+        {
+            var notification = ui.Get<NotificationView>();
+            if (notification == null || !notification.IsCardShown) return null;
+            return ((TMPro.TMP_Text)typeof(NotificationView).GetField("titleLabel", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(notification)).text;
         }
 
         private IEnumerator TickScenario()

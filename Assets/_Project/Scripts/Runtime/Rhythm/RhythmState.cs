@@ -1,5 +1,6 @@
 // 职责：音游会话接线与资源清理。SampleState 只算购买价格，扩展它会混入另一种玩法。
 using System;
+using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Audio;
@@ -38,9 +39,12 @@ namespace Game.Rhythm
         private bool closing;
         private bool starting;
         private int session;
-        private readonly RhythmInputQueue inputQueue = new RhythmInputQueue();
+        private RhythmDiagnosticSession diagnostic;
+        private double sampledRealtime;
+        private double sampledDsp;
+        private double nextBridgeSample;
         private Action<RhythmHitResult> judged;
-        private bool clipStopped;
+        private RhythmClockGuard clockGuard;
         private RhythmCalibrationEstimator estimator;
         private AudioClip calibrationClip;
         private double calibrationDuration;
@@ -53,6 +57,7 @@ namespace Game.Rhythm
         // 只有独立测试预设使用测试 key；正式 Player 和编辑器保留原档案契约。
         private string ProfileName => PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-calibration" : "rhythm-calibration";
         public RhythmRules Rules { get; private set; }
+        public RhythmDiagnosticData LastDiagnostic { get; private set; }
         public bool IsPlaying => playback != null;
         public double SongSeconds => playback == null ? 0d : playback.Position;
         public InputAction LaneAction(int lane) => actions.FindAction("Rhythm/Lane" + lane, true);
@@ -97,6 +102,8 @@ namespace Game.Rhythm
                 view.OnBackClicked += Back;
                 view.OnOffsetChanged += OffsetChanged;
                 view.OnFocusLost += FocusLost;
+                view.OnApplicationSuspended += ApplicationSuspended;
+                view.OnDiagnosticExportClicked += ExportDiagnostic;
                 view.OnCalibrationClicked += StartCalibration;
                 view.OnVisualOffsetChanged += VisualOffsetChanged;
                 view.SetOffset((float)calibration.OffsetMs);
@@ -123,23 +130,25 @@ namespace Game.Rhythm
         }
         private async UniTask StartRoundAsync(bool practice)
         {
+            if (!CanStart()) return;
             starting = true;
-            StopRound();
+            StopRound(RhythmDiagnosticData.Reason.Restart);
             int preparingSession = session;
             view.Starting();
             try
             {
                 await saves.WriteProfileAsync(ProfileName, new RhythmCalibrationData { OffsetMs = calibration.OffsetMs, VisualOffsetMs = calibration.VisualOffsetMs });
                 if (closing || view == null || preparingSession != session) return;
+                if (!CanStart()) return;
                 practiceRound = practice;
                 Rules = practice ? config.CreatePracticeRules(calibration.OffsetMs, telemetry) : config.CreateRules(calibration.OffsetMs, telemetry);
                 roundDuration = practice ? config.PracticeDurationSeconds : config.DurationSeconds;
                 AudioClip clip = config.Song;
                 if (practice) { calibrationClip = CreateReferenceClip(roundDuration, 60d / config.CalibrationBpm); clip = calibrationClip; }
                 playback = audio.PlayScheduledClip(clip, practice ? 0 : config.ClipStartSeconds, config.LeadInSeconds(calibration.VisualOffsetMs));
+                playback.ScheduleEnd(roundDuration);
                 ResetInputBoundary();
-                inputQueue.Begin(session);
-                clipStopped = false;
+                BeginDiagnostic(practice, clip);
                 actions.Enable();
                 view.Begin(Rules, roundDuration, practice);
                 view.Frame(playback.Position, Rules);
@@ -168,7 +177,7 @@ namespace Game.Rhythm
                 return;
             }
             var intent = new RhythmHitIntent(lane, seconds, edge, session);
-            inputQueue.Enqueue(in intent);
+            diagnostic.Enqueue(in intent, context.time, Time.realtimeSinceStartupAsDouble);
             if (edge == RhythmInputEdge.Press) view.Flash(lane, seconds);
         }
         private void OnJudged(RhythmHitResult result)
@@ -178,14 +187,22 @@ namespace Game.Rhythm
         }
         private void ResetInputBoundary()
         {
+            AudioSettings.GetDSPBufferSize(out int bufferLength, out int buffers);
+            int sampleRate = AudioSettings.outputSampleRate;
+            double bufferSeconds = (double)bufferLength * buffers / (sampleRate > 0 ? sampleRate : 1);
+            double tolerance = bufferSeconds * 2 + playback.BridgeSampleSpanSeconds;
+            clockGuard = new RhythmClockGuard(playback.DspStart, playback.InputStart,
+                tolerance > 0.1 ? tolerance : 0.1);
             inputBoundary = playback.PositionAtInputTime(InputState.currentTime);
             completedInputBoundary = inputBoundary;
         }
         private void InputBatchCompleted()
         {
-            if (playback == null || (InputState.currentUpdateType != InputUpdateType.Dynamic && InputState.currentUpdateType != InputUpdateType.Fixed)) return;
+            if (playback == null) return;
+            if (!InputModeSupported()) { Interrupt("输入模式已改变，本轮已停止，请恢复动态更新后重试", "input_mode_changed"); return; }
+            if (InputState.currentUpdateType != InputUpdateType.Dynamic) return;
             double boundary = playback.PositionAtInputTime(InputState.currentTime);
-            if (boundary < inputBoundary) { FocusLost(); return; }
+            if (boundary < inputBoundary) { Interrupt("输入时钟发生回退，本轮已停止，请重试", "input_clock_reversed"); return; }
             // 只封口上一批已完成的输入时间；当前批次的原始事件仍可排队，DSP 不作为输入水位。
             completedInputBoundary = inputBoundary;
             inputBoundary = boundary;
@@ -193,6 +210,7 @@ namespace Game.Rhythm
         public void Tick()
         {
             if (playback == null || view == null || closing) return;
+            if (!CanContinue()) return;
             double seconds = playback.Position;
             if (estimator != null)
             {
@@ -202,49 +220,147 @@ namespace Game.Rhythm
             }
             int oldMiss = Rules.Miss; int oldScore = Rules.Score; int oldHolds = Rules.CompletedHolds;
             missFeedbackShown = false;
-            inputQueue.Drain(Rules, completedInputBoundary, judged);
-            if (inputQueue.LateInputs > 0)
+            diagnostic.Drain(completedInputBoundary, inputBoundary, completedInputBoundary, sampledRealtime, sampledDsp, judged);
+            if (diagnostic.LateInputs > 0)
             {
-                StopRound(); view.Ready("输入送达过迟，本轮已停止，请重试"); telemetry.TrackWarn("late_input_delivery"); return;
+                StopRound(RhythmDiagnosticData.Reason.LateInput); view.Ready("输入送达过迟，本轮已停止，请重试"); telemetry.TrackWarn("late_input_delivery"); return;
             }
             if (Rules.Miss > oldMiss && !missFeedbackShown) view.Missed(Rules);
             else if (Rules.CompletedHolds > oldHolds) view.HoldCompleted(Rules);
             else if (Rules.Score != oldScore) view.Score(Rules);
             view.Frame(seconds, Rules);
-            if (!clipStopped && seconds >= roundDuration) { playback.StopAudio(); clipStopped = true; }
             double deadline = Rules.LastEndSeconds + (config.GoodMs + (Rules.OffsetMs > 0 ? Rules.OffsetMs : 0)) / 1000;
             double finish = (roundDuration > deadline ? roundDuration : deadline) + config.FinishBufferSeconds;
             if (completedInputBoundary < finish) return;
-            StopRound();
+            StopRound(RhythmDiagnosticData.Reason.Finished);
             view.Finish(Rules, practiceRound);
             telemetry.Track("finished", ("perfect", Rules.Perfect), ("good", Rules.Good), ("miss", Rules.Miss), ("score", Rules.Score));
         }
-        private void StopRound()
+        private void StopRound(RhythmDiagnosticData.Reason reason = RhythmDiagnosticData.Reason.Stopped)
         {
             session++;
-            inputQueue.Clear();
+            if (diagnostic != null)
+            {
+                diagnostic.End(reason);
+                LastDiagnostic = diagnostic.Snapshot();
+                diagnostic = null;
+            }
             AudioPlayback old = playback; playback = null; // Disable 会同步 canceled，先关闭判定入口。
+            clockGuard = null;
             if (actions != null) actions.Disable();
             if (old != null) old.Dispose();
+            if (view != null) view.SetDiagnosticAvailable(LastDiagnostic != null);
             estimator = null;
             if (calibrationClip != null) { UnityEngine.Object.Destroy(calibrationClip); calibrationClip = null; }
         }
         private void FocusLost()
         {
-            StopRound();
-            view.Ready("窗口失焦，演奏已停止；点击开始重试");
-            telemetry.TrackWarn("interrupted");
+            Interrupt("窗口失焦，演奏已停止；点击开始重试", "focus_lost");
         }
-        private void AudioChanged(bool changed) { if (playback != null || starting) FocusLost(); }
+        private void ApplicationSuspended() => Interrupt("应用已挂起，本轮已停止；恢复后点击开始重试", "application_paused");
+        private void Interrupt(string message, string reason)
+        {
+            if (closing || (playback == null && !starting)) return;
+            StopRound(DiagnosticReason(reason));
+            if (view != null) view.Ready(message);
+            telemetry.TrackWarn("interrupted", TelemetryProps.Of(("reason", reason)));
+        }
+        private void AudioChanged(bool changed) => Interrupt("音频配置已改变，本轮已停止；点击开始重试", "audio_configuration_changed");
         private void DeviceChanged(InputDevice device, InputDeviceChange change)
         {
-            if ((change == InputDeviceChange.Removed || change == InputDeviceChange.Disconnected) && (playback != null || starting)) FocusLost();
+            if (change == InputDeviceChange.Removed || change == InputDeviceChange.Disconnected)
+                Interrupt("输入设备已断开，本轮已停止；重新连接后重试", "input_device_lost");
+        }
+        private static bool InputModeSupported() => InputSystem.settings.updateMode == InputSettings.UpdateMode.ProcessEventsInDynamicUpdate;
+        private bool CanStart()
+        {
+            string reason = !InputModeSupported() ? "input_mode_unsupported" :
+                AudioListener.pause ? "audio_paused" : view.IsApplicationPaused ? "application_paused" : null;
+            if (reason == null) return true;
+            StopRound();
+            view.Ready(reason == "input_mode_unsupported" ? "当前输入模式不支持音游，请使用动态更新后重试" : "音频或应用仍在暂停，请恢复后重试");
+            telemetry.TrackWarn("start_rejected", TelemetryProps.Of(("reason", reason)));
+            return false;
+        }
+        private bool CanContinue()
+        {
+            if (!InputModeSupported()) { Interrupt("输入模式已改变，本轮已停止，请恢复动态更新后重试", "input_mode_changed"); return false; }
+            if (AudioListener.pause) { Interrupt("音频已暂停，本轮已停止；恢复后点击开始重试", "audio_paused"); return false; }
+            if (view.IsApplicationPaused) { ApplicationSuspended(); return false; }
+            double before = Time.realtimeSinceStartupAsDouble;
+            double dsp = AudioSettings.dspTime;
+            double after = Time.realtimeSinceStartupAsDouble;
+            sampledRealtime = (before + after) * 0.5;
+            sampledDsp = dsp;
+            if (diagnostic != null && sampledRealtime >= nextBridgeSample)
+            {
+                diagnostic.SampleBridge(sampledRealtime, dsp, after - before);
+                nextBridgeSample = sampledRealtime + 0.25;
+            }
+            if (clockGuard.Check(sampledRealtime, dsp, after - before, out string reason)) return true;
+            Interrupt("音频时钟已中断，本轮已停止；点击开始重新同步", reason);
+            return false;
+        }
+        private static RhythmDiagnosticData.Reason DiagnosticReason(string reason)
+        {
+            switch (reason)
+            {
+                case "focus_lost": return RhythmDiagnosticData.Reason.FocusLost;
+                case "audio_configuration_changed": return RhythmDiagnosticData.Reason.AudioChanged;
+                case "input_device_lost": return RhythmDiagnosticData.Reason.DeviceChanged;
+                case "clock_reversed": case "input_clock_reversed": return RhythmDiagnosticData.Reason.ClockRollback;
+                case "audio_paused": return RhythmDiagnosticData.Reason.AudioPaused;
+                case "application_paused": return RhythmDiagnosticData.Reason.ApplicationPaused;
+                case "input_mode_changed": return RhythmDiagnosticData.Reason.InputModeChanged;
+                case "clock_discontinuity": return RhythmDiagnosticData.Reason.ClockDiscontinuity;
+                case "invalid_clock": return RhythmDiagnosticData.Reason.InvalidClock;
+                default: return RhythmDiagnosticData.Reason.Stopped;
+            }
+        }
+        private void BeginDiagnostic(bool practice, AudioClip clip)
+        {
+            var header = new RhythmDiagnosticData.Header(session, practice ? "rhythm-practice" : config.ChartId,
+                practice ? clip.name : config.AudioKey, "chart-schema-" + config.SchemaVersion,
+                Application.platform + "/Unity-" + Application.unityVersion, InputSystem.settings.updateMode.ToString(),
+                practice ? 0 : config.ClipStartSeconds, playback.DspStart, playback.InputStart, playback.BridgeSampleSpanSeconds,
+                Rules.ChartOffsetMs, Rules.OffsetMs, calibration.VisualOffsetMs, Rules.PerfectMs, Rules.GoodMs);
+            diagnostic = new RhythmDiagnosticSession(header, Rules.CopyNotes(), telemetry: telemetry);
+            Rules = diagnostic.Rules;
+            nextBridgeSample = double.NegativeInfinity;
+            view.SetDiagnosticAvailable(false);
+        }
+        private void ExportDiagnostic()
+        {
+            if (playback != null || starting || LastDiagnostic == null) return;
+            try
+            {
+                string folder = Path.Combine(PlatformServiceBase.SaveRootOverride ?? Application.temporaryCachePath, "rhythm-diagnostics");
+                Directory.CreateDirectory(folder);
+                string file = "session-" + LastDiagnostic.SessionHeader.Session + "-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".rhd";
+                using (var encoded = new MemoryStream())
+                {
+                    RhythmDiagnosticCodec.Write(encoded, LastDiagnostic);
+                    encoded.Position = 0;
+                    using (var destination = new FileStream(Path.Combine(folder, file), FileMode.CreateNew, FileAccess.Write))
+                        encoded.CopyTo(destination);
+                }
+                var report = RhythmDiagnosticReplay.Run(LastDiagnostic);
+                notifications.Show("本轮诊断已保存", "临时缓存 rhythm-diagnostics/" + file +
+                    (report.IsComplete ? "；可用于判定回放。" : "；记录不完整，请勿当作完整验收。"));
+                telemetry.Track("diagnostic_saved", ("session", LastDiagnostic.SessionHeader.Session), ("complete", report.IsComplete));
+            }
+            catch (Exception error)
+            {
+                telemetry.TrackError("diagnostic_save_failed", error);
+                notifications.Show("诊断未保存", "请检查存储空间后重试，内存中的本轮记录仍保留。");
+            }
         }
         private void OffsetChanged(float value) { calibration.OffsetMs = value; }
         private void VisualOffsetChanged(float value) { calibration.VisualOffsetMs = value; }
         public void StartCalibration()
         {
             if (closing || view == null || starting) return;
+            if (!CanStart()) return;
             StopRound(); view.Starting();
             try
             {
@@ -256,6 +372,7 @@ namespace Game.Rhythm
                 estimator = new RhythmCalibrationEstimator(targets, config.CalibrationMinimumSamples, config.CalibrationWindowMs, config.CalibrationMaxMadMs);
                 calibrationClip = CreateReferenceClip(calibrationDuration, calibrationBeatSeconds);
                 playback = audio.PlayScheduledClip(calibrationClip, 0, config.CountdownSeconds);
+                playback.ScheduleEnd(calibrationDuration);
                 ResetInputBoundary();
                 actions.Enable();
                 view.Calibrating(playback.Position, 0, config.CalibrationWarmupBeats, calibrationBeatSeconds);
@@ -329,6 +446,8 @@ namespace Game.Rhythm
                     view.OnStartClicked -= StartRound; view.OnBackClicked -= Back;
                     view.OnPracticeClicked -= StartPractice;
                     view.OnOffsetChanged -= OffsetChanged; view.OnFocusLost -= FocusLost;
+                    view.OnApplicationSuspended -= ApplicationSuspended;
+                    view.OnDiagnosticExportClicked -= ExportDiagnostic;
                     view.OnCalibrationClicked -= StartCalibration; view.OnVisualOffsetChanged -= VisualOffsetChanged;
                     await ui.CloseAsync(view, CancellationToken.None);
                 }

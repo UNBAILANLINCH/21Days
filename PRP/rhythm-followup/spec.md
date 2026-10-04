@@ -1,6 +1,6 @@
 # Rhythm 四轨试玩后续规格
 
-状态：2026-10-04 用户已授权取消伪透视；等宽直落表现代码与相关测试已调整，Unity 编译/执行测试及真实画面尚未验证。除这次表现简化外，下列产出仍待实施，架构候选尚未批准落地。音频/DSP、输入判定、规则、谱面、补偿和构建配置不变。
+状态：2026-10-04 用户授权并行推进。等宽表现已入库（627f656）；本轮已实现有界诊断/纯逻辑回放/显式导出、生命周期守卫、Dynamic 输入模式契约和 DSP 预约停音，正在真实 Unity 验收。独立试听定位工具已完成浏览器验证，正式谱面、三 offset 符号与简单 Hold 语义保持。成熟架构、外部制谱导入和设备档案仍为候选。
 
 ## 1. 接手范围与已存在能力
 
@@ -18,9 +18,9 @@
 | --- | --- | --- |
 | 16 组 realtime/DSP 夹取后只固定一次映射；两个歌曲时钟分别减起点 | `Assets/_Project/Scripts/Core/Audio/AudioService.cs:375`、`AudioPlayback.cs:23` | 软件调用跨度不是物理精度保证；需记录残差和生命周期变化，不能先断言 DSP 坏了 |
 | 原始输入时间进入队列，上一完整输入批次封口，DSP 不直接推进判定 | `Assets/_Project/Scripts/Runtime/Rhythm/RhythmState.cs:164`、`:184`、`:205`；`RhythmInputQueue.cs:35` | 保留已修好的顺序；真实迟到仍停止本轮，不钳时间或伪造回滚 |
-| 声音到片段结束后由 Tick 调用 StopAudio；没有预约结束 | `Assets/_Project/Scripts/Runtime/Rhythm/RhythmState.cs:214` | 卡顿跨过终点会延后停音；需评估采样排程结束，不改掉输入尾窗 |
-| 已有失焦/音频配置变化/输入设备断开的终止与 session 隔离；没有独立应用暂停处理 | `Assets/_Project/Scripts/Runtime/Rhythm/RhythmState.cs:124`、`:222`、`:238`；`RhythmView.OnApplicationFocus` | DSP 停、realtime 继续且无终止事件时会失配；普通失焦已有保护，不能写成必现缺陷 |
-| 进入模块暂停世界；当前包默认 Dynamic，批次只接 Dynamic/Fixed | `Assets/_Project/Scripts/Runtime/Rhythm/RhythmState.cs:93`、`:186`；`Assets/_Project/Scripts/Core/Timing/WorldPauseService.cs:100` | 实施时核对实际 updateMode；Fixed 在 timeScale=0 下及 Manual 批次均不能假定受支持 |
+| 片段与校准均调用 ScheduleEnd 预约终点，保留句柄到输入尾窗收尾 | `AudioPlayback.ScheduleEnd`、`RhythmState.StartRoundAsync/StartCalibration` | 主线程卡顿不延后声音终点；仍需实际音频与 Player 验收 |
+| 失焦/音频配置/输入设备中断之外，新增独立音频暂停、应用暂停与双时钟失配守卫 | `RhythmState.CanStart/CanContinue/Interrupt`、`RhythmClockGuard`、`RhythmView.OnApplicationPause` | 沿用终止后重开；不续播旧桥接，保存等待会话失效后不能启动 |
+| 进入模块暂停世界；只支持 Dynamic，Fixed/Manual 明确拒绝 | `RhythmState.InputModeSupported/InputBatchCompleted` | 不改全局设置，演奏中模式切换终止；防止无批次时静默卡住 |
 | 当前 PCM/解压加载，开局等待音频加载；现有解码对比三个窗口均有 11ms 固定差 | `Assets/_Project/Audio/Rhythm/ChongErFei.mp3.meta`；`Assets/_Project/Scripts/Runtime/Rhythm/RhythmState.cs:82`；[对比记录](../rhythm-audio-review-20261003/decoder-comparison.json) | 解码原点差不等于播放漂移；不把 11ms 自动加到玩家补偿 |
 
 [音频检视](../../ai-docs/docs/modules/rhythm/chongerfei-audio-review.md) 提供声部歧义与 [既有 A/B 试听页](../rhythm-audio-review-20261003/index.html)，候选未应用。规则源码已有补偿、掉帧、Hold 与队列回归；历史 `Logs/verify/rhythm/20261004-000926/report.md` 记录场景回放 PASS，本次未重跑。已有软件/编辑器证据不能代替 Player、声学回环或人工音乐验收。
@@ -29,7 +29,9 @@
 
 ### P0-A 统一时间诊断与可回放输入记录
 
-**输出**：带版本的会话诊断记录、纯逻辑回放入口和最小定位报告。记录不接入现有固定 tick ReplayFormat，也不宣称能重现物理出声；先验证记录格式和读取契约，再实现写入。
+**已实现**：带版本的有界会话诊断、纯逻辑回放和二进制 `.rhd` 导出；[实际接口](diagnostics-api.md)。运行时复用同一 Rules/InputQueue，结束后显式导出到临时缓存目录，不写 Profile。记录不接入现有固定 tick ReplayFormat，也不宣称能重现物理出声。容量耗尽封存可回放前缀并标记不完整，游戏继续。
+
+当前限制：音频标识/谱面 schema 与原始音符快照已记录，没有自动音频内容 hash。停止细因现直接保存现有 EndReason：AudioPaused/ApplicationPaused/InputModeChanged/ClockDiscontinuity/InvalidClock/LateInput；原枚举数值和二进制布局不变，新读取器兼容旧记录，旧读取器遇到未知新原因严格拒绝。
 
 记录至少包含：session、谱面/音频标识与版本或内容指纹、片段起点、预约 DSP/realtime 起点、被选桥接样本跨度、三种 offset 快照、实际输入更新模式；逐事件保存 lane、Press/Release、稳定序号、原始事件时间、到达批次与映射后歌曲时间；逐批保存当前/上一完成边界、实际封口水位与推进顺序。判定保存目标 ID/头尾时刻、原始/补偿后误差、等级、原因及分数变化；自动 Miss 没有输入时间或输入误差，填空值，不填 0。
 
@@ -38,6 +40,8 @@
 **验收**：同一记录离线回放得到相同逐枚结果、分数/连击和迟到诊断；回放使用记录的批次边界而非 DSP 当前时间。0/正/负输入补偿与独立视觉值均有样例；卡顿积压、相同时间戳稳定排序、旧 session、过水位输入均可复现。报告列软件残差 median/P95/max 与环境，先取基线再审阈值，不预写硬件精度达标。
 
 ### P0-B 听觉声部确认与可试听改谱闭环
+
+**本轮已交付工具**：[试听定位说明](../rhythm-audio-review-20261003/locator/README.md)。运行 `node PRP/rhythm-audio-review-20261003/locator/server.mjs`，打开 `http://127.0.0.1:8766`。波形、ID 定位、短循环、原谱/候选 A/B、click、单音符时间调整和 JSON/CSV 导出回载已用真实 Chrome 验证；来源 hash、版本和冲突检查覆盖。没有覆盖 SO，没有自动套用 11ms；声部选择、逐候选接受/拒绝和 Unity PCM 对照仍待人工审核。
 
 **输出**：按音符 ID 的声部确认表、旧/新目标差异与理由、A/B 短循环试听及试听后采用/拒绝记录；正式谱面修改必须有人工听辨依据。优先检查已有检视的歧义点，不先整体平移 56Tap。
 
@@ -85,8 +89,12 @@
 
 先完成 P0 的记录契约、复现样例与人工试听，再依据证据评估 P1 方案；P2 工具选择仍待确认，不因本文列为候选就自动采用。本文是交接规格，不是已审批的实现设计或 `/generate-prp` tasks；具体跨服务设计按项目流程另审，未批准前不写并执行整套文件级实现任务。
 
-每项交付记录实际改动、版本/环境、入口与复验步骤、自动/人工/物理验证结果和未验证项。实现后增量同步模块文档，跑相关规则、场景回归与文档健康检查；历史 PASS 不能替代本轮结果。随后获准将此前未入库的音游实现、必要依赖、测试及文档独立提交；本次不构建、不关闭 Unity、不 push/上传，独立 Player 构建需另获执行授权。
+每项交付记录实际改动、版本/环境、入口与复验步骤、自动/人工/物理验证结果和未验证项。此前未入库的音游实现已独立提交 627f656；本轮新增推进保持工作区待审，不提交、不构建、不关闭 Unity、不 push/上传，独立 Player 构建需另获执行授权。
 
-本次等宽简化的复验入口：EditMode 过滤 `Game.Tests.EditMode.Rhythm.RhythmRulesTests`，新增 `StraightTrack_VisualOffsetAndHoldEndpoints_UseLinearSongTime`（-100/0/+100ms）和 `StraightTrack_MeshKeepsEqualWidthsHoldLengthAndLineAtWindowSizes`（600×650、360×480、900×900 轨道区域）。真实画面需在 RhythmDemo 查看 Tap 与练习 Hold，在不同窗口比例核对判定线、DFJK、头尾、视觉偏移。当前 Unity 进程存在，但本次离线 MCP 探针返回零实例、登记 TCP 端口拒绝连接；未运行 Test Runner、未刷新编译或切场景，不能以历史回放替代新画面验收。
+本次复验入口：EditMode 过滤 `^Game\\.Tests\\.EditMode\\.Rhythm\\.`；真实 Unity 2022.3.62f2 测试已通过 74/74（失败 0、跳过 0）。包含等宽映射/网格、诊断 codec/replay、30/60/144 FPS 与 200ms 积压，以及时钟守卫。初跑三个网格反射用例因方法重载歧义失败，明确 VertexHelper 参数后全绿。真实场景回放按 `^Game\\.Tests\\.Showcase\\.Rhythm\\.` 执行；视觉、听感和物理延迟仍需人工确认。
 
-本次静态结果：三个改动脚本 project-lint 通过；使用现有 .NET Roslyn 与工程已有 Unity 引用程序集独立编译通过（只有序列化引用字段的 CS0649 警告），不等同于 Unity 重编译/测试。相关文档相对链接与空白检查通过。全仓 `gc_scan.py` 仍被既有三处 Gameplay/Game.LailaFace 命名空间与动态字体缓存阻塞，未改这些文件；未新增资产或手写 `.meta`。
+本次静态结果：改动 C# 手动 project-lint 通过；真实 Unity 已刷新编译，新脚本与测试 `.meta` 均由 Unity 导入生成。hooks 信任无法确认，不以其为已启用证据。全仓 `gc_scan.py` 仍被既有三处 Gameplay/Game.LailaFace 命名空间与动态字体缓存阻塞，未改这些文件。
+
+本轮 PlayMode 实际结果：Rhythm Showcase **3/3**，失败/跳过 0，耗时 129.28s；报告 `Logs/verify/rhythm/20261004-104628/report.md` 为 PASS、检查点失败 0、运行时异常 0。新增场景实际验证主线程阻塞 350ms 跨音频终点后 AudioSource 已停且句柄保留、诊断二进制往返、二十次暂停后重开、Fixed/Manual 拒绝、应用暂停/恢复和演奏中模式切换。应用暂停为 Unity 消息调用模拟，不代表 OS 挂起实测；没有执行真实设备切换、物理回环或 Player。暂时 MCP 无实例后再次查询得到任务 succeeded，不能把短时失联当测试失败。
+
+导出缺口收尾：EditMode **88/88**、定向 Showcase **2/2**，报告 `Logs/verify/rhythm/20261004-110234/report.md` 为 PASS。通过实际面板 Button.onClick 事件（非鼠标坐标点击）触发 Runtime handler，在框架 SaveRootOverride 隔离目录写四份 `.rhd` 并逐一回读 Codec/Replay；验证同轮重复导出、下一会话新增、进行中拒绝、旧文件/哨兵不变。故意让根目录被文件占用，预期一条 diagnostic_save_failed，真实 NotificationView 显示失败、LastDiagnostic 保留，恢复后同一按钮重试成功。没有取消对话框；不增加取消能力。测试临时目录由框架收尾清除。文件名含唯一标识且 FileMode.CreateNew，拒绝覆盖同名文件。追加停止细因及旧枚举值保留均有回归。

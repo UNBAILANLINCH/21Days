@@ -32,6 +32,8 @@ HoldStarted 表示头部已激活，尚未增加统计；整枚 Hold 只在自�
 框架音频扩展：`IAudioService.PlayScheduledClip(AudioClip clip, float startSeconds, float delaySeconds)` 返回 `AudioPlayback`。
 句柄 Position 是 DSP 歌曲时刻；`PositionAtInputTime(double)` 映射输入事件时间；Dispose 停止并释放。
 `AudioPlayback.StopAudio()` 仅停止声音，保留句柄时钟供尾窗结算，之后仍须 Dispose。
+`AudioPlayback.ScheduleEnd(double songSeconds)` 在预约起点加歌曲时刻停止声音；有限且大于零，已释放句柄拒绝调用。`DspStart / InputStart / BridgeSampleSpanSeconds` 提供诊断快照，不代表物理输出时间。
+`RhythmState.LastDiagnostic` 为上一结束会话的只读快照；诊断记录与 `RhythmDiagnosticSession / Replay / Codec` 契约见 [诊断接口](../../../../PRP/rhythm-followup/diagnostics-api.md)。`RhythmRules.PerfectMs / GoodMs / ChartOffsetMs / CopyNotes()` 提供原始谱面及窗口快照，不改变判定。
 同一服务同时只允许一个调度片段，新播放会释放旧片段。
 播放期间临时暂停原 BGM，释放后仅当 BGM 请求未变且原先在播放时恢复。
 音频须先加载成功，delaySeconds 至少 0.1，起点在片段内，调用方必须释放句柄。

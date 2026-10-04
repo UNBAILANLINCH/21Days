@@ -309,7 +309,8 @@ namespace Game.Tests.EditMode.Rhythm
                 var graphic = host.GetComponent<RhythmTrackGraphic>();
                 graphic.rectTransform.pivot = new Vector2(0.5f, 0);
                 graphic.rectTransform.sizeDelta = new Vector2(width, height);
-                var populate = typeof(RhythmTrackGraphic).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic);
+                var populate = typeof(RhythmTrackGraphic).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new[] { typeof(VertexHelper) }, null);
                 using var mesh = new VertexHelper();
                 graphic.Configure(true);
                 populate.Invoke(graphic, new object[] { mesh });

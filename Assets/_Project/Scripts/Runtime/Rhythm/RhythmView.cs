@@ -31,6 +31,7 @@ namespace Game.Rhythm
         private TMP_Text visualLabel;
         private Button calibrationButton;
         private Button practiceButton;
+        private Button diagnosticButton;
         private TMP_Text heading;
         private TMP_Text subtitle;
         private TMP_Text instructions;
@@ -46,11 +47,14 @@ namespace Game.Rhythm
         public event Action OnBackClicked;
         public event Action<float> OnOffsetChanged;
         public event Action OnFocusLost;
+        public event Action OnApplicationSuspended;
+        public event Action OnDiagnosticExportClicked;
         public event Action OnCalibrationClicked;
         public event Action OnPracticeClicked;
         public event Action<float> OnVisualOffsetChanged;
         public override UILayer Layer => UILayer.Panel;
         public override bool CloseOnCancel => false;
+        public bool IsApplicationPaused { get; private set; }
 
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
@@ -62,6 +66,7 @@ namespace Game.Rhythm
             visualSlider.onValueChanged.AddListener(VisualChanged);
             calibrationButton.onClick.AddListener(CalibrationClicked);
             practiceButton.onClick.AddListener(PracticeClicked);
+            diagnosticButton.onClick.AddListener(DiagnosticExportClicked);
             return UniTask.CompletedTask;
         }
         public override UniTask OnCloseAsync(CancellationToken ct)
@@ -72,6 +77,7 @@ namespace Game.Rhythm
             visualSlider.onValueChanged.RemoveListener(VisualChanged);
             calibrationButton.onClick.RemoveListener(CalibrationClicked);
             practiceButton.onClick.RemoveListener(PracticeClicked);
+            diagnosticButton.onClick.RemoveListener(DiagnosticExportClicked);
             return UniTask.CompletedTask;
         }
         public void SetOffset(float value)
@@ -98,6 +104,7 @@ namespace Game.Rhythm
         {
             resultPanel.SetActive(false); calibrationPhase = int.MinValue;
             playing = true; offsetSlider.interactable = false; visualSlider.interactable = false;
+            diagnosticButton.interactable = false;
             calibrationButton.interactable = false; practiceButton.interactable = false; startButton.interactable = false; statusLabel.text = "准备演奏…";
         }
         public void Begin(RhythmRules rules, double duration = -1, bool practice = false)
@@ -214,6 +221,8 @@ namespace Game.Rhythm
         private void VisualChanged(float value) { SetVisualOffset(value); OnVisualOffsetChanged?.Invoke(value); }
         private void CalibrationClicked() => OnCalibrationClicked?.Invoke();
         private void PracticeClicked() => OnPracticeClicked?.Invoke();
+        private void DiagnosticExportClicked() => OnDiagnosticExportClicked?.Invoke();
+        public void SetDiagnosticAvailable(bool available) => diagnosticButton.interactable = available;
         public void Calibrating(double seconds, int samples, int warmup, double beatSeconds)
         {
             int phase = seconds < 0 ? -1 : seconds < warmup * beatSeconds ? 0 : 1;
@@ -238,6 +247,12 @@ namespace Game.Rhythm
             practiceButton.gameObject.name = "PracticeButton"; practiceButton.onClick = new Button.ButtonClickedEvent();
             practiceButton.GetComponentInChildren<TMP_Text>().text = "短 Tap/Hold 练习";
             practiceButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(startButton.GetComponent<RectTransform>().anchoredPosition.x, -80);
+            diagnosticButton = Instantiate(startButton, startButton.transform.parent);
+            diagnosticButton.gameObject.name = "DiagnosticExportButton";
+            diagnosticButton.onClick = new Button.ButtonClickedEvent();
+            diagnosticButton.GetComponentInChildren<TMP_Text>().text = "保存本轮诊断";
+            diagnosticButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(offsetSlider.GetComponent<RectTransform>().anchoredPosition.x, -500);
+            diagnosticButton.interactable = false;
             heading = transform.Find("Heading").GetComponent<TMP_Text>();
             subtitle = transform.Find("Subtitle").GetComponent<TMP_Text>();
             instructions = transform.Find("Instructions").GetComponent<TMP_Text>();
@@ -263,5 +278,10 @@ namespace Game.Rhythm
             graphic.Configure(true);
         }
         private void OnApplicationFocus(bool focused) { if (!focused && playing) OnFocusLost?.Invoke(); }
+        private void OnApplicationPause(bool paused)
+        {
+            IsApplicationPaused = paused;
+            if (paused && playing) OnApplicationSuspended?.Invoke();
+        }
     }
 }

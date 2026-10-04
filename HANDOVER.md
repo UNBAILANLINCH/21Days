@@ -3,8 +3,10 @@
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
 > **接手备注（2026-09-30）**：上一会话把「连点补全下沉 Core、演出字幕接连点、可对话 NPC 挡人、laila 上界分析、`run_tests` 回放范围守卫」写进工作区后额度耗尽中断，没来得及提交。接管会话复核后按主题分 8 条提交并推送：编译零错误，EditMode 全量 **1088 条通过**，`python .claude/hooks/tests/run.py` **69 条全过**。它中断时留了两个尾巴，都已处理——编辑器里一个 32 分钟未收的孤儿测试标志（`TestRunStatus.IsRunning`，把 `refresh_unity` 一直挡成 `tests_running`；已补坑册与 MCP 排查表）与「记录面板『关闭』压住『跳过』」（关闭上移 30px，并补了布局守卫测试）。
-> **最近核对**：2026-09-30，当前分支 `main`，与 `origin/main` 同步。Mirror / Core UI / Narrative / Replay / 气泡几轮以及上面这批都已在 main 上。
-> **工作区边界**：这批提交后工作区干净。唯一的常态脏数据是两个 TMP 字体资产（`Art/Fonts/…SDF.asset`、`TextMesh Pro/…/LiberationSans SDF - Fallback.asset`）：每跑一次 Play、或一次带真实 View 的 EditMode 测试，就被烘进几 MB 字形，提交前清回基线（6,404 B / 9,633 B）再提交，别带进提交——见 `ai-docs/pitfalls.md`「TMP Dynamic 字体资产」。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
+> **最近核对**：2026-10-05，只读核对源码、资产和提交记录，未重跑 Unity。音游实现与文档分别已在 `15c94f6`、`2b4664d` 本地保存；核对时 `main` 比 `origin/main` 多 15 条提交，不再沿用 2026-09-30 的同步状态。
+> **工作区边界**：当前混有 Laila、音游及资产/设置的并行改动，不是干净工作区。两个 TMP 动态字体会在 Play 或真实 View 测试时积累字形；不得为清检查擅自清理共享脏资产。保留原暂存和未提交内容，不整仓暂存、回滚或清理，以实时 `git status` 为准；字体处理见 `ai-docs/pitfalls.md`「TMP Dynamic 字体资产」。
+
+> **进行中，不重复派工**：音游正在处理分级校准可信度、失败候选复用试听与固定曲 Combat；Laila 正在处理 105＋3 怒候选训练与回归。开始任务不代表已实现或验收。Boot 接线/正式音游 UI prefab 迁移暂缓，一曲一谱、不做多难度，两新曲听感暂不调；本机打包由开发者执行。
 
 ## 0. 现状一句话
 
@@ -54,7 +56,8 @@ C1–C3/B3 的运行接线、真实条件源、最小表/校验器、任务完�
 | 位置 | 问题 |
 | --- | --- |
 | `Assets/_Project/Scripts/Runtime/Gameplay/FaceBlendShapeController.cs:4`、`FaceDragHandle.cs:4`、`MuralFaceController.cs:3` | 命名空间是 `Game.LailaFace`，与所在目录 `Runtime/Gameplay/` 不符；`invariants.py` 每次都报红，常红会掩盖新引入的问题。挪目录改命名空间，或反过来（`.claude/skills/generate-doc/modules.json` 里 `lailaface.src` 也指向这里，要一起改） |
-| `Assets/_Project/Scripts/Editor/Tools/ProjectStructureMenu.cs:153` | 全仓唯一一条真 `// TODO`：依赖应走构造注入，别在这里 new 服务或读静态单例 |
+
+`ProjectStructureMenu.cs:153` 的 TODO 位于 `BuildRulesTemplate` 生成字符串中，是新模块骨架的构造注入提示，不是现有服务缺陷，不再列维修任务。命名空间整理需等 Laila 并行修改冻结后再做。
 
 Mirror 句柄释放/相机朝向、CharacterPuppet 重复辅助方法、对白气泡查找和失焦输入经验文档已处理并提交，不再列待办。
 Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复跑与随后 150 项全量复跑均通过，原因未定位。再次出现时保留状态与日志，不只增大超时。
@@ -65,23 +68,23 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 不能把局部采样写成整帧性能验收通过。T18/G3 仍需真实玩法开关录制的逐帧 Profiler 对照、稳态 GC，以及 ReplayWindow 的真实交互验收。
 报告 `Logs/verify/replay/20260929-064018/report.md`，细节见 `PRP/replay/tasks.md`。
 
-### 1.5 roadmap 里「已做但留尾巴」的 5 条
+### 1.5 UI 与探索的剩余验收
 
 | 条目 | 尾巴 |
 | --- | --- |
 | A2 沉浸模式 | 玩家 / 巡逻者 NameTag 未随沉浸隐藏 |
-| D4 面板过渡花样 | 滑入 / 缩放预设已实现，但现有预制体尚未选用非 Fade 预设（roadmap 派单一栏还写着「待看视频」） |
-| D5 按钮反馈 | 尚未挂到任何预制体 |
-| E8 分辨率基准与画面适配 | `SetResolution` 与窗口拖拽**未出包实测**（要本机打一次包，编辑器里测不出来） |
+| E8 分辨率基准与画面适配 | `SetResolution` 与窗口拖拽**未出包实测**；编辑器验证不代替 Player，打包由开发者执行 |
 | H7 无鼠标悬停反馈 | NPC 悬停高亮未做 |
+| Inventory | 面板已实现并提交，尚无 Inventory Showcase；DoD 的回放/视觉验收仍欠，见模块指南 |
+| Session 保存提示 | `GameSession.cs:320` 仍调用通知队列，保存提示可能推迟玩法通知；角落提示尚未实现 |
 
-这 5 条的状态以 `docs/roadmap.md` 为准；改完记得同步那张表的状态列。
+已关闭两条旧资产待办：`DialogueView.prefab:1220` 已采用 SlideUp（transition=1）；UIButtonFeedback 的脚本 GUID 已出现在 Title、Dialogue、Quest、Inventory、Pause、Settings、SaveSlots 等预制体。D4/D5 不再属于“尚未采用”，本次只核对接线、不新增视觉验收结论。Loot/最小背包与 Inventory 面板已有 `ce99f0d`、`5d37eea` 提交；泛化交互不是当前 SupplyCrateFocus 的能力，不重新实现已有箱子/背包。
 
 ### 1.6 Codex MCP 与 hooks 工作流
 
 - 手动诊断 `scripts/unity_mcp_probe.py` 与说明已提交；本会话原生 Unity MCP 初始化重试仍失败，实际测试通过临时协议客户端连接现有编辑器完成。临时客户端可用不等于各聊天原生 MCP 已恢复。
 - “所有项目聊天自动注册 MCP、持续保活”尚未完成；不能把已注册项目 hooks 当成该能力已实现。连接成功以本会话实际读取目标编辑器为准，测试/域重载期间出现短暂断连时先等待再重连，不反复重启健康 bridge。
-- `.codex/hooks/README.md`、`adapter.py`、`test_adapter.py` 当前属于其它聊天的未提交压缩输出修复；按该聊天证据单独审查，不混入气泡或 Narrative 提交。
+- `.codex/hooks/README.md`、`adapter.py`、`test_adapter.py` 的长文记账兼容修复已在 `538e602` 提交，不再列未提交。该提交不证明每个聊天已信任 hooks，也不证明 MCP 自动注册/保活完成。
 
 ### 1.7 laila 捏脸表情识别：阶段门 A 已过，从阶段门 B 接着做
 
@@ -105,9 +108,11 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 
 ---
 
-### 1.8 Rhythm 四轨音游：先补诊断与试听闭环
+### 1.8 Rhythm 四轨音游：已保存基线与进行中增量
 
-本次本地保存：运行时、曲库资产/场景及完整测试依赖已提交为`15c94f6f1069efee4ff9f2202a42c647e94cd6e4`（2026-10-05 02:23:00 +08:00），接续原HEAD，无历史重写或推送。下方各轮“未提交/待补验/交还场景”描述当轮节点，最新验证与真人状态以上方收尾及下方最新诊断为准；验收证据执行时间保持真实。
+本地保存基线：运行时、曲库资产/场景及完整测试依赖已提交为`15c94f6f1069efee4ff9f2202a42c647e94cd6e4`（2026-10-05 02:23:00 +08:00），文档随后保存于 `2b4664d`（02:26:00 +08:00），无历史重写或推送。下方各轮“未提交/待补验/交还场景”均是当轮历史节点，不代表当前工作区或编辑器状态；验收证据执行时间保持真实。当前分级可信度、失败候选试听与固定曲 Combat 增量仍进行中，不提前记为完成。
+
+后续证据已覆盖曲库慢保存取消/旧任务、保存失败恢复、旧档原字节备份/幂等/未来档保留，以及校准 fixture 与非法时钟定向修复。选曲阶段旧“慢写/保存失败未验收”不再作为现行欠账；真实 OS 重启、设备切换、物理输出与真人校准仍未验收。失败回放继续保留，不把定向补验写成一轮全绿。
 
 提交前最新真人主轮诊断（2026-10-05 03:25:01 UTC）：33输入/32匹配/32有效、MAD24.61ms、估计+151.53ms、原补偿+140.27ms，四块中位136.30/162.87/184.94/147.51ms，跨度48.65ms，结果Drift；数据完整，根因尚未解决。现有代码只允许Stable/Suggested候选，Drift数值与候选试听仍被隐藏；低可信试听只是提议，未实现。Boot迁移与正式UI prefab延期，一曲一谱、无多难度需求，两新曲听感暂不调整。
 
@@ -144,8 +149,8 @@ EndReason 已直接保存 AudioPaused/ApplicationPaused/InputModeChanged/ClockDi
 
 | 事项 | 卡在谁 | 说明 |
 | --- | --- | --- |
-| 字体 SDF 资产约 22 MB | 项目负责人 | `Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset` 最近扫描为 22,701 KB，动态字形数据仍触发不变量检查；资产另有未提交改动，处理前与美术工作对齐，不能为让检查变绿直接清理 |
-| 两个杂散场景副本 | 项目负责人 | `Assets/Scenes/SampleScene 1.unity`、`SampleScene1 1.unity` 已被上一次提交大改并入库；`Assets/Scenes/` 是模板目录、规则要求原位不动，删还是留未定 |
+| 字体 SDF 动态数据膨胀 | 项目负责人 | `Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset` 本轮扫描为 37,090 KB，动态字形数据仍触发不变量检查；资产另有未提交改动，处理前与美术工作对齐，不能为让检查变绿直接清理 |
+| 杂散场景副本 | 项目负责人 | 当前磁盘只找到 `Assets/Scenes/SampleScene1 1.unity` 及其 meta，旧清单中的 `SampleScene 1.unity` 不存在；不继续按“两份”派工。现存副本删还是留未定，本次不删除 |
 | 任务「!」标记是否给台词气泡让位 | 项目负责人 | 灰色「…」会避让，任务黄「!」不让位，无树 NPC 冒气泡时可能被压住 |
 | 任务面板底板透底 | 需实机复现 | 回放里正常、实机透底；怀疑与 `ProjectSettings/EditorSettings.asset` 的 Enter Play Mode Options 被测试运行器打开有关，未定位 |
 | Mirror `visionLossPerCrack` | 项目负责人 | 现值 0.18，建议 0.3——1～2 道裂时暗角几乎看不见 |
@@ -169,12 +174,12 @@ EndReason 已直接保存 AudioPaused/ApplicationPaused/InputModeChanged/ClockDi
 
 | 组 | 待推进或核对 |
 | --- | --- |
-| A 探索层 | A3 泛化交互/物资箱须与 Loot 聊天对账；A4 多场景流转、A6 相机边界与死区 |
+| A 探索层 | A3 物资箱与最小背包已实现，泛化交互仍未做；A4 多场景流转、A6 相机边界与死区 |
 | B 任务系统 | B3 已有接线与验证，最终提交独立验证见 §1.1；B4 进度重置与已完成列表 |
 | C 叙事接线 | C1–C3 转 §1.1/§1.2 收尾；C5 战斗结果 → 剧情等待 G5 规则 |
-| D 演出与 UI 动效 | D6 角色动画补齐，D4/D5 资产采用状态见 §1.5 |
+| D 演出与 UI 动效 | D6 正式角色动作资产仍缺，走跑程序支持已就绪；D4/D5 已有资产采用，剩余验收见 §1.5 |
 | E 系统与流程 | E4 加载过渡，E8 出包验证 |
-| F 内容与美术 | F1 真实剧本进表、F2 环境替换、F3 美术皮肤、F4 音频；F5 已有 Narrative 最小校验，完整内容校验工具未验收 |
+| F 内容与美术 | F1 真实剧本进表、F2 环境替换、F3 美术皮肤；F4 已有三首音游音乐，环境音/SFX/正式内容音频仍缺；F5 已有 Narrative 最小校验，完整内容校验工具未验收 |
 | G 自家机制 | G2 画皮、G3 收押、G5 追逐/躲藏/弱点识破、G6 三结局 |
 | H PC 适配 | 主要路径已实现，NPC 悬停、窗口实测及其它聊天持有项仍需逐项确认，不能写全部验收完成 |
 
@@ -218,4 +223,4 @@ EndReason 已直接保存 AudioPaused/ApplicationPaused/InputModeChanged/ClockDi
 ---
 
 *本文是未完成事项的活文档：每关掉一项就删掉对应条目，别让它积累成第二份现状描述。*
-*当前状态一律以 `git log` 为准，本文不记录提交号。*
+*提交状态以 `git log` 为准；实现还需对照源码，验收以对应运行证据为准，进行中不算完成。历史记录不删除、不改真实执行时间。*

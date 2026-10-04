@@ -8,6 +8,7 @@ namespace Game.Rhythm
     {
         private readonly IRhythmEntryPermission permission;
         private readonly IRhythmCombatPolicy combatPolicy;
+        private readonly RhythmFixedChartCombatPolicy fixedChart;
         private readonly Action<RhythmRunResult> onSuccess;
         private readonly Action<RhythmRunResult> onFailure;
         private readonly Action<RhythmRunResult> onAborted;
@@ -21,6 +22,7 @@ namespace Game.Rhythm
         {
             this.permission = permission ?? throw new ArgumentNullException(nameof(permission));
             this.combatPolicy = combatPolicy;
+            fixedChart = combatPolicy as RhythmFixedChartCombatPolicy;
             this.onSuccess = onSuccess;
             this.onFailure = onFailure;
             this.onAborted = onAborted;
@@ -43,6 +45,7 @@ namespace Game.Rhythm
             if (active != null) reason = "active_run";
             else if (usedRunIds.Contains(request.RunId)) reason = "used_run_id";
             else if (request.Mode == RhythmPlayMode.Combat && combatPolicy == null) reason = "missing_combat_policy";
+            else if (request.Mode == RhythmPlayMode.Combat && fixedChart != null && request.SongId != fixedChart.SongId) reason = "wrong_combat_song";
             else
             {
                 RhythmEntryAccess access = permission.Capture(request.ContextId);
@@ -63,7 +66,8 @@ namespace Game.Rhythm
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
             if (active == null || result.RunId != active.RunId || result.ContextId != active.ContextId ||
-                result.SongId != active.SongId || result.Mode != active.Mode) return false;
+                result.SongId != active.SongId || result.Mode != active.Mode ||
+                result.Mode == RhythmPlayMode.Combat && fixedChart != null && !fixedChart.Matches(result)) return false;
             // 身份匹配后立即封口；权限适配器、策略或回调异常都不能重放这份结果。
             RhythmPlayRequest request = active;
             active = null;

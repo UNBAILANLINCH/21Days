@@ -6,6 +6,10 @@ namespace Game.Rhythm
 {
     public sealed class RhythmCalibrationEstimator
     {
+        public const string Strategy = "median-interval-permutation-v2";
+        private const double PrecisionMs = 20;
+        private const double Significance = 0.05;
+        private const int Permutations = 1024;
         private readonly double[] targets;
         private readonly bool[] matched;
         private readonly List<double> errors = new List<double>();
@@ -87,12 +91,56 @@ namespace Game.Rhythm
             }
             double spread = coverage ? last - first : double.NaN;
             bool temporal = coverage && spread <= 20;
+            MedianInterval(sorted, out double lower, out double upper);
+            double below = GameMath.Abs(offset - lower), above = GameMath.Abs(upper - offset);
+            double radius = RhythmRules.Finite(lower) && RhythmRules.Finite(upper) ?
+                below > above ? below : above : double.PositiveInfinity;
+            // 20ms是实际变化参考；置换只提供时段结构证据，不把噪声单独判成无效估计。
+            double probability = coverage && spread > PrecisionMs ? TemporalProbability(kept.ToArray(), blocks, spread) : 1;
             RhythmCalibrationReason reason = Observed == 0 ? RhythmCalibrationReason.NoInput : Count == 0 ? RhythmCalibrationReason.Unmatched :
                 GameMath.Abs(offset) > 300 || filteredMad > maxMadMs * 2 ? RhythmCalibrationReason.Unstable :
-                !coverage || kept.Count < minimum ? RhythmCalibrationReason.Insufficient : !temporal ? RhythmCalibrationReason.Drift :
-                rawMad > maxMadMs ? RhythmCalibrationReason.Suggested : RhythmCalibrationReason.Stable;
+                !coverage || kept.Count < minimum ? RhythmCalibrationReason.Insufficient :
+                spread > PrecisionMs && probability <= Significance ? RhythmCalibrationReason.Drift :
+                !temporal || radius > PrecisionMs || rawMad > maxMadMs ? RhythmCalibrationReason.Suggested : RhythmCalibrationReason.Stable;
             return new RhythmCalibrationResult(reason, offset, rawMad, filteredMad, spread, Observed, Count, kept.Count,
-                Duplicate, Outside, Invalid, temporal);
+                Duplicate, Outside, Invalid, temporal, lower, upper, probability);
+        }
+        // 全部匹配样本的保守95%排序区间；不对离群剔除后的样本宣称exact覆盖。
+        // 独立同分布假设不代表真人/设备满足；不足6拍没有有限端点的95%区间。
+        private static void MedianInterval(double[] sorted, out double lower, out double upper)
+        {
+            lower = upper = double.NaN;
+            int n = sorted.Length; double term = 1;
+            for (int i = 0; i < n; i++) term *= .5;
+            if (n < 6 || term == 0) return;
+            double tail = 0; int rank = 0;
+            for (int k = 1; k <= n / 2; k++)
+            {
+                tail += term;
+                if (2 * tail > Significance) break;
+                rank = k; term *= (double)(n - k + 1) / k;
+            }
+            if (rank > 0) { lower = sorted[rank - 1]; upper = sorted[n - rank]; }
+        }
+        private static double TemporalProbability(double[] values, List<double>[] blocks, double observed)
+        {
+            var buffers = new double[blocks.Length][];
+            for (int i = 0; i < buffers.Length; i++) buffers[i] = new double[blocks[i].Count];
+            var random = new Random(20261005); int exceed = 0;
+            for (int run = 0; run < Permutations; run++)
+            {
+                for (int i = values.Length - 1; i > 0; i--)
+                { int other = random.Next(i + 1); double v = values[i]; values[i] = values[other]; values[other] = v; }
+                double smallest = double.PositiveInfinity, largest = double.NegativeInfinity; int index = 0;
+                foreach (var buffer in buffers)
+                {
+                    Array.Copy(values, index, buffer, 0, buffer.Length); index += buffer.Length; Array.Sort(buffer);
+                    double median = Median(buffer);
+                    if (median < smallest) smallest = median; if (median > largest) largest = median;
+                }
+                if (largest - smallest >= observed - 1e-9) exceed++;
+            }
+            return (exceed + 1d) / (Permutations + 1);
         }
         public bool TryEstimate(out double offsetMs, out double madMs, out int accepted)
         {

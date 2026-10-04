@@ -28,7 +28,9 @@ namespace Game.Tests.EditMode.Rhythm
                 d.Record(100 + song, song, beat, error, disposition);
             }
             var r = e.Analyze(); var json = JObject.Parse(d.ToJson(r, "Completed"));
-            Assert.That(r.Reason, Is.EqualTo(RhythmCalibrationReason.Drift));
+            Assert.That(r.Reason, Is.EqualTo(RhythmCalibrationReason.Suggested));
+            Assert.That(r.Confidence, Is.EqualTo(RhythmCalibrationConfidence.Low));
+            Assert.That(r.TemporalProbability, Is.GreaterThan(.05));
             Assert.That(r.CanSupplement, Is.False); Assert.That(r.Accepted, Is.EqualTo(29));
             Assert.That(r.RawMadMs, Is.EqualTo(14).Within(1e-6)); Assert.That(r.BlockSpreadMs, Is.EqualTo(28).Within(1e-6));
             var rows = (JArray)json["samples"];

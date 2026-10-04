@@ -34,6 +34,10 @@ maturity: stable
 
 ## 外部进入与结束
 
+当前新增 `RhythmFixedChartCombatPolicy(songId, chartId, revision, rulesetId, scoringVersion, passScorePercent=60)`：固定全身份，比例1～100，匹配Completed Combat按目标分判成功。ExternalSession使用该具体策略时增加错曲开始/错谱版本消费守卫；其他自定义policy不自动获得此过滤。
+
+当前校准结果增加 `Confidence`（Invalid/Low/Reliable）、`MedianLowerMs/MedianUpperMs`、`PrecisionRadiusMs`和`TemporalProbability`。Stable为Reliable，Suggested/Drift为Low，三者有限Offset均有HasCandidate；其他原因无候选。区间取全部matched，少于6拍无有限95%区间，依赖独立同分布假设；PrecisionRadius是候选到两端的最大距离。置换概率非显著不等于稳定。Supplement保留主轮中心/区间且不能将主轮Low升级Reliable。下面旧接口说明中“仅Stable/Suggested候选”是此前策略，以上更新优先。
+
 | 接口 | 契约 |
 | --- | --- |
 | `RhythmState.ConfigureExternal(request, consumer)` | Enter 前配置可自动准备指定已解锁曲目；已 Enter 时先自行选择对应曲目。仅空闲时允许，拒绝外部 Practice；检查已驯服/曲库权限，真正开始任何外部模式都再查当前控制资格 |

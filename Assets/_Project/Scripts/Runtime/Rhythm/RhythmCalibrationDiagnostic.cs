@@ -76,7 +76,9 @@ namespace Game.Rhythm
                 samples = rows, blocks, result = new {
                     reason = result.Reason.ToString(), result.OffsetMs, result.RawMadMs, result.FilteredMadMs,
                     blockSpreadMs = Number(result.BlockSpreadMs), result.Observed, result.Matched, result.Accepted,
-                    result.Duplicate, result.Outside, result.Invalid, result.TemporalStable
+                    result.Duplicate, result.Outside, result.Invalid, result.TemporalStable,
+                    confidence = result.Confidence.ToString(), medianLowerMs = Number(result.MedianLowerMs),
+                    medianUpperMs = Number(result.MedianUpperMs), temporalProbability = Number(result.TemporalProbability)
                 }
             }, Formatting.Indented);
         }

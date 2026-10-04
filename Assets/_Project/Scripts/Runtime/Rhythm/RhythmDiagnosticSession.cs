@@ -27,6 +27,7 @@ namespace Game.Rhythm
         public bool IsRecording { get; private set; } = true;
         public Data.Reason EndReason { get; private set; }
         public int LateInputs => queue.LateInputs;
+        private bool suspended;
 
         public RhythmDiagnosticSession(Data.Header header, RhythmNoteData[] notes,
             int commandLimit = Data.MaximumCommands, ITelemetryScope telemetry = null)
@@ -46,7 +47,7 @@ namespace Game.Rhythm
             Data.Check(intent.SongSeconds, rawEventRealtime, capturedRealtime);
             if (intent.Lane < 0 || intent.Lane > 3 || !Enum.IsDefined(typeof(RhythmInputEdge), intent.Edge))
                 throw new ArgumentException("仅接收四轨游戏 Press/Release");
-            if (ended) return false;
+            if (ended || suspended) return false;
             var command = new Data.Command(Data.Kind.Input, ++sequence, intent, rawEventRealtime, capturedRealtime);
             bool recorded = Record(command);
             if (recorded)
@@ -67,7 +68,7 @@ namespace Game.Rhythm
             double realtime, double dsp, Action<RhythmHitResult> onResult = null)
         {
             Data.Check(previousBoundary, currentBoundary, releasedWatermark, realtime, dsp);
-            if (ended) return;
+            if (ended || suspended) return;
             if (currentBoundary < previousBoundary || releasedWatermark > currentBoundary || releasedWatermark < watermark)
                 throw new ArgumentException("批次边界或释放水位回退");
             var batch = new Data.Command(Data.Kind.Batch, ++sequence, capturedRealtime: realtime, dsp: dsp,
@@ -108,6 +109,22 @@ namespace Game.Rhythm
             if (sampleWidthSeconds < 0) throw new ArgumentOutOfRangeException(nameof(sampleWidthSeconds));
             return !ended && Record(new Data.Command(Data.Kind.Bridge, ++sequence,
                 capturedRealtime: realtime, dsp: dsp, sampleWidthSeconds: sampleWidthSeconds));
+        }
+
+        public void Suspend()
+        {
+            if (ended || suspended) return;
+            if (IsRecording)
+            {
+                commands.Add(new Data.Command(Data.Kind.End, ++sequence, endReason: Data.Reason.AudioPaused));
+                IsRecording = false; EndReason = Data.Reason.AudioPaused;
+            }
+            suspended = true; pending.Clear(); queue.Suspend();
+        }
+        public void Resume()
+        {
+            if (ended || !suspended) return;
+            queue.Resume(Rules); suspended = false;
         }
 
         public void End(Data.Reason reason)

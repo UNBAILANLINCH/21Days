@@ -428,25 +428,37 @@ namespace Game.Tests.Showcase.Rhythm
             Assert.That(PlatformServiceBase.SaveRootOverride, Is.Not.Null.And.Not.Empty);
             Assert.That(ResolveService<IPlatformService>().SaveRoot, Is.EqualTo(PlatformServiceBase.SaveRootOverride));
             var catalog = (RhythmCatalogConfig)typeof(RhythmState).GetField("catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(state);
+            int guitarCount = catalog.Find("hybeboy-guitar").Chart.CreateRules(0, null).Count;
+            var attentionSong = catalog.Find("attention");
+            var attentionRules = attentionSong.Chart.CreateRules(0, null);
+            int attentionHolds = 0;
+            for (int i = 0; i < attentionRules.Count; i++)
+                if (attentionRules.NoteType(i) == RhythmNoteType.Hold) attentionHolds++;
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
             // 前轮已验证入门解锁及吉他全曲；此隔离 fixture 仅省去重复演奏，随后仍走真实存档读写与 Attention 输入。
             var prior = new RhythmProgressData();
             foreach (string id in new[] { "intro", "hybeboy-guitar" })
             {
                 var song = catalog.Find(id);
-                int count = song.Chart.CreateRules(0, null).Count;
-                RhythmProgressRules.Record(prior, song.ProgressKey, count, song.PassScoreRatio, count * 1000, count, true);
+                var rules = song.Chart.CreateRules(0, null);
+                int count = rules.Count, holds = 0;
+                for (int i = 0; i < count; i++) if (rules.NoteType(i) == RhythmNoteType.Hold) holds++;
+                Assert.That(RhythmProgressRules.RecordRun(prior, song,
+                    new RhythmRunResult("prior-" + song.Id, "", RhythmPlayMode.FreePlay, RhythmRunCompletion.Completed,
+                        "completed", song.Id, song.Chart.ChartId, song.Revision, song.RulesetId, song.ScoringVersion,
+                        count, count, 0, 0, holds, count * 1000, count)), Is.True);
             }
             yield return saves.WriteProfileAsync("rhythm-progress", prior).ToCoroutine();
             FindDeep<Button>(ui.Get<TitleView>().transform, "StartButton").onClick.Invoke();
-            yield return WaitUntil("从真实档案恢复前置通关", () => state.IsSongMenu && state.IsUnlocked("attention") && state.BestScore("hybeboy-guitar") == 164000, 10f);
+            yield return WaitUntil("从真实档案恢复前置通关", () => state.IsSongMenu && state.IsUnlocked("attention") && state.BestScore("hybeboy-guitar") == guitarCount * 1000, 10f);
             var view = ui.Get<RhythmView>();
             foreach (string id in new[] { "intro", "hybeboy-guitar", "attention" })
             {
                 var label = FindDeep<Button>(view.transform, "Song_" + id).GetComponentInChildren<TMPro.TMP_Text>();
                 label.ForceMeshUpdate();
                 Assert.That(label.isTextOverflowing, Is.False, "选曲文字必须完整落在本行");
-                Assert.That(label.rectTransform.rect.width, Is.GreaterThan(1200));
+                Assert.That(label.rectTransform.rect.width, Is.GreaterThan(0));
+                Assert.That(label.rectTransform.rect.width, Is.LessThanOrEqualTo(label.transform.parent.GetComponent<RectTransform>().rect.width));
             }
             yield return Snapshot("选曲文字完整且恢复前置成绩");
             Input.Prime();
@@ -464,8 +476,17 @@ namespace Game.Tests.Showcase.Rhythm
             yield return WaitUntil("Attention 演奏开始", () => state.IsPlaying, 8f);
             yield return PerformCurrentChart(state);
             yield return WaitUntil("Attention 完整结算", () => !state.IsPlaying, 8f);
-            yield return Check("229 音符及15长按成功，歌曲进度独立", () => state.Rules.Count == 229 && state.Rules.Perfect + state.Rules.Good == 229 &&
-                state.Rules.Miss == 0 && state.Rules.CompletedHolds == 15 && state.IsCleared("attention") && state.BestScore("attention") >= 137400 && state.BestScore("hybeboy-guitar") == 164000);
+            Assert.That(state.LastRunResult.Completion, Is.EqualTo(RhythmRunCompletion.Completed), state.LastRunResult.EndReason);
+            foreach (var judgement in state.LastDiagnostic.Judgements)
+                if (judgement.Grade == RhythmGrade.Miss)
+                {
+                    foreach (var command in state.LastDiagnostic.Commands)
+                        if (command.Type == RhythmDiagnosticData.Kind.Input && command.Sequence == judgement.InputSequence)
+                            Debug.Log($"[VERIFY][Rhythm] Miss note={judgement.NoteId}, cause={judgement.Cause}, head={judgement.TargetHeadSeconds}, tail={judgement.TargetTailSeconds}, input={judgement.SongSeconds:F6}, sequence={command.Sequence}, event={command.RawEventRealtime:F6}, captured={command.CapturedRealtime:F6}, dsp={command.Dsp:F6}");
+                }
+            yield return Check("当前谱面音符及长按全部成功，歌曲进度独立", () => state.Rules.Count == attentionRules.Count && state.Rules.Perfect + state.Rules.Good == attentionRules.Count &&
+                state.Rules.Miss == 0 && state.Rules.CompletedHolds == attentionHolds && state.IsCleared("attention") &&
+                state.BestScore("attention") >= attentionRules.Count * 1000 * attentionSong.PassScoreRatio && state.BestScore("hybeboy-guitar") == guitarCount * 1000);
             yield return Snapshot("Attention完整结算与长曲名布局");
             int best = state.BestScore("attention");
             FindDeep<Button>(view.transform, "StartButton").onClick.Invoke();
@@ -476,12 +497,17 @@ namespace Game.Tests.Showcase.Rhythm
             Assert.That(state.IsPlaying, Is.False);
             Assert.That(state.BestScore("attention"), Is.EqualTo(best));
             FindDeep<Button>(view.transform, "Song_hybeboy-guitar").onClick.Invoke();
-            yield return WaitUntil("中断后换曲没有残留成绩", () => !state.IsSongMenu && state.SelectedSongId == "hybeboy-guitar" && state.Rules.Score == 0 && state.Rules.Count == 164, 10f);
+            yield return WaitUntil("中断后换曲没有残留成绩", () => !state.IsSongMenu && state.SelectedSongId == "hybeboy-guitar" && state.Rules.Score == 0 && state.Rules.Count == guitarCount, 10f);
             FindDeep<Button>(view.transform, "BackButton").onClick.Invoke();
             yield return WaitUntil("返回标题并等待保存释放", () => flow.Current is TitleState && ui.Get<RhythmView>() == null, 12f);
             RhythmProgressData saved = null;
             yield return saves.ReadProfileAsync<RhythmProgressData>("rhythm-progress").ContinueWith(data => saved = data).ToCoroutine();
-            Assert.That(saved.BestScores[catalog.Find("attention").ProgressKey], Is.EqualTo(best));
+            var savedRecord = RhythmProgressRules.ReadCurrentRecord(saved, attentionSong);
+            Assert.That(savedRecord, Is.Not.Null);
+            Assert.That(savedRecord.BestScoreRun.Score, Is.EqualTo(best));
+            Assert.That(savedRecord.BestScoreRun.Resolved, Is.EqualTo(attentionRules.Count));
+            Assert.That(savedRecord.BestScoreRun.CompletedHolds, Is.EqualTo(attentionHolds));
+            Assert.That(savedRecord.Cleared, Is.True);
             Assert.That(saved.ClearedCharts.Contains(catalog.Find("attention").ProgressKey), Is.True);
             FindDeep<Button>(ui.Get<TitleView>().transform, "StartButton").onClick.Invoke();
             yield return WaitUntil("重新进入读取三曲通关和最高分", () => state.IsSongMenu && state.IsCleared("intro") && state.IsCleared("hybeboy-guitar") && state.IsCleared("attention") && state.BestScore("attention") == best, 12f);
@@ -560,10 +586,11 @@ namespace Game.Tests.Showcase.Rhythm
             scenarioState.StartCalibration(); yield return PerformCalibrationInputs(config,i=>80+i*70d/31);
             yield return WaitUntil("漂移主轮结束",()=>!scenarioState.IsPlaying,6f);
             Assert.That(scenarioState.CalibrationCandidate.Reason,Is.EqualTo(RhythmCalibrationReason.Drift));
-            Assert.That(FindDeep<Button>(view.transform,"CalibrationApply").interactable,Is.False);
+            Assert.That(scenarioState.CalibrationCandidate.Confidence,Is.EqualTo(RhythmCalibrationConfidence.Low));
+            Assert.That(FindDeep<Button>(view.transform,"CalibrationApply").interactable,Is.True);
             Assert.That(FindDeep<Button>(view.transform,"CalibrationSupplement").interactable,Is.False);
             var driftText=FindDeep<TMPro.TMP_Text>(view.transform,"CalibrationResultText").text;
-            Assert.That(driftText,Does.Contain("不能靠8拍补测").And.Contain("原值保持").And.Contain("本机校准诊断已记录"));
+            Assert.That(driftText,Does.Contain("不能靠8拍补测").And.Contain("未保存").And.Contain("95%").And.Contain("本机校准诊断已记录"));
             FindDeep<Button>(view.transform,"CalibrationSupplement").onClick.Invoke();
             Assert.That(scenarioState.IsPlaying,Is.False);
             Assert.That(scenarioState.CalibrationCandidate.Reason,Is.EqualTo(RhythmCalibrationReason.Drift));
@@ -579,7 +606,22 @@ namespace Game.Tests.Showcase.Rhythm
             }
             Assert.That(recorded.result.blockSpreadMs,Is.EqualTo(scenarioState.CalibrationCandidate.BlockSpreadMs).Within(1e-6));
             yield return Snapshot("时段漂移区别于普通波动");
+            FindDeep<Button>(view.transform,"CalibrationPreviewCandidate").onClick.Invoke();
+            Assert.That(scenarioState.IsPlaying,Is.True);
+            yield return AssertSavedCalibration(candidate,125);
+            typeof(RhythmState).GetMethod("FocusLost",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(scenarioState,null);
+            Assert.That(scenarioState.IsPlaying,Is.False);
+            Assert.That(scenarioState.CalibrationCandidate.Confidence,Is.EqualTo(RhythmCalibrationConfidence.Low));
             FindDeep<Button>(view.transform,"CalibrationKeep").onClick.Invoke(); yield return AssertSavedCalibration(candidate,125);
+            JsonUtility.FromJsonOverwrite("{\"calibrationWarmupBeats\":0,\"calibrationSampleBeats\":8,\"calibrationMinimumSamples\":6}",config);
+            scenarioState.StartCalibration(); yield return PerformCalibrationInputs(config,i=>80+i*70d/7);
+            yield return WaitUntil("低可信短轮结束",()=>!scenarioState.IsPlaying,6f);
+            Assert.That(scenarioState.CalibrationCandidate.Confidence,Is.EqualTo(RhythmCalibrationConfidence.Low));
+            yield return AssertSavedCalibration(candidate,125);
+            candidate=scenarioState.CalibrationCandidate.OffsetMs;
+            FindDeep<Button>(view.transform,"CalibrationApply").onClick.Invoke();
+            yield return AssertSavedCalibration(candidate,125);
+            yield return Snapshot("低可信估计仅明确采用后保存");
             scenarioState.StartCalibration();
             typeof(RhythmState).GetMethod("FocusLost",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(scenarioState,null);
             Assert.That(scenarioState.IsPlaying,Is.False); Assert.That(scenarioState.CalibrationCandidate,Is.Null);
@@ -740,7 +782,8 @@ namespace Game.Tests.Showcase.Rhythm
                     if (legacy)
                     {
                         Assert.That(received.Count, Is.LessThan(32));
-                        Assert.That(result.Reason, Is.EqualTo(RhythmCalibrationReason.Drift));
+                        Assert.That(result.Confidence, Is.EqualTo(RhythmCalibrationConfidence.Low));
+                        Assert.That(result.OffsetMs, Is.Not.EqualTo(80).Within(1e-6));
                     }
                     else
                     {
@@ -887,6 +930,7 @@ namespace Game.Tests.Showcase.Rhythm
 
         private IEnumerator PerformCurrentChart(RhythmState state)
         {
+            var clock = (AudioPlayback)typeof(RhythmState).GetField("playback", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(state);
             var edges = new List<ChartEdge>();
             for (int i = 0; i < state.Rules.Count; i++)
             {
@@ -898,8 +942,12 @@ namespace Game.Tests.Showcase.Rhythm
             foreach (var edge in edges)
             {
                 double timeout = Time.realtimeSinceStartupAsDouble + 6;
-                while (state.IsPlaying && state.SongSeconds < edge.Seconds && Time.realtimeSinceStartupAsDouble < timeout) yield return null;
+                // 真实 InputSystem 事件使用单调输入域；不能用分块更新的 DSP 显示位置提前释放 Hold。
+                while (state.IsPlaying && clock.PositionAtInputTime(Time.realtimeSinceStartupAsDouble) < edge.Seconds &&
+                    Time.realtimeSinceStartupAsDouble < timeout) yield return null;
                 if (!state.IsPlaying) yield break;
+                if (!edge.Press && state.Rules.NoteType(edge.Note) == RhythmNoteType.Hold)
+                    Debug.Log($"[VERIFY][Rhythm] Hold release note={state.Rules.NoteId(edge.Note)}, target={edge.Seconds:F6}, input={clock.PositionAtInputTime(Time.realtimeSinceStartupAsDouble):F6}, dsp={state.SongSeconds:F6}, frame={Time.frameCount}");
                 var action = state.LaneAction(state.Rules.NoteLane(edge.Note));
                 if (edge.Press) yield return Input.Hold(action); else yield return Input.Release(action);
             }

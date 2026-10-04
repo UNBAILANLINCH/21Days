@@ -207,6 +207,42 @@ namespace Game.Tests.EditMode.Rhythm
         private static RhythmPlayRequest Request(RhythmPlayMode mode = RhythmPlayMode.FreePlay, string runId = "run") =>
             new RhythmPlayRequest(runId, "scene", "song", mode);
 
+        [TestCase(true)] [TestCase(false)]
+        public void FixedChartCombat_OnlyConfiguredCompleteChartCallsOutcomeOnce(bool success)
+        {
+            var policy = new RhythmFixedChartCombatPolicy("song", "chart", "v1", "four-lane", "1", 60);
+            int successes = 0, failures = 0;
+            var session = new RhythmExternalSession(new Permission(), policy, r => successes++, r => failures++);
+            Assert.That(session.TryBegin(new RhythmPlayRequest("run", "scene", "other", RhythmPlayMode.Combat), out string reason), Is.False);
+            Assert.That(reason, Is.EqualTo("wrong_combat_song"));
+            Assert.That(session.TryBegin(Request(RhythmPlayMode.Combat), out _), Is.True);
+            foreach (string wrong in new[] { "chart", "revision", "rules", "scoring" })
+            {
+                var invalid = new RhythmRunResult("run", "scene", RhythmPlayMode.Combat, RhythmRunCompletion.Completed, "completed", "song",
+                    wrong == "chart" ? "other" : "chart", wrong == "revision" ? "v2" : "v1",
+                    wrong == "rules" ? "other" : "four-lane", wrong == "scoring" ? "2" : "1", 1, 1, 0, 0, 0, 1000, 1);
+                Assert.That(session.Consume(invalid), Is.False);
+                Assert.That(successes + failures, Is.Zero); Assert.That(session.Active, Is.Not.Null);
+            }
+            var result = new RhythmRunResult("run", "scene", RhythmPlayMode.Combat, RhythmRunCompletion.Completed, "completed", "song",
+                "chart", "v1", "four-lane", "1", 10, success ? 6 : 5, 0, success ? 4 : 5, 0, success ? 6000 : 5000, 1);
+            Assert.That(session.Consume(result), Is.True); Assert.That(session.Consume(result), Is.False);
+            Assert.That(successes, Is.EqualTo(success ? 1 : 0)); Assert.That(failures, Is.EqualTo(success ? 0 : 1));
+            Assert.That(session.TryBegin(Request(RhythmPlayMode.Combat), out _), Is.False);
+        }
+        [TestCase(RhythmRunCompletion.Aborted)] [TestCase(RhythmRunCompletion.TechnicalError)]
+        public void FixedChartCombat_CancelAndErrorRemainSeparateFromOutcome(RhythmRunCompletion completion)
+        {
+            int outcome = 0, aborted = 0, technical = 0;
+            var policy = new RhythmFixedChartCombatPolicy("song", "chart", "v1", "four-lane", "1");
+            var session = new RhythmExternalSession(new Permission(), policy, r => outcome++, r => outcome++, r => aborted++, r => technical++);
+            Assert.That(session.TryBegin(Request(RhythmPlayMode.Combat), out _), Is.True);
+            Assert.That(session.Consume(Result(RhythmPlayMode.Combat, completion)), Is.True);
+            Assert.That(session.Consume(Result(RhythmPlayMode.Combat, completion)), Is.False);
+            Assert.That(outcome, Is.Zero); Assert.That(aborted, Is.EqualTo(completion == RhythmRunCompletion.Aborted ? 1 : 0));
+            Assert.That(technical, Is.EqualTo(completion == RhythmRunCompletion.TechnicalError ? 1 : 0));
+        }
+
         private static RhythmRunResult Result(RhythmPlayMode mode = RhythmPlayMode.FreePlay,
             RhythmRunCompletion completion = RhythmRunCompletion.Completed, string runId = "run",
             string contextId = "scene", string songId = "song") =>

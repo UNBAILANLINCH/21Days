@@ -10,15 +10,23 @@ namespace Game.Rhythm
         private int session;
         private bool active;
         private double watermark;
+        private bool suspended;
         public int LateInputs { get; private set; }
         public void Begin(int session)
         {
-            Clear(); this.session = session; active = true; watermark = double.NegativeInfinity; LateInputs = 0;
+            Clear(); this.session = session; active = true; suspended = false; watermark = double.NegativeInfinity; LateInputs = 0;
         }
-        public void Clear() { active = false; pending.Clear(); Array.Clear(pressed, 0, pressed.Length); }
+        public void Clear() { active = false; suspended = false; pending.Clear(); Array.Clear(pressed, 0, pressed.Length); }
+        public void Suspend() { suspended = true; pending.Clear(); }
+        public void Resume(RhythmRules rules)
+        {
+            pending.Clear(); Array.Clear(pressed, 0, pressed.Length);
+            for (int i = 0; i < rules.Count; i++) if (rules.IsHolding(i)) pressed[rules.NoteLane(i)] = true;
+            suspended = false;
+        }
         public void Enqueue(in RhythmHitIntent intent)
         {
-            if (!active || intent.Session != session) return;
+            if (!active || suspended || intent.Session != session) return;
             if (intent.Lane < 0 || intent.Lane > 3 || !RhythmRules.Finite(intent.SongSeconds) ||
                 (intent.Edge != RhythmInputEdge.Press && intent.Edge != RhythmInputEdge.Release)) throw new ArgumentException("输入边沿无效");
             int index = pending.Count;
@@ -29,7 +37,7 @@ namespace Game.Rhythm
         }
         public void Drain(RhythmRules rules, double now, Action<RhythmHitResult> onResult)
         {
-            if (!active) return;
+            if (!active || suspended) return;
             if (!RhythmRules.Finite(now) || now < watermark) throw new ArgumentOutOfRangeException(nameof(now));
             int consumed = 0;
             for (; consumed < pending.Count && pending[consumed].SongSeconds <= now; consumed++)

@@ -57,6 +57,7 @@ namespace Game.Rhythm
         private TMP_Text songMenuHeading;
         private Button songMenuButton;
         private readonly List<Button> songButtons = new List<Button>();
+        private readonly Dictionary<GameObject, bool> libraryHiddenObjects = new Dictionary<GameObject, bool>();
         private RhythmCatalogConfig songMenuCatalog;
         private ScrollRect songScroll;
         private RectTransform songContent;
@@ -67,7 +68,30 @@ namespace Game.Rhythm
         private Button calibrationApply;
         private Button calibrationCandidate;
         private Button calibrationSupplementButton;
+        private Button libraryStart;
+        private GameObject settingsPanel;
+        private GameObject developerPanel;
+        private Button settingsButton;
+        private Button playExit;
+        private bool settingsFromLibrary;
+        private bool editingSettings;
+        private bool settingsSaving;
+        private bool referenceCalibration;
+        private bool manualTrial;
+        private float originalOffset;
+        private float originalVisual;
+        private GameObject manualPanel;
+        private Slider manualOffsetSlider;
+        private TMP_Text manualOffsetLabel;
+        private TMP_Text manualFeedback;
+        private GameObject pausePanel;
         public event Action OnStartClicked;
+        public event Action OnLibraryStartClicked;
+        public event Action OnManualCalibrationClicked;
+        public event Action<float, float> OnSettingsSaved;
+        public event Action OnSettingsCancelled;
+        public event Action OnPauseClicked;
+        public event Action OnResumeClicked;
         public event Action<string> OnSongSelected;
         public event Action OnSongMenuClicked;
         public event Action OnBackClicked;
@@ -90,6 +114,9 @@ namespace Game.Rhythm
         {
             config = arg as RhythmConfig;
             ExtraControls();
+            editingSettings = false; manualTrial = false; settingsSaving = false;
+            ShowPause(false);
+            settingsPanel.SetActive(false); manualPanel.SetActive(false); developerPanel.SetActive(false);
             ConfigureSong(config, "虫儿飞", "调试谱");
             HideSongMenu();
             HideCalibrationResult();
@@ -128,20 +155,33 @@ namespace Game.Rhythm
             calibrationButton.interactable = true;
             practiceButton.interactable = true;
             startButton.interactable = true;
-            startLabel.text = $"{songTitle}（{songNoteCount}音符）";
+            startLabel.text = "开始演奏";
             heading.text = songTitle; subtitle.text = songSummary; instructions.text = songInstructions;
             practiceButton.GetComponentInChildren<TMP_Text>().text = "短 Tap/Hold 练习";
             statusLabel.text = message;
             feedbackLabel.text = "D / F / J / K";
             resultPanel.SetActive(false);
+            SetPlayControls(false);
+            if (manualTrial) ShowManualCalibration();
             if (noteImages != null) for (int i = 0; i < noteImages.Length; i++) noteImages[i].enabled = false;
         }
         public void Starting()
         {
+            HideSongMenu();
+            settingsPanel.SetActive(false);
+            developerPanel.SetActive(false);
+            SetPlayControls(true);
             resultPanel.SetActive(false); calibrationPhase = int.MinValue;
             playing = true; offsetSlider.interactable = false; visualSlider.interactable = false;
             diagnosticButton.interactable = false;
             calibrationButton.interactable = false; practiceButton.interactable = false; startButton.interactable = false; statusLabel.text = "准备演奏…";
+        }
+        public void PreparingSelection()
+        {
+            // 曲目准备仍属于曲库；不能用演奏启动路径隐藏当前页面。
+            libraryStart.interactable = false;
+            foreach (var button in songButtons) button.interactable = false;
+            songDetails.text = "正在准备所选曲目…";
         }
         public void Begin(RhythmRules rules, double duration = -1, bool practice = false)
         {
@@ -165,6 +205,7 @@ namespace Game.Rhythm
                 }
             }
             playing = true;
+            SetPlayControls(true);
             for (int i = 0; i < 4; i++) lightRemaining[i] = float.NegativeInfinity;
             countdown = int.MinValue;
             offsetSlider.interactable = false;
@@ -212,6 +253,11 @@ namespace Game.Rhythm
         public void Hit(RhythmHitResult result, RhythmRules rules)
         {
             if (result.Grade == RhythmGrade.None) return;
+            if (manualTrial && result.Grade != RhythmGrade.Miss && !result.HoldStarted)
+            {
+                double error = result.RawErrorMs - offsetSlider.value;
+                manualFeedback.text = $"本次{(error < 0 ? "早" : "晚")} {GameMath.Abs(error):0} ms\n当前试用 {offsetSlider.value:+0;-0;0} ms\n只试听试打，不计成绩";
+            }
             if (result.HoldStarted) { feedbackLabel.color = LaneColor(0); feedbackLabel.text = $"头部 {result.Grade}\n继续按住至尾部"; return; }
             if (result.Grade == RhythmGrade.Miss)
             {
@@ -239,7 +285,31 @@ namespace Game.Rhythm
         {
             Ready(practice ? $"练习结束，可重开练习或切回{songTitle}" : "歌曲结束，可重试或返回选曲");
             resultPanel.SetActive(true);
+            startLabel.text = "重试本曲";
+            SetPostRoundControls();
             resultLabel.text = $"{(practice ? "练习完成" : "演奏完成")}\n\n{rules.Score:000000}\n\nPerfect  {rules.Perfect}    Good  {rules.Good}\nMiss  {rules.Miss}    最高连击  {rules.MaxCombo}\n长按成功  {rules.CompletedHolds}";
+        }
+        public void Interrupted(string message)
+        {
+            Ready(message);
+            startLabel.text = "重试本曲";
+            SetPostRoundControls();
+        }
+        private void SetPostRoundControls()
+        {
+            settingsButton.gameObject.SetActive(false);
+            instructions.gameObject.SetActive(false);
+            scoreLabel.gameObject.SetActive(false);
+            feedbackLabel.gameObject.SetActive(false);
+            progressSlider.gameObject.SetActive(false);
+            noteArea.gameObject.SetActive(false);
+            foreach (var light in laneLights) light.gameObject.SetActive(false);
+            SetLaneGuides(false);
+            if (songMenuButton != null)
+            {
+                backButton.gameObject.SetActive(false);
+                Place(songMenuButton.GetComponent<RectTransform>(), new Vector2(0.71f, 0.19f), new Vector2(0.91f, 0.27f));
+            }
         }
         public void ConfigureSong(RhythmConfig chart, string title, string difficulty)
         {
@@ -280,13 +350,13 @@ namespace Game.Rhythm
             songMenu.transform.SetParent(transform, false);
             var panel = songMenu.GetComponent<RectTransform>();
             panel.anchorMin = Vector2.zero; panel.anchorMax = Vector2.one; panel.offsetMin = panel.offsetMax = Vector2.zero;
-            songMenu.GetComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 0.98f);
+            songMenu.GetComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 1);
             songMenuHeading = Instantiate(heading, songMenu.transform);
             songMenuHeading.name = "SongSelectionHeading";
             songMenuHeading.rectTransform.anchorMin = songMenuHeading.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             songMenuHeading.rectTransform.anchoredPosition = new Vector2(0, 440);
             songMenuHeading.rectTransform.sizeDelta = new Vector2(1400, 100);
-            songMenuHeading.text = "选择曲谱";
+            songMenuHeading.text = "曲库 · 选择歌曲";
             var scrollObject = new GameObject("SongScroll", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
             scrollObject.transform.SetParent(songMenu.transform, false);
             var scrollRect = scrollObject.GetComponent<RectTransform>();
@@ -303,15 +373,17 @@ namespace Game.Rhythm
             songScroll = scrollObject.GetComponent<ScrollRect>(); songScroll.viewport = viewport; songScroll.content = songContent;
             songScroll.horizontal = false; songScroll.vertical = true; songScroll.movementType = ScrollRect.MovementType.Clamped;
             songDetails = Instantiate(statusLabel, songMenu.transform); songDetails.name = "SongDetails";
-            songDetails.rectTransform.anchorMin = new Vector2(0.59f, 0.2f); songDetails.rectTransform.anchorMax = new Vector2(0.95f, 0.82f);
+            songDetails.rectTransform.anchorMin = new Vector2(0.59f, 0.3f); songDetails.rectTransform.anchorMax = new Vector2(0.95f, 0.82f);
             songDetails.rectTransform.offsetMin = songDetails.rectTransform.offsetMax = Vector2.zero;
             songDetails.enableAutoSizing = true; songDetails.fontSizeMin = 20; songDetails.fontSizeMax = 30;
             songDetails.alignment = TextAlignmentOptions.TopLeft;
+            libraryStart = PageButton(songMenu.transform, "LibraryStart", "开始演奏", new Vector2(0.59f, 0.17f), new Vector2(0.95f, 0.26f),
+                () => OnLibraryStartClicked?.Invoke());
+            PageButton(songMenu.transform, "LibrarySettings", "设置 · 延迟校准", new Vector2(0.59f, 0.07f), new Vector2(0.95f, 0.14f), OpenSettings);
             BuildSongRows(catalog);
             var exit = Instantiate(backButton, songMenu.transform);
             exit.name = "SongSelectionBack"; exit.onClick = new Button.ButtonClickedEvent();
-            exit.GetComponent<RectTransform>().anchorMin = exit.GetComponent<RectTransform>().anchorMax = new Vector2(0.5f, 0.5f);
-            exit.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -430);
+            Place(exit.GetComponent<RectTransform>(), new Vector2(0.05f, 0.07f), new Vector2(0.3f, 0.14f));
             exit.GetComponentInChildren<TMP_Text>().text = "返回标题";
             exit.onClick.AddListener(BackClicked);
             songMenu.SetActive(false);
@@ -335,11 +407,29 @@ namespace Game.Rhythm
                     $"{song.Title} · {song.Difficulty} · {state}\n最佳 {best:000000} · 通关目标 {required} 分（{song.PassScoreRatio:P0}）";
             }
             var selected = catalog.Find(menuSelectedId) ?? catalog.Song(0);
+            menuSelectedId = selected.Id;
+            libraryStart.interactable = catalog.IsUnlocked(selected, progress);
+            foreach (var button in songButtons)
+                button.GetComponent<Image>().color = button.name == "Song_" + selected.Id ? new Color(0.18f, 0.38f, 0.42f, 1) : new Color(0.12f, 0.15f, 0.22f, 1);
             songDetails.text = RecordText(selected, progress);
+            // 曲库是独占页面，旧演奏内容既不绘制也不接收点击。
+            foreach (Transform child in transform)
+            {
+                var item = child.gameObject;
+                if (item == songMenu || item == settingsPanel || item == developerPanel || item == manualPanel ||
+                    item == pausePanel || item == calibrationResult) continue;
+                if (!libraryHiddenObjects.ContainsKey(item)) libraryHiddenObjects.Add(item, item.activeSelf);
+                item.SetActive(false);
+            }
             songMenu.transform.SetAsLastSibling();
             songMenu.SetActive(true);
         }
-        public void HideSongMenu() { if (songMenu != null) songMenu.SetActive(false); }
+        public void HideSongMenu()
+        {
+            if (songMenu != null) songMenu.SetActive(false);
+            foreach (var item in libraryHiddenObjects) if (item.Key != null) item.Key.SetActive(item.Value);
+            libraryHiddenObjects.Clear();
+        }
         private void BuildSongRows(RhythmCatalogConfig catalog)
         {
             foreach (var button in songButtons) { button.gameObject.SetActive(false); Destroy(button.gameObject); }
@@ -355,7 +445,8 @@ namespace Game.Rhythm
                 label.rectTransform.offsetMin = new Vector2(16, 8); label.rectTransform.offsetMax = new Vector2(-16, -8);
                 label.enableAutoSizing = true; label.fontSizeMin = 18; label.fontSizeMax = 26;
                 string id = song.Id;
-                button.onClick.AddListener(() => { menuSelectedId = id; OnSongSelected?.Invoke(id); }); songButtons.Add(button);
+                // 选中高亮由成功准备后的 ShowCurrentRecord 提交，拒绝的重复点击不改详情。
+                button.onClick.AddListener(() => OnSongSelected?.Invoke(id)); songButtons.Add(button);
             }
             songScroll.verticalNormalizedPosition = 1;
         }
@@ -392,19 +483,33 @@ namespace Game.Rhythm
         }
         private void StartClicked() => OnStartClicked?.Invoke();
         private void BackClicked() => OnBackClicked?.Invoke();
-        private void OffsetChanged(float value) { SetOffset(value); OnOffsetChanged?.Invoke(value); }
+        private void OffsetChanged(float value)
+        {
+            SetOffset(value);
+            if (manualOffsetSlider != null) manualOffsetSlider.SetValueWithoutNotify(value);
+            if (manualOffsetLabel != null) manualOffsetLabel.text = $"试用补偿 {value:+0;-0;0} ms\n未保存";
+            if (!editingSettings) OnOffsetChanged?.Invoke(value);
+        }
         public void SetVisualOffset(float value)
         {
             visualOffsetMs = value; visualSlider.SetValueWithoutNotify(value);
             visualLabel.text = $"视觉延迟 {value:+0;-0;0} ms\n正值：画面稍晚到线";
         }
-        private void VisualChanged(float value) { SetVisualOffset(value); OnVisualOffsetChanged?.Invoke(value); }
-        private void CalibrationClicked() => OnCalibrationClicked?.Invoke();
-        private void PracticeClicked() => OnPracticeClicked?.Invoke();
+        private void VisualChanged(float value) { SetVisualOffset(value); if (!editingSettings) OnVisualOffsetChanged?.Invoke(value); }
+        private void CalibrationClicked() { if (settingsSaving) return; CancelSettingsDraft(); settingsPanel.SetActive(false); OnCalibrationClicked?.Invoke(); }
+        private void PracticeClicked()
+        {
+            if (settingsSaving) return;
+            CancelSettingsDraft(); settingsPanel.SetActive(false); developerPanel.SetActive(false);
+            OnPracticeClicked?.Invoke();
+        }
         private void DiagnosticExportClicked() => OnDiagnosticExportClicked?.Invoke();
         public void SetDiagnosticAvailable(bool available) => diagnosticButton.interactable = available;
         public void Calibrating(double seconds, int samples, int warmup, double beatSeconds, int targetCount = -1)
         {
+            referenceCalibration = true;
+            playExit.gameObject.SetActive(true);
+            playExit.GetComponentInChildren<TMP_Text>().text = "取消校准";
             int total = targetCount > 0 ? targetCount : config.CalibrationSampleBeats;
             int phase = seconds < 0 ? -1 : seconds < warmup * beatSeconds ? 0 : 1;
             int progress = GameMath.Clamp((int)(seconds / beatSeconds) - warmup, 0, total);
@@ -414,6 +519,7 @@ namespace Game.Rhythm
             calibrationPhase = phase; calibrationSamples = samples; calibrationProgress = progress;
             startButton.interactable = true; practiceButton.interactable = true; startLabel.text = $"{songTitle}（取消校准）";
             heading.text = "参考拍校准"; subtitle.text = "独立节拍器 · 听声跟拍";
+            instructions.gameObject.SetActive(true);
             instructions.text = $"先听 {warmup} 拍适应\n固定采样 {total} 拍，不自动延长\n\nD / F / J / K 任一键\n轮后可试听、保留或手调\n建议须明确确认才保存";
             statusLabel.text = seconds < 0 ? "参考拍倒数…" : seconds < warmup * beatSeconds ? $"适应 {GameMath.Clamp((int)(seconds / beatSeconds), 0, warmup)}/{warmup} 拍" : $"采样 {progress}/{total} 拍 · 已匹配 {samples} 次";
             feedbackLabel.text = "综合输入偏差\n谱面对齐与视觉值不变";
@@ -429,20 +535,39 @@ namespace Game.Rhythm
                 case RhythmCalibrationReason.Unmatched: reason = "观察到输入但未匹配采样拍；没有生成补偿建议"; break;
                 case RhythmCalibrationReason.Insufficient: reason = "有效样本或时间覆盖不足；没有可确认的建议"; break;
                 case RhythmCalibrationReason.Unstable: reason = "波动较大，暂不能提供可靠建议；可保留或重新测量"; break;
-                case RhythmCalibrationReason.Drift: reason = "各时段偏移差超过20ms；本轮不能靠8拍补测修复"; break;
-                case RhythmCalibrationReason.Suggested: reason = "点击有波动，但各时段估计一致；先比较试听，再决定是否应用"; break;
-                default: reason = "各时段估计一致；先比较试听，确认后才保存"; break;
+                case RhythmCalibrationReason.Drift: reason = "低可信：有明显时段变化；不能靠8拍补测修复，可试听估计或保留原值"; break;
+                case RhythmCalibrationReason.Suggested: reason = "低可信：波动或估计精度不足；可比较试听，自行确认后采用"; break;
+                default: reason = "可靠估计：本轮采样一致且区间较窄；试听确认后才保存"; break;
             }
             calibrationPreviewRemaining = int.MinValue;
-            calibrationResultText.text = (notice == null ? "" : notice + "\n") + reason + $"\n原补偿 {original:+0;-0;0} ms" + (result.HasCandidate ? $" · 建议 {result.OffsetMs:+0;-0;0} ms" : " · 原值保持") +
+            calibrationResultText.text = (notice == null ? "" : notice + "\n") + reason + $"\n原补偿 {original:+0;-0;0} ms" + (result.HasCandidate ? $" · 估计 {result.OffsetMs:+0;-0;0} ms（未保存）" : " · 原值保持") +
                 $"\n输入 {result.Observed} · 匹配 {result.Matched} · 剔除后有效 {result.Accepted}\n重复 {result.Duplicate} · 窗外 {result.Outside} · 无效 {result.Invalid} · MAD {result.RawMadMs:0} ms" +
-                (RhythmRules.Finite(result.BlockSpreadMs) ? $"\n分段中位数最大差 {result.BlockSpreadMs:0.0} ms（上限20 ms）" : "\n分段覆盖不足") +
+                (RhythmRules.Finite(result.MedianLowerMs) && RhythmRules.Finite(result.MedianUpperMs) ?
+                    $"\n中位数95%区间 [{result.MedianLowerMs:+0;-0;0}, {result.MedianUpperMs:+0;-0;0}] ms（独立样本假设）" : "\n样本不足以给出有限95%区间") +
+                (RhythmRules.Finite(result.BlockSpreadMs) ? $"\n分段差 {result.BlockSpreadMs:0.0} ms（20 ms参考，非单独否决）" : "\n分段覆盖不足") +
                 (canSupplement ? "\n可主动补测一次固定8拍；也可直接保留继续" : "\n本轮不提供补测；可完整重测或保留原值继续");
             calibrationApply.interactable = calibrationCandidate.interactable = result.HasCandidate;
+            calibrationApply.GetComponentInChildren<TMP_Text>().text = result.Confidence == RhythmCalibrationConfidence.Low ? "自行采用估计并保存" : "采用估计并保存";
+            calibrationCandidate.GetComponentInChildren<TMP_Text>().text = "试听估计值";
             calibrationSupplementButton.interactable = canSupplement;
             calibrationResult.transform.SetAsLastSibling(); calibrationResult.SetActive(true);
         }
         public void HideCalibrationResult() { if (calibrationResult != null) calibrationResult.SetActive(false); }
+        public void SetCalibrationSaving(bool saving)
+        {
+            settingsSaving = saving;
+            settingsButton.interactable = !saving;
+            if (settingsPanel != null)
+                foreach (var button in settingsPanel.GetComponentsInChildren<Button>(true)) button.interactable = !saving;
+            if (manualPanel != null)
+                foreach (var button in manualPanel.GetComponentsInChildren<Button>(true)) button.interactable = !saving;
+            if (manualOffsetSlider != null) manualOffsetSlider.interactable = !saving;
+            if (libraryStart != null) libraryStart.interactable = !saving;
+            offsetSlider.interactable = visualSlider.interactable = !saving;
+            startButton.interactable = practiceButton.interactable = calibrationButton.interactable = !saving;
+            if (calibrationResult != null)
+                foreach (var button in calibrationResult.GetComponentsInChildren<Button>(true)) button.interactable = !saving;
+        }
         public void CalibrationPreviewFrame(double seconds, double duration, double offset)
         {
             if (calibrationResultText == null) return;
@@ -450,7 +575,7 @@ namespace Game.Rhythm
             int remaining = (int)(GameMath.Max(0, (float)(duration - seconds)) * 10);
             if (remaining == calibrationPreviewRemaining && offset == calibrationPreviewShownOffset && !calibrationPreviewDirty) return;
             calibrationPreviewRemaining = remaining; calibrationPreviewShownOffset = offset; calibrationPreviewDirty = false;
-            calibrationResultText.text = $"试听补偿 {offset:+0;-0;0} ms（尚未保存）\n听参考拍，用 D/F/J/K 跟拍，观察校正后早晚误差\n固定8拍，可切换原值/建议或保留退出\n剩余 {GameMath.Max(0, (float)(duration - seconds)):0.0} 秒\n{calibrationPreviewFeedback}\n应用前请自行确认手感；这不是物理延迟测量";
+            calibrationResultText.text = $"试听补偿 {offset:+0;-0;0} ms（尚未保存）\n听参考拍，用 D/F/J/K 跟拍，观察校正后早晚误差\n固定8拍，可切换原值/估计或保留退出\n剩余 {GameMath.Max(0, (float)(duration - seconds)):0.0} 秒\n{calibrationPreviewFeedback}\n采用前请自行确认手感；这不是物理延迟测量";
         }
         public void CalibrationPreviewHit(double correctedError)
         {
@@ -536,6 +661,165 @@ namespace Game.Rhythm
             }
             var graphic = noteArea.gameObject.AddComponent<RhythmTrackGraphic>();
             graphic.Configure(true);
+            BuildSettings();
+        }
+        // 页面只整理现有入口，规则与保存仍交由 State。
+        private static void Place(RectTransform rect, Vector2 min, Vector2 max)
+        {
+            rect.anchorMin = min; rect.anchorMax = max;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+        private Button PageButton(Transform parent, string name, string text, Vector2 min, Vector2 max, UnityEngine.Events.UnityAction click)
+        {
+            var button = Instantiate(startButton, parent);
+            button.name = name; button.onClick = new Button.ButtonClickedEvent(); button.onClick.AddListener(click);
+            button.gameObject.SetActive(true);
+            Place(button.GetComponent<RectTransform>(), min, max);
+            var label = button.GetComponentInChildren<TMP_Text>(); label.text = text;
+            Place(label.rectTransform, Vector2.zero, Vector2.one);
+            label.enableAutoSizing = true; label.fontSizeMin = 18; label.fontSizeMax = 28;
+            return button;
+        }
+        private GameObject Page(string name)
+        {
+            var page = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            page.transform.SetParent(transform, false);
+            Place(page.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+            page.GetComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 1);
+            return page;
+        }
+        private void BuildSettings()
+        {
+            settingsPanel = Page("CalibrationSettings");
+            var title = Instantiate(heading, settingsPanel.transform);
+            title.text = "设置 · 延迟校准";
+            Place(title.rectTransform, new Vector2(0.08f, 0.82f), new Vector2(0.92f, 0.93f));
+            var description = Instantiate(statusLabel, settingsPanel.transform);
+            description.text = "自动：听独立参考拍估算，试听原值 / 候选后明确保存。\n输入补偿与视觉延迟分别调整；教学通关和自动校准互相独立。";
+            Place(description.rectTransform, new Vector2(0.08f, 0.65f), new Vector2(0.92f, 0.8f));
+            calibrationButton.transform.SetParent(settingsPanel.transform, false);
+            Place(calibrationButton.GetComponent<RectTransform>(), new Vector2(0.08f, 0.51f), new Vector2(0.47f, 0.61f));
+            offsetLabel.transform.SetParent(settingsPanel.transform, false);
+            offsetSlider.transform.SetParent(settingsPanel.transform, false);
+            visualLabel.transform.SetParent(settingsPanel.transform, false);
+            visualSlider.transform.SetParent(settingsPanel.transform, false);
+            Place(offsetLabel.rectTransform, new Vector2(0.08f, 0.35f), new Vector2(0.47f, 0.47f));
+            Place(offsetSlider.GetComponent<RectTransform>(), new Vector2(0.08f, 0.29f), new Vector2(0.47f, 0.33f));
+            Place(visualLabel.rectTransform, new Vector2(0.53f, 0.35f), new Vector2(0.92f, 0.47f));
+            Place(visualSlider.GetComponent<RectTransform>(), new Vector2(0.53f, 0.29f), new Vector2(0.92f, 0.33f));
+            PageButton(settingsPanel.transform, "ManualCalibration", "手动 · 虫儿飞试听试打", new Vector2(0.08f, 0.19f), new Vector2(0.47f, 0.26f),
+                () => { if (settingsSaving) return; settingsPanel.SetActive(false); OnManualCalibrationClicked?.Invoke(); });
+            PageButton(settingsPanel.transform, "SettingsSave", "保存并返回", new Vector2(0.53f, 0.08f), new Vector2(0.92f, 0.18f), SaveSettings);
+            PageButton(settingsPanel.transform, "SettingsBack", "取消 · 保留原值", new Vector2(0.08f, 0.08f), new Vector2(0.47f, 0.18f), CloseSettings);
+            settingsButton = PageButton(transform, "SettingsButton", "设置 · 延迟校准", new Vector2(0.76f, 0.08f), new Vector2(0.96f, 0.17f), OpenSettings);
+            playExit = PageButton(transform, "PlayExit", "暂停", new Vector2(0.8f, 0.86f), new Vector2(0.96f, 0.94f),
+                () => { if (referenceCalibration) OnCalibrationKeep?.Invoke(); else OnPauseClicked?.Invoke(); });
+            playExit.gameObject.SetActive(false);
+            developerPanel = Page("DeveloperTools");
+            practiceButton.transform.SetParent(developerPanel.transform, false);
+            diagnosticButton.transform.SetParent(developerPanel.transform, false);
+            Place(practiceButton.GetComponent<RectTransform>(), new Vector2(0.3f, 0.55f), new Vector2(0.7f, 0.65f));
+            Place(diagnosticButton.GetComponent<RectTransform>(), new Vector2(0.3f, 0.4f), new Vector2(0.7f, 0.5f));
+            PageButton(developerPanel.transform, "DeveloperBack", "收起工具", new Vector2(0.3f, 0.2f), new Vector2(0.7f, 0.3f), () => developerPanel.SetActive(false));
+            PageButton(settingsPanel.transform, "DeveloperToggle", "展开测试 / 诊断", new Vector2(0.53f, 0.19f), new Vector2(0.92f, 0.26f),
+                () => { developerPanel.transform.SetAsLastSibling(); developerPanel.SetActive(true); });
+            var hint = transform.Find("OffsetHint");
+            if (hint != null) hint.gameObject.SetActive(false);
+            settingsPanel.SetActive(false); developerPanel.SetActive(false);
+            manualPanel = Page("ManualCalibrationTrial");
+            Place(manualPanel.GetComponent<RectTransform>(), new Vector2(0.76f, 0), Vector2.one);
+            manualOffsetLabel = Instantiate(offsetLabel, manualPanel.transform);
+            Place(manualOffsetLabel.rectTransform, new Vector2(0.05f, 0.64f), new Vector2(0.95f, 0.77f));
+            manualOffsetSlider = Instantiate(offsetSlider, manualPanel.transform);
+            manualOffsetSlider.onValueChanged = new Slider.SliderEvent(); manualOffsetSlider.onValueChanged.AddListener(OffsetChanged);
+            Place(manualOffsetSlider.GetComponent<RectTransform>(), new Vector2(0.08f, 0.58f), new Vector2(0.92f, 0.62f));
+            manualFeedback = Instantiate(statusLabel, manualPanel.transform);
+            Place(manualFeedback.rectTransform, new Vector2(0.05f, 0.34f), new Vector2(0.95f, 0.56f));
+            PageButton(manualPanel.transform, "ManualSave", "保存并返回", new Vector2(0.05f, 0.18f), new Vector2(0.95f, 0.28f), SaveSettings);
+            PageButton(manualPanel.transform, "ManualCancel", "取消 · 保留原值", new Vector2(0.05f, 0.05f), new Vector2(0.95f, 0.15f), CloseSettings);
+            manualPanel.SetActive(false);
+            pausePanel = Page("RhythmPause");
+            var pauseTitle = Instantiate(heading, pausePanel.transform); pauseTitle.text = "演奏已暂停";
+            Place(pauseTitle.rectTransform, new Vector2(0.2f, 0.7f), new Vector2(0.8f, 0.85f));
+            PageButton(pausePanel.transform, "PauseContinue", "继续演奏", new Vector2(0.3f, 0.52f), new Vector2(0.7f, 0.63f), () => OnResumeClicked?.Invoke());
+            PageButton(pausePanel.transform, "PauseRetry", "重试本曲", new Vector2(0.3f, 0.36f), new Vector2(0.7f, 0.47f), StartClicked);
+            PageButton(pausePanel.transform, "PauseExit", "退出 · 返回曲库", new Vector2(0.3f, 0.2f), new Vector2(0.7f, 0.31f),
+                () => { if (songMenu != null) SongMenuClicked(); else BackClicked(); });
+            pausePanel.SetActive(false);
+        }
+        public void ShowPause(bool paused)
+        {
+            if (pausePanel == null) return;
+            if (paused) pausePanel.transform.SetAsLastSibling();
+            pausePanel.SetActive(paused);
+        }
+        private void OpenSettings()
+        {
+            if (settingsSaving) return;
+            originalOffset = offsetSlider.value; originalVisual = visualOffsetMs; editingSettings = true;
+            settingsFromLibrary = songMenu != null && songMenu.activeSelf;
+            settingsPanel.transform.SetAsLastSibling(); settingsPanel.SetActive(true);
+        }
+        private void CloseSettings()
+        {
+            if (settingsSaving) return;
+            CancelSettingsDraft();
+            OnSettingsCancelled?.Invoke();
+            settingsPanel.SetActive(false); developerPanel.SetActive(false);
+            if (settingsFromLibrary && songMenu != null) songMenu.SetActive(true);
+        }
+        private void CancelSettingsDraft()
+        {
+            if (!editingSettings) return;
+            SetOffset(originalOffset); SetVisualOffset(originalVisual);
+            editingSettings = false; manualTrial = false; manualPanel.SetActive(false);
+        }
+        public void CancelSettingsPreview() => CancelSettingsDraft();
+        private void SaveSettings() { if (!settingsSaving) OnSettingsSaved?.Invoke(offsetSlider.value, visualOffsetMs); }
+        public void SettingsSaved()
+        {
+            editingSettings = false; manualTrial = false;
+            settingsPanel.SetActive(false); manualPanel.SetActive(false);
+        }
+        public void ShowManualCalibration()
+        {
+            manualTrial = true;
+            startButton.gameObject.SetActive(false); settingsButton.gameObject.SetActive(false);
+            backButton.gameObject.SetActive(false); playExit.gameObject.SetActive(false);
+            if (songMenuButton != null) songMenuButton.gameObject.SetActive(false);
+            manualOffsetSlider.SetValueWithoutNotify(offsetSlider.value);
+            manualOffsetLabel.text = $"试用补偿 {offsetSlider.value:+0;-0;0} ms\n未保存";
+            manualFeedback.text = "虫儿飞 · 试听试打\nD / F / J / K\n拖动补偿后看早晚反馈\n不计成绩、不解锁";
+            manualOffsetSlider.interactable = true;
+            manualPanel.transform.SetAsLastSibling(); manualPanel.SetActive(true);
+            scoreLabel.gameObject.SetActive(false);
+        }
+        private void SetPlayControls(bool active)
+        {
+            referenceCalibration = false;
+            playExit.GetComponentInChildren<TMP_Text>().text = "暂停";
+            noteArea.gameObject.SetActive(true);
+            progressSlider.gameObject.SetActive(true);
+            feedbackLabel.gameObject.SetActive(true);
+            foreach (var light in laneLights) light.gameObject.SetActive(true);
+            SetLaneGuides(true);
+            scoreLabel.gameObject.SetActive(true);
+            playExit.gameObject.SetActive(active);
+            settingsButton.gameObject.SetActive(!active);
+            startButton.gameObject.SetActive(!active);
+            backButton.gameObject.SetActive(!active);
+            if (songMenuButton != null) songMenuButton.gameObject.SetActive(!active);
+            instructions.gameObject.SetActive(!active);
+        }
+        private void SetLaneGuides(bool visible)
+        {
+            var line = transform.Find("JudgementLine");
+            if (line != null) line.gameObject.SetActive(visible);
+            for (int i = 0; i < 4; i++)
+            {
+                var label = transform.Find("KeyLabel" + i);
+                if (label != null) label.gameObject.SetActive(visible);
+            }
         }
         private void OnApplicationFocus(bool focused) { if (!focused && playing) OnFocusLost?.Invoke(); }
         private void OnApplicationPause(bool paused)

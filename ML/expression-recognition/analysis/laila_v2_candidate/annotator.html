@@ -14,6 +14,7 @@ const labels=['neutral','happy','sad','surprise','fear','disgust','angry','ambig
 const chinese=['中性','高兴','悲伤','惊讶','恐惧','厌恶','愤怒','不明确／混合'];
 let state=null,ids=[],index=0,entry=null,queue=Promise.resolve(),dirty=false,timer=null,failed=false,moving=false;
 const url=(path,extra={})=>path+'?'+new URLSearchParams({token,...extra});
+const diagnosticLink=document.createElement('a');diagnosticLink.href=url('/diagnostic');diagnosticLink.target='_blank';diagnosticLink.rel='noopener';diagnosticLink.textContent='打开输入诊断（独立页；显示模型预测）';document.querySelector('.top').append(diagnosticLink);
 async function api(path,body,extra={}){let r=await fetch(url(path,extra),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});let d=await r.json();if(!r.ok)throw Error(d.error||'保存失败');return d;}
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
 function render(){entry={label:'',clarity:'',note:'',status:'unlabeled',...(state.annotations[ids[index]]||{})};$('image').src=url('/image/'+ids[index]);$('sample').textContent='匿名 ID：'+ids[index];$('clarity').value=entry.clarity;$('note').value=entry.note;paint();let count=Object.values(state.annotations).filter(e=>e.status==='labeled').length,skips=Object.values(state.annotations).filter(e=>e.status==='skipped').length;$('progress').textContent=`第 ${index+1} / ${ids.length} 张 · 已标 ${count} · 跳过 ${skips} · 未标 ${ids.length-count-skips}`;$('bar').max=ids.length;$('bar').value=count;dirty=false;}

@@ -52,8 +52,8 @@
 | 文件 | 处理 | 后续用途 |
 | --- | --- | --- |
 | PRP/laila-mouth-repair-20261002/geometry-check.json、candidate3-intersections.json | 保留、补入提交 | 支撑报告中的形变连续性与面部自身相交检查 |
-| 同目录 candidate3-teeth-summary.json | 保留、提交 | 内部牙齿三角对统计及原文件 hash，便于核对报告 |
-| 同目录 candidate3-teeth.json | 保留、提交 | 约 39 MB、248 万行逐三角对原始记录；供精确复查，摘要方便阅读 |
+| 同目录 candidate3-teeth-summary.json | 保留跟踪、修正乱码与索引 | 生成的内部牙齿三角对诊断统计，包含原文件大小/hash、本地备份与历史 blob 信息；不是训练标签 |
+| 同目录 candidate3-teeth.json | 本地保留，移出 Git 跟踪并精确忽略（2026-10-04 用户批准） | 39,404,704 字节、2,482,793 行生成明细；与 artifacts 下备份核验同 hash 后整理。历史仍保留，本轮不提交/push；[复查与摘要](../laila-mouth-repair-20261002/acceptance-report.md#口腔交叠与验收限制) |
 | 同目录 after-runtime/controller-matrix.json、matrix.json、raycast.json | 保留、补入提交 | 实际权重组合、截图索引和拾取检查数据 |
 | 同目录 actual-gpu/、before/、after-runtime/extremes-contact.png | 保留、提交实际存在的 PNG/JSON | 原始 GPU 与修复前视觉证据；以后定位回归有用，不是训练集；不是修复前模型原件 |
 | PRP/laila-all-points-20261002、laila-controller-config-20261002、laila-follow-points-20261002 下的 *.unity + .meta | 已删除，共 18 个文件 | 阶段快照不再保留；正式场景及验证记录已提交 |

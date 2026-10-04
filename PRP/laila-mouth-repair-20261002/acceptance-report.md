@@ -57,11 +57,24 @@
 
 ## 口腔交叠与验收限制
 
-原 Basis 的内部口腔衬面已与上下牙齿/牙龈静态网格交叉（检测到下组 676、上组 370 个三角对；这是面片对数量，不是可见瑕疵数量）。修复保留 Basis，因此不宣称整套口腔无交叠。运动会改变内部接触，但在本次检查的正面和四个侧向视角，未观察到这些内侧交叠穿出外唇或改变外轮廓。面向前方的外侧区域筛查也没有发现单键或组合新增交叉；该方向筛查不是所有视角的保证。完整内部交叉记录保存在 `candidate3-teeth.json`。
+原 Basis 的内部口腔衬面已与上下牙齿/牙龈静态网格交叉（检测到下组 676、上组 370 个三角对；这是面片对数量，不是可见瑕疵数量）。修复保留 Basis，因此不宣称整套口腔无交叠。运动会改变内部接触，但在本次检查的正面和四个侧向视角，未观察到这些内侧交叠穿出外唇或改变外轮廓。面向前方的外侧区域筛查也没有发现单键或组合新增交叉；该方向筛查不是所有视角的保证。仓库统计见 [内部相交摘要](candidate3-teeth-summary.json)；完整明细按下节说明保留本地，不作为仓库必需输入。
 
 唇部深度与厚度视觉上保留，但没有严格体积守恒测量；未检查所有连续权重、所有观察角度、其他角色、其他场景或移动设备。极值自然程度和露齿幅度仍应由用户据实际 GPU 图验收。若要求口腔衬面与牙齿/牙龈在任何内部区域都绝不接触，需要额外修复 Basis/口腔或制作组合校正键，本轮没有擅自改变这些基础结构。
 
-提交整理（2026-10-03）：完整 `candidate3-teeth.json` 约 39 MB 与统计摘要一并归档。当前可提交的视觉证据为 before/ 与 after-runtime/ 的拼图、矩阵，以及 actual-gpu/ 的 all-lips-100 正面和四张正交侧向图；上文所述其余单张截图未在本地目录找到，不计入交付。修复前 original.blend / original.fbx 按用户决定不提交，后续清理；制作脚本保留算法用途，不保证删除输入后可复现历史制作。
+历史提交整理（2026-10-03）：完整明细当时与统计摘要一并归档。2026-10-04 按用户批准的最小清理，核验本地备份后只将 `PRP/laila-mouth-repair-20261002/candidate3-teeth.json` 移出后续 Git 跟踪并精确忽略；原文件不删除，历史不改写，本轮不提交或推送。它是生成的逐三角对几何诊断，不是训练标签、模型权重或运行时输入。
+
+本地原文件和备份均为 39,404,704 字节、2,482,793 行，SHA-256 为 `4aba8acde6f7ee5326fe6d0aca122c42e9ae32ffb2b06751b1adefda1422ae14`。备份位于 `ML/expression-recognition/artifacts/laila_v2_candidate/candidate3-teeth-backup-20261004/candidate3-teeth.json`，同目录 `backup-manifest.json` 记录大小和哈希；该目录在既有 artifacts 忽略范围。历史 Git blob 为 LF、36,921,912 字节；本地为 CRLF，大小差异来自换行。统计摘要保留 Basis、11 个单键和 648 组合的计数/范围，不改变原诊断结论。
+
+本地再查（在项目根执行）：
+
+```powershell
+Get-Item -LiteralPath 'PRP/laila-mouth-repair-20261002/candidate3-teeth.json' | Select-Object Length
+Get-FileHash -Algorithm SHA256 -LiteralPath 'PRP/laila-mouth-repair-20261002/candidate3-teeth.json'
+Get-FileHash -Algorithm SHA256 -LiteralPath 'ML/expression-recognition/artifacts/laila_v2_candidate/candidate3-teeth-backup-20261004/candidate3-teeth.json'
+git check-ignore -v -- 'PRP/laila-mouth-repair-20261002/candidate3-teeth.json'
+```
+
+需要逐三角对精查时读取本地 JSON 的 baseline/single/combinations；缺少本地副本时先核对备份摘要或从既有历史取出，不能由小统计摘要重建全部明细。此次不处理其他模型、labels/history、权重或大文件。当前可提交的视觉证据为 before/ 与 after-runtime/ 的拼图、矩阵，以及 actual-gpu/ 的 all-lips-100 正面和四张正交侧向图；上文所述其余单张截图未在本地目录找到，不计入交付。制作脚本保留算法用途，不保证删除历史输入后可复现原制作。
 
 ## 编辑器与工作树状态
 

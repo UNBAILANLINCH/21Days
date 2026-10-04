@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import csv
+import argparse
 import hashlib
 import io
 import json
@@ -213,6 +214,15 @@ class InstanceLock:
 
 
 def serve(dataset, store, token):
+    diagnostic = None
+
+    def get_diagnostic():
+        nonlocal diagnostic
+        if diagnostic is None:
+            from analysis.laila_v2_candidate.input_diagnostic import InputDiagnostic
+            diagnostic = InputDiagnostic(dataset)
+        return diagnostic
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -247,6 +257,21 @@ def serve(dataset, store, token):
                     return
                 if not post and parsed.path == '/':
                     self.respond(Path(__file__).with_name('annotator.html').read_bytes(), 'text/html')
+                elif not post and parsed.path == '/diagnostic':
+                    self.respond(Path(__file__).with_name('input_diagnostic.html').read_bytes(), 'text/html')
+                elif not post and parsed.path == '/diagnostic/catalog':
+                    self.respond(get_diagnostic().catalog())
+                elif not post and parsed.path == '/diagnostic/sample':
+                    self.respond(get_diagnostic().sample(q['id'][0]))
+                elif not post and parsed.path == '/diagnostic/reference':
+                    self.respond(get_diagnostic().reference(q['key'][0]))
+                elif not post and parsed.path.startswith('/diagnostic/reference-image/'):
+                    self.respond(get_diagnostic().reference_image(parsed.path.removeprefix('/diagnostic/reference-image/')), 'image/png')
+                elif post and parsed.path == '/diagnostic/evaluate':
+                    length = int(self.headers.get('Content-Length', 0))
+                    if not 0 < length < 20000:
+                        raise ValueError('诊断请求异常大小')
+                    self.respond(get_diagnostic().evaluate(json.loads(self.rfile.read(length))))
                 elif not post and parsed.path == '/state':
                     state = store.load(q['annotator'][0])
                     self.respond({'state': state, 'ids': dataset.ids, 'count': len(dataset.ids), 'groups': dataset.group_count})
@@ -282,12 +307,25 @@ def serve(dataset, store, token):
                     self.server.stop_requested = True
                 else:
                     self.respond({'error': '不存在的入口'}, status=404)
-            except (ValueError, KeyError, TypeError, OSError) as error:
+            except (ValueError, KeyError, TypeError, OSError, ImportError, RuntimeError) as error:
                 self.respond({'error': str(error)}, status=400)
     return HTTPServer(('127.0.0.1', 0), Handler)
 
 
 def main():
+    parser = argparse.ArgumentParser(description='本地dev标注器与只读输入诊断')
+    parser.add_argument('--check-diagnostic', action='store_true', help='核查真实启动路径和诊断依赖，不开启服务或写标签')
+    args = parser.parse_args()
+    if args.check_diagnostic:
+        from analysis.laila_v2_candidate.input_diagnostic import InputDiagnostic
+        probe = InputDiagnostic(Dataset())
+        catalog = probe.catalog()
+        result = probe.evaluate({'values': [0.] * 17})
+        print(json.dumps({'ok': True, 'presets': len(catalog['presets']),
+                          'sliders': len(catalog['sliders']), 'captures': len(catalog['ids']),
+                          'feature_dims': [len(result['features51']), len(result['features59'])],
+                          'classification': result['argmax_key'], 'final': result['formal_final']}, ensure_ascii=False))
+        return
     OUTPUT.mkdir(parents=True, exist_ok=True)
     try:
         lock = InstanceLock(OUTPUT / 'server.lock')

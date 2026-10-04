@@ -94,6 +94,49 @@ namespace Game.Tests.EditMode.Rhythm
             Assert.That(method.Invoke(null, new object[] { reason }), Is.EqualTo(expected));
         }
 
+        [TestCase(401, double.NaN, 401)]
+        [TestCase(401, double.PositiveInfinity, 401)]
+        [TestCase(401.01, 101, 401)]
+        [TestCase(double.NaN, 101, double.NaN)]
+        public void ObserveClockSample_InvalidValuesEndDiagnosticAndClearSession(double before, double dsp, double after)
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default, new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var state = new RhythmState(null, null, null, null, null, null, null, telemetry, null);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var diagnostic = new RhythmDiagnosticSession(new RhythmDiagnosticData.Header(7, "clock-test", "audio", "v2", "EditMode", "Dynamic", 0, 100, 400, 0),
+                new[] { new RhythmNoteData("tap", 0, 1000) });
+            typeof(RhythmState).GetField("clockGuard", flags).SetValue(state, new RhythmClockGuard(100, 400, .1));
+            typeof(RhythmState).GetField("diagnostic", flags).SetValue(state, diagnostic);
+            typeof(RhythmState).GetField("nextBridgeSample", flags).SetValue(state, double.NegativeInfinity);
+            typeof(RhythmState).GetField("starting", flags).SetValue(state, true);
+            bool valid = true;
+            Assert.DoesNotThrow(() => valid = (bool)typeof(RhythmState).GetMethod("ObserveClockSample", flags).Invoke(state, new object[] { before, dsp, after }));
+            Assert.That(valid, Is.False);
+            Assert.That(state.LastDiagnostic.Commands.Count, Is.EqualTo(1));
+            Assert.That(state.LastDiagnostic.Commands[0].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.InvalidClock));
+            Assert.That(typeof(RhythmState).GetField("diagnostic", flags).GetValue(state), Is.Null);
+            Assert.That(typeof(RhythmState).GetField("clockGuard", flags).GetValue(state), Is.Null);
+            Assert.That(typeof(RhythmState).GetField("starting", flags).GetValue(state), Is.False);
+        }
+
+        [Test]
+        public void ObserveClockSample_ValidSamplesRetainQuarterSecondCadence()
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default, new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var state = new RhythmState(null, null, null, null, null, null, null, telemetry, null);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var diagnostic = new RhythmDiagnosticSession(new RhythmDiagnosticData.Header(7, "clock-test", "audio", "v2", "EditMode", "Dynamic", 0, 100, 400, 0),
+                new[] { new RhythmNoteData("tap", 0, 1000) });
+            typeof(RhythmState).GetField("clockGuard", flags).SetValue(state, new RhythmClockGuard(100, 400, .1));
+            typeof(RhythmState).GetField("diagnostic", flags).SetValue(state, diagnostic);
+            typeof(RhythmState).GetField("nextBridgeSample", flags).SetValue(state, double.NegativeInfinity);
+            var observe = typeof(RhythmState).GetMethod("ObserveClockSample", flags);
+            foreach (double elapsed in new[] { 1d, 1.1, 1.3 })
+                Assert.That(observe.Invoke(state, new object[] { 400 + elapsed, 100 + elapsed, 400 + elapsed }), Is.True);
+            Assert.That(diagnostic.Snapshot().Commands.Count, Is.EqualTo(2));
+            Assert.That(state.LastDiagnostic, Is.Null);
+        }
+
         private sealed class Lease : IDisposable
         {
             public bool Disposed { get; private set; }

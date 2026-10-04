@@ -8,12 +8,14 @@ namespace Game.Rhythm
     public sealed class RhythmInstaller : GameplayInstaller
     {
         [SerializeField] private RhythmConfig config;
+        [SerializeField] private RhythmCatalogConfig catalog;
         public override void Install(IContainerBuilder builder)
         {
             if (config == null) throw new System.InvalidOperationException("RhythmInstaller 未配置谱面");
             builder.RegisterInstance(config);
             builder.RegisterEntryPoint<RhythmState>(Lifetime.Singleton).AsSelf();
             builder.RegisterEntryPoint<RhythmDemoEntry>(Lifetime.Singleton);
+            if (catalog != null) builder.RegisterBuildCallback(container => container.Resolve<RhythmState>().ConfigureCatalog(catalog));
         }
     }
 }

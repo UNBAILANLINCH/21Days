@@ -1,5 +1,7 @@
 # PRP：镜核心机制 demo（mirror-core）
 
+**状态：冻结（2026-10-06）。** 策划已换为《聚光灯》（`docs/design/spotlight/`），本 PRP 依据的旧版 `docs/design/features/` [01][02][03][13] 已降为旧版。代码与测试保留（Boot 仍挂 MirrorInstaller，玩家血量归零时的镜碎页仍生效），不再推进、不做视觉验收；聚光灯的「暴露 → 死亡」流程（`docs/design/features-spotlight/02_身份暴露与怀疑.md`）落地时再替换或删除。可能复用：阶段九「随身镜识破」（`docs/design/features-spotlight/07_关卡专属机制.md`）。
+
 > 状态：2026-09-28 第一版，**待用户对第 2 节架构点头后再出 tasks.md**（PRP 第三道门）。
 > 需求见同目录 `prd.md`；设计源 `docs/design/features/` [01] [02] [03] [13]。
 

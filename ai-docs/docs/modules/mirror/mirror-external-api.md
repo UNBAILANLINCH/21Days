@@ -7,6 +7,8 @@ maturity: seed
 
 # Mirror 外部接口
 
+**模块状态：冻结（2026-10-06）。** 策划已换为《聚光灯》（`docs/design/spotlight/`），本模块依据的旧版 `docs/design/features/` [01][02][03][13] 已降为旧版。代码与测试保留（Boot 仍挂 MirrorInstaller，玩家血量归零时的镜碎页仍生效），不再推进、不做视觉验收；聚光灯的「暴露 → 死亡」流程（`docs/design/features-spotlight/02_身份暴露与怀疑.md`）落地时再替换或删除。可能复用：阶段九「随身镜识破」（`docs/design/features-spotlight/07_关卡专属机制.md`）。
+
 > 别的模块要查辨认状态、裂痕 / 作用距离、驱动照镜时查这份。内部结构见 [`mirror-module-guide.md`](mirror-module-guide.md)。
 
 ## `Game.Mirror.MirrorService`（根作用域单例 + `IGameService`，构造注入即可）

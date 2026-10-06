@@ -273,6 +273,7 @@ public sealed class BattleState : SceneGameState
 ```
 
 基类的 `EnterAsync` / `ExitAsync` 是 `sealed` 的：进入时 `LoadSceneMode.Additive` 加载并持有 `SceneHandle`，退出时无条件卸载（子类清理抛异常也照卸，否则再进一次会叠出两份场景）。Boot 场景全程常驻，所以永远是 Additive，不用 Single。
+切进 / 切出带场景的状态自动有加载过渡（`GameFlow` 落黑幕盖住卸载与加载，见 architecture.md 5.5），不用自己做黑底；`GoToAsync` 在黑幕揭开后才返回。
 **禁止**：在 `GameState` 里写每帧逻辑（用 `ITickable`）；在 `EnterAsync` 里同步阻塞等待；忘了把玩法状态注册进作用域（`GoToAsync` 会解析失败）；自己在状态里 `LoadSceneAsync` 又不存句柄。
 
 ### 6.8 Assets — `IAssetService`

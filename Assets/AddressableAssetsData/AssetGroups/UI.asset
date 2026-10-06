@@ -92,6 +92,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 86eba6da296f6a64eb95fdb82dc1f181
+    m_Address: LoadingView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 89e100bd2661dc44387be21e8c0b7a87
     m_Address: Dialogue/Portrait_elder_default
     m_ReadOnly: 0

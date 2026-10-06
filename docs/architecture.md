@@ -189,6 +189,17 @@ public interface IGameFlow
 
 切换串行执行：先 Exit 当前再 Enter 目标；切换中再次请求切换则排队。切换完成后发布一次 `GameStateChangedEvent(from, to)`，切换前不发；另在前一状态 `ExitAsync` 之前发布一次 `GameStateChangingEvent(from, to)`（首次进入也发，From 为 null），顺序恒为 Changing → Exit → Enter → Changed，目标 Enter 失败时只有 Changing 没有 Changed。内置 `BootState`、`TitleState`；玩法状态由 `Game.Runtime` 注册。存档会话用 `GameStateChangingEvent` 在离开玩法状态前同步捕获现场并保存（见 5.7），这时前一状态的场景与对象都还没释放，等 `GameStateChangedEvent` 发出来抓就晚了。
 
+加载过渡（roadmap E4）：`GameFlow` 构造注入 `ILoadingCurtain`（`Core/Flow/`，`CoverAsync` 淡入到全黑、`RevealAsync` 淡出、`IsCovered` 从开始落幕到揭幕完成都为 true；实现 `LoadingCurtain` 在 `Core/UI/`，根作用域单例，首次落幕时才 `OpenAsync<LoadingView>()` 并常驻）。不挂在 `SceneGameState` 的前后钩子上：场景→标题时 Exit 方落幕、Enter 方（`TitleState`）揭幕，黑幕要跨两个状态，连续切换还要跨多次切换，只有排队的 `GameFlow` 收得了尾。契约：
+
+- 切换涉及场景（`Current is SceneGameState`，或目标类型可赋给 `SceneGameState`）时顺序为 Changing → `CoverAsync` 完成 → 前一状态 Exit → 目标 Enter → Changed → 揭幕；Changing 仍在落幕前同步发出，存档捕获语义不变。
+- 两侧都不是场景状态（Boot→Title、首次进标题）不碰黑幕。
+- 队列里还有后续请求时不揭幕，连续切换全程黑屏；队列清空才揭幕。
+- 失败也揭幕：Exit / Enter 抛异常、请求被取消（落幕途中取消则不 Exit），都在队列清空时揭开；揭幕不带请求的取消令牌。
+- 黑幕自身出错（面板开不出来、落幕 / 揭幕抛异常）只 `Log.Warn`，切换照常进行；揭幕出错时实现已先把黑幕硬收掉。
+- `GoToAsync` 返回的 UniTask 在揭幕之后才完成——前提是这一次切换后队列已空；队列里还有请求时切完即完成。
+- 盖住期间（`IsCovered`）Esc / P 不开暂停菜单（`PauseMenuController` 唯一入口处判断）。
+- 黑幕参数可为 null（EditMode 直接 new 的 `GameFlow`），即不落幕。每轮黑屏埋一条 `core.flow/curtain_revealed`（`from` `to` `ms`，见 [telemetry.md](telemetry.md) 2.1）。时长在 `UIConfig.LoadingFadeSeconds`（默认 0.25）/ `LoadingHintDelaySeconds`（默认 0.5，盖住超过它还没揭开才在右下角安全区内淡入脉动圆点）。
+
 ### 5.6 UI
 
 ```csharp
@@ -212,7 +223,7 @@ public interface IUIService
 }
 ```
 
-四层 Canvas 各一个根节点，`Canvas Scaler` 按屏幕尺寸缩放并适配安全区。基准（用户 2026-09-26 定）：参考分辨率 1920×1080（16:9），`UIConfig.matchWidthOrHeight = 1` 按高度匹配——UI 在任何高度下比例不变，21:9 等宽屏横向扩展、两侧多看，不缩放 UI；最低支持 1280×720。Panel 层单栈：打开全屏 Panel 时隐藏其下的 Panel；Panel 栈里有任一全屏面板时整个 Hud 层也被盖住（`Canvas_Hud/SafeArea` 上的 CanvasGroup，alpha 0 且不吃点击），与沉浸模式、`SetLayerVisible` 互不干扰；面板淡出完成后恢复。整层开关 `SetLayerVisible` 切的是该层 Canvas；`IsLayerVisible` 只回读 `SetLayerVisible` 设过的值（`UIService` 自己记账，不读 `Canvas.enabled`），不受全屏遮盖与沉浸模式影响。对白 / 演出这类临时藏层的调用方在打开自己的面板之前先读它、收尾按读到的值恢复，嵌套（对白里插播演出）时不会把外层藏掉的层重新亮出来。Popup 层可叠加。预制体 Addressables key 等于类名。Top 层除加载遮罩、网络转圈、调试台外，还放通用记录面板 `TranscriptView`（对白历史 / 演出 LOG 共用）：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白面板之上；它不进 UI 栈、不改 EventSystem 选中，Esc 与「关闭」都由调用方（`DialogueController` / `PerformanceService`）处理。
+四层 Canvas 各一个根节点，`Canvas Scaler` 按屏幕尺寸缩放并适配安全区。基准（用户 2026-09-26 定）：参考分辨率 1920×1080（16:9），`UIConfig.matchWidthOrHeight = 1` 按高度匹配——UI 在任何高度下比例不变，21:9 等宽屏横向扩展、两侧多看，不缩放 UI；最低支持 1280×720。Panel 层单栈：打开全屏 Panel 时隐藏其下的 Panel；Panel 栈里有任一全屏面板时整个 Hud 层也被盖住（`Canvas_Hud/SafeArea` 上的 CanvasGroup，alpha 0 且不吃点击），与沉浸模式、`SetLayerVisible` 互不干扰；面板淡出完成后恢复。整层开关 `SetLayerVisible` 切的是该层 Canvas；`IsLayerVisible` 只回读 `SetLayerVisible` 设过的值（`UIService` 自己记账，不读 `Canvas.enabled`），不受全屏遮盖与沉浸模式影响。对白 / 演出这类临时藏层的调用方在打开自己的面板之前先读它、收尾按读到的值恢复，嵌套（对白里插播演出）时不会把外层藏掉的层重新亮出来。Popup 层可叠加。预制体 Addressables key 等于类名。Top 层放加载黑幕 `LoadingView`（`LoadingCurtain` 常驻持有，见 5.5；根节点自带 overrideSorting 的 Canvas，排序比 Top 层 Canvas 高 50，压过所有同层面板，含落幕后才打开的；黑底撑满整块画布，揭开后不挡点击、子物体停用）、网络转圈、调试台，还放通用记录面板 `TranscriptView`（对白历史 / 演出 LOG 共用）：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白面板之上；它不进 UI 栈、不改 EventSystem 选中，Esc 与「关闭」都由调用方（`DialogueController` / `PerformanceService`）处理。
 
 过渡预设由 `UITransition` 枚举决定，默认 `Fade`（`UIView` 上的 `[SerializeField]` 字段，Inspector 里叫 Transition）。
 

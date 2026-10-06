@@ -65,6 +65,10 @@ namespace Game.Monster
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
                 view.Bind(player, monster, ReadInterpolationAlpha);
+                // S3 视线遮挡（Q3 波接线）：把场景里显式登记的遮挡体一次性转成纯数据几何喂给潜行内核，
+                // tick 路径因此只做几何求交、不做物理查询（StealthSight / EncounterSceneView 的分工）。
+                // 没登记遮挡体时喂进去的是空数组 = 视线不被遮挡，判定与接线前一致。
+                step.Sight.SetOccluders(view.CollectSightOccluders());
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
             }

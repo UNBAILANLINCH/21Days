@@ -19,7 +19,7 @@ namespace Game.Tests.EditMode.Core
     public sealed class ConfigServiceTests
     {
         /// <summary>示例表 TbItem 在 Tables/Data/item.xlsx 里的行数。改了示例表要同步改这里。</summary>
-        private const int ExpectedItemCount = 6;
+        private const int ExpectedItemCount = 16;
 
         private global::cfg.Tables tables;
 
@@ -80,6 +80,12 @@ namespace Game.Tests.EditMode.Core
             Assert.That((int)global::cfg.EItemCategory.Consumable, Is.EqualTo(2));
             Assert.That((int)global::cfg.EItemCategory.Clue, Is.EqualTo(3));
             Assert.That((int)global::cfg.EItemCategory.Key, Is.EqualTo(4));
+            // 皮 / 面具 / 钥匙 / 文书：聚光灯道具体系新增的四类（05_皮面具与道具.md 3.5 道具总表），
+            // 值只能往后加，改已有四个值会让 item.xlsx 里的行与旧存档一起错位。
+            Assert.That((int)global::cfg.EItemCategory.Skin, Is.EqualTo(5));
+            Assert.That((int)global::cfg.EItemCategory.Mask, Is.EqualTo(6));
+            Assert.That((int)global::cfg.EItemCategory.Pass, Is.EqualTo(7));
+            Assert.That((int)global::cfg.EItemCategory.Document, Is.EqualTo(8));
         }
 
         [Test]

@@ -159,6 +159,7 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 - **`Capture`/`Restore` 走 JSON 深拷贝**，不是引用赋值；`Restore` 会校验 `Current`/`Parent` 的 `Frame` 合法性（阶段存在、`ActivationId` 在范围内、`CompletedParts` 属于 `RequiredParts`），非法直接抛 `ArgumentException`（`NarrativeRules.cs:111`）。
 - **`EncounterContext.Fact` 与 Dialogue 的 `ConditionFact` 按名字映射**：两边任一改名或增项都要同步改（参见 dialogue-module-guide「内容表」一节）。
 - **战斗结果消费未定**：roadmap 提示 C5 之前要先决定 Player/Monster 的生命/伤害字段去留（设计支柱倾向无血条对抗），`Battle` 这个 `StageKind` 最终形态可能变化。
+- **章节 / 阶段结构以 [`stage-structure-spec.md`](../../stage-structure-spec.md) 为准**：旧版「章 / 幕 / 场」与聚光灯十二阶段怎么映射、十二段逐条能不能进内容表（`StageKind` 五态见 `NarrativeContent.cs:9`，但 `Battle` 目前被生产校验直接拒绝、见 `NarrativeCatalog.cs:79-80`）、旧版 [14] 哪些还成立，都在那份规范里。要落章节卡或阶段内容之前先读它。
 
 ## 禁止事项
 

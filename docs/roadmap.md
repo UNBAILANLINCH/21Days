@@ -337,6 +337,7 @@ H0（前置，已完成 2026-09-26）：`GameInput.inputactions` 一次性加齐
 
 W1 与 W2 没有硬依赖，人手够可以并行；W3 的 E2 / E5 依赖 W2 的 E1 与 E3，其余可提前。
 W5 不必等 W4：Narrative 已接入 Boot，S 组有挂点；[10] 两界场景并入 W4 的 A4 / A6，与 S3 并行。
+**章节 / 阶段结构**：旧版「章 / 幕 / 场」与聚光灯十二阶段的映射、十二段逐条能不能进内容表、旧版 [14] 哪些还成立，见 [`stage-structure-spec.md`](../ai-docs/docs/stage-structure-spec.md)（2026-10-07 入册）。W4 与 W5 落内容之前先读它。
 
 ---
 

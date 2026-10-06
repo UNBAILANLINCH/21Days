@@ -19,7 +19,7 @@ namespace Game.Inventory
         private static readonly Comparison<InventoryEntry> Order = CompareEntries;
 
         /// <summary>
-        /// 按表合并并排序：先按类别（材料 → 消耗品 → 线索 → 关键物，未知 id 最后），同类按 id 升序；
+        /// 按表合并并排序：先按类别（材料 → 消耗品 → 线索 → 关键物 → 皮 → 面具 → 钥匙 → 文书，未知 id 最后），同类按 id 升序；
         /// 数量 ≤ 0 的条目跳过。<paramref name="lookup"/> 为空或返回 null 时名字为「#id」、类别为 <see cref="UnknownCategory"/>。
         /// 结果写进 <paramref name="result"/>（先清空），不另分配列表。
         /// </summary>
@@ -47,7 +47,10 @@ namespace Game.Inventory
             Build(items, table == null ? null : new Func<int, global::cfg.Item>(table.GetOrDefault), filter, result);
         }
 
-        /// <summary>类别是否落在筛选档位里：全部 = 一切（含未知）；物品 = 材料 + 消耗品 + 关键物；线索 = 线索。</summary>
+        /// <summary>
+        /// 类别是否落在筛选档位里：全部 = 一切（含未知）；物品 = 材料 + 消耗品 + 关键物 + 皮 + 面具 + 钥匙；
+        /// 线索 = 线索 + 文书（文书与线索同为「信息」类，暂并在一档，是否拆成 sp04 的独立「文书」档待拍板）。
+        /// </summary>
         public static bool Matches(global::cfg.EItemCategory category, InventoryFilter filter)
         {
             switch (filter)
@@ -57,9 +60,13 @@ namespace Game.Inventory
                 case InventoryFilter.Items:
                     return category == global::cfg.EItemCategory.Material
                            || category == global::cfg.EItemCategory.Consumable
-                           || category == global::cfg.EItemCategory.Key;
+                           || category == global::cfg.EItemCategory.Key
+                           || category == global::cfg.EItemCategory.Skin
+                           || category == global::cfg.EItemCategory.Mask
+                           || category == global::cfg.EItemCategory.Pass;
                 case InventoryFilter.Clues:
-                    return category == global::cfg.EItemCategory.Clue;
+                    return category == global::cfg.EItemCategory.Clue
+                           || category == global::cfg.EItemCategory.Document;
                 default:
                     return false;
             }
@@ -74,6 +81,10 @@ namespace Game.Inventory
                 case global::cfg.EItemCategory.Consumable: return "消耗品";
                 case global::cfg.EItemCategory.Clue: return "线索";
                 case global::cfg.EItemCategory.Key: return "关键物";
+                case global::cfg.EItemCategory.Skin: return "皮";
+                case global::cfg.EItemCategory.Mask: return "面具";
+                case global::cfg.EItemCategory.Pass: return "钥匙";
+                case global::cfg.EItemCategory.Document: return "文书";
                 default: return "未知";
             }
         }

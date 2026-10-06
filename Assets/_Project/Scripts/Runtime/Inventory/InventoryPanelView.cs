@@ -31,9 +31,9 @@ namespace Game.Inventory
 
         [Tooltip("筛选：全部。子物体 Highlight 在当前档位时显示。")]
         [SerializeField] private Button filterAllButton;
-        [Tooltip("筛选：物品（材料 + 消耗品 + 关键物）。")]
+        [Tooltip("筛选：物品（材料 + 消耗品 + 关键物 + 皮 + 面具 + 钥匙）。")]
         [SerializeField] private Button filterItemsButton;
-        [Tooltip("筛选：线索。")]
+        [Tooltip("筛选：线索（线索 + 文书）。")]
         [SerializeField] private Button filterCluesButton;
         [Tooltip("条目列表容器（通常带 VerticalLayoutGroup）。")]
         [SerializeField] private RectTransform listRoot;

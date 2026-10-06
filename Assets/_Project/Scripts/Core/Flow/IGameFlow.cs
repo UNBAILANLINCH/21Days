@@ -21,7 +21,11 @@ namespace Game.Core.Flow
         /// </summary>
         GameState Current { get; }
 
-        /// <summary>切到 TState。返回的 UniTask 在**这一次**切换真正完成时才结束（排队等待也算在内）。</summary>
+        /// <summary>
+        /// 切到 TState。返回的 UniTask 在**这一次**切换真正完成时才结束（排队等待也算在内）。
+        /// 涉及场景的切换会落加载黑幕（<see cref="ILoadingCurtain"/>）：这一次切完队列已空时，揭幕之后才结束；
+        /// 队列里还有后续请求时切完即结束，黑幕留到队列清空再揭。
+        /// </summary>
         UniTask GoToAsync<TState>(CancellationToken ct = default) where TState : GameState;
     }
 }

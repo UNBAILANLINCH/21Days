@@ -132,6 +132,10 @@ namespace Game.Core.Boot
             // 通知服务建在 IUIService 之上；不是 IGameService，首次 Show 时才开视图。
             builder.Register<NotificationService>(Lifetime.Singleton).As<INotificationService>();
 
+            // 加载黑幕（roadmap E4）同样建在 IUIService 之上、不是 IGameService，首次落幕时才开视图。
+            // GameFlow 切场景时落 / 揭，PauseMenuController 读 IsCovered 决定 Esc / P 开不开菜单。
+            builder.Register<LoadingCurtain>(Lifetime.Singleton).As<ILoadingCurtain>();
+
             // --- 状态流与内置状态 ---
             builder.Register<GameFlow>(Lifetime.Singleton).As<IGameFlow>();
             builder.Register<BootState>(Lifetime.Singleton);

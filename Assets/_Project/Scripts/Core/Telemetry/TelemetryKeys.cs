@@ -83,6 +83,12 @@ namespace Game.Core.Telemetry
 
             /// <summary>状态切换失败。</summary>
             public const string StateFailed = "state_failed";
+
+            /// <summary>
+            /// 加载黑幕揭开，一轮记一条。属性 <c>from</c>（这一轮第一次切换的来源）<c>to</c>（最后一次切换的目标）
+            /// <c>ms</c>（从开始落幕到揭幕完成的黑屏总时长）。
+            /// </summary>
+            public const string CurtainRevealed = "curtain_revealed";
         }
 
         /// <summary>资源事件名。</summary>

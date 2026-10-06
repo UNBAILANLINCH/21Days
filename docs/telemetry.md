@@ -136,11 +136,13 @@ Logs/telemetry/<sid>.log           # Logs/ 已 gitignore
 | --- | --- | --- |
 | `core` | `session_start` / `session_end` | 见上 |
 | `core.boot` | `step` / `ready` / `failed` | `name` `ms` |
-| `core.flow` | `state_enter` / `state_exit` / `state_failed` | `from` `to` `ms` |
+| `core.flow` | `state_enter` / `state_exit` / `state_failed` / `curtain_revealed` | `from` `to` `ms` |
 
-> `core.flow` 三条事件里 **`from` 恒指转移的来源状态、`to` 恒指目标状态**，不随事件名换意思：
+> `core.flow` 的事件里 **`from` 恒指转移的来源状态、`to` 恒指目标状态**，不随事件名换意思：
 > `state_exit` 是「从 `from` 离开、要去 `to`」，`state_enter` 是「从 `from` 来、进了 `to`」。
 > 首次进入没有来源、最后一次退出没有目标，那一侧留空字符串。`ms` 是本条对应的 `ExitAsync` / `EnterAsync` 耗时。
+> `curtain_revealed` 是加载黑幕揭开（一轮黑屏记一条）：连续切换全程保持黑屏时，`from` 是这一轮第一次切换的来源、`to` 是最后一次切换的目标，
+> `ms` 是从开始落幕到揭幕完成的黑屏总时长；落幕时面板没开出来（屏上从没黑过）的那一轮不记。查「切场景黑屏太久」先看它。
 
 | `core.asset` | `load` / `load_failed` / `scene_load` / `release` | `key` `ms` |
 | `core.ui` | `open` / `close` | `panel` `ms` `depth` |

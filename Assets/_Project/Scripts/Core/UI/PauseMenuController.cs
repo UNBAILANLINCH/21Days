@@ -10,6 +10,7 @@
 //      Esc 同时触发 Gameplay/Cancel（退沉浸）与 UI/Cancel（路由）两条动作，谁先回调取决于动作图顺序；
 //      若退沉浸先跑，轮到这里时 IsHudHidden 已是 false——所以「本帧刚退出沉浸」也按沉浸中处理（见 unhideFrame）。
 //   4. 以上都不是、且处于玩法状态（不是 BootState / TitleState）            → 打开暂停菜单。
+//      例外：加载黑幕在盖（ILoadingCurtain.IsCovered，切场景途中）时 Esc / P 都不开（roadmap E4）。
 //   P 键 / 手柄 Start（Gameplay/Pause）只开不关：开着时再按无效；Gameplay 图在菜单开着时本来就被关掉了。
 
 using System;
@@ -62,6 +63,7 @@ namespace Game.Core.UI
         private readonly SettingsController settingsController;
         private readonly ISubscriber<BootCompletedEvent> bootCompleted;
         private readonly ISubscriber<HudVisibilityChangedEvent> hudChanged;
+        private readonly ILoadingCurtain curtain;
         private readonly ITelemetryScope telemetry;
 
         private IDisposable bootSubscription;
@@ -83,7 +85,7 @@ namespace Game.Core.UI
         public PauseMenuController(IUIService ui, UICancelRouter cancelRouter, IHudVisibility hud, IGameFlow flow,
             IWorldPauseService pause, IInputService input, IPlatformService platform,
             SettingsController settingsController, ISubscriber<BootCompletedEvent> bootCompleted,
-            ISubscriber<HudVisibilityChangedEvent> hudChanged, ITelemetryService telemetry)
+            ISubscriber<HudVisibilityChangedEvent> hudChanged, ILoadingCurtain curtain, ITelemetryService telemetry)
         {
             this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
             this.cancelRouter = cancelRouter ?? throw new ArgumentNullException(nameof(cancelRouter));
@@ -95,6 +97,7 @@ namespace Game.Core.UI
             this.settingsController = settingsController ?? throw new ArgumentNullException(nameof(settingsController));
             this.bootCompleted = bootCompleted ?? throw new ArgumentNullException(nameof(bootCompleted));
             this.hudChanged = hudChanged ?? throw new ArgumentNullException(nameof(hudChanged));
+            this.curtain = curtain ?? throw new ArgumentNullException(nameof(curtain));
             this.telemetry = telemetry == null
                 ? (ITelemetryScope)NullTelemetryScope.Instance
                 : telemetry.Scope(TelemetryKeys.Ui);
@@ -189,6 +192,8 @@ namespace Game.Core.UI
         private void TryOpen(string source)
         {
             if (disposed) return;
+            // 切场景途中（加载黑幕落幕到揭幕之间）不开：菜单会持着暂停令牌、关着 Gameplay 图跨进下一个场景。
+            if (curtain.IsCovered) return;
             GameState current = flow.Current;
             bool isTitle = current == null || current is TitleState || current is BootState;
             // Esc 这一路：本帧刚被 Gameplay/Cancel 退出沉浸的，这次 Esc 已经「用掉」了（见文件头第 3 条）。

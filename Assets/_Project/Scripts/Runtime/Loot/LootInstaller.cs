@@ -34,6 +34,7 @@ namespace Game.Loot
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)
         {
             builder.RegisterMessageBroker<CrateCollectedEvent>(options);
+            builder.RegisterMessageBroker<MonsterDroppedEvent>(options);
             builder.RegisterMessageBroker<LootResetEvent>(options);
         }
 
@@ -50,6 +51,7 @@ namespace Game.Loot
                     resolver.Resolve<QuestService>(),
                     resolver.Resolve<INotificationService>(),
                     resolver.Resolve<IPublisher<CrateCollectedEvent>>(),
+                    resolver.Resolve<IPublisher<MonsterDroppedEvent>>(),
                     resolver.Resolve<IPublisher<LootResetEvent>>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
                 .AsSelf()

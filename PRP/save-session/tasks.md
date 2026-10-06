@@ -69,6 +69,7 @@
 - [x] T8 主窗口复核：编译零错误，EditMode 全量 700 / 700，lint 本波文件零违规，`.meta` 齐全；容器接线由回放从真实容器解析验证（反射确认 `MonsterTitleRouter` 已不在程序集）。code-reviewer 结论见下一条。
 - [x] code-reviewer PASS（无 BLOCK / WARN；INFO：`GameQuit` 超时为 Core 常量、`SaveNowAsync` 与 Tick 自动保存重叠只会多写一次不会损坏）。
 - [ ] 开发者视觉验收：从 Boot 进 Play 走「开始 → 玩一会 → Esc 回标题 → 继续」「选择存档」「覆盖 / 删除确认」；`/review-change` 授权后提交。
+- [x] 尾巴「已保存」挤通知队列（2026-10-07）：改走不进队列的右下角小字 `INotificationService.ShowCornerHint`（`UIConfig.CornerHintSeconds` 默认 1.5 秒，`NotificationView` 的 `Corner/CornerLabel`），不再把「获得物资」等玩法通知推后；Session 回放补检查点与截图「保存后·右下角小字」。证据：EditMode 1115 / 1115、Session 回放 2 / 2 PASS。
 
 ## 执行中确认的事实
 

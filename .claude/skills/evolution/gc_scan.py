@@ -16,7 +16,7 @@ harness 不是搭完就不动的：规则文件改名、技能目录挪位置、
     2. 模块文档目录          generate-doc/modules.json 里 status 不是 todo 的 docs 目录在不在
     3. 钩子脚本              settings.json 里 $CLAUDE_PROJECT_DIR/xxx.(py|js) 引用的脚本在不在
     4. 钩子自测              跑一遍 .claude/hooks/tests/run.py，全绿才算过
-    5. 工程静态不变量        跑一遍 invariants.py：asmdef 依赖方向、平台宏、命名空间、.meta、UI 地址
+    5. 工程静态不变量        跑一遍 invariants.py：asmdef 依赖方向、平台宏、命名空间、.meta、UI 地址、文档代码引用失效
     6. 必读文件（只提示）     .claude/hooks/required_reads.json 里提到的文件在不在
 
 前五样算失败（exit 1）；第 6 样**只作提示不算失败** —— 那份清单常常先于文档写好，

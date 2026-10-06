@@ -791,8 +791,8 @@ MonoBehaviour:
   target: {fileID: 48701464}
   config: {fileID: 11400000, guid: 8d4d22e78c47b6d408742f6eddb42fa1, type: 2}
   useBounds: 1
-  boundsCenter: {x: 0, y: 4}
-  boundsSize: {x: 30, y: 22}
+  boundsCenter: {x: 0, y: -1.5}
+  boundsSize: {x: 30, y: 33}
   deadZoneSize: {x: 1.5, y: 1.5}
   viewportSize: {x: 0, y: 0}
 --- !u!20 &416613157
@@ -1119,8 +1119,8 @@ Transform:
   m_GameObject: {fileID: 734490410}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.15, z: 4}
-  m_LocalScale: {x: 30, y: 0.3, z: 22}
+  m_LocalPosition: {x: 0, y: -0.15, z: -1.5}
+  m_LocalScale: {x: 30, y: 0.3, z: 33}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1224,8 +1224,8 @@ Transform:
   m_GameObject: {fileID: 941839274}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -15, y: 0.75, z: 4}
-  m_LocalScale: {x: 0.4, y: 1.5, z: 22}
+  m_LocalPosition: {x: -15, y: 0.75, z: -1.5}
+  m_LocalScale: {x: 0.4, y: 1.5, z: 33}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1434,8 +1434,8 @@ Transform:
   m_GameObject: {fileID: 1182799112}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 15, y: 0.75, z: 4}
-  m_LocalScale: {x: 0.4, y: 1.5, z: 22}
+  m_LocalPosition: {x: 15, y: 0.75, z: -1.5}
+  m_LocalScale: {x: 0.4, y: 1.5, z: 33}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1903,7 +1903,7 @@ Transform:
   m_GameObject: {fileID: 2111599191}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.75, z: -7}
+  m_LocalPosition: {x: 0, y: 0.75, z: -18}
   m_LocalScale: {x: 30, y: 1.5, z: 0.4}
   m_ConstrainProportionsScale: 0
   m_Children: []

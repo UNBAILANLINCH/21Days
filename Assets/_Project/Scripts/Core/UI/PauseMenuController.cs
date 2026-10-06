@@ -113,9 +113,12 @@ namespace Game.Core.UI
         /// <param name="hudHidden">处于沉浸模式——这次 Esc 归「退出沉浸」，不开菜单。</param>
         /// <param name="isTitle">当前不在玩法状态（BootState / TitleState / 还没进任何状态）。</param>
         /// <param name="alreadyOpen">菜单已开或正在开。</param>
-        public static bool ShouldOpen(bool bootCompleted, bool hudHidden, bool isTitle, bool alreadyOpen)
+        /// <param name="loadingCovered">加载黑幕在盖（<see cref="ILoadingCurtain.IsCovered"/>，切场景途中）——
+        /// 这时开出来的菜单会持着暂停令牌、关着 Gameplay 图跨进下一个场景。</param>
+        public static bool ShouldOpen(bool bootCompleted, bool hudHidden, bool isTitle, bool alreadyOpen,
+            bool loadingCovered)
         {
-            return bootCompleted && !hudHidden && !isTitle && !alreadyOpen;
+            return bootCompleted && !hudHidden && !isTitle && !alreadyOpen && !loadingCovered;
         }
 
         public void Start()
@@ -192,13 +195,11 @@ namespace Game.Core.UI
         private void TryOpen(string source)
         {
             if (disposed) return;
-            // 切场景途中（加载黑幕落幕到揭幕之间）不开：菜单会持着暂停令牌、关着 Gameplay 图跨进下一个场景。
-            if (curtain.IsCovered) return;
             GameState current = flow.Current;
             bool isTitle = current == null || current is TitleState || current is BootState;
             // Esc 这一路：本帧刚被 Gameplay/Cancel 退出沉浸的，这次 Esc 已经「用掉」了（见文件头第 3 条）。
             bool hudHidden = hud.IsHudHidden || (source == SourceEsc && unhideFrame == Time.frameCount);
-            if (!ShouldOpen(bootDone, hudHidden, isTitle, view != null || opening || closing)) return;
+            if (!ShouldOpen(bootDone, hudHidden, isTitle, view != null || opening || closing, curtain.IsCovered)) return;
             OpenAsync(source).Forget();
         }
 

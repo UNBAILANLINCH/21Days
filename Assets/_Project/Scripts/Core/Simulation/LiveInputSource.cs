@@ -89,6 +89,12 @@ namespace Game.Core.Simulation
             // 现在接在它上面的也只是表现层按下沿。聚光灯阶段九「随身镜识破」真要落地时更可能复用 Interact，
             // 到那时再补位——补位是纯追加、不改字节布局，成本与现在一样，不必先押一个可能用不上的动作名。
             "Mirror", "MirrorSelf",
+            // 处决键（ExecutionInteractor，PRP/stealth-execution §2.4）：背后按 F 处决是**玩家实时输入 → 立即结算**，
+            // 与 DialogueKeyboardInput / MirrorInputPresenter 同一层，不做成 tick 里的一步——所以不进 InputCommand。
+            // 代价：**处决不可回放**（回放跑的是确定性 tick，喂不进实时按键）。
+            // 将来要让它可回放：按 WiredActionNames 的步骤补一个位 + 在 Sample 里接上 + 同步位断言测试
+            //（若同时动到快照字节布局，还要升 ReplayFormat.CurrentFormatVersion）。
+            "Execute",
         };
 
         private readonly IInputService inputService;

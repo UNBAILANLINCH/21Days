@@ -55,12 +55,23 @@ namespace Game.Mirror
     /// </summary>
     public sealed class YaoCatalog
     {
+        /// <summary>
+        /// <c>defeat_method</c> 白名单里「暗杀」那一项的原文：**只能绕背处决，走不了常规击杀**
+        /// （<c>Tables/Defines/yao.xml</c> 的 defeat_method 列注释原文）。
+        /// <para>
+        /// 背后处决的物种门槛（<see cref="Game.Stealth.ExecutionRules.SpeciesExecutable"/>）比的就是这个值。
+        /// 公开成常量而不是让判定侧再手打一遍：白名单的唯一权威是下面那个数组，两处各写一份「暗杀」的话，
+        /// 表里改了值而代码没跟上就会变成**静默不可处决**（玩家按 F 没反应，日志里也看不出来）。
+        /// </para>
+        /// </summary>
+        public const string AssassinationMethod = "暗杀";
+
         // defeat_method 列的取值白名单（Tables/Defines/yao.xml 的 defeat_method 那一行）。五个值全部从
         // docs/design/features-spotlight/ 归纳，逐条出处见 ValidateDefeatMethod 的注释；这里只落名单，不解释。
         private static readonly string[] DefeatMethods =
         {
             "可击杀（方式没写）",
-            "暗杀",
+            AssassinationMethod,
             "特殊条件",
             "需收服",
             "不可杀",

@@ -13,14 +13,27 @@ maturity: seed
 
 1. 在 `Tables/Defines/yao.xml` 对应的数据目录 `Tables/Data/yao/` 下新增一个 `<id>.json`，字段齐全：`id`（全局唯一）、
    `disguise_name`、`true_name`、`true_desc`、`true_image`（Addressables 地址，需已导入并登记）、`flaw`、`obsession`、`clan`、
-   `clue_items`（tbitem id 列表，空 = 一照就见）、`sealable`、`mask`（本波占位，先照抄现有两行的取值）。字段含义见
-   `Assets/_Project/Scripts/Core/Config/Generated/yao/Yao.cs:43-83` 的注释。
+   `clue_items`（tbitem id 列表，空 = 一照就见）、`sealable`、`mask`、`tier`（只能是 `A` / `B` / `C`）、`killable`、
+   `drop_items`（tbitem id 列表，没定就写 `[]`）。**JSON 里一个字段都不能缺**，空列表写 `[]`、布尔显式写 `true` / `false`。
+   除 `tier` / `killable` / `drop_items` 外都有列在用的旧行可以照抄；每列的归属与谁读见 `Tables/Defines/yao.xml` 表头，
+   字段含义见 `Assets/_Project/Scripts/Core/Config/Generated/yao/Yao.cs` 的注释。
 2. Luban 生成后确认 `Assets/_Project/Data/Config/yao_tbyao.bytes` 有更新（内容不变则不重写文件，见 pitfalls）。
 3. 场景里给这只妖挂 `MirrorSubject`（`kind = Yao`，`yaoId` 填新 id）；跟随巡逻怪的还要勾 `followsMonster`。
    走 Unity 编辑器 / Unity MCP 接线，不手改 YAML。
 4. 需要真形图就把 Sprite 放进 `Mirror` 组（Addressables 地址与 `true_image` 一致，见 mirror-module-guide「Addressables 用 Mirror 组」）。
 5. 这就是 PRD V12 的验收依据：新增一只妖只加数据表与场景标记，`MirrorRules` / `MirrorService` 都不用改
    （`MirrorRules.Resolve` 按 `MirrorCandidate.YaoId` 查 `HasClues` 委托，见 `Assets/_Project/Scripts/Runtime/Mirror/MirrorRules.cs:55-58`）。
+
+## 按种类读配置（收押 / 画皮 / 账簿 / 怪物分层）
+
+要按 id 查这只妖的层级、能否击杀、掉什么、能否收押 / 制面具、族属时，注入 **`YaoCatalog`**（`AsSelf` 根作用域单例），
+不要注入 `MirrorService`（那是照镜门面，带存档与玩家状态），也不要自己去读 `IConfigService.Tables.TbYao`
+（各处自己 try/catch 配置未就绪会让容错散开）。对外签名见 [`mirror-external-api.md`](mirror-external-api.md)。
+
+- 表没就绪不算异常：`IsReady` 为 false、`TryGet` 一律 false，启动早期先探 `IsReady`。
+- 新增一只妖只加一行数据 + 场景标记，`YaoCatalog` 的查询自动覆盖，不用改代码。
+- 本类**只读不判**：`IsSealable` / `CanMask` / `IsKillable` 只回答表里怎么写的，收押与画皮的业务规则由各自模块实现。
+- `tier` 只认 `A` / `B` / `C`；`docs/design/features-spotlight/06_怪物分层.md:126` 的「A·下 / B·下」是排版记号，不是层级值。
 
 ## 加一种照镜结果（新增 `MirrorResultKind`）
 

@@ -35,6 +35,7 @@ maturity: seed
 | `SpiritSightRules` | **纯 C#**：环境条件是否生效、是否可见、是否落在区域内（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightRules.cs:12-34`） | `SpiritSightPresenter` / `MirrorSceneBinder` 调 |
 | `MirrorSaveData` | 存档分区：`Identified` / `GlimpsedBlurry` / `StoryCracks` / `SelfLooks`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSaveData.cs:10-30`） | `ISaveService.Get<MirrorSaveData>()` 产出 |
 | `MirrorService` | **对外门面**：照镜 / 自照 / 剧情裂痕，写分区、发事件、埋点（`Assets/_Project/Scripts/Runtime/Mirror/MirrorService.cs:34-226`） | 根作用域单例 + `IGameService` |
+| `YaoCatalog` | **只读查询**（2026-10-07 加）：妖物表按 `yaoId` 取整行，按列反查 `clan` / `sealable` / `mask` / `tier` / `killable` / `drop_items`；**不做玩法判定**，表没就绪一律按「查不到」返回（`Assets/_Project/Scripts/Runtime/Mirror/YaoCatalog.cs`） | 根作用域单例（`AsSelf`），`MirrorInstaller` 注册；收押 / 画皮 / 账簿 / 调查面板与怪物分层按类型注入 |
 | `MirrorSceneBinder` | 入口点：登记场景标记与区域、投影坐标、给候选（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSceneBinder.cs:24-191`） | 根作用域入口点（`AsSelf`） |
 | `MirrorInputPresenter` | 入口点：读照镜 / 自照按键，让位判断，组结果，开 / 关结果画面并管理图片所有权（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:28`） | 根作用域入口点（`AsSelf`） |
 | `MirrorCrackPresenter` | 入口点：驱动镜图标 / 视野遮罩，镜碎时结束遭遇并重开本场（`Assets/_Project/Scripts/Runtime/Mirror/MirrorCrackPresenter.cs:36-267`） | 根作用域入口点（`AsSelf`） |
@@ -135,7 +136,7 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 历史批次结论 **PASS**（检查点失败 0 个、运行时异常 0 条），见 `Logs/verify/mirror/20260928-084017/report.md:6`；该记录不覆盖下述后续呈现器修复。
 EditMode 覆盖：`MirrorRulesTests`（28 用例）、`MirrorCrackRulesTests`（9）、`MirrorCrackTrackerTests`（9）、`SpiritSightRulesTests`（8）、
 `MirrorServiceTests`（12）、`MirrorSceneBinderTests`（5）、`MirrorResultInfoTests`（7）、`MirrorInputPresenterTests`（纯判定及异步生命周期）、
-`MirrorCrackPresenterTests`（5 组 TestCase）、`MirrorHudViewTests`、`MirrorVisionViewTests`、`YaoTableTests`（6），均在
+`MirrorCrackPresenterTests`（5 组 TestCase）、`MirrorHudViewTests`、`MirrorVisionViewTests`、`YaoTableTests`（16），均在
 `Assets/_Project/Scripts/Tests/EditMode/Mirror/`。跑 `/unity-test EditMode Mirror`；端到端视觉验收跑 `/verify-module Mirror`（编辑器须打开）。
 
 2026-09-29 两项呈现器修复已完成首轮验证：Mirror EditMode 执行 140 项，job `bbf2d4b2a9c6422fa5879e4731f4b25c` 为 `succeeded`；

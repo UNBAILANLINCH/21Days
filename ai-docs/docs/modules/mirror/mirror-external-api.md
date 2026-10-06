@@ -32,6 +32,25 @@ maturity: seed
 `Cast` / `LookSelf` 是照镜 / 自照的**唯一入口**：不要绕过它们直接拼 `MirrorRules.Resolve`，那样不会写存档、不会请求保存、
 不会发布事件，结果画面与镜图标都不会更新。
 
+## `Game.Mirror.YaoCatalog`（根作用域单例，构造注入即可；2026-10-07 加）
+
+只读查询妖物表（`Tables/Defines/yao.xml`），**不认识存档 / 事件 / 场景**，所以收押、画皮、账簿、调查面板与怪物分层
+要按种类查配置时注入它，而不是注入 `MirrorService`。列与读者的对应关系写在 `Tables/Defines/yao.xml` 表头。
+
+| 成员 | 签名 | 说明 |
+| --- | --- | --- |
+| `IsReady` / `Count` / `All` | `bool` / `int` / `IReadOnlyList<cfg.yao.Yao>` | 表是否已就绪；条数；全部行（表顺序）。表没就绪时 `false` / `0` / 空列表 |
+| `TryGet` / `Get` | `bool TryGet(int yaoId, out cfg.yao.Yao yao)` / `cfg.yao.Yao Get(int yaoId)` | 按 id 取整行；`TryGet` 查不到返回 `false`，`Get` 查不到抛 `KeyNotFoundException` |
+| `TierOf` | `string TierOf(int yaoId)` | 怪物层级原文 `"A"` / `"B"` / `"C"`（`06_怪物分层.md:113`）；查不到 `null`，取值非法抛 `ArgumentException` |
+| `IsKillable` | `bool IsKillable(int yaoId)` | 能否常规击杀（`06_怪物分层.md:121`）；查不到为 `false` |
+| `DropItemsOf` | `IReadOnlyList<int> DropItemsOf(int yaoId)` | 掉落（tbitem id）；没定或查不到为空列表 |
+| `IsSealable` / `CanMask` | `bool IsSealable(int yaoId)` / `bool CanMask(int yaoId)` | `sealable` / `mask` 两列的只读查询；查不到为 `false` |
+| `ClanOf` | `string ClanOf(int yaoId)` | 族属；没有这只妖返回 `null`，有妖但族属留空返回空串 |
+| `SealableIds` / `MaskIds` / `KillableIds` | `IReadOnlyList<int>` | 按列反查的 id 列表（表顺序）；面板 / 结算一次取够 |
+
+`TierOf` 只认 `A` / `B` / `C`：`06_怪物分层.md:126` 的「A·下 / B·下」是「原文写在上一层条目下一级」的排版记号，
+不是第四个层级，本表不建模。表里出现这种值会抛错，别把排版记号照抄进数据。
+
 ## `Game.Mirror.MirrorSubject`（场景组件）
 
 | 成员 | 签名 | 说明 |

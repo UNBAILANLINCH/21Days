@@ -9,5 +9,8 @@
     "clan": "占位族属",
     "clue_items": [],
     "sealable": true,
-    "mask": false
+    "mask": false,
+    "tier": "A",
+    "killable": true,
+    "drop_items": []
 }

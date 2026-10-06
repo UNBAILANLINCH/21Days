@@ -22,9 +22,16 @@ namespace Game.Core.Simulation
     /// 槽位映射（对应 <c>Data/Input/GameInput.inputactions</c> 的 Gameplay 动作图）：
     /// <see cref="Axis0"/> ← Move；<see cref="Buttons"/> bit0/1/2 ← Confirm/Cancel/Pause；
     /// bit3/4/5 ← Sneak/Disguise/Attack；bit6 ← Run（走 / 跑切换键，见 <see cref="ButtonRun"/>）；
-    /// bit31 ← QA 打点标记（不来自动作图，见 <see cref="ButtonQaMarker"/>）。
+    /// bit7/8/9 ← Tame/Interact/Inventory（聚光灯 S1 换皮与附身、S3 潜行与暗杀要用的三路，
+    /// 见 <see cref="ButtonTame"/> 等常量）；bit31 ← QA 打点标记（不来自动作图，见 <see cref="ButtonQaMarker"/>）。
     /// <see cref="Axis1"/> 与 <see cref="Pointer"/> 当前**没有对应动作，恒为零**，玩法定了再映射——
     /// 槽位先占住，将来加动作不改字节布局，老录像还能读。
+    /// </para>
+    /// <para>
+    /// <b>追加按钮位不需要升回放格式版本</b>：新位用的是既有 <c>u32</c> 字段里的空闲位，字段偏移量、
+    /// 宽度与定长 <see cref="SerializedSize"/> 一个都没动。老录像在这些位上写的就是 0（录它的时候
+    /// 还没有谁能置这些位），新录像多出来的位，老读者也只是读不到。什么改动必须升版，见
+    /// <c>Core/Replay/ReplayFormat.cs</c> 类文档里那一段判据。
     /// </para>
     /// </summary>
     public readonly struct InputCommand : IEquatable<InputCommand>
@@ -49,6 +56,26 @@ namespace Game.Core.Simulation
         /// 位掩码只是追加一位，命令字节布局不变。
         /// </summary>
         public const uint ButtonRun = 1u << 6;
+
+        /// <summary>
+        /// 附身 / 驯服键位（Gameplay/Tame）。Taming 是聚光灯 S1「换皮与附身」当前的最小验证版，
+        /// 「对谁发起附身」是逻辑输入：附身目标、继承到的身份与通行权限都要进模型快照，
+        /// 采样时丢掉它就等于这条线在重放里整段缺。<b>追加一位，命令字节布局不变。</b>
+        /// </summary>
+        public const uint ButtonTame = 1u << 7;
+
+        /// <summary>
+        /// 交互键位（Gameplay/Interact）。对话聚焦与物资箱拾取现在就用它，拾取会产出物品并进存档，
+        /// 属逻辑结果；S1 的发起附身、S3 的处决目标选择也要走同一路。<b>追加一位，命令字节布局不变。</b>
+        /// </summary>
+        public const uint ButtonInteract = 1u << 8;
+
+        /// <summary>
+        /// 背包键位（Gameplay/Inventory）。现在接在它上面的还只是面板开关，位先占住：
+        /// 聚光灯 S1 / S5 的皮与面具道具要从背包里取用，「用的是哪一件身份道具」直接影响身份判定，
+        /// 必须能被录下来。<b>追加一位，命令字节布局不变。</b>
+        /// </summary>
+        public const uint ButtonInventory = 1u << 9;
 
         /// <summary>
         /// QA 打点标记位。**不来自动作图**，<see cref="LiveInputSource"/> 永远不会置它；
@@ -96,7 +123,8 @@ namespace Game.Core.Simulation
         /// <summary>副轴。当前动作图里没有对应动作，恒为零；槽位先留着，玩法定了再映射。</summary>
         public Vector2 Axis1 { get; }
 
-        /// <summary>按钮位掩码。bit0=Confirm，bit1=Cancel，bit2=Pause，bit3~5=Sneak/Disguise/Attack，bit6=Run，bit31=QA 打点标记。</summary>
+        /// <summary>按钮位掩码。bit0=Confirm，bit1=Cancel，bit2=Pause，bit3~5=Sneak/Disguise/Attack，
+        /// bit6=Run，bit7=Tame，bit8=Interact，bit9=Inventory，bit31=QA 打点标记。</summary>
         public uint Buttons { get; }
 
         /// <summary>指针位置。当前动作图里没有对应动作，恒为零。</summary>

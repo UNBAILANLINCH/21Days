@@ -13,7 +13,7 @@ using Luban;
 namespace cfg.yao
 {
 /// <summary>
-/// 一只妖
+/// 一只妖，也是这只妖在怪物分层里的种类
 /// </summary>
 public sealed partial class Yao : Luban.BeanBase
 {
@@ -30,6 +30,9 @@ public sealed partial class Yao : Luban.BeanBase
         {int n0 = _buf.ReadSize(); ClueItems = new System.Collections.Generic.List<int>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { int _e0;  _e0 = _buf.ReadInt(); ClueItems.Add(_e0);}}
         Sealable = _buf.ReadBool();
         Mask = _buf.ReadBool();
+        Tier = _buf.ReadString();
+        Killable = _buf.ReadBool();
+        {int n0 = _buf.ReadSize(); DropItems = new System.Collections.Generic.List<int>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { int _e0;  _e0 = _buf.ReadInt(); DropItems.Add(_e0);}}
     }
 
     public static Yao DeserializeYao(ByteBuf _buf)
@@ -58,15 +61,15 @@ public sealed partial class Yao : Luban.BeanBase
     /// </summary>
     public readonly string TrueImage;
     /// <summary>
-    /// 破绽描述（本波只进表）
+    /// 破绽描述：玩家能独立发现的那一处（调查面板读，JSON 里必须写）
     /// </summary>
     public readonly string Flaw;
     /// <summary>
-    /// 执念（本波只进表）
+    /// 执念：这只妖为什么在这里、想要什么（调查面板读，JSON 里必须写）
     /// </summary>
     public readonly string Obsession;
     /// <summary>
-    /// 族属（账用，本波只进表）
+    /// 族属：被扣押时该族属记账（账读，JSON 里必须写）
     /// </summary>
     public readonly string Clan;
     /// <summary>
@@ -74,13 +77,25 @@ public sealed partial class Yao : Luban.BeanBase
     /// </summary>
     public readonly System.Collections.Generic.List<int> ClueItems;
     /// <summary>
-    /// 能否收押（后续波次读）
+    /// 能否收押（收押读；本波只提供只读查询，不实现收押）
     /// </summary>
     public readonly bool Sealable;
     /// <summary>
-    /// 能否制面具（后续波次读）
+    /// 能否制面具（画皮读；本波只提供只读查询，不实现画皮）
     /// </summary>
     public readonly bool Mask;
+    /// <summary>
+    /// 怪物层级：A 底层 / B 特定 / C 关键（[06] R1）；JSON 里必须写，取值只能是 A、B、C 三者之一
+    /// </summary>
+    public readonly string Tier;
+    /// <summary>
+    /// 能否常规击杀（[06] R9）：只能暗杀、不可击杀、持有篮子时不可击杀都填 false
+    /// </summary>
+    public readonly bool Killable;
+    /// <summary>
+    /// 击杀 / 暗杀掉落（tbitem id 列表）；没定就写 []，填了就要在 tbitem 里存在
+    /// </summary>
+    public readonly System.Collections.Generic.List<int> DropItems;
    
     public const int __ID__ = -1400206784;
     public override int GetTypeId() => __ID__;
@@ -103,6 +118,9 @@ public sealed partial class Yao : Luban.BeanBase
         + "clueItems:" + Luban.StringUtil.CollectionToString(ClueItems) + ","
         + "sealable:" + Sealable + ","
         + "mask:" + Mask + ","
+        + "tier:" + Tier + ","
+        + "killable:" + Killable + ","
+        + "dropItems:" + Luban.StringUtil.CollectionToString(DropItems) + ","
         + "}";
     }
 }

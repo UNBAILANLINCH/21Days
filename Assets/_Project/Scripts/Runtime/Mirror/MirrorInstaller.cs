@@ -32,6 +32,7 @@ namespace Game.Mirror
     /// （GameLifetimeScope 按 GetComponents 的组件顺序调用；MirrorService.InitializeAsync 只取分区，不依赖别的服务先初始化），
     /// 把 <c>Data/Mirror/MirrorConfig.asset</c> 拖到 Config 字段。只 Register 不 Resolve。
     /// 存档分区 <see cref="MirrorSaveData"/> 不用注册：ISaveService.Get 首次访问即建默认分区，读档按类型全名自动认领。
+    /// 妖物表的只读查询 <see cref="YaoCatalog"/> 也在这里注册（收押 / 画皮 / 账簿 / 调查面板与怪物分层按类型注入取用）。
     /// </summary>
     public sealed class MirrorInstaller : GameplayInstaller
     {
@@ -50,6 +51,11 @@ namespace Game.Mirror
         public override void Install(IContainerBuilder builder)
         {
             builder.RegisterInstance(ResolveConfig());
+
+            // 妖物表只读查询。只依赖 IConfigService，所以不进 InstallEvents、不需要入口点；AsSelf 让后续模块
+            // 按具体类型注入（反查 clan / sealable / mask / tier / killable / drop_items）。
+            builder.Register(resolver => new YaoCatalog(resolver.Resolve<IConfigService>()), Lifetime.Singleton)
+                .AsSelf();
 
             // 场景绑定：构造要 ITelemetryScope（工厂注册）；AsSelf 让服务与通灵视按具体类型注入。
             builder.RegisterEntryPoint(resolver => new MirrorSceneBinder(

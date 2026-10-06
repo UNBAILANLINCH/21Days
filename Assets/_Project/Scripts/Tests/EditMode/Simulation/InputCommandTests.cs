@@ -38,6 +38,9 @@ namespace Game.Tests.EditMode.Simulation
             Assert.That(InputCommand.ButtonCancel, Is.EqualTo(1u << 1));
             Assert.That(InputCommand.ButtonPause, Is.EqualTo(1u << 2));
             Assert.That(InputCommand.ButtonRun, Is.EqualTo(1u << 6), "奔跑位追加在攻击位之后，老录像的位含义不变");
+            Assert.That(InputCommand.ButtonTame, Is.EqualTo(1u << 7), "附身位从奔跑位往上接，已有位的数值一位都不许动");
+            Assert.That(InputCommand.ButtonInteract, Is.EqualTo(1u << 8), "交互位接在附身位之后");
+            Assert.That(InputCommand.ButtonInventory, Is.EqualTo(1u << 9), "背包位接在交互位之后");
             Assert.That(InputCommand.ButtonQaMarker, Is.EqualTo(1u << 31), "QA 打点位固定在最高位，与动作位拉开最大距离");
         }
 
@@ -48,7 +51,8 @@ namespace Game.Tests.EditMode.Simulation
             {
                 InputCommand.ButtonConfirm, InputCommand.ButtonCancel, InputCommand.ButtonPause,
                 InputCommand.ButtonSneak, InputCommand.ButtonDisguise, InputCommand.ButtonAttack,
-                InputCommand.ButtonRun, InputCommand.ButtonQaMarker,
+                InputCommand.ButtonRun, InputCommand.ButtonTame, InputCommand.ButtonInteract,
+                InputCommand.ButtonInventory, InputCommand.ButtonQaMarker,
             };
 
             uint seen = 0u;
@@ -57,6 +61,37 @@ namespace Game.Tests.EditMode.Simulation
                 Assert.That(mask != 0u && (mask & (mask - 1u)) == 0u, Is.True, $"0x{mask:X8} 不是单一位");
                 Assert.That(seen & mask, Is.EqualTo(0u), $"0x{mask:X8} 与已有按钮位重叠");
                 seen |= mask;
+            }
+        }
+
+        /// <summary>
+        /// 新增的三个动作位各自「置位 / 清除」都只影响自己那一位。
+        /// 位掩码是录制格式的一部分，置错位或清错位在回放里的表现是「某个操作偶尔不生效」，
+        /// 比整条命令读错还难查，所以逐位钉住。
+        /// </summary>
+        [Test]
+        public void NewActionBits_SetAndClearIndependently()
+        {
+            const uint newBits =
+                InputCommand.ButtonTame | InputCommand.ButtonInteract | InputCommand.ButtonInventory;
+
+            uint[] masks =
+            {
+                InputCommand.ButtonTame, InputCommand.ButtonInteract, InputCommand.ButtonInventory,
+            };
+
+            foreach (uint mask in masks)
+            {
+                var pressed = new InputCommand(Vector2.zero, Vector2.zero, mask, Vector2.zero, 0);
+                Assert.That(pressed.HasButton(mask), Is.True, $"0x{mask:X8} 置位后读不出来");
+                Assert.That(
+                    pressed.Buttons & (newBits & ~mask),
+                    Is.EqualTo(0u),
+                    $"只置了 0x{mask:X8}，同一个新动作组里别的位不该跟着亮");
+
+                var released = new InputCommand(Vector2.zero, Vector2.zero, pressed.Buttons & ~mask, Vector2.zero, 0);
+                Assert.That(released.HasButton(mask), Is.False, $"0x{mask:X8} 清位后仍是按下");
+                Assert.That(released.Buttons, Is.EqualTo(0u), "清掉唯一置着的位之后不该残留任何位");
             }
         }
 
@@ -196,13 +231,17 @@ namespace Game.Tests.EditMode.Simulation
         /// <summary>
         /// 每个字段都取非默认值的一条命令。Axis1 与 Pointer 现在虽然恒为零，
         /// 这里照样填上：槽位的字节位置得被测到，将来接上动作才不会发现偏移量早就写错了。
+        /// 按钮位同样取混着的几路（低位动作位 + 新追加位 + 最高位的 QA 标记 + 一个没定义的位），
+        /// 好让往返用例真的经过「小端 u32 的第 16~19 字节」。
         /// </summary>
         private static InputCommand CreateFullyPopulated()
         {
             return new InputCommand(
                 new Vector2(0.1f, -12345.6789f),
                 new Vector2(3.5f, -0.0009765625f),
-                InputCommand.ButtonConfirm | InputCommand.ButtonPause | InputCommand.ButtonQaMarker | (1u << 17),
+                InputCommand.ButtonConfirm | InputCommand.ButtonPause | InputCommand.ButtonTame
+                | InputCommand.ButtonInteract | InputCommand.ButtonInventory
+                | InputCommand.ButtonQaMarker | (1u << 17),
                 new Vector2(1920.5f, -1080.25f),
                 0xA5);
         }

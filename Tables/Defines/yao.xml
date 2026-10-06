@@ -1,20 +1,44 @@
-<!-- 妖物表结构定义（PRP/mirror-core/prp.md 2.2）。
+<!-- 妖物表结构定义（PRP/mirror-core/prp.md 2.2；聚光灯「怪物种类数据化」沿用这张表，见 docs/roadmap.md 第 5 节 W5 步 1）。
      数据：Tables/Data/yao/<id>.json（一只妖一个文件）；JSON 字段不能缺省，空列表写 []，布尔显式写 true / false。
-     运行时由 Game.Mirror.MirrorService 读：照镜判「线索是否齐」用 clue_items，结果画面用 true_name / true_desc / true_image。
-     flaw / obsession / clan / sealable / mask 本波只进表不读，留给调查面板、账、收押、画皮后续波次。 -->
+     冲突以聚光灯为准（用户 2026-10-07 拍板）：旧版 docs/design/features/ 的 04 / 05 / 06 / 07 等随
+     docs/roadmap.md 第 3 节 G 组冻结，下面不把它们写成读者。
+     列归属与谁读（新列一律经 Game.Mirror.YaoCatalog 只读查询；YaoCatalog 不做玩法判定，读到的值谁用谁判）：
+       照镜（已落地）    id / disguise_name / true_name / true_desc / true_image / clue_items
+                         → Game.Mirror.MirrorService 判线索是否齐、组结果画面（这一路直接用表，不经 YaoCatalog）。
+       怪物分层（本次加）tier / killable / drop_items
+                         → tier：docs/design/features-spotlight/06_怪物分层.md:113（R1，A 底层 / B 特定 / C 关键）。
+                           killable：同文 :121（R9，「不可击杀」「常态不可击杀」「无法被常规击杀」「持有篮子时不可击杀」都填 false）。
+                           drop_items：同文表 3.2–3.5 的「掉落」列，皮 / 面具 / 钥匙的取得与用途见
+                           features-spotlight/05_皮面具与道具.md（R2 击杀 / 暗杀掉落，道具总表 3.5）。
+       皮面具（未做）    mask
+                         → 聚光灯的皮 / 面具靠附身、击杀暗杀掉落或剥脸取得，不再要求先收押
+                           （features-spotlight/00_功能总览.md:356、05_皮面具与道具.md R1 / R2）；本列当前无读者。
+       旧版遗留列（聚光灯不做，当前无读者，保留备查）
+                         flaw / obsession：旧版 docs/design/features/13_妖的化形与破绽.md 的破绽与执念；
+                           features-spotlight/00_功能总览.md:354 一带判聚光灯无对应物（聚光灯的调查与线索
+                           走文书「对不上」，见 features-spotlight/12_调查与线索.md）。将来真接调查面板时再定谁读。
+                         clan：旧版 docs/design/features/07_两界之账.md 的族属记账；聚光灯无对应——
+                           features-spotlight/00_功能总览.md:357 写明聚光灯阶段3 的「账簿」记的是玩家用过的身份，
+                           同名不同物。
+                         sealable：旧版 docs/design/features/04_收押.md 的收押前提；聚光灯无对应——
+                           features-spotlight/00_功能总览.md:354 写明聚光灯的「收押」只是剧情结局，不是玩法机制。
+     本次只把列读通（YaoCatalog 只读查询），不实现收押 / 画皮 / 账簿 / 调查界面的任何业务逻辑。 -->
 <module name="yao">
-    <bean name="Yao" comment="一只妖">
+    <bean name="Yao" comment="一只妖，也是这只妖在怪物分层里的种类">
         <var name="id" type="int" comment="主键；场景标记组件 MirrorSubject 的 yaoId 引用它"/>
         <var name="disguise_name" type="string" comment="化形时的称呼；照见真形之前只显示它"/>
         <var name="true_name" type="string" comment="真形名，照见真形后显示"/>
         <var name="true_desc" type="string" comment="真形描述"/>
         <var name="true_image" type="string" comment="真形图的 Addressables 地址（Sprite）"/>
-        <var name="flaw" type="string" comment="破绽描述（本波只进表）"/>
-        <var name="obsession" type="string" comment="执念（本波只进表）"/>
-        <var name="clan" type="string" comment="族属（账用，本波只进表）"/>
+        <var name="flaw" type="string" comment="破绽描述（旧版 13 遗留列，聚光灯不做、当前无读者；JSON 里必须写）"/>
+        <var name="obsession" type="string" comment="执念（旧版 13 遗留列，聚光灯不做、当前无读者；JSON 里必须写）"/>
+        <var name="clan" type="string" comment="族属（旧版 07 两界之账遗留列，聚光灯无对应、当前无读者；JSON 里必须写）"/>
         <var name="clue_items" type="list,int" comment="照见真形所需线索（tbitem id），全部持有才算齐；空 = 无要求"/>
-        <var name="sealable" type="bool" comment="能否收押（后续波次读）"/>
-        <var name="mask" type="bool" comment="能否制面具（后续波次读）"/>
+        <var name="sealable" type="bool" comment="能否收押（旧版 04 收押遗留列，聚光灯无对应、当前无读者，保留备查）"/>
+        <var name="mask" type="bool" comment="能否制面具（聚光灯的皮 / 面具见 05_皮面具与道具.md，本列暂无读者，保留备查）"/>
+        <var name="tier" type="string" comment="怪物层级：A 底层 / B 特定 / C 关键（06_怪物分层.md:113）；JSON 里必须写，只认 A、B、C 三个值。该文 :126 的「A·下 / B·下」是「原文写在上一层条目下一级」的排版记号，不是第四个层级，本表不建模，别往这里填"/>
+        <var name="killable" type="bool" comment="能否常规击杀（06_怪物分层.md:121）：只能暗杀、不可击杀、持有篮子时不可击杀都填 false"/>
+        <var name="drop_items" type="list,int" comment="击杀 / 暗杀掉落（tbitem id 列表，06_怪物分层.md 表 3.2–3.5 的掉落列）；没定就写 []，填了就要在 tbitem 里存在"/>
     </bean>
     <table name="TbYao" value="Yao" index="id" input="yao" group="c" comment="妖物表"/>
 </module>

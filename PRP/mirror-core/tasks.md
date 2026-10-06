@@ -1,5 +1,7 @@
 # tasks：镜核心机制 demo（mirror-core）
 
+**状态：冻结（2026-10-06）。** 策划已换为《聚光灯》（`docs/design/spotlight/`），本 PRP 依据的旧版 `docs/design/features/` [01][02][03][13] 已降为旧版。代码与测试保留（Boot 仍挂 MirrorInstaller，玩家血量归零时的镜碎页仍生效），不再推进、不做视觉验收；聚光灯的「暴露 → 死亡」流程（`docs/design/features-spotlight/02_身份暴露与怀疑.md`）落地时再替换或删除。可能复用：阶段九「随身镜识破」（`docs/design/features-spotlight/07_关卡专属机制.md`）。
+
 规则：每项完成打勾并记一句证据；执行中发现 prp.md 有误先改 prp.md 再继续。派单档位按 `.claude/rules/model-routing.md`。
 设计已获用户批准（2026-09-28）。
 **前置**：21days-cf 发来稳定点 commit hash 之前，不写 `.cs`、不往 `Assets/` 放文件、不占编辑器。开工前 `git status` + `ListAgents` 复核。

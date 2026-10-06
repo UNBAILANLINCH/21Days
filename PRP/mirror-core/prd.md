@@ -1,5 +1,7 @@
 # PRD：镜核心机制 demo（通灵视 / 照镜辨形 / 镜裂镜碎 / 妖物数据表）
 
+**状态：冻结（2026-10-06）。** 策划已换为《聚光灯》（`docs/design/spotlight/`），本 PRP 依据的旧版 `docs/design/features/` [01][02][03][13] 已降为旧版。代码与测试保留（Boot 仍挂 MirrorInstaller，玩家血量归零时的镜碎页仍生效），不再推进、不做视觉验收；聚光灯的「暴露 → 死亡」流程（`docs/design/features-spotlight/02_身份暴露与怀疑.md`）落地时再替换或删除。可能复用：阶段九「随身镜识破」（`docs/design/features-spotlight/07_关卡专属机制.md`）。
+
 > 状态：2026-09-28 第一版。对应 `docs/design/features/` 的 [01] [02] [03] [13]，roadmap G1、G4、E6。
 > 定位：**功能 demo**，只在 SampleScene 上做机制，不做正式场景、不做章节剧情内容（用户 2026-09-28 定）。
 > 美术一律用明日方舟素材占位（用户 2026-09-28 定），受占位素材闸门约束，正式包体不得包含。

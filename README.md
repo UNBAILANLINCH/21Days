@@ -134,7 +134,7 @@ python .claude/skills/project-lint/lint.py <某个文件.cs>
 - [`docs/architecture.md`](docs/architecture.md) —— 框架层设计定稿：选型、asmdef 分层、目录、各服务契约
 - [`docs/roadmap.md`](docs/roadmap.md) —— 参考对标与补足路线图：对着参考游戏的差距矩阵、任务系统边界、六个波次
 - [`docs/modules/`](docs/modules/README.md) —— 模块总览：十个模块的成熟度、是否接入、给策划 / 美术看的逐模块说明与程序三件套入口
-- [`docs/design/`](docs/design/README.md) —— 策划正文：核心概念与设计支柱、世界观圣经、唐五代志怪素材库
+- [`docs/design/`](docs/design/README.md) —— 当前策划《聚光灯》（飞书转写）、策划正文：核心概念与设计支柱、世界观圣经、唐五代志怪素材库
 - [`docs/developer-guide.md`](docs/developer-guide.md) —— 程序的操作手册（15 章，从装环境到打包）
 - [`docs/designer-guide.md`](docs/designer-guide.md) —— 策划：改数值、加道具、加表、报错怎么查
 - [`docs/cultural-guide.md`](docs/cultural-guide.md) —— 文策：相关考据参考安置处

@@ -3,7 +3,9 @@
 > **给谁看**：接手本项目的开发者。
 > **前置阅读**：`CLAUDE.md`（硬规则与目录约定）→ `ai-docs/project-guide.md`（共用约定）→ `docs/architecture.md`（框架层与各服务契约）。
 > **接手备注（2026-09-30）**：上一会话把「连点补全下沉 Core、演出字幕接连点、可对话 NPC 挡人、laila 上界分析、`run_tests` 回放范围守卫」写进工作区后额度耗尽中断，没来得及提交。接管会话复核后按主题分 8 条提交并推送：编译零错误，EditMode 全量 **1088 条通过**，`python .claude/hooks/tests/run.py` **69 条全过**。它中断时留了两个尾巴，都已处理——编辑器里一个 32 分钟未收的孤儿测试标志（`TestRunStatus.IsRunning`，把 `refresh_unity` 一直挡成 `tests_running`；已补坑册与 MCP 排查表）与「记录面板『关闭』压住『跳过』」（关闭上移 30px，并补了布局守卫测试）。
-> **最近核对**：2026-09-30，当前分支 `main`，与 `origin/main` 同步。Mirror / Core UI / Narrative / Replay / 气泡几轮以及上面这批都已在 main 上。
+> **接手备注（2026-10-07，系统层 / roadmap E 组）**：接着上一会话未提交的 E4 改动往下做，工作区里这批尚未提交（等授权）。做完的事——E4 加载黑幕：`LoadingCurtain` 补相位守卫（首次开面板期间被揭幕不再淡入、视图被销毁后仍能重盖、揭幕出错必须回 `IsCovered=false`）、暂停菜单的「黑幕在盖」并进可测的 `ShouldOpen`、回放加 `WaitCurtainRevealed`（场景重载后不再截到半透明黑幕），新增 `LoadingCurtainTests` 5 条；E1 尾巴：「已保存」从通知队列改走不进队列的右下角小字（`INotificationService.ShowCornerHint` + `UIConfig.CornerHintSeconds` + `NotificationView` 的 `Corner/CornerLabel` 子节点，深底小牌避开编辑器右下角相机调试工具条），新增 `NotificationServiceTests` 7 条，Session 回放补检查点与截图「保存后·右下角小字」。
+> 证据（全部本次实跑）：编译零错误、控制台 error / warning 0；EditMode 全量 **1115 / 1115**；Session 回放 **2 / 2** PASS（`Logs/verify/session/20261007-022334/report.md`）；Exploration 回放 **8 / 8** PASS（`Logs/verify/exploration/20261007-022419/report.md`）；`gc_scan` 只剩既有 4 条（LailaFace 命名空间 3 条 + 字体资产动态字形，见 §1.3 与 §2）。`docs/roadmap.md` 的 §0 第 6 条、E1 / E4 / W3 已同步。
+> **最近核对**：2026-10-07，当前分支 `main`。E8 的出包实测（`SetResolution` / 窗口拖拽）仍未做，要关编辑器才测得出。
 > **工作区边界**：这批提交后工作区干净。唯一的常态脏数据是两个 TMP 字体资产（`Art/Fonts/…SDF.asset`、`TextMesh Pro/…/LiberationSans SDF - Fallback.asset`）：每跑一次 Play、或一次带真实 View 的 EditMode 测试，就被烘进几 MB 字形，提交前清回基线（6,404 B / 9,633 B）再提交，别带进提交——见 `ai-docs/pitfalls.md`「TMP Dynamic 字体资产」。不要整仓暂存、回滚或清理，以实时 `git status` 为准。
 
 ## 0. 现状一句话
@@ -138,7 +140,7 @@ Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复�
 | B 任务系统 | B3 已有接线与验证，最终提交独立验证见 §1.1；B4 进度重置与已完成列表 |
 | C 叙事接线 | C1–C3 转 §1.1/§1.2 收尾；C5 战斗结果 → 剧情等待 G5 规则 |
 | D 演出与 UI 动效 | D6 角色动画补齐，D4/D5 资产采用状态见 §1.5 |
-| E 系统与流程 | E4 加载过渡，E8 出包验证 |
+| E 系统与流程 | E4 加载过渡已收尾待视觉验收（2026-10-07，相位守卫与回放等待），E8 出包验证 |
 | F 内容与美术 | F1 真实剧本进表、F2 环境替换、F3 美术皮肤、F4 音频；F5 已有 Narrative 最小校验，完整内容校验工具未验收 |
 | S 聚光灯核心机制 | S1 换皮与附身、S2 身份暴露与怀疑、S3 潜行与暗杀、S4 追逐、S5 皮面具与道具、S6 关卡专属机制、S7 BOSS 战、S8 小游戏；旧 G 组随旧版冻结 |
 | H PC 适配 | 主要路径已实现，NPC 悬停、窗口实测及其它聊天持有项仍需逐项确认，不能写全部验收完成 |

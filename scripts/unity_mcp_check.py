@@ -8,17 +8,29 @@
 锚点：`--console` 的 errors 数、`--test` 的 total/passed/failed/skipped、退出码。
 退场条件：主窗口会话获得原生 UnityMCP 工具（届时不再需要临时 stdio 连接）。
 
-用法（**务必带 `--offline`**）：
+用法（**务必带 `--offline`，并先清掉代理环境变量**）：
     uv run --offline --with mcp python scripts/unity_mcp_check.py --console
     uv run --offline --with mcp python scripts/unity_mcp_check.py --refresh
     uv run --offline --with mcp python scripts/unity_mcp_check.py --test --mode EditMode --group Game.Tests.EditMode.Narrative
     uv run --offline --with mcp python scripts/unity_mcp_check.py --state
     uv run --offline --with mcp python scripts/unity_mcp_check.py --meta
 
-⚠️ **为什么不加 `--offline` 会静默失败**：`uv run --with mcp` 会先回 PyPI 解析 `mcp` 包。本机网络偶发
-`tls handshake eof` 时 `uv` 重试三次后以退出码 2 结束，**stdout 一个字节都没有**——看起来像「脚本没输出」，
-而不像「连不上」。加 `--offline` 强制走本地缓存即可（缓存里有包）。
-**判据**：本脚本任何动作都必定打印一段 JSON；**stdout 为空就是 uv 没跑起来**，去看 stderr。
+⚠️ **两种会让本脚本「看起来没输出」的环境坑，都在 2026-10-07 实测踩到过**：
+
+1. **不加 `--offline`**：`uv run --with mcp` 会先回 PyPI 解析 `mcp` 包。网络偶发 `tls handshake eof` 时
+   `uv` 重试三次后**以退出码 2 结束、stdout 一个字节都没有**——看起来像「脚本没输出」，不像「连不上」。
+2. **`NO_PROXY` 里含 `[::1]`**：MCP 服务端在 httpx 里解析端口时崩
+   （`httpx … normalize_port: invalid literal for int(): ':1]'`），**退出码 1、输出只剩一段错误 JSON**。
+   本机默认 `NO_PROXY=192.168.50.119,198.18.0.1,.local,localhost,127.0.0.1,::1,[::1]` 就带这个。
+
+**PowerShell 里的完整调用姿势**：
+```powershell
+Remove-Item Env:NO_PROXY,Env:no_proxy,Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:ALL_PROXY -ErrorAction SilentlyContinue
+uv run --offline --with mcp python scripts/unity_mcp_check.py --test --mode EditMode
+```
+**判据**：本脚本任何动作都必定打印一段 JSON；**stdout 为空或明显偏短，先怀疑上面两条**，去看 stderr。
+实测对照（`--state`）：带 `NO_PROXY` → 948 字节 / exit=1；清掉后 → 1082 字节 / exit=0。
+
 """
 import argparse
 import asyncio

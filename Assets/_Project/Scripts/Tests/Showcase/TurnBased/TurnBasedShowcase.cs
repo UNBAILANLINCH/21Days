@@ -226,10 +226,17 @@ namespace Game.Tests.Showcase.TurnBased
                       && session.CompletedRounds == 1
                       && random.DrawCount == 1);
 
-            // ── 第 7 步：招式 2（耗 1 怒气 + 减对方 50% 治疗，07:52）──
+            // ── 第 7 步：招式 2（耗 1 怒气 + 减对方 50% 治疗，07:52）；紧接着让 BOSS 饮酒，看减疗真的把回血砍半（07:80）──
             SkillCastResult skill2 = default;
-            yield return Step("放招式 2：消耗 1 怒气、造成伤害，并给对方挂上「减少 50% 治疗效果」（07:52）",
-                () => skill2 = CastAndPresent(PlayerSkill.Skill2));
+            int bossHealthBeforeDrink = 0;
+            yield return Step("放招式 2：消耗 1 怒气、造成伤害，并给对方挂上「减少 50% 治疗效果」（07:52）；"
+                              + "再走一个怪物回合（剧本掷 7 → BOSS 招式 2 饮酒）看它回血被砍半",
+                () =>
+                {
+                    skill2 = CastAndPresent(PlayerSkill.Skill2);
+                    bossHealthBeforeDrink = session.Boss.Health;
+                    AdvanceBossTurn();
+                });
             yield return Check("招式 2：怒气 1 → 0，BOSS 生命 -" + settings.PlayerSkills.Skill2Damage
                                + "，BOSS 身上的减疗 = " + settings.PlayerSkills.Skill2HealReductionPercent + "%",
                 () => skill2.Accepted
@@ -237,11 +244,6 @@ namespace Game.Tests.Showcase.TurnBased
                       && skill2.RageAfter == 0
                       && skill2.Damage == settings.PlayerSkills.Skill2Damage
                       && session.Boss.HealReductionPercent == settings.PlayerSkills.Skill2HealReductionPercent);
-
-            // ── 第 8 步：让 BOSS 饮酒，看减疗真的把回血砍半（07:80 + 07:52）──
-            int bossHealthBeforeDrink = session.Boss.Health;
-            yield return Step("走一个怪物回合（剧本掷 7 → BOSS 招式 2 饮酒）：+30 醉酒、回 10% 生命——但被减疗砍半",
-                AdvanceBossTurn);
             int rawHeal = session.Boss.MaxHealth * settings.BossSkills.Skill2HealPercent / 100;
             int expectedHeal = rawHeal - rawHeal * settings.PlayerSkills.Skill2HealReductionPercent / 100;
             yield return Check("减疗生效：BOSS 只回了 " + expectedHeal + " 点血（未减疗本该回 " + rawHeal
@@ -258,7 +260,7 @@ namespace Game.Tests.Showcase.TurnBased
                       && view.ScreenText.Contains("减疗 " + settings.PlayerSkills.Skill2HealReductionPercent + "%"), 1f);
             yield return Snapshot("招式2 的减疗把 BOSS 饮酒回血砍半");
 
-            // ── 第 9 步：攒满 3 怒气 → 招式 3（耗 3，接下来 3 次攻击附带额外伤害，07:54）──
+            // ── 第 8 步：攒满 3 怒气 → 招式 3（耗 3，接下来 3 次攻击附带额外伤害，07:54）──
             SkillCastResult skill3 = default;
             yield return Step("攒怒气：招式 1 打三次（每次 +1、中间三个怪物回合），攒到上限 3 后放招式 3（耗 3 怒气）",
                 () =>
@@ -281,7 +283,7 @@ namespace Game.Tests.Showcase.TurnBased
                       && session.Player.ExtraDamageCharges == settings.PlayerSkills.Skill3ExtraDamageAttacks);
             yield return Snapshot("招式3：怒气清空、挂上 3 次额外伤害");
 
-            // ── 第 10 步：下一次攻击吃掉一次额外伤害 ──
+            // ── 第 9 步：下一次攻击吃掉一次额外伤害 ──
             SkillCastResult boosted = default;
             yield return Step("走一个怪物回合后再出一招：验证「接下来 3 次攻击附带额外伤害」真的加在伤害上（07:54）",
                 () =>

@@ -168,3 +168,17 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 - 不要把 `DefaultDialogueConditionSource` 的占位行为当真——它不代表任何真实玩法状态。
 - 不要在 Boot 没挂 NarrativeInstaller 时假设 NarrativeService 已在游戏里运行。
 - 新增条件事实类型或阶段类型前先看 [`narrative-extension-guide.md`](narrative-extension-guide.md) 的扩展点，不要新起一套通用规则解释器（PRP 明确禁止）。
+
+## 附录·三类剧情能力定型（2026-10-07，roadmap C5 数据形状）
+
+> 本节只记这次改动的增量；上面「已知约束 / 未做」里写「`Battle` 被生产校验直接拒绝」等几条已被本节替代。
+
+**`Battle` 进表与结果词汇**：`StageKind.Battle` 不再被 `NarrativeCatalog.Validate` 拒绝。表侧由 `battleResults` 列声明本阶段可能的结果出口键（`Tables/Defines/narrative.xml:14-16`），取值是 `Assets/_Project/Scripts/Runtime/Narrative/BattleOutcome.cs` 的四个常量：`Downed`（击倒）、`Exposed`（暴露）、`BossPhaseChanged`（BOSS 换形态未结束）、`Victory`。换形态要写明形态名，出口键写成 `BossPhaseChanged:<形态>`，`BattleResult.Parse` 是它唯一的产出方。
+
+**回写接口**：`NarrativeRules.CanCompleteBattle(generation, activationId, targetId)` 判定「这场战斗是不是当前阶段」，`NarrativeRules.CompleteBattle(...)` 走完整身份校验后按结果码出口推进；身份取自战斗侧登记的请求身份，场景切换或读档后回来的旧结果返回 `false`（与 `Apply` 同口径，不抛）。运行层入口是 `NarrativeService.CompleteBattleAsync(...)`，它只负责提交、埋点与落盘通知。**不要**绕过它直接改 `NarrativeSaveData`。
+
+**`IssueRequest` / `RequiredParts`**：两列已进 `Tables/Defines/narrative.xml`。`IssueRequest=true` 表示这一阶段会向外部系统发一次请求，校验要求它有至少一个出口；`RequiredParts` 是多部分行为，每部分提交一次 `Success`，全齐才真正迁移，因此必须有 `Success` 出口。
+
+**战斗阶段不是可恢复边界**：`NarrativeService.IsStable` 与 `DriveAsync` 都刻意让 `Battle` 停在原地等回写——外部战斗结果目前只活在内存里，未消费就落盘会得到一个永远等不到结果的阶段。
+
+**剧情标记键名（V1–V3）**：`NarrativeCatalog.ValidateFacts` 现在按 [`story-facts.md`](../../story-facts.md) §3.2 校验 `StoryFlag` 的 `Key`：格式 `^[a-z][a-z0-9_]*(\.[a-z0-9_]+){0,2}$`（V1，1–3 段，允许下划线）、首段在白名单命名空间内（V2）、带档位段时第二段是字典 §4 登记的状态名（V3）。按 id 生成的历史键（`quest_completed_<id>`）走 `RegisteredIdKeyPrefixes` 通配前缀，不再逐个列举；三份白名单是 `NarrativeCatalog` 里的 `static readonly` 常量，改字典与改常量要同一次提交。

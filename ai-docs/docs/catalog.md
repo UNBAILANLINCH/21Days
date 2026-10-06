@@ -36,6 +36,10 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Performance | 三件套齐备；演出管线（世界舞台 + 时间轴 + 场景触发 / 对白插播）、演出编辑器（新建即世界舞台壳），回放 4 条待开发者视觉验收 | [`modules/performance/`](modules/performance/performance-module-guide.md) |
 | Session | 三件套（seed）；存档会话——自动保存触发 / 稳定边界闸门、槽位元数据、新游戏 / 继续 / 选槽、标题路由；Showcase 回放待补 | [`modules/session/`](modules/session/session-module-guide.md) |
 | Mirror | 三件套（seed）；照镜辨形 / 通灵视 / 镜裂镜碎 demo（`PRP/mirror-core`），场景接线与 UI 预制体搭建待执行 | [`modules/mirror/`](modules/mirror/mirror-module-guide.md) |
+| Identity | 只有 guide（seed）；**S1/S2 共用的身份内核**——身份状态机、六种露馅、账簿、怀疑度；只提供接口**未接线**，EditMode 52 条全绿 | [`modules/identity/`](modules/identity/identity-module-guide.md) |
+| Stealth | 只有 guide（seed）；**S3/S4 共用的纯规则内核**——视线遮挡、绕背暗杀、击倒状态机、追逐、召唤编队、固定追逐；**未接线**，EditMode 124 条全绿 | [`modules/stealth/`](modules/stealth/stealth-module-guide.md) |
+| World | 只有 guide（seed）；**A4/A6 的数据层与纯逻辑层**——场景/区域/传送点三张表、出生点选择、跨场景状态、相机约束；**未接线**，EditMode 82 条全绿 | [`modules/world/`](modules/world/world-module-guide.md) |
+| TurnBased | 只有 guide（seed）；**S7 BOSS 战的回合制内核**——三种进战斗方式与先手、玩家三招式与怒气、道具一场一次、BOSS 醉酒四档、BOSS 三招式 6:3:1；纯规则，**未接线**（不进 `EncounterStep`、无界面），EditMode 159 条 | [`modules/turnbased/`](modules/turnbased/turnbased-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

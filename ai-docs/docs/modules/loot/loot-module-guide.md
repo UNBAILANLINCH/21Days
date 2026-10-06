@@ -26,8 +26,10 @@ maturity: stable
 | --- | --- | --- |
 | `LootConfig` | SO：交互半径、任务上报键、提示 / 通知文案、标记抬高 | `Data/Loot/LootConfig.asset` |
 | `LootRules` | **纯 C#** 规则：按键幂等记录、物品累加、整体清空（`LootRules.cs:9`） | `LootService` 调；EditMode 直接测 |
+| `MonsterLootRules` | **纯 C#** 规则：怪物按种类掉落——把一批 item id 累加进 `Items`、不写箱子键、不管幂等（同一只种类会死多次）（`MonsterLootRules.cs`） | `LootService.SettleMonsterDrop` 调；EditMode 直接测 |
+| `MonsterDroppedEvent` | 怪物掉落已入背包的事实事件：`YaoId` + `ItemIds`（只交 id，不写剧情事实键）（`MonsterDroppedEvent.cs`） | `LootInstaller.InstallEvents` 注册 broker |
 | `LootSaveData` | 存档分区：`CollectedCrates`（已开箱子键列表）+ `Items`（tbitem id → 数量）（`LootSaveData.cs:9`） | `ISaveService.Get<LootSaveData>()` 产出 |
-| `LootService` | **对外门面**：`TryCollect` 按幂等开箱并串起存档 / 任务 / 通知 / 事件 / 埋点，`Reset` 清空分区（`LootService.cs:25`） | 根作用域单例 + `IGameService` |
+| `LootService` | **对外门面**：`TryCollect` 按幂等开箱、`SettleMonsterDrop` 按种类结算怪物掉落，两者都串起存档 / 通知 / 事件 / 埋点；`Reset` 清空分区（`LootService.cs:25`） | 根作用域单例 + `IGameService` |
 | `SupplyCrate` | 场景组件：箱子键 + 奖励（itemId × count）+ 开合外观切换，发 `OnOpenedChanged`（`SupplyCrate.cs:15`） | 场景物体；由 `LootSceneBinder` / `LootService` 调 `SetOpened` |
 | `SupplyCrateMarker` | 场景组件：箱子头顶标记，未开且非沉浸时显示（`SupplyCrateMarker.cs:15`） | 与 `SupplyCrate` 同物体；沉浸状态由 `LootSceneBinder` 逐个推 |
 | `LootSceneBinder` | 入口点：`sceneLoaded` 扫场景登记箱子 / 标记（含未激活）、按存档恢复开合、重置时全部合上、沉浸切换时刷标记（`LootSceneBinder.cs:22`） | 根作用域入口点（`AsSelf`） |
@@ -48,7 +50,18 @@ maturity: stable
 
 重置：LootService.Reset() → LootRules.Reset(分区) → 发布 LootResetEvent
   → LootSceneBinder 订阅后 CloseAll()（场景箱子全部 SetOpened(false)）+ 刷新未激活标记
+
+怪物掉落（2026-10-07，聚光灯「怪物种类数据化」）：
+MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data/yao/*.json 的 drop_items）
+  → LootService.SettleMonsterDrop(yaoId, dropItemIds)
+  → MonsterLootRules.Grant(分区, yaoId, dropItemIds)：逐件 +1，跳过非正数 id；空列表 / 非法 yaoId 直接 false
+  → 成功：逐件查 tbitem（查不到只 Warn，不拦）→ notifications.Show(RewardTitle, 逐件「名 ×1」)
+    → 发布 MonsterDroppedEvent(yaoId, itemIds) → 埋点 monster_dropped
 ```
+
+**怪物掉落不写箱子键、不推任务计数、不管幂等**：箱子键与幂等是物资箱的性质；怪物按种类掉、同一只种类会死很多次、
+每次都要掉，所以「一只怪只结算一次」由调用方（死亡那一处）保证。当前波次只提供这条入口，**还没有人调它**——
+死亡掉落的接线归后续波次（S3 / S5）。
 
 **让位规则**（`SupplyCrateFocus.ShouldYield`）：`DialogueInteractionFocus.Current != null`、
 `DialogueService.IsRunning`、`IWorldPauseService.IsPaused`、`IHudVisibility.IsHudHidden` 任一为真时

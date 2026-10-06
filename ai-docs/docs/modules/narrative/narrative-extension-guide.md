@@ -89,3 +89,14 @@ Boot 的 GameBootstrap 挂 NarrativeInstaller；场景或运行时 NPC 使用 Na
 - 不要新起第二套条件/规则解释框架；条件永远走 `NarrativeCondition.Matches`，遭遇仲裁永远走 `EncounterRules`。
 - 不要在 `Game.Core` 里加剧情名词；`Game.Narrative` 已经是最合适的落点。
 - 不要为了图省事让 `NarrativeContent` 支持运行时热改内容结构——它的校验设计前提是「构造即定型」，运行时改字段会绕过全部结构校验。
+
+## 附录·战斗结果与外部请求的接线纪律（2026-10-07）
+
+- **`Battle` 已经是可进表的阶段类型**：表里给它 `battleResults`（取值见 `BattleOutcome.cs`）。
+  **不要**为新的战斗结果临时加字符串结果码——加一种结果＝在 `BattleOutcome` 加常量 + 在表里声明 + 补负对照测试。
+- 换形态的写法是 `BossPhaseChanged:<形态>`，形态名由内容定，不参与枚举校验，但不能为空。
+- **战斗阶段不能直接进另一个战斗阶段**（`NarrativeCatalog.ValidateBattleExits`）；要连续两场战斗，中间必须有非战斗阶段。
+  换形态可以直接回到同一个战斗阶段（自环），那是「同一场战斗的下一形态」。
+- 战斗侧拿到结果后走 `NarrativeService.CompleteBattleAsync`，不要自己拼 `NarrativeIntent` 绕过身份校验；
+  身份三项从战斗开始时登记的值来，不要用回调回来时才读的当前阶段（那正是要被拒绝的旧回调）。
+- 想让战斗阶段变成可存档边界，先让战斗结果能落盘；在那之前 `IsStable` 保持对 `Battle` 返回 false。

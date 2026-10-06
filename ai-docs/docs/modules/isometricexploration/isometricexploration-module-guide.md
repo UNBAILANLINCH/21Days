@@ -27,7 +27,7 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | 类型 | 位置 | 职责 |
 | --- | --- | --- |
 | `CameraBillboard` | `Assets/_Project/Scripts/Runtime/IsometricExploration/CameraBillboard.cs:7` | 旋转纸片，并可校准竖直 `BoxCollider` 的前表面；本次升级中 `NameTag` 子节点也复用它保持朝向摄像机 |
-| `SmoothCameraFollow` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:11` | 保持初始偏移并平滑跟随目标 |
+| `SmoothCameraFollow` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:14` | 保持初始偏移并平滑跟随目标；设了镜头边界时按 `CameraConstraintPolicy` 约束（A6） |
 | `IsometricExplorationConfig` | `Assets/_Project/Scripts/Runtime/IsometricExploration/IsometricExplorationConfig.cs:8` | 保存移动速度、排序兼容参数和相机缓动时间 |
 | `ExplorationInstaller` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationInstaller.cs:20` | 本模块的 GameplayInstaller：注册 `ExplorationHudPresenter` / `ExplorationControlsPresenter` / `ExplorationCompassPresenter` 三个入口点与 `IsometricExplorationConfig` |
 | `ExplorationHudView` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationHudView.cs:21` | 探索常驻 Hud：右上角「沉浸」切换按钮 + 走跑 / 摇杆 / 触屏三键 / 重置 / 交互提示 / 万向标（全部可空容错），`VisibleWhenHudHidden = true` |
@@ -400,7 +400,7 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 ### 临时视角对比（仅 Unity 编辑器）
 
 播放 `SampleScene`，Game 画面右下角可直接选择「原视角 / 30° / 25° / 20°」，当前项高亮。
-入口在 `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:28`，整体位于 `UNITY_EDITOR` 条件内，不进入构建。
+入口在 `Assets/_Project/Scripts/Runtime/IsometricExploration/SmoothCameraFollow.cs:51`，整体位于 `UNITY_EDITOR` 条件内，不进入构建。
 「原视角」保存第一次选择时的旋转与初始跟随偏移，不是硬编码 38°；每次选择均从这份基准计算，
 围绕目标脚底上方 0.8 m 转动，重置缓动速度并继续跟随当前目标。FOV 不变，退出 Play 不保存选择。
 

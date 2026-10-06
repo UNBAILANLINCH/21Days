@@ -128,19 +128,30 @@
 
 ### 2.2 玩法模块（`Assets/_Project/Scripts/Runtime/`）
 
+> **2026-10-07 复核**：下表测试数已按主窗口当日独立复跑的**真实数字**更新（此前多数行严重过期：Monster 写 18 实际 81、Narrative 写 22 实际 80）。全量 EditMode **1552 / 1552 通过**，锚点 `Game.Tests.EditMode.dll` 5:10:49、控制台 0 error。
+> 复跑工具：`uv run --with mcp python scripts/unity_mcp_check.py --test --mode EditMode --group <组>`。
+
 | 模块 | 成熟度 | 挂 Boot | 场景 | EditMode 测试 | Showcase | 三件套 | 一句话状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Dialogue | stable | 是 | SampleScene | 33 | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
-| Quest | seed | 是 | SampleScene | 50 | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
-| Monster | stable | 是 | SampleScene（Boot 真实流程）、MonsterEncounter（遗留原型，无人加载） | 18 | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击；无视线遮挡、寻路、正式美术 |
-| Player | stable | 是 | 无场景挂件；回放 SampleScene（Boot 真实流程） | 2 | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡；无背包、装备、成长 |
-| CharacterPuppet | stable | 不需要 | SampleScene（Boot 真实流程） | 9 | 有 | 有 | 拼接小人待机 / 走路，看位移演动画；无转身、奔跑、交互、战斗动画，Spine 待定 |
-| IsometricExploration | stable | 不需要 | SampleScene（Boot 真实流程） | 19（另有共享用例在 Monster 测试里） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
-| Disguise | stable | 不需要 | SampleScene（Boot 真实流程） | 3 | 有 | 有 | 伪装期间敌人禁攻，纯静态规则 |
-| Taming | seed | 按要求不接 | SampleScene（回放） | 3 | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放 |
-| Narrative | seed | 是 | SampleScene（Boot 真实流程，回放临时目标） | 22（2026-09-29 实跑通过） | 3 条 | 有，已登记 | 已接入 Boot（`Boot.unity` 挂 NarrativeInstaller），内容只有验证样例；C1–C3/B3 已提交；工作区回归及三条回放人工验收通过，最终提交独立验证待补 |
-| Mirror | seed | 是 | SampleScene（`Yao_WellWoman`、`SpiritSightZone_Well`） | 140（2026-10-07 计数，未实跑） | 有 | 有 | **冻结（2026-10-06，随旧版策划）**：照镜辨形 / 通灵视 / 镜裂 / 镜碎 demo，代码与测试保留、Boot 仍挂 MirrorInstaller，不推进、不做视觉验收；玩家血量归零弹镜碎页、重开本场，S2「暴露 → 死亡」落地时替换或删除；见 2.4 去留表 |
-| Sample | stable | **否** | 无 | 7 | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
+| Dialogue | stable | 是 | SampleScene | **119** | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
+| Quest | seed | 是 | SampleScene | **127** | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
+| Monster | stable | 是 | SampleScene（Boot 真实流程） | **103** | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击 + **按种类数值与掉落**（`monster_species` 表）；视线遮挡已接（纯数据遮挡体）；**背后处决的门槛与执行**（`ExecutionRules`/`ExecutionResolver`，主窗口 2026-10-07 独立复跑 103/103） |
+| Player | stable | 是 | 无场景挂件；回放 SampleScene | **11** | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡 + **击倒状态机**（只能慢走、不能攻击）；无背包、装备、成长 |
+| CharacterPuppet | stable | 不需要 | SampleScene | 9（未复跑） | 有 | 有 | 拼接小人待机 / 走路；无转身、奔跑、交互、战斗动画，Spine 待定 |
+| IsometricExploration | stable | 不需要 | SampleScene | 19（未复跑） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
+| Disguise | stable | 不需要 | SampleScene | **3** | 有 | 有 | 伪装期间敌人禁攻；**身份语义的落地改由 `Identity` 承担**（`IdentityAttackRules` 把旧语义作一层保留） |
+| Taming | seed | **按要求不接** | SampleScene（回放） | 3（未复跑） | 有 | 有 | 按 T 驯服并切换控制；未接 GameFlow、触屏、回放。**S1 要用它做附身载体，但用户原话「暂不接入 Boot」仍生效，一行未动** |
+| Narrative | seed | 是 | SampleScene（Boot 真实流程） | **80** | 3 条 | 有，已登记 | C1–C3/B3 + **战斗能力（Battle / IssueRequest / RequiredParts + `BattleResult` 四结果）**；`Validate` 是结构类与声明类规则的唯一入口；真实章节内容仍缺 |
+| Mirror | seed | 是 | SampleScene | **158** | 有 | 有 | **冻结（2026-10-06）**；玩家血量归零弹镜碎页、重开本场，**S2「暴露 → 死亡」落地时替换或删除**（见 E6 与 `PRP/battle-to-narrative` §2.5） |
+| Loot | stable | 是 | SampleScene | **31** | 有 | 有 | 物资箱拾取 + **按种类怪物掉落结算入口**（`SettleMonsterDrop`，当前无生产调用方） |
+| Inventory | seed | 是 | 无 | **48** | 无 | 三件套（seed） | 背包白盒 + **道具八类别**（材料/消耗品/线索/关键物/**皮/面具/钥匙/文书**）+ **合成与使用的纯规则**（无调用方） |
+| Performance | stable | 是 | SampleScene | （未复跑） | 有 | 有 | 演出管线（世界舞台 + 时间轴 + 场景触发 / 对白插播） |
+| Session | seed | 是 | 无 | **40** | 待补 | 三件套（seed） | 存档会话：自动保存触发 / 稳定边界闸门、槽位元数据、新游戏 / 继续 / 选槽 |
+| **Identity** | **seed** | **是**（Q3 已挂 `Boot`，主窗口反查 guid 核过） | **有 Showcase（未跑回放）** | **55** | **已写未跑** | **只有 guide** | **S1/S2 共用的身份内核**：身份状态机、六种露馅、账簿、怀疑度；已装进流程（`MonsterInstaller` 构建回调绑给 `EncounterStep`、`NarrativeInstaller` 绑给条件源）。<br>⚠️ **`IdentityConfig.asset` 的 `definitions` 仍为空数组**（空表合法，但任何身份都借不到） |
+| **Stealth** | **seed** | **是**（Q3 已挂 `Boot`） | **有 Showcase（未跑回放）** | **164** | **已写未跑** | **只有 guide** | **S3/S4 共用的纯规则内核**：视线遮挡、绕背暗杀、击倒状态机、追逐、召唤编队、固定追逐；**背后处决按 F 的判定与执行已落**（主窗口 2026-10-07 独立复跑 164/164，基线 129）。<br>⚠️ **掩体只进 `stealth.*` 事实层，没贯通到怪物察觉**（见规划 §4.1） |
+| **World** | **seed** | **接线中（Q4b）** | **两张灰盒场景已建且已登记 Addressables** | **141** | **未写** | **只有 guide** | **A4/A6 的机制层 + 场景实装**：场景/区域/传送点三张表、待处理转场、出生点选择、跨场景状态、相机约束；两界**灰盒**场景 `HumanJingyang`/`YaoFangshi` 已建、地址已登记（`implemented=true`） |
+| **TurnBased** | **seed** | **未接** | **无** | **159** | **无** | **只有 guide** | **S7 回合制 BOSS 战内核**（48 个运行时文件）：三种进入方式的先手与偷袭 −20%、玩家三招式与怒气门槛、BOSS 醉酒四档（20/40/100% 跳过、酩酊 −50 持续 2 回合）、BOSS 三招权重 6:3:1、道具一场一次；**纯规则层，当前没有任何调用方**（未接 `EncounterStep`、未接 Boot）。数值全是占位等 **C91** |
+| Sample | stable | **否** | 无 | 7（未复跑） | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
 

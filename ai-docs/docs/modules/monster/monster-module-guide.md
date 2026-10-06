@@ -15,7 +15,9 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 
 | 层 | 类型 | 职责 |
 | --- | --- | --- |
-| 配置 | `MonsterConfig` | 可调原型半径、速度、时间、战斗数值 |
+| 配置（全局） | `MonsterConfig` | **全局**默认值：巡逻与转态计时、速度倍率、敌对半径，兼按种类数值的兜底 |
+| 配置（按种类） | `MonsterKind` | 一种怪的**数值**只读视图（生命 / 伤害 / 攻击距离与冷却 / 视野角度 / 橙区半径 / 背后近距半径 / 警戒升满与丢失目标时长），跨表的三列转问妖物表 |
+| 配置（按种类） | `MonsterKindCatalog` | `monster_species` 表的只读查询：按种类 id 建索引、读表那一次校验全部数值与 `yao_id` 引用 |
 | 状态名 | `MonsterMode` | 巡逻走、巡逻停、警戒、敌对、死亡 |
 | 固定输入 | `MonsterIntent` | 本 tick 玩家快照及固定步长 |
 | 运行数据 | `MonsterModel` | 位置、上一 tick 位置（渲染插值用，不进快照）、朝向、生命、警戒值与计时器 |
@@ -25,9 +27,34 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面、两 tick 间渲染插值、XZ 贴地投影、玩家白盒遮挡碰撞、状态色染色、按移动方向翻转纸片 |
 | 白盒碰撞 | `EncounterCollision` | 静态：玩家场景位移先 X 后 Z 胶囊扫掠（贴墙滑动），表现层用，不进确定性内核 |
 | 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
-| 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线 |
+| 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线；按种类数值在此接入（种类 Id / 表读不到时的全局兜底） |
 
-Monster 与 Player 均在 `Game.Runtime` 程序集。Monster 依赖 Player 的公开快照与伤害意图。
+## 按种类配数值（2026-10-07，聚光灯「怪物种类数据化」）
+
+真源 `docs/design/features-spotlight/06_怪物分层.md`。字段归属按该文归纳，**不是拍脑袋分的**：
+
+| 归属 | 字段 | 依据 |
+| --- | --- | --- |
+| **按种类**（表 `monster_species`） | 生命、每次伤害、攻击距离、攻击冷却、视野角度、橙区半径、背后近距半径、警戒升满时长、丢失目标时长 | :121 R9（同层怪的「可否击杀 / 怎么杀」各不相同）、:117 R5（C 层分 BOSS 与关键 NPC / 执法者两类）、:184「较强」、:186「战斗难度极高」、:113 R1（A / B / C 三层本身就是按层配数值的口径） |
+| **全局**（`MonsterConfig.asset`） | 巡逻速度、警戒与敌对速度倍率、敌对（红区）半径、警戒衰减时长、停步时长、随机停步区间 | :119 R7「『驻地』『驻守』『守卫』『守门』是不是同一类行为，原文没区分」——原文没给这些行为分级，工程先按一套节奏跑 |
+
+- 数据在 **Luban 表**（`Tables/Defines/monster_species.xml`、`Tables/Data/monster_species/<id>.json`），不是 SO 资产：
+  数值按种类配，同一种怪在每个场景里必须一致；SO 没有主键、跨场景无法保证同一种怪只配一份，策划也改不了。
+- **不重复妖物表的列**：`tier` / `killable` / `defeat_method` / `drop_items` 只在 `Tables/Data/yao/*.json`，
+  `MonsterKind` 经 `YaoCatalog` 按 `yao_id` 转问，所以同一件事只有一处能写歪。
+- 取值链：`MonsterRules` 构造时把「种类优先、否则全局」解析一次（`MonsterConfig.Resolve*`），存进只读字段。
+  **`kind` 为 null 就整只怪走全局默认**——旧场景、旧测试、独立原型场景都落在这一支，行为与拆分前逐位一致。
+- 未知种类：`MonsterKindCatalog.Get` 抛 `KeyNotFoundException`（`TryGet` 是宽容版）；
+  `MonsterInstaller` 自己用 `TryGet`，查不到就记 Error 后退回全局默认，不让整场遭遇进不去。
+- `killable = false` 的种类**不吃常规伤害**（`MonsterRules.ApplyDamage` 返回 false，`06_怪物分层.md:121` R9）；
+  暗杀 / 特殊条件 / 需收服各自的路由归后续波次（S3），不要复用 `ApplyDamage`。
+- 掉落只交 id：`MonsterRules.DropItemIds`（= `YaoCatalog.DropItemsOf(yao_id)`），入背包走 `Game.Loot` 的
+  `LootService.SettleMonsterDrop(yaoId, dropItemIds)`。规则层不写背包、不发事件（确定性内核里不放副作用）。
+- 接线：`Boot` 场景 `GameBootstrap` 的 `MonsterInstaller` 上，`Kind Id` 填 `monster_species` 的主键，
+  **0 = 取表里第一条**；`MonsterConfig` 资产照旧拖在原字段上，作为全局值与兜底。
+
+Monster 与 Player 均在 `Game.Runtime` 程序集。Monster 依赖 Player 的公开快照与伤害意图，
+按种类数值经 `Game.Mirror.YaoCatalog` 读妖物表（同程序集内的只读查询，不经容器也能建）。
 Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.deltaTime` 或全局随机数。
 
 ## 状态规则
@@ -65,11 +92,15 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 单点路径会在该点附近维持巡逻计时，多点路径依序循环。
 随机停步区间使用 `logic.monster.patrol` 专用确定性随机流，当前抽整数秒 7、8、9、10。
 停步时长 2 秒；巡逻速度 2 单位/秒，警戒与敌对速度倍率 1.1、1.25。
-Monster 默认生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 1 秒。
+全球默认值：生命 3、每次命中伤害 1、攻击距离 0.8、攻击冷却 1 秒、视野 75°、橙区 6、红区 2、背后近距 1.5；
+这些里**按种类的那几个**（生命 / 伤害 / 攻击距离与冷却 / 视野角度 / 橙区半径 / 背后近距 / 警戒升满与丢失目标时长）
+以种类表为准，见上一节「按种类配数值」。
 玩家 `Health` 因此归零时，若 `Mirror` 模块已接线，会弹出镜碎页并调 `EncounterStep.End()` 结束本场遭遇、重进场景，而不是让双方停在原地，见 [`mirror-module-guide.md`](../mirror/mirror-module-guide.md)。
 工作簿未规定攻击冷却；它是待试玩校准的原型值。
-全部数值集中在 `MonsterConfig`，不要在视图或场景脚本中复制一份。
-修改敌人血量：选中 `Assets/_Project/Data/Monster/MonsterConfig.asset`，修改 Inspector 的 `Max Health`，重新开始场景后生效。
+数值分两处，都不要在视图或场景脚本里复制一份：全局与兜底在 `Assets/_Project/Data/Monster/MonsterConfig.asset`，
+按种类在 `Tables/Data/monster_species/<id>.json`（改完跑 `scripts/gen-tables.ps1`）。
+改全局：选中 `MonsterConfig.asset` 改 Inspector，重开场景生效。
+改某一种怪：改它的种类 JSON → 跑生成脚本 → 重开场景；只想让某只怪用另一种数值时改 `MonsterInstaller` 的 `Kind Id`。
 `MoveControlled` 供独立驯服原型驱动敌人位置，使用 `PatrolSpeed`；驯服不接入当前遭遇或回放注册。
 
 ## 回放状态
@@ -119,8 +150,8 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
   由 `PlayerRules.Step` / `MonsterRules.Step` / `MonsterRules.MoveControlled` 在推进位置**之前**（且在死亡等提前返回之前）写入；
   `EncounterStep.Step` 未激活或结果待结算、双方都不推进时也对齐。**不进存档、不进回放快照**；
   `PlayerRules.Reset`、`MonsterRules.Reset`、两者的 `Restore`（读档）与 `Deserialize`（快照恢复）都把它对齐为 `Position`，不跨瞬移插值。
-- **alpha 从哪来**：`Bind(player, monster, Func<float> alphaSource = null)`（`EncounterSceneView.cs:126`）。
-  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:95`）取
+- **alpha 从哪来**：`Bind(player, monster, Func<float> alphaSource = null)`（`EncounterSceneView.cs`；此签名在 Q1 接线后行号已漂，故不写行号）。
+  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:101`）取
   `EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime)`；`SimulationRunner` 处于 `Driven`
   （重放播放器逐 tick 推进、余量恒 0）时返回 1，直接显示当前 tick。独立场景 `StandaloneEncounterController` 用
   FixedUpdate 相位（`Time.time − Time.fixedTime`）/ `Time.fixedDeltaTime`，`ManualSimulation` 时返回 1。

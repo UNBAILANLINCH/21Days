@@ -87,6 +87,26 @@
       "src": "Assets/_Project/Scripts/Runtime/Mirror",
       "docs": "ai-docs/docs/modules/mirror",
       "status": "seed"
+    },
+    "identity": {
+      "src": "Assets/_Project/Scripts/Runtime/Identity",
+      "docs": "ai-docs/docs/modules/identity",
+      "status": "seed"
+    },
+    "stealth": {
+      "src": "Assets/_Project/Scripts/Runtime/Stealth",
+      "docs": "ai-docs/docs/modules/stealth",
+      "status": "seed"
+    },
+    "world": {
+      "src": "Assets/_Project/Scripts/Runtime/World",
+      "docs": "ai-docs/docs/modules/world",
+      "status": "seed"
+    },
+    "turnbased": {
+      "src": "Assets/_Project/Scripts/Runtime/TurnBased",
+      "docs": "ai-docs/docs/modules/turnbased",
+      "status": "seed"
     }
   }
 }

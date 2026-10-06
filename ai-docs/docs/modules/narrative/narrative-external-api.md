@@ -150,3 +150,23 @@ public NarrativeIntent(long generation, long activationId, string targetId, stri
 - 不要绕过 `NarrativeRules.Apply`/`EnterEncounter` 直接操作 `NarrativeSaveData` 字段。
 - 不要把 `EncounterRules.TryActivate` 拆成逐候选多次调用；仲裁语义依赖一次性传入完整批次。
 - 不要从容器直接解析 NarrativeRules/EncounterRules；Service 持有它们，测试才直接 new。
+
+## 附录·战斗结果回写（2026-10-07）
+
+```csharp
+// NarrativeRules（纯规则；战斗侧没有 Service 时也可直接用）
+public bool CanCompleteBattle(long generation, long activationId, string targetId);
+public bool CompleteBattle(long generation, long activationId, string targetId, string resultKey);
+public bool CompleteBattle(long generation, long activationId, string targetId, BattleResult result);
+
+// NarrativeService（运行层入口）
+public UniTask<bool> CompleteBattleAsync(long generation, long activationId, string targetId,
+    string resultKey, CancellationToken ct = default);
+```
+
+- **谁调用**：战斗侧（`EncounterStep` / Monster）在结算落定后调用一次，调用前先用 `CanCompleteBattle` 确认这场战斗还属于当前阶段。
+- **传什么**：`generation` / `activationId` 取自战斗开始时登记的请求身份，`targetId` 是同一目标 ID，`resultKey` 是该阶段 `battleResults` 里声明的结果码（`Downed` / `Exposed` / `BossPhaseChanged:<形态>` / `Victory`）。
+- **返回 false 的四种情况**（都不抛，调用方据此丢弃结果）：当前不是 `Battle` 阶段、三项身份对不上、结果码不是合法 `BattleResult`、结果码没在本阶段 `battleResults` 里声明。
+- `resultKey` 版与 `BattleResult` 版语义完全一致；`BattleResult.Parse(key)` 在内容侧要「非法即抛」时用。
+- 结果码进 `NarrativeIntent.Result`，出口键就是它本身；`Apply` 的既有规则照旧生效（`Exits` 里没有该键会被拒绝并埋 `result_rejected`）。
+- 阶段表侧由 `battleResults` 列声明可用结果，见 [`narrative-module-guide.md`](narrative-module-guide.md) 附录。

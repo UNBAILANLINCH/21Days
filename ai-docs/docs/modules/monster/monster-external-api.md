@@ -9,12 +9,12 @@ maturity: stable
 
 | 接口 | 用途 | 前提 |
 | --- | --- | --- |
-| `MonsterRules.Reset(Vector2[])` | 开始一场遭遇并复制巡逻点 | 数组至少一个点；`MonsterRules.cs:45` |
-| `MonsterRules.Step(in MonsterIntent)` | 推进一个固定 tick，返回是否攻击 | 已 Reset；`MonsterRules.cs:75` |
-| `MonsterRules.ApplyDamage(in DamageIntent, in PlayerSnapshot)` | 受伤并记录攻击者位置；生命零则死亡 | 正伤害；`MonsterRules.cs:189` |
-| `MonsterRules.Model` | 只读引用供视图取状态 | 不能从外部写内部字段；`MonsterRules.cs:42` |
-| `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs:23` |
-| `MonsterEncounterState` | 切换到遭遇 | 先把场景登记为地址 `IsometricEncounter`；`MonsterEncounterState.cs:14` |
+| `MonsterRules.Reset(Vector2[])` | 开始一场遭遇并复制巡逻点 | 数组至少一个点；`MonsterRules.cs:103` |
+| `MonsterRules.Step(in MonsterIntent)` | 推进一个固定 tick，返回是否攻击 | 已 Reset；`MonsterRules.cs:134` |
+| `MonsterRules.ApplyDamage(in DamageIntent, in PlayerSnapshot)` | 受伤并记录攻击者位置；生命零则死亡 | 正伤害；`MonsterRules.cs:266` |
+| `MonsterRules.Model` | 只读引用供视图取状态 | 不能从外部写内部字段；`MonsterRules.cs:43` |
+| `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs:67` |
+| `MonsterEncounterState` | 切换到遭遇 | 先把场景登记为地址 `IsometricEncounter`；`MonsterEncounterState.cs:15` |
 
 外部场景切换使用 `IGameFlow.GoToAsync<MonsterEncounterState>()`。
 Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；不能写 Player 模型字段。

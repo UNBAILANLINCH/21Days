@@ -172,7 +172,7 @@ Mirror Showcase 6 项 PASS（`Logs/verify/mirror/20260929-055540/report.md`）�
 收尾新增关闭失败埋点后，包含 Mirror 的 EditMode 回归 job `0f9f708b6a1e43f1b0786e709e146de6` 为 **461/461 通过、0 失败、0 跳过**（11.6726942 秒）；
 主审窗口直接读取到准确 `result.summary` 并复查控制台错误 0 条。提交范围及最终验证见 [`PRP/mirror-core/tasks.md`](../../../../PRP/mirror-core/tasks.md) 的呈现器修复审查。
 `MirrorInputPresenterTests` 新增加载取消 / 晚返回、打开失败、销毁期间关闭、重复开关、淡入中已关闭和关闭失败用例
-（`Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs:91`）；新增 `SpiritSightPresenterTests` 验证切镜 / 标签变更、
+（`Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs:93`）；新增 `SpiritSightPresenterTests` 验证切镜 / 标签变更、
 禁用 / 销毁 / 非 Game 相机过滤及退订（`Assets/_Project/Scripts/Tests/EditMode/Mirror/SpiritSightPresenterTests.cs:50`）。
 统一验证过滤器为 `Game.Tests.EditMode.Mirror`，另跑 Mirror Showcase 核验实际渲染朝向和结果画面；测试源码存在不代表执行通过。
 

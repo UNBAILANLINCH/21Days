@@ -472,7 +472,7 @@
 - 现象：`PerformanceServiceWorldTests` 里等演出收尾的用例，全量跑测试套件时偶发超时，单独跑这条用例却总是通过。（2026-09-29 复跑：同文件的 `PlayAsync_AutoOn_ContinuesAtHoldAfterSecondsWithoutConfirm` 也出现过「全量跑偶发失败、单跑与另一次全量都过」——它已按墙钟等 10 秒，仍可能在编辑器停摆期间耗光预算。见到这条失败先单跑复现一次，别当成改动引入的回归。）
 - 根因：UniTask 的编辑器循环在 `EditorApplication.isPlayingOrWillChangePlaymode || isCompiling || isUpdating` 时整帧跳过（`PlayerLoopHelper.cs:339`）；共用编辑器时别的会话在导入资产 / 编译，`isUpdating` 会为 true 一段时间，这段时间里 `await UniTask.Yield` 根本不推进，「等 N 帧」的循环会把预算的帧数在停摆期间耗光，还没等到条件成立就报超时。
 - 正确做法：EditMode 里等异步任务收尾一律按墙钟时间等待（`Time.realtimeSinceStartup` 起点 + 固定秒数上限，如 10 秒），不要按帧数上限；帧数上限只在能保证编辑器不会被别的会话打断时才可靠。
-- 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:495`–`500`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。
+- 关联：`Library/PackageCache/com.cysharp.unitask@2e993ff18f/Runtime/PlayerLoopHelper.cs:339`、`Assets/_Project/Scripts/Tests/EditMode/Performance/PerformanceServiceWorldTests.cs:691`–`696`（`WaitCompletedRealtime`）；本文件「共用一台编辑器的并发会话互相干扰」一条；2026-09-28 演出 LOG / 自动那轮。
 
 ## MCP 里调 `AssetDatabase.SaveAssets()` 会把别的会话改脏的资产一起写上磁盘
 - 现象：2026-09-28 下架示例 greeting 那一单（`4da29a3`）在 MCP 里改完目标资产后调了 `AssetDatabase.SaveAssets()`，工作区随之多出本单根本没碰的改动——字体 SDF 资产（`Art/Fonts/Font_NotoSansSC_Regular SDF.asset`）与 `ProjectSettings/EditorSettings.asset`，提交前得逐个挑出去。

@@ -11,9 +11,9 @@ maturity: stable
 
 | 接口 | 用途 | 前提 |
 | --- | --- | --- |
-| `PlayerModel.Snapshot` | 读取位置、朝向、潜行、伪装、有效奔跑、生命与存活状态 | `PlayerRules.Reset` 已执行；`PlayerModel.cs:29` |
-| `PlayerRules.ApplyDamage(in DamageIntent)` | 施加正整数伤害，生命最低为 0 | 从容器取 `PlayerRules`；`PlayerRules.cs:99` |
-| `PlayerRules.Step(in PlayerIntent, float)` | 固定 tick 内推进并返回是否攻击 | 只由遭遇逻辑步骤调度；`PlayerRules.cs:45` |
+| `PlayerModel.Snapshot` | 读取位置、朝向、潜行、伪装、有效奔跑、生命与存活状态 | `PlayerRules.Reset` 已执行；`PlayerModel.cs:37` |
+| `PlayerRules.ApplyDamage(in DamageIntent)` | 施加正整数伤害，生命最低为 0 | 从容器取 `PlayerRules`；`PlayerRules.cs:102` |
+| `PlayerRules.Step(in PlayerIntent, float)` | 固定 tick 内推进并返回是否攻击 | 只由遭遇逻辑步骤调度；`PlayerRules.cs:46` |
 | `PlayerRules.Reset(Vector2)` | 开始一次遭遇 | 场景出生点已确定；`PlayerRules.cs:31` |
 
 `PlayerSnapshot` 是值类型，字段定义见 `PlayerSnapshot.cs:6`；`IsAlive` 等价于 `Health > 0`。

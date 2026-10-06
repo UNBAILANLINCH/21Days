@@ -40,7 +40,7 @@ maturity: seed
 | `SessionSaveData` | 槽位元数据分区（纯 DTO，Version 1） | `GameSession.SaveNowAsync` 落盘前更新（`SessionSaveData.cs:15`） |
 | `SlotInfo` / `SlotState` / `SlotsMode` | 只读摘要 / 三态枚举 / 面板两种打开模式 | `GameSession.ReadSlotInfosAsync` 产出；`SaveSlotsView` / `SaveSlotsController` 按值消费 |
 | `SessionStartedEvent` / `SaveCompletedEvent` | 事实事件（`readonly struct`） | `GameSession` 发布，各分区所有者订阅前者重载 |
-| `SessionInstaller` | `GameplayInstaller`：注册以上全部（不 Resolve） | Boot 场景 `GameBootstrap` 物体，排在 `ExplorationInstaller` 之后（`SessionInstaller.cs:25`） |
+| `SessionInstaller` | `GameplayInstaller`：注册以上全部（不 Resolve） | Boot 场景 `GameBootstrap` 物体，排在 `ExplorationInstaller` 之后（`SessionInstaller.cs:30`） |
 
 ## 触发点与稳定边界
 
@@ -68,7 +68,7 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
 - **新游戏**：`GameSession.NewGameAsync(slot)`（`GameSession.cs:106`）—— `saves.ResetAll()` → 槽位元数据置初值 →
   `state.PrepareRestore(false)`（清遭遇恢复准备）→ 发 `SessionStartedEvent(slot, true)` → `GoToAsync<MonsterEncounterState>`。
   首次落盘由「场景切换完成」触发。
-- **继续**：`ContinueAsync(slot)`（`GameSession.cs:135`）—— 先 `ReadCandidateAsync` 只读候选校验（缺
+- **继续**：`ContinueAsync(slot)`（`GameSession.cs:141`）—— 先 `ReadCandidateAsync` 只读候选校验（缺
   `SessionSaveData` 分区也算失败），失败则通知「存档不可用」、内存与 `CurrentSlot` 都不动、返回 false；成功才
   由 ISessionStateSource.ValidateCandidate 校验 Narrative 后，对刚读出的同一候选 Commit、PrepareRestore(true)、发事件、进场景。
   未知叙事内容/不支持恢复的阶段拒绝提交；旧档缺 Narrative 分区可视为未开始。这不提供全场景失败回滚。

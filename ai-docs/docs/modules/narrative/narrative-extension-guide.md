@@ -27,7 +27,7 @@ maturity: seed
 1. `EncounterContext.cs`：在 `Fact` 枚举加一项；构造函数按需加对应的只读属性；`Read(Fact, string)` 的 `switch` 里加一个 `case`。
 2. 若事实需要参数化（像 `StoryFlag` 用 `key`），在你的 `case` 里做和 `StoryFlag` 一样的空值校验（抛 `ArgumentException`），
    不要静默返回 `false`——内容错误要在求值时立刻暴露，不能被当成「条件不满足」吞掉。
-3. Dialogue 侧如果要用这个新事实：`DialogueCatalog.cs:242` 附近的 `ConditionFact` 映射要**按名字**加同一项
+3. Dialogue 侧如果要用这个新事实：`DialogueCatalog.cs:244` 附近的 `ConditionFact` 映射要**按名字**加同一项
    （见 `dialogue-module-guide.md`「内容表」一节），两边不同步会在翻译时抛异常或漏判。
 4. 补 `NarrativeRulesTests.cs` 或新测试覆盖这个事实的求值分支；不要只加枚举不加断言。
 
@@ -39,7 +39,7 @@ maturity: seed
 1. `NarrativeContent.cs`：在 `StageKind` 枚举加一项；如果这种阶段有自己的结构约束（像 `Condition` 必须有
    `True`/`False` 出口、`WaitAction` 多部分行为必须有 `Success` 出口），在构造函数的校验循环里补对应分支
    （`NarrativeContent.cs:43`–`51` 是现有两个例子）。
-2. `NarrativeRules.ResolveAutomatic`（`NarrativeRules.cs:64`）目前只自动处理 `Condition` 和 `End`；
+2. `NarrativeRules.ResolveAutomatic`（`NarrativeRules.cs:69`）目前只自动处理 `Condition` 和 `End`；
    其余 `StageKind`（`Dialogue`、`WaitAction`、`Battle`，以及你新加的）都停在原地等待外部调用 `Apply` 推进——
    **不要把新阶段类型也塞进自动推进循环**，除非它确实是「无需等待任何外部输入」的纯判断阶段。
 3. 阶段分派在 NarrativeService；新能力须先补 Catalog 校验、失败/取消与保存边界，再放开该类型。

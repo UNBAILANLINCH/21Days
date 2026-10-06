@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_dike",
+    "display_name": "泾阳堤坝",
+    "floor": "",
+    "scene_scope": "SingleScene",
+    "mirror_region_id": "",
+    "scene_key": "",
+    "conn": "从泾阳街面出去；怎么去、算不算同一张图，原文没定（10_两界与场景结构.md:131 R3）",
+    "lore": "泾阳当地堤坝，阶段三「验堤」的验堤对象（10_两界与场景结构.md:17、:131 R3）"
+}

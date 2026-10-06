@@ -21,6 +21,10 @@ public partial class Tables
     /// 对话角色表
     /// </summary>
     public dialogue.TbDialogueCharacter TbDialogueCharacter {get; }
+    /// <summary>
+    /// 怪物种类数值表
+    /// </summary>
+    public monster_species.TbMonsterSpecies TbMonsterSpecies {get; }
     public narrative.TbNarrativeStory TbNarrativeStory {get; }
     public narrative.TbNarrativeEncounter TbNarrativeEncounter {get; }
     public narrative.TbNarrativeQuestFlag TbNarrativeQuestFlag {get; }
@@ -28,6 +32,18 @@ public partial class Tables
     /// 任务表
     /// </summary>
     public quest.TbQuest TbQuest {get; }
+    /// <summary>
+    /// 场景表
+    /// </summary>
+    public world.TbScene TbScene {get; }
+    /// <summary>
+    /// 区域表
+    /// </summary>
+    public world.TbRegion TbRegion {get; }
+    /// <summary>
+    /// 传送点表
+    /// </summary>
+    public world.TbPortal TbPortal {get; }
     /// <summary>
     /// 妖物表
     /// </summary>
@@ -41,10 +57,14 @@ public partial class Tables
     {
         TbDialogue = new dialogue.TbDialogue(loader("dialogue_tbdialogue"));
         TbDialogueCharacter = new dialogue.TbDialogueCharacter(loader("dialogue_tbdialoguecharacter"));
+        TbMonsterSpecies = new monster_species.TbMonsterSpecies(loader("monster_species_tbmonsterspecies"));
         TbNarrativeStory = new narrative.TbNarrativeStory(loader("narrative_tbnarrativestory"));
         TbNarrativeEncounter = new narrative.TbNarrativeEncounter(loader("narrative_tbnarrativeencounter"));
         TbNarrativeQuestFlag = new narrative.TbNarrativeQuestFlag(loader("narrative_tbnarrativequestflag"));
         TbQuest = new quest.TbQuest(loader("quest_tbquest"));
+        TbScene = new world.TbScene(loader("world_tbscene"));
+        TbRegion = new world.TbRegion(loader("world_tbregion"));
+        TbPortal = new world.TbPortal(loader("world_tbportal"));
         TbYao = new yao.TbYao(loader("yao_tbyao"));
         TbItem = new TbItem(loader("tbitem"));
         ResolveRef();
@@ -54,10 +74,14 @@ public partial class Tables
     {
         TbDialogue.ResolveRef(this);
         TbDialogueCharacter.ResolveRef(this);
+        TbMonsterSpecies.ResolveRef(this);
         TbNarrativeStory.ResolveRef(this);
         TbNarrativeEncounter.ResolveRef(this);
         TbNarrativeQuestFlag.ResolveRef(this);
         TbQuest.ResolveRef(this);
+        TbScene.ResolveRef(this);
+        TbRegion.ResolveRef(this);
+        TbPortal.ResolveRef(this);
         TbYao.ResolveRef(this);
         TbItem.ResolveRef(this);
     }

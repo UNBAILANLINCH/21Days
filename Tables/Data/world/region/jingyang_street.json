@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_street",
+    "display_name": "街面·角色可移动范围",
+    "floor": "street",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "fangshi_street",
+    "scene_key": "human_jingyang",
+    "conn": "一条横贯画面的街面，上接一排店铺（戏班、衣肆、金银行、客栈、酒肆），最右是民间祠堂；下接放遮挡物的前景带；中段有楼梯上 2.5 层（10_两界与场景结构.md:136 R8、:134 R6）",
+    "lore": "旧案事发地；民间祠堂供着「龙牙」与香火册（10_两界与场景结构.md:176）"
+}

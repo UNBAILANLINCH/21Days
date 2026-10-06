@@ -1,0 +1,24 @@
+{
+    "id": "sample_request", "entry": "ask",
+    "stages": [
+        {
+            "id": "ask", "kind": "WaitAction", "payload": "", "allowEncounter": true,
+            "issueRequest": true, "requiredParts": ["answer", "follow"], "battleResults": [],
+            "anyOf": [], "exits": [
+                {"result": "Success", "next": "accepted"},
+                {"result": "Refused", "next": "refused"}
+            ],
+            "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "accepted", "kind": "End", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.samplerequest.accepted"], "outcome": "Success"
+        },
+        {
+            "id": "refused", "kind": "End", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.samplerequest.refused"], "outcome": "Refused"
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_dongtingfu",
+    "display_name": "洞庭府",
+    "floor": "2 层",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "jingyang_well",
+    "scene_key": "yao_fangshi",
+    "conn": "从 2.5 层过渡平台走楼梯下到 2 层（10_两界与场景结构.md:133 R5、:134 R6）",
+    "lore": "钱塘龙君居所；阶段九在这里对质收押（10_两界与场景结构.md:175）"
+}

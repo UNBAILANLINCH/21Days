@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_platform",
+    "display_name": "坊市·过渡平台",
+    "floor": "2.5 层",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "jingyang_platform",
+    "scene_key": "yao_fangshi",
+    "conn": "轮回堂与洞庭府之间的中转平台；三段楼梯分别连 3 层、2 层与街面（10_两界与场景结构.md:135 R7、:134 R6）",
+    "lore": "俯视图写「过度平台」、模型表写「过渡平台」，原文两种写法并存（10_两界与场景结构.md:135 R7）"
+}

@@ -1,0 +1,11 @@
+{
+    "portal_id": "portal_mirror_fangshi_to_jingyang",
+    "scene_key": "yao_fangshi",
+    "anchor_id": "fangshi_street",
+    "target_scene": "human_jingyang",
+    "target_spawn_id": "jingyang_street",
+    "trigger_kind": "Interact",
+    "arrival_method": "mirror",
+    "enabled": true,
+    "note": "回程的一半（10_两界与场景结构.md:148 R20）。阶段二、八要在两界往返，切换要便宜（同文 :200），所以两界的出口成对登记，与区域成对互指同一条口径（同文 :132 R4）。enabled=true：出口已摆进灰盒场景 YaoFangshi（Assets/_Project/Scenes/YaoFangshi.unity），trigger_kind 暂用 Interact，到达方式 mirror。"
+}

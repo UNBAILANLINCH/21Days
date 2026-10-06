@@ -1,0 +1,20 @@
+{
+    "id": "sample_battle", "entry": "brief",
+    "stages": [
+        {
+            "id": "brief", "kind": "Dialogue", "payload": "1002", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [{"result": "Done", "next": "fight"}], "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "fight", "kind": "Battle", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": ["Victory"],
+            "anyOf": [], "exits": [{"result": "Victory", "next": "cleared"}], "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "cleared", "kind": "End", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.samplebattle.cleared"], "outcome": "Success"
+        }
+    ]
+}

@@ -1,0 +1,11 @@
+{
+    "portal_id": "portal_mirror_jingyang_to_fangshi",
+    "scene_key": "human_jingyang",
+    "anchor_id": "jingyang_street",
+    "target_scene": "yao_fangshi",
+    "target_spawn_id": "fangshi_street",
+    "trigger_kind": "Interact",
+    "arrival_method": "mirror",
+    "enabled": true,
+    "note": "两界之间的转场（10_两界与场景结构.md:148 R20：序章是「现生→镜子→里世界」，UI 表有转场黑幕+过渡文字）。正式流程里怎么切换（找镜子？固定传送点？剧情自动？）原文没定（同文 :211 Q7）；两界都是同一套布局，出口锚在街面（同文:72）。enabled=true：出口已摆进灰盒场景 HumanJingyang（Assets/_Project/Scenes/HumanJingyang.unity），trigger_kind 暂用 Interact（原文 :153 / :211 Q7 未定），到达方式 mirror。"
+}

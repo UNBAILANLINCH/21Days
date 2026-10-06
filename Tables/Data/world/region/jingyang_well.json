@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_well",
+    "display_name": "井底",
+    "floor": "2 层",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "fangshi_dongtingfu",
+    "scene_key": "human_jingyang",
+    "conn": "从 2.5 层过渡平台走楼梯下到 2 层（10_两界与场景结构.md:133 R5、:134 R6）",
+    "lore": "关押钱塘龙君的井；阶段十二「判处刑罚并关在井底」的落点（10_两界与场景结构.md:175）"
+}

@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_yamen",
+    "display_name": "官府",
+    "floor": "3 层",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "fangshi_lunhuitang",
+    "scene_key": "human_jingyang",
+    "conn": "从 2.5 层过渡平台走楼梯上到 3 层（10_两界与场景结构.md:133 R5、:134 R6）",
+    "lore": "王录业在这里调取官府案件记录；阶段二拿它和妖界轮回堂的名簿对比（10_两界与场景结构.md:174）"
+}

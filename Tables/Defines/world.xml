@@ -1,0 +1,109 @@
+<!-- 世界结构表定义（真源：docs/design/features-spotlight/10_两界与场景结构.md；roadmap A4「多场景流转」的数据层）。
+     本表只做三件事：**两界 × 场景**、场景里的**区域**、区域之间的**传送点**。
+     数据：Tables/Data/world/scene/<scene_key>.json、Tables/Data/world/region/<region_id>.json、
+           Tables/Data/world/portal/<portal_id>.json（一实体一个文件）。
+     JSON 字段不能缺省，空列表写 []，布尔显式写 true / false，空串显式写 ""。
+     运行时由 Game.World.WorldCatalog 只读查询 + 校验（惰性读表、白名单校验、Invalidate），
+     查询结果谁用谁判；出生点怎么选是纯函数 Game.World.WorldRules.ResolveSpawn，本表不给答案。
+
+     列归属与谁读（逐列注明真源出处）：
+       TbScene
+         scene_key        主键。区域编号口径与 QuestLocation.locationKey 一致，将来一张地图一个场景、按区域定位。
+         display_name     场景显示名 → 10_两界与场景结构.md:72（「镜中妖界长安·坊市」与「泾阳」）。
+         world            所属世界 → 同文 :129 R1「世界分妖界与人间两张地图」；映射见同文 3.1 表（:87「两张俯视图逐格对齐」）。
+         world_id         所属世界的稳定标识串，运行时状态与存档用它（world 是给策划看的枚举）。
+         implemented      本场景的 Addressables 场景资产**已存在且可加载**（= 地址可用）。
+                          **这不代表内容已经做完**：当前两张图是灰盒（地形只有能走通的方块、没有美术），
+                          implemented=true 只表示「能加载进去、流转跑得通」，正式美术要等美术输入
+                          （PRP/world-scenes §2.4）。看到 implemented=true 就以为两界做完了，是本项目
+                          反复踩的「看起来完成其实没有」——这一行就是防它的。
+                          **必须有这一列**：它也是「未实装不许写地址」那条校验的判据；
+                          表里允许写未实装的场景，WorldCatalog 的校验器把它们单独报出来，而不是当成地址合法。
+         scene_address    场景的 Addressables 地址；implemented=false 时写空串，implemented=true 时必须非空。
+         region_ids       本场景包含哪些区域（TbRegion.region_id）→ 同文 :136 R8（街面）、:133 R5（3 / 2.5 / 2 层）。
+         spawn_points     本场景的出生点 id 列表 → 同文 :87 3.1 表「可走区域」行（角色可移动范围 = 街面）。
+         default_spawn_id 本场景唯一的默认出生点 → 同文 :72（街面是主要活动面）；未实装场景写空串。
+         portal_ids       本场景里的传送点（TbPortal.portal_id）→ 同文 :148 R20（人间↔镜中妖界转场）。
+         region_names     与 region_ids 一一对应的名称，便于不加载场景时显示 → 同文 3.1 表「位置」列。
+         note             策划原文没定的部分写这里（如不在地图上的地点），当前无读者。
+       TbRegion
+         region_id        主键 → 同文 3.1 表「位置」列。
+         display_name     名称（原文写法）→ 同文 3.1 表（「坊市·过渡平台」「泾阳·过渡平台」等）。
+         floor            楼层原文 → 同文 :133 R5（3 层轮回堂 / 官府、2.5 层过渡平台、2 层洞庭府 / 井底）。
+         scene_scope      区域形态（主图 / 战斗关延伸 / 单场景专属）→ 同文 :146 R18 与 :207 Q3。
+         mirror_region_id 对面世界的对应区域，两界同构的落点 → 同文 :132 R4「两张俯视图格局完全对应」；
+                          主图区域必须成对互指，其余写空串。
+         scene_key        区域所在场景 → 同文 :131 R3（堤坝、坟地不在俯视图上）与 :207 Q3。
+         conn             怎么过去 / 怎么上去 → 同文 :134 R6（每张图三段「前往下一层的楼梯」）、:135 R7（过渡平台是中转平台）。
+         lore             这一格在剧情里是什么 → 同文第 6 节 :174 / :175（轮回堂↔官府核验名簿、洞庭府↔井底关押龙君）。
+       TbPortal
+         portal_id        主键。
+         scene_key        出口所在场景（TbScene.scene_key）。
+         anchor_id        出口在本场景内的锚点 / 出生点 id；锚点写在本场景 spawn_points 里 → 同文 :72（街面是主要活动面）。
+         target_scene     目标场景（TbScene.scene_key）。
+         target_spawn_id  到了目标场景落哪个出生点；必须在该场景 spawn_points 里，或写空串表示用 default_spawn_id。
+         trigger_kind     触发方式（进入范围 / 需要交互键）→ 同文 :153「两界切换的触发 [待定]」、
+                          :134 R6「楼梯是走过去还是交互切换 [待定]」：两种都留，取值由策划填。
+         arrival_method   到达方式标识，由 Game.World.WorldRules.ResolveSpawn 用来选出生点 →
+                          同文 :148 R20（两界转场是唯一的原文转场）。
+         enabled          是否启用；false = 场景里还没摆这个出口，只是先登记导线。
+         note             出处与待定写这里，当前无读者。 -->
+<module name="world">
+    <enum name="WorldId" comment="所属世界（10_两界与场景结构.md:129 R1「世界分妖界与人间两张地图」）">
+        <var name="Human" value="0" comment="人间（泾阳）"/>
+        <var name="Yao" value="1" comment="妖界（镜中妖界长安）"/>
+    </enum>
+
+    <enum name="PortalTriggerKind" comment="传送点触发方式（10_两界与场景结构.md:153 与 :134 R6 的 [待定]，两种都留待策划填）">
+        <var name="EnterRange" value="0" comment="进入范围即触发"/>
+        <var name="Interact" value="1" comment="需要交互键"/>
+    </enum>
+
+    <enum name="SceneScope" comment="区域形态">
+        <var name="MainMap" value="0" comment="主图可走区域（街面、过渡平台、3 层、2 层）"/>
+        <var name="StageExtension" value="1" comment="战斗关自己划的区域，原文没写与俯视图怎么拼（10_两界与场景结构.md:146 R18、:207 Q3）"/>
+        <var name="SingleScene" value="2" comment="只在一界出现、对面没有对应物的地方"/>
+    </enum>
+
+    <bean name="Scene" comment="一张地图场景">
+        <var name="scene_key" type="string" comment="主键；命名 {世界标识}_{区域标识}，与 QuestLocation.locationKey 同一套区域编号"/>
+        <var name="display_name" type="string" comment="显示名（10_两界与场景结构.md:72）"/>
+        <var name="world" type="WorldId" comment="所属世界"/>
+        <var name="world_id" type="string" comment="所属世界的稳定标识串（jingyang / mirror_changan）；存档与运行时状态用它，不存枚举值"/>
+        <var name="implemented" type="bool" comment="Addressables 里是否已实装；false 表示场景地址还不能用，WorldCatalog 的校验器会单独报出来"/>
+        <var name="scene_address" type="string" comment="Addressables 场景地址；implemented=false 时必须写空串（不许写一个不存在的地址）"/>
+        <var name="region_ids" type="list,string" comment="本场景包含的区域（TbRegion.region_id），场景内顺序 = 地图上的顺序"/>
+        <var name="spawn_points" type="list,string" comment="出生点 id 列表；写进这里的 id 才能被 TbPortal.target_spawn_id 指向"/>
+        <var name="default_spawn_id" type="string" comment="默认出生点，必须在本场景 spawn_points 里；implemented=false 写空串"/>
+        <var name="portal_ids" type="list,string" comment="本场景里的传送点（TbPortal.portal_id）"/>
+        <var name="region_names" type="list,string" comment="与 region_ids 一一对应的名称；两个列表长度必须相等"/>
+        <var name="note" type="string" comment="策划原文没定的部分（当前无读者，只给人看）"/>
+    </bean>
+
+    <bean name="Region" comment="场景里的一个区域">
+        <var name="region_id" type="string" comment="主键（10_两界与场景结构.md 3.1 表「位置」列）"/>
+        <var name="display_name" type="string" comment="名称，照原文写法"/>
+        <var name="floor" type="string" comment="楼层原文：street / 2 层 / 2.5 层 / 3 层，2.5 层照原文写作 2.5 层"/>
+        <var name="scene_scope" type="SceneScope" comment="区域形态"/>
+        <var name="mirror_region_id" type="string" comment="对面世界的对应区域；主图区域必须成对互指，其余写空串"/>
+        <var name="scene_key" type="string" comment="所在场景；必须存在于 TbScene"/>
+        <var name="conn" type="string" comment="怎么过去 / 怎么上去（原文说法）"/>
+        <var name="lore" type="string" comment="剧情与这一格的关系（原文说法）"/>
+    </bean>
+
+    <bean name="Portal" comment="传送点（区域之间的一次转场）">
+        <var name="portal_id" type="string" comment="主键"/>
+        <var name="scene_key" type="string" comment="出口所在场景"/>
+        <var name="anchor_id" type="string" comment="出口锚点 id，必须在本场景 spawn_points 里"/>
+        <var name="target_scene" type="string" comment="目标场景"/>
+        <var name="target_spawn_id" type="string" comment="目标出生点；必须在该场景 spawn_points 里，或写空串表示由 WorldRules 回退到 default_spawn_id"/>
+        <var name="trigger_kind" type="PortalTriggerKind" comment="触发方式：进入范围 / 需要交互键"/>
+        <var name="arrival_method" type="string" comment="到达方式标识，由 Game.World.WorldRules.ResolveSpawn 用来选出生点"/>
+        <var name="enabled" type="bool" comment="是否启用；false = 场景里还没摆这个出口，先登记导线"/>
+        <var name="note" type="string" comment="出处与待定（当前无读者，只给人看）"/>
+    </bean>
+
+    <table name="TbScene" value="Scene" index="scene_key" input="world/scene" group="c" comment="场景表"/>
+    <table name="TbRegion" value="Region" index="region_id" input="world/region" group="c" comment="区域表"/>
+    <table name="TbPortal" value="Portal" index="portal_id" input="world/portal" group="c" comment="传送点表"/>
+</module>

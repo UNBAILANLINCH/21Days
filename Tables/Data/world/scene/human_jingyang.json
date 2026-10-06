@@ -1,0 +1,14 @@
+{
+    "scene_key": "human_jingyang",
+    "display_name": "泾阳",
+    "world": "Human",
+    "world_id": "jingyang",
+    "implemented": true,
+    "scene_address": "human_jingyang",
+    "region_ids": ["jingyang_street", "jingyang_platform", "jingyang_yamen", "jingyang_well"],
+    "spawn_points": ["jingyang_street", "jingyang_platform", "jingyang_yamen"],
+    "default_spawn_id": "jingyang_street",
+    "portal_ids": ["portal_mirror_jingyang_to_fangshi"],
+    "region_names": ["街面·角色可移动范围", "泾阳·过渡平台", "官府", "井底"],
+    "note": "俯视图上的可走面是街面；堤坝、坟地、案卷处、卜算处、泾阳乡间不在俯视图上（10_两界与场景结构.md:131 R3、:207 Q3），另有区域行但暂不放进本场景的 region_ids。implemented=true 的语义是「场景资产已存在且可加载」（Assets/_Project/Scenes/HumanJingyang.unity，Addressables Scenes 组地址 human_jingyang），**不代表内容是正式的**：当前是灰盒（地形只有能走通的方块、没有美术），正式美术要等美术输入（PRP/world-scenes §2.4）。"
+}

@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_neidian",
+    "display_name": "内殿",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "yao_fangshi",
+    "conn": "阶段六分福祠的区域地形是「窟下→祠外→供桌→内殿」，不在俯视图上（10_两界与场景结构.md:146 R18、:66）",
+    "lore": "阶段六「分福祠」的第四段（10_两界与场景结构.md:66）"
+}

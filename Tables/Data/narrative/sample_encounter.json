@@ -4,21 +4,25 @@
     "stages": [
         {
             "id": "check", "kind": "Condition", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
             "anyOf": [{"all": [{"fact": "StoryFlag", "key": "quest_completed_1002", "expected": true}]}],
             "exits": [{"result": "True", "next": "known"}, {"result": "False", "next": "talk"}],
             "setFlags": [], "outcome": ""
         },
         {
             "id": "talk", "kind": "Dialogue", "payload": "1002", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
             "anyOf": [], "exits": [{"result": "Done", "next": "done"}], "setFlags": [], "outcome": ""
         },
         {
             "id": "done", "kind": "End", "payload": "", "allowEncounter": false,
-            "anyOf": [], "exits": [], "setFlags": ["sample_traveler_met"], "outcome": "Success"
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.sampletraveler.met"], "outcome": "Success"
         },
         {
             "id": "known", "kind": "End", "payload": "", "allowEncounter": false,
-            "anyOf": [], "exits": [], "setFlags": ["sample_traveler_recognized"], "outcome": "Success"
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.sampletraveler.recognized"], "outcome": "Success"
         }
     ]
 }

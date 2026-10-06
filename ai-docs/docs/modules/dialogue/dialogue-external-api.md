@@ -44,7 +44,7 @@ maturity: stable
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `Interact` | `void Interact()` | 已有对白 / 超出半径 / 有树未绑定 / 无树无台词时记 Warn 并忽略；无树有台词 → 抛 `OnBubbleRequested`；有树 → 后台拉起（`DialogueInteractable.cs:116`） |
+| `Interact` | `void Interact()` | 已有对白 / 超出半径 / 有树未绑定 / 无树无台词时记 Warn 并忽略；无树有台词 → 抛 `OnBubbleRequested`；有树 → 后台拉起（`DialogueInteractable.cs:144`） |
 | `Bind` | `void Bind(DialogueService service)` | 场景里摆好的由 `DialogueSceneBinder` 自动调；**运行时实例化的要自己调** |
 | `OnCompleted` | `event Action<DialogueResult>` | 仅正常结束触发；取消 / 失败不触发 |
 | `OnBubbleRequested` | `event Action<string>` | 无树时每次交互抛下一句台词（按序循环）；不暂停世界、不切输入图 |
@@ -64,7 +64,7 @@ maturity: stable
 | --- | --- | --- |
 | `Current` | `DialogueInteractable Current { get; }` | 离玩家最近且可交互的那个；无玩家标记 / 对白进行中 / 无候选时为 null |
 | `OnFocusChanged` | `event Action<DialogueInteractable>` | 焦点变化时（含变 null）触发一次，不每帧 |
-| `SelectNearest` | `static DialogueInteractable SelectNearest(Vector3, IReadOnlyList<DialogueInteractable>)` | 纯选择函数，无分配（`DialogueInteractionFocus.cs:80`） |
+| `SelectNearest` | `static DialogueInteractable SelectNearest(Vector3, IReadOnlyList<DialogueInteractable>)` | 纯选择函数，无分配（`DialogueInteractionFocus.cs:89`） |
 
 前提：场景玩家根挂 `DialogueInteractionActor`；候选只含场景里摆好的物体。要自己的交互提示就订阅 `OnFocusChanged`，别再逐帧测距。
 

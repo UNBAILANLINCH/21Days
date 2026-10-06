@@ -78,24 +78,27 @@
 | B1 | 妖表底座：五列死列变可查 + 物种数据化结构核对（聚光灯步 1） | Tables + `Runtime/Mirror/`（复用，不新建模块） | M | 无 | **完成（Q0）**：加 `tier / killable / drop_items` 三列（`yao.xml:39-41`）、生成物同步、只读 `YaoCatalog` + `.meta`（guid `9c40f25e…`）、表头列归属按「冲突以聚光灯为准」改正、`YaoTableTests.cs` 扩 197 行。**该单实测回报**：lint 三个 `.cs` 全绿（并用已知违规探针验证 linter 真在工作：退出码 2 + 报 public 字段）；`run_tests(EditMode, group_names="Game.Tests.EditMode.Mirror")` → **150/150 通过、0 失败、0 跳过**（2.1s，job `07dd58e5f1414ffe8d68fee9a8e36bd0`），`compile_errors: []`。**主窗口已复核**：`Game.Tests.EditMode.dll` 03:07:43、`Game.Runtime.dll` 03:17:00、`.meta` guid 一致、`MonsterTier.cs`(+`.meta`) 已摘除、代修处未被回改 |
 | B8 | 道具类别补「皮 / 面具 / 钥匙」：`Generated/EItemCategory.cs:17-34` 现只有 `Material / Consumable / Clue / Key`，妖表 `drop_items` 填的掉落物**现在没有对应类别可归** | Tables（item 表定义在 `Tables/Data/item.xlsx`，非 xml） | S–M | 聚光灯 §8.1 #1（阶段一拍板才知掉落物清单） | 未开始 |
 | B2 | 旧版 12 项 → 新目标逐项判据（可保留资产 / 应作废概念 / 128 条失效归类） | 文档 | S | 无 | **完成（Q0）**：[`旧G组-新目标映射与遗留资产.md`](旧G组-新目标映射与遗留资产.md)，47 KB / 348 行；12 项归属表 + 逐项判据 + 灰区 A1–A14 + 五个死列处置 + 128 条归类（**93 条已失效 / 11 条仍需新目标答复 / 24 条变成新目标的别的问题**）+ 30 条矛盾逐一归类 |
-| B3 | Taming / Disguise 接线（Installer + `IReplayState` + `InputCommand`），使 S1 能落 | Taming / Disguise / Core | M | B0（已完成大半） | 未开始 |
+| B3 | Taming / Disguise 接线（Installer + `IReplayState` + `InputCommand`），使 S1 能落 | Taming / Disguise / Core | M | **S1 的附身语义（§8.1 #2）** | **未开始，整单卡住**（第 9.1 节的判断已更正，见该节） |
 | B4 | 调查界面：卷宗 / 文书翻阅 / 推理（吸收旧版 [10]，即聚光灯 [12] 的三个缺口） | Core/UI + Quest + Narrative + Inventory | L（走 PRP） | 策划答 §8.1 #1 | 未开始 |
 | B5 | 阶段 / 章节结构规范（吸收旧版 [14]，映射到聚光灯十二阶段） | Narrative 文档 | S–M | 无 | **完成（Q2）**：[`阶段结构规范-章幕场与十二阶段.md`](阶段结构规范-章幕场与十二阶段.md)，243 行 / 约 40 KB；含术语映射主表 + 无唯一映射待拍板项、十二阶段清单（13 段：序章 + 一~十二，带世界 / 地点 / 战斗关 / 出处）、Narrative 承载能力逐条对照、旧版 [14] 仍成立与已作废两栏、落点建议、待拍板问题。**主窗口抽验六行引用全部为真** |
 | B6 | 叙事呈现缺口清单（吸收旧版 [15]：污染视角、卷轴插图、换嗓呈现） | Dialogue / Performance | S | 无 | **完成（Q2）**：[`叙事呈现缺口清单.md`](叙事呈现缺口清单.md)，175 行 / 约 34 KB；含旧版 [15] 逐条对表、新目标 [13] 呈现行 → 工程现状、真实缺口 N1–N10（标归属 / 规模 / 依赖 / 是否单开 PRP）、**明确不做清单 15 条**（逐条给理由与出处）、未核实项。**主窗口抽验为真**（字幕开关确缺、黑边冲突确有原文） |
 | B7 | ~~怪物层级子层建模决策（`A·下` / `B·下`）~~ **已销项（有原文支撑，无需决策）** | — | — | — | **已解决**：`features-spotlight/06_怪物分层.md:126` 原文「「层级」一列中的「A·下」表示原文写在 A 条目的下一级，B·下同理」——是排版记号，不是第四层级。`Tables/Defines/yao.xml:39` 已把该结论与出处写进 `tier` 列注释 |
-| B9 | 「怎么杀」列：聚光灯表头是「可否击杀 / **怎么杀**」（`06_怪物分层.md:130`），现表只有 `killable` 一个 bool，**「用什么手段杀」没有落点**（例如户绝民「改用湿皮收服」、拾骨人「持有篮子时不可击杀」） | Tables | S | 聚光灯 §8.1 #1（阶段一怪物清单拍板后才知要填什么） | 未开始 |
+| B9 | 「怎么杀」列：聚光灯表头是「可否击杀 / **怎么杀**」（`06_怪物分层.md:130`），现表只有 `killable` 一个 bool，**「用什么手段杀」没有落点** | Tables + `Runtime/Mirror/` | S–M | 无（真源已够） | **完成（Q0）**：加 `defeat_method` 列，白名单五值 `可击杀（方式没写）/ 暗杀 / 特殊条件 / 需收服 / 不可杀`，**每值附真源行号**（`06:132/154/156/169/180/183/184`、`03:36/38/39/43/46/47`、`06:159/185/187` 等）；`killable` 与本列分工写死在 `yao.xml:45-46`；`YaoCatalog` 加 `DefeatMethodOf` + `ValidateDefeatMethod`；`YaoTableTests` 16→24 条。**主窗口亲取 job `3a8706b30b6c4734830c06715e1efba0` 核对：`total 158 / passed 158 / failed 0 / skipped 0`（2.31s，succeeded）** |
+| B13 | ~~`YaoCatalog.Invalidate()` 与构造后 `IsReady` 会遍历全表校验 tier~~ | 与 B9 合并 | — | — | **已并入 B9 完成**：tier 与 defeat_method 两张白名单的校验收成「只做一次」 |
+| B13 | ~~重复行占位（2026-10-07 清理，B13 实体见上一条）~~ | — | — | — | — |
 | B11 | **`mask` 列的语义在换目标后已经变了，却没有新定义**：它按旧版语义是「收押后才能制面具」（`04_收押.md`），而聚光灯不再要求先收押（`features-spotlight/00:356`）。现在这一列**既没有新读者、也没有新定义**，属「保留备查」；真正落地 S5 时要**要么改语义、要么删列** | Tables（S5 的 PRP 内） | S | S5 PRP | 未开始 |
 | B12 | **按种类配数值**：步 1 的最后一段。`MonsterConfig` 是 17 字段的 SO、全体共用（`MonsterConfig.cs:9-25`），要拆成「种类 → 数值」需先定「哪些字段按种类、哪些全局」 | Monster + Tables | M–L | 聚光灯 §8.1 #1 | 未开始 |
-| B10 | 模块文档行号漂移两处：`dialogue-module-guide.md:192` 写 `DialogueController.cs:31`，实际 `:42` 才是 `ChoiceRefreshInterval`；`performance-module-guide` 写 `PerformanceService.cs:42`，实际 `:59` 才是 `InputMap`。**主窗口已复核两处为真** | ai-docs 模块文档 | S | 无 | 未开始 |
-| B13 | **`YaoCatalog.Invalidate()` 与构造后 `IsReady` 会遍历全表校验 tier**，「静态表 + 启动后只校验一次」不是当前唯一路径。眼下无害（表只读、校验是每行一次字符串比较），但将来若有「热重载配置」的调用方需收敛成显式的一次性校验入口 | `Runtime/Mirror/YaoCatalog.cs` | S | 无（等真有热重载需求再做） | 未开始（该单已在类文档里记了，未加代码） |
+| B10 | **模块文档行号系统性漂移**：原以为只有两处（`dialogue-module-guide.md:192` 的 `DialogueController.cs:31`、`performance-module-guide.md:135` 的 `PerformanceService.cs:42`），**全量扫完实际是 32 处** —— dialogue guide 54 处引用里 **27 处错**、dialogue external-api 6 处里 **2 处错**、performance guide 13 处里 **3 处错** | ai-docs 模块文档 | M | 无 | **完成（Q2）**：`2053971f` 全量扫 73 处引用（去重 66 个锚点）并逐处修正，**每处都附「新行号处的代码原文」作为证据**。**主窗口抽验 4 处为真**（`DialogueController.cs:42` = `ChoiceRefreshInterval`、`DialogueService.cs:130` = `playback.ResetForDialogue();`、`PerformanceService.cs:59` = `InputMap = "Dialogue"`、旧引用无残留） |
+| B15 | **文档与代码同步的机制缺口**：B10 那 32 处漂移「不像单点笔误，像文档写完后代码又被改过一轮且文档没同步」。现在没有任何机制在代码行号变动时提示文档引用失效 | 待定（harness / `gc_scan` 扩展） | M | 无 | 未开始（`2053971f` 顺手报出，供派单） |
+| B14 | **B5 规范「入册」**：`docs/planning/阶段结构规范-章幕场与十二阶段.md` 是自己列的落点结论指向 `ai-docs/`（跨客户端项目知识），本次只写到 `docs/planning/`，未入册 | `ai-docs/docs/` + `catalog.md` | S | 无 | **完成（Q2）**：`2053971f` 落 `ai-docs/docs/stage-structure-spec.md`（250 行，保留源文全部结论与引用行号，按规范体裁重排）+ `catalog.md` 加一行登记。**主窗口修掉它留下的两处台账行号**（B4 `:77`→`:82`、T9 `:172`→`:187`；B14 `:92` 与 B5 `:83` 复核本来就是对） |
 
 ### 1.2 新目标的 S 项本体（不在本文规划范围内，只记状态，避免两处口径）
+
+**⚠️ 别把 B1 误读成「步 1 做完了」**：B1 只做了「**表结构 + 只读查询层**」（3 个新列 + `YaoCatalog`），**「按种类配数值」这个核心还没做** —— `MonsterConfig` 现在仍是一份 17 字段的 SO、全体共用。B1 主动没改 `roadmap.md` 的 W5 状态列，理由正是这一条，**这个判断是对的**。步 1 完成 = 表结构 + 只读层 + `MonsterConfig` 拆成「种类 → 数值」，最后一段仍待做（见 B12）。
 
 | 项 | 前置 | 状态 | 出处 |
 | --- | --- | --- | --- |
 | 步 1 怪物种类数据化（[06]） | 无硬依赖；内容等 §8.1 #1 | 玩法定义已拆，待策划确认 | `roadmap.md:336` |
-
-**⚠️ 别把 B1 误读成「步 1 做完了」**：B1 只做了「**表结构 + 只读查询层**」（3 个新列 + `YaoCatalog`），**「按种类配数值」这个核心还没做** —— `MonsterConfig` 现在仍是一份 17 字段的 SO、全体共用。B1 主动没改 `roadmap.md` 的 W5 状态列，理由正是这一条，**这个判断是对的**。步 1 完成 = 表结构 + 只读层 + `MonsterConfig` 拆成「种类 → 数值」，最后一段仍待做。
 | S3 潜行与暗杀 | §8.1 #4 #5 #6；B1 B0 | 同上 | `roadmap.md:280` |
 | [10] 两界与场景结构 | §8.1 #1 #6 #12；并入 A4 / A6 | 同上 | `roadmap.md:287` |
 | S1 换皮与附身 | 步 2；§8.1 #1 #2；B3 | 同上 | `roadmap.md:278` |
@@ -337,6 +340,12 @@
 `roadmap.md:170` 的要求是「Taming **改造为附身的载体**」—— 这是**语义变化**，不只是接线。如果现在就把 Taming 当下的「按键切换操控对象」语义快照进 `IReplayState`（第 2 件事），等 S1 定了附身语义（§8.1 第 2 条：附身与使用皮 / 面具是一套还是两套、附身条件、被附身者怎样、怎么退出）之后，快照字段要重写一遍，而**每次重写都要升 `CurrentFormatVersion`**——正是 `roadmap.md:347` 风险 3 说的「回放快照格式会反复升版」。
 
 所以 B3 的拆法建议是：**第 1、3 件（接容器、拆自建输入）可以先做**，它们与语义无关、不产生返工；**第 2 件（快照）等 S1 的附身语义定了再做**。派单时按这个拆法派，不要合成一单。
+
+> **⛔ 更正（2026-10-07，主窗口实测推翻了上面这段）**：上面那段「第 1、3 件可以先做」的判断**是错的**，请勿照它派单。依据：`ai-docs/docs/modules/taming/taming-module-guide.md:11` 原文写着「**按用户要求暂不接入 SampleScene/Boot**」—— Taming 不接 Boot 是**用户明确要求的**，不是「还没做」。所以在 S1 的附身语义定下来之前：
+> - 「接容器」会直接违背这条用户要求，且 S1 一旦把 Taming 改成附身载体，接线方式还要重来一遍；
+> - 「拆 `TamingSceneController` 的自建输入」同样属于 S1 的实现范围 —— 现在拆，等于先替 S1 做了一个它还没定的决定。
+>
+> **结论：B3 整单都卡在 §8.1 第 2 条（附身与使用皮/面具是一套还是两套、附身条件、被附身者怎样、怎么退出），在此之前一件都不要做。** 这也说明「先做不亏」的判据不能只看依赖图，还要查模块指南里有没有**用户已经明说过的边界**。
 
 ### 9.2 什么时候 B4（调查界面）能开
 

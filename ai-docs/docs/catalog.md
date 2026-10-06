@@ -66,6 +66,7 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | --- | --- |
 | 框架层设计定稿、选型理由、各服务契约 | [`docs/architecture.md`](../../docs/architecture.md) |
 | 对着参考游戏我们还差什么、按什么顺序补（差距矩阵 + 波次路线） | [`docs/roadmap.md`](../../docs/roadmap.md) |
+| 章节结构术语怎么对齐（旧版「章 / 幕 / 场」→ 聚光灯十二阶段 → Narrative 阶段机）、十二阶段逐条能不能进内容表、旧版 [14] 哪些还成立 | [`ai-docs/docs/stage-structure-spec.md`](stage-structure-spec.md) |
 | 十个模块的成熟度、是否接入、给策划 / 美术看的逐模块说明 | [`docs/modules/README.md`](../../docs/modules/README.md) |
 | 当前策划《聚光灯》（飞书转写）、策划正文：核心概念与设计支柱、世界观圣经、唐五代志怪素材库 | [`docs/design/README.md`](../../docs/design/README.md) |
 | 给其他开发者的操作手册 | [`docs/developer-guide.md`](../../docs/developer-guide.md) |

@@ -104,7 +104,7 @@ PerformanceService.PlayAsync(id, ct)：
 
 挂载点 3（对白节点前插播）：DialogueController.PrepareAsync 前，Visit 变化时先调 PerformBeforeNodeAsync（DialogueController.cs:183、367）
   → node.PerformanceId 非空 且 Phase == Preparing 且非跳过快进 → Performing = true（HandleKey 与主循环全部让位）
-  → performance.PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)（DialogueController.cs:390；IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
+  → performance.PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)（DialogueController.cs:388；IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
      锚点来自 DialogueService.PlayAsync(dialogueId, performanceAnchor, ct)：NPC 交互（DialogueInteractable）传 NPC 自身 Transform，
      代码拉起可自己传说话的 NPC；不传 / 传 null = None，不摆放（世界舞台演出会落在世界原点、地面以下）
   → 场景角色的隐藏 / 恢复由 PerformanceService.PlayAsync 自己统一处理（见上，本挂载点不重复藏），不含舞台替身
@@ -132,13 +132,13 @@ PerformanceService.PlayAsync(id, ct)：
 
 **`Game.Dialogue → Game.Performance`，反向禁止**：Dialogue 经 `resolver.TryResolve<IPerformanceService>()` 拿服务并调 `PlayAsync`；
 场景角色的隐藏 / 恢复由 `PerformanceService.PlayAsync` 内部统一处理（对全部入口一视同仁），Dialogue 侧不再重复实现，
-Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在 `PerformanceService.cs:42` 而不是引用 `DialogueService.InputMap`。
+Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在 `PerformanceService.cs:59` 而不是引用 `DialogueService.InputMap`。
 `Game.Core` 不认识演出名词。`Game.Editor.Performance` 只引用 `Game.Performance` / `Game.Performance.Timeline`，不反向。
 
 ## 世界舞台（演出唯一的渲染方式）
 
 截图对标：一排 2D 小人站在 3D 灰盒场景里、近景微俯，底部白色对白面板。2026-09-28 起演出只有这一种舞台（旧的全屏立绘舞台与
-`PerformanceStageMode` 枚举已删，见「职责边界」），`PerformanceService.AttachCamera` / `DetachCamera`（`PerformanceService.cs:597`）：
+`PerformanceStageMode` 枚举已删，见「职责边界」），`PerformanceService.AttachCamera`（`PerformanceService.cs:621`）/ `DetachCamera`（`PerformanceService.cs:684`）：
 
 | 项 | 行为 |
 | --- | --- |

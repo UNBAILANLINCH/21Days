@@ -43,6 +43,7 @@ maturity: seed
 | `TryGet` / `Get` | `bool TryGet(int yaoId, out cfg.yao.Yao yao)` / `cfg.yao.Yao Get(int yaoId)` | 按 id 取整行；`TryGet` 查不到返回 `false`，`Get` 查不到抛 `KeyNotFoundException` |
 | `TierOf` | `string TierOf(int yaoId)` | 怪物层级原文 `"A"` / `"B"` / `"C"`（`06_怪物分层.md:113`）；查不到 `null`，取值非法抛 `ArgumentException` |
 | `IsKillable` | `bool IsKillable(int yaoId)` | 能否常规击杀（`06_怪物分层.md:121`）；查不到为 `false` |
+| `DefeatMethodOf` | `string DefeatMethodOf(int yaoId)` | 怎么杀 / 有没有替代途径（`06_怪物分层.md:130` 表 3.2–3.5 的「可否击杀 / 怎么杀」列）；查不到 `null`，取值非法抛 `ArgumentException`。取值只可能是 `可击杀（方式没写）` / `暗杀` / `特殊条件` / `需收服` / `不可杀` |
 | `DropItemsOf` | `IReadOnlyList<int> DropItemsOf(int yaoId)` | 掉落（tbitem id）；没定或查不到为空列表 |
 | `IsSealable` / `CanMask` | `bool IsSealable(int yaoId)` / `bool CanMask(int yaoId)` | `sealable` / `mask` 两列的只读查询；查不到为 `false` |
 | `ClanOf` | `string ClanOf(int yaoId)` | 族属；没有这只妖返回 `null`，有妖但族属留空返回空串 |
@@ -50,6 +51,16 @@ maturity: seed
 
 `TierOf` 只认 `A` / `B` / `C`：`06_怪物分层.md:126` 的「A·下 / B·下」是「原文写在上一层条目下一级」的排版记号，
 不是第四个层级，本表不建模。表里出现这种值会抛错，别把排版记号照抄进数据。
+
+`IsKillable` 与 `DefeatMethodOf` 必须一起读：前者答「能不能按常规一路杀掉」，后者答「为什么不能常规杀、以及有没有替代途径」。
+只看 `IsKillable` 会把两种相反的情况看成一回事——查勘使是 `false` + `特殊条件`（常态杀不了，但 `03_潜行与暗杀.md:43`
+写明「可通过地形隐匿等方式击杀」），籍中吏是 `false` + `不可杀`（`06_怪物分层.md:185`，没有任何途径）。
+两列的分工与五个取值的逐条出处写在 `Tables/Defines/yao.xml` 的列注释与
+[`mirror-module-guide.md`](mirror-module-guide.md)「`killable` 与 `defeat_method` 两列的分工」一节。
+
+**列白名单校验只做一次**（B13）：tier 与 defeat_method 在首次读表那一次对全表跑一遍，之后每次查询直接读缓存；
+`Invalidate()` 语义不变（换过表数据后调它重读），它清缓存与「已校验」标记，下一次访问重新校验。
+调用方不要指望「改坏表里某一行的值、不 Invalidate，下一次查询就会报错」。
 
 ## `Game.Mirror.MirrorSubject`（场景组件）
 

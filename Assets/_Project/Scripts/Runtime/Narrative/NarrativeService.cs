@@ -148,6 +148,27 @@ namespace Game.Narrative
             return true;
         }
 
+        /// <summary>
+        /// 战斗结果回写：战斗侧（EncounterStep / Monster）按 <c>battleResults</c> 里的结果码提交一次。
+        /// 三项身份（Generation / ActivationId / TargetId）里前两项取自 <see cref="EncounterStep"/> 登记的请求身份，
+        /// 对不上就是旧场景或读档前的迟到结果，返回 false 而不是抛。
+        /// </summary>
+        public async UniTask<bool> CompleteBattleAsync(long generation, long activationId, string targetId,
+            string resultKey, CancellationToken ct = default)
+        {
+            if (!CanAccept()) return false;
+            ct.ThrowIfCancellationRequested();
+            bool accepted = rules.CompleteBattle(generation, activationId, targetId, resultKey);
+            if (accepted)
+            {
+                telemetry.Track("battle_result_applied", ("result", resultKey), ("activation", activationId));
+                Flush();
+            }
+            else telemetry.TrackWarn("battle_result_rejected", TelemetryProps.Of(("result", resultKey), ("activation", activationId)));
+            if (accepted) await DriveAsync(ct);
+            return accepted;
+        }
+
         /// <summary>取消/失败留在当前对白阶段，显式重试；不把整段重播伪装成读档恢复。</summary>
         public UniTask RetryAsync(CancellationToken ct = default)
         {
@@ -175,7 +196,11 @@ namespace Game.Narrative
                     local.Token.ThrowIfCancellationRequested();
                     rules.ResolveAutomatic(Conditions.Snapshot(rules.Current.TargetId));
                     Flush();
-                    if (rules.Stage == null || rules.Stage.Kind == NarrativeContent.StageKind.WaitAction) return;
+                    if (rules.Stage == null) return;
+                    // 战斗与操作等待都停在原地：战斗关的推进权在战斗侧，Narrative 只等结果回写。
+                    // 这里必须和 WaitAction 一起停，否则 while 会对着同一个 Battle 阶段空转到取消。
+                    if (rules.Stage.Kind == NarrativeContent.StageKind.WaitAction ||
+                        rules.Stage.Kind == NarrativeContent.StageKind.Battle) return;
                     if (rules.Stage.Kind != NarrativeContent.StageKind.Dialogue) continue;
                     NarrativeSaveData.Frame frame = rules.Current;
                     // Frame 的四项身份固定在 await 前；恢复或换阶段后回来的结果会被 Apply 拒绝。
@@ -225,6 +250,10 @@ namespace Game.Narrative
 
         private NarrativeRules RequireRules() => IsReady ? rules : throw new InvalidOperationException("NarrativeService 尚未初始化或已释放");
 
+        /// <summary>
+        /// 可恢复边界只认「无外部请求、无待回写结果的等待」。战斗阶段刻意不算稳定：
+        /// 战斗结果目前只活在内存里，未消费就落盘会得到一个永远等不到结果的阶段。
+        /// </summary>
         private static bool IsStable(NarrativeRules value) => value.Stage == null ||
             (value.Stage.Kind == NarrativeContent.StageKind.WaitAction && !value.Stage.IssueRequest && !value.Current.RequestIssued);
 

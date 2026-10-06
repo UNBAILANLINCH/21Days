@@ -1,4 +1,4 @@
-// 职责：UI 框架的可调数值——参考分辨率、缩放匹配系数、过渡动画时长、通知停留时长、加载黑幕时长。
+// 职责：UI 框架的可调数值——参考分辨率、缩放匹配系数、过渡动画时长、通知与角落小字停留时长、加载黑幕时长。
 // 为什么新建：这三个值要在 Inspector 上调（不同项目、不同平台取值不同），按 csharp-code.md
 //   「数值配置进 ScriptableObject」不能写死在 UIService 里；工程内没有任何框架级的 Config 资产可扩展。
 //   之后的通知停留、加载黑幕（roadmap E4）时长同属「UI 框架的可调数值」，扩展本文件而不是另建配置资产。
@@ -33,6 +33,10 @@ namespace Game.Core.UI
         [Min(0.1f)]
         [SerializeField] private float notificationSeconds = 2.5f;
 
+        [Tooltip("INotificationService.ShowCornerHint 不指定时长时，角落小字停留的秒数（真实时间，世界暂停也照走）。")]
+        [Min(0.1f)]
+        [SerializeField] private float cornerHintSeconds = 1.5f;
+
         [Header("加载过渡")]
         [Tooltip("切场景时加载黑幕淡入、淡出各自的秒数（真实时间，暂停时也照走）。0 表示不做动画，直接盖上 / 揭开。")]
         [Min(0f)]
@@ -53,6 +57,9 @@ namespace Game.Core.UI
 
         /// <summary>通知默认停留秒数（<see cref="INotificationService.Show"/> 的 seconds ≤ 0 时取这个）。</summary>
         public float NotificationSeconds => notificationSeconds;
+
+        /// <summary>角落小字默认停留秒数（<see cref="INotificationService.ShowCornerHint"/> 的 seconds ≤ 0 时取这个）。</summary>
+        public float CornerHintSeconds => cornerHintSeconds;
 
         /// <summary>加载黑幕淡入、淡出各自的秒数，0 表示直接盖上 / 揭开。</summary>
         public float LoadingFadeSeconds => loadingFadeSeconds;

@@ -325,11 +325,15 @@
 
 - `Assets/_Project/Prefabs/UI/TitleView.prefab`（标题界面）
 - `Assets/_Project/Prefabs/UI/SampleView.prefab`（示例界面）
-- `Assets/_Project/Prefabs/UI/NotificationView.prefab`（顶部通知卡片，Top 层、不全屏）：根节点铺满 + 子节点 `Card`
+- `Assets/_Project/Prefabs/UI/NotificationView.prefab`（顶部通知卡片 + 右下角小字，Top 层、不全屏）：根节点铺满 + 子节点 `Card`
   （顶部居中锚点、上沿对齐、位置 (0, -96)、宽 640，Image 半透明深底 + CanvasGroup + 竖向布局 + 高度自适应）
-  下挂 `Title`（字号 28）与 `Body`（字号 22，没正文时整行隐藏）。换底图、字号、颜色随便改，
-  **别改节点名以外的接线**（`NotificationView` 脚本上的 Card / Card Group / Title Label / Body Label 四个引用），
-  `Card` 上的 CanvasGroup 保持 **Blocks Raycasts 不勾**，否则通知期间会挡住下面的点击。
+  下挂 `Title`（字号 28）与 `Body`（字号 22，没正文时整行隐藏）；另有子节点 `Corner`（右下角、锚点与轴心都在右下、
+  位置 (-40, 96)、240×56，深底 0.08/0.09/0.11 @ 0.82 同通知卡片，抬到编辑器右下角那条相机调试工具条之上）
+  下挂 `CornerLabel`（字号 22、右对齐、默认不激活、左右各留 16 px 内边距），自动保存的「已保存」走这一路。
+  换底图、字号、颜色随便改，
+  **别改节点名以外的接线**（`NotificationView` 脚本上的 Card / Card Group / Title Label / Body Label 四个引用，
+  外加角落小字的 Corner Group / Corner Label 两个），
+  `Card` 与 `Corner` 上的 CanvasGroup 保持 **Blocks Raycasts 不勾**，否则通知期间会挡住下面的点击。
 - `Assets/_Project/Prefabs/UI/PauseMenuView.prefab`（暂停菜单，Panel 层全屏）：`Backdrop`（全屏黑色 60% 遮罩）+ 居中 `Window`
   （400×380 深底）下挂 `Title`「暂停」（字号 36）与 `Buttons`（竖向布局、间距 16）里四个 240×40 按钮
   `ResumeButton` / `SettingsButton` / `TitleButton` / `QuitButton`（字号 24）。换底图、颜色随便改，**别删按钮也别改脚本上的四个按钮引用**。

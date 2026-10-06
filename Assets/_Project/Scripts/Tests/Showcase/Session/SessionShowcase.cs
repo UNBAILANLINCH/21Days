@@ -76,6 +76,9 @@ namespace Game.Tests.Showcase.Session
         private string saveRoot;
         private int slotCount = DefaultSlotCount;
 
+        /// <summary>保存成功后右下角小字的文案，取自 SessionConfig；取不到配置时用兜底值。</summary>
+        private string saveNoticeText = "已保存";
+
         protected override string Module => "Session";
 
         /// <summary>世界由流程加载（MonsterEncounterState → Addressables「IsometricEncounter」），这里不直接加载场景。</summary>
@@ -112,6 +115,9 @@ namespace Game.Tests.Showcase.Session
             SessionConfig config = ResolveService<SessionConfig>();
             // SessionConfig 是 ScriptableObject，判空只用 !=。
             slotCount = config != null ? config.SlotCount : DefaultSlotCount;
+            saveNoticeText = config != null && !string.IsNullOrEmpty(config.SaveNoticeTitle)
+                ? config.SaveNoticeTitle
+                : "已保存";
 
             if (string.IsNullOrEmpty(saveRoot))
             {
@@ -190,6 +196,13 @@ namespace Game.Tests.Showcase.Session
             yield return MeasureSave(timing);
             yield return Check("手动保存成功（SaveNowAsync 返回 true，槽 1 文件存在）",
                 () => timing.Done && timing.Success && File.Exists(SlotPath(1)));
+            // 「已保存」走角落小字（ShowCornerHint，不进通知队列），这里断言的是真实预制体上的那一路：
+            // EditMode 的 NotificationServiceTests 用假视图接线，测不到 Prefabs/UI/NotificationView.prefab 有没有接上角标。
+            yield return Check("右下角出现「已保存」小字（不进通知队列的那一路）",
+                () => CornerHintText() == saveNoticeText, 3f);
+            // 小字淡入 0.2 秒（unscaled 时间，不受节奏倍率影响）：等它到位再截图，免得截到半透明。
+            yield return WaitUntil("右下角小字淡入到不透明（α ≥ 0.99）", () => CornerHintAlpha() >= 0.99f, 1f);
+            yield return Snapshot("保存后·右下角小字");
             yield return Step(
                 "A8 计时：SaveNowAsync 同步段（调用到第一个 await 返回）"
                 + $" {Ms(timing.SyncMs)} ms；整段 await {Ms(timing.TotalMs)} ms，跨 {timing.Frames} 帧；"
@@ -528,6 +541,36 @@ namespace Game.Tests.Showcase.Session
         {
             DialogueView view = ui == null ? null : ui.Get<DialogueView>();
             return view == null ? null : FindDeep<T>(view.transform, objectName);
+        }
+
+        /// <summary>
+        /// 右下角小字当前显示的文字（真实预制体 <c>Prefabs/UI/NotificationView.prefab</c> 的 CornerLabel）；
+        /// 没在显示、视图没开或角标没接线时返回 null——三种情况都算不上「已保存」出现过。
+        /// </summary>
+        private string CornerHintText()
+        {
+            NotificationView view = ui == null ? null : ui.Get<NotificationView>();
+            if (view == null || !view.IsCornerShown)
+            {
+                return null;
+            }
+
+            TMP_Text label = FindDeep<TMP_Text>(view.transform, "CornerLabel");
+            return label == null || !label.gameObject.activeSelf ? null : label.text;
+        }
+
+        /// <summary>右下角小字的整体透明度（Corner 上的 CanvasGroup）；视图没开或角标没接线时返回 0。</summary>
+        private float CornerHintAlpha()
+        {
+            NotificationView view = ui == null ? null : ui.Get<NotificationView>();
+            if (view == null)
+            {
+                return 0f;
+            }
+
+            Transform corner = FindDeep<Transform>(view.transform, "Corner");
+            CanvasGroup group = corner == null ? null : corner.GetComponent<CanvasGroup>();
+            return group == null ? 0f : group.alpha;
         }
 
         /// <summary>ChoiceRoot 下当前激活的选项按钮（排除隐藏模板本身）。</summary>

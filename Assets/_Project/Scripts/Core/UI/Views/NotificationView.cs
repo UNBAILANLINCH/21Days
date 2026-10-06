@@ -1,4 +1,5 @@
-// 职责：通知卡片的表现——屏幕顶部居中一张卡片（标题 + 可选正文），进出场做 alpha + 轻微上移。只显示，不排队、不计时。
+// 职责：通知卡片的表现——屏幕顶部居中一张卡片（标题 + 可选正文），进出场做 alpha + 轻微上移；
+//   外加右下角小字（不进队列的那一路，进出场只做 alpha）。都只显示，不排队、不计时。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：TitleView 是 Panel 层全屏面板；各玩法 HUD 绑死在自己的模块上。未入库的 ToastView 把队列与计时
 //      写在视图里、挂 Hud 层、只有单行文字，与 architecture.md 5.6 定下的「NotificationService 持队列、视图只显示、
@@ -21,6 +22,7 @@ namespace Game.Core.UI.Views
     /// Top 层、不全屏、不进栈；由 <see cref="NotificationService"/> 首次 Show 时打开并常驻，空闲时卡片 alpha 归零并隐藏。
     /// <para>
     /// 不注入服务、不持队列。卡片不挡点击（CanvasGroup.blocksRaycasts = false），通知期间玩家照常操作。
+    /// 「卡片」与「右下角小字」是同一视图上的两路表现：卡片由队列调度，小字由调用方计时，互不干扰。
     /// </para>
     /// </summary>
     public sealed class NotificationView : UIView
@@ -37,7 +39,13 @@ namespace Game.Core.UI.Views
         [Tooltip("正文文字；传空时整行隐藏。")]
         [SerializeField] private TMP_Text bodyLabel;
 
-        [Tooltip("卡片进出场的秒数（真实时间，暂停时也照走）。")]
+        [Tooltip("右下角小字的 CanvasGroup，进出场改它的 alpha。")]
+        [SerializeField] private CanvasGroup cornerGroup;
+
+        [Tooltip("右下角小字文字。")]
+        [SerializeField] private TMP_Text cornerLabel;
+
+        [Tooltip("卡片进出场的秒数（真实时间，暂停时也照走）；角落小字的淡入淡出同样用它。")]
         [Min(0f)]
         [SerializeField] private float cardSeconds = 0.2f;
 
@@ -46,6 +54,7 @@ namespace Game.Core.UI.Views
 
         private MotionHandle alphaMotion;
         private MotionHandle moveMotion;
+        private MotionHandle cornerMotion;
         private float restY;
         private bool restCaptured;
         private Action deactivateCard;
@@ -55,6 +64,9 @@ namespace Game.Core.UI.Views
 
         /// <summary>卡片当前是否在显示（含进场动画中）。</summary>
         public bool IsCardShown { get; private set; }
+
+        /// <summary>角落小字当前是否在显示（含淡入淡出中）。</summary>
+        public bool IsCornerShown { get; private set; }
 
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
@@ -68,11 +80,20 @@ namespace Game.Core.UI.Views
 
             cardGroup.blocksRaycasts = false;
             cardGroup.interactable = false;
+            cornerGroup.blocksRaycasts = false;
+            cornerGroup.interactable = false;
             if (!IsCardShown)
             {
                 StopMotions();
                 cardGroup.alpha = 0f;
                 card.gameObject.SetActive(false);
+            }
+
+            if (!IsCornerShown)
+            {
+                StopCornerMotion();
+                cornerGroup.alpha = 0f;
+                cornerLabel.gameObject.SetActive(false);
             }
 
             return UniTask.CompletedTask;
@@ -82,6 +103,8 @@ namespace Game.Core.UI.Views
         {
             StopMotions();
             IsCardShown = false;
+            StopCornerMotion();
+            IsCornerShown = false;
             return UniTask.CompletedTask;
         }
 
@@ -106,6 +129,28 @@ namespace Game.Core.UI.Views
             IsCardShown = false;
             if (deactivateCard == null) deactivateCard = DeactivateCard;
             Play(cardGroup.alpha, 0f, card.anchoredPosition.y, restY + slideDistance, deactivateCard);
+        }
+
+        /// <summary>
+        /// 显示右下角小字。停留期间再调一次是换字并从当前 alpha 淡到不透明（不闪）。
+        /// 停留时长由调用方计时（<see cref="NotificationService.ShowCornerHint"/>），视图不排期。
+        /// </summary>
+        public void ShowCornerHint(string text)
+        {
+            Validate();
+            float from = IsCornerShown ? cornerGroup.alpha : 0f;
+            cornerLabel.text = text;
+            cornerLabel.gameObject.SetActive(true);
+            IsCornerShown = true;
+            PlayCorner(from, 1f, null);
+        }
+
+        /// <summary>淡出右下角小字，结束后隐藏文字物体。没在显示时是空操作。</summary>
+        public void HideCornerHint()
+        {
+            if (!IsCornerShown) return;
+            IsCornerShown = false;
+            PlayCorner(cornerGroup.alpha, 0f, DeactivateCorner);
         }
 
         // 写法同 UIView.FadeAsync：同一时刻只留一组动画，新的先掐断旧的，否则旧动画会在新动画之后把值改回去；
@@ -149,10 +194,40 @@ namespace Game.Core.UI.Views
             card.anchoredPosition = p;
         }
 
+        // 角落小字只做 alpha：位置固定在右下角，不参与卡片的滑动。写法与 Play 一致（同刻只留一个动画、unscaled）。
+        private void PlayCorner(float fromAlpha, float toAlpha, Action onComplete)
+        {
+            StopCornerMotion();
+            if (cardSeconds <= 0f)
+            {
+                cornerGroup.alpha = toAlpha;
+                if (onComplete != null) onComplete();
+                return;
+            }
+
+            cornerGroup.alpha = fromAlpha;
+            cornerMotion = onComplete != null
+                ? LMotion.Create(fromAlpha, toAlpha, cardSeconds)
+                    .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                    .WithOnComplete(onComplete)
+                    .BindToAlpha(cornerGroup)
+                    .AddTo(gameObject)
+                : LMotion.Create(fromAlpha, toAlpha, cardSeconds)
+                    .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                    .BindToAlpha(cornerGroup)
+                    .AddTo(gameObject);
+        }
+
         private void DeactivateCard()
         {
             // 淡出途中又来了新通知时 IsCardShown 已被 ShowCard 置回 true，且旧动画已被掐断不会走到这里；这里再判一次兜底。
             if (!IsCardShown && card != null) card.gameObject.SetActive(false);
+        }
+
+        private void DeactivateCorner()
+        {
+            // 同 DeactivateCard：淡出途中又来了新的一条时 IsCornerShown 已被置回 true。
+            if (!IsCornerShown && cornerLabel != null) cornerLabel.gameObject.SetActive(false);
         }
 
         private void StopMotions()
@@ -161,12 +236,19 @@ namespace Game.Core.UI.Views
             if (moveMotion.IsActive()) moveMotion.Cancel();
         }
 
+        private void StopCornerMotion()
+        {
+            if (cornerMotion.IsActive()) cornerMotion.Cancel();
+        }
+
         private void Validate()
         {
-            if (card == null || cardGroup == null || titleLabel == null || bodyLabel == null)
+            if (card == null || cardGroup == null || titleLabel == null || bodyLabel == null
+                || cornerGroup == null || cornerLabel == null)
             {
                 throw new InvalidOperationException(
-                    "NotificationView 预制体缺少 card / cardGroup / titleLabel / bodyLabel 引用，检查 Prefabs/UI/NotificationView.prefab 的接线");
+                    "NotificationView 预制体缺少 card / cardGroup / titleLabel / bodyLabel / cornerGroup / cornerLabel 引用，"
+                    + "检查 Prefabs/UI/NotificationView.prefab 的接线");
             }
         }
     }

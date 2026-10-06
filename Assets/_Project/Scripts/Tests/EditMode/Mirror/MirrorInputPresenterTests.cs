@@ -386,6 +386,7 @@ namespace Game.Tests.EditMode.Mirror
         private sealed class NoNotifications : INotificationService
         {
             public void Show(string title, string body = null, float seconds = 0f) { }
+            public void ShowCornerHint(string text, float seconds = 0f) { }
         }
 
         private sealed class TestPlatform : IPlatformService

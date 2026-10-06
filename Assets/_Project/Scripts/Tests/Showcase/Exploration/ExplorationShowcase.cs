@@ -40,12 +40,12 @@ namespace Game.Tests.Showcase.Exploration
 
         /// <summary>
         /// 「获得物资」通知前面最多可能排队的条数，用来估算等待上限（2026-09-26 查实：不是数据问题，
-        /// 是 <see cref="INotificationService"/> 单队列时序——进场景的任务接取通知、开箱前后各一次自动保存
-        /// 「已保存」通知都可能排在「获得物资」前面，同标题才合并，不同标题只会排队，见
-        /// <c>QuestNotificationPresenter</c> / <c>SaveTriggerBridge</c> / <c>NotificationQueue</c>）。
+        /// 是 <see cref="INotificationService"/> 单队列时序——进场景时的任务接取通知会排在「获得物资」前面，
+        /// 同标题才合并，不同标题只会排队，见 <c>QuestNotificationPresenter</c> / <c>NotificationQueue</c>）。
+        /// 自动保存的「已保存」自 2026-10-07 起走不进队列的角落小字（<c>ShowCornerHint</c>），不再占这个额度。
         /// 队列深度不对外暴露，只能按已知触发点估个上界，宁可等久一点也不要在通知还没轮到时就判失败。
         /// </summary>
-        private const int MaxNotificationsAheadOfReward = 3;
+        private const int MaxNotificationsAheadOfReward = 1;
 
         /// <summary>摇杆推动的时长（真实时间）。步行 3 m/s、奔跑 5 m/s，0.6 秒足够拉开差距。</summary>
         private const float StickSeconds = 0.6f;
@@ -209,7 +209,7 @@ namespace Game.Tests.Showcase.Exploration
             // 期望正文数据驱动：物品名查 tbitem、拼法走 LootService.ComposeBody（同开箱路径），场景改 itemId / 表改名都不用改这里。
             string crateABody = ExpectedRewardBody(crateA);
             // 通知走 INotificationService 的共用单队列（NotificationQueue，仅同标题合并）：进场景时的任务
-            // 接取通知、开箱前后的自动保存「已保存」通知都可能排在「获得物资」前面，它不一定立刻显示。
+            // 接取通知可能排在「获得物资」前面，它不一定立刻显示；自动保存的「已保存」走角落小字，不占队列。
             // 用一个每帧采样的等待：只要曾经见过目标标题 + 正文就记住（NotificationView 换卡片很快，
             // 逐帧轮询防止卡在两次轮询之间错过），超时按「最多可能排队的条数 + 1」估算，时长从
             // UIConfig 读，不写死。
@@ -217,7 +217,7 @@ namespace Game.Tests.Showcase.Exploration
             float rewardTimeout = NotificationTimeoutSeconds(MaxNotificationsAheadOfReward);
             yield return Check(
                 $"顶部通知「{RewardTitle}」在最多 {rewardTimeout:0.#} 秒内曾经显示过、正文为「{crateABody}」"
-                + $"（Crate_A = tbitem {crateA.ItemId} ×{crateA.Count}；通知共用队列，可能被场景通知 / 自动保存通知排在前面，不代表立即出现）",
+                + $"（Crate_A = tbitem {crateA.ItemId} ×{crateA.Count}；通知共用队列，可能被进场景的任务通知排在前面，不代表立即出现）",
                 () =>
                 {
                     if (NotificationShows(RewardTitle, crateABody)) rewardSeen = true;
@@ -264,6 +264,7 @@ namespace Game.Tests.Showcase.Exploration
                 () => quest.TrackedId == MainQuestId && CrateQuestCount() == 0, 5f);
             yield return Check("三只箱子全部闭合且头顶标记显示，背包清空",
                 () => AllCratesClosed() && AllCrateMarkers(true) && loot.Items.Count == 0, 5f);
+            yield return WaitCurtainRevealed();
             yield return Snapshot("重置后·回到初始");
         }
 

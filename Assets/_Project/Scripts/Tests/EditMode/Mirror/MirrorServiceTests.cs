@@ -285,6 +285,10 @@ namespace Game.Tests.EditMode.Mirror
             public void Show(string title, string body = null, float seconds = 0f)
             {
             }
+
+            public void ShowCornerHint(string text, float seconds = 0f)
+            {
+            }
         }
 
         /// <summary>只递一份现成的 <c>cfg.Tables</c>。</summary>

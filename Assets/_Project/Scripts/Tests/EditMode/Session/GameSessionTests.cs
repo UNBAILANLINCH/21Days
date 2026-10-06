@@ -96,7 +96,10 @@ namespace Game.Tests.EditMode.Session
             Assert.That(completed.Received.Count, Is.EqualTo(1));
             Assert.That(completed.Received[0].Success, Is.True);
             Assert.That(completed.Received[0].Reason, Is.EqualTo("test"));
-            Assert.That(notifications.Titles, Is.EqualTo(new[] { config.SaveNoticeTitle }), "成功弹「已保存」");
+            Assert.That(notifications.CornerHints, Is.EqualTo(new[] { config.SaveNoticeTitle }),
+                "成功在右下角显示「已保存」小字");
+            Assert.That(notifications.Titles, Is.Empty,
+                "保存提示不进通知队列：挤进去会把「获得物资」等玩法通知推后数秒");
 
             IReadOnlyList<SlotInfo> infos = await session.ReadSlotInfosAsync();
             Assert.That(infos.Count, Is.EqualTo(config.SlotCount));
@@ -348,7 +351,11 @@ namespace Game.Tests.EditMode.Session
         private sealed class FakeNotificationService : INotificationService
         {
             public List<string> Titles { get; } = new List<string>();
+            public List<string> CornerHints { get; } = new List<string>();
+
             public void Show(string title, string body = null, float seconds = 0f) => Titles.Add(title);
+
+            public void ShowCornerHint(string text, float seconds = 0f) => CornerHints.Add(text);
         }
 
         private sealed class FakePublisher<T> : IPublisher<T>

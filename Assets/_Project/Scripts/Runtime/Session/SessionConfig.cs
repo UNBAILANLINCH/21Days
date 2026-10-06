@@ -12,10 +12,10 @@ namespace Game.Session
         [Tooltip("存档槽数量，槽号从 1 起。")]
         [SerializeField, Min(1)] private int slotCount = 3;
 
-        [Tooltip("自动保存落盘成功后弹出的通知标题。")]
+        [Tooltip("自动保存落盘成功后右下角小字的文案（不进通知队列）。")]
         [SerializeField] private string saveNoticeTitle = "已保存";
 
-        [Tooltip("保存通知停留秒数（不受时间缩放影响）。")]
+        [Tooltip("保存小字停留秒数（不受时间缩放影响）。")]
         [SerializeField, Min(0f)] private float saveNoticeSeconds = 1f;
 
         [Tooltip("读档失败（损坏 / 版本过高 / 缺元数据）时的通知标题。")]

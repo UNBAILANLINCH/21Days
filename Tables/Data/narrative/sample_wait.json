@@ -3,11 +3,13 @@
     "stages": [
         {
             "id": "wait", "kind": "WaitAction", "payload": "", "allowEncounter": true,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
             "anyOf": [], "exits": [{"result": "Success", "next": "done"}], "setFlags": [], "outcome": ""
         },
         {
             "id": "done", "kind": "End", "payload": "", "allowEncounter": false,
-            "anyOf": [], "exits": [], "setFlags": ["sample_wait_complete"], "outcome": "Success"
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.samplewait.complete"], "outcome": "Success"
         }
     ]
 }

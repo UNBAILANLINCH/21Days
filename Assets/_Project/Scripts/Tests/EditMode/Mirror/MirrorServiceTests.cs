@@ -62,7 +62,8 @@ namespace Game.Tests.EditMode.Mirror
             LootConfig lootConfig = ScriptableObject.CreateInstance<LootConfig>();
             created.Add(lootConfig);
             loot = new LootService(lootConfig, saves, configService, quest, new NoopNotificationService(),
-                new FakePublisher<CrateCollectedEvent>(), new FakePublisher<LootResetEvent>(), NullTelemetryScope.Instance);
+                new FakePublisher<CrateCollectedEvent>(), new FakePublisher<MonsterDroppedEvent>(),
+                new FakePublisher<LootResetEvent>(), NullTelemetryScope.Instance);
 
             PlayerConfig playerConfig = ScriptableObject.CreateInstance<PlayerConfig>();
             created.Add(playerConfig);
@@ -283,6 +284,10 @@ namespace Game.Tests.EditMode.Mirror
         private sealed class NoopNotificationService : INotificationService
         {
             public void Show(string title, string body = null, float seconds = 0f)
+            {
+            }
+
+            public void ShowCornerHint(string text, float seconds = 0f)
             {
             }
         }

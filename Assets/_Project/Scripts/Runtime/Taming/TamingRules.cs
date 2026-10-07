@@ -188,8 +188,9 @@ namespace Game.Taming
             TryControl(controlId);
         }
 
-        public void AdvanceTargets(Vector2 movement, float deltaTime)
+        public bool AdvanceTargets(Vector2 movement, float deltaTime, bool isIdentityInEffect = false)
         {
+            bool primaryAttacked = false;
             foreach (string id in targetIds)
             {
                 MonsterRules target = targets[id];
@@ -197,11 +198,16 @@ namespace Game.Taming
                 if (IsTargetTamed(id)) target.MoveControlled(CurrentControlId == id ? movement : Vector2.zero, deltaTime);
                 else
                 {
-                    var intent = new MonsterIntent(player.Model.Snapshot, deltaTime);
-                    if (target.Step(in intent)) player.ApplyDamage(new DamageIntent(target.AttackDamage));
+                    var intent = new MonsterIntent(player.Model.Snapshot, deltaTime, isIdentityInEffect);
+                    if (target.Step(in intent))
+                    {
+                        if (id == targetIds[0]) primaryAttacked = true;
+                        player.ApplyDamage(new DamageIntent(target.AttackDamage));
+                    }
                 }
             }
             ValidateControl();
+            return primaryAttacked;
         }
 
         public void Step(in TamingIntent intent, float deltaTime)

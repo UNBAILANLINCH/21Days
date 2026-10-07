@@ -113,6 +113,40 @@ namespace Game.Narrative
             Move(intent.Result);
             return true;
         }
+        /// <summary>战斗侧登记的 (EncounterId, ActivationId) 与当前 Stage 身份是否对得上；对不上就是旧回调。</summary>
+        public bool CanCompleteBattle(long generation, long activationId, string targetId)
+        {
+            if (Current == null || Stage == null || Stage.Kind != NarrativeContent.StageKind.Battle) return false;
+            return generation == Generation && activationId == Current.ActivationId && targetId == Current.TargetId;
+        }
+
+        /// <summary>战斗结算入口：战斗侧身份四项全对、结果在该阶段声明的 battleResults 里才推进。</summary>
+        public bool CompleteBattle(long generation, long activationId, string targetId, string resultKey) =>
+            BuildBattleIntent(generation, activationId, targetId, resultKey, out NarrativeIntent intent) && Apply(in intent);
+
+        /// <summary>调用方已持有 Generation／ActivationId／TargetId 时用这个重载，语义与字符串重载完全一致。</summary>
+        public bool CompleteBattle(long generation, long activationId, string targetId, BattleResult result)
+        {
+            if (result.Kind == null) return false;
+            return CompleteBattle(generation, activationId, targetId, result.ExitKey);
+        }
+
+        /// <summary>
+        /// 结果不在本阶段声明的 battleResults 里返回 false（与 Apply 同口径，不抛）：
+        /// 场景切换或读档后的旧战斗结果必须被安静丢掉，不是让上游炸掉。
+        /// </summary>
+        private bool BuildBattleIntent(long generation, long activationId, string targetId, string resultKey,
+            out NarrativeIntent intent)
+        {
+            intent = default;
+            if (Current == null || Stage == null || Stage.Kind != NarrativeContent.StageKind.Battle) return false;
+            if (generation != Generation || activationId != Current.ActivationId || targetId != Current.TargetId) return false;
+            if (!BattleResult.TryParse(resultKey, out BattleResult result) ||
+                Array.IndexOf(Stage.BattleResults, result.ExitKey) < 0) return false;
+            intent = new NarrativeIntent(generation, activationId, targetId, Current.ActionRequestId, result.ExitKey);
+            return true;
+        }
+
         public NarrativeSaveData Capture() => JsonConvert.DeserializeObject<NarrativeSaveData>(JsonConvert.SerializeObject(state));
         public void Restore(NarrativeSaveData saved)
         {

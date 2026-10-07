@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c0e5cbdcb9ce8046aed8e0f65c1aa82, type: 3}
+  m_Name: TurnBasedConfig
+  m_EditorClassIdentifier: 
+  sneakBossHealthLossPercent: 20
+  sneakLossBase: 0
+  rageMax: 3
+  playerSkill1RageCost: 0
+  playerSkill1RageGain: 1
+  playerSkill1Damage: 1
+  playerSkill2RageCost: 1
+  playerSkill2Damage: 2
+  playerSkill2HealReductionPercent: 50
+  playerSkill2HealReductionRounds: 0
+  playerSkill3RageCost: 3
+  playerSkill3Damage: 3
+  playerSkill3ExtraDamage: 1
+  playerSkill3ExtraDamageAttacks: 3
+  playerSkill3ExtraDamageStacks: 1
+  itemOncePerBattle: 1
+  inheritsDrunkValue: 1
+  tipsyThreshold: 50
+  drunkThreshold: 80
+  deadDrunkThreshold: 100
+  maxDrunkValue: 100
+  tipsySkipPercent: 20
+  drunkSkipPercent: 40
+  deadDrunkSkipPercent: 100
+  deadDrunkDropValue: 50
+  deadDrunkDurationRounds: 2
+  deadDrunkLowersOncePerEntry: 1
+  bossSkill1Damage: 1
+  bossSkill2DrinkAddDrunk: 30
+  bossSkill2HealPercent: 10
+  bossSkill2HealBase: 0
+  bossSkill2NextSkill1DamageBonusPercent: 30
+  bossSkill3Damage: 3
+  bossSkill3StunRounds: 1
+  bossSkill1Weight: 6
+  bossSkill2Weight: 3
+  bossSkill3Weight: 1
+  roundLimit: 0
+  roundLimitOutcome: 0
+  stunTurnPolicy: 0

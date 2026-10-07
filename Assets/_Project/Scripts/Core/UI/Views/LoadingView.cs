@@ -116,6 +116,7 @@ namespace Game.Core.UI.Views
             int version = ++fadeVersion;
             shown = true;
             if (hintMotion.IsActive()) hintMotion.Cancel();
+            StopDots();
             background.gameObject.SetActive(true);
             hintGroup.gameObject.SetActive(true);
             FitBackgroundToCanvas();
@@ -211,6 +212,8 @@ namespace Game.Core.UI.Views
         /// <summary>完全揭开后的静止态：透明、不挡点击、子物体停用不画、没有动画在跑。</summary>
         private void ApplyHidden()
         {
+            // 退出游戏时 UIService 先把视图随 UIRoot 销毁，揭幕的收尾还会走到这里：已销毁就什么都不做，免得多一条警告。
+            if (this == null) return;
             StopMotions();
             shown = false;
             CanvasGroup group = Group;

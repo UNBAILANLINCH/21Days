@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_guanshu",
+    "display_name": "官署",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "yao_fangshi",
+    "conn": "阶段1 坊市多出来的区域，俯视图与模型表都没有（10_两界与场景结构.md:146 R18、:207 Q3）",
+    "lore": "坊正所在；集齐三个 boss 的面具后可开启战斗（10_两界与场景结构.md:146 R18）"
+}

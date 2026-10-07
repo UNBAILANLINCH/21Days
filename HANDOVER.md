@@ -8,6 +8,19 @@
 
 > **进行中，不重复派工**：音游正在处理分级校准可信度、失败候选复用试听与固定曲 Combat；Laila 正在处理 105＋3 怒候选训练与回归。开始任务不代表已实现或验收。Boot 接线/正式音游 UI prefab 迁移暂缓，一曲一谱、不做多难度，两新曲听感暂不调；本机打包由开发者执行。
 
+> **接手备注（2026-10-07，系统层 / roadmap E 组）**：接着上一会话未提交的 E4 改动往下做，工作区里这批尚未提交（等授权）。做完的事——E4 加载黑幕：`LoadingCurtain` 补相位守卫（首次开面板期间被揭幕不再淡入、视图被销毁后仍能重盖、揭幕出错必须回 `IsCovered=false`）、暂停菜单的「黑幕在盖」并进可测的 `ShouldOpen`、回放加 `WaitCurtainRevealed`（场景重载后不再截到半透明黑幕），新增 `LoadingCurtainTests` 5 条；E1 尾巴：「已保存」从通知队列改走不进队列的右下角小字（`INotificationService.ShowCornerHint` + `UIConfig.CornerHintSeconds` + `NotificationView` 的 `Corner/CornerLabel` 子节点，深底小牌避开编辑器右下角相机调试工具条），新增 `NotificationServiceTests` 7 条，Session 回放补检查点与截图「保存后·右下角小字」。
+> 证据（全部本次实跑）：编译零错误、控制台 error / warning 0；EditMode 全量 **1115 / 1115**；Session 回放 **2 / 2** PASS（`Logs/verify/session/20261007-022334/report.md`）；Exploration 回放 **8 / 8** PASS（`Logs/verify/exploration/20261007-022419/report.md`）；`gc_scan` 只剩既有 4 条（LailaFace 命名空间 3 条 + 字体资产动态字形，见 §1.3 与 §2）。`docs/roadmap.md` 的 §0 第 6 条、E1 / E4 / W3 已同步。
+
+> **接手备注（2026-10-07，S 组地基波 + 接线波）**：本轮按《聚光灯》S 组把**四个纯规则内核**做完并全部通过独立复核，**工作区尚未提交**（300+ 个文件，等授权）。做完的事——`Game.Identity`（S1/S2 身份状态机、六种露馅、账簿、怀疑度）、`Game.Stealth`（S3/S4 视线遮挡、绕背暗杀、击倒状态机、追逐、召唤编队、固定追逐 + **背后按 F 处决**）、`Game.World`（A4/A6 场景/区域/传送点三表、待处理转场、出生点选择、跨场景状态、相机约束）、`Game.TurnBased`（S7 回合制 BOSS 战内核，48 个文件）；外加步 1 怪物种类数据化、道具八类别与合成/使用规则、`Narrative` 补 `Battle`/`IssueRequest`/`RequiredParts` 三类能力。
+> **证据（收尾快照）**：全量 EditMode **1836 / 1836 通过、0 失败**（基线 1552 → **净增 284 条**；`completed == declared_total`、`stale=false`、`orphan=false`，并已字节检索确认新测试类在 DLL 里——**四重反假绿核验**）。各组一手数字见 `docs/roadmap.md` §2.2（本轮已按主窗口实测更新：Monster **103**、Stealth **164**、Identity **55**、World **141**、TurnBased **159**）。
+> **② 类验收（「功能在实例场景里真的做出来」）——四份回放报告 3 PASS / 1 FAIL**：`identity` **PASS**（失败 0：身份生效时怪物不出手 / 失效后恢复挨打）、`stealth` **PASS**（失败 0：掩体挡住视线 / **遮挡不挡追击** / 潜行到背后 / 可处决）、`turnbased` **PASS**（失败 0：醉酒四档逐档可见）、`world` **FAIL（检查点失败 13 个，12 条是「场景没加载起来」的下游）**。报告在 `Logs/verify/{identity,stealth,turnbased,world}/`（本地生成物，不入库）。
+> **规划与台账**：`docs/planning/S组落地总规划.md`（波次、文件所有权矩阵、**§1.5 三类工作分界**、**§4.1 已派波次实际提出的拍板项 19 条**、验收纪律）、`ai-docs/docs/story-facts.md`（跨模块状态字典：键名规范 + V1–V3 校验 + 写入方唯一 owner）。两份新 PRP：[`PRP/world-scenes`](PRP/world-scenes/prp.md)、[`PRP/stealth-execution`](PRP/stealth-execution/prp.md)。
+> **本机复跑工具**：`uv run --offline --with mcp python scripts/unity_mcp_check.py --console|--state|--refresh|--test|--meta`（主窗口无原生 MCP 工具时用它做独立复核）。⚠️ **必须加 `--offline`**：不加时它会回 PyPI 解析包，网络偶发失败会以**退出码 2 + stdout 零字节**结束，看起来像「脚本没输出」而不像「连不上」。
+> **⚠️ 四种「看起来成功其实失败」的假象都在本轮踩到过**，验收前务必读 `S组落地总规划.md` 第 6 节：假绿（`run_tests` 返回 `succeeded` + `completed:1`）、孤儿任务（`completed:0` + `Job cleared manually`）、**陈旧程序集**（`refresh_unity` 没触发测试程序集重编，`run_tests` 照样返回旧数字——硬判据是**字节检索 DLL 里有没有你的新类型名**，不是时间戳）、**注册方式错导致生命周期钩子不触发**（`Register` 而非 `RegisterEntryPoint` → `IStartable.Start` 永不调用 → 「东西都在却一个都登记不到，且零报错」）。
+> **⚠️ 读 `Editor.log` 的正确判据**（本轮经两轮修正）：**比「最后一次成功重载」与「最后一条 `error CS`」的行号先后**——`$ok > $err` 才算编译通过。单看「最后一次成功重载之后」在**编译一直失败**时会误判（成功行停在很久以前，段里混着已修好的旧错误）。
+> **⚠️ `Game.Tests.EditMode` 引用 `Game.Editor`**——所以 `Scripts/Editor/**` 里的任何编译错误会**卡住所有 EditMode 测试**（本轮实测被卡约 20 分钟）。并行多波时该目录的修复优先级应高于其它文件。
+> **⚠️ 埋点属性上限 4**：`ITelemetryScope.Track` 最多 `(evt, p0..p3)`，`TelemetryProps.Capacity = 4`。**不要为多塞属性改用 `TrackWarn`**（那会改事件级别）。
+
 ## 0. 现状一句话
 
 主流程在完整工作区已跑通：标题页 → 进入探索场景 → 潜行 / 战斗 / 对话 / 演出 / 任务 / 存档。Narrative 依赖的 DialogueService 遗漏片段已补交；补交后的定向回归与人工回放验收已有记录，但尚未在独立干净检出上完成最终提交验证。本轮验证不代表全仓所有测试已重新跑过。
@@ -26,9 +39,15 @@
 **没做的分两层，量级差很远：**
 
 - **§1 / §2 是已有模块的收尾与待拍板事项**，具体范围见下面的清单。
-- **§3 是内容层，仍有大量待定**：2026-10-06 起策划以《聚光灯》为准（`docs/design/spotlight/`，玩法拆分见 `docs/design/features-spotlight/`），照镜 demo（`PRP/mirror-core`）随旧版策划冻结；换皮附身、潜行暗杀、身份暴露、追逐、皮与面具、关卡专属机制与真实章节内容都还没做。`docs/roadmap.md` 的 C1–C3/B3/W2 状态已同步，旧“20 条完全没开始”不再作为当前统计。这一片仍需策划与美术输入。
+- **§3 是内容层，仍有大量待定**：2026-10-06 起策划以《聚光灯》为准（`docs/design/spotlight/`，玩法拆分见 `docs/design/features-spotlight/`），照镜 demo（`PRP/mirror-core`）随旧版策划冻结。`docs/roadmap.md` 的 C1–C3/B3/W2 状态已同步，旧“20 条完全没开始”不再作为当前统计。这一片仍需策划与美术输入。
+- **⚠️ 2026-10-07 口径修正（此前这行写「换皮附身、潜行暗杀、身份暴露、追逐、皮与面具、关卡专属机制与真实章节内容都还没做」——已不准确）**：S 组的**机制内核已经做完且测试全绿**（见顶部接手备注），现在缺的是**三件不同的事**，请分开看：
+  1. **接线**（进行中）：`IdentityInstaller` / `StealthInstaller` 正在挂上 `Boot.unity`，`EncounterStep` 的遮挡体与身份绑定正在接——**在此之前这些内核在生产里是死代码**。
+  2. **实例场景里先做出功能（不需要等美术/策划）**：S3 的处决交互（**背后按 F**）、视线的场景几何、A6 的相机边界体与死区、S7 的战斗场景与招式格/怒气槽 UI——**这些都在 `SampleScene` 上做白盒即可**，项目规范把「回放舞台」定义为实现模板（`module-dev-spec.md`：正式场景接同一功能**只改内容不改接法**）。
+     **实测缺口**：`loot` / `inventory` / `identity` / `stealth` / `world`（+ 未登记的 `TurnBased`）**都还没有 Showcase**——EditMode 全绿但按 DoD 第 3 条**不算做完**。A4 的两界流转要的是**两张灰盒场景**，不是正式场景。
+  3. **正式内容（等外部输入）**：真实章节与剧本进表、每只怪的数值（等策划）；两界场景美术、立绘、UI 皮肤、角色动画（等美术）；S6 关卡机制的具体内容（等 `00` §8.1 #1）、S8 小游戏（等 §8.1 #8）、B4 调查界面的数据形状（等 §8.1 #1）。
+- **2026-10-07 两份策划原件补交**（`design/spotlight/06_怪物状态与交互设计文档.md`、`07_回合制作战文档.md`）把两件事从「等拍板」变成「可做」：**S3 的感知与处决规则**（75° 扇形、警戒 4 秒升满/6 秒降 0、敌对 1.25×、背后按 F 处决、巡逻每 7–10 秒站定 2 秒作刺杀窗口、要潜行才免的近距察觉——**与既有实现基本吻合，数值不用动**）与 **S7 的回合制规格**。新增歧义见 `features-spotlight/待策划拍板问题.md` 的 C86–C92。
 
-一句话：**框架能跑，玩法的肉还在纸上。**
+一句话：**框架能跑，S 组机制的「骨头」已经立起来并测试全绿；缺的是接线（进行中）、在实例场景里把功能做出来（不需要等外部输入，量最大）、以及正式内容（等策划与美术）。**
 
 ---
 
@@ -178,7 +197,7 @@ EndReason 已直接保存 AudioPaused/ApplicationPaused/InputModeChanged/ClockDi
 | B 任务系统 | B3 已有接线与验证，最终提交独立验证见 §1.1；B4 进度重置与已完成列表 |
 | C 叙事接线 | C1–C3 转 §1.1/§1.2 收尾；C5 对抗结果 → 剧情等待聚光灯 S2 / S3 / S7 规则，旧 G5 冻结 |
 | D 演出与 UI 动效 | D6 正式角色动作资产仍缺，走跑程序支持已就绪；D4/D5 已有资产采用，剩余验收见 §1.5 |
-| E 系统与流程 | E4 加载黑幕实现已随本轮远端引入，仍待视觉验收；E8 出包验证；本次合并未重跑 Unity |
+| E 系统与流程 | E4 加载过渡已收尾待视觉验收（2026-10-07，相位守卫与回放等待），E8 出包验证 |
 | F 内容与美术 | F1 真实剧本进表、F2 环境替换、F3 美术皮肤；F4 已有三首音游音乐，环境音/SFX/正式内容音频仍缺；F5 已有 Narrative 最小校验，完整内容校验工具未验收 |
 | S 聚光灯核心机制 | S1 换皮与附身、S2 身份暴露与怀疑、S3 潜行与暗杀、S4 追逐、S5 皮面具与道具、S6 关卡专属机制、S7 BOSS 战、S8 小游戏；旧 G 组随旧版冻结 |
 | H PC 适配 | 主要路径已实现，NPC 悬停、窗口实测及其它聊天持有项仍需逐项确认，不能写全部验收完成 |
@@ -208,10 +227,13 @@ EndReason 已直接保存 AudioPaused/ApplicationPaused/InputModeChanged/ClockDi
 
 | 要做的事 | 怎么做 |
 | --- | --- |
-| 看编译错误 | Unity MCP 的 `read_console`，或编辑器 Console |
+| 看编译错误 | Unity MCP 的 `read_console`，或编辑器 Console。**控制台不可靠**（会被别的会话清空、也会读到编译中间态）——真源是 `%LOCALAPPDATA%\Unity\Editor\Editor.log` 里的 `error CS` 与 `## Script Compilation Error for: … <程序集>.dll` |
 | 项目 lint（保存 `.cs` 时自动跑） | `python .claude/skills/project-lint/lint.py <file.cs>` |
 | 健康度 / 跨文件不变量 | `python .claude/skills/evolution/gc_scan.py` |
-| 跑测试 | `/unity-test [EditMode\|PlayMode] [过滤]` |
+| 跑测试 | `/unity-test [EditMode\|PlayMode] [过滤]`；**没有原生 MCP 工具时**用 `uv run --with mcp python scripts/unity_mcp_check.py --test --mode EditMode --group <组>` |
+| **复核「测试真的跑了吗」** | `--test` 输出里看 `stale_assembly_suspect` / `orphaned_job` / `verdict` 三个字段；**再加字节检索 DLL**：`$t=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes('Library/ScriptAssemblies/Game.Tests.EditMode.dll')); $t.Contains('你的新测试类名')`。三者都过才采信 |
+| **查新增文件缺不缺 `.meta`** | `uv run --with mcp python scripts/unity_mcp_check.py --meta`（扫 `git status` 里所有改动/新增的 `Assets/` 资产） |
+| 强制 Unity 重编 | `refresh_unity(mode=force, scope=all, compile=request, wait_for_ready=true)`；**第一次常返回 `recovered_from_disconnect: true` 而没落地，重试一次**；仍不行就 touch 一个生产 `.cs` 再刷新 |
 | 模块回放验证 | `/verify-module <模块>` |
 | 本机出包（编辑器须关闭） | `scripts/build.ps1` |
 

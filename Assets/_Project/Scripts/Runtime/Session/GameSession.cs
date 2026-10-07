@@ -259,7 +259,7 @@ namespace Game.Session
         /// 立刻保存：**同步**捕获遭遇现场、更新元数据（这一段在第一个 await 之前完成，
         /// 所以在 <c>GameStateChangingEvent</c> 回调里调用时捕获发生在前一状态 Exit 之前），再异步落盘。
         /// 还没开局、或不在玩法状态（捕获会得到停掉的遭遇）时不写并返回 false。
-        /// 结果发 <see cref="SaveCompletedEvent"/>，成功弹「已保存」。
+        /// 结果发 <see cref="SaveCompletedEvent"/>，成功在右下角显示「已保存」小字（不走通知队列，见 <see cref="INotificationService.ShowCornerHint"/>）。
         /// </summary>
         public async UniTask<bool> SaveNowAsync(string reason, CancellationToken ct = default)
         {
@@ -317,7 +317,8 @@ namespace Game.Session
 
             if (success) LatestSlot = slot;
             completed.Publish(new SaveCompletedEvent(slot, reason, success));
-            if (success) notifications.Show(config.SaveNoticeTitle, null, config.SaveNoticeSeconds);
+            // 走角落小字而不是排队卡片：自动保存很频繁，挤进共用通知队列会把「获得物资」等玩法通知推后数秒。
+            if (success) notifications.ShowCornerHint(config.SaveNoticeTitle, config.SaveNoticeSeconds);
             return success;
         }
 

@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_longku",
+    "display_name": "龙窟",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "yao_fangshi",
+    "conn": "阶段九龙窟是镜子迷宫，分层分房间；与洞庭府、龙府是不是同一处原文没定（10_两界与场景结构.md:146 R18、:208 Q4）",
+    "lore": "阶段九「找龙」的迷宫场景，钱塘龙君在这里（10_两界与场景结构.md:146 R18、:116）"
+}

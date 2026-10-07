@@ -1,10 +1,14 @@
 // 职责：场景中的巡逻点和占位视觉；把逻辑位置投影到场景（XZ 模式可贴地爬台阶）、状态色与朝向翻转；规则数据仍由 PlayerModel / MonsterModel 持有。
 // 渲染位置在两逻辑 tick 之间插值（Lerp(PreviousPosition, Position, alpha)），alpha 由 Bind 的调用方给；不给时 alpha = 1，行为同旧版。
 // 为什么新建：SampleView 是示例商品面板，现有场景中没有角色表现组件可复用。
+// S3 视线遮挡（2026-10-07）：本视图另提供「场景里哪些东西挡视线」的纯数据清单（CollectSightOccluders），
+//   与 obstacleMask 分工不同——obstacleMask 走 EncounterCollision 的胶囊扫掠「挡人」（表现层），
+//   本清单是进确定性内核的「挡视线」几何，只在场景就绪时转一次，tick 路径不做物理查询。
 using System;
 using Game.Player;
 using Game.Taming;
 using Game.IsometricExploration;
+using Game.Stealth;
 using UnityEngine;
 
 namespace Game.Monster
@@ -62,6 +66,28 @@ namespace Game.Monster
         [SerializeField, Min(0f)] private float obstacleRadius = 0.3f;
         [Tooltip("单帧场景位移超过这个距离视为瞬移（读档 / 重置 / 回放挪位），不做碰撞解算，只贴地；两 tick 逻辑位置相距超过它时也不插值")]
         [SerializeField, Min(0f)] private float obstacleTeleportDistance = 1.5f;
+
+        // —— S3 视线遮挡：**由场景显式提供**的清单，不做任何自动收集（不查物理、不按层扫）。
+        //    与上面的 obstacleMask 是两件事：那个挡人（表现层胶囊扫掠），这个挡视线（纯数据几何、进确定性内核）。
+        //    清单为空 = 视线不被遮挡，判定与接线前一致（字典 §4.2 `stealth.cover` 的「未做时该键恒不写」）。
+        [Tooltip("视线遮挡体：列进来的物体按下面的尺寸挡视线（纯数据，tick 里不做物理查询）。为空 = 不挡视线")]
+        [SerializeField] private SightOccluderEntry[] sightOccluders;
+
+        /// <summary>场景显式登记的一个视线遮挡体。</summary>
+        [Serializable]
+        private struct SightOccluderEntry
+        {
+            [Tooltip("遮挡体所在物体；为空则跳过这一条")]
+            [SerializeField] private Transform source;
+            [Tooltip("形状：勾 = 圆（只用 size.x 当直径），不勾 = 轴对齐矩形（size.x × size.y）")]
+            [SerializeField] private bool circle;
+            [Tooltip("尺寸：矩形是全宽 × 全高，圆只用 x 当直径。非正数的那条会被跳过并打警告")]
+            [SerializeField] private Vector2 size;
+
+            public Transform Source => source;
+            public bool IsCircle => circle;
+            public Vector2 Size => size;
+        }
 
         private PlayerModel player;
         private MonsterModel monster;
@@ -207,6 +233,62 @@ namespace Game.Monster
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 把场景里登记的视线遮挡体转成纯数据几何（逻辑 XY）。**场景就绪 / 关卡加载时调一次**，
+        /// 结果喂给 <c>EncounterStep.Sight.SetOccluders</c>；tick 路径不再碰场景与物理。
+        /// <para>
+        /// 没登记任何遮挡体时返回空数组——此时视线判定与接线前一致（只看距离与夹角）。
+        /// 尺寸非正数的条目**跳过并打警告**而不是抛：一条没填尺寸的条目不该让整个遭遇场景进不去，
+        /// 但也不能静默失效，所以警告里点名是第几条、哪个物体。
+        /// </para>
+        /// </summary>
+        public StealthOccluder[] CollectSightOccluders()
+        {
+            if (sightOccluders == null || sightOccluders.Length == 0)
+            {
+                return Array.Empty<StealthOccluder>();
+            }
+
+            var collected = new StealthOccluder[sightOccluders.Length];
+            int count = 0;
+            for (int i = 0; i < sightOccluders.Length; i++)
+            {
+                SightOccluderEntry entry = sightOccluders[i];
+                Transform source = entry.Source;
+                if (source == null)
+                {
+                    continue;
+                }
+
+                Vector2 center = ToLogicPosition(source.position);
+                Vector2 size = entry.Size;
+                if (size.x <= 0f || (!entry.IsCircle && size.y <= 0f))
+                {
+                    Debug.LogWarning($"EncounterSceneView：第 {i} 条视线遮挡体（{source.name}）尺寸非正数，已跳过", this);
+                    continue;
+                }
+
+                count++;
+                short id = (short)count;
+                collected[count - 1] = entry.IsCircle
+                    // 圆的 size.x 是**直径**——与上面两个 Tooltip（:78 / :80）以及矩形分支「作者给全长、几何存半」
+                    // 是同一个约定。2026-10-07 修正：原先直接把 size.x 当半径传，三处约定里只有这一处不一致，
+                    // 会把作者填的尺寸放大一倍。当时**没有任何场景登记过遮挡体**（`sightOccluders` 处处为空），
+                    // 所以这次改动的迁移成本为零；改前先确认仍是这个前提。
+                    ? StealthOccluder.MakeCircle(center, size.x * 0.5f, id)
+                    : StealthOccluder.MakeRectangle(center, size, id);
+            }
+
+            if (count == collected.Length)
+            {
+                return collected;
+            }
+
+            var trimmed = new StealthOccluder[count];
+            Array.Copy(collected, trimmed, count);
+            return trimmed;
         }
 
         /// <summary>

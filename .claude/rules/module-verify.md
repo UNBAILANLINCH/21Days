@@ -37,6 +37,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 | `EnterWorldFromTitle(bootTimeout=20f, enterTimeout=20f, startStepTitle=null)` | 默认进场入口：等标题就绪 → 点「开始」→ 等进世界（场景已加载、`PlayerModel` 可解析）→ 等相机跟随 |
 | `RequireTitleButton(string name)` | 取标题界面下的按钮（`StartButton`/`ContinueButton`/`LoadButton`…），找不到抛异常 |
 | `BeginLeaveToTitle(IGameFlow flow, Action done)` | 用例中途经流程切回标题（验「继续」一类），完成时回调 `done` |
+| `WaitCurtainRevealed(timeout=5f)` | 等加载黑幕完全揭开（`ILoadingCurtain.IsCovered` 为 false）；只在「场景重载之后截图」前调，否则截到半透明黑幕。超时按检查点失败记录 |
 | `BootShutdownSettleSeconds` | `virtual float`，默认 0；收尾销毁根作用域后再等的真实秒数，离场有异步写盘时覆写 |
 | `FindDeep<T>(Transform root, string name)` | 在 `root` 下递归按名字找组件（含未激活），找不到返回 `null` |
 | `Input` | 虚拟手柄 + 键盘（懒建，第一次用任一设备就一起建）：`HoldStick`/`SetStick`/`ReleaseStick` 推摇杆，`Press`/`Hold`/`Release(action)` 按动作查绑定，不按键位 |

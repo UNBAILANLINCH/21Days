@@ -143,6 +143,33 @@ namespace Game.Tests.EditMode.Monster
 
         // 波 9：表现层碰撞回写——激活时改写玩家逻辑位置。
         [Test]
+        public void Step_AdvancesBothPatrolsExactlyOnce()
+        {
+            var pc = ScriptableObject.CreateInstance<PlayerConfig>();
+            var mc = ScriptableObject.CreateInstance<MonsterConfig>();
+            try
+            {
+                var random = new RandomService(21ul);
+                var player = new PlayerRules(pc, new PlayerModel(), NullTelemetryScope.Instance);
+                var enemy = new MonsterRules(mc, new MonsterModel(), random, NullTelemetryScope.Instance);
+                var step = new EncounterStep(player, enemy);
+                Vector2[] route = { Vector2.right * 10, Vector2.right * 20 };
+                step.ConfigureTaming("player", "玩家", new[] { "a", "b" }, new[] { "甲", "乙" },
+                    new[] { route, new[] { Vector2.right * 30, Vector2.right * 40 } });
+                step.Begin(Vector2.zero, route);
+                InputCommand command = InputCommand.Empty;
+                var context = new SimulationContext(0, 0.1f, in command, random);
+
+                step.Step(in context);
+
+                Assert.That(enemy.Model.PatrolWalkElapsed, Is.EqualTo(0.1f));
+                Assert.That(step.Taming.GetTarget("b").Model.PatrolWalkElapsed, Is.EqualTo(0.1f));
+            }
+            finally { Object.DestroyImmediate(pc); Object.DestroyImmediate(mc); }
+        }
+
+        // 波 9：表现层碰撞回写——激活时改写玩家逻辑位置。
+        [Test]
         public void CorrectPlayerPosition_WhenActive_OverridesPlayerPosition()
         {
             var pc = ScriptableObject.CreateInstance<PlayerConfig>();

@@ -51,7 +51,9 @@ namespace Game.Core.UI
         public async UniTask CoverAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            if (phase == Phase.Covered)
+
+            // 视图被外部销毁（伪空）时相位还停在 Covered，但屏上已经没有黑幕：照常走一遍，重开视图再盖。
+            if (phase == Phase.Covered && view != null)
             {
                 return;
             }
@@ -67,6 +69,14 @@ namespace Game.Core.UI
                 // 面板都没开出来：屏上什么也没有，IsCovered 不能卡在 true。
                 phase = Phase.Hidden;
                 throw;
+            }
+
+            // 首次打开面板要等异步实例化，这段时间里有人揭幕（相位已离开 Covering）就不再淡入：
+            // 面板刚开出来时 OnOpenAsync 已把它摆成隐藏态，这里直接收手，视图保持隐藏。
+            // 不收手的话会淡到全黑而 IsCovered 已是 false，之后的揭幕直接返回——永久黑屏。
+            if (phase != Phase.Covering)
+            {
+                return;
             }
 
             await target.CoverAsync(config.LoadingFadeSeconds, config.LoadingHintDelaySeconds, ct);

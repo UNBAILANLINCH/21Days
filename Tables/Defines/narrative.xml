@@ -9,6 +9,11 @@
         <var name="kind" type="string"/>
         <var name="payload" type="string"/>
         <var name="allowEncounter" type="bool"/>
+        <var name="issueRequest" type="bool"/>
+        <var name="requiredParts" type="list,string"/>
+        <!-- 战斗阶段的结果出口键，取值见 Runtime/Narrative/BattleOutcome.cs；
+             非战斗阶段必须留空，校验在 NarrativeCatalog.Validate。 -->
+        <var name="battleResults" type="list,string"/>
         <var name="anyOf" type="list,dialogue.ConditionGroup"/>
         <var name="exits" type="list,Exit"/>
         <var name="setFlags" type="list,string"/>

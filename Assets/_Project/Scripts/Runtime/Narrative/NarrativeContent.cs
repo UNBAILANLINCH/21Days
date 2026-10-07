@@ -15,6 +15,8 @@ namespace Game.Narrative
             public bool AllowEncounter { get; set; }
             public bool IssueRequest { get; set; }
             public string[] RequiredParts { get; set; } = Array.Empty<string>();
+            /// <summary>战斗阶段声明的结果出口键（BattleOutcome 代码）；非战斗阶段必须为空。</summary>
+            public string[] BattleResults { get; set; } = Array.Empty<string>();
             public NarrativeCondition[][] Conditions { get; set; } = Array.Empty<NarrativeCondition[]>();
             public Dictionary<string, string> Exits { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
             public string Outcome { get; set; } = "Success";
@@ -29,7 +31,8 @@ namespace Game.Narrative
             foreach (Stage stage in source ?? throw new ArgumentNullException(nameof(source)))
             {
                 if (stage == null || string.IsNullOrWhiteSpace(stage.Id) || stages.ContainsKey(stage.Id) ||
-                    !Enum.IsDefined(typeof(StageKind), stage.Kind) || stage.Exits == null || stage.RequiredParts == null || stage.SetFlags == null)
+                    !Enum.IsDefined(typeof(StageKind), stage.Kind) || stage.Exits == null || stage.RequiredParts == null ||
+                    stage.SetFlags == null || stage.BattleResults == null)
                     throw new ArgumentException("剧情节点非法或重复");
                 stages.Add(stage.Id, stage);
             }
@@ -47,11 +50,12 @@ namespace Game.Narrative
                     throw new ArgumentException("条件阶段必须有 True／False 出口");
                 if (stage.AllowEncounter && stage.Kind != StageKind.WaitAction)
                     throw new ArgumentException("只允许在操作等待时进入局部遭遇");
-                var parts = new HashSet<string>(StringComparer.Ordinal);
-                if (stage.RequiredParts.Length > 0 && !stage.Exits.ContainsKey("Success"))
-                    throw new ArgumentException("多部分行为缺少 Success 出口：" + stage.Id);
+                // 声明类规则（该不该声明战斗结果 / 外部请求要不要出口 / 多部分行为要不要 Success 出口）
+                // 统一在 NarrativeCatalog.Validate 里查：那里才有「阶段引用是否解析得出来」等跨表上下文，
+                // 也才能把「声明类」排在「结构类」之前，避免一条前置检查遮蔽掉信息量更大的声明错误。
+                // 构造函数只留对象自身的不变量（枚举合法、数组非空、标记非空、出口引用存在、条件可求值）。
                 foreach (string part in stage.RequiredParts)
-                    if (string.IsNullOrWhiteSpace(part) || !parts.Add(part)) throw new ArgumentException("行为部分 ID 非法");
+                    if (string.IsNullOrWhiteSpace(part)) throw new ArgumentException("行为部分 ID 不可为空：" + stage.Id);
                 NarrativeCondition.Matches(stage.Conditions, new EncounterContext("validate", "", true, false, false, true, false, false));
                 CheckAutomaticPath(stage.Id, new HashSet<string>(StringComparer.Ordinal));
             }

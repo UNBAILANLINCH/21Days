@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_longfu",
+    "display_name": "龙府",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "yao_fangshi",
+    "conn": "sp03 写籍中吏「在龙府门口」；与洞庭府、龙窟是不是同一处原文没定（10_两界与场景结构.md:208 Q4）",
+    "lore": "阶段九分福身「通往第九阶段龙府」（10_两界与场景结构.md:208 Q4）"
+}

@@ -63,7 +63,8 @@ python .claude/skills/evolution/gc_scan.py
 
 第 4、5 样是两类「悄悄不生效」故障的**执行载体**：钩子坏掉不报错（判据写反、
 提示不再注入、闸被绕开），跨文件不变量破了也不报错（引用断链、面板地址找不到、
-Editor 代码混进包体）。两者从外面都看不出来，没有载体的检查跟没有检查一样。
+Editor 代码混进包体、文档里的代码行号漂走）。两者从外面都看不出来，
+没有载体的检查跟没有检查一样。
 
 第 6 样单独降级，是因为必读清单常常先于文档写好（先定「编辑这个模块前必须读它的 guide」，
 文档随后补）。把「还没写」报成失败，只会逼人把清单删掉。
@@ -74,7 +75,7 @@ Editor 代码混进包体）。两者从外面都看不出来，没有载体的�
 python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规时静默 exit 0
 ```
 
-查九条**跨文件 / 跨资产**的约束——每一条都是 `project-lint` 的逐行正则天生够不着的：
+查十条**跨文件 / 跨资产**的约束——每一条都是 `project-lint` 的逐行正则天生够不着的：
 
 | 查什么 | 依据 |
 | --- | --- |
@@ -87,9 +88,15 @@ python .claude/skills/evolution/invariants.py    # 也可独立跑；无违规�
 | Dynamic TMP 字体资产没带着 Play 期字形（> 200 KB 即报） | `Art/Fonts/README.md` · `pitfalls.md` #Dynamic 字体资产污染 git |
 | 正式场景 / 预制体（`Assets/Scenes/`、`_Project/Scenes/`、`_Project/Prefabs/`）的 `m_Script` 不指向 `Scripts/Tests/` 下的脚本（测试程序集不进包，出包即 missing script） | `project-root.md` #asmdef 依赖方向 · `pitfalls.md` #正式场景引用了测试程序集脚本 |
 | `Assets/` 根下没有 PlayMode 测试中断残留的 `InitTestScene*.unity` | `.gitignore` #InitTestScene 注释 · `pitfalls.md` #InitTestScene 残留堆积 |
+| `ai-docs` 里 `Xxx.cs:行号` 的引用还指得到东西：行号越界 / 落在没有代码的行上 / 与文档自己写的 `Foo.Bar` 对不上（只认这三条可机械判定的，判不准的一律不报） | `generate-doc/SKILL.md` #篇幅约束（引用代码用 `path:line`）· #三种模式（`maturity: stable` = 跟得上代码） |
 
 分工尺子：**一行之内判得完的归 `rules.json`，必须把整个仓库摊开才能判的归 `invariants.py`**，
 两边不重复。误报出现两次就改判据或删掉那条，**不要加白名单**。
+
+第 10 条（文档代码引用）为什么在这儿：代码改一轮，文档里的行号就静静漂走，不报编译错、
+不报测试失败，读的人照行号跳过去读到的是别的代码。`generate-doc` 的 `detect.py` 只说
+「去 sync 一下」，而且**没注册进 `.claude/settings.json`**（`NO-CARRIER`）；`/gc` 是这条
+约束唯一在转的载体。改模块代码之后、提交之前顺手跑一次就够 —— 全扫一遍 1 秒出头。
 
 ### 第 6 样之外：派单模型审计（`agent_models.py`）
 

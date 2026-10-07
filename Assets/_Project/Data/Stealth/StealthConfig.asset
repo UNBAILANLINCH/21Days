@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 691c0e7b5b2d8d94185f55b038a12f80, type: 3}
+  m_Name: StealthConfig
+  m_EditorClassIdentifier: 
+  coverWritesFact: 1
+  coverImpliesHidden: 0
+  assassinateRearAngle: 120
+  assassinateMaxDistance: 1.2
+  assassinateRequiresSneak: 0
+  knockdownDownedSeconds: 1.5
+  knockdownCrawlSeconds: 3
+  knockdownCrawlSpeedMultiplier: 0.35
+  knockdownResetOnHitWhileDowned: 1
+  knockdownHitThrottleSeconds: 0.5
+  downedHitPolicy: 3
+  playerMaxHealth: 3
+  knockdownCountLowMax: 1
+  knockdownCountMidMax: 3
+  chaseSpeed: 3.6
+  playerWalkSpeed: 3
+  playerRunSpeed: 5
+  chaseTriggerRadius: 0
+  chaseLoseSightGraceSeconds: 2
+  chaseEscapeDistance: 8
+  chaseTrackMemorySeconds: 6
+  chaseEscapeRequiresLineOfSightLost: 1
+  chaseCaughtPolicy: 5
+  chaseCaughtFailCount: 2
+  summonRadius: 8
+  summonGroupMin: 3
+  summonGroupMax: 4
+  fixedChaseLoops: 1

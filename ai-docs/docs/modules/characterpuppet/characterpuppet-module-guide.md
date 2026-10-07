@@ -36,7 +36,7 @@ maturity: stable
 
 - `ChibiPuppet` 与 `ChibiPuppetMotion` 分开：表现门面不该依赖驱动来源。将来改成输入 / AI 直接驱动，只换 `ChibiPuppetMotion`。
 - 剪辑地速放 `ChibiPuppet` 而不放 config：它描述的是「这套帧是按多快画的」，随角色美术走，每个预制体不同；config 是全体共用的手感阈值。
-- 规则抽成纯 C#：`EncounterProjection.ResolveFlipX`（`Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs:14`）只管纸片翻转阈值，没有滞回与播放速率；塞进 Monster 会让两边职责混杂。
+- 规则抽成纯 C#：`EncounterProjection.ResolveFlipX`（`Assets/_Project/Scripts/Runtime/Monster/EncounterProjection.cs:17`）只管纸片翻转阈值，没有滞回与播放速率；塞进 Monster 会让两边职责混杂。
 
 ## 依赖方向
 
@@ -155,10 +155,10 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 
 ## 与 EncounterSceneView 的关系
 
-`EncounterSceneView`（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:9`）**没改**，小人是在它之外叠上去的：
+`EncounterSceneView`（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs`）**没改**，小人是在它之外叠上去的：
 
 - SampleScene 里 `player/Visual`、`enerme/Visual` 的纸片 `SpriteRenderer` 设为 `enabled = false`，sprite 已置空
-  （`EnsureSprite`（`EncounterSceneView.cs:162`）运行时补 1×1 占位图，组件停用看不见），仍是 `ApplyFlip` 写 `flipX`（`EncounterSceneView.cs:310`）的载体。
+  （`EnsureSprite`（`EncounterSceneView.cs`）运行时补 1×1 占位图，组件停用看不见），仍是 `ApplyFlip` 写 `flipX`（同文件）的载体。
 - 小人实例挂在 `Visual` 下（localPosition `(0, 0, -0.01)`，略靠前避免与隐藏纸片同面），随 `CameraBillboard` 朝向相机。
 - `ChibiPuppetMotion.facingSource` 指向该隐藏纸片；`trackedRoot` 留空，自动解析到 `player` / `enerme` 根。
 - 执行次序 100 排在 `EncounterSceneView`（默认 0）之后，读到的是本帧已投影的位置与已翻好的 `flipX`。

@@ -392,6 +392,7 @@ namespace Game.Tests.Showcase.Mirror
                            && mirror.IsIdentified(patrolYaoId) && QuestSignature() == questBefore;
                 },
                 5f);
+            yield return WaitCurtainRevealed();
             yield return Snapshot("重开后·回到出生点");
         }
 

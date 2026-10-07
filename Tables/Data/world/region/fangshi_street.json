@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_street",
+    "display_name": "街面·角色可移动范围",
+    "floor": "street",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "jingyang_street",
+    "scene_key": "yao_fangshi",
+    "conn": "一条横贯画面的街面，上接一排店铺（戏班、衣肆、金银行、客栈、酒肆），最右是乡集祠堂；下接放遮挡物的前景带；中段有楼梯上 2.5 层（10_两界与场景结构.md:136 R8、:134 R6）",
+    "lore": "阶段一「入镜」的坊市街面，五家店就是阶段一的五个场景（10_两界与场景结构.md:145 R17）"
+}

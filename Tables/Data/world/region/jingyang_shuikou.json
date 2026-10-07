@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_shuikou",
+    "display_name": "水口",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "human_jingyang",
+    "conn": "阶段3 泾阳的区域顺序是「水口→里巷→决堤→废弃官署→抄房」，这段线路不在俯视图上（10_两界与场景结构.md:146 R18、:64）",
+    "lore": "阶段3 潜行场景的入口段（10_两界与场景结构.md:64）"
+}

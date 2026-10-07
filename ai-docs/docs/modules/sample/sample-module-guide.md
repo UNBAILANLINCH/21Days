@@ -99,7 +99,7 @@ SampleState.ExitAsync（基类 sealed）
 
 ## 埋点
 
-`SampleState.OnSceneReadyAsync`（`SampleState.cs:83`）里三处，模块名 `sample`（`SampleState.cs:34`
+`SampleState.OnSceneReadyAsync`（`SampleState.cs:84`）里三处，模块名 `sample`（`SampleState.cs:34`
 的 `TelemetryModule` 常量）。分类按 [`docs/telemetry.md`](../../../../docs/telemetry.md) 第 2.2 节的
 四类尺子：
 

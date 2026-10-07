@@ -35,6 +35,7 @@ maturity: seed
 | `SpiritSightRules` | **纯 C#**：环境条件是否生效、是否可见、是否落在区域内（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightRules.cs:12-34`） | `SpiritSightPresenter` / `MirrorSceneBinder` 调 |
 | `MirrorSaveData` | 存档分区：`Identified` / `GlimpsedBlurry` / `StoryCracks` / `SelfLooks`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSaveData.cs:10-30`） | `ISaveService.Get<MirrorSaveData>()` 产出 |
 | `MirrorService` | **对外门面**：照镜 / 自照 / 剧情裂痕，写分区、发事件、埋点（`Assets/_Project/Scripts/Runtime/Mirror/MirrorService.cs:34-226`） | 根作用域单例 + `IGameService` |
+| `YaoCatalog` | **只读查询**（2026-10-07 加）：妖物表按 `yaoId` 取整行，按列反查 `clan` / `sealable` / `mask` / `tier` / `killable` / `defeat_method` / `drop_items`；**不做玩法判定**，表没就绪一律按「查不到」返回（`Assets/_Project/Scripts/Runtime/Mirror/YaoCatalog.cs`） | 根作用域单例（`AsSelf`），`MirrorInstaller` 注册；收押 / 画皮 / 账簿 / 调查面板与怪物分层按类型注入 |
 | `MirrorSceneBinder` | 入口点：登记场景标记与区域、投影坐标、给候选（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSceneBinder.cs:24-191`） | 根作用域入口点（`AsSelf`） |
 | `MirrorInputPresenter` | 入口点：读照镜 / 自照按键，让位判断，组结果，开 / 关结果画面并管理图片所有权（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:28`） | 根作用域入口点（`AsSelf`） |
 | `MirrorCrackPresenter` | 入口点：驱动镜图标 / 视野遮罩，镜碎时结束遭遇并重开本场（`Assets/_Project/Scripts/Runtime/Mirror/MirrorCrackPresenter.cs:36-267`） | 根作用域入口点（`AsSelf`） |
@@ -52,6 +53,28 @@ maturity: seed
 `GameSession` 组保存委托）、`→ Game.Dialogue`（`DialogueService.IsRunning` 判让位）、`→ Game.Core`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInstaller.cs:5-6`：
 「Mirror → Session 与 Mirror → Loot / Monster / Player / Dialogue 同为 `Game.Runtime` 程序集内的单向引用；Session 引用 Monster / Loot / Quest /
 Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止：目前没有模块引用 `Game.Mirror`；后续收押模块只应读 Mirror 的对外接口。
+
+## `killable` 与 `defeat_method` 两列的分工（2026-10-07 加 defeat_method）
+
+聚光灯怪物分层总表的表头是「**可否击杀 / 怎么杀**」（`docs/design/features-spotlight/06_怪物分层.md:130`），
+原来的 `killable` 一个 bool 只答得了前半句。真源自己就写了反例：R9（`06_怪物分层.md:121`）把「不可击杀」（籍中吏，`:185`）、
+「常态不可击杀」（查勘使，`:161`）、「无法被常规击杀」（户绝民，`:155`）、「持有篮子时不可击杀」（拾骨人，`:159`）都算成「不能常规杀」，
+可 `03_潜行与暗杀.md:43` 又写明查勘使「**可通过地形隐匿等方式击杀，难度较高**」——「常态不可击杀」不等于「不可杀」，
+一个 bool 表达不了。所以 `tier` / `killable` / `drop_items` 之外补了 `defeat_method` 一列，两列分工写死在 `Tables/Defines/yao.xml` 的列注释里：
+
+- **`killable`**：答「能不能按常规一路杀掉」。R9 的四种说法都填 `false`。
+- **`defeat_method`**：答「为什么不能常规杀、以及有没有替代途径」。取值只从真源归纳，五个：
+  `可击杀（方式没写）`（表 3.2–3.5 里写「可击杀（方式没写）」的那些，`06:132` / `:154` / `:156` / `:169` / `:180` / `:183` / `:184`）／
+  `暗杀`（`03:36` 市令、`03:39` 殁吏、`03:46` 执事）／`特殊条件`（`03:43` 查勘使地形隐匿、`06:159` 拾骨人「此后」、`03:47` 蜃师地图解谜、
+  `06:173` 食教者第二阶段、`06:160` 老吏、`06:187` 钱塘君）／`需收服`（`03:38` 户绝民湿皮收服）／`不可杀`（`06:185` 籍中吏）。
+- 两条一起读才分得清例外：查勘使是 `killable=false` + `特殊条件`，籍中吏是 `killable=false` + `不可杀`。
+- `YaoCatalog.ValidateDefeatMethod` 照 `ValidateTier` 的样子校验白名单，取值不在名单里报 `ArgumentException`（消息带 id、原值与 `yao.xml`）。
+  文档里的排版记号不能照抄进数据——`06:126` 的「A·下 / B·下」是层级列的排版记号，`06:159` 那种原文整句也不是取值。
+
+**列白名单校验只做一次**（B13，2026-10-07 收口）：tier 与 defeat_method 在**首次读表那一次**对全表跑一遍
+（`YaoCatalog.EnsureTableRead`），之后每次查询直接读缓存，不再回头重扫全表——本表是只读的生成物，运行期没有旁路改写，
+重复校验换不来新信息，只会让每个查询方都背上一次全表扫描。`Invalidate()` 语义不变（测试换过表数据后调它重读），
+它同时清缓存与「已校验」标记，下一次访问重新校验。回归用例：`Catalog_SecondReadAfterValidation_DoesNotRevalidate`。
 
 ## 裂痕 = maxHealth − Health 的取舍
 
@@ -124,7 +147,7 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 | 照镜对象 | 场景物体挂 `MirrorSubject`：`Human`/`Object` 填 `displayName` + `portrait`；`Yao` 填 `yaoId`（对应 `Tables/Defines/yao.xml` 主键）；巡逻怪上勾 `followsMonster` | `yaoId` 未填的 `Yao` 标记：`MirrorSceneBinder` 记 Warn，照镜只得到模糊轮廓（`Assets/_Project/Scripts/Runtime/Mirror/MirrorSceneBinder.cs:168-171`）。已接线（`Assets/Scenes/SampleScene.unity`）：`enerme`（Yao,1,followsMonster，`:6422-6430`）、新建 `Yao_WellWoman`（Yao,2，`:3313-3321`；由 `Npc_Villager` 克隆，位置 (8, 4.8884, 8.8)，无 `ExplorationPointOfInterest`）、三村民（Human：「村民」`:6952-6960`、「旅人」`:8829-8837`、「老者」`:10148-10156`）、`Crate_A`（Object「物资箱」，`:8136-8144`） |
 | 通灵视区域 | 场景物体挂 `SpiritSightZone` + `BoxCollider`（`isTrigger`），勾 `rain`/`night`/`dim` 任一 | 没有 `BoxCollider`：`TryGetWorldCorners` 返回 false，该区域永远不生效（`Assets/_Project/Scripts/Runtime/Mirror/SpiritSightZone.cs:42-48`）。已接线：`SpiritSightZone_Well`（`Assets/Scenes/SampleScene.unity:4863` 命名，`:4881-4884` `area`/`rain=0`/`night=0`/`dim=1`），罩住新建的 `Yao_WellWoman` 周围 |
 | 妖物表 | `Tables/Defines/yao.xml` → `Assets/_Project/Data/Config/yao_tbyao.bytes`（已生成落地）；字段 `id`/`disguise_name`/`true_name`/`true_desc`/`true_image`/`flaw`/`obsession`/`clan`/`clue_items`/`sealable`/`mask`（`Assets/_Project/Scripts/Core/Config/Generated/yao/Yao.cs:43-83`） | 查不到该 id：`MirrorService.FindYao` 记 Warn，按线索不齐处理，只给模糊轮廓（`Assets/_Project/Scripts/Runtime/Mirror/MirrorService.cs:196-209`） |
-| 输入动作 | Gameplay 图已有 `Mirror`（键盘 R / 手柄左扳机，`Assets/_Project/Data/Input/GameInput.inputactions:126`）与 `MirrorSelf`（键盘 V / 手柄右扳机，`Assets/_Project/Data/Input/GameInput.inputactions:135`），已生成到 `Assets/_Project/Scripts/Core/Input/GameInput.cs:1355-1356`（`FindAction`）与 `Assets/_Project/Scripts/Core/Input/GameInput.cs:1480-1481`（包装属性） | 已接线（当前工程状态） |
+| 输入动作 | Gameplay 图已有 `Mirror`（键盘 R / 手柄左扳机，`Assets/_Project/Data/Input/GameInput.inputactions:126`）与 `MirrorSelf`（键盘 V / 手柄右扳机，`Assets/_Project/Data/Input/GameInput.inputactions:135`），已生成到 `Assets/_Project/Scripts/Core/Input/GameInput.cs`（**生成物，行号随动作增减整体漂移，故不写行号**：搜 `m_Gameplay_Mirror` 的 `FindAction` 与 `@Mirror` 包装属性） | 已接线（当前工程状态） |
 | 预制体与配置资产 | 四个 UI 预制体放 `Prefabs/UI/Mirror/`，`Data/Mirror/MirrorConfig.asset`，Addressables 地址 = 类名（见上节） | 缺预制体：`IUIService.OpenAsync<T>()` 找不到地址会抛异常，对应面板打不开。已落地：`Assets/_Project/Prefabs/UI/Mirror/{MirrorResultView,MirrorHudView,MirrorVisionView,MirrorShatterView}.prefab`、`Assets/_Project/Data/Mirror/MirrorConfig.asset` |
 
 ## 验证入口
@@ -135,8 +158,13 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 历史批次结论 **PASS**（检查点失败 0 个、运行时异常 0 条），见 `Logs/verify/mirror/20260928-084017/report.md:6`；该记录不覆盖下述后续呈现器修复。
 EditMode 覆盖：`MirrorRulesTests`（28 用例）、`MirrorCrackRulesTests`（9）、`MirrorCrackTrackerTests`（9）、`SpiritSightRulesTests`（8）、
 `MirrorServiceTests`（12）、`MirrorSceneBinderTests`（5）、`MirrorResultInfoTests`（7）、`MirrorInputPresenterTests`（纯判定及异步生命周期）、
-`MirrorCrackPresenterTests`（5 组 TestCase）、`MirrorHudViewTests`、`MirrorVisionViewTests`、`YaoTableTests`（6），均在
+`MirrorCrackPresenterTests`（5 组 TestCase）、`MirrorHudViewTests`、`MirrorVisionViewTests`、`YaoTableTests`（24，2026-10-07 加 `defeat_method` 那一列后从 16 涨到 24），均在
 `Assets/_Project/Scripts/Tests/EditMode/Mirror/`。跑 `/unity-test EditMode Mirror`；端到端视觉验收跑 `/verify-module Mirror`（编辑器须打开）。
+
+2026-10-07 `defeat_method` 那轮的实际执行结果：`run_tests(mode="EditMode", group_names="Game.Tests.EditMode.Mirror")`，
+job `3a8706b30b6c4734830c06715e1efba0` 为 `succeeded`，`total 158 / passed 158 / failed 0 / skipped 0`（2.3130155 秒），
+控制台 `error CS` 0 条。注意 `include_details` 的结果文本会被 MCP 截断（约 2 万字符），
+要点名核对某个测试类得在客户端侧过滤，别指望一次读完。
 
 2026-09-29 两项呈现器修复已完成首轮验证：Mirror EditMode 执行 140 项，job `bbf2d4b2a9c6422fa5879e4731f4b25c` 为 `succeeded`；
 Mirror Showcase 6 项 PASS（`Logs/verify/mirror/20260929-055540/report.md`），所属整批 PlayMode job `2f8128b2e6014eeea505c23ec8b739ee` 执行 23 项并成功。
@@ -144,7 +172,7 @@ Mirror Showcase 6 项 PASS（`Logs/verify/mirror/20260929-055540/report.md`）�
 收尾新增关闭失败埋点后，包含 Mirror 的 EditMode 回归 job `0f9f708b6a1e43f1b0786e709e146de6` 为 **461/461 通过、0 失败、0 跳过**（11.6726942 秒）；
 主审窗口直接读取到准确 `result.summary` 并复查控制台错误 0 条。提交范围及最终验证见 [`PRP/mirror-core/tasks.md`](../../../../PRP/mirror-core/tasks.md) 的呈现器修复审查。
 `MirrorInputPresenterTests` 新增加载取消 / 晚返回、打开失败、销毁期间关闭、重复开关、淡入中已关闭和关闭失败用例
-（`Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs:91`）；新增 `SpiritSightPresenterTests` 验证切镜 / 标签变更、
+（`Assets/_Project/Scripts/Tests/EditMode/Mirror/MirrorInputPresenterTests.cs:93`）；新增 `SpiritSightPresenterTests` 验证切镜 / 标签变更、
 禁用 / 销毁 / 非 Game 相机过滤及退订（`Assets/_Project/Scripts/Tests/EditMode/Mirror/SpiritSightPresenterTests.cs:50`）。
 统一验证过滤器为 `Game.Tests.EditMode.Mirror`，另跑 Mirror Showcase 核验实际渲染朝向和结果画面；测试源码存在不代表执行通过。
 

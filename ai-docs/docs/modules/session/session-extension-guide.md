@@ -12,7 +12,7 @@ maturity: seed
 ## 加一个新的自动保存触发点
 
 1. 找到那个「关键节点」对应的事件（MessagePipe 事件或 C# `event`）。
-2. 在 `SaveTriggerBridge.Start()`（`SaveTriggerBridge.cs:63`）订阅它，`AddTo(bag)`（MessagePipe）或成对
+2. 在 `SaveTriggerBridge.Start()`（`SaveTriggerBridge.cs:67`）订阅它，`AddTo(bag)`（MessagePipe）或成对
    `+=` / `-=`（C# event，参照它订阅 `DialogueService.OnEnded` 的写法）。
 3. 回调里只调 `session.RequestSave("原因字符串")`——**不要**直接调 `SaveNowAsync`：普通触发点要走闸门合并，
    避免同一帧内多次触发各自落盘一次。只有「离开玩法状态」「退出游戏」这两个例外场景（现场即将消失，等不了

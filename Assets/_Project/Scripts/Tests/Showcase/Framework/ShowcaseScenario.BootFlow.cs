@@ -125,6 +125,27 @@ namespace Game.Tests.Showcase
             LeaveToTitleAsync(flow, Module, done).Forget();
         }
 
+        /// <summary>
+        /// 等加载黑幕完全揭开（<see cref="ILoadingCurtain.IsCovered"/> 变回 false）。只在「场景重载之后要截图」的步骤前调：
+        /// 重载完成的条件（新场景对象出现、遭遇重新开始）往往早于揭幕结束，不等的话截到的是半透明黑幕下的画面。
+        /// 超时或解析不到黑幕按检查点失败记录（同 <see cref="WaitUntil"/>，不中断），报告里写明原因。
+        /// </summary>
+        /// <param name="timeout">最多等多久（秒，不乘节奏倍率）。揭幕本身只有 UIConfig.LoadingFadeSeconds（默认 0.25 秒）。</param>
+        protected IEnumerator WaitCurtainRevealed(float timeout = 5f)
+        {
+            ILoadingCurtain curtain = ResolveService<ILoadingCurtain>();
+            if (curtain == null)
+            {
+                yield return Check("能从根容器解析出 ILoadingCurtain（解析不到就无法确认加载黑幕已揭开，截图可能发暗）", () => false);
+                yield break;
+            }
+
+            yield return WaitUntil(
+                "加载黑幕完全揭开（ILoadingCurtain.IsCovered 变回 false；超时说明黑幕卡在屏上或揭幕没做完，截图会发暗）",
+                () => !curtain.IsCovered,
+                timeout);
+        }
+
         /// <summary>在 <paramref name="root"/> 下按物体名递归找组件（含未激活）；找不到返回 null。</summary>
         protected static T FindDeep<T>(Transform root, string objectName) where T : Component
         {

@@ -1,0 +1,14 @@
+{
+    "scene_key": "yao_fangshi",
+    "display_name": "镜中妖界长安·坊市",
+    "world": "Yao",
+    "world_id": "mirror_changan",
+    "implemented": true,
+    "scene_address": "yao_fangshi",
+    "region_ids": ["fangshi_street", "fangshi_platform", "fangshi_lunhuitang", "fangshi_dongtingfu"],
+    "spawn_points": ["fangshi_street", "fangshi_platform", "fangshi_lunhuitang"],
+    "default_spawn_id": "fangshi_street",
+    "portal_ids": ["portal_mirror_fangshi_to_jingyang"],
+    "region_names": ["街面·角色可移动范围", "坊市·过渡平台", "轮回堂", "洞庭府"],
+    "note": "与 human_jingyang 同构（10_两界与场景结构.md:132 R4）：两张俯视图逐格对齐，区域成对互指。implemented=true 的语义是「场景资产已存在且可加载」（Assets/_Project/Scenes/YaoFangshi.unity，Addressables Scenes 组地址 yao_fangshi），**不代表内容是正式的**：当前是灰盒（地形只有能走通的方块、没有美术），正式美术要等美术输入（PRP/world-scenes §2.4）。"
+}

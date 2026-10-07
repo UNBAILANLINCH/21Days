@@ -11,6 +11,7 @@ maturity: seed
 | --- | --- |
 | `TamingRules(PlayerRules, MonsterRules, ITelemetryScope)` | 两个规则先 Reset；每场景创建一个实例 |
 | `Step(in TamingIntent, float)` | 非负步长；同 tick 不再由其他调度器推进这两个角色 |
+| `AdvanceTargets(Vector2, float, bool isIdentityInEffect = false)` | 每个巡逻者只推进一次，向所有未驯服目标传递身份禁攻；返回首位巡逻者本 tick 是否出手 |
 | `IsTamed` | 首位巡逻者是否驯服；`Reset` 或新游戏清除 |
 | `IsControllingEnemy` | 当前移动输入应交给敌人，镜头跟随该对象 |
 | `TamingSceneController.Simulate` | 自动化验证驱动与正常输入复用的入口 |

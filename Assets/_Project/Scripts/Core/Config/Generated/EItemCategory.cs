@@ -32,6 +32,22 @@ namespace cfg
         /// 关键物：推进剧情 / 解谜用
         /// </summary>
         Key = 4,
+        /// <summary>
+        /// 皮：身份的载体之一，也可作合成原料
+        /// </summary>
+        Skin = 5,
+        /// <summary>
+        /// 面具：身份的载体之一
+        /// </summary>
+        Mask = 6,
+        /// <summary>
+        /// 钥匙：一次性或持有时用来开某扇门 / 过某个关口
+        /// </summary>
+        Pass = 7,
+        /// <summary>
+        /// 文书：可翻页阅读的簿册
+        /// </summary>
+        Document = 8,
     }
 
 } 

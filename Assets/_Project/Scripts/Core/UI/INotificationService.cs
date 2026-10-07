@@ -21,5 +21,15 @@ namespace Game.Core.UI
         /// 待显示队列里已有同标题的一条时合并成一条（用新正文与时长），不重复刷屏。
         /// </summary>
         void Show(string title, string body = null, float seconds = 0f);
+
+        /// <summary>
+        /// 右下角小字，<b>不进队列</b>：立即显示，与卡片通知互不影响——自动保存这类「高频、不重要、
+        /// 排进队列会把玩法通知推后」的提示走这里。
+        /// <para>
+        /// <paramref name="text"/> 为空串时忽略；<paramref name="seconds"/> ≤ 0 时取 <see cref="UIConfig.CornerHintSeconds"/>。
+        /// 停留期间再调一次以最后一次为准（换字并重新计时），不会叠成两条。
+        /// </para>
+        /// </summary>
+        void ShowCornerHint(string text, float seconds = 0f);
     }
 }

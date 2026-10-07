@@ -1,0 +1,10 @@
+{
+    "region_id": "fangshi_yaohang",
+    "display_name": "药行",
+    "floor": "",
+    "scene_scope": "StageExtension",
+    "mirror_region_id": "",
+    "scene_key": "yao_fangshi",
+    "conn": "阶段1 坊市多出来的区域，俯视图与模型表都没有（10_两界与场景结构.md:146 R18、:207 Q3）",
+    "lore": "可以获取暗杀使用的药和特殊效果道具（10_两界与场景结构.md:146 R18）"
+}

@@ -20,6 +20,9 @@ public sealed partial class Stage : Luban.BeanBase
         Kind = _buf.ReadString();
         Payload = _buf.ReadString();
         AllowEncounter = _buf.ReadBool();
+        IssueRequest = _buf.ReadBool();
+        {int n0 = _buf.ReadSize(); RequiredParts = new System.Collections.Generic.List<string>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { string _e0;  _e0 = _buf.ReadString(); RequiredParts.Add(_e0);}}
+        {int n0 = _buf.ReadSize(); BattleResults = new System.Collections.Generic.List<string>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { string _e0;  _e0 = _buf.ReadString(); BattleResults.Add(_e0);}}
         {int n0 = _buf.ReadSize(); AnyOf = new System.Collections.Generic.List<dialogue.ConditionGroup>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { dialogue.ConditionGroup _e0;  _e0 = global::cfg.dialogue.ConditionGroup.DeserializeConditionGroup(_buf); AnyOf.Add(_e0);}}
         {int n0 = _buf.ReadSize(); Exits = new System.Collections.Generic.List<narrative.Exit>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { narrative.Exit _e0;  _e0 = global::cfg.narrative.Exit.DeserializeExit(_buf); Exits.Add(_e0);}}
         {int n0 = _buf.ReadSize(); SetFlags = new System.Collections.Generic.List<string>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { string _e0;  _e0 = _buf.ReadString(); SetFlags.Add(_e0);}}
@@ -35,6 +38,9 @@ public sealed partial class Stage : Luban.BeanBase
     public readonly string Kind;
     public readonly string Payload;
     public readonly bool AllowEncounter;
+    public readonly bool IssueRequest;
+    public readonly System.Collections.Generic.List<string> RequiredParts;
+    public readonly System.Collections.Generic.List<string> BattleResults;
     public readonly System.Collections.Generic.List<dialogue.ConditionGroup> AnyOf;
     public readonly System.Collections.Generic.List<narrative.Exit> Exits;
     public readonly System.Collections.Generic.List<string> SetFlags;
@@ -56,6 +62,9 @@ public sealed partial class Stage : Luban.BeanBase
         + "kind:" + Kind + ","
         + "payload:" + Payload + ","
         + "allowEncounter:" + AllowEncounter + ","
+        + "issueRequest:" + IssueRequest + ","
+        + "requiredParts:" + Luban.StringUtil.CollectionToString(RequiredParts) + ","
+        + "battleResults:" + Luban.StringUtil.CollectionToString(BattleResults) + ","
         + "anyOf:" + Luban.StringUtil.CollectionToString(AnyOf) + ","
         + "exits:" + Luban.StringUtil.CollectionToString(Exits) + ","
         + "setFlags:" + Luban.StringUtil.CollectionToString(SetFlags) + ","

@@ -1,0 +1,41 @@
+<!-- 怪物种类数值表（docs/roadmap.md 第 5 节 W5 步 1；真源 docs/design/features-spotlight/06_怪物分层.md）。
+     为什么进表而不是进 SO 资产：数值是按「种类」配的，同一种怪在全工程的每个场景里数值必须一致；
+       SO 按资产走、没有主键、跨场景无法保证同一种怪只配一份，策划也改不了（要开 Unity 拖 Inspector）。
+       表有主键 yao_id，同一种怪一行，策划在 Excel / JSON 里改。
+     与 tbyao 的分工（**不要在这张表里重复 tbyao 已有的列**）：
+       tbyao 是妖物表、也是怪物种类表，管的是「这只怪是什么」——名字、真形、层级 tier、能否常规击杀 killable、
+       怎么杀 defeat_method、掉落 drop_items。本表只管「这只怪的数值」。
+       所以本表**没有 tier / killable / defeat_method / drop_items 列**，那些一律查 tbyao
+       （经 Game.Mirror.YaoCatalog），避免同一件事两处写、两处能写歪。
+     数据：Tables/Data/monster_species/<id>.json（一个种类一个文件）；JSON 字段不能缺省，空列表写 []。
+     列归属与判断依据（哪些字段「按种类」、哪些留全局默认，依据逐条引 06_怪物分层.md）：
+       按种类（本表）  health / attack_damage / attack_range / attack_cooldown / vision_angle /
+                       alert_radius / near_sense_radius / alert_fill_seconds / hostile_lose_seconds
+                       → 依据：06_怪物分层.md:121 R9（同层怪的「可否击杀 / 怎么杀」各不相同）、
+                         :117 R5（C 层分 BOSS 与关键 NPC / 执法者两类，强度不同）、
+                         :185 籍中吏「不可击杀」、:159 拾骨人「持有篮子时不可击杀」、
+                         :161 查勘使「常态不可击杀……难度较高」、:186 泾龙鬼「战斗难度极高」、
+                         :184 半龙侍「较强」——难度分层要落在血量 / 伤害 / 感知上，不是全怪一套。
+                         另 :113 R1 的 A/B/C 三层本身就是「按层配数值」的口径。
+       全局（MonsterConfig） 巡逻与转态计时、速度倍率、敌对半径、停步与巡逻间隔
+                       → 依据：06_怪物分层.md:119 R7「『驻地』『驻守』『守卫』『守门』是不是同一类行为，
+                         原文没区分」——原文没给这些行为分级，工程先按一套巡逻 / 警戒节奏跑，
+                         等策划拍了再逐层拆。拆的时候在本表加列，不要改 MonsterConfig 的语义。
+     列白名单与其他校验写在 Game.Monster.MonsterSpeciesCatalog 的类文档里。 -->
+<module name="monster_species">
+    <bean name="MonsterSpecies" comment="一种怪的数值；「这只怪是什么」在 tbyao，本行只回答「数值多少」">
+        <var name="id" type="int" comment="主键；场景里一只怪的种族标记引用它"/>
+        <var name="yao_id" type="int" comment="对应 Tables/Data/yao/&lt;id&gt;.json 的妖物 id（普通 int，不写 ref：两表互相引用会形成循环解析，而且引用是否成立由 Game.Monster 的测试查，报错更清楚）。这张表不重复 tbyao 的 tier / killable / defeat_method / drop_items，要那些列一律经 Game.Mirror.YaoCatalog 查 yao_id"/>
+        <var name="name" type="string" comment="种类名（数据校验与报错用，不参与玩法判定）；应与 tbyao 的 disguise_name 一致"/>
+        <var name="health" type="int" comment="初始与最大生命；受 06_怪物分层.md:117 R5 的 BOSS / 关键 NPC 与 :186「战斗难度极高」分层"/>
+        <var name="attack_damage" type="int" comment="每次命中对玩家造成的伤害"/>
+        <var name="attack_range" type="float" comment="攻击距离（米）；敌对且目标在此距离内才出手"/>
+        <var name="attack_cooldown" type="float" comment="两次攻击之间的冷却（秒）；0 表示每次 tick 都能打"/>
+        <var name="vision_angle" type="float" comment="前方扇区总角度（度），须在 0 与 360 之间；见 06_怪物分层.md:118 R6 的行为分类（驻地 / 巡逻 / 守门 / 追逐的视野需求不同）"/>
+        <var name="alert_radius" type="float" comment="橙区半径（米）：进扇区且未伪装则开始累积警戒；必须大于全局敌对半径，见 Game.Monster.MonsterRules 的校验"/>
+        <var name="near_sense_radius" type="float" comment="背后近距察觉半径（米）：谁在背后这么近都能察觉，潜行可挡"/>
+        <var name="alert_fill_seconds" type="float" comment="橙区连续暴露多少秒把警戒升满；越警觉的怪越短"/>
+        <var name="hostile_lose_seconds" type="float" comment="敌对后丢失目标多少秒转回满值警戒；越执着的怪越长（06_怪物分层.md:118 R6「追逐」一类）"/>
+    </bean>
+    <table name="TbMonsterSpecies" value="MonsterSpecies" index="id" input="monster_species" group="c" comment="怪物种类数值表"/>
+</module>

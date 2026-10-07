@@ -13,7 +13,7 @@ using Luban;
 namespace cfg.yao
 {
 /// <summary>
-/// 一只妖
+/// 一只妖，也是这只妖在怪物分层里的种类
 /// </summary>
 public sealed partial class Yao : Luban.BeanBase
 {
@@ -30,6 +30,10 @@ public sealed partial class Yao : Luban.BeanBase
         {int n0 = _buf.ReadSize(); ClueItems = new System.Collections.Generic.List<int>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { int _e0;  _e0 = _buf.ReadInt(); ClueItems.Add(_e0);}}
         Sealable = _buf.ReadBool();
         Mask = _buf.ReadBool();
+        Tier = _buf.ReadString();
+        Killable = _buf.ReadBool();
+        DefeatMethod = _buf.ReadString();
+        {int n0 = _buf.ReadSize(); DropItems = new System.Collections.Generic.List<int>(n0);for(var i0 = 0 ; i0 < n0 ; i0++) { int _e0;  _e0 = _buf.ReadInt(); DropItems.Add(_e0);}}
     }
 
     public static Yao DeserializeYao(ByteBuf _buf)
@@ -58,15 +62,15 @@ public sealed partial class Yao : Luban.BeanBase
     /// </summary>
     public readonly string TrueImage;
     /// <summary>
-    /// 破绽描述（本波只进表）
+    /// 破绽描述（旧版 13 遗留列，聚光灯不做、当前无读者；JSON 里必须写）
     /// </summary>
     public readonly string Flaw;
     /// <summary>
-    /// 执念（本波只进表）
+    /// 执念（旧版 13 遗留列，聚光灯不做、当前无读者；JSON 里必须写）
     /// </summary>
     public readonly string Obsession;
     /// <summary>
-    /// 族属（账用，本波只进表）
+    /// 族属（旧版 07 两界之账遗留列，聚光灯无对应、当前无读者；JSON 里必须写）
     /// </summary>
     public readonly string Clan;
     /// <summary>
@@ -74,13 +78,29 @@ public sealed partial class Yao : Luban.BeanBase
     /// </summary>
     public readonly System.Collections.Generic.List<int> ClueItems;
     /// <summary>
-    /// 能否收押（后续波次读）
+    /// 能否收押（旧版 04 收押遗留列，聚光灯无对应、当前无读者，保留备查）
     /// </summary>
     public readonly bool Sealable;
     /// <summary>
-    /// 能否制面具（后续波次读）
+    /// 能否制面具（聚光灯的皮 / 面具见 05_皮面具与道具.md，本列暂无读者，保留备查）
     /// </summary>
     public readonly bool Mask;
+    /// <summary>
+    /// 怪物层级：A 底层 / B 特定 / C 关键（06_怪物分层.md:113）；JSON 里必须写，只认 A、B、C 三个值。该文 :126 的「A&#183;下 / B&#183;下」是「原文写在上一层条目下一级」的排版记号，不是第四个层级，本表不建模，别往这里填
+    /// </summary>
+    public readonly string Tier;
+    /// <summary>
+    /// 能否常规击杀（06_怪物分层.md:121 R9）：只能暗杀、常态不可击杀、无法被常规击杀、持有篮子时不可击杀都填 false。注意本列只回答「能不能按常规一路杀掉」，回答不了「那要怎么弄死 / 有没有替代途径」，后一半归 defeat_method
+    /// </summary>
+    public readonly bool Killable;
+    /// <summary>
+    /// 怎么杀 / 有没有替代途径（06_怪物分层.md:130 表 3.2–3.5 的「可否击杀 / 怎么杀」列，白名单见 Game.Mirror.YaoCatalog.ValidateDefeatMethod）。**与 killable 的分工**：killable 答「能不能常规击杀」，本列答「为什么不能常规杀、以及有没有替代途径」，所以 killable=false 时本列仍必须逐一给出落点——不可杀（籍中吏，:185 原文「不可击杀」，没有替代途径）、需收服（户绝民，:155 / 03_潜行与暗杀.md:38「无法被常规击杀；可以被对应溺者刻度的湿皮收服」）、特殊条件（查勘使、拾骨人，常态或持有篮子时杀不了，但 :161 地形隐匿、:159「此后」能杀）、暗杀（只能绕背处决，走不了常规击杀）。killable=true 时也不能省：得说清是「可击杀（方式没写）」还是「暗杀」这种只能暗杀的。注意别再写「常态不可击杀」——常态与否归 killable，本列只写怎么杀。取值只认：可击杀（方式没写） / 暗杀 / 特殊条件 / 需收服 / 不可杀，五者都不是就抛错
+    /// </summary>
+    public readonly string DefeatMethod;
+    /// <summary>
+    /// 击杀 / 暗杀掉落（tbitem id 列表，06_怪物分层.md 表 3.2–3.5 的掉落列）；没定就写 []，填了就要在 tbitem 里存在
+    /// </summary>
+    public readonly System.Collections.Generic.List<int> DropItems;
    
     public const int __ID__ = -1400206784;
     public override int GetTypeId() => __ID__;
@@ -103,6 +123,10 @@ public sealed partial class Yao : Luban.BeanBase
         + "clueItems:" + Luban.StringUtil.CollectionToString(ClueItems) + ","
         + "sealable:" + Sealable + ","
         + "mask:" + Mask + ","
+        + "tier:" + Tier + ","
+        + "killable:" + Killable + ","
+        + "defeatMethod:" + DefeatMethod + ","
+        + "dropItems:" + Luban.StringUtil.CollectionToString(DropItems) + ","
         + "}";
     }
 }

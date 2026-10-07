@@ -2,11 +2,14 @@
     "id": "sample_options", "entry": "choices",
     "stages": [
         { "id": "choices", "kind": "Dialogue", "payload": "9001", "allowEncounter": false,
+          "issueRequest": false, "requiredParts": [], "battleResults": [],
           "anyOf": [], "exits": [ { "result": "Verified", "next": "verified" }, { "result": "Deferred", "next": "later" } ],
           "setFlags": [], "outcome": "" },
         { "id": "verified", "kind": "End", "payload": "", "allowEncounter": false,
-          "anyOf": [], "exits": [], "setFlags": [ "sample_verified" ], "outcome": "Resume" },
+          "issueRequest": false, "requiredParts": [], "battleResults": [],
+          "anyOf": [], "exits": [], "setFlags": [ "world.sampleoptions.verified" ], "outcome": "Resume" },
         { "id": "later", "kind": "End", "payload": "", "allowEncounter": false,
+          "issueRequest": false, "requiredParts": [], "battleResults": [],
           "anyOf": [], "exits": [], "setFlags": [], "outcome": "Resume" }
     ]
 }

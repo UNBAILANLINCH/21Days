@@ -1,0 +1,10 @@
+{
+    "region_id": "jingyang_platform",
+    "display_name": "泾阳·过渡平台",
+    "floor": "2.5 层",
+    "scene_scope": "MainMap",
+    "mirror_region_id": "fangshi_platform",
+    "scene_key": "human_jingyang",
+    "conn": "官府与井底之间的中转平台；三段楼梯分别连 3 层、2 层与街面（10_两界与场景结构.md:135 R7、:134 R6）",
+    "lore": "只是连接件还是能站人、能藏人、能看到楼下，原文没定（10_两界与场景结构.md:199）"
+}

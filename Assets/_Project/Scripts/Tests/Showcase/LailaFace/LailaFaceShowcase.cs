@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine.TestTools;
-using Game.LailaFace;
+using Game.Gameplay;
 using Game.LailaFaceRecognition;
 
 namespace Game.Tests.Showcase.LailaFace

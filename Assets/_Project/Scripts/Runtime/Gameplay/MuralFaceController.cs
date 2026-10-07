@@ -1,7 +1,9 @@
 using UnityEngine;
 
-namespace Game.LailaFace
+namespace Game.Gameplay
 {
+    // 命名空间对齐目录（2026-10-07）：本文件在 Runtime/Gameplay/ 下，原先写 Game.LailaFace，
+    // 与 project-root.md「命名空间与目录一致」不符（gc_scan 静态不变量长期报这一条）。
     // 职责：只控制 Head-topo 的聊斋材质参数，不创建材质副本。
     // 新建原因：阴影方向与强度需要在 Inspector 中快速调参，不能散落在 Shader 或场景脚本里。
     [ExecuteAlways]

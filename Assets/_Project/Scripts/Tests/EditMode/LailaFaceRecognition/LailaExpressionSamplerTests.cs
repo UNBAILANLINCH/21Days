@@ -17,7 +17,7 @@ namespace Game.Tests.EditMode.LailaFaceRecognition
                 child.transform.SetParent(root.transform);
                 var stale = root.AddComponent<UnityEngine.SkinnedMeshRenderer>();
                 var expected = child.AddComponent<UnityEngine.SkinnedMeshRenderer>();
-                var face = root.AddComponent<Game.LailaFace.FaceBlendShapeController>();
+                var face = root.AddComponent<Game.Gameplay.FaceBlendShapeController>();
                 var data = new UnityEditor.SerializedObject(face);
                 data.FindProperty("faceRenderer").objectReferenceValue = expected;
                 data.ApplyModifiedPropertiesWithoutUndo();

@@ -101,7 +101,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
   `combat.masks.ready` 的写入方登记为 **Monster / Inventory**，§6.1 是「一个键一个写入方」。
 - 战斗结果只经 `BattleSession.ExitKey`（`Victory` / `Downed`）交给**唯一一条路**：`NarrativeService.CompleteBattleAsync` → `NarrativeRules.CompleteBattle`
   （`PRP/battle-to-narrative/prp.md` §2.1）。回合制这条路径现在由 `Game.Battle` 走通：`BattleFlow` 取 `session.ExitKey`（`BattleFlow.cs:321`）、
-  收场时经 `NarrativeBattlePort` 回写（`BattleFlow.cs:243`、`NarrativeBattlePort.cs:27-33`）。`EncounterStep.PendingResult`（`EncounterStep.cs:127`）那条路径
+  收场时经 `NarrativeBattlePort` 回写（`BattleFlow.cs:243`、`NarrativeBattlePort.cs:27-33`）。`EncounterStep.PendingResult` 那条路径
   （潜行 / 遭遇的结果）**仍没有人消费**。**不要自创结果键**，也不要在这里改剧情状态。
 
 ## 配置与占位值
@@ -152,7 +152,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 | 背包口 | **已接** | `LootBattleBackpack` / `BattleItemInventory` 实现 `IBattleItemInventory`（`BattleItemInventory.cs:15`），扣减走 `LootService.TryConsume`（`LootBattleBackpack.cs:38`） |
 | 道具效果 | **占位** | 只有治疗药水回复百分比（`BattleItemSettings`），等 C91 |
 | 结果回写（回合制路径） | **已接** | `BattleSession.ExitKey` → `NarrativeService.CompleteBattleAsync`（`BattleFlow.cs:243`），在黑幕下、揭幕之前（`BattleFlow.cs:201-202`） |
-| 结果回写（潜行 / 遭遇路径） | **仍缺** | `EncounterStep.PendingResult`（`EncounterStep.cs:127`）没有消费方；roadmap C5 只覆盖了回合制这一条 |
+| 结果回写（潜行 / 遭遇路径） | **仍缺** | `EncounterStep.PendingResult` 没有消费方；roadmap C5 只覆盖了回合制这一条 |
 | 界面 | **白盒已接** | `BattleView`，细节等 **C92 / Q19** |
 | Boot 接线 | **已接** | `Boot.unity` 的 `GameBootstrap` 挂了 `BattleInstaller`（`BattleInstaller.cs:37`；`Boot.unity` 里能反查到它的 GUID） |
 | 适用范围 | 只给 `sample_boss` | 等 C90 |

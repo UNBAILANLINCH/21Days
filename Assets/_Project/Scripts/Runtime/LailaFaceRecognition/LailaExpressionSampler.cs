@@ -1,5 +1,5 @@
 using System;
-using Game.LailaFace;
+using Game.Gameplay;
 
 namespace Game.LailaFaceRecognition
 {

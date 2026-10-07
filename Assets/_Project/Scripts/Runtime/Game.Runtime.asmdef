@@ -14,7 +14,8 @@
         "LitMotion.Extensions",
         "Unity.Timeline",
         "Unity.RenderPipelines.Universal.Runtime",
-        "Unity.RenderPipelines.Core.Runtime"
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.Sentis"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

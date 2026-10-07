@@ -157,6 +157,11 @@ namespace Game.Tests.Showcase
                     LogAssert.ignoreFailingMessages = false;
                 }
 
+                // NUnit 断言不保证发 Unity 日志；同步测试引擎失败，避免前置条件中断却写 PASS。
+                if (report != null && TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Failed)
+                    report.Add(ShowcaseReport.EntryKind.Check,
+                        "测试引擎判定失败：" + TestContext.CurrentContext.Result.Message,
+                        ShowcaseReport.EntryResult.Fail, Elapsed);
                 int failures = report == null ? 0 : report.CurrentTestFailureCount;
                 int exceptions = report == null ? 0 : report.CurrentTestExceptionCount;
                 string reportPath = report == null ? "(未生成)" : report.Write();
@@ -503,6 +508,10 @@ namespace Game.Tests.Showcase
             T component = found.GetComponent<T>();
             if (component == null)
             {
+                if (report != null)
+                    report.Add(ShowcaseReport.EntryKind.Check,
+                        "前置条件失败：对象「" + name + "」上没有 " + typeof(T).Name + " 组件。",
+                        ShowcaseReport.EntryResult.Fail, Elapsed);
                 Assert.Fail($"对象「{name}」上没有 {typeof(T).Name} 组件。");
                 return null;
             }

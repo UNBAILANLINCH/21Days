@@ -413,6 +413,29 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 
 ## 配置资产
 
+### mo 暗雾原型（2026-10-01）
+
+`mo` 的 `DarkFogPrototype` 下放占位纸片与近、中、远方块；原有 Cube 保留。
+`DarkFog_Player/DarkFog_ClearRegion` 挂 `DarkFogRegion`，引用主相机、
+`Data/IsometricExploration/DarkFog_Mo.asset` 与 `Art/Shaders/DarkFog.shader`。
+组件通过 URP 相机回调登记一次深度雾 Pass，不修改共用 Renderer 资产；仅作用于指定相机与当前场景的 Scene 预览。
+纸片复用 `M_SpriteDepthClip_Player`（Alpha Test、写深度），透明队列物件暂不参与雾，不能据此宣称透明材质已兼容。
+
+减雾区是局部单位球经 Transform 变换形成的椭球：位置为中心，XYZ 缩放为外半径，
+配置 `Feather` 决定内圈与外圈之间的平滑过渡。选中组件后 Scene 中青色内圈、蓝色外圈与半径手柄可编辑；
+移动 `DarkFog_Player` 可预览附近物件的显现，原型没有接入玩家输入。配置包含颜色、密度、最大采样距离、
+4–32 步采样（默认 16）、过渡比例与缓慢变化的程序噪声。减雾内圈跳过采样，浓雾累计到光学深度 8 后提前退出。
+表面额外乘减雾权重，保障远置相机到主角之间的雾不会遮黑主角；这是玩法显现近似，不是物理散射。
+单区域、全分辨率、无体积灯光或体积阴影；目标设备 GPU 耗时尚未测定。
+
+主相机复用 `CameraDistanceCulling`，引用独立 `DarkFog_MoCulling.asset`，Obstacle 渲染层试验距离 25 m。
+雾不修改剔除数组、不遍历物件、不控制 AI、碰撞或物件活动状态；相机剔除仍只减少绘制。
+调减雾范围时必须使可见区内的物件仍在相机剔除距离内，二者分别按玩家局部空间和相机深度计算，不能直接共用半径。
+已有物件可把 Renderer 放独立视觉层，保持碰撞根层不变；本场景的方块只是验证探针。
+
+验证：`DarkFogRegionTests` 的内外边界与过渡 EditMode 测试通过；实际相机像素对比中远方绿色探针在关闭雾与剔除时可见，
+开启剔除后变成背景，关闭剔除但开启雾后变暗，Collider 保留。截图位于 `Logs/verify/dark-fog/`。
+
 ### 相机距离剔除
 
 `CameraDistanceCulling`（`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraDistanceCulling.cs`）

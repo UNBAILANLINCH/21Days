@@ -15,7 +15,7 @@ maturity: stable
 | `MonsterRules.Model` | 只读引用供视图取状态 | 不能从外部写内部字段；`MonsterRules.cs` |
 | `MonsterRules.Kind` / `IsKillable` / `DropItemIds` | 本只怪的按种类数值与掉落 id（`Kind` 为 null = 没接种类表，走全局默认）；`DropItemIds` 只交 id，入背包走 `Game.Loot` | `MonsterRules.cs` / `MonsterKind.cs` |
 | `MonsterKindCatalog.Get(int)` / `TryGet(int, out MonsterKind)` | 按种类 id 取数值；`Get` 查不到抛 `KeyNotFoundException` | 配置表已就绪；`MonsterKindCatalog.cs` |
-| `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs:248` / `:262` |
+| `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs` |
 | `MonsterEncounterState` | 切换到遭遇 | 先把场景登记为地址 `IsometricEncounter`；`MonsterEncounterState.cs:15` |
 
 外部场景切换使用 `IGameFlow.GoToAsync<MonsterEncounterState>()`。
@@ -27,7 +27,7 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 ## 场景契约
 
 `MonsterRules.MoveControlled(Vector2 movement, float deltaTime)`：驯服模块直接控制存活敌人，按巡逻速度移动；调用方不能同时推进敌人 AI，负步长抛出异常。
-`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs:108` 附近的 `PlayerBody` 同一批访问器）
+`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs` 的同一批访问器）
 只读暴露玩家纸片当前场景坐标（含贴地后的 Y；是两 tick 间插值后的渲染位置），供 Showcase 与跨模块读取而不碰私有字段；
 `MonsterModel.PreviousPosition` / `PlayerModel.PreviousPosition`：上一逻辑 tick 的位置，只读，仅供渲染插值；不进存档与快照。
 `StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。
@@ -45,7 +45,7 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 `Bind(PlayerModel, MonsterModel, Func<float> alphaSource = null)`（`EncounterSceneView.cs`）：`alphaSource` 每帧给两 tick 间的插值比例；
 正式流程由 `MonsterEncounterState` 读 `SimulationRunner.Accumulator / FixedDeltaTime`（`Driven` 模式按 1），为空按 1（不插值）。
 `OnPlayerBlocked(Vector2)` 的参数是分轴合成的逻辑位置（被挡轴取修正值、其余轴为当前逻辑值），订阅方原样交给
-`EncounterStep.CorrectPlayerPosition`（`EncounterStep.cs:273`），后者同时对齐被改写轴的 `PreviousPosition`。
+`EncounterStep.CorrectPlayerPosition`（`EncounterStep.cs`），后者同时对齐被改写轴的 `PreviousPosition`。
 场景 Addressables 地址是 `IsometricEncounter`，与状态类名不同。
 
 ## 回放契约

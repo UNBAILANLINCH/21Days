@@ -1,0 +1,370 @@
+[
+  {
+    "index": 0,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/000.png",
+    "weights": {}
+  },
+  {
+    "index": 1,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/001.png",
+    "weights": {
+      "Mouth_L_Up": 25.0
+    }
+  },
+  {
+    "index": 2,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/002.png",
+    "weights": {
+      "Mouth_L_Up": 50.0
+    }
+  },
+  {
+    "index": 3,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/003.png",
+    "weights": {
+      "Mouth_L_Up": 75.0
+    }
+  },
+  {
+    "index": 4,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/004.png",
+    "weights": {
+      "Mouth_L_Up": 100.0
+    }
+  },
+  {
+    "index": 5,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/005.png",
+    "weights": {
+      "Mouth_L_Down": 25.0
+    }
+  },
+  {
+    "index": 6,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/006.png",
+    "weights": {
+      "Mouth_L_Down": 50.0
+    }
+  },
+  {
+    "index": 7,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/007.png",
+    "weights": {
+      "Mouth_L_Down": 75.0
+    }
+  },
+  {
+    "index": 8,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/008.png",
+    "weights": {
+      "Mouth_L_Down": 100.0
+    }
+  },
+  {
+    "index": 9,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/009.png",
+    "weights": {
+      "Mouth_R_Up": 25.0
+    }
+  },
+  {
+    "index": 10,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/010.png",
+    "weights": {
+      "Mouth_R_Up": 50.0
+    }
+  },
+  {
+    "index": 11,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/011.png",
+    "weights": {
+      "Mouth_R_Up": 75.0
+    }
+  },
+  {
+    "index": 12,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/012.png",
+    "weights": {
+      "Mouth_R_Up": 100.0
+    }
+  },
+  {
+    "index": 13,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/013.png",
+    "weights": {
+      "Mouth_R_Down": 25.0
+    }
+  },
+  {
+    "index": 14,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/014.png",
+    "weights": {
+      "Mouth_R_Down": 50.0
+    }
+  },
+  {
+    "index": 15,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/015.png",
+    "weights": {
+      "Mouth_R_Down": 75.0
+    }
+  },
+  {
+    "index": 16,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/016.png",
+    "weights": {
+      "Mouth_R_Down": 100.0
+    }
+  },
+  {
+    "index": 17,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/017.png",
+    "weights": {
+      "Mouth_LowerLip_Down": 25.0
+    }
+  },
+  {
+    "index": 18,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/018.png",
+    "weights": {
+      "Mouth_LowerLip_Down": 50.0
+    }
+  },
+  {
+    "index": 19,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/019.png",
+    "weights": {
+      "Mouth_LowerLip_Down": 75.0
+    }
+  },
+  {
+    "index": 20,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/020.png",
+    "weights": {
+      "Mouth_LowerLip_Down": 100.0
+    }
+  },
+  {
+    "index": 21,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/021.png",
+    "weights": {
+      "Mouth_L_Out": 25.0
+    }
+  },
+  {
+    "index": 22,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/022.png",
+    "weights": {
+      "Mouth_L_Out": 50.0
+    }
+  },
+  {
+    "index": 23,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/023.png",
+    "weights": {
+      "Mouth_L_Out": 75.0
+    }
+  },
+  {
+    "index": 24,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/024.png",
+    "weights": {
+      "Mouth_L_Out": 100.0
+    }
+  },
+  {
+    "index": 25,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/025.png",
+    "weights": {
+      "Mouth_L_In": 25.0
+    }
+  },
+  {
+    "index": 26,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/026.png",
+    "weights": {
+      "Mouth_L_In": 50.0
+    }
+  },
+  {
+    "index": 27,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/027.png",
+    "weights": {
+      "Mouth_L_In": 75.0
+    }
+  },
+  {
+    "index": 28,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/028.png",
+    "weights": {
+      "Mouth_L_In": 100.0
+    }
+  },
+  {
+    "index": 29,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/029.png",
+    "weights": {
+      "Mouth_R_Out": 25.0
+    }
+  },
+  {
+    "index": 30,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/030.png",
+    "weights": {
+      "Mouth_R_Out": 50.0
+    }
+  },
+  {
+    "index": 31,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/031.png",
+    "weights": {
+      "Mouth_R_Out": 75.0
+    }
+  },
+  {
+    "index": 32,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/032.png",
+    "weights": {
+      "Mouth_R_Out": 100.0
+    }
+  },
+  {
+    "index": 33,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/033.png",
+    "weights": {
+      "Mouth_R_In": 25.0
+    }
+  },
+  {
+    "index": 34,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/034.png",
+    "weights": {
+      "Mouth_R_In": 50.0
+    }
+  },
+  {
+    "index": 35,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/035.png",
+    "weights": {
+      "Mouth_R_In": 75.0
+    }
+  },
+  {
+    "index": 36,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/036.png",
+    "weights": {
+      "Mouth_R_In": 100.0
+    }
+  },
+  {
+    "index": 37,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/037.png",
+    "weights": {
+      "Mouth_UpperLipR_Up": 25.0
+    }
+  },
+  {
+    "index": 38,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/038.png",
+    "weights": {
+      "Mouth_UpperLipR_Up": 50.0
+    }
+  },
+  {
+    "index": 39,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/039.png",
+    "weights": {
+      "Mouth_UpperLipR_Up": 75.0
+    }
+  },
+  {
+    "index": 40,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/040.png",
+    "weights": {
+      "Mouth_UpperLipR_Up": 100.0
+    }
+  },
+  {
+    "index": 41,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/041.png",
+    "weights": {
+      "Mouth_UpperLipL_Up": 25.0
+    }
+  },
+  {
+    "index": 42,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/042.png",
+    "weights": {
+      "Mouth_UpperLipL_Up": 50.0
+    }
+  },
+  {
+    "index": 43,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/043.png",
+    "weights": {
+      "Mouth_UpperLipL_Up": 75.0
+    }
+  },
+  {
+    "index": 44,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/044.png",
+    "weights": {
+      "Mouth_UpperLipL_Up": 100.0
+    }
+  },
+  {
+    "index": 45,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/045.png",
+    "weights": {
+      "Mouth_UpperLipL_Up": 100.0,
+      "Mouth_UpperLipR_Up": 100.0,
+      "Mouth_LowerLip_Down": 100.0
+    }
+  },
+  {
+    "index": 46,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/046.png",
+    "weights": {
+      "Mouth_L_Out": 100.0,
+      "Mouth_R_Out": 100.0,
+      "Mouth_UpperLipL_Up": 100.0,
+      "Mouth_UpperLipR_Up": 100.0,
+      "Mouth_LowerLip_Down": 100.0
+    }
+  },
+  {
+    "index": 47,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/047.png",
+    "weights": {
+      "Mouth_L_In": 100.0,
+      "Mouth_R_In": 100.0,
+      "Mouth_UpperLipL_Up": 100.0,
+      "Mouth_UpperLipR_Up": 100.0,
+      "Mouth_LowerLip_Down": 100.0
+    }
+  },
+  {
+    "index": 48,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/048.png",
+    "weights": {
+      "Mouth_L_Up": 100.0,
+      "Mouth_R_Down": 100.0,
+      "Mouth_L_Out": 100.0,
+      "Mouth_R_In": 100.0,
+      "Mouth_UpperLipL_Up": 100.0,
+      "Mouth_LowerLip_Down": 100.0
+    }
+  },
+  {
+    "index": 49,
+    "image": "PRP/laila-mouth-repair-20261002/after-runtime/049.png",
+    "weights": {
+      "Mouth_L_Down": 100.0,
+      "Mouth_R_Up": 100.0,
+      "Mouth_L_In": 100.0,
+      "Mouth_R_Out": 100.0,
+      "Mouth_UpperLipR_Up": 100.0,
+      "Mouth_LowerLip_Down": 100.0
+    }
+  }
+]

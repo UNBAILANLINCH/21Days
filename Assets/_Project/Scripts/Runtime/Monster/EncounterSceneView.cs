@@ -6,6 +6,8 @@
 //   本清单是进确定性内核的「挡视线」几何，只在场景就绪时转一次，tick 路径不做物理查询。
 using System;
 using Game.Player;
+using Game.Taming;
+using Game.IsometricExploration;
 using Game.Stealth;
 using UnityEngine;
 
@@ -35,6 +37,8 @@ namespace Game.Monster
         [SerializeField] private Transform monsterBody;
         [SerializeField] private SpriteRenderer playerSprite;
         [SerializeField] private SpriteRenderer monsterSprite;
+        [SerializeField] private TamingActor playerIdentity;
+        [SerializeField] private TamingActor[] patrolActors;
 
         [Tooltip("贴地射线只打这些层；为 0 时不贴地，XZ 模式保留当前高度")]
         [SerializeField] private LayerMask groundMask;
@@ -96,6 +100,10 @@ namespace Game.Monster
         private MonsterMode lastMode = (MonsterMode)255;
         private bool lastSneaking;
         private bool lastDisguised;
+        private EncounterStep encounter;
+        private Action<int, bool> requestControl;
+        private SmoothCameraFollow cameraFollow;
+        private string[] actorIds = Array.Empty<string>();
 
         public event Action OnBackClicked;
 
@@ -107,6 +115,88 @@ namespace Game.Monster
 
         public Transform PlayerBody => playerBody;
         public Transform MonsterBody => monsterBody;
+        public TamingActor PlayerIdentity => playerIdentity;
+        public TamingActor[] PatrolActors => patrolActors;
+        public SmoothCameraFollow ControlCamera => cameraFollow;
+        public string CurrentControlId => encounter == null ? string.Empty : encounter.CurrentControlId;
+        public Transform CurrentControlObject
+        {
+            get
+            {
+                if (encounter == null || CurrentControlId == encounter.Taming.PlayerId) return playerBody;
+                for (int i = 0; i < actorIds.Length; i++)
+                    if (actorIds[i] == CurrentControlId && patrolActors[i] != null) return patrolActors[i].transform;
+                return playerBody;
+            }
+        }
+
+        /// <summary>界面与自动化共用的稳定 ID 请求入口；仅排队输入，不在渲染帧直接改变规则。</summary>
+        public bool RequestControl(string stableId, bool tame = false)
+        {
+            if (encounter == null || !encounter.IsActive || requestControl == null) return false;
+            if (!tame && !encounter.Taming.CanControl(stableId)) return false;
+            if (stableId == encounter.Taming.PlayerId)
+            {
+                if (tame) return false;
+                requestControl(1, false);
+                return true;
+            }
+            for (int i = 0; i < actorIds.Length; i++)
+            {
+                if (actorIds[i] != stableId || !encounter.Taming.IsAvailable(stableId)
+                    || encounter.Taming.GetTarget(stableId).Model.Health <= 0 || player.Health <= 0) continue;
+                requestControl(i + 2, tame);
+                return true;
+            }
+            return false;
+        }
+
+        public void ConfigureTaming(EncounterStep step)
+        {
+            // 未接身份的旧白盒与单敌测试继续使用原接法；正式场景显式配置，绝不运行时补建身份。
+            if (playerIdentity == null && (patrolActors == null || patrolActors.Length == 0)) return;
+            if (playerIdentity == null || patrolActors == null || patrolActors.Length == 0)
+                throw new InvalidOperationException("遭遇身份接线不完整");
+            if (patrolActors[0] == null || patrolActors[0].transform != monsterBody)
+                throw new InvalidOperationException("首位巡逻者必须对应既有怪物引用");
+            actorIds = new string[patrolActors.Length];
+            var names = new string[patrolActors.Length];
+            var routes = new Vector2[patrolActors.Length][];
+            for (int i = 0; i < patrolActors.Length; i++)
+            {
+                TamingActor actor = patrolActors[i];
+                if (actor == null || actor.Visual == null) throw new InvalidOperationException("巡逻者身份或表现引用缺失");
+                actorIds[i] = actor.StableId;
+                names[i] = actor.DisplayName;
+                routes[i] = actor.PatrolPositions(this);
+                actor.RefreshLabel();
+            }
+            step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes);
+            playerIdentity.RefreshLabel();
+        }
+
+        public void BindControl(EncounterStep step, Action<int, bool> request)
+        {
+            encounter = step;
+            requestControl = request;
+            Camera main = Camera.main;
+            cameraFollow = main == null ? null : main.GetComponent<SmoothCameraFollow>();
+            step.Taming.OnControlChanged += OnControlChanged;
+            if (patrolActors != null)
+                foreach (TamingActor actor in patrolActors)
+                    if (actor != null) actor.OnAvailabilityChanged += OnActorAvailabilityChanged;
+            OnControlChanged(step.CurrentControlId);
+        }
+
+        private void OnActorAvailabilityChanged(TamingActor actor, bool available)
+        {
+            if (encounter != null) encounter.Taming.SetAvailable(actor.StableId, available);
+        }
+
+        private void OnControlChanged(string id)
+        {
+            if (cameraFollow != null) cameraFollow.SetTarget(CurrentControlObject);
+        }
         public Vector3 PlayerScenePosition => playerBody == null ? Vector3.zero : playerBody.position;
 
         public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : ToLogicPosition(playerSpawn.position);
@@ -216,6 +306,14 @@ namespace Game.Monster
 
         public void Unbind()
         {
+            if (encounter != null) encounter.Taming.OnControlChanged -= OnControlChanged;
+            if (patrolActors != null)
+                foreach (TamingActor actor in patrolActors)
+                    if (actor != null) actor.OnAvailabilityChanged -= OnActorAvailabilityChanged;
+            if (cameraFollow != null && playerBody != null) cameraFollow.SetTarget(playerBody);
+            encounter = null;
+            requestControl = null;
+            cameraFollow = null;
             player = null;
             monster = null;
             interpolationAlpha = null;
@@ -301,6 +399,12 @@ namespace Game.Monster
 
         private void LateUpdate()
         {
+            if (encounter != null)
+            {
+                for (int i = 0; i < actorIds.Length; i++)
+                    encounter.Taming.SetAvailable(actorIds[i], patrolActors[i] != null && patrolActors[i].gameObject.activeInHierarchy);
+                encounter.Taming.ValidateControl();
+            }
             if (player == null || monster == null)
             {
                 return;
@@ -310,25 +414,28 @@ namespace Game.Monster
             // 时停 / 暂停时余量不变，alpha 恒定，画面静止不抖。
             float alpha = interpolationAlpha == null ? 1f : interpolationAlpha();
             Vector2 playerLogic = Interpolate(player.PreviousPosition, player.Position, alpha);
-            Vector2 monsterLogic = Interpolate(monster.PreviousPosition, monster.Position, alpha);
             Vector3 lastPlayerScene = playerBody.position;
-            Vector3 lastMonsterScene = monsterBody.position;
             playerBody.position = ResolvePlayerScenePosition(playerLogic, lastPlayerScene);
-            monsterBody.position = ToScenePosition(monsterLogic, lastMonsterScene);
             if (flipByMoveDirection)
             {
                 ApplyFlip(playerSprite, lastPlayerScene.x, playerBody.position.x);
-                ApplyFlip(monsterSprite, lastMonsterScene.x, monsterBody.position.x);
             }
 
             SpriteRenderer playerTint = playerStateIndicator != null ? playerStateIndicator : playerSprite;
-            SpriteRenderer monsterTint = monsterStateIndicator != null ? monsterStateIndicator : monsterSprite;
             playerTint.color = player.Health <= 0 ? Color.black
                 : player.IsDisguised ? Color.green
                 : player.IsSneaking ? Color.cyan : new Color(0.2f, 0.55f, 1f);
-            monsterTint.color = monster.Mode == MonsterMode.Dead ? Color.black
-                : monster.Mode == MonsterMode.Hostile ? Color.red
-                : monster.Mode == MonsterMode.Alert ? new Color(1f, 0.55f, 0f) : Color.gray;
+            RenderMonster(monster, monsterBody, monsterSprite, monsterStateIndicator, alpha,
+                encounter != null && encounter.Taming.IsTamed, encounter != null && actorIds.Length > 0 && CurrentControlId == actorIds[0]);
+            if (encounter != null)
+                for (int i = 1; i < actorIds.Length; i++)
+                {
+                    TamingActor actor = patrolActors[i];
+                    if (actor == null) continue;
+                    MonsterRules rules = encounter.Taming.GetTarget(actorIds[i]);
+                    RenderMonster(rules.Model, actor.transform, actor.Visual, actor.StateIndicator, alpha,
+                        encounter.Taming.IsTargetTamed(actorIds[i]), CurrentControlId == actorIds[i]);
+                }
 
             if (lastPlayerHealth != player.Health || lastSneaking != player.IsSneaking
                 || lastDisguised != player.IsDisguised)
@@ -346,6 +453,19 @@ namespace Game.Monster
                 lastMode = monster.Mode;
                 monsterStatus = $"怪物生命 {monster.Health}  状态 {monster.Mode}";
             }
+        }
+
+        private void RenderMonster(MonsterModel model, Transform body, SpriteRenderer sprite,
+            SpriteRenderer indicator, float alpha, bool isTamed, bool isControlled)
+        {
+            if (body == null || sprite == null) return;
+            Vector3 previous = body.position;
+            body.position = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
+            if (flipByMoveDirection) ApplyFlip(sprite, previous.x, body.position.x);
+            SpriteRenderer tint = indicator != null ? indicator : sprite;
+            tint.color = model.Health <= 0 ? Color.black : isControlled ? Color.cyan : isTamed ? Color.green
+                : model.Mode == MonsterMode.Hostile ? Color.red
+                : model.Mode == MonsterMode.Alert ? new Color(1f, 0.55f, 0f) : Color.gray;
         }
 
         /// <summary>
@@ -457,6 +577,28 @@ namespace Game.Monster
                 (AlertBarWidth - AlertBarPadding * 2f) * monster.Alert, AlertBarInnerHeight), string.Empty);
             GUI.Label(new Rect(DebugPanelMargin, line1Top, DebugPanelWidth, LineHeight), playerStatus);
             GUI.Label(new Rect(DebugPanelMargin, line2Top, DebugPanelWidth, LineHeight), monsterStatus);
+            if (encounter != null && requestControl != null)
+            {
+                float top = alertTop - (actorIds.Length + 2) * LineHeight;
+                GUI.Label(new Rect(DebugPanelMargin, top, 650f, LineHeight),
+                    "当前控制：" + encounter.Taming.GetDisplayName(CurrentControlId) + " [" + CurrentControlId + "]  | T 驯服最近巡逻者 / 返回玩家");
+                if (GUI.Button(new Rect(DebugPanelMargin, top + LineHeight, 140f, LineHeight), "控制玩家")) RequestControl(encounter.Taming.PlayerId);
+                for (int i = 0; i < actorIds.Length; i++)
+                {
+                    string id = actorIds[i];
+                    float row = top + (i + 2) * LineHeight;
+                    GUI.Label(new Rect(DebugPanelMargin, row, 240f, LineHeight), encounter.Taming.GetDisplayName(id) + " [" + id + "]");
+                    bool enabledBefore = GUI.enabled;
+                    GUI.enabled = enabledBefore && encounter.Taming.IsAvailable(id) && encounter.Taming.GetTarget(id).Model.Health > 0 && player.Health > 0;
+                    if (!encounter.Taming.IsTargetTamed(id))
+                    {
+                        if (GUI.Button(new Rect(DebugPanelMargin + 240f, row, 100f, LineHeight), "驯服并接管")) RequestControl(id, true);
+                        GUI.enabled = false;
+                    }
+                    if (GUI.Button(new Rect(DebugPanelMargin + 344f, row, 90f, LineHeight), CurrentControlId == id ? "控制中" : "切换控制")) RequestControl(id);
+                    GUI.enabled = enabledBefore;
+                }
+            }
             if (GUI.Button(new Rect(DebugPanelMargin, buttonTop, BackButtonWidth, BackButtonHeight), "返回标题"))
             {
                 OnBackClicked?.Invoke();
@@ -465,6 +607,7 @@ namespace Game.Monster
 
         private void OnDestroy()
         {
+            Unbind();
             if (placeholderSprite != null)
             {
                 Destroy(placeholderSprite);

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="OfflineStubs.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Core/Audio/AudioPlayback.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmRules.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmNoteData.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmHitIntent.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmHitResult.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmInputQueue.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmDiagnosticSession.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmDiagnosticData.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmSelectionRules.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmProgressRules.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmProgressData.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmRecordData.cs" />
+    <Compile Include="../../../Assets/_Project/Scripts/Runtime/Rhythm/RhythmRunResult.cs" />
+  </ItemGroup>
+</Project>

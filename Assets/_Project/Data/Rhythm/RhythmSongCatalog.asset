@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 740f5923bcae63a4399d93da3ed34730, type: 3}
+  m_Name: RhythmSongCatalog
+  m_EditorClassIdentifier: 
+  songs:
+  - id: intro
+    title: "\u866B\u513F\u98DE"
+    difficulty: "\u5165\u95E8 Lv.1 \xB7 \u8C03\u8BD5\u8C31"
+    chart: {fileID: 11400000, guid: ae3746d723e6a814099d7ebebffa3b45, type: 2}
+    revision: 20261004-v3
+    prerequisiteId: 
+    passScorePercent: 60
+  - id: hybeboy-guitar
+    title: "hybeboy \u5409\u4ED6\u4F34\u594F"
+    difficulty: "\u8FDB\u9636 Lv.3 \xB7 \u516B\u5206\u62CD\u4E0E\u53CC\u952E"
+    chart: {fileID: 11400000, guid: 14f0b41d6f0886d4c912029b562f3fdb, type: 2}
+    revision: 20261004-test-v1
+    prerequisiteId: intro
+    passScorePercent: 60
+  - id: attention
+    title: "attention \u539F\u66F2\u4F34\u594F"
+    difficulty: "\u8FDB\u9636 Lv.4 \xB7 \u5207\u5206\u4E0E\u957F\u6309\u4EA4\u9519"
+    chart: {fileID: 11400000, guid: d396bb0ca0282c64e8cc7d50ff7b4165, type: 2}
+    revision: 20261004-test-v1
+    prerequisiteId: intro
+    passScorePercent: 60

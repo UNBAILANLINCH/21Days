@@ -39,8 +39,10 @@ namespace Game.Tests.EditMode.Simulation
             Assert.That(InputCommand.ButtonPause, Is.EqualTo(1u << 2));
             Assert.That(InputCommand.ButtonRun, Is.EqualTo(1u << 6), "奔跑位追加在攻击位之后，老录像的位含义不变");
             Assert.That(InputCommand.ButtonTame, Is.EqualTo(1u << 7), "附身位从奔跑位往上接，已有位的数值一位都不许动");
-            Assert.That(InputCommand.ButtonInteract, Is.EqualTo(1u << 8), "交互位接在附身位之后");
-            Assert.That(InputCommand.ButtonInventory, Is.EqualTo(1u << 9), "背包位接在交互位之后");
+            Assert.That(InputCommand.ButtonSelectControl, Is.EqualTo(1u << 8));
+            Assert.That(InputCommand.ButtonTamePressed, Is.EqualTo(1u << 9));
+            Assert.That(InputCommand.ButtonInteract, Is.EqualTo(1u << 10), "交互位避开已有控制位");
+            Assert.That(InputCommand.ButtonInventory, Is.EqualTo(1u << 11), "背包位接在交互位之后");
             Assert.That(InputCommand.ButtonQaMarker, Is.EqualTo(1u << 31), "QA 打点位固定在最高位，与动作位拉开最大距离");
         }
 
@@ -52,6 +54,7 @@ namespace Game.Tests.EditMode.Simulation
                 InputCommand.ButtonConfirm, InputCommand.ButtonCancel, InputCommand.ButtonPause,
                 InputCommand.ButtonSneak, InputCommand.ButtonDisguise, InputCommand.ButtonAttack,
                 InputCommand.ButtonRun, InputCommand.ButtonTame, InputCommand.ButtonInteract,
+                InputCommand.ButtonSelectControl, InputCommand.ButtonTamePressed,
                 InputCommand.ButtonInventory, InputCommand.ButtonQaMarker,
             };
 

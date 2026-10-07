@@ -66,6 +66,21 @@ namespace Game.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void QueuedTame_PreservesConsecutivePresses()
+        {
+            var source = new LiveInputSource(new UnreadyInput());
+            source.QueueSelection(2, InputCommand.ButtonTame);
+            source.Sample(0);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.True);
+            source.QueueSelection(3, InputCommand.ButtonTame);
+            source.Sample(1);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.True);
+            Assert.That(source.Current.Axis1.x, Is.EqualTo(3f));
+            source.Sample(2);
+            Assert.That(source.Current.HasButton(InputCommand.ButtonTamePressed), Is.False);
+        }
+
+        [Test]
         public void Sample_WithHeldButtons_OrsThemIntoTheCommand()
         {
             var source = new LiveInputSource(new UnreadyInput());
@@ -107,7 +122,7 @@ namespace Game.Tests.EditMode.Simulation
 
             Assert.That(
                 source.Current.Buttons,
-                Is.EqualTo(InputCommand.ButtonRun | InputCommand.ButtonTame),
+                Is.EqualTo(InputCommand.ButtonRun | InputCommand.ButtonTame | InputCommand.ButtonTamePressed),
                 "软件侧长按位与设备动作位应当是 OR 关系");
         }
 
@@ -126,7 +141,7 @@ namespace Game.Tests.EditMode.Simulation
             source.Sample(0);
 
             const uint newBits =
-                InputCommand.ButtonTame | InputCommand.ButtonInteract | InputCommand.ButtonInventory;
+                InputCommand.ButtonTame | InputCommand.ButtonTamePressed | InputCommand.ButtonInteract | InputCommand.ButtonInventory;
 
             Assert.That(source.Current.HasButton(InputCommand.ButtonTame), Is.True, "Gameplay/Tame 按下后附身位没置起来，这一路会被静默丢");
             Assert.That(source.Current.HasButton(InputCommand.ButtonInteract), Is.True, "Gameplay/Interact 按下后交互位没置起来，这一路会被静默丢");
@@ -277,6 +292,23 @@ namespace Game.Tests.EditMode.Simulation
             public GameInput Actions => null;
             public void EnableMap(string map) { }
             public void DisableMap(string map) { }
+        }
+
+        [Test]
+        public void QueueSelection_IsRecordedForOneTickAndClearedOnUnload()
+        {
+            var source = new LiveInputSource(new UnreadyInput());
+            source.QueueSelection(3, InputCommand.ButtonSelectControl);
+            source.Sample(0);
+            Assert.That(source.Current.Axis1.x, Is.EqualTo(3f));
+            Assert.That(source.Current.HasButton(InputCommand.ButtonSelectControl), Is.True);
+            source.Sample(1);
+            Assert.That(source.Current.Axis1, Is.EqualTo(Vector2.zero));
+            Assert.That(source.Current.HasButton(InputCommand.ButtonSelectControl), Is.False);
+            source.QueueSelection(2, InputCommand.ButtonTame);
+            source.ClearQueuedSelection();
+            source.Sample(2);
+            Assert.That(source.Current.Buttons, Is.Zero);
         }
 
         /// <summary>已经把动作集交出去的替身：只负责把 Actions 递过去，不做别的。</summary>

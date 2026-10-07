@@ -412,8 +412,8 @@ namespace Game.Tests.EditMode.Replay
             // 并且明确接受「此前录的所有回放都读不了了」。这条用例就是那道闸。
             // 版本升到 4：2026-09-26 PlayerModel 快照追加 IsRunning / PreviousRun。
             // （升到 3 时这里漏改仍期望 2，一并修正。）
-            Assert.That(ReplayFormat.CurrentFormatVersion, Is.EqualTo(4), "格式版本改了：已有回放全部失效");
-            Assert.That(ReplayFormat.MinimumReadableFormatVersion, Is.EqualTo(4), "最老可读版本改了：老回放会被拒收");
+            Assert.That(ReplayFormat.CurrentFormatVersion, Is.EqualTo(5), "多巡逻者与驯服归属改变了状态快照布局");
+            Assert.That(ReplayFormat.MinimumReadableFormatVersion, Is.EqualTo(5), "v4 单敌快照不能按多实例布局读取");
             Assert.That(ReplayFormat.Magic, Is.EqualTo(0x52443132u), "魔数改了：已有回放一份都认不出来");
             Assert.That(ReplayFormat.MagicAscii, Is.EqualTo("21DR"), "魔数的可读写法要和字节值对得上");
 

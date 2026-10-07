@@ -144,14 +144,14 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 
 逻辑位置只在 60 Hz 固定 tick 里跳变（`SimulationRunner` 累加器推进），而相机 `SmoothCameraFollow` 每个渲染帧都在追；
 视图若直接抄 `Position`，渲染帧率 ≠ 60 时角色会一帧动一帧不动（拖影 / 抖动）。因此 `EncounterSceneView.LateUpdate`
-（`EncounterSceneView.cs:220`）先算本帧逻辑位置 `Lerp(PreviousPosition, Position, alpha)`，再走下面的贴地 / 障碍滑动流程。
+（`EncounterSceneView.cs`）先算本帧逻辑位置 `Lerp(PreviousPosition, Position, alpha)`，再走下面的贴地 / 障碍滑动流程。
 
 - **上一 tick 位置**：`PlayerModel.PreviousPosition`（`PlayerModel.cs:16`）/ `MonsterModel.PreviousPosition`（`MonsterModel.cs:15`），
   由 `PlayerRules.Step` / `MonsterRules.Step` / `MonsterRules.MoveControlled` 在推进位置**之前**（且在死亡等提前返回之前）写入；
   `EncounterStep.Step` 未激活或结果待结算、双方都不推进时也对齐。**不进存档、不进回放快照**；
   `PlayerRules.Reset`、`MonsterRules.Reset`、两者的 `Restore`（读档）与 `Deserialize`（快照恢复）都把它对齐为 `Position`，不跨瞬移插值。
 - **alpha 从哪来**：`Bind(player, monster, Func<float> alphaSource = null)`（`EncounterSceneView.cs`；此签名在 Q1 接线后行号已漂，故不写行号）。
-  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:101`）取
+  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs`）取
   `EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime)`；`SimulationRunner` 处于 `Driven`
   （重放播放器逐 tick 推进、余量恒 0）时返回 1，直接显示当前 tick。独立场景 `StandaloneEncounterController` 用
   FixedUpdate 相位（`Time.time − Time.fixedTime`）/ `Time.fixedDeltaTime`，`ManualSimulation` 时返回 1。
@@ -221,9 +221,9 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 `Game.IsometricExploration` 的沉浸 / 重置按钮（见 `isometricexploration-module-guide.md` 的
 「探索 HUD 与沉浸模式」）。`Time.timeScale <= 0f`（对白 / 面板暂停期间）整块不画，避免压在对话框
 或暂停面板上；不再使用右对齐 `GUIStyle`，`rightAlignedLabel` 字段已删除。玩家状态行已按 Mirror 的 V8 验收去掉生命数字，只显示潜行 / 伪装
-（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）；怪物状态行仍保留生命数字（调试用）。
+（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs`）；怪物状态行仍保留生命数字（调试用）。
 
-`PlayerScenePosition`（`EncounterSceneView.cs:84`）暴露玩家纸片贴地后的场景坐标（插值后的渲染位置，
+`PlayerScenePosition`（`EncounterSceneView.cs`）暴露玩家纸片贴地后的场景坐标（插值后的渲染位置，
 正式流程下最多落后逻辑位置一个 tick），供 Showcase 与跨模块只读取用，不需要碰视图私有字段。
 
 ## Showcase 回放（2026-09-28 重写，走 Boot 真实流程）

@@ -1,0 +1,76 @@
+{
+  "source_file": "candidate3-teeth.json",
+  "source_sha256": "4aba8acde6f7ee5326fe6d0aca122c42e9ae32ffb2b06751b1adefda1422ae14",
+  "source_bytes": 39404704,
+  "source_path": "PRP/laila-mouth-repair-20261002/candidate3-teeth.json",
+  "source_lines": 2482793,
+  "source_kind": "generated_geometry_diagnostic",
+  "meaning": "生成的内部口腔与牙齿/牙龈三角对相交诊断；计数是相交三角对数量，不是可见瑕疵数量，也不能证明所有连续权重都无交叠。不是训练标签、模型权重或运行时输入。",
+  "tracking_policy": "原文件与备份保留本地，精确忽略此文件；仓库保留本摘要，历史 Git blob 不改写。",
+  "local_backup_path": "ML/expression-recognition/artifacts/laila_v2_candidate/candidate3-teeth-backup-20261004/candidate3-teeth.json",
+  "local_backup_manifest": "ML/expression-recognition/artifacts/laila_v2_candidate/candidate3-teeth-backup-20261004/backup-manifest.json",
+  "historical_git_blob": "c6c6d455f247e75dbf8236c5abb7aa9a3a7682d3",
+  "historical_git_blob_bytes": 36921912,
+  "size_note": "source_bytes/source_sha256 对应当前本地 CRLF 文件；历史 Git blob 为 LF，字节数不同不代表诊断内容变更。",
+  "baseline_pair_counts": {
+    "Circle.003": 676,
+    "Circle.002": 370
+  },
+  "single_pair_counts": {
+    "Mouth_L_Up": {
+      "Circle.003": 724,
+      "Circle.002": 312
+    },
+    "Mouth_L_Down": {
+      "Circle.003": 733,
+      "Circle.002": 392
+    },
+    "Mouth_R_Up": {
+      "Circle.003": 724,
+      "Circle.002": 312
+    },
+    "Mouth_R_Down": {
+      "Circle.003": 731,
+      "Circle.002": 392
+    },
+    "Mouth_LowerLip_Down": {
+      "Circle.003": 610,
+      "Circle.002": 370
+    },
+    "Mouth_L_Out": {
+      "Circle.003": 852,
+      "Circle.002": 361
+    },
+    "Mouth_L_In": {
+      "Circle.003": 552,
+      "Circle.002": 371
+    },
+    "Mouth_R_Out": {
+      "Circle.003": 852,
+      "Circle.002": 361
+    },
+    "Mouth_R_In": {
+      "Circle.003": 552,
+      "Circle.002": 371
+    },
+    "Mouth_UpperLipR_Up": {
+      "Circle.003": 680,
+      "Circle.002": 212
+    },
+    "Mouth_UpperLipL_Up": {
+      "Circle.003": 680,
+      "Circle.002": 212
+    }
+  },
+  "combination_count": 648,
+  "combination_pair_count_ranges": {
+    "Circle.003": {
+      "min": 336,
+      "max": 1076
+    },
+    "Circle.002": {
+      "min": 14,
+      "max": 420
+    }
+  }
+}

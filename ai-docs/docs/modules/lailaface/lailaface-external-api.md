@@ -7,7 +7,7 @@ maturity: seed
 
 # LailaFace 对外接口
 
-当前只允许 laila 测试场景与 Showcase 使用这些接口，正式玩法尚未接入。
+当前用于 laila、独立研究试玩及 Showcase，正式玩法尚未接入。
 
 ## `FaceBlendShapeController`
 
@@ -24,13 +24,13 @@ maturity: seed
 | `float GetSignedPair(string upShape, string downShape)` | 读取 Up 权重减 Down 权重 |
 | `void ResetFace()` | 将 Renderer 的全部 BlendShape 权重归零 |
 
-使用前置条件：组件已挂在 Head-topo 或其父节点，`faceRenderer` 已指向包含 16 个 BlendShape 的 `SkinnedMeshRenderer`，并且组件完成 `Awake` 缓存。
+使用前置条件：`faceRenderer` 显式指向当前启用脸部的 `SkinnedMeshRenderer`；当前laila为31形态，启用/Awake建立缓存。识别采样先HasShape检查，不把GetWeight缺键返回的0当作中性。
 
 ## `FaceDragHandle`
 
 路径：`Assets/_Project/Scripts/Runtime/Gameplay/FaceDragHandle.cs`
 
-`FaceControl` 枚举提供 8 个控制区类型。组件通过 `PointerEventData` 接收鼠标和触摸事件，使用同一套垂直拖拽规则，不需要调用方读取设备状态。
+`FaceControl` 保留旧类型序号，并支持分段眉、单键唇部与视线；可选形态名称覆盖用于当前 31 形态模型。组件通过 `PointerEventData` 接收指针事件，嘴角可双轴拖拽，视线旋转 Pivot，不要求调用方读取设备状态。
 
 使用前置条件：控制物体有 Collider；主相机有 `PhysicsRaycaster`；场景存在 `EventSystem`；`face` 指向共享的 `FaceBlendShapeController`。
 

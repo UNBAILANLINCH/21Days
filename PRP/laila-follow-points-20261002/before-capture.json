@@ -1,0 +1,164 @@
+[
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Up",
+    "weight": 0.0,
+    "point": {
+      "x": -0.0122226309,
+      "y": 0.07317001,
+      "z": -0.132261336
+    },
+    "screen": {
+      "x": 926.9989,
+      "y": 737.55896
+    },
+    "hit": "Control_Brow_L_Inner",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Up",
+    "weight": 0.0,
+    "point": {
+      "x": -0.0440758727,
+      "y": 0.07317972,
+      "z": -0.126360923
+    },
+    "screen": {
+      "x": 840.9951,
+      "y": 737.585266
+    },
+    "hit": "Control_Brow_L_Mid",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Up",
+    "weight": 0.0,
+    "point": {
+      "x": -0.06767408,
+      "y": 0.07188812,
+      "z": -0.11350596
+    },
+    "screen": {
+      "x": 777.279968,
+      "y": 734.0979
+    },
+    "hit": "Control_Brow_L_Outer",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Up",
+    "weight": 0.0,
+    "point": {
+      "x": 0.0122226309,
+      "y": 0.07317001,
+      "z": -0.132261336
+    },
+    "screen": {
+      "x": 993.0011,
+      "y": 737.55896
+    },
+    "hit": "Control_Brow_R_Inner",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Up",
+    "weight": 0.0,
+    "point": {
+      "x": 0.0440758727,
+      "y": 0.07317972,
+      "z": -0.126360923
+    },
+    "screen": {
+      "x": 1079.00488,
+      "y": 737.585266
+    },
+    "hit": "Control_Brow_R_Mid",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Up",
+    "weight": 0.0,
+    "point": {
+      "x": 0.06767408,
+      "y": 0.07188812,
+      "z": -0.11350596
+    },
+    "screen": {
+      "x": 1142.72,
+      "y": 734.0979
+    },
+    "hit": "Control_Brow_R_Outer",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_LowerLip",
+    "key": "Mouth_LowerLip_Down",
+    "weight": 0.0,
+    "point": {
+      "x": -8.271806E-25,
+      "y": -0.0679909,
+      "z": -0.122306786
+    },
+    "screen": {
+      "x": 960.0,
+      "y": 356.424561
+    },
+    "hit": "Control_LowerLip",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "key": "Mouth_UpperLipL_Up",
+    "weight": 0.0,
+    "point": {
+      "x": -0.009910879,
+      "y": -0.0406744927,
+      "z": -0.13364023
+    },
+    "screen": {
+      "x": 933.2406,
+      "y": 430.178864
+    },
+    "hit": "Control_UpperLip_L",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  },
+  {
+    "name": "Control_UpperLip_R",
+    "key": "Mouth_UpperLipR_Up",
+    "weight": 0.0,
+    "point": {
+      "x": 0.009910879,
+      "y": -0.0406744927,
+      "z": -0.13364023
+    },
+    "screen": {
+      "x": 986.7594,
+      "y": 430.178864
+    },
+    "hit": "Control_UpperLip_R",
+    "visible": true,
+    "markerErrorPixels": 0.0,
+    "transformColliderError": 0.0
+  }
+]

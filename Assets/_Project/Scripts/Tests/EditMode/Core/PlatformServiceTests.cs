@@ -44,6 +44,26 @@ namespace Game.Tests.EditMode.Core
             Assert.That(service.Kind, Is.EqualTo(PlatformKind.Standalone));
         }
 
+        [Test]
+        public void SaveRoot_IsolatedPreset_SeparatesSettingsSlotsAndCalibrationFromNormalRoot()
+        {
+            string root = System.IO.Path.Combine(Application.temporaryCachePath, "isolated-save-root-check");
+            string normal = PlatformServiceBase.GetPersistentSaveRoot(root, false);
+            string isolated = PlatformServiceBase.GetPersistentSaveRoot(root, true);
+            Assert.That(normal, Is.EqualTo(System.IO.Path.Combine(root, "saves")));
+            Assert.That(isolated, Is.EqualTo(System.IO.Path.Combine(root, "isolated-test", "saves")));
+            foreach (string file in new[] { "profile-settings.json", "profile-rhythm-calibration.json", "profile-rhythm-test-calibration.json", "slot1.json", "slot1.json.bak" })
+                Assert.That(System.IO.Path.Combine(isolated, file), Is.Not.EqualTo(System.IO.Path.Combine(normal, file)));
+        }
+
+        [Test]
+        public void SaveRoot_EditorAndDefaultBuild_KeepOriginalRoot()
+        {
+            Assert.That(PlatformServiceBase.IsIsolatedTestBuild, Is.False);
+            Assert.That(new StandalonePlatformService().SaveRoot,
+                Is.EqualTo(System.IO.Path.Combine(Application.persistentDataPath, "saves")));
+        }
+
         /// <summary>
         /// TearDown 必须清掉覆盖：它是静态状态，留着会污染同一次 Play/域里跑的其它用例
         /// （包括本类自己后面几条、以及真实走 Boot 的 Showcase 回放）。

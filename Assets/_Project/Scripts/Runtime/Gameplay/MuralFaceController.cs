@@ -34,6 +34,10 @@ namespace Game.LailaFace
         [SerializeField]
         private float shadowSoftness = 0.12f;
 
+        [Tooltip("仅在 Laila 候选试玩 Play 中创建抓点提示与右手光标，不保存场景。")]
+        [SerializeField]
+        private bool lailaPointerFeedback = true;
+
         [Header("边缘与纸张")]
         [SerializeField]
         private Color rimColor = new(1f, 0.76f, 0.47f, 1f);
@@ -76,6 +80,16 @@ namespace Game.LailaFace
         private void OnValidate()
         {
             Apply();
+        }
+
+        private void Start()
+        {
+            if (Application.isPlaying && lailaPointerFeedback
+                && gameObject.scene.path == "Assets/_Project/Scenes/LailaRecognitionPlaytest.unity"
+                && GetComponent<Game.Gameplay.FacePointerFeedback>() == null)
+            {
+                gameObject.AddComponent<Game.Gameplay.FacePointerFeedback>();
+            }
         }
 
         [ContextMenu("Apply Mural Style")]

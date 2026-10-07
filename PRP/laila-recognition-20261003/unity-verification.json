@@ -1,0 +1,28 @@
+{
+  "numeric_inputs": 135,
+  "max_probs_error": 3.5762786865234375E-07,
+  "max_energy_error": 1.6689300537109375E-06,
+  "decision_matches": 135,
+  "component_enable_cycles": 20,
+  "missing_model_rejected": true,
+  "raycast_self": 17,
+  "raycast_total": 17,
+  "unlabeled_capture": "e605984c86de43a3b17118d282ed446e",
+  "scenarios": [
+    {
+      "name": "neutral",
+      "result": "中性",
+      "details": "模型分数 99.9%（非人工准确率）\n中性 99.9%  高兴 0.0%  悲伤 0.1%  惊讶/恐惧 0.0%  愤怒 0.0%  \nenergy -2.800 / 阈值 -1.564"
+    },
+    {
+      "name": "corners-up",
+      "result": "高兴",
+      "details": "模型分数 99.6%（非人工准确率）\n中性 0.1%  高兴 99.6%  悲伤 0.1%  惊讶/恐惧 0.1%  愤怒 0.1%  \nenergy -2.409 / 阈值 -1.564"
+    },
+    {
+      "name": "conflict",
+      "rejected": true
+    }
+  ],
+  "scope": "CPU editor, component enable/disable; not Player or human accuracy"
+}

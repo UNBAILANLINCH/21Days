@@ -95,13 +95,21 @@ namespace Game.Tests.EditMode.Monster
         }
 
         [Test]
-        public void Version_IsStillOne_AndMigrateIsNoOp()
+        public void Version_IsTwo_AndLegacySnapshotRemainsValidAfterMigration()
         {
-            // 分区 Version 不升：字段没改、Migrate 没有迁移动作，改的只是「合法值域」这一层判据。
-            var data = new EncounterSaveData();
+            // 多目标控制已升级到 v2；场景键放宽不再升级版本，v1 单怪物快照仍须兼容。
+            var data = Snapshot(LegacyAddress);
+            PlayerSaveData originalPlayer = data.Player;
+            MonsterSaveData originalMonster = data.Monster;
 
-            Assert.That(data.Version, Is.EqualTo(1));
+            Assert.That(data.Version, Is.EqualTo(2));
             Assert.That(() => data.Migrate(1), Throws.Nothing);
+            Assert.That(data.SceneKey, Is.EqualTo(LegacyAddress));
+            Assert.That(data.Player, Is.SameAs(originalPlayer));
+            Assert.That(data.Monster, Is.SameAs(originalMonster));
+            Assert.That(data.TamingTargets, Is.Null);
+            Assert.That(data.PlayerActorId, Is.EqualTo("player"));
+            Assert.That(() => data.Validate(), Throws.Nothing);
         }
 
         // ---------------------------------------------------------------- 辅助

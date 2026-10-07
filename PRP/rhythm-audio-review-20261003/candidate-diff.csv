@@ -1,0 +1,5 @@
+﻿id,oldMs,candidateMs,deltaMs,basis,applied
+legacy-26,19680.0,19656.7,-23.3,bass nearest onset +11ms decoder mapping,False
+legacy-27,20260.0,20326.7,66.7,bass nearest onset +11ms decoder mapping,False
+legacy-28,20840.0,20891.7,51.7,bass nearest onset +11ms decoder mapping,False
+legacy-44,31360.0,31331.7,-28.3,mid/high onset +11ms decoder mapping,False

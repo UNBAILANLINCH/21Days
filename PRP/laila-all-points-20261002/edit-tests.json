@@ -1,0 +1,121 @@
+[
+  {
+    "name": "Control_Brow_L_Inner",
+    "exists": true,
+    "delta": 0.00950748753,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "exists": true,
+    "delta": 0.0118073821,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "exists": true,
+    "delta": 0.0126409829,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "exists": true,
+    "delta": 0.0109359231,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "exists": true,
+    "delta": 0.0126961172,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "exists": true,
+    "delta": 0.0161332544,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_L_Gaze",
+    "exists": true,
+    "delta": 0.00737097673,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_L_Lower",
+    "exists": true,
+    "delta": 0.00249686651,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_L_Upper",
+    "exists": true,
+    "delta": 0.00496934634,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_R_Gaze",
+    "exists": true,
+    "delta": 0.007370973,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_R_Lower",
+    "exists": true,
+    "delta": 0.00507217646,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Eye_R_Upper",
+    "exists": true,
+    "delta": 0.004792691,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_LowerLip",
+    "exists": true,
+    "delta": 0.006236911,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Mouth_L",
+    "exists": true,
+    "delta": 0.011658188,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_Mouth_R",
+    "exists": true,
+    "delta": 0.011658188,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "exists": true,
+    "delta": 0.0084178,
+    "colliderError": 0.0,
+    "pass": true
+  },
+  {
+    "name": "Control_UpperLip_R",
+    "exists": true,
+    "delta": 0.0084178,
+    "colliderError": 0.0,
+    "pass": true
+  }
+]

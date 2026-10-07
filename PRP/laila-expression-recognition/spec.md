@@ -1,8 +1,10 @@
 # laila 捏脸表情识别接入规格
 
-版本：v0.2；日期：2026-09-30；状态：阶段门 A 已通过（审阅结论与契约改动见 §15），尚未执行。v0.1 为 2026-09-29 初稿。
+版本：v0.6；更新日期：2026-10-07；状态：唯一LailaRecognitionPlaytest场景默认定向修复59D并可切上一版反馈59D／旧r779／原51D；重复旧场景及一次性搭建代码已移除。原下睑／旧眉授权单轮候选训练及定向验证记录保留。正式v2几何／独立语义／物理鼠标／完整拒识／Player未验收，显著单轴内眉仍模型中性。实际进展见§17。
 
-本文是用户要求的技术 spec，不是实现完成报告，也不同时生成执行任务清单。文中的新文件、组件、命令产物和验收门槛均为拟实施内容；现有源码与接口事实单独标注。
+**唯一当前执行入口：[§17工程进展](#17-当前工程候选接手入口2026-10-04)，契约与阶段顺序接着读[§16](#16-当前模型的训练执行顺序2026-10-03)。** §1–15 是旧 22 形态 / 12 维方案与审阅历史；模型名称、输入维度、旧训练命令、按钮专用触发和旧版覆盖率结论不适用于当前模型。只读采样、数据护栏与独立盲标原则继续沿用；当前实时触发以§17为准，已有 Python 功能以 README 与源码为准。
+
+本文保留专业规格和历史审阅原文；§1–15的“拟新增”是当时状态，不代表现在仍未实现。§16记录当前契约及待冻结流程，§17维护当前工程状态和证据路由。工程通过不等于几何、人工语义或Player验收通过。
 
 ## 1. 目标与边界
 
@@ -491,3 +493,116 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
   - 12 维契约测试（§10 的 `test_laila_contract.py`）。
 - **不做**：`configs/rigs/laila_rig.yaml`（`laila_v1`）仍要等阶段门 B 的几何校准定稿。
 - **Unity 侧**（§8–§9）不变，按 §15.2 的类别维改动实施。
+
+## 16. 当前模型的训练执行顺序（2026-10-03）
+
+### 16.1 固定当前资产与完成状态
+
+| 项目 | 当前事实 / 后续动作 |
+| --- | --- |
+| 正式 Unity 模型 | `Assets/_Project/Art/fbx/Head-topo-expression-extended-brow-regions-refined3 1.fbx`；GUID `e56ea6a13114e354b8bc13f4c0f086dd` |
+| FBX SHA256 | `86c77af278764973b27c7c6f7f0b86c2d5434c878cb0b63a6402cc0d74c8d136`；校准前重算，变更后旧几何证据失效 |
+| 可编辑源文件 | `PRP/laila-mouth-repair-20261002/mouth-repaired.blend`；不要从早期 refined/painted 文件重新生成当前嘴部 |
+| 控制与形态 | Unity 实测 31 个形态、17 个控制区；6 眉区、4 眼皮、2 嘴角、3 唇区、2 视线 |
+| 输入轴数量 | 15 个非视线控制区，两个嘴角各再增加 1 横轴，共 17 表情轴；4 视线轴不输入分类器 |
+| 现有绑定 | `configs/rigs/laila_rig.yaml` / `laila_v1` 只用于旧模型复现，12 维测试不证明 v2 完成 |
+| v2 绑定 | `laila_rig_v2_candidate.yaml`候选已建立；正式`laila_rig_v2.yaml`/`laila_v2`仍待几何与人工语义验收后冻结 |
+| 已可复用流水线 | 五类配置、变体剔除、金标护栏、训练时温度/energy 标定、带 hash 的 ONNX 导出、带 tag 的评估 |
+| 已完成的工程候选 | 17轴候选映射/采样测试、纯合成训练、ONNX自检与Unity CPU推理/UI，实际证据见§17 |
+| 尚未完成 | 正式语义校准、人工开发/锁定测试、正式v2冻结与真实Player验收；合成工程检查不能代替这些 |
+
+形变与交互已经有检查证据；这不能代替规范表情基映射或识别准确率证明。新分段眉毛改善了控制自由度，但不能据此自动恢复七类目标；先沿用五类，重新计算覆盖率，取得人类开发集证据后再评估拆开惊讶/恐惧或增加厌恶。
+
+### 16.2 v2 固定输入顺序（候选采样器已实现，正式语义待验收）
+
+`P(A,B)=(GetWeight(A)-GetWeight(B))/100`，`W(A)=GetWeight(A)/100`。
+全部默认 0；索引 0–13 范围 [-1,1]，14–16 范围 [0,1]。
+
+| 索引 | key | 当前形态读取来源 |
+| --- | --- | --- |
+| 0 | brow_L_inner_y | P(Brow_L_Inner_Up, Brow_L_Inner_Down) |
+| 1 | brow_L_mid_y | P(Brow_L_Mid_Up, Brow_L_Mid_Down) |
+| 2 | brow_L_outer_y | P(Brow_L_Outer_Up, Brow_L_Outer_Down) |
+| 3 | brow_R_inner_y | P(Brow_R_Inner_Up, Brow_R_Inner_Down) |
+| 4 | brow_R_mid_y | P(Brow_R_Mid_Up, Brow_R_Mid_Down) |
+| 5 | brow_R_outer_y | P(Brow_R_Outer_Up, Brow_R_Outer_Down) |
+| 6 | eye_L_upper_y | P(Eye_L_UpperLid_Up, Eye_L_UpperLid_Down) |
+| 7 | eye_L_lower_y | P(Eye_L_LowerLid_Up, Eye_L_LowerLid_Down) |
+| 8 | eye_R_upper_y | P(Eye_R_UpperLid_Up, Eye_R_UpperLid_Down) |
+| 9 | eye_R_lower_y | P(Eye_R_LowerLid_Up, Eye_R_LowerLid_Down) |
+| 10 | mouth_corner_L_y | P(Mouth_L_Up, Mouth_L_Down) |
+| 11 | mouth_corner_R_y | P(Mouth_R_Up, Mouth_R_Down) |
+| 12 | mouth_corner_L_x | P(Mouth_L_Out, Mouth_L_In) |
+| 13 | mouth_corner_R_x | P(Mouth_R_Out, Mouth_R_In) |
+| 14 | upper_lip_L | W(Mouth_UpperLipL_Up) |
+| 15 | upper_lip_R | W(Mouth_UpperLipR_Up) |
+| 16 | lower_lip | W(Mouth_LowerLip_Down) |
+
+31 个必需名称恰为 14 对双极键和 3 个单极键。采样先 HasShape 检查，再读有限且合法范围的权重；同对同时激活返回 PairConflict，不通过相减隐藏冲突。不得按导入索引打包，也不得把六段眉毛求平均、把左右上唇相加后继续使用旧 12 维契约。
+
+候选已部署输入 `sliders [batch,17]`、输出 `probs [batch,5]`与`energy [batch]`，五类按§15.1顺序。Python rig/export处理可变K，Unity严格采样器与候选专用测试已实现，见§17；正式几何/人工语义校准未完成，不能仅凭metadata或工程测试称效果达标。
+
+### 16.3 实际顺序与每步完成条件
+
+1. **锁定资产**：保存当前源模型、正式 FBX、手绘 PNG、场景及其 meta；记录 FBX hash 和实际形态名。核对没有 Missing、17 区接线正确。不要在训练途中继续修改形态后沿用同一版本证据。
+2. **重新几何校准**：检查 Basis、31 个单键 50/100、14 对正负方向、六段眉毛同侧与双侧组合、独立和联合上唇、双眼皮及嘴角双轴。记录顶点位移、截图、角色侧与映射候选；保留并恢复用户权重/视线。下压眉头可能包含上移分量，不因名字含 Down 就写成纯 browDown。
+3. **定稿 v2 绑定**：按 §16.2 写入 17 key，逐轴确认规范基与系数；共享规范基检查半幅叠加与饱和。嘴角内收、下眼皮下拉、眉中等不能合理映射的部分写明损失，不虚构 jawOpen、noseSneer、cheekSquint。用新版绑定记录文件保存 FBX hash、完整 rig hash、逐轴证据和覆盖限制；保留 v1 记录不覆盖。
+4. **契约与覆盖检查**：增加独立 v2 测试，检查顺序、范围、默认值、31 名称、全零、左右/正负、三单极唇、视线不影响输入、错误分支；测试文件不要只验证矩阵自身。coverage CLI 目前报告原始七类残差，没有 `--label-set` 参数；结合五类训练报告查看合并类结果和被剔除变体，不把原始七类报告误称五类验收。旧上限报告仅供历史对照。
+5. **ResMLP 合成基线**：采用新绑定、五类、变体剔除、固定种子，先不用公开图片数据，也不冒用 sample_rig 金标。记录 config_snapshot、rig hash、训练报告。合成集准确率只证明流水线，不证明玩家脸部语义。
+6. **独立开发集**：按 §6 的盲标与近邻分组规则采集当前模型截图和完整 17 值、31 权重、FBX/rig hash。开发集修映射、检查阈值；任何绑定变更都重新计算投影、重训、重评，不能直接套旧指标。
+7. **冻结测试与导出**：锁定测试集不再调参；使用 `--tag dev/test` 保留独立报告。五类验收按 §15.2：原始七类标签保留，disgust 集外去向单报。ONNX 三项自检、源字节 hash 和 17/5 维检查全部通过才形成候选部署版本。
+8. **Unity 接入**：安装/接入推理依赖属于后续独立工程步骤；采样器使用 v2 key 顺序，检查训练/导出/批准 rig hash 一致，模型与 JSON 成对引用。验证至少 100 固定输入数值对照、按钮不抢 17 区射线、资源释放和 Windows Player；未实测 Android 就标未验证。
+
+### 16.4 校准完成后使用的命令
+
+以下都在 `ML/expression-recognition/` 执行，属于**正式v2冻结后的命令**：正式 `laila_rig_v2.yaml`尚不存在，先完成语义校准与人工数据阶段，不直接执行。候选YAML、采样/映射测试、合成训练、ONNX与Unity接线已完成，见§17；不能将候选改名冒充正式v2。已有环境直接复用；缺依赖才按README安装。
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q -rs
+.venv\Scripts\python.exe -m exprnet.coverage --rig configs/rigs/laila_rig_v2.yaml
+.venv\Scripts\python.exe -m exprnet.train --name laila_resmlp_v2_s42 --model resmlp --rig configs/rigs/laila_rig_v2.yaml --label-set laila_5class --drop-infeasible-variants --golden none --seed 42
+```
+
+独立开发/测试集已采集、`rig=laila_v2` 且完整 `rig_hash` 与当前绑定一致后：
+
+```powershell
+.venv\Scripts\python.exe -m exprnet.golden_check --dev golden/laila_v2_dev.json --test golden/laila_v2_test.json --rig configs/rigs/laila_rig_v2.yaml
+.venv\Scripts\python.exe -m exprnet.evaluate --run artifacts/runs/laila_resmlp_v2_s42 --golden golden/laila_v2_dev.json --tag dev
+.venv\Scripts\python.exe -m exprnet.evaluate --run artifacts/runs/laila_resmlp_v2_s42 --golden golden/laila_v2_test.json --tag test
+.venv\Scripts\python.exe -m exprnet.export --run artifacts/runs/laila_resmlp_v2_s42 --name laila_resmlp_v2_s42
+```
+
+训练自动完成温度与 energy 标定，不另造 calibrate CLI。导出用训练时同一绑定，不使用 `--rig` 换绑来冒充重新训练。绑定变化后旧 golden 的 12 值不能简单补零迁移；需重新采集或有逐条可验证的转换证据。
+
+### 16.5 文件与提交规则
+
+只提交源码、配置、规格、可编辑最终模型和精选验收证据；训练环境、原图、投影缓存、权重和试验产物留在已有忽略目录。正式部署的 ONNX/JSON 待验收后放入 Assets 并提交配套 meta。详细文件去留见 [asset-disposition.md](asset-disposition.md)。旧模型备份与训练证据不是同一回事，不能为了清理工作区删掉唯一的原件回滚来源。
+
+## 17. 当前工程候选接手入口（2026-10-04）
+
+当前状态同步于 2026-10-07。推荐入口为 `21Days/Laila/候选试玩（含旧版对照）`：独立 `LailaRecognitionPlaytest.unity` 默认使用 2026-10-06 定向修复 59D，依次对照上一版反馈 59D、r779 59D 与原 51D。旧 `laila.unity` 已删除，原 51D 在同一场景内切换；一次性搭建 / 升级代码已移除，入口只打开已接线场景。源模型与场景引用已配对，不将较早的“尚未部署 / 菜单待做”记录列为当前待办。
+
+| 项目 | 当前契约 |
+| --- | --- |
+| 几何与输入 | 31 个 BlendShape，17 个分类轴；4 个视线轴不参与分类。顺序见 §16.2 |
+| 推理 | ONNX 外部输入 `[batch,17]`，图内 51D / 59D；输出 neutral、happy、sad、surprise_fear、angry |
+| 触发与显示 | 输入变化清旧结果，最多 10Hz 自动推理；研究试玩展示另有中性区与迟滞，详情保留原始分类、概率和旧拒识决定 |
+| 原部署拒识 | energy −1.5637034177780151、min_confidence 0.4；研究候选沿用旧门槛作为参照，不代表重新校准 |
+| 当前研究资产 | `Research/StrengthRepair20261006/laila_research59_strength_20261006.onnx` 及同名 JSON；SHA256 `11f828902e4cd26eb6488a1f744a9bad71d9a06ab76108a50dca547b43bf3b3b` |
+| 数据角色 | r779 的 139 张仅来自两个开发组；单人意见、训练拟合和开发回归分别报告。三个新增设计目标参与训练，不作为独立验证 |
+| 平台边界 | 研究模式禁止正式 Player 构建；物理鼠标、独立语义、完整拒识及 Player 未验收 |
+| 已知缺口 | 显著单轴内眉仍被模型判中性；局部眼角自交与任意组合的几何验收未完成 |
+
+已有工程证据按阶段维护：初次 135 输入对照、实时增量、139 点开发取证、反馈修复的成对 149 输入，以及定向候选的 205 输入 / 21 档 UI 验证。205 条 Sentis 与 ONNX 最大概率误差 1.013279e−6、energy 1.66893e−6；三套怒脸九档均分类 / 展示为愤怒。它们验证对应工程与开发材料，不能合并成独立泛化测试。
+
+| 要查什么 | 唯一维护位置 |
+| --- | --- |
+| 当前职责、生命周期、定向候选来源与验证 | [识别模块指南](../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md) |
+| 几何与控制限制 | [捏脸模块指南](../../ai-docs/docs/modules/lailaface/lailaface-module-guide.md) |
+| Python 环境与通用 CLI | [README](../../ML/expression-recognition/README.md) |
+| 标注操作、版本保存及各开发轮次的逐类结果 | [辅助标注器说明](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md) |
+| 十张反馈的标签、训练角色与修复结果 | [反馈记录](../../ML/expression-recognition/analysis/laila_v2_candidate/PILOT_FEEDBACK_20261005.md) |
+| 初次接线与实时增量的精选证据 | [检查点](../laila-recognition-20261003/checkpoint.md)、[实时增量](../laila-recognition-20261003/realtime-and-stack.md) |
+| 专业设计与来源 | [DESIGN](../../ML/expression-recognition/DESIGN.md)、[REFERENCES](../../ML/expression-recognition/REFERENCES.md) |
+
+忽略目录中的训练、原始采集和完整回放产物不会随仓库自动分发；检查其可用性后才能复现历史结果。当前没有确定下一轮采样预算、扩类或训练任务，正式 v2 的冻结条件继续按 §16 核对。

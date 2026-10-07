@@ -1,0 +1,3522 @@
+{
+  "format": "21days-rhythm-song-test",
+  "version": 1,
+  "status": "automatic-test-chart-not-human-reviewed",
+  "source": {
+    "libraryFileId": "libfile_789cc6b5b9a881919d3d05514f36e7bb",
+    "filename": "attention原曲伴奏.mp3",
+    "bytes": 7448076,
+    "sha256": "04412c1a31551c8e34719e795bc40af1b3068be02b701f5a65bde667d82956b3"
+  },
+  "song": {
+    "id": "attention",
+    "title": "attention 原曲伴奏",
+    "difficulty": "进阶 Lv.4 · 切分与长按交错",
+    "revision": "20261004-test-v1",
+    "prerequisiteId": "intro",
+    "passScorePercent": 60
+  },
+  "design": {
+    "reason": "固定32个四拍测试单元；完整乐句边界待听感确认。先打通进阶选择流程，保留整曲音频以扩展后续段落。",
+    "tempoEvidence": [
+      {
+        "bpm": 105.2,
+        "score": 5.760223430309371
+      },
+      {
+        "bpm": 103.1,
+        "score": 2.849785675333433
+      },
+      {
+        "bpm": 107.3,
+        "score": 2.4958498504950937
+      },
+      {
+        "bpm": 139.6,
+        "score": 2.3358466748775695
+      },
+      {
+        "bpm": 126.3,
+        "score": 2.319244195350992
+      },
+      {
+        "bpm": 83.9,
+        "score": 2.249264291332548
+      },
+      {
+        "bpm": 124.2,
+        "score": 1.9298690964252354
+      },
+      {
+        "bpm": 128.3,
+        "score": 1.9156483705671616
+      }
+    ],
+    "candidatePhaseSeconds": 0.39500000000000024,
+    "phaseScore": 5.071752225858604,
+    "policy": "四分主拍保留；八分只取邻近强起音；少量强拍双键；长按代表乐句保持手势，不声明对应持续旋律音；不把所有瞬态转成音符。",
+    "timingCaveat": "Chromium解码基准未与Unity PCM人工对齐；chartOffset=0，不自动施加11ms补偿。",
+    "droppedCandidates": 0
+  },
+  "chart": {
+    "schemaVersion": 2,
+    "chartId": "attention-test-32x4",
+    "audioKey": "AttentionInstrumental",
+    "laneCount": 4,
+    "chartOffsetMs": 0,
+    "clipStartSeconds": 25.49005703422053,
+    "durationSeconds": 73.00380228136882,
+    "approachSeconds": 2.5,
+    "countdownSeconds": 3,
+    "perfectMs": 65,
+    "goodMs": 140,
+    "finishBufferSeconds": 0.1,
+    "noteTimes": [],
+    "noteLanes": [],
+    "notes": [
+      {
+        "id": "attention-000",
+        "lane": 0,
+        "timeMs": 0,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-001",
+        "lane": 1,
+        "timeMs": 550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-002",
+        "lane": 2,
+        "timeMs": 850,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-003",
+        "lane": 1,
+        "timeMs": 1120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-004",
+        "lane": 2,
+        "timeMs": 1700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-005",
+        "lane": 3,
+        "timeMs": 1990,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-006",
+        "lane": 0,
+        "timeMs": 2270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-007",
+        "lane": 1,
+        "timeMs": 2270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-008",
+        "lane": 1,
+        "timeMs": 2840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-009",
+        "lane": 2,
+        "timeMs": 3120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-010",
+        "lane": 1,
+        "timeMs": 3420,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-011",
+        "lane": 2,
+        "timeMs": 3980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-012",
+        "lane": 3,
+        "timeMs": 4280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-013",
+        "lane": 0,
+        "timeMs": 4550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-014",
+        "lane": 1,
+        "timeMs": 4550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-015",
+        "lane": 1,
+        "timeMs": 5120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-016",
+        "lane": 2,
+        "timeMs": 5410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-017",
+        "lane": 1,
+        "timeMs": 5700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-018",
+        "lane": 2,
+        "timeMs": 6270,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-019",
+        "lane": 3,
+        "timeMs": 6570,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-020",
+        "lane": 0,
+        "timeMs": 6840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-021",
+        "lane": 1,
+        "timeMs": 6840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-022",
+        "lane": 1,
+        "timeMs": 7400,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-023",
+        "lane": 2,
+        "timeMs": 7700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-024",
+        "lane": 1,
+        "timeMs": 7980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-025",
+        "lane": 2,
+        "timeMs": 8550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-026",
+        "lane": 3,
+        "timeMs": 8840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-027",
+        "lane": 0,
+        "timeMs": 9120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-028",
+        "lane": 1,
+        "timeMs": 9120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-029",
+        "lane": 1,
+        "timeMs": 9690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-030",
+        "lane": 1,
+        "timeMs": 10260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-031",
+        "lane": 2,
+        "timeMs": 10830,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-032",
+        "lane": 0,
+        "timeMs": 11410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-033",
+        "lane": 1,
+        "timeMs": 11410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-034",
+        "lane": 1,
+        "timeMs": 11980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-035",
+        "lane": 2,
+        "timeMs": 12270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-036",
+        "lane": 1,
+        "timeMs": 12550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-037",
+        "lane": 2,
+        "timeMs": 13120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-038",
+        "lane": 3,
+        "timeMs": 13410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-039",
+        "lane": 0,
+        "timeMs": 13700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-040",
+        "lane": 1,
+        "timeMs": 13700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-041",
+        "lane": 1,
+        "timeMs": 14260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-042",
+        "lane": 2,
+        "timeMs": 14560,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-043",
+        "lane": 1,
+        "timeMs": 14830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-044",
+        "lane": 2,
+        "timeMs": 15400,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-045",
+        "lane": 0,
+        "timeMs": 15980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-046",
+        "lane": 1,
+        "timeMs": 15980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-047",
+        "lane": 1,
+        "timeMs": 16550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-048",
+        "lane": 2,
+        "timeMs": 16840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-049",
+        "lane": 1,
+        "timeMs": 17120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-050",
+        "lane": 2,
+        "timeMs": 17690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-051",
+        "lane": 3,
+        "timeMs": 17980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-052",
+        "lane": 0,
+        "timeMs": 18260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-053",
+        "lane": 1,
+        "timeMs": 18260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-054",
+        "lane": 3,
+        "timeMs": 18550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-055",
+        "lane": 1,
+        "timeMs": 18830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-056",
+        "lane": 1,
+        "timeMs": 19410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-057",
+        "lane": 0,
+        "timeMs": 19690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-058",
+        "lane": 2,
+        "timeMs": 19980,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-059",
+        "lane": 0,
+        "timeMs": 20550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-060",
+        "lane": 1,
+        "timeMs": 20550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-061",
+        "lane": 1,
+        "timeMs": 21120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-062",
+        "lane": 2,
+        "timeMs": 21410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-063",
+        "lane": 1,
+        "timeMs": 21690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-064",
+        "lane": 0,
+        "timeMs": 21980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-065",
+        "lane": 2,
+        "timeMs": 22260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-066",
+        "lane": 3,
+        "timeMs": 22550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-067",
+        "lane": 0,
+        "timeMs": 22840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-068",
+        "lane": 1,
+        "timeMs": 22840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-069",
+        "lane": 3,
+        "timeMs": 23130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-070",
+        "lane": 1,
+        "timeMs": 23400,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-071",
+        "lane": 2,
+        "timeMs": 23700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-072",
+        "lane": 1,
+        "timeMs": 23980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-073",
+        "lane": 0,
+        "timeMs": 24270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-074",
+        "lane": 2,
+        "timeMs": 24550,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-075",
+        "lane": 3,
+        "timeMs": 24740,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-076",
+        "lane": 0,
+        "timeMs": 25120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-077",
+        "lane": 1,
+        "timeMs": 25120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-078",
+        "lane": 3,
+        "timeMs": 25420,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-079",
+        "lane": 1,
+        "timeMs": 25690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-080",
+        "lane": 2,
+        "timeMs": 25980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-081",
+        "lane": 1,
+        "timeMs": 26260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-082",
+        "lane": 0,
+        "timeMs": 26550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-083",
+        "lane": 2,
+        "timeMs": 26830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-084",
+        "lane": 3,
+        "timeMs": 27130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-085",
+        "lane": 0,
+        "timeMs": 27410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-086",
+        "lane": 1,
+        "timeMs": 27410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-087",
+        "lane": 3,
+        "timeMs": 27690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-088",
+        "lane": 1,
+        "timeMs": 27980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-089",
+        "lane": 2,
+        "timeMs": 28170,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-090",
+        "lane": 1,
+        "timeMs": 28550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-091",
+        "lane": 0,
+        "timeMs": 28840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-092",
+        "lane": 2,
+        "timeMs": 29120,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-093",
+        "lane": 3,
+        "timeMs": 29310,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-094",
+        "lane": 0,
+        "timeMs": 29690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-095",
+        "lane": 1,
+        "timeMs": 29690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-096",
+        "lane": 3,
+        "timeMs": 29990,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-097",
+        "lane": 1,
+        "timeMs": 30260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-098",
+        "lane": 2,
+        "timeMs": 30560,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-099",
+        "lane": 1,
+        "timeMs": 30830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-100",
+        "lane": 0,
+        "timeMs": 31120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-101",
+        "lane": 2,
+        "timeMs": 31400,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-102",
+        "lane": 3,
+        "timeMs": 31690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-103",
+        "lane": 0,
+        "timeMs": 31980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-104",
+        "lane": 1,
+        "timeMs": 31980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-105",
+        "lane": 3,
+        "timeMs": 32270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-106",
+        "lane": 1,
+        "timeMs": 32550,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-107",
+        "lane": 2,
+        "timeMs": 32840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-108",
+        "lane": 1,
+        "timeMs": 33120,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-109",
+        "lane": 0,
+        "timeMs": 33410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-110",
+        "lane": 2,
+        "timeMs": 33690,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-111",
+        "lane": 3,
+        "timeMs": 33890,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-112",
+        "lane": 0,
+        "timeMs": 34221,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-113",
+        "lane": 3,
+        "timeMs": 34560,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-114",
+        "lane": 1,
+        "timeMs": 34830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-115",
+        "lane": 2,
+        "timeMs": 35130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-116",
+        "lane": 1,
+        "timeMs": 35361,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-117",
+        "lane": 0,
+        "timeMs": 35700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-118",
+        "lane": 2,
+        "timeMs": 35932,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-119",
+        "lane": 3,
+        "timeMs": 36270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-120",
+        "lane": 0,
+        "timeMs": 36502,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-121",
+        "lane": 3,
+        "timeMs": 36840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-122",
+        "lane": 1,
+        "timeMs": 37072,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-123",
+        "lane": 2,
+        "timeMs": 37310,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-124",
+        "lane": 1,
+        "timeMs": 37643,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-125",
+        "lane": 0,
+        "timeMs": 37980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-126",
+        "lane": 2,
+        "timeMs": 38213,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-127",
+        "lane": 3,
+        "timeMs": 38460,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-128",
+        "lane": 0,
+        "timeMs": 38750,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-129",
+        "lane": 3,
+        "timeMs": 39130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-130",
+        "lane": 1,
+        "timeMs": 39354,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-131",
+        "lane": 2,
+        "timeMs": 39700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-132",
+        "lane": 1,
+        "timeMs": 39880,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-133",
+        "lane": 0,
+        "timeMs": 40160,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-134",
+        "lane": 2,
+        "timeMs": 40494,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-135",
+        "lane": 3,
+        "timeMs": 40840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-136",
+        "lane": 0,
+        "timeMs": 41020,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-137",
+        "lane": 1,
+        "timeMs": 41020,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-138",
+        "lane": 1,
+        "timeMs": 41650,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-139",
+        "lane": 2,
+        "timeMs": 41930,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-140",
+        "lane": 1,
+        "timeMs": 42180,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-141",
+        "lane": 0,
+        "timeMs": 42500,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-142",
+        "lane": 2,
+        "timeMs": 42780,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-143",
+        "lane": 3,
+        "timeMs": 43130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-144",
+        "lane": 0,
+        "timeMs": 43346,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-145",
+        "lane": 3,
+        "timeMs": 43640,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-146",
+        "lane": 1,
+        "timeMs": 43900,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-147",
+        "lane": 2,
+        "timeMs": 44180,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-148",
+        "lane": 1,
+        "timeMs": 44487,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-149",
+        "lane": 0,
+        "timeMs": 44780,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-150",
+        "lane": 2,
+        "timeMs": 45060,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-151",
+        "lane": 3,
+        "timeMs": 45280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-152",
+        "lane": 0,
+        "timeMs": 45627,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-153",
+        "lane": 3,
+        "timeMs": 45850,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-154",
+        "lane": 1,
+        "timeMs": 46170,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-155",
+        "lane": 2,
+        "timeMs": 46530,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-156",
+        "lane": 1,
+        "timeMs": 46750,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-157",
+        "lane": 0,
+        "timeMs": 47010,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-158",
+        "lane": 2,
+        "timeMs": 47338,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-159",
+        "lane": 0,
+        "timeMs": 47870,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-160",
+        "lane": 1,
+        "timeMs": 47870,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-161",
+        "lane": 3,
+        "timeMs": 48210,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-162",
+        "lane": 1,
+        "timeMs": 48470,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-163",
+        "lane": 1,
+        "timeMs": 49020,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-164",
+        "lane": 2,
+        "timeMs": 49610,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-165",
+        "lane": 0,
+        "timeMs": 50200,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-166",
+        "lane": 3,
+        "timeMs": 50480,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-167",
+        "lane": 1,
+        "timeMs": 50760,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-168",
+        "lane": 2,
+        "timeMs": 50980,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-169",
+        "lane": 1,
+        "timeMs": 51330,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-170",
+        "lane": 0,
+        "timeMs": 51580,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-171",
+        "lane": 2,
+        "timeMs": 51901,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-172",
+        "lane": 3,
+        "timeMs": 52170,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-173",
+        "lane": 0,
+        "timeMs": 52471,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-174",
+        "lane": 1,
+        "timeMs": 53000,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-175",
+        "lane": 2,
+        "timeMs": 53280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-176",
+        "lane": 1,
+        "timeMs": 53590,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-177",
+        "lane": 0,
+        "timeMs": 53920,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-178",
+        "lane": 2,
+        "timeMs": 54140,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-179",
+        "lane": 3,
+        "timeMs": 54420,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-180",
+        "lane": 0,
+        "timeMs": 54740,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-181",
+        "lane": 3,
+        "timeMs": 55060,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-182",
+        "lane": 1,
+        "timeMs": 55290,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-183",
+        "lane": 2,
+        "timeMs": 55590,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-184",
+        "lane": 1,
+        "timeMs": 55870,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-185",
+        "lane": 0,
+        "timeMs": 56170,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-186",
+        "lane": 2,
+        "timeMs": 56450,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-187",
+        "lane": 3,
+        "timeMs": 56790,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-188",
+        "lane": 0,
+        "timeMs": 57060,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-189",
+        "lane": 1,
+        "timeMs": 57060,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-190",
+        "lane": 1,
+        "timeMs": 57605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-191",
+        "lane": 2,
+        "timeMs": 57850,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-192",
+        "lane": 1,
+        "timeMs": 58175,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-193",
+        "lane": 0,
+        "timeMs": 58430,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-194",
+        "lane": 2,
+        "timeMs": 58745,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-195",
+        "lane": 3,
+        "timeMs": 59000,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-196",
+        "lane": 0,
+        "timeMs": 59280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-197",
+        "lane": 1,
+        "timeMs": 59280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-198",
+        "lane": 1,
+        "timeMs": 59900,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-199",
+        "lane": 2,
+        "timeMs": 60130,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-200",
+        "lane": 1,
+        "timeMs": 60456,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-201",
+        "lane": 0,
+        "timeMs": 60690,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-202",
+        "lane": 2,
+        "timeMs": 61027,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-203",
+        "lane": 3,
+        "timeMs": 61310,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-204",
+        "lane": 0,
+        "timeMs": 61597,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-205",
+        "lane": 3,
+        "timeMs": 61820,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-206",
+        "lane": 1,
+        "timeMs": 62167,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-207",
+        "lane": 1,
+        "timeMs": 62738,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-208",
+        "lane": 2,
+        "timeMs": 63308,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-209",
+        "lane": 0,
+        "timeMs": 63878,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-210",
+        "lane": 1,
+        "timeMs": 64449,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-211",
+        "lane": 2,
+        "timeMs": 64740,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-212",
+        "lane": 1,
+        "timeMs": 65019,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-213",
+        "lane": 2,
+        "timeMs": 65589,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-214",
+        "lane": 3,
+        "timeMs": 65890,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-215",
+        "lane": 0,
+        "timeMs": 66160,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-216",
+        "lane": 1,
+        "timeMs": 66730,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-217",
+        "lane": 1,
+        "timeMs": 67260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-218",
+        "lane": 2,
+        "timeMs": 67871,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-219",
+        "lane": 0,
+        "timeMs": 68441,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-220",
+        "lane": 1,
+        "timeMs": 69011,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-221",
+        "lane": 2,
+        "timeMs": 69310,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-222",
+        "lane": 1,
+        "timeMs": 69582,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-223",
+        "lane": 2,
+        "timeMs": 70152,
+        "type": 1,
+        "durationMs": 1141
+      },
+      {
+        "id": "attention-224",
+        "lane": 3,
+        "timeMs": 70460,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-225",
+        "lane": 0,
+        "timeMs": 70722,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-226",
+        "lane": 1,
+        "timeMs": 71293,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-227",
+        "lane": 1,
+        "timeMs": 71863,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "attention-228",
+        "lane": 2,
+        "timeMs": 72433,
+        "type": 0,
+        "durationMs": 0
+      }
+    ],
+    "bpmSegments": [
+      {
+        "timeMs": 0,
+        "bpm": 105.2
+      }
+    ]
+  },
+  "noteEvidence": [
+    {
+      "id": "attention-000",
+      "gridBeat": 0,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "attention-001",
+      "gridBeat": 1,
+      "kind": "quarter",
+      "onsetSeconds": 26.04,
+      "onsetStrength": 16.236718082221433,
+      "holdMeanRms": 0.11683
+    },
+    {
+      "id": "attention-002",
+      "gridBeat": 1.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 26.34,
+      "onsetStrength": 4.31155768177447,
+      "holdMeanRms": 0.18323
+    },
+    {
+      "id": "attention-003",
+      "gridBeat": 2,
+      "kind": "quarter",
+      "onsetSeconds": 26.61,
+      "onsetStrength": 2.4068026435754772,
+      "holdMeanRms": 0.14426
+    },
+    {
+      "id": "attention-004",
+      "gridBeat": 3,
+      "kind": "quarter",
+      "onsetSeconds": 27.19,
+      "onsetStrength": 11.948740359274211,
+      "holdMeanRms": 0.34546
+    },
+    {
+      "id": "attention-005",
+      "gridBeat": 3.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 27.48,
+      "onsetStrength": 8.3341195875753,
+      "holdMeanRms": 0.21437
+    },
+    {
+      "id": "attention-006",
+      "gridBeat": 4,
+      "kind": "accent-chord",
+      "onsetSeconds": 27.76,
+      "onsetStrength": 11.947702740866221,
+      "holdMeanRms": 0.28152
+    },
+    {
+      "id": "attention-007",
+      "gridBeat": 4,
+      "kind": "quarter",
+      "onsetSeconds": 27.76,
+      "onsetStrength": 11.947702740866221,
+      "holdMeanRms": 0.28152
+    },
+    {
+      "id": "attention-008",
+      "gridBeat": 5,
+      "kind": "quarter",
+      "onsetSeconds": 28.33,
+      "onsetStrength": 18.887594237793742,
+      "holdMeanRms": 0.22567
+    },
+    {
+      "id": "attention-009",
+      "gridBeat": 5.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 28.61,
+      "onsetStrength": 4.404666065215797,
+      "holdMeanRms": 0.07642
+    },
+    {
+      "id": "attention-010",
+      "gridBeat": 6,
+      "kind": "quarter",
+      "onsetSeconds": 28.91,
+      "onsetStrength": 8.95612874306237,
+      "holdMeanRms": 0.16458
+    },
+    {
+      "id": "attention-011",
+      "gridBeat": 7,
+      "kind": "quarter",
+      "onsetSeconds": 29.47,
+      "onsetStrength": 18.492166478752896,
+      "holdMeanRms": 0.08307
+    },
+    {
+      "id": "attention-012",
+      "gridBeat": 7.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 29.77,
+      "onsetStrength": 4.934870718031949,
+      "holdMeanRms": 0.15814
+    },
+    {
+      "id": "attention-013",
+      "gridBeat": 8,
+      "kind": "accent-chord",
+      "onsetSeconds": 30.04,
+      "onsetStrength": 2.5652896115386405,
+      "holdMeanRms": 0.11083
+    },
+    {
+      "id": "attention-014",
+      "gridBeat": 8,
+      "kind": "quarter",
+      "onsetSeconds": 30.04,
+      "onsetStrength": 2.5652896115386405,
+      "holdMeanRms": 0.11083
+    },
+    {
+      "id": "attention-015",
+      "gridBeat": 9,
+      "kind": "quarter",
+      "onsetSeconds": 30.61,
+      "onsetStrength": 11.473957736061418,
+      "holdMeanRms": 0.13322
+    },
+    {
+      "id": "attention-016",
+      "gridBeat": 9.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 30.9,
+      "onsetStrength": 2.941190730715943,
+      "holdMeanRms": 0.09332
+    },
+    {
+      "id": "attention-017",
+      "gridBeat": 10,
+      "kind": "quarter",
+      "onsetSeconds": 31.19,
+      "onsetStrength": 8.323341477971335,
+      "holdMeanRms": 0.14214
+    },
+    {
+      "id": "attention-018",
+      "gridBeat": 11,
+      "kind": "phrase-hold",
+      "onsetSeconds": 31.76,
+      "onsetStrength": 18.990498440570537,
+      "holdMeanRms": 0.08974293103448275
+    },
+    {
+      "id": "attention-019",
+      "gridBeat": 11.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 32.06,
+      "onsetStrength": 1.6031988273519544,
+      "holdMeanRms": 0.09618
+    },
+    {
+      "id": "attention-020",
+      "gridBeat": 12,
+      "kind": "accent-chord",
+      "onsetSeconds": 32.33,
+      "onsetStrength": 17.85064168817407,
+      "holdMeanRms": 0.17992
+    },
+    {
+      "id": "attention-021",
+      "gridBeat": 12,
+      "kind": "quarter",
+      "onsetSeconds": 32.33,
+      "onsetStrength": 17.85064168817407,
+      "holdMeanRms": 0.17992
+    },
+    {
+      "id": "attention-022",
+      "gridBeat": 13,
+      "kind": "quarter",
+      "onsetSeconds": 32.89,
+      "onsetStrength": 14.934670745341348,
+      "holdMeanRms": 0.00807
+    },
+    {
+      "id": "attention-023",
+      "gridBeat": 13.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 33.19,
+      "onsetStrength": 12.328174940105514,
+      "holdMeanRms": 0.0854
+    },
+    {
+      "id": "attention-024",
+      "gridBeat": 14,
+      "kind": "quarter",
+      "onsetSeconds": 33.47,
+      "onsetStrength": 13.30509814400576,
+      "holdMeanRms": 0.04304
+    },
+    {
+      "id": "attention-025",
+      "gridBeat": 15,
+      "kind": "quarter",
+      "onsetSeconds": 34.04,
+      "onsetStrength": 16.8544760401419,
+      "holdMeanRms": 0.03074
+    },
+    {
+      "id": "attention-026",
+      "gridBeat": 15.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 34.33,
+      "onsetStrength": 12.251705179368816,
+      "holdMeanRms": 0.05576
+    },
+    {
+      "id": "attention-027",
+      "gridBeat": 16,
+      "kind": "accent-chord",
+      "onsetSeconds": 34.61,
+      "onsetStrength": 9.458899577532849,
+      "holdMeanRms": 0.01669
+    },
+    {
+      "id": "attention-028",
+      "gridBeat": 16,
+      "kind": "quarter",
+      "onsetSeconds": 34.61,
+      "onsetStrength": 9.458899577532849,
+      "holdMeanRms": 0.01669
+    },
+    {
+      "id": "attention-029",
+      "gridBeat": 17,
+      "kind": "quarter",
+      "onsetSeconds": 35.18,
+      "onsetStrength": 12.318663720534401,
+      "holdMeanRms": 0.01065
+    },
+    {
+      "id": "attention-030",
+      "gridBeat": 18,
+      "kind": "quarter",
+      "onsetSeconds": 35.75,
+      "onsetStrength": 7.466086740414001,
+      "holdMeanRms": 0.00715
+    },
+    {
+      "id": "attention-031",
+      "gridBeat": 19,
+      "kind": "phrase-hold",
+      "onsetSeconds": 36.32,
+      "onsetStrength": 10.780056660747078,
+      "holdMeanRms": 0.05853129310344827
+    },
+    {
+      "id": "attention-032",
+      "gridBeat": 20,
+      "kind": "accent-chord",
+      "onsetSeconds": 36.9,
+      "onsetStrength": 19.34491267421313,
+      "holdMeanRms": 0.099
+    },
+    {
+      "id": "attention-033",
+      "gridBeat": 20,
+      "kind": "quarter",
+      "onsetSeconds": 36.9,
+      "onsetStrength": 19.34491267421313,
+      "holdMeanRms": 0.099
+    },
+    {
+      "id": "attention-034",
+      "gridBeat": 21,
+      "kind": "quarter",
+      "onsetSeconds": 37.47,
+      "onsetStrength": 17.038730847695604,
+      "holdMeanRms": 0.04491
+    },
+    {
+      "id": "attention-035",
+      "gridBeat": 21.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 37.76,
+      "onsetStrength": 11.714795358532285,
+      "holdMeanRms": 0.06776
+    },
+    {
+      "id": "attention-036",
+      "gridBeat": 22,
+      "kind": "quarter",
+      "onsetSeconds": 38.04,
+      "onsetStrength": 18.158119756647142,
+      "holdMeanRms": 0.02233
+    },
+    {
+      "id": "attention-037",
+      "gridBeat": 23,
+      "kind": "quarter",
+      "onsetSeconds": 38.61,
+      "onsetStrength": 20.500946886424288,
+      "holdMeanRms": 0.01637
+    },
+    {
+      "id": "attention-038",
+      "gridBeat": 23.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 38.9,
+      "onsetStrength": 2.0044271198355177,
+      "holdMeanRms": 0.01882
+    },
+    {
+      "id": "attention-039",
+      "gridBeat": 24,
+      "kind": "accent-chord",
+      "onsetSeconds": 39.19,
+      "onsetStrength": 11.39848555551255,
+      "holdMeanRms": 0.17445
+    },
+    {
+      "id": "attention-040",
+      "gridBeat": 24,
+      "kind": "quarter",
+      "onsetSeconds": 39.19,
+      "onsetStrength": 11.39848555551255,
+      "holdMeanRms": 0.17445
+    },
+    {
+      "id": "attention-041",
+      "gridBeat": 25,
+      "kind": "quarter",
+      "onsetSeconds": 39.75,
+      "onsetStrength": 11.988341735667674,
+      "holdMeanRms": 0.01235
+    },
+    {
+      "id": "attention-042",
+      "gridBeat": 25.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 40.05,
+      "onsetStrength": 6.736619668974009,
+      "holdMeanRms": 0.09542
+    },
+    {
+      "id": "attention-043",
+      "gridBeat": 26,
+      "kind": "quarter",
+      "onsetSeconds": 40.32,
+      "onsetStrength": 5.936693288451908,
+      "holdMeanRms": 0.01033
+    },
+    {
+      "id": "attention-044",
+      "gridBeat": 27,
+      "kind": "phrase-hold",
+      "onsetSeconds": 40.89,
+      "onsetStrength": 8.080179369281671,
+      "holdMeanRms": 0.06422155172413792
+    },
+    {
+      "id": "attention-045",
+      "gridBeat": 28,
+      "kind": "accent-chord",
+      "onsetSeconds": 41.47,
+      "onsetStrength": 21.213437640811787,
+      "holdMeanRms": 0.05788
+    },
+    {
+      "id": "attention-046",
+      "gridBeat": 28,
+      "kind": "quarter",
+      "onsetSeconds": 41.47,
+      "onsetStrength": 21.213437640811787,
+      "holdMeanRms": 0.05788
+    },
+    {
+      "id": "attention-047",
+      "gridBeat": 29,
+      "kind": "quarter",
+      "onsetSeconds": 42.04,
+      "onsetStrength": 17.15593137609096,
+      "holdMeanRms": 0.01808
+    },
+    {
+      "id": "attention-048",
+      "gridBeat": 29.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 42.33,
+      "onsetStrength": 11.25445853644755,
+      "holdMeanRms": 0.04946
+    },
+    {
+      "id": "attention-049",
+      "gridBeat": 30,
+      "kind": "quarter",
+      "onsetSeconds": 42.61,
+      "onsetStrength": 13.09304050638416,
+      "holdMeanRms": 0.0096
+    },
+    {
+      "id": "attention-050",
+      "gridBeat": 31,
+      "kind": "quarter",
+      "onsetSeconds": 43.18,
+      "onsetStrength": 16.017959720125916,
+      "holdMeanRms": 0.0317
+    },
+    {
+      "id": "attention-051",
+      "gridBeat": 31.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 43.47,
+      "onsetStrength": 11.429776496165859,
+      "holdMeanRms": 0.03621
+    },
+    {
+      "id": "attention-052",
+      "gridBeat": 32,
+      "kind": "accent-chord",
+      "onsetSeconds": 43.75,
+      "onsetStrength": 8.333937887607405,
+      "holdMeanRms": 0.01235
+    },
+    {
+      "id": "attention-053",
+      "gridBeat": 32,
+      "kind": "quarter",
+      "onsetSeconds": 43.75,
+      "onsetStrength": 8.333937887607405,
+      "holdMeanRms": 0.01235
+    },
+    {
+      "id": "attention-054",
+      "gridBeat": 32.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 44.04,
+      "onsetStrength": 21.114879733932657,
+      "holdMeanRms": 0.03588
+    },
+    {
+      "id": "attention-055",
+      "gridBeat": 33,
+      "kind": "quarter",
+      "onsetSeconds": 44.32,
+      "onsetStrength": 10.93853312162026,
+      "holdMeanRms": 0.00861
+    },
+    {
+      "id": "attention-056",
+      "gridBeat": 34,
+      "kind": "quarter",
+      "onsetSeconds": 44.9,
+      "onsetStrength": 7.004102141639515,
+      "holdMeanRms": 0.09883
+    },
+    {
+      "id": "attention-057",
+      "gridBeat": 34.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 45.18,
+      "onsetStrength": 15.302992604968981,
+      "holdMeanRms": 0.00868
+    },
+    {
+      "id": "attention-058",
+      "gridBeat": 35,
+      "kind": "phrase-hold",
+      "onsetSeconds": 45.47,
+      "onsetStrength": 12.212770104778219,
+      "holdMeanRms": 0.061149568965517244
+    },
+    {
+      "id": "attention-059",
+      "gridBeat": 36,
+      "kind": "accent-chord",
+      "onsetSeconds": 46.04,
+      "onsetStrength": 17.801787043378138,
+      "holdMeanRms": 0.05444
+    },
+    {
+      "id": "attention-060",
+      "gridBeat": 36,
+      "kind": "quarter",
+      "onsetSeconds": 46.04,
+      "onsetStrength": 17.801787043378138,
+      "holdMeanRms": 0.05444
+    },
+    {
+      "id": "attention-061",
+      "gridBeat": 37,
+      "kind": "quarter",
+      "onsetSeconds": 46.61,
+      "onsetStrength": 16.697179008342783,
+      "holdMeanRms": 0.01937
+    },
+    {
+      "id": "attention-062",
+      "gridBeat": 37.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 46.9,
+      "onsetStrength": 11.066440304090452,
+      "holdMeanRms": 0.06438
+    },
+    {
+      "id": "attention-063",
+      "gridBeat": 38,
+      "kind": "quarter",
+      "onsetSeconds": 47.18,
+      "onsetStrength": 18.228925224694645,
+      "holdMeanRms": 0.0159
+    },
+    {
+      "id": "attention-064",
+      "gridBeat": 38.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 47.47,
+      "onsetStrength": 2.8221852289863247,
+      "holdMeanRms": 0.01004
+    },
+    {
+      "id": "attention-065",
+      "gridBeat": 39,
+      "kind": "quarter",
+      "onsetSeconds": 47.75,
+      "onsetStrength": 19.3437857767639,
+      "holdMeanRms": 0.01391
+    },
+    {
+      "id": "attention-066",
+      "gridBeat": 39.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 48.04,
+      "onsetStrength": 2.312543210553426,
+      "holdMeanRms": 0.01114
+    },
+    {
+      "id": "attention-067",
+      "gridBeat": 40,
+      "kind": "accent-chord",
+      "onsetSeconds": 48.33,
+      "onsetStrength": 12.29800095096333,
+      "holdMeanRms": 0.1349
+    },
+    {
+      "id": "attention-068",
+      "gridBeat": 40,
+      "kind": "quarter",
+      "onsetSeconds": 48.33,
+      "onsetStrength": 12.29800095096333,
+      "holdMeanRms": 0.1349
+    },
+    {
+      "id": "attention-069",
+      "gridBeat": 40.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 48.62,
+      "onsetStrength": 17.177150479789564,
+      "holdMeanRms": 0.25221
+    },
+    {
+      "id": "attention-070",
+      "gridBeat": 41,
+      "kind": "quarter",
+      "onsetSeconds": 48.89,
+      "onsetStrength": 8.170592160695737,
+      "holdMeanRms": 0.00887
+    },
+    {
+      "id": "attention-071",
+      "gridBeat": 41.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 49.19,
+      "onsetStrength": 4.122048851847877,
+      "holdMeanRms": 0.06543
+    },
+    {
+      "id": "attention-072",
+      "gridBeat": 42,
+      "kind": "quarter",
+      "onsetSeconds": 49.47,
+      "onsetStrength": 7.643620195053663,
+      "holdMeanRms": 0.04223
+    },
+    {
+      "id": "attention-073",
+      "gridBeat": 42.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 49.76,
+      "onsetStrength": 14.749012719133079,
+      "holdMeanRms": 0.21313
+    },
+    {
+      "id": "attention-074",
+      "gridBeat": 43,
+      "kind": "phrase-hold",
+      "onsetSeconds": 50.04,
+      "onsetStrength": 10.780479263246667,
+      "holdMeanRms": 0.0841068103448276
+    },
+    {
+      "id": "attention-075",
+      "gridBeat": 43.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 50.23,
+      "onsetStrength": 18.66230708283125,
+      "holdMeanRms": 0.02944
+    },
+    {
+      "id": "attention-076",
+      "gridBeat": 44,
+      "kind": "accent-chord",
+      "onsetSeconds": 50.61,
+      "onsetStrength": 14.495445702873099,
+      "holdMeanRms": 0.00485
+    },
+    {
+      "id": "attention-077",
+      "gridBeat": 44,
+      "kind": "quarter",
+      "onsetSeconds": 50.61,
+      "onsetStrength": 14.495445702873099,
+      "holdMeanRms": 0.00485
+    },
+    {
+      "id": "attention-078",
+      "gridBeat": 44.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 50.91,
+      "onsetStrength": 5.038532350440584,
+      "holdMeanRms": 0.09433
+    },
+    {
+      "id": "attention-079",
+      "gridBeat": 45,
+      "kind": "quarter",
+      "onsetSeconds": 51.18,
+      "onsetStrength": 8.744016169936675,
+      "holdMeanRms": 0.0743
+    },
+    {
+      "id": "attention-080",
+      "gridBeat": 45.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 51.47,
+      "onsetStrength": 14.113162042659976,
+      "holdMeanRms": 0.0215
+    },
+    {
+      "id": "attention-081",
+      "gridBeat": 46,
+      "kind": "quarter",
+      "onsetSeconds": 51.75,
+      "onsetStrength": 9.227524374601508,
+      "holdMeanRms": 0.02254
+    },
+    {
+      "id": "attention-082",
+      "gridBeat": 46.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 52.04,
+      "onsetStrength": 5.421962512236558,
+      "holdMeanRms": 0.04188
+    },
+    {
+      "id": "attention-083",
+      "gridBeat": 47,
+      "kind": "quarter",
+      "onsetSeconds": 52.32,
+      "onsetStrength": 10.42134056643327,
+      "holdMeanRms": 0.00992
+    },
+    {
+      "id": "attention-084",
+      "gridBeat": 47.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 52.62,
+      "onsetStrength": 10.72138928953364,
+      "holdMeanRms": 0.12899
+    },
+    {
+      "id": "attention-085",
+      "gridBeat": 48,
+      "kind": "accent-chord",
+      "onsetSeconds": 52.9,
+      "onsetStrength": 8.247470736592268,
+      "holdMeanRms": 0.10608
+    },
+    {
+      "id": "attention-086",
+      "gridBeat": 48,
+      "kind": "quarter",
+      "onsetSeconds": 52.9,
+      "onsetStrength": 8.247470736592268,
+      "holdMeanRms": 0.10608
+    },
+    {
+      "id": "attention-087",
+      "gridBeat": 48.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 53.18,
+      "onsetStrength": 18.639529341572768,
+      "holdMeanRms": 0.00358
+    },
+    {
+      "id": "attention-088",
+      "gridBeat": 49,
+      "kind": "quarter",
+      "onsetSeconds": 53.47,
+      "onsetStrength": 10.315822806867345,
+      "holdMeanRms": 0.0423
+    },
+    {
+      "id": "attention-089",
+      "gridBeat": 49.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 53.66,
+      "onsetStrength": 21.652401429803334,
+      "holdMeanRms": 0.01561
+    },
+    {
+      "id": "attention-090",
+      "gridBeat": 50,
+      "kind": "quarter",
+      "onsetSeconds": 54.04,
+      "onsetStrength": 9.520715832177938,
+      "holdMeanRms": 0.00393
+    },
+    {
+      "id": "attention-091",
+      "gridBeat": 50.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 54.33,
+      "onsetStrength": 19.674873328342816,
+      "holdMeanRms": 0.16968
+    },
+    {
+      "id": "attention-092",
+      "gridBeat": 51,
+      "kind": "phrase-hold",
+      "onsetSeconds": 54.61,
+      "onsetStrength": 10.56908333090257,
+      "holdMeanRms": 0.07700586206896556
+    },
+    {
+      "id": "attention-093",
+      "gridBeat": 51.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 54.8,
+      "onsetStrength": 18.175767619748363,
+      "holdMeanRms": 0.01606
+    },
+    {
+      "id": "attention-094",
+      "gridBeat": 52,
+      "kind": "accent-chord",
+      "onsetSeconds": 55.18,
+      "onsetStrength": 13.877583185322253,
+      "holdMeanRms": 0.00386
+    },
+    {
+      "id": "attention-095",
+      "gridBeat": 52,
+      "kind": "quarter",
+      "onsetSeconds": 55.18,
+      "onsetStrength": 13.877583185322253,
+      "holdMeanRms": 0.00386
+    },
+    {
+      "id": "attention-096",
+      "gridBeat": 52.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 55.48,
+      "onsetStrength": 5.367040181457508,
+      "holdMeanRms": 0.07377
+    },
+    {
+      "id": "attention-097",
+      "gridBeat": 53,
+      "kind": "quarter",
+      "onsetSeconds": 55.75,
+      "onsetStrength": 8.048043332611325,
+      "holdMeanRms": 0.07267
+    },
+    {
+      "id": "attention-098",
+      "gridBeat": 53.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 56.05,
+      "onsetStrength": 12.561103921404984,
+      "holdMeanRms": 0.18636
+    },
+    {
+      "id": "attention-099",
+      "gridBeat": 54,
+      "kind": "quarter",
+      "onsetSeconds": 56.32,
+      "onsetStrength": 9.39989619889366,
+      "holdMeanRms": 0.04933
+    },
+    {
+      "id": "attention-100",
+      "gridBeat": 54.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 56.61,
+      "onsetStrength": 6.6217794078099645,
+      "holdMeanRms": 0.04867
+    },
+    {
+      "id": "attention-101",
+      "gridBeat": 55,
+      "kind": "quarter",
+      "onsetSeconds": 56.89,
+      "onsetStrength": 9.491143440167356,
+      "holdMeanRms": 0.01366
+    },
+    {
+      "id": "attention-102",
+      "gridBeat": 55.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 57.18,
+      "onsetStrength": 1.704707547562896,
+      "holdMeanRms": 0.00978
+    },
+    {
+      "id": "attention-103",
+      "gridBeat": 56,
+      "kind": "accent-chord",
+      "onsetSeconds": 57.47,
+      "onsetStrength": 15.142732289339502,
+      "holdMeanRms": 0.05271
+    },
+    {
+      "id": "attention-104",
+      "gridBeat": 56,
+      "kind": "quarter",
+      "onsetSeconds": 57.47,
+      "onsetStrength": 15.142732289339502,
+      "holdMeanRms": 0.05271
+    },
+    {
+      "id": "attention-105",
+      "gridBeat": 56.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 57.76,
+      "onsetStrength": 19.5360501916117,
+      "holdMeanRms": 0.19153
+    },
+    {
+      "id": "attention-106",
+      "gridBeat": 57,
+      "kind": "quarter",
+      "onsetSeconds": 58.04,
+      "onsetStrength": 10.269471017011847,
+      "holdMeanRms": 0.00561
+    },
+    {
+      "id": "attention-107",
+      "gridBeat": 57.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 58.33,
+      "onsetStrength": 6.959721997805299,
+      "holdMeanRms": 0.05467
+    },
+    {
+      "id": "attention-108",
+      "gridBeat": 58,
+      "kind": "quarter",
+      "onsetSeconds": 58.61,
+      "onsetStrength": 7.612492915832201,
+      "holdMeanRms": 0.00697
+    },
+    {
+      "id": "attention-109",
+      "gridBeat": 58.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 58.9,
+      "onsetStrength": 17.063048023889596,
+      "holdMeanRms": 0.07091
+    },
+    {
+      "id": "attention-110",
+      "gridBeat": 59,
+      "kind": "phrase-hold",
+      "onsetSeconds": 59.18,
+      "onsetStrength": 8.914021725256456,
+      "holdMeanRms": 0.10941336206896551
+    },
+    {
+      "id": "attention-111",
+      "gridBeat": 59.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 59.38,
+      "onsetStrength": 16.453698661918086,
+      "holdMeanRms": 0.2394
+    },
+    {
+      "id": "attention-112",
+      "gridBeat": 60,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.10321
+    },
+    {
+      "id": "attention-113",
+      "gridBeat": 60.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 60.05,
+      "onsetStrength": 4.216114910804172,
+      "holdMeanRms": 0.09517
+    },
+    {
+      "id": "attention-114",
+      "gridBeat": 61,
+      "kind": "quarter",
+      "onsetSeconds": 60.32,
+      "onsetStrength": 5.775185201852729,
+      "holdMeanRms": 0.10858
+    },
+    {
+      "id": "attention-115",
+      "gridBeat": 61.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 60.62,
+      "onsetStrength": 12.517399945476498,
+      "holdMeanRms": 0.16467
+    },
+    {
+      "id": "attention-116",
+      "gridBeat": 62,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.1082
+    },
+    {
+      "id": "attention-117",
+      "gridBeat": 62.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 61.19,
+      "onsetStrength": 5.2499902228703075,
+      "holdMeanRms": 0.09208
+    },
+    {
+      "id": "attention-118",
+      "gridBeat": 63,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.08311
+    },
+    {
+      "id": "attention-119",
+      "gridBeat": 63.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 61.76,
+      "onsetStrength": 13.290919121286889,
+      "holdMeanRms": 0.1139
+    },
+    {
+      "id": "attention-120",
+      "gridBeat": 64,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.11576
+    },
+    {
+      "id": "attention-121",
+      "gridBeat": 64.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 62.33,
+      "onsetStrength": 18.58127023740408,
+      "holdMeanRms": 0.17822
+    },
+    {
+      "id": "attention-122",
+      "gridBeat": 65,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.0574
+    },
+    {
+      "id": "attention-123",
+      "gridBeat": 65.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 62.8,
+      "onsetStrength": 17.532858577036432,
+      "holdMeanRms": 0.02431
+    },
+    {
+      "id": "attention-124",
+      "gridBeat": 66,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.08264
+    },
+    {
+      "id": "attention-125",
+      "gridBeat": 66.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 63.47,
+      "onsetStrength": 15.64323279186497,
+      "holdMeanRms": 0.07127
+    },
+    {
+      "id": "attention-126",
+      "gridBeat": 67,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.10262895652173909
+    },
+    {
+      "id": "attention-127",
+      "gridBeat": 67.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 63.95,
+      "onsetStrength": 20.024077550368276,
+      "holdMeanRms": 0.18579
+    },
+    {
+      "id": "attention-128",
+      "gridBeat": 68,
+      "kind": "quarter",
+      "onsetSeconds": 64.24,
+      "onsetStrength": 2.1172991991347185,
+      "holdMeanRms": 0.10635
+    },
+    {
+      "id": "attention-129",
+      "gridBeat": 68.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 64.62,
+      "onsetStrength": 4.272251388324238,
+      "holdMeanRms": 0.07622
+    },
+    {
+      "id": "attention-130",
+      "gridBeat": 69,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.07518
+    },
+    {
+      "id": "attention-131",
+      "gridBeat": 69.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 65.19,
+      "onsetStrength": 15.34151880200253,
+      "holdMeanRms": 0.17778
+    },
+    {
+      "id": "attention-132",
+      "gridBeat": 70,
+      "kind": "quarter",
+      "onsetSeconds": 65.37,
+      "onsetStrength": 1.9320367024825371,
+      "holdMeanRms": 0.16816
+    },
+    {
+      "id": "attention-133",
+      "gridBeat": 70.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 65.65,
+      "onsetStrength": 1.6228743020343757,
+      "holdMeanRms": 0.07336
+    },
+    {
+      "id": "attention-134",
+      "gridBeat": 71,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.03821
+    },
+    {
+      "id": "attention-135",
+      "gridBeat": 71.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 66.33,
+      "onsetStrength": 15.20200375246115,
+      "holdMeanRms": 0.07079
+    },
+    {
+      "id": "attention-136",
+      "gridBeat": 72,
+      "kind": "accent-chord",
+      "onsetSeconds": 66.51,
+      "onsetStrength": 5.499687801530074,
+      "holdMeanRms": 0.17477
+    },
+    {
+      "id": "attention-137",
+      "gridBeat": 72,
+      "kind": "quarter",
+      "onsetSeconds": 66.51,
+      "onsetStrength": 5.499687801530074,
+      "holdMeanRms": 0.17477
+    },
+    {
+      "id": "attention-138",
+      "gridBeat": 73,
+      "kind": "quarter",
+      "onsetSeconds": 67.14,
+      "onsetStrength": 5.2076499128265015,
+      "holdMeanRms": 0.16383
+    },
+    {
+      "id": "attention-139",
+      "gridBeat": 73.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 67.42,
+      "onsetStrength": 4.579504889804102,
+      "holdMeanRms": 0.18196
+    },
+    {
+      "id": "attention-140",
+      "gridBeat": 74,
+      "kind": "quarter",
+      "onsetSeconds": 67.67,
+      "onsetStrength": 4.559652812547363,
+      "holdMeanRms": 0.18592
+    },
+    {
+      "id": "attention-141",
+      "gridBeat": 74.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 67.99,
+      "onsetStrength": 1.8869213724111733,
+      "holdMeanRms": 0.17637
+    },
+    {
+      "id": "attention-142",
+      "gridBeat": 75,
+      "kind": "phrase-hold",
+      "onsetSeconds": 68.27,
+      "onsetStrength": 3.5342325627607956,
+      "holdMeanRms": 0.16468767241379315
+    },
+    {
+      "id": "attention-143",
+      "gridBeat": 75.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 68.62,
+      "onsetStrength": 3.1957225735211257,
+      "holdMeanRms": 0.09778
+    },
+    {
+      "id": "attention-144",
+      "gridBeat": 76,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.24318
+    },
+    {
+      "id": "attention-145",
+      "gridBeat": 76.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 69.13,
+      "onsetStrength": 2.423445893525163,
+      "holdMeanRms": 0.16893
+    },
+    {
+      "id": "attention-146",
+      "gridBeat": 77,
+      "kind": "quarter",
+      "onsetSeconds": 69.39,
+      "onsetStrength": 2.5785545663999865,
+      "holdMeanRms": 0.16818
+    },
+    {
+      "id": "attention-147",
+      "gridBeat": 77.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 69.67,
+      "onsetStrength": 2.1050609740591923,
+      "holdMeanRms": 0.1292
+    },
+    {
+      "id": "attention-148",
+      "gridBeat": 78,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.25046
+    },
+    {
+      "id": "attention-149",
+      "gridBeat": 78.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 70.27,
+      "onsetStrength": 3.9117976999611144,
+      "holdMeanRms": 0.1191
+    },
+    {
+      "id": "attention-150",
+      "gridBeat": 79,
+      "kind": "quarter",
+      "onsetSeconds": 70.55,
+      "onsetStrength": 2.744167312167472,
+      "holdMeanRms": 0.12715
+    },
+    {
+      "id": "attention-151",
+      "gridBeat": 79.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 70.77,
+      "onsetStrength": 2.1319220459116166,
+      "holdMeanRms": 0.07868
+    },
+    {
+      "id": "attention-152",
+      "gridBeat": 80,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.21854
+    },
+    {
+      "id": "attention-153",
+      "gridBeat": 80.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 71.34,
+      "onsetStrength": 3.051107747818519,
+      "holdMeanRms": 0.17784
+    },
+    {
+      "id": "attention-154",
+      "gridBeat": 81,
+      "kind": "quarter",
+      "onsetSeconds": 71.66,
+      "onsetStrength": 2.7526685122207,
+      "holdMeanRms": 0.18235
+    },
+    {
+      "id": "attention-155",
+      "gridBeat": 81.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 72.02,
+      "onsetStrength": 2.763616103493694,
+      "holdMeanRms": 0.08462
+    },
+    {
+      "id": "attention-156",
+      "gridBeat": 82,
+      "kind": "quarter",
+      "onsetSeconds": 72.24,
+      "onsetStrength": 1.8067116426324086,
+      "holdMeanRms": 0.16897
+    },
+    {
+      "id": "attention-157",
+      "gridBeat": 82.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 72.5,
+      "onsetStrength": 2.293038462657715,
+      "holdMeanRms": 0.15059
+    },
+    {
+      "id": "attention-158",
+      "gridBeat": 83,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.18320556521739134
+    },
+    {
+      "id": "attention-159",
+      "gridBeat": 84,
+      "kind": "accent-chord",
+      "onsetSeconds": 73.36,
+      "onsetStrength": 5.094207193768903,
+      "holdMeanRms": 0.19426
+    },
+    {
+      "id": "attention-160",
+      "gridBeat": 84,
+      "kind": "quarter",
+      "onsetSeconds": 73.36,
+      "onsetStrength": 5.094207193768903,
+      "holdMeanRms": 0.19426
+    },
+    {
+      "id": "attention-161",
+      "gridBeat": 84.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 73.7,
+      "onsetStrength": 2.624836845041012,
+      "holdMeanRms": 0.1694
+    },
+    {
+      "id": "attention-162",
+      "gridBeat": 85,
+      "kind": "quarter",
+      "onsetSeconds": 73.96,
+      "onsetStrength": 2.827393078178416,
+      "holdMeanRms": 0.18264
+    },
+    {
+      "id": "attention-163",
+      "gridBeat": 86,
+      "kind": "quarter",
+      "onsetSeconds": 74.51,
+      "onsetStrength": 3.147243490231358,
+      "holdMeanRms": 0.19832
+    },
+    {
+      "id": "attention-164",
+      "gridBeat": 87,
+      "kind": "quarter",
+      "onsetSeconds": 75.1,
+      "onsetStrength": 2.333604918023421,
+      "holdMeanRms": 0.17051
+    },
+    {
+      "id": "attention-165",
+      "gridBeat": 88,
+      "kind": "quarter",
+      "onsetSeconds": 75.69,
+      "onsetStrength": 2.1372271926126007,
+      "holdMeanRms": 0.19838
+    },
+    {
+      "id": "attention-166",
+      "gridBeat": 88.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 75.97,
+      "onsetStrength": 2.8041353699150258,
+      "holdMeanRms": 0.15514
+    },
+    {
+      "id": "attention-167",
+      "gridBeat": 89,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.20504
+    },
+    {
+      "id": "attention-168",
+      "gridBeat": 89.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 76.47,
+      "onsetStrength": 2.056028134412268,
+      "holdMeanRms": 0.08395
+    },
+    {
+      "id": "attention-169",
+      "gridBeat": 90,
+      "kind": "quarter",
+      "onsetSeconds": 76.82,
+      "onsetStrength": 3.2322833962938224,
+      "holdMeanRms": 0.2084
+    },
+    {
+      "id": "attention-170",
+      "gridBeat": 90.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 77.07,
+      "onsetStrength": 1.6294954805519706,
+      "holdMeanRms": 0.20308
+    },
+    {
+      "id": "attention-171",
+      "gridBeat": 91,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.17999000000000004
+    },
+    {
+      "id": "attention-172",
+      "gridBeat": 91.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 77.66,
+      "onsetStrength": 2.532464123814295,
+      "holdMeanRms": 0.14864
+    },
+    {
+      "id": "attention-173",
+      "gridBeat": 92,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.14807
+    },
+    {
+      "id": "attention-174",
+      "gridBeat": 93,
+      "kind": "quarter",
+      "onsetSeconds": 78.49,
+      "onsetStrength": 2.312746101483452,
+      "holdMeanRms": 0.20042
+    },
+    {
+      "id": "attention-175",
+      "gridBeat": 93.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 78.77,
+      "onsetStrength": 1.7776469771147703,
+      "holdMeanRms": 0.11451
+    },
+    {
+      "id": "attention-176",
+      "gridBeat": 94,
+      "kind": "quarter",
+      "onsetSeconds": 79.08,
+      "onsetStrength": 2.604651684620116,
+      "holdMeanRms": 0.12532
+    },
+    {
+      "id": "attention-177",
+      "gridBeat": 94.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 79.41,
+      "onsetStrength": 3.2022507475806927,
+      "holdMeanRms": 0.07511
+    },
+    {
+      "id": "attention-178",
+      "gridBeat": 95,
+      "kind": "quarter",
+      "onsetSeconds": 79.63,
+      "onsetStrength": 1.7500542445104033,
+      "holdMeanRms": 0.09152
+    },
+    {
+      "id": "attention-179",
+      "gridBeat": 95.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 79.91,
+      "onsetStrength": 2.7738941371278365,
+      "holdMeanRms": 0.06637
+    },
+    {
+      "id": "attention-180",
+      "gridBeat": 96,
+      "kind": "quarter",
+      "onsetSeconds": 80.23,
+      "onsetStrength": 2.3789110594222134,
+      "holdMeanRms": 0.08471
+    },
+    {
+      "id": "attention-181",
+      "gridBeat": 96.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 80.55,
+      "onsetStrength": 2.929764113883153,
+      "holdMeanRms": 0.13958
+    },
+    {
+      "id": "attention-182",
+      "gridBeat": 97,
+      "kind": "quarter",
+      "onsetSeconds": 80.78,
+      "onsetStrength": 2.3741800685570627,
+      "holdMeanRms": 0.14071
+    },
+    {
+      "id": "attention-183",
+      "gridBeat": 97.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 81.08,
+      "onsetStrength": 2.00066817550442,
+      "holdMeanRms": 0.10874
+    },
+    {
+      "id": "attention-184",
+      "gridBeat": 98,
+      "kind": "quarter",
+      "onsetSeconds": 81.36,
+      "onsetStrength": 1.677406527895149,
+      "holdMeanRms": 0.1815
+    },
+    {
+      "id": "attention-185",
+      "gridBeat": 98.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 81.66,
+      "onsetStrength": 7.9155465899451185,
+      "holdMeanRms": 0.15211
+    },
+    {
+      "id": "attention-186",
+      "gridBeat": 99,
+      "kind": "phrase-hold",
+      "onsetSeconds": 81.94,
+      "onsetStrength": 2.17367693528651,
+      "holdMeanRms": 0.1854767241379311
+    },
+    {
+      "id": "attention-187",
+      "gridBeat": 99.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 82.28,
+      "onsetStrength": 4.5298291981245375,
+      "holdMeanRms": 0.18902
+    },
+    {
+      "id": "attention-188",
+      "gridBeat": 100,
+      "kind": "accent-chord",
+      "onsetSeconds": 82.55,
+      "onsetStrength": 2.624648705201519,
+      "holdMeanRms": 0.15779
+    },
+    {
+      "id": "attention-189",
+      "gridBeat": 100,
+      "kind": "quarter",
+      "onsetSeconds": 82.55,
+      "onsetStrength": 2.624648705201519,
+      "holdMeanRms": 0.15779
+    },
+    {
+      "id": "attention-190",
+      "gridBeat": 101,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.1723
+    },
+    {
+      "id": "attention-191",
+      "gridBeat": 101.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 83.34,
+      "onsetStrength": 1.7682541138229593,
+      "holdMeanRms": 0.13579
+    },
+    {
+      "id": "attention-192",
+      "gridBeat": 102,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.12426
+    },
+    {
+      "id": "attention-193",
+      "gridBeat": 102.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 83.92,
+      "onsetStrength": 3.0299268177695655,
+      "holdMeanRms": 0.14559
+    },
+    {
+      "id": "attention-194",
+      "gridBeat": 103,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.13037
+    },
+    {
+      "id": "attention-195",
+      "gridBeat": 103.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 84.49,
+      "onsetStrength": 2.7802338759408487,
+      "holdMeanRms": 0.07863
+    },
+    {
+      "id": "attention-196",
+      "gridBeat": 104,
+      "kind": "accent-chord",
+      "onsetSeconds": 84.77,
+      "onsetStrength": 3.104892997655758,
+      "holdMeanRms": 0.14556
+    },
+    {
+      "id": "attention-197",
+      "gridBeat": 104,
+      "kind": "quarter",
+      "onsetSeconds": 84.77,
+      "onsetStrength": 3.104892997655758,
+      "holdMeanRms": 0.14556
+    },
+    {
+      "id": "attention-198",
+      "gridBeat": 105,
+      "kind": "quarter",
+      "onsetSeconds": 85.39,
+      "onsetStrength": 3.189129117279485,
+      "holdMeanRms": 0.17643
+    },
+    {
+      "id": "attention-199",
+      "gridBeat": 105.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 85.62,
+      "onsetStrength": 1.7008339033064368,
+      "holdMeanRms": 0.12857
+    },
+    {
+      "id": "attention-200",
+      "gridBeat": 106,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.08907
+    },
+    {
+      "id": "attention-201",
+      "gridBeat": 106.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 86.18,
+      "onsetStrength": 1.8322406881388293,
+      "holdMeanRms": 0.14221
+    },
+    {
+      "id": "attention-202",
+      "gridBeat": 107,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.08782730434782608
+    },
+    {
+      "id": "attention-203",
+      "gridBeat": 107.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 86.8,
+      "onsetStrength": 2.0440771862630442,
+      "holdMeanRms": 0.06852
+    },
+    {
+      "id": "attention-204",
+      "gridBeat": 108,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.05947
+    },
+    {
+      "id": "attention-205",
+      "gridBeat": 108.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 87.31,
+      "onsetStrength": 1.926294537437052,
+      "holdMeanRms": 0.08912
+    },
+    {
+      "id": "attention-206",
+      "gridBeat": 109,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01499
+    },
+    {
+      "id": "attention-207",
+      "gridBeat": 110,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.08815
+    },
+    {
+      "id": "attention-208",
+      "gridBeat": 111,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01399
+    },
+    {
+      "id": "attention-209",
+      "gridBeat": 112,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.15522
+    },
+    {
+      "id": "attention-210",
+      "gridBeat": 113,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.00096
+    },
+    {
+      "id": "attention-211",
+      "gridBeat": 113.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 90.23,
+      "onsetStrength": 20.475908665250987,
+      "holdMeanRms": 0.01213
+    },
+    {
+      "id": "attention-212",
+      "gridBeat": 114,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.00427
+    },
+    {
+      "id": "attention-213",
+      "gridBeat": 115,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.05662077586206894
+    },
+    {
+      "id": "attention-214",
+      "gridBeat": 115.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 91.38,
+      "onsetStrength": 18.625362548382956,
+      "holdMeanRms": 0.20236
+    },
+    {
+      "id": "attention-215",
+      "gridBeat": 116,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.0043
+    },
+    {
+      "id": "attention-216",
+      "gridBeat": 117,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.0107
+    },
+    {
+      "id": "attention-217",
+      "gridBeat": 118,
+      "kind": "quarter",
+      "onsetSeconds": 92.75,
+      "onsetStrength": 1.7077673102811495,
+      "holdMeanRms": 0.08362
+    },
+    {
+      "id": "attention-218",
+      "gridBeat": 119,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01184
+    },
+    {
+      "id": "attention-219",
+      "gridBeat": 120,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01368
+    },
+    {
+      "id": "attention-220",
+      "gridBeat": 121,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.00164
+    },
+    {
+      "id": "attention-221",
+      "gridBeat": 121.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 94.8,
+      "onsetStrength": 14.773893306510878,
+      "holdMeanRms": 0.03893
+    },
+    {
+      "id": "attention-222",
+      "gridBeat": 122,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.12047
+    },
+    {
+      "id": "attention-223",
+      "gridBeat": 123,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.061854086956521746
+    },
+    {
+      "id": "attention-224",
+      "gridBeat": 123.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 95.95,
+      "onsetStrength": 19.440429614120408,
+      "holdMeanRms": 0.1885
+    },
+    {
+      "id": "attention-225",
+      "gridBeat": 124,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.00256
+    },
+    {
+      "id": "attention-226",
+      "gridBeat": 125,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01273
+    },
+    {
+      "id": "attention-227",
+      "gridBeat": 126,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.10761
+    },
+    {
+      "id": "attention-228",
+      "gridBeat": 127,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.01299
+    }
+  ]
+}

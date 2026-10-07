@@ -19,6 +19,7 @@ namespace Game.Monster
         private readonly MonsterModel monster;
         private readonly IGameFlow flow;
         private readonly SimulationRunner runner;
+        private readonly LiveInputSource input;
         private EncounterSceneView view;
         private EncounterSaveData restore;
         public bool NavigationBlocked { get; set; }
@@ -32,9 +33,10 @@ namespace Game.Monster
         public void ClearPreparedRestore() => restore = null;
 
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
-            MonsterModel monster, IGameFlow flow, SimulationRunner runner) : base(assets)
+            MonsterModel monster, IGameFlow flow, SimulationRunner runner, LiveInputSource input = null) : base(assets)
         {
             this.runner = runner;
+            this.input = input;
             this.step = step;
             this.player = player;
             this.monster = monster;
@@ -61,10 +63,12 @@ namespace Game.Monster
 
             try
             {
+                view.ConfigureTaming(step);
                 if (restore != null) step.Restore(restore);
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
                 view.Bind(player, monster, ReadInterpolationAlpha);
+                view.BindControl(step, RequestControl);
                 // S3 视线遮挡（Q3 波接线）：把场景里显式登记的遮挡体一次性转成纯数据几何喂给潜行内核，
                 // tick 路径因此只做几何求交、不做物理查询（StealthSight / EncounterSceneView 的分工）。
                 // 没登记遮挡体时喂进去的是空数组 = 视线不被遮挡，判定与接线前一致。
@@ -84,6 +88,7 @@ namespace Game.Monster
 
         protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
+            if (input != null) input.ClearQueuedSelection();
             step.End();
             if (view != null)
             {
@@ -94,6 +99,12 @@ namespace Game.Monster
             }
 
             return UniTask.CompletedTask;
+        }
+
+        private void RequestControl(int slot, bool tame)
+        {
+            if (input != null && step.IsActive && !runner.IsPaused)
+                input.QueueSelection(slot, tame ? InputCommand.ButtonTame : InputCommand.ButtonSelectControl);
         }
 
         // 渲染插值比例：实时模式取推进器余量 / 步长；重放（Driven）由播放器逐 tick 推进、余量恒为 0，

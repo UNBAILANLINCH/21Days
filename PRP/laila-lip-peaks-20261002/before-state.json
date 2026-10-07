@@ -1,0 +1,27 @@
+{
+  "playing": false,
+  "dirty": true,
+  "handles": 17,
+  "lips": [
+    {
+      "name": "Control_UpperLip_L",
+      "position": "(0.0000000, -0.0468000, -0.1282000)",
+      "center": "(0.0000000, -0.0468000, -0.1282000)",
+      "screen": "(960.000, 413.640, 9.872)",
+      "radius": 0.004,
+      "worldRadius": 0.009022001,
+      "shape": "Mouth_UpperLipL_Up",
+      "faceId": 46046
+    },
+    {
+      "name": "Control_UpperLip_R",
+      "position": "(0.0120000, -0.0522277, -0.1646433)",
+      "center": "(0.0120000, -0.0522277, -0.1646433)",
+      "screen": "(992.400, 398.985, 9.835)",
+      "radius": 0.0045,
+      "worldRadius": 0.0045,
+      "shape": "Mouth_UpperLipR_Up",
+      "faceId": 46046
+    }
+  ]
+}

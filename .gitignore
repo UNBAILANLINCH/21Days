@@ -74,3 +74,6 @@ Assets/AddressableAssetsData/Windows.meta
 # Unity 下次打开会报「meta 没有对应资产」再把它删掉，白白产生一次 diff。
 Assets/InitTestScene*.unity
 Assets/InitTestScene*.unity.meta
+
+# Laila 嘴部生成诊断明细：保留本地与已核验备份，仓库只跟踪小统计摘要。
+/PRP/laila-mouth-repair-20261002/candidate3-teeth.json

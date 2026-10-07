@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39fa3d8997a24136984ca6e2c99902bc, type: 3}
+  m_Name: RhythmInput
+  m_EditorClassIdentifier: 
+  m_ActionMaps:
+  - m_Name: Rhythm
+    m_Id: 
+    m_Asset: {fileID: 11400000}
+    m_Actions:
+    - m_Name: Lane0
+      m_Type: 1
+      m_ExpectedControlType: 
+      m_Id: 1a6d0bfc-b4b7-4caf-bd57-b70d3c67aa3e
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Lane1
+      m_Type: 1
+      m_ExpectedControlType: 
+      m_Id: a3b0df8e-38ea-4121-aa47-53baaeb7c8ab
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Lane2
+      m_Type: 1
+      m_ExpectedControlType: 
+      m_Id: 20def646-fdc7-4dd4-a01c-2a05e798cd0a
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Lane3
+      m_Type: 1
+      m_ExpectedControlType: 
+      m_Id: bc077990-2db6-43e1-9065-ce252ada317e
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    m_Bindings:
+    - m_Name: 
+      m_Id: ff411097-47a4-401b-ae56-3ce792f86c97
+      m_Path: <Keyboard>/d
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Lane0
+      m_Flags: 0
+    - m_Name: 
+      m_Id: 5bf1960b-a5ab-4432-91dc-0900e90eb7e2
+      m_Path: <Keyboard>/f
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Lane1
+      m_Flags: 0
+    - m_Name: 
+      m_Id: 7bec981f-da96-4e7b-9eb5-4f39d13a2a14
+      m_Path: <Keyboard>/j
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Lane2
+      m_Flags: 0
+    - m_Name: 
+      m_Id: 14d0af5d-1c15-4793-941e-950a84532de3
+      m_Path: <Keyboard>/k
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Lane3
+      m_Flags: 0
+  m_ControlSchemes: []
+  m_IsProjectWide: 0

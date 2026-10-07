@@ -19,6 +19,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -168,6 +169,10 @@ namespace Game.Editor
                 {
                     continue;
                 }
+
+                // 只扫描真正进入本次包体的 Bundle 组；排除组的依赖不会被构建。
+                var bundle = group.GetSchema<BundledAssetGroupSchema>();
+                if (bundle != null && !bundle.IncludeInBuild) continue;
 
                 foreach (AddressableAssetEntry entry in group.entries)
                 {

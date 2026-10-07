@@ -76,5 +76,101 @@ namespace Game.Tests.EditMode.Taming
             rules.Step(new TamingIntent(Vector2.zero, true), 0f);
             Assert.That(rules.IsControllingEnemy, Is.False);
         }
+
+        private MonsterRules ConfigureTwo()
+        {
+            MonsterRules second = enemy.CreateForActor("patrol-b");
+            second.Reset(new[] { Vector2.right * 20 });
+            rules.Configure("player", "玩家");
+            rules.RegisterTarget("patrol-a", "巡逻者 A", enemy);
+            rules.RegisterTarget("patrol-b", "巡逻者 B", second);
+            return second;
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AdvanceTargets_PropagatesIdentityProtectionToBothEnemies(bool identityInEffect)
+        {
+            MonsterRules second = ConfigureTwo();
+            enemy.Reset(new[] { Vector2.right * 0.5f, Vector2.zero });
+            second.Reset(new[] { Vector2.left * 0.5f, Vector2.zero });
+
+            bool primaryAttacked = rules.AdvanceTargets(Vector2.zero, 0f, identityInEffect);
+
+            Assert.That(primaryAttacked, Is.EqualTo(!identityInEffect));
+            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - (identityInEffect ? 0 : 2 * enemyConfig.AttackDamage)));
+        }
+
+        [Test]
+        public void TryControl_UntamedOrUnknownTarget_IsRejected()
+        {
+            ConfigureTwo();
+            Assert.That(rules.TryControl("patrol-a"), Is.False);
+            Assert.That(rules.TryControl("missing"), Is.False);
+            Assert.That(rules.TryControl(null), Is.False);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("player"));
+        }
+
+        [Test]
+        public void TamedTargets_DirectedSwitches_OnlyOwnerMovesAndEventMatchesId()
+        {
+            MonsterRules second = ConfigureTwo();
+            rules.TryTame("patrol-a");
+            rules.TryTame("patrol-b");
+            string announced = null;
+            int changes = 0;
+            rules.OnControlChanged += id => { announced = id; changes++; };
+            for (int i = 0; i < 6; i++)
+            {
+                string id = i % 2 == 0 ? "patrol-a" : "patrol-b";
+                Vector2 a = enemy.Model.Position;
+                Vector2 b = second.Model.Position;
+                Assert.That(rules.TryControl(id), Is.True);
+                Assert.That(rules.TryControl(id), Is.True, "重复选择幂等");
+                rules.Step(new TamingIntent(Vector2.right, false), 1f);
+                Assert.That(announced, Is.EqualTo(rules.CurrentControlId));
+                Assert.That(enemy.Model.Position.x, Is.EqualTo(a.x + (id == "patrol-a" ? enemyConfig.PatrolSpeed : 0f)));
+                Assert.That(second.Model.Position.x, Is.EqualTo(b.x + (id == "patrol-b" ? enemyConfig.PatrolSpeed : 0f)));
+                Assert.That(player.Model.Position, Is.EqualTo(Vector2.zero));
+            }
+            Assert.That(changes, Is.EqualTo(6));
+            Assert.That(rules.GetDisplayName("patrol-b"), Is.EqualTo("巡逻者 B"));
+        }
+
+        [Test]
+        public void UnavailableOwner_ReturnsToPlayerAndCannotBeSelected()
+        {
+            ConfigureTwo();
+            rules.TryTame("patrol-b");
+            rules.TryControl("patrol-b");
+            rules.SetAvailable("patrol-b", false);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("player"));
+            Assert.That(rules.TryControl("patrol-b"), Is.False);
+        }
+
+        [Test]
+        public void DuplicateStableId_IsRejectedWithoutReplacingOriginal()
+        {
+            MonsterRules second = ConfigureTwo();
+            Assert.Throws<System.ArgumentException>(() => rules.RegisterTarget("patrol-a", "重复", second));
+            Assert.That(rules.GetTarget("patrol-a"), Is.SameAs(enemy));
+        }
+
+        [Test]
+        public void CaptureRestore_PreservesBothTamesAndOwnerWhileResetClearsThem()
+        {
+            ConfigureTwo();
+            rules.TryTame("patrol-a");
+            rules.TryTame("patrol-b");
+            rules.TryControl("patrol-b");
+            TamingTargetSaveData[] saved = rules.Capture();
+            rules.Reset();
+            Assert.That(rules.IsTargetTamed("patrol-a"), Is.False);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("player"));
+            rules.Restore(saved, "patrol-b", false);
+            Assert.That(rules.IsTargetTamed("patrol-a"), Is.True);
+            Assert.That(rules.IsTargetTamed("patrol-b"), Is.True);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("patrol-b"));
+        }
     }
 }

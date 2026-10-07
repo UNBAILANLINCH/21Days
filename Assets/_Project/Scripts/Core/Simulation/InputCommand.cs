@@ -22,9 +22,9 @@ namespace Game.Core.Simulation
     /// 槽位映射（对应 <c>Data/Input/GameInput.inputactions</c> 的 Gameplay 动作图）：
     /// <see cref="Axis0"/> ← Move；<see cref="Buttons"/> bit0/1/2 ← Confirm/Cancel/Pause；
     /// bit3/4/5 ← Sneak/Disguise/Attack；bit6 ← Run（走 / 跑切换键，见 <see cref="ButtonRun"/>）；
-    /// bit7/8/9 ← Tame/Interact/Inventory（聚光灯 S1 换皮与附身、S3 潜行与暗杀要用的三路，
+    /// bit7/8/9 ← Tame/SelectControl/TamePressed；bit10/11 ← Interact/Inventory（
     /// 见 <see cref="ButtonTame"/> 等常量）；bit31 ← QA 打点标记（不来自动作图，见 <see cref="ButtonQaMarker"/>）。
-    /// <see cref="Axis1"/> 与 <see cref="Pointer"/> 当前**没有对应动作，恒为零**，玩法定了再映射——
+    /// <see cref="Axis1"/> 的 x 记录定向控制槽位，y 与 <see cref="Pointer"/> 恒为零——
     /// 槽位先占住，将来加动作不改字节布局，老录像还能读。
     /// </para>
     /// <para>
@@ -56,6 +56,10 @@ namespace Game.Core.Simulation
         /// 位掩码只是追加一位，命令字节布局不变。
         /// </summary>
         public const uint ButtonRun = 1u << 6;
+        /// <summary>界面定向选择。选择槽位记录在 Axis1.x，保留 31 字节布局。</summary>
+        public const uint ButtonSelectControl = 1u << 8;
+        /// <summary>本 tick 收到新的驯服按下事件；即使两次短按间未采到松开，也保留新按下沿。</summary>
+        public const uint ButtonTamePressed = 1u << 9;
 
         /// <summary>
         /// 附身 / 驯服键位（Gameplay/Tame）。Taming 是聚光灯 S1「换皮与附身」当前的最小验证版，
@@ -68,14 +72,14 @@ namespace Game.Core.Simulation
         /// 交互键位（Gameplay/Interact）。对话聚焦与物资箱拾取现在就用它，拾取会产出物品并进存档，
         /// 属逻辑结果；S1 的发起附身、S3 的处决目标选择也要走同一路。<b>追加一位，命令字节布局不变。</b>
         /// </summary>
-        public const uint ButtonInteract = 1u << 8;
+        public const uint ButtonInteract = 1u << 10;
 
         /// <summary>
         /// 背包键位（Gameplay/Inventory）。现在接在它上面的还只是面板开关，位先占住：
         /// 聚光灯 S1 / S5 的皮与面具道具要从背包里取用，「用的是哪一件身份道具」直接影响身份判定，
         /// 必须能被录下来。<b>追加一位，命令字节布局不变。</b>
         /// </summary>
-        public const uint ButtonInventory = 1u << 9;
+        public const uint ButtonInventory = 1u << 11;
 
         /// <summary>
         /// QA 打点标记位。**不来自动作图**，<see cref="LiveInputSource"/> 永远不会置它；
@@ -104,7 +108,7 @@ namespace Game.Core.Simulation
 
         /// <summary>构造一条输入命令。</summary>
         /// <param name="axis0">主移动轴，来自 Gameplay/Move。</param>
-        /// <param name="axis1">副轴，当前无对应动作，传 <c>Vector2.zero</c>。</param>
+        /// <param name="axis1">副轴，x 为定向控制槽位，无请求时为零。</param>
         /// <param name="buttons">按钮位掩码，见 <see cref="ButtonConfirm"/> 等常量。</param>
         /// <param name="pointer">指针位置，当前无对应动作，传 <c>Vector2.zero</c>。</param>
         /// <param name="flags">预留标志位，当前恒为 0。</param>
@@ -120,11 +124,11 @@ namespace Game.Core.Simulation
         /// <summary>主移动轴，来自 Gameplay/Move（Vector2）。</summary>
         public Vector2 Axis0 { get; }
 
-        /// <summary>副轴。当前动作图里没有对应动作，恒为零；槽位先留着，玩法定了再映射。</summary>
+        /// <summary>副轴。x 为定向控制槽位：0 无请求，1 玩家，2 起为场景巡逻者顺序；y 恒为零。</summary>
         public Vector2 Axis1 { get; }
 
         /// <summary>按钮位掩码。bit0=Confirm，bit1=Cancel，bit2=Pause，bit3~5=Sneak/Disguise/Attack，
-        /// bit6=Run，bit7=Tame，bit8=Interact，bit9=Inventory，bit31=QA 打点标记。</summary>
+        /// bit6=Run，bit7=Tame，bit8=SelectControl，bit9=TamePressed，bit10=Interact，bit11=Inventory，bit31=QA 打点标记。</summary>
         public uint Buttons { get; }
 
         /// <summary>指针位置。当前动作图里没有对应动作，恒为零。</summary>

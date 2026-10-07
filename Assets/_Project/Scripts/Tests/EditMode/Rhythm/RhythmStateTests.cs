@@ -1,0 +1,146 @@
+// 职责：验证输入配置不完整时仍释放会话资源；规则测试不覆盖 State 的 Unity 生命周期。
+using System;
+using System.Reflection;
+using Game.Core.Telemetry;
+using Game.Rhythm;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Game.Tests.EditMode.Rhythm
+{
+    public sealed class RhythmStateTests
+    {
+        [TestCase(0.0)]
+        [TestCase(0.2)]
+        [TestCase(2.0)]
+        public void ClockGuard_RenderStallDoesNotBreakBridge(double stallSeconds)
+        {
+            var guard = new RhythmClockGuard(100, 400, 0.1);
+            Assert.That(guard.Check(401, 101, 0, out _), Is.True);
+            Assert.That(guard.Check(401.02 + stallSeconds, 101.02 + stallSeconds, 0, out _), Is.True);
+        }
+
+        [TestCase(401.3, 101, "clock_discontinuity")]
+        [TestCase(401.02, 100.99, "clock_reversed")]
+        [TestCase(400.99, 101.02, "clock_reversed")]
+        [TestCase(double.NaN, 101.02, "invalid_clock")]
+        public void ClockGuard_InterruptedOrInvalidClockRejectsRound(double realtime, double dsp, string expected)
+        {
+            var guard = new RhythmClockGuard(100, 400, 0.1);
+            Assert.That(guard.Check(401, 101, 0, out _), Is.True);
+            Assert.That(guard.Check(realtime, dsp, 0, out string reason), Is.False);
+            Assert.That(reason, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ClockGuard_PoorReadAccountsForSampleSpanWithoutChangingBridge()
+        {
+            var guard = new RhythmClockGuard(100, 400, 0.1);
+            Assert.That(guard.Check(401.2, 101, 0.3, out _), Is.True);
+            Assert.That(guard.Check(401.4, 101.1, 0, out string reason), Is.False);
+            Assert.That(reason, Is.EqualTo("clock_discontinuity"));
+        }
+
+        [Test]
+        public void ClockGuard_RetryUsesNewClockOrigin()
+        {
+            var old = new RhythmClockGuard(100, 400, 0.1);
+            Assert.That(old.Check(405, 101, 0, out _), Is.False);
+            var retry = new RhythmClockGuard(101, 405, 0.1);
+            Assert.That(retry.Check(405.02, 101.02, 0, out _), Is.True);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Dispose_MissingLane_ReleasesInputAndPause(int missing)
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default,
+                new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var state = new RhythmState(null, null, null, null, null, null, null, telemetry, null);
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var map = new InputActionMap("Rhythm");
+            for (int i = 0; i < 4; i++) if (i != missing) map.AddAction("Lane" + i, InputActionType.Button);
+            actions.AddActionMap(map);
+            var lease = new Lease();
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var actionsField = typeof(RhythmState).GetField("actions", flags);
+            actionsField.SetValue(state, actions);
+            typeof(RhythmState).GetField("pauseToken", flags).SetValue(state, lease);
+            try
+            {
+                // 被测是运行时清理路径；EditMode 禁止延迟 Destroy，测试末尾立即销毁临时输入。
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Error,
+                    new System.Text.RegularExpressions.Regex("Destroy may not be called from edit mode!"));
+                Assert.DoesNotThrow(state.Dispose);
+                Assert.That(actionsField.GetValue(state), Is.Null);
+                Assert.That(lease.Disposed, Is.True);
+                Assert.DoesNotThrow(state.Dispose);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(actions); }
+        }
+
+        [TestCase("audio_paused", RhythmDiagnosticData.Reason.AudioPaused)]
+        [TestCase("application_paused", RhythmDiagnosticData.Reason.ApplicationPaused)]
+        [TestCase("input_mode_changed", RhythmDiagnosticData.Reason.InputModeChanged)]
+        [TestCase("clock_discontinuity", RhythmDiagnosticData.Reason.ClockDiscontinuity)]
+        [TestCase("invalid_clock", RhythmDiagnosticData.Reason.InvalidClock)]
+        [TestCase("clock_reversed", RhythmDiagnosticData.Reason.ClockRollback)]
+        public void DiagnosticReason_RuntimeInterruptRetainsSpecificCause(string reason, RhythmDiagnosticData.Reason expected)
+        {
+            var method = typeof(RhythmState).GetMethod("DiagnosticReason", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method.Invoke(null, new object[] { reason }), Is.EqualTo(expected));
+        }
+
+        [TestCase(401, double.NaN, 401)]
+        [TestCase(401, double.PositiveInfinity, 401)]
+        [TestCase(401.01, 101, 401)]
+        [TestCase(double.NaN, 101, double.NaN)]
+        public void ObserveClockSample_InvalidValuesEndDiagnosticAndClearSession(double before, double dsp, double after)
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default, new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var state = new RhythmState(null, null, null, null, null, null, null, telemetry, null);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var diagnostic = new RhythmDiagnosticSession(new RhythmDiagnosticData.Header(7, "clock-test", "audio", "v2", "EditMode", "Dynamic", 0, 100, 400, 0),
+                new[] { new RhythmNoteData("tap", 0, 1000) });
+            typeof(RhythmState).GetField("clockGuard", flags).SetValue(state, new RhythmClockGuard(100, 400, .1));
+            typeof(RhythmState).GetField("diagnostic", flags).SetValue(state, diagnostic);
+            typeof(RhythmState).GetField("nextBridgeSample", flags).SetValue(state, double.NegativeInfinity);
+            typeof(RhythmState).GetField("starting", flags).SetValue(state, true);
+            bool valid = true;
+            Assert.DoesNotThrow(() => valid = (bool)typeof(RhythmState).GetMethod("ObserveClockSample", flags).Invoke(state, new object[] { before, dsp, after }));
+            Assert.That(valid, Is.False);
+            Assert.That(state.LastDiagnostic.Commands.Count, Is.EqualTo(1));
+            Assert.That(state.LastDiagnostic.Commands[0].EndReason, Is.EqualTo(RhythmDiagnosticData.Reason.InvalidClock));
+            Assert.That(typeof(RhythmState).GetField("diagnostic", flags).GetValue(state), Is.Null);
+            Assert.That(typeof(RhythmState).GetField("clockGuard", flags).GetValue(state), Is.Null);
+            Assert.That(typeof(RhythmState).GetField("starting", flags).GetValue(state), Is.False);
+        }
+
+        [Test]
+        public void ObserveClockSample_ValidSamplesRetainQuarterSecondCadence()
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default, new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var state = new RhythmState(null, null, null, null, null, null, null, telemetry, null);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var diagnostic = new RhythmDiagnosticSession(new RhythmDiagnosticData.Header(7, "clock-test", "audio", "v2", "EditMode", "Dynamic", 0, 100, 400, 0),
+                new[] { new RhythmNoteData("tap", 0, 1000) });
+            typeof(RhythmState).GetField("clockGuard", flags).SetValue(state, new RhythmClockGuard(100, 400, .1));
+            typeof(RhythmState).GetField("diagnostic", flags).SetValue(state, diagnostic);
+            typeof(RhythmState).GetField("nextBridgeSample", flags).SetValue(state, double.NegativeInfinity);
+            var observe = typeof(RhythmState).GetMethod("ObserveClockSample", flags);
+            foreach (double elapsed in new[] { 1d, 1.1, 1.3 })
+                Assert.That(observe.Invoke(state, new object[] { 400 + elapsed, 100 + elapsed, 400 + elapsed }), Is.True);
+            Assert.That(diagnostic.Snapshot().Commands.Count, Is.EqualTo(2));
+            Assert.That(state.LastDiagnostic, Is.Null);
+        }
+
+        private sealed class Lease : IDisposable
+        {
+            public bool Disposed { get; private set; }
+            public void Dispose() => Disposed = true;
+        }
+    }
+}

@@ -31,7 +31,8 @@ namespace Game.Tests.EditMode.LailaFace
             {
                 "Mouth_L_Up", "Mouth_L_Down", "Mouth_R_Up", "Mouth_R_Down",
                 "Mouth_L_Out", "Mouth_L_In", "Mouth_R_Out", "Mouth_R_In",
-                "Mouth_UpperLip_Up.001", "Mouth_LowerLip_Down.001"
+                "Mouth_UpperLip_Up.001", "Mouth_LowerLip_Down.001",
+                "Brow_L_Mid_Up", "Brow_L_Mid_Down", "Mouth_UpperLipL_Up"
             })
             {
                 mesh.AddBlendShapeFrame(name, 100f, new[] { Vector3.up, Vector3.up, Vector3.up }, new Vector3[3], new Vector3[3]);
@@ -92,6 +93,33 @@ namespace Game.Tests.EditMode.LailaFace
             Assert.That(face.GetWeight(prefix + "_In"), Is.EqualTo(100f).Within(0.001f));
             Assert.That(face.GetWeight(prefix + "_Up"), Is.Zero);
             Assert.That(face.GetWeight(prefix + "_Out"), Is.Zero);
+        }
+
+        [Test]
+        public void Drag_ModelOverrides_UsesNewBrowAndLipWithoutChangingLegacyShapes()
+        {
+            FaceDragHandle brow = Handle(FaceDragHandle.FaceControl.BrowLeft,
+                upOverride: "Brow_L_Mid_Up", downOverride: "Brow_L_Mid_Down");
+            PointerEventData pointer = Pointer();
+            brow.OnPointerDown(pointer);
+            pointer.position = Vector2.up * RangePixels;
+            brow.OnDrag(pointer);
+            Assert.That(face.GetWeight("Brow_L_Mid_Up"), Is.EqualTo(100f));
+            pointer.position = Vector2.down * RangePixels;
+            brow.OnDrag(pointer);
+            Assert.That(face.GetWeight("Brow_L_Mid_Up"), Is.Zero);
+            Assert.That(face.GetWeight("Brow_L_Mid_Down"), Is.EqualTo(100f));
+            brow.OnPointerUp(pointer);
+
+            FaceDragHandle lip = Handle(FaceDragHandle.FaceControl.UpperLip,
+                upOverride: "Mouth_UpperLipL_Up");
+            pointer.position = Vector2.zero;
+            lip.OnPointerDown(pointer);
+            pointer.position = Vector2.up * RangePixels;
+            lip.OnDrag(pointer);
+            Assert.That(face.GetWeight("Mouth_UpperLipL_Up"), Is.EqualTo(100f));
+            Assert.That(face.GetWeight("Mouth_UpperLip_Up.001"), Is.Zero);
+            Assert.That(brow.enabled && lip.enabled, Is.True);
         }
 
         [Test]
@@ -161,6 +189,58 @@ namespace Game.Tests.EditMode.LailaFace
             Assert.That(Quaternion.Angle(pivot.rotation, neutral), Is.LessThan(0.01f));
         }
 
+        [Test]
+        public void CancelDrag_PreservesWeightAndRejectsStaleDragUntilNewPress()
+        {
+            FaceDragHandle handle = Handle(FaceDragHandle.FaceControl.UpperLip);
+            PointerEventData pointer = Pointer();
+            handle.OnPointerDown(pointer);
+            pointer.position = Vector2.up * RangePixels * 0.5f;
+            handle.OnDrag(pointer);
+            handle.CancelDrag();
+            Assert.That(handle.IsDragging, Is.False);
+            pointer.position = Vector2.up * RangePixels;
+            handle.OnDrag(pointer);
+            Assert.That(face.GetWeight("Mouth_UpperLip_Up.001"), Is.EqualTo(50f).Within(0.001f));
+            handle.OnPointerDown(pointer);
+            pointer.position += Vector2.up * RangePixels * 0.5f;
+            handle.OnDrag(pointer);
+            Assert.That(face.GetWeight("Mouth_UpperLip_Up.001"), Is.EqualTo(100f).Within(0.001f));
+            handle.OnPointerUp(pointer);
+        }
+
+        [Test]
+        public void EditorPreview_CapturedCallbackAfterDestroy_DoesNotAccessDestroyedObject()
+        {
+            var callback = (EditorApplication.CallbackFunction)System.Delegate.CreateDelegate(
+                typeof(EditorApplication.CallbackFunction), face,
+                typeof(FaceBlendShapeController).GetMethod("RefreshEditorPoints", BindingFlags.Instance | BindingFlags.NonPublic));
+            Object.DestroyImmediate(root);
+            Assert.That(face == null, Is.True);
+            Assert.DoesNotThrow(() => callback());
+        }
+
+        [Test]
+        public void EditorPreview_DestroyCleanup_UnsubscribesCallback()
+        {
+            var callback = (EditorApplication.CallbackFunction)System.Delegate.CreateDelegate(
+                typeof(EditorApplication.CallbackFunction), face,
+                typeof(FaceBlendShapeController).GetMethod("RefreshEditorPoints", BindingFlags.Instance | BindingFlags.NonPublic));
+            EditorApplication.update -= callback;
+            EditorApplication.update += callback;
+            try
+            {
+                typeof(FaceBlendShapeController).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(face, null);
+                var field = typeof(EditorApplication).GetField("update", BindingFlags.Static | BindingFlags.Public);
+                Assert.That(field, Is.Not.Null);
+                var callbacks = field.GetValue(null) as System.Delegate;
+                if (callbacks != null)
+                    foreach (System.Delegate subscribed in callbacks.GetInvocationList())
+                        Assert.That(subscribed.Equals(callback), Is.False);
+            }
+            finally { EditorApplication.update -= callback; }
+        }
+
         private GameObject Child(string name)
         {
             var child = new GameObject(name);
@@ -169,7 +249,8 @@ namespace Game.Tests.EditMode.LailaFace
         }
 
         private FaceDragHandle Handle(FaceDragHandle.FaceControl control, bool horizontal = false,
-            bool invertHorizontal = false, Transform pivot = null)
+            bool invertHorizontal = false, Transform pivot = null,
+            string upOverride = "", string downOverride = "")
         {
             FaceDragHandle handle = Child("Handle").AddComponent<FaceDragHandle>();
             using (var serialized = new SerializedObject(handle))
@@ -179,6 +260,8 @@ namespace Game.Tests.EditMode.LailaFace
                 serialized.FindProperty("enableHorizontalDrag").boolValue = horizontal;
                 serialized.FindProperty("invertHorizontal").boolValue = invertHorizontal;
                 serialized.FindProperty("eyePivot").objectReferenceValue = pivot;
+                serialized.FindProperty("upShapeOverride").stringValue = upOverride;
+                serialized.FindProperty("downShapeOverride").stringValue = downOverride;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
 

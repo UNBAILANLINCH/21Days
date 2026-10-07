@@ -1,0 +1,250 @@
+[
+  {
+    "index": 0,
+    "name": "Mouth_L_Up",
+    "part": "Mouth",
+    "side": "L",
+    "label": "上抬",
+    "opposite": "Mouth_L_Down"
+  },
+  {
+    "index": 1,
+    "name": "Mouth_L_Down",
+    "part": "Mouth",
+    "side": "L",
+    "label": "下移",
+    "opposite": "Mouth_L_Up"
+  },
+  {
+    "index": 2,
+    "name": "Mouth_R_Up",
+    "part": "Mouth",
+    "side": "R",
+    "label": "上抬",
+    "opposite": "Mouth_R_Down"
+  },
+  {
+    "index": 3,
+    "name": "Mouth_R_Down",
+    "part": "Mouth",
+    "side": "R",
+    "label": "下移",
+    "opposite": "Mouth_R_Up"
+  },
+  {
+    "index": 4,
+    "name": "Eye_L_UpperLid_Up",
+    "part": "Eye",
+    "side": "L",
+    "label": "上眼睑 · 上抬",
+    "opposite": "Eye_L_UpperLid_Down"
+  },
+  {
+    "index": 5,
+    "name": "Eye_L_UpperLid_Down",
+    "part": "Eye",
+    "side": "L",
+    "label": "上眼睑 · 下移",
+    "opposite": "Eye_L_UpperLid_Up"
+  },
+  {
+    "index": 6,
+    "name": "Eye_L_LowerLid_Up",
+    "part": "Eye",
+    "side": "L",
+    "label": "下眼睑 · 上抬",
+    "opposite": "Eye_L_LowerLid_Down"
+  },
+  {
+    "index": 7,
+    "name": "Eye_L_LowerLid_Down",
+    "part": "Eye",
+    "side": "L",
+    "label": "下眼睑 · 下移",
+    "opposite": "Eye_L_LowerLid_Up"
+  },
+  {
+    "index": 8,
+    "name": "Eye_R_UpperLid_Up",
+    "part": "Eye",
+    "side": "R",
+    "label": "上眼睑 · 上抬",
+    "opposite": "Eye_R_UpperLid_Down"
+  },
+  {
+    "index": 9,
+    "name": "Eye_R_UpperLid_Down",
+    "part": "Eye",
+    "side": "R",
+    "label": "上眼睑 · 下移",
+    "opposite": "Eye_R_UpperLid_Up"
+  },
+  {
+    "index": 10,
+    "name": "Eye_R_LowerLid_Up",
+    "part": "Eye",
+    "side": "R",
+    "label": "下眼睑 · 上抬",
+    "opposite": "Eye_R_LowerLid_Down"
+  },
+  {
+    "index": 11,
+    "name": "Eye_R_LowerLid_Down",
+    "part": "Eye",
+    "side": "R",
+    "label": "下眼睑 · 下移",
+    "opposite": "Eye_R_LowerLid_Up"
+  },
+  {
+    "index": 12,
+    "name": "Mouth_LowerLip_Down",
+    "part": "Mouth",
+    "side": "Center",
+    "label": "下唇 · 下移",
+    "opposite": "Mouth_LowerLip_Up"
+  },
+  {
+    "index": 13,
+    "name": "Mouth_L_Out",
+    "part": "Mouth",
+    "side": "L",
+    "label": "外展",
+    "opposite": "Mouth_L_In"
+  },
+  {
+    "index": 14,
+    "name": "Mouth_L_In",
+    "part": "Mouth",
+    "side": "L",
+    "label": "内收",
+    "opposite": "Mouth_L_Out"
+  },
+  {
+    "index": 15,
+    "name": "Mouth_R_Out",
+    "part": "Mouth",
+    "side": "R",
+    "label": "外展",
+    "opposite": "Mouth_R_In"
+  },
+  {
+    "index": 16,
+    "name": "Mouth_R_In",
+    "part": "Mouth",
+    "side": "R",
+    "label": "内收",
+    "opposite": "Mouth_R_Out"
+  },
+  {
+    "index": 17,
+    "name": "Mouth_UpperLipR_Up",
+    "part": "Mouth",
+    "side": "R",
+    "label": "右上唇 · 上抬",
+    "opposite": "Mouth_UpperLipR_Down"
+  },
+  {
+    "index": 18,
+    "name": "Mouth_UpperLipL_Up",
+    "part": "Mouth",
+    "side": "L",
+    "label": "左上唇 · 上抬",
+    "opposite": "Mouth_UpperLipL_Down"
+  },
+  {
+    "index": 19,
+    "name": "Brow_L_Inner_Up",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉头 · 上抬",
+    "opposite": "Brow_L_Inner_Down"
+  },
+  {
+    "index": 20,
+    "name": "Brow_L_Mid_Up",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉中 · 上抬",
+    "opposite": "Brow_L_Mid_Down"
+  },
+  {
+    "index": 21,
+    "name": "Brow_L_Outer_Up",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉尾 · 上抬",
+    "opposite": "Brow_L_Outer_Down"
+  },
+  {
+    "index": 22,
+    "name": "Brow_L_Inner_Down",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉头 · 下移",
+    "opposite": "Brow_L_Inner_Up"
+  },
+  {
+    "index": 23,
+    "name": "Brow_L_Mid_Down",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉中 · 下移",
+    "opposite": "Brow_L_Mid_Up"
+  },
+  {
+    "index": 24,
+    "name": "Brow_L_Outer_Down",
+    "part": "Brow",
+    "side": "L",
+    "label": "眉尾 · 下移",
+    "opposite": "Brow_L_Outer_Up"
+  },
+  {
+    "index": 25,
+    "name": "Brow_R_Inner_Up",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉头 · 上抬",
+    "opposite": "Brow_R_Inner_Down"
+  },
+  {
+    "index": 26,
+    "name": "Brow_R_Mid_Up",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉中 · 上抬",
+    "opposite": "Brow_R_Mid_Down"
+  },
+  {
+    "index": 27,
+    "name": "Brow_R_Outer_Up",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉尾 · 上抬",
+    "opposite": "Brow_R_Outer_Down"
+  },
+  {
+    "index": 28,
+    "name": "Brow_R_Inner_Down",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉头 · 下移",
+    "opposite": "Brow_R_Inner_Up"
+  },
+  {
+    "index": 29,
+    "name": "Brow_R_Mid_Down",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉中 · 下移",
+    "opposite": "Brow_R_Mid_Up"
+  },
+  {
+    "index": 30,
+    "name": "Brow_R_Outer_Down",
+    "part": "Brow",
+    "side": "R",
+    "label": "眉尾 · 下移",
+    "opposite": "Brow_R_Outer_Up"
+  }
+]

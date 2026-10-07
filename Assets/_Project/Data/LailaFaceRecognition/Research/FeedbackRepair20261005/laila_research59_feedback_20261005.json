@@ -1,0 +1,773 @@
+{
+  "schema_version": 1,
+  "name": "laila_research59_feedback_20261005",
+  "created": "2026-10-03",
+  "onnx": {
+    "file": "laila_research59_feedback_20261005.onnx",
+    "sha256": "9d0999f9164dcbb5b00a93a6d5b7082912abf93a5c07f4478966bc631f8733b2",
+    "opset": 15,
+    "inputs": [
+      {
+        "name": "sliders",
+        "shape": [
+          "batch",
+          17
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "probs",
+        "shape": [
+          "batch",
+          5
+        ]
+      },
+      {
+        "name": "energy",
+        "shape": [
+          "batch"
+        ]
+      }
+    ]
+  },
+  "model": {
+    "arch": "resmlp",
+    "config": {
+      "width": 128,
+      "hidden": 256,
+      "blocks": 2,
+      "dropout": 0.1
+    },
+    "params": 139909
+  },
+  "labels": [
+    {
+      "key": "neutral",
+      "zh": "中性"
+    },
+    {
+      "key": "happy",
+      "zh": "高兴"
+    },
+    {
+      "key": "sad",
+      "zh": "悲伤"
+    },
+    {
+      "key": "surprise_fear",
+      "zh": "惊讶/恐惧"
+    },
+    {
+      "key": "angry",
+      "zh": "愤怒"
+    }
+  ],
+  "label_set": {
+    "name": "laila_5class",
+    "classes": [
+      {
+        "key": "neutral",
+        "zh": "中性",
+        "from": [
+          "neutral"
+        ]
+      },
+      {
+        "key": "happy",
+        "zh": "高兴",
+        "from": [
+          "happy"
+        ]
+      },
+      {
+        "key": "sad",
+        "zh": "悲伤",
+        "from": [
+          "sad"
+        ]
+      },
+      {
+        "key": "surprise_fear",
+        "zh": "惊讶/恐惧",
+        "from": [
+          "surprise",
+          "fear"
+        ]
+      },
+      {
+        "key": "angry",
+        "zh": "愤怒",
+        "from": [
+          "angry"
+        ]
+      }
+    ],
+    "drop": [
+      "disgust"
+    ],
+    "annotation_labels": [
+      "neutral",
+      "happy",
+      "sad",
+      "surprise",
+      "fear",
+      "disgust",
+      "angry"
+    ],
+    "notes": "labels 即类别集的类（顺序即 probs 顺序）；标注仍按 annotation_labels 采集，评估时按 from 映射；drop 里的标注类是集外类，不进训练正样本，评估时只报告预测去向、不计入指标"
+  },
+  "sliders": [
+    {
+      "key": "brow_L_inner_y",
+      "zh": "brow_L_inner_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "brow_L_mid_y",
+      "zh": "brow_L_mid_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "brow_L_outer_y",
+      "zh": "brow_L_outer_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "brow_R_inner_y",
+      "zh": "brow_R_inner_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "brow_R_mid_y",
+      "zh": "brow_R_mid_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "brow_R_outer_y",
+      "zh": "brow_R_outer_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "eye_L_upper_y",
+      "zh": "eye_L_upper_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "eye_L_lower_y",
+      "zh": "eye_L_lower_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "eye_R_upper_y",
+      "zh": "eye_R_upper_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "eye_R_lower_y",
+      "zh": "eye_R_lower_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "mouth_corner_L_y",
+      "zh": "mouth_corner_L_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "mouth_corner_R_y",
+      "zh": "mouth_corner_R_y",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "mouth_corner_L_x",
+      "zh": "mouth_corner_L_x",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "mouth_corner_R_x",
+      "zh": "mouth_corner_R_x",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "upper_lip_L",
+      "zh": "upper_lip_L",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "upper_lip_R",
+      "zh": "upper_lip_R",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0
+    },
+    {
+      "key": "lower_lip",
+      "zh": "lower_lip",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0
+    }
+  ],
+  "temperature": 0.487122944970898,
+  "energy_threshold": -1.5637034177780151,
+  "energy_threshold_rule": "uncalibrated-old-policy-research-reference",
+  "threshold_calibration": {
+    "rule": "uncalibrated-old-policy-research-reference",
+    "full_rejection_calibrated": false
+  },
+  "min_confidence": 0.4,
+  "decision_rule": "energy > energy_threshold 或 max(probs) < min_confidence 时判「认不出」，否则取 argmax(probs)",
+  "canonical_dims": [
+    "browDownLeft",
+    "browDownRight",
+    "browInnerUp",
+    "browOuterUpLeft",
+    "browOuterUpRight",
+    "cheekPuff",
+    "cheekSquintLeft",
+    "cheekSquintRight",
+    "eyeBlinkLeft",
+    "eyeBlinkRight",
+    "eyeLookDownLeft",
+    "eyeLookDownRight",
+    "eyeLookInLeft",
+    "eyeLookInRight",
+    "eyeLookOutLeft",
+    "eyeLookOutRight",
+    "eyeLookUpLeft",
+    "eyeLookUpRight",
+    "eyeSquintLeft",
+    "eyeSquintRight",
+    "eyeWideLeft",
+    "eyeWideRight",
+    "jawForward",
+    "jawLeft",
+    "jawOpen",
+    "jawRight",
+    "mouthClose",
+    "mouthDimpleLeft",
+    "mouthDimpleRight",
+    "mouthFrownLeft",
+    "mouthFrownRight",
+    "mouthFunnel",
+    "mouthLeft",
+    "mouthLowerDownLeft",
+    "mouthLowerDownRight",
+    "mouthPressLeft",
+    "mouthPressRight",
+    "mouthPucker",
+    "mouthRight",
+    "mouthRollLower",
+    "mouthRollUpper",
+    "mouthShrugLower",
+    "mouthShrugUpper",
+    "mouthSmileLeft",
+    "mouthSmileRight",
+    "mouthStretchLeft",
+    "mouthStretchRight",
+    "mouthUpperUpLeft",
+    "mouthUpperUpRight",
+    "noseSneerLeft",
+    "noseSneerRight"
+  ],
+  "masked_dims": [
+    "eyeLookDownLeft",
+    "eyeLookDownRight",
+    "eyeLookInLeft",
+    "eyeLookInRight",
+    "eyeLookOutLeft",
+    "eyeLookOutRight",
+    "eyeLookUpLeft",
+    "eyeLookUpRight"
+  ],
+  "rig": {
+    "name": "laila_v2_candidate",
+    "identity": false,
+    "config_hash": "56daba66fc94a2101f8501201e4d43b91ff644f71f8179d08abd2fd7c82e5b9c",
+    "hash_algorithm": "sha256(规范化后的绑定配置 + 规范空间维度顺序)"
+  },
+  "train_rig_hash": "56daba66fc94a2101f8501201e4d43b91ff644f71f8179d08abd2fd7c82e5b9c",
+  "training_data": [
+    "single-user-r779-development"
+  ],
+  "commercial_use_allowed": true,
+  "metrics_summary": {},
+  "checks": {
+    "ok": true,
+    "numeric": {
+      "ok": true,
+      "n_inputs": 1000,
+      "max_abs_err_probs": 9.5367431640625e-07,
+      "max_abs_err_energy": 2.1457672119140625e-06,
+      "threshold": 1e-05,
+      "shape_ok": true
+    },
+    "operators": {
+      "ok": true,
+      "used": [
+        "Add",
+        "Clip",
+        "Concat",
+        "Constant",
+        "Div",
+        "Erf",
+        "Exp",
+        "Gemm",
+        "Log",
+        "MatMul",
+        "Max",
+        "Min",
+        "Mul",
+        "Neg",
+        "Pow",
+        "ReduceMax",
+        "ReduceMean",
+        "ReduceSum",
+        "Relu",
+        "Softmax",
+        "Sqrt",
+        "Squeeze",
+        "Sub"
+      ],
+      "outside_whitelist": [],
+      "opset_imports": {
+        "ai.onnx": 15
+      },
+      "whitelist": "configs/sentis_ops.txt"
+    },
+    "size": {
+      "ok": true,
+      "bytes": 581300,
+      "limit_bytes": 1048576
+    }
+  },
+  "training_variant_filter": {
+    "rel_residual_threshold": 0.9,
+    "probe_intensity": 0.6,
+    "rig": "laila_v2_candidate",
+    "rig_hash": "56daba66fc94a2101f8501201e4d43b91ff644f71f8179d08abd2fd7c82e5b9c",
+    "dropped": [
+      {
+        "class": "angry",
+        "emotion": "angry",
+        "variant": 2,
+        "choose": null,
+        "source": "ckplus_min",
+        "aus": [
+          "AU23",
+          "AU24"
+        ],
+        "rel_residual": 1.0
+      }
+    ],
+    "notes": "这些合成变体在训练绑定下做不出来（核心 AU 投影后相对残差 ≥ 阈值），没有进训练目标"
+  },
+  "research": {
+    "purpose": "single-user-development-playtest-not-deployment",
+    "feature_dimension": 59,
+    "checkpoint_sha256": "828a01248f3de9cb84bbf736b72feb1b5c4a7d9db10cc2da077662dc2e50d977",
+    "source_annotation_sha256": "5c524a26287801e7ca37937ad761351312815137fd0fc6d86548ea9f634f54c9",
+    "source_revision": 779,
+    "rejection_calibrated": false,
+    "threshold_policy": "old-policy-reference-only",
+    "feedback_training_ids": [
+      "a5ce8c20ec88410eaf65cc3d1ec25d4b",
+      "a1012d8f641f4f56a2210d922214b50b",
+      "237ff2433cbb480f9ba90e8682f61206"
+    ],
+    "source_feedback_manifest_sha256": "0039ee489e9a49f74cacf03cf84f4e123b920d00a50771b5ebc9937f27eb5550",
+    "independent_validation_available": false
+  },
+  "playtest_presets": [
+    {
+      "title": "中性附近",
+      "intent": "中性",
+      "values": [
+        0.03,
+        0.0,
+        0.0,
+        0.03,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "中性附近",
+      "intent": "中性",
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "中性附近",
+      "intent": "中性",
+      "values": [
+        -0.03,
+        0.0,
+        0.0,
+        -0.03,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "高兴 · 轻",
+      "intent": "高兴",
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.175,
+        0.0,
+        0.175,
+        0.35,
+        0.35,
+        0.15,
+        0.15,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "高兴 · 中",
+      "intent": "高兴",
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.26249999999999996,
+        0.0,
+        0.26249999999999996,
+        0.5249999999999999,
+        0.5249999999999999,
+        0.22499999999999998,
+        0.22499999999999998,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "高兴 · 强",
+      "intent": "高兴",
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.35,
+        0.0,
+        0.35,
+        0.7,
+        0.7,
+        0.3,
+        0.3,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "悲伤 · 轻",
+      "intent": "悲伤",
+      "values": [
+        0.3,
+        0.0,
+        -0.15,
+        0.3,
+        0.0,
+        -0.15,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -0.3,
+        -0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "悲伤 · 中",
+      "intent": "悲伤",
+      "values": [
+        0.44999999999999996,
+        0.0,
+        -0.22499999999999998,
+        0.44999999999999996,
+        0.0,
+        -0.22499999999999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -0.44999999999999996,
+        -0.44999999999999996,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "悲伤 · 强",
+      "intent": "悲伤",
+      "values": [
+        0.6,
+        0.0,
+        -0.3,
+        0.6,
+        0.0,
+        -0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -0.6,
+        -0.6,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "惊讶／恐惧 · 轻",
+      "intent": "惊讶／恐惧",
+      "values": [
+        0.3,
+        0.0,
+        0.35,
+        0.3,
+        0.0,
+        0.35,
+        0.325,
+        0.0,
+        0.325,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.1,
+        0.1,
+        0.325
+      ],
+      "human_label": null
+    },
+    {
+      "title": "惊讶／恐惧 · 中",
+      "intent": "惊讶／恐惧",
+      "values": [
+        0.44999999999999996,
+        0.0,
+        0.5249999999999999,
+        0.44999999999999996,
+        0.0,
+        0.5249999999999999,
+        0.48750000000000004,
+        0.0,
+        0.48750000000000004,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.15000000000000002,
+        0.15000000000000002,
+        0.48750000000000004
+      ],
+      "human_label": null
+    },
+    {
+      "title": "惊讶／恐惧 · 强",
+      "intent": "惊讶／恐惧",
+      "values": [
+        0.6,
+        0.0,
+        0.7,
+        0.6,
+        0.0,
+        0.7,
+        0.65,
+        0.0,
+        0.65,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.2,
+        0.2,
+        0.65
+      ],
+      "human_label": null
+    },
+    {
+      "title": "愤怒 · 轻",
+      "intent": "愤怒",
+      "values": [
+        -0.325,
+        -0.25,
+        0.0,
+        -0.325,
+        -0.25,
+        0.0,
+        -0.125,
+        0.2,
+        -0.125,
+        0.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "愤怒 · 中",
+      "intent": "愤怒",
+      "values": [
+        -0.48750000000000004,
+        -0.375,
+        0.0,
+        -0.48750000000000004,
+        -0.375,
+        0.0,
+        -0.1875,
+        0.30000000000000004,
+        -0.1875,
+        0.30000000000000004,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    },
+    {
+      "title": "愤怒 · 强",
+      "intent": "愤怒",
+      "values": [
+        -0.65,
+        -0.5,
+        0.0,
+        -0.65,
+        -0.5,
+        0.0,
+        -0.25,
+        0.4,
+        -0.25,
+        0.4,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "human_label": null
+    }
+  ]
+}

@@ -1,0 +1,1208 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e9f811916d55314896aef57330f56c5, type: 3}
+  m_Name: AttentionInstrumental
+  m_EditorClassIdentifier: 
+  song: {fileID: 8300000, guid: 4cd9976448814784481410eccf458461, type: 3}
+  input: {fileID: 11400000, guid: 2556934514d0c344b88bb8b58ea7b043, type: 2}
+  clipStartSeconds: 25.490057
+  durationSeconds: 73.0038
+  approachSeconds: 2.5
+  countdownSeconds: 3
+  perfectMs: 65
+  goodMs: 140
+  noteTimes: []
+  noteLanes: 
+  schemaVersion: 2
+  chartId: attention-test-32x4
+  audioKey: AttentionInstrumental
+  laneCount: 4
+  notes:
+  - id: attention-000
+    lane: 0
+    timeMs: 0
+    type: 0
+    durationMs: 0
+  - id: attention-001
+    lane: 1
+    timeMs: 550
+    type: 0
+    durationMs: 0
+  - id: attention-002
+    lane: 2
+    timeMs: 850
+    type: 0
+    durationMs: 0
+  - id: attention-003
+    lane: 1
+    timeMs: 1120
+    type: 0
+    durationMs: 0
+  - id: attention-004
+    lane: 2
+    timeMs: 1700
+    type: 0
+    durationMs: 0
+  - id: attention-005
+    lane: 3
+    timeMs: 1990
+    type: 0
+    durationMs: 0
+  - id: attention-006
+    lane: 0
+    timeMs: 2270
+    type: 0
+    durationMs: 0
+  - id: attention-007
+    lane: 1
+    timeMs: 2270
+    type: 0
+    durationMs: 0
+  - id: attention-008
+    lane: 1
+    timeMs: 2840
+    type: 0
+    durationMs: 0
+  - id: attention-009
+    lane: 2
+    timeMs: 3120
+    type: 0
+    durationMs: 0
+  - id: attention-010
+    lane: 1
+    timeMs: 3420
+    type: 0
+    durationMs: 0
+  - id: attention-011
+    lane: 2
+    timeMs: 3980
+    type: 0
+    durationMs: 0
+  - id: attention-012
+    lane: 3
+    timeMs: 4280
+    type: 0
+    durationMs: 0
+  - id: attention-013
+    lane: 0
+    timeMs: 4550
+    type: 0
+    durationMs: 0
+  - id: attention-014
+    lane: 1
+    timeMs: 4550
+    type: 0
+    durationMs: 0
+  - id: attention-015
+    lane: 1
+    timeMs: 5120
+    type: 0
+    durationMs: 0
+  - id: attention-016
+    lane: 2
+    timeMs: 5410
+    type: 0
+    durationMs: 0
+  - id: attention-017
+    lane: 1
+    timeMs: 5700
+    type: 0
+    durationMs: 0
+  - id: attention-018
+    lane: 2
+    timeMs: 6270
+    type: 1
+    durationMs: 1141
+  - id: attention-019
+    lane: 3
+    timeMs: 6570
+    type: 0
+    durationMs: 0
+  - id: attention-020
+    lane: 0
+    timeMs: 6840
+    type: 0
+    durationMs: 0
+  - id: attention-021
+    lane: 1
+    timeMs: 6840
+    type: 0
+    durationMs: 0
+  - id: attention-022
+    lane: 1
+    timeMs: 7400
+    type: 0
+    durationMs: 0
+  - id: attention-023
+    lane: 2
+    timeMs: 7700
+    type: 0
+    durationMs: 0
+  - id: attention-024
+    lane: 1
+    timeMs: 7980
+    type: 0
+    durationMs: 0
+  - id: attention-025
+    lane: 2
+    timeMs: 8550
+    type: 0
+    durationMs: 0
+  - id: attention-026
+    lane: 3
+    timeMs: 8840
+    type: 0
+    durationMs: 0
+  - id: attention-027
+    lane: 0
+    timeMs: 9120
+    type: 0
+    durationMs: 0
+  - id: attention-028
+    lane: 1
+    timeMs: 9120
+    type: 0
+    durationMs: 0
+  - id: attention-029
+    lane: 1
+    timeMs: 9690
+    type: 0
+    durationMs: 0
+  - id: attention-030
+    lane: 1
+    timeMs: 10260
+    type: 0
+    durationMs: 0
+  - id: attention-031
+    lane: 2
+    timeMs: 10830
+    type: 1
+    durationMs: 1141
+  - id: attention-032
+    lane: 0
+    timeMs: 11410
+    type: 0
+    durationMs: 0
+  - id: attention-033
+    lane: 1
+    timeMs: 11410
+    type: 0
+    durationMs: 0
+  - id: attention-034
+    lane: 1
+    timeMs: 11980
+    type: 0
+    durationMs: 0
+  - id: attention-035
+    lane: 2
+    timeMs: 12270
+    type: 0
+    durationMs: 0
+  - id: attention-036
+    lane: 1
+    timeMs: 12550
+    type: 0
+    durationMs: 0
+  - id: attention-037
+    lane: 2
+    timeMs: 13120
+    type: 0
+    durationMs: 0
+  - id: attention-038
+    lane: 3
+    timeMs: 13410
+    type: 0
+    durationMs: 0
+  - id: attention-039
+    lane: 0
+    timeMs: 13700
+    type: 0
+    durationMs: 0
+  - id: attention-040
+    lane: 1
+    timeMs: 13700
+    type: 0
+    durationMs: 0
+  - id: attention-041
+    lane: 1
+    timeMs: 14260
+    type: 0
+    durationMs: 0
+  - id: attention-042
+    lane: 2
+    timeMs: 14560
+    type: 0
+    durationMs: 0
+  - id: attention-043
+    lane: 1
+    timeMs: 14830
+    type: 0
+    durationMs: 0
+  - id: attention-044
+    lane: 2
+    timeMs: 15400
+    type: 1
+    durationMs: 1141
+  - id: attention-045
+    lane: 0
+    timeMs: 15980
+    type: 0
+    durationMs: 0
+  - id: attention-046
+    lane: 1
+    timeMs: 15980
+    type: 0
+    durationMs: 0
+  - id: attention-047
+    lane: 1
+    timeMs: 16550
+    type: 0
+    durationMs: 0
+  - id: attention-048
+    lane: 2
+    timeMs: 16840
+    type: 0
+    durationMs: 0
+  - id: attention-049
+    lane: 1
+    timeMs: 17120
+    type: 0
+    durationMs: 0
+  - id: attention-050
+    lane: 2
+    timeMs: 17690
+    type: 0
+    durationMs: 0
+  - id: attention-051
+    lane: 3
+    timeMs: 17980
+    type: 0
+    durationMs: 0
+  - id: attention-052
+    lane: 0
+    timeMs: 18260
+    type: 0
+    durationMs: 0
+  - id: attention-053
+    lane: 1
+    timeMs: 18260
+    type: 0
+    durationMs: 0
+  - id: attention-054
+    lane: 3
+    timeMs: 18550
+    type: 0
+    durationMs: 0
+  - id: attention-055
+    lane: 1
+    timeMs: 18830
+    type: 0
+    durationMs: 0
+  - id: attention-056
+    lane: 1
+    timeMs: 19410
+    type: 0
+    durationMs: 0
+  - id: attention-057
+    lane: 0
+    timeMs: 19690
+    type: 0
+    durationMs: 0
+  - id: attention-058
+    lane: 2
+    timeMs: 19980
+    type: 1
+    durationMs: 1141
+  - id: attention-059
+    lane: 0
+    timeMs: 20550
+    type: 0
+    durationMs: 0
+  - id: attention-060
+    lane: 1
+    timeMs: 20550
+    type: 0
+    durationMs: 0
+  - id: attention-061
+    lane: 1
+    timeMs: 21120
+    type: 0
+    durationMs: 0
+  - id: attention-062
+    lane: 2
+    timeMs: 21410
+    type: 0
+    durationMs: 0
+  - id: attention-063
+    lane: 1
+    timeMs: 21690
+    type: 0
+    durationMs: 0
+  - id: attention-064
+    lane: 0
+    timeMs: 21980
+    type: 0
+    durationMs: 0
+  - id: attention-065
+    lane: 2
+    timeMs: 22260
+    type: 0
+    durationMs: 0
+  - id: attention-066
+    lane: 3
+    timeMs: 22550
+    type: 0
+    durationMs: 0
+  - id: attention-067
+    lane: 0
+    timeMs: 22840
+    type: 0
+    durationMs: 0
+  - id: attention-068
+    lane: 1
+    timeMs: 22840
+    type: 0
+    durationMs: 0
+  - id: attention-069
+    lane: 3
+    timeMs: 23130
+    type: 0
+    durationMs: 0
+  - id: attention-070
+    lane: 1
+    timeMs: 23400
+    type: 0
+    durationMs: 0
+  - id: attention-071
+    lane: 2
+    timeMs: 23700
+    type: 0
+    durationMs: 0
+  - id: attention-072
+    lane: 1
+    timeMs: 23980
+    type: 0
+    durationMs: 0
+  - id: attention-073
+    lane: 0
+    timeMs: 24270
+    type: 0
+    durationMs: 0
+  - id: attention-074
+    lane: 2
+    timeMs: 24550
+    type: 1
+    durationMs: 1141
+  - id: attention-075
+    lane: 3
+    timeMs: 24740
+    type: 0
+    durationMs: 0
+  - id: attention-076
+    lane: 0
+    timeMs: 25120
+    type: 0
+    durationMs: 0
+  - id: attention-077
+    lane: 1
+    timeMs: 25120
+    type: 0
+    durationMs: 0
+  - id: attention-078
+    lane: 3
+    timeMs: 25420
+    type: 0
+    durationMs: 0
+  - id: attention-079
+    lane: 1
+    timeMs: 25690
+    type: 0
+    durationMs: 0
+  - id: attention-080
+    lane: 2
+    timeMs: 25980
+    type: 0
+    durationMs: 0
+  - id: attention-081
+    lane: 1
+    timeMs: 26260
+    type: 0
+    durationMs: 0
+  - id: attention-082
+    lane: 0
+    timeMs: 26550
+    type: 0
+    durationMs: 0
+  - id: attention-083
+    lane: 2
+    timeMs: 26830
+    type: 0
+    durationMs: 0
+  - id: attention-084
+    lane: 3
+    timeMs: 27130
+    type: 0
+    durationMs: 0
+  - id: attention-085
+    lane: 0
+    timeMs: 27410
+    type: 0
+    durationMs: 0
+  - id: attention-086
+    lane: 1
+    timeMs: 27410
+    type: 0
+    durationMs: 0
+  - id: attention-087
+    lane: 3
+    timeMs: 27690
+    type: 0
+    durationMs: 0
+  - id: attention-088
+    lane: 1
+    timeMs: 27980
+    type: 0
+    durationMs: 0
+  - id: attention-089
+    lane: 2
+    timeMs: 28170
+    type: 0
+    durationMs: 0
+  - id: attention-090
+    lane: 1
+    timeMs: 28550
+    type: 0
+    durationMs: 0
+  - id: attention-091
+    lane: 0
+    timeMs: 28840
+    type: 0
+    durationMs: 0
+  - id: attention-092
+    lane: 2
+    timeMs: 29120
+    type: 1
+    durationMs: 1141
+  - id: attention-093
+    lane: 3
+    timeMs: 29310
+    type: 0
+    durationMs: 0
+  - id: attention-094
+    lane: 0
+    timeMs: 29690
+    type: 0
+    durationMs: 0
+  - id: attention-095
+    lane: 1
+    timeMs: 29690
+    type: 0
+    durationMs: 0
+  - id: attention-096
+    lane: 3
+    timeMs: 29990
+    type: 0
+    durationMs: 0
+  - id: attention-097
+    lane: 1
+    timeMs: 30260
+    type: 0
+    durationMs: 0
+  - id: attention-098
+    lane: 2
+    timeMs: 30560
+    type: 0
+    durationMs: 0
+  - id: attention-099
+    lane: 1
+    timeMs: 30830
+    type: 0
+    durationMs: 0
+  - id: attention-100
+    lane: 0
+    timeMs: 31120
+    type: 0
+    durationMs: 0
+  - id: attention-101
+    lane: 2
+    timeMs: 31400
+    type: 0
+    durationMs: 0
+  - id: attention-102
+    lane: 3
+    timeMs: 31690
+    type: 0
+    durationMs: 0
+  - id: attention-103
+    lane: 0
+    timeMs: 31980
+    type: 0
+    durationMs: 0
+  - id: attention-104
+    lane: 1
+    timeMs: 31980
+    type: 0
+    durationMs: 0
+  - id: attention-105
+    lane: 3
+    timeMs: 32270
+    type: 0
+    durationMs: 0
+  - id: attention-106
+    lane: 1
+    timeMs: 32550
+    type: 0
+    durationMs: 0
+  - id: attention-107
+    lane: 2
+    timeMs: 32840
+    type: 0
+    durationMs: 0
+  - id: attention-108
+    lane: 1
+    timeMs: 33120
+    type: 0
+    durationMs: 0
+  - id: attention-109
+    lane: 0
+    timeMs: 33410
+    type: 0
+    durationMs: 0
+  - id: attention-110
+    lane: 2
+    timeMs: 33690
+    type: 1
+    durationMs: 1141
+  - id: attention-111
+    lane: 3
+    timeMs: 33890
+    type: 0
+    durationMs: 0
+  - id: attention-112
+    lane: 0
+    timeMs: 34221
+    type: 0
+    durationMs: 0
+  - id: attention-113
+    lane: 3
+    timeMs: 34560
+    type: 0
+    durationMs: 0
+  - id: attention-114
+    lane: 1
+    timeMs: 34830
+    type: 0
+    durationMs: 0
+  - id: attention-115
+    lane: 2
+    timeMs: 35130
+    type: 0
+    durationMs: 0
+  - id: attention-116
+    lane: 1
+    timeMs: 35361
+    type: 0
+    durationMs: 0
+  - id: attention-117
+    lane: 0
+    timeMs: 35700
+    type: 0
+    durationMs: 0
+  - id: attention-118
+    lane: 2
+    timeMs: 35932
+    type: 0
+    durationMs: 0
+  - id: attention-119
+    lane: 3
+    timeMs: 36270
+    type: 0
+    durationMs: 0
+  - id: attention-120
+    lane: 0
+    timeMs: 36502
+    type: 0
+    durationMs: 0
+  - id: attention-121
+    lane: 3
+    timeMs: 36840
+    type: 0
+    durationMs: 0
+  - id: attention-122
+    lane: 1
+    timeMs: 37072
+    type: 0
+    durationMs: 0
+  - id: attention-123
+    lane: 2
+    timeMs: 37310
+    type: 0
+    durationMs: 0
+  - id: attention-124
+    lane: 1
+    timeMs: 37643
+    type: 0
+    durationMs: 0
+  - id: attention-125
+    lane: 0
+    timeMs: 37980
+    type: 0
+    durationMs: 0
+  - id: attention-126
+    lane: 2
+    timeMs: 38213
+    type: 1
+    durationMs: 1141
+  - id: attention-127
+    lane: 3
+    timeMs: 38460
+    type: 0
+    durationMs: 0
+  - id: attention-128
+    lane: 0
+    timeMs: 38750
+    type: 0
+    durationMs: 0
+  - id: attention-129
+    lane: 3
+    timeMs: 39130
+    type: 0
+    durationMs: 0
+  - id: attention-130
+    lane: 1
+    timeMs: 39354
+    type: 0
+    durationMs: 0
+  - id: attention-131
+    lane: 2
+    timeMs: 39700
+    type: 0
+    durationMs: 0
+  - id: attention-132
+    lane: 1
+    timeMs: 39880
+    type: 0
+    durationMs: 0
+  - id: attention-133
+    lane: 0
+    timeMs: 40160
+    type: 0
+    durationMs: 0
+  - id: attention-134
+    lane: 2
+    timeMs: 40494
+    type: 0
+    durationMs: 0
+  - id: attention-135
+    lane: 3
+    timeMs: 40840
+    type: 0
+    durationMs: 0
+  - id: attention-136
+    lane: 0
+    timeMs: 41020
+    type: 0
+    durationMs: 0
+  - id: attention-137
+    lane: 1
+    timeMs: 41020
+    type: 0
+    durationMs: 0
+  - id: attention-138
+    lane: 1
+    timeMs: 41650
+    type: 0
+    durationMs: 0
+  - id: attention-139
+    lane: 2
+    timeMs: 41930
+    type: 0
+    durationMs: 0
+  - id: attention-140
+    lane: 1
+    timeMs: 42180
+    type: 0
+    durationMs: 0
+  - id: attention-141
+    lane: 0
+    timeMs: 42500
+    type: 0
+    durationMs: 0
+  - id: attention-142
+    lane: 2
+    timeMs: 42780
+    type: 1
+    durationMs: 1141
+  - id: attention-143
+    lane: 3
+    timeMs: 43130
+    type: 0
+    durationMs: 0
+  - id: attention-144
+    lane: 0
+    timeMs: 43346
+    type: 0
+    durationMs: 0
+  - id: attention-145
+    lane: 3
+    timeMs: 43640
+    type: 0
+    durationMs: 0
+  - id: attention-146
+    lane: 1
+    timeMs: 43900
+    type: 0
+    durationMs: 0
+  - id: attention-147
+    lane: 2
+    timeMs: 44180
+    type: 0
+    durationMs: 0
+  - id: attention-148
+    lane: 1
+    timeMs: 44487
+    type: 0
+    durationMs: 0
+  - id: attention-149
+    lane: 0
+    timeMs: 44780
+    type: 0
+    durationMs: 0
+  - id: attention-150
+    lane: 2
+    timeMs: 45060
+    type: 0
+    durationMs: 0
+  - id: attention-151
+    lane: 3
+    timeMs: 45280
+    type: 0
+    durationMs: 0
+  - id: attention-152
+    lane: 0
+    timeMs: 45627
+    type: 0
+    durationMs: 0
+  - id: attention-153
+    lane: 3
+    timeMs: 45850
+    type: 0
+    durationMs: 0
+  - id: attention-154
+    lane: 1
+    timeMs: 46170
+    type: 0
+    durationMs: 0
+  - id: attention-155
+    lane: 2
+    timeMs: 46530
+    type: 0
+    durationMs: 0
+  - id: attention-156
+    lane: 1
+    timeMs: 46750
+    type: 0
+    durationMs: 0
+  - id: attention-157
+    lane: 0
+    timeMs: 47010
+    type: 0
+    durationMs: 0
+  - id: attention-158
+    lane: 2
+    timeMs: 47338
+    type: 1
+    durationMs: 1141
+  - id: attention-159
+    lane: 0
+    timeMs: 47870
+    type: 0
+    durationMs: 0
+  - id: attention-160
+    lane: 1
+    timeMs: 47870
+    type: 0
+    durationMs: 0
+  - id: attention-161
+    lane: 3
+    timeMs: 48210
+    type: 0
+    durationMs: 0
+  - id: attention-162
+    lane: 1
+    timeMs: 48470
+    type: 0
+    durationMs: 0
+  - id: attention-163
+    lane: 1
+    timeMs: 49020
+    type: 0
+    durationMs: 0
+  - id: attention-164
+    lane: 2
+    timeMs: 49610
+    type: 0
+    durationMs: 0
+  - id: attention-165
+    lane: 0
+    timeMs: 50200
+    type: 0
+    durationMs: 0
+  - id: attention-166
+    lane: 3
+    timeMs: 50480
+    type: 0
+    durationMs: 0
+  - id: attention-167
+    lane: 1
+    timeMs: 50760
+    type: 0
+    durationMs: 0
+  - id: attention-168
+    lane: 2
+    timeMs: 50980
+    type: 0
+    durationMs: 0
+  - id: attention-169
+    lane: 1
+    timeMs: 51330
+    type: 0
+    durationMs: 0
+  - id: attention-170
+    lane: 0
+    timeMs: 51580
+    type: 0
+    durationMs: 0
+  - id: attention-171
+    lane: 2
+    timeMs: 51901
+    type: 1
+    durationMs: 1141
+  - id: attention-172
+    lane: 3
+    timeMs: 52170
+    type: 0
+    durationMs: 0
+  - id: attention-173
+    lane: 0
+    timeMs: 52471
+    type: 0
+    durationMs: 0
+  - id: attention-174
+    lane: 1
+    timeMs: 53000
+    type: 0
+    durationMs: 0
+  - id: attention-175
+    lane: 2
+    timeMs: 53280
+    type: 0
+    durationMs: 0
+  - id: attention-176
+    lane: 1
+    timeMs: 53590
+    type: 0
+    durationMs: 0
+  - id: attention-177
+    lane: 0
+    timeMs: 53920
+    type: 0
+    durationMs: 0
+  - id: attention-178
+    lane: 2
+    timeMs: 54140
+    type: 0
+    durationMs: 0
+  - id: attention-179
+    lane: 3
+    timeMs: 54420
+    type: 0
+    durationMs: 0
+  - id: attention-180
+    lane: 0
+    timeMs: 54740
+    type: 0
+    durationMs: 0
+  - id: attention-181
+    lane: 3
+    timeMs: 55060
+    type: 0
+    durationMs: 0
+  - id: attention-182
+    lane: 1
+    timeMs: 55290
+    type: 0
+    durationMs: 0
+  - id: attention-183
+    lane: 2
+    timeMs: 55590
+    type: 0
+    durationMs: 0
+  - id: attention-184
+    lane: 1
+    timeMs: 55870
+    type: 0
+    durationMs: 0
+  - id: attention-185
+    lane: 0
+    timeMs: 56170
+    type: 0
+    durationMs: 0
+  - id: attention-186
+    lane: 2
+    timeMs: 56450
+    type: 1
+    durationMs: 1141
+  - id: attention-187
+    lane: 3
+    timeMs: 56790
+    type: 0
+    durationMs: 0
+  - id: attention-188
+    lane: 0
+    timeMs: 57060
+    type: 0
+    durationMs: 0
+  - id: attention-189
+    lane: 1
+    timeMs: 57060
+    type: 0
+    durationMs: 0
+  - id: attention-190
+    lane: 1
+    timeMs: 57605
+    type: 0
+    durationMs: 0
+  - id: attention-191
+    lane: 2
+    timeMs: 57850
+    type: 0
+    durationMs: 0
+  - id: attention-192
+    lane: 1
+    timeMs: 58175
+    type: 0
+    durationMs: 0
+  - id: attention-193
+    lane: 0
+    timeMs: 58430
+    type: 0
+    durationMs: 0
+  - id: attention-194
+    lane: 2
+    timeMs: 58745
+    type: 0
+    durationMs: 0
+  - id: attention-195
+    lane: 3
+    timeMs: 59000
+    type: 0
+    durationMs: 0
+  - id: attention-196
+    lane: 0
+    timeMs: 59280
+    type: 0
+    durationMs: 0
+  - id: attention-197
+    lane: 1
+    timeMs: 59280
+    type: 0
+    durationMs: 0
+  - id: attention-198
+    lane: 1
+    timeMs: 59900
+    type: 0
+    durationMs: 0
+  - id: attention-199
+    lane: 2
+    timeMs: 60130
+    type: 0
+    durationMs: 0
+  - id: attention-200
+    lane: 1
+    timeMs: 60456
+    type: 0
+    durationMs: 0
+  - id: attention-201
+    lane: 0
+    timeMs: 60690
+    type: 0
+    durationMs: 0
+  - id: attention-202
+    lane: 2
+    timeMs: 61027
+    type: 1
+    durationMs: 1141
+  - id: attention-203
+    lane: 3
+    timeMs: 61310
+    type: 0
+    durationMs: 0
+  - id: attention-204
+    lane: 0
+    timeMs: 61597
+    type: 0
+    durationMs: 0
+  - id: attention-205
+    lane: 3
+    timeMs: 61820
+    type: 0
+    durationMs: 0
+  - id: attention-206
+    lane: 1
+    timeMs: 62167
+    type: 0
+    durationMs: 0
+  - id: attention-207
+    lane: 1
+    timeMs: 62738
+    type: 0
+    durationMs: 0
+  - id: attention-208
+    lane: 2
+    timeMs: 63308
+    type: 0
+    durationMs: 0
+  - id: attention-209
+    lane: 0
+    timeMs: 63878
+    type: 0
+    durationMs: 0
+  - id: attention-210
+    lane: 1
+    timeMs: 64449
+    type: 0
+    durationMs: 0
+  - id: attention-211
+    lane: 2
+    timeMs: 64740
+    type: 0
+    durationMs: 0
+  - id: attention-212
+    lane: 1
+    timeMs: 65019
+    type: 0
+    durationMs: 0
+  - id: attention-213
+    lane: 2
+    timeMs: 65589
+    type: 1
+    durationMs: 1141
+  - id: attention-214
+    lane: 3
+    timeMs: 65890
+    type: 0
+    durationMs: 0
+  - id: attention-215
+    lane: 0
+    timeMs: 66160
+    type: 0
+    durationMs: 0
+  - id: attention-216
+    lane: 1
+    timeMs: 66730
+    type: 0
+    durationMs: 0
+  - id: attention-217
+    lane: 1
+    timeMs: 67260
+    type: 0
+    durationMs: 0
+  - id: attention-218
+    lane: 2
+    timeMs: 67871
+    type: 0
+    durationMs: 0
+  - id: attention-219
+    lane: 0
+    timeMs: 68441
+    type: 0
+    durationMs: 0
+  - id: attention-220
+    lane: 1
+    timeMs: 69011
+    type: 0
+    durationMs: 0
+  - id: attention-221
+    lane: 2
+    timeMs: 69310
+    type: 0
+    durationMs: 0
+  - id: attention-222
+    lane: 1
+    timeMs: 69582
+    type: 0
+    durationMs: 0
+  - id: attention-223
+    lane: 2
+    timeMs: 70152
+    type: 1
+    durationMs: 1141
+  - id: attention-224
+    lane: 3
+    timeMs: 70460
+    type: 0
+    durationMs: 0
+  - id: attention-225
+    lane: 0
+    timeMs: 70722
+    type: 0
+    durationMs: 0
+  - id: attention-226
+    lane: 1
+    timeMs: 71293
+    type: 0
+    durationMs: 0
+  - id: attention-227
+    lane: 1
+    timeMs: 71863
+    type: 0
+    durationMs: 0
+  - id: attention-228
+    lane: 2
+    timeMs: 72433
+    type: 0
+    durationMs: 0
+  bpmSegments:
+  - timeMs: 0
+    bpm: 105.2
+  chartOffsetMs: 0
+  finishBufferSeconds: 0.1
+  calibrationBpm: 120
+  calibrationWarmupBeats: 8
+  calibrationSampleBeats: 32
+  calibrationMinimumSamples: 24
+  calibrationWindowMs: 250
+  calibrationMaxMadMs: 30
+  farWidthRatio: 0.32
+  practiceDurationSeconds: 9
+  practiceNotes:
+  - id: practice-tap-d
+    lane: 0
+    timeMs: 1000
+    type: 0
+    durationMs: 0
+  - id: practice-tap-f
+    lane: 1
+    timeMs: 2000
+    type: 0
+    durationMs: 0
+  - id: practice-hold-j
+    lane: 2
+    timeMs: 3000
+    type: 1
+    durationMs: 2000
+  - id: practice-hold-k
+    lane: 3
+    timeMs: 6000
+    type: 1
+    durationMs: 2000

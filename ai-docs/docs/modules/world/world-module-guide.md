@@ -151,7 +151,7 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | ~~`Core/Flow/SceneGameState.cs:41`~~ | ✅ 机制波已按 PRP §2.1 定案处理：**不做两个子类**，改成一个 `WorldSceneState` 覆写 `SceneKey` 从待处理转场读地址（理由：一场景一状态类在十二阶段 × 两界下会膨胀，且要维护第二份映射表） |
 | ~~`Core/Flow/SceneGameState.cs:84/:87`~~ | ✅ 落点已定：`WorldSceneState.EnterScene()`（`OnSceneReadyAsync` 调它） |
 | ~~`Runtime/Monster/EncounterSaveData.cs`~~ | ✅ 已改：判据放宽成「非空 + 格式合法」，`Version` 没升 |
-| `Runtime/Monster/MonsterEncounterState.cs:46` | **仍不动**（PRP §4 的处置：遗留原型路径与本模块两条并存）；等正式内容落地再决定它退不退役 |
+| `Runtime/Monster/MonsterEncounterState.cs` | **仍不动**（PRP §4 的处置：遗留原型路径与本模块两条并存）；等正式内容落地再决定它退不退役 |
 | ~~`Assets/AddressableAssetsData/AssetGroups/Scenes.asset`~~ | ✅ 接线波已登记两张灰盒场景（地址 = 场景键），表里 `implemented=true` + `scene_address` 也同一次改完并跑了 `gen-tables.ps1` |
 | ~~新建 `Scripts/Editor/World/`~~ | ✅ 已建 `WorldAddressValidator.cs`（菜单 `21Days/世界/校验场景地址`） |
 | ~~`Assets/_Project/Scenes/Boot.unity`~~ | ✅ 接线波已把 `WorldInstaller` 加到 `GameBootstrap`（组件列表末尾，无必填字段） |

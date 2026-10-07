@@ -1,14 +1,23 @@
 // 职责：Additive 加载遭遇场景、启动逻辑并在离场时清理；个体状态留在 MonsterRules。
 // 为什么新建：SceneGameState 是通用基类，不知道本模块的场景和接线组件。
+// 背后处决接线（2026-10-07）：场景就绪时在场景根里找 ExecutionInteractor（与找 EncounterSceneView 同一模式），
+//   由本类的 BindExecution 喂进玩家 / 怪物规则 / 事实写入点 / 判定内核 / 遭遇结算 / 埋点 / 动作资产——
+//   在此之前那个组件**没有任何生产调用方**（判定与结算三层齐全，但按 F 没人响应）。
+//   判定内核走**可选**的 StealthKernel（容器里没有它时按占位阈值跑，由组件自己打 Warn）：
+//   独立原型场景与纯 Monster 的测试作用域都没有 StealthInstaller，不许把它变成硬依赖。
 // 触屏控件（原 EncounterTouchControls，代码现搭的虚拟摇杆 + 潜行 / 伪装 / 攻击）已从本状态移除：
 //   PRP/exploration-whitebox 波 2 起由 Exploration HUD 预制体（OnScreenStick / OnScreenButton）提供，按 IsTouchPrimary 显隐。
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Assets;
 using Game.Core.Flow;
+using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Simulation;
+using Game.Core.Telemetry;
+using Game.Stealth;
 using UnityEngine;
+using VContainer;
 
 namespace Game.Monster
 {
@@ -19,6 +28,11 @@ namespace Game.Monster
         private readonly MonsterModel monster;
         private readonly IGameFlow flow;
         private readonly SimulationRunner runner;
+        private readonly MonsterRules monsterRules;
+        private readonly MonsterConfig monsterConfig;
+        private readonly IInputService input;
+        private readonly ITelemetryService telemetry;
+        private readonly IObjectResolver container;
         private EncounterSceneView view;
         private EncounterSaveData restore;
         public bool NavigationBlocked { get; set; }
@@ -31,14 +45,26 @@ namespace Game.Monster
         }
         public void ClearPreparedRestore() => restore = null;
 
+        /// <param name="container">
+        /// 只为一件事而注入：**可选**地把 <c>StealthKernel</c> 取出来（处决的判定内核）。
+        /// 换成构造参数会把它变成硬依赖——独立原型场景与纯 Monster 的测试作用域都没有 StealthInstaller，
+        /// 那时容器解析会直接失败（VContainer 不支持「没注册就用默认值」，见 EncounterStep 的文件头）。
+        /// </param>
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
-            MonsterModel monster, IGameFlow flow, SimulationRunner runner) : base(assets)
+            MonsterModel monster, IGameFlow flow, SimulationRunner runner, MonsterRules monsterRules,
+            MonsterConfig monsterConfig, IInputService input, ITelemetryService telemetry, IObjectResolver container)
+            : base(assets)
         {
             this.runner = runner;
             this.step = step;
             this.player = player;
             this.monster = monster;
             this.flow = flow;
+            this.monsterRules = monsterRules;
+            this.monsterConfig = monsterConfig;
+            this.input = input;
+            this.telemetry = telemetry;
+            this.container = container;
         }
 
         // 该地址目前指向 Assets/Scenes/SampleScene.unity（功能 demo 示例场景），是临时指向；
@@ -59,18 +85,31 @@ namespace Game.Monster
                 throw new System.InvalidOperationException("IsometricEncounter 缺少 EncounterSceneView");
             }
 
+            // 处决交互入口：与找 EncounterSceneView 同一模式（场景根里找，含 inactive）。
+            // 找不到**不算致命**（遭遇本身照跑，只是按 F 不响应），但必须留下记录：本类不抛，
+            // 由 BindExecution 打 Warn——「按 F 没反应」和「功能坏了」在现场得分得开。
+            ExecutionInteractor execution = null;
+            for (int i = 0; i < roots.Length && execution == null; i++)
+            {
+                execution = roots[i].GetComponentInChildren<ExecutionInteractor>(true);
+            }
+
             try
             {
                 if (restore != null) step.Restore(restore);
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
-                view.Bind(player, monster, ReadInterpolationAlpha);
+                view.Bind(player, monster, ReadInterpolationAlpha, execution);
                 // S3 视线遮挡（Q3 波接线）：把场景里显式登记的遮挡体一次性转成纯数据几何喂给潜行内核，
                 // tick 路径因此只做几何求交、不做物理查询（StealthSight / EncounterSceneView 的分工）。
                 // 没登记遮挡体时喂进去的是空数组 = 视线不被遮挡，判定与接线前一致。
                 step.Sight.SetOccluders(view.CollectSightOccluders());
+                // 感知范围可视化（白盒）：种类值在 Begin（Reset 查表）之后才拿得到，所以放在这一步之后。
+                // 没拖 awarenessConfig 时它什么都不画，判定不受影响。
+                view.BindAwarenessRanges(monsterRules.Kind, monsterConfig);
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
+                BindExecution(execution);
             }
             catch (System.Exception e)
             {
@@ -80,6 +119,44 @@ namespace Game.Monster
             }
 
             return UniTask.CompletedTask;
+        }
+
+        /// <summary>
+        /// 把场景里的处决交互接上现场：玩家 / 怪物规则 / 事实写入点（<c>step.FactSink</c>）/ 判定内核 /
+        /// 遭遇结算 / 埋点 / 动作资产。
+        /// <para>
+        /// 单独抽成公开方法（而不是写在 <see cref="OnSceneReadyAsync"/> 里）是为了让装配测试能走**同一条路**：
+        /// 容器装出来的依赖 + 场景里的那个组件，调它一次即可断言接线结果——否则测试只能自己复述一遍接线参数，
+        /// 那正好把「接线写错了」这件事测不出来。
+        /// </para>
+        /// <para>
+        /// 三处刻意的取值：① 判定内核取可选的 <c>StealthKernel</c>（容器里没有就用组件的占位阈值，它会打 Warn）；
+        /// ② 埋点作用域固定 <c>stealth</c>（与 <c>ExecutionResolver</c> 的事件名同一模块）；
+        /// ③ 动作资产从 <see cref="IInputService"/> 拿——那是「谁持有动作图」的唯一出处，
+        /// 组件 Inspector 上的字段只在「没有接线方」时兜底。
+        /// </para>
+        /// </summary>
+        public void BindExecution(ExecutionInteractor interactor)
+        {
+            if (interactor == null)
+            {
+                // 不带 context 对象：本类不是 UnityEngine.Object，传 this 编不过（CS1503）。
+                Log.Warn("IsometricEncounter 场景里没有 ExecutionInteractor：背后按 F 处决不会生效。"
+                         + "照 SampleScene 的接法在场景根物体（Encounter）上挂一个，再让本状态接线。");
+                return;
+            }
+
+            // StealthKernel 是可选的（见构造参数 container 的说明）：没有它时传 null，
+            // 组件会退回占位阈值并打一条 Warn，不会静默改变手感。
+            StealthKernel kernel = null;
+            container.TryResolve(out kernel);
+
+            // lint-ok 的理由：这一行取的是**动作资产引用**（交给输入层组件做按键绑定），不是设备读数——
+            // 按键由 ExecutionInteractor 自己读，而处决按 PRP §2.4 明确不进确定性内核、不进回放（已知取舍）。
+            GameInput actions = input == null ? null : input.Actions; // lint-ok: 只取动作资产引用，不读输入设备；处决不进确定性内核
+            interactor.Configure(player, monsterRules, step.FactSink,
+                kernel == null ? null : kernel.Assassination, step, telemetry.Scope("stealth"),
+                actions == null ? null : actions.asset);
         }
 
         protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)

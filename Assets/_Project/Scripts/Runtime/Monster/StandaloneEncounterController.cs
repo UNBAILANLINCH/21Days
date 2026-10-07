@@ -1,9 +1,15 @@
 // 职责：直接播放遭遇原型场景时，用场景内输入驱动现有 Player/Monster 规则循环。
 // 为什么新建：Boot 的 SimulationRunner 只在完整游戏流程存在；EncounterSceneView 只负责表现，不应兼任输入与规则调度。
+// 背后处决（2026-10-07）：这条路也接上 ExecutionInteractor——喂本场景自己 new 的那套规则。
+//   **它没有种类表**（MonsterRules.Kind 为 null），所以物种门槛（defeat_method == 暗杀）恒拒：
+//   按 F 只会得到 SpeciesNotExecutable。判定内核也没有（本场景没有容器）→ 组件按占位阈值跑并打一条 Warn。
+//   两条都是如实结果，不是接线失败。正式流程那条路见 MonsterEncounterState.BindExecution。
 using Game.Core.Boot;
+using Game.Core.Logging;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Player;
+using Game.Stealth;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -18,6 +24,7 @@ namespace Game.Monster
 
         private EncounterStep step;
         private RandomService random;
+        private ExecutionInteractor execution;
         private InputAction move;
         private InputAction sneak;
         private InputAction disguise;
@@ -47,7 +54,23 @@ namespace Game.Monster
             var monsterRules = new MonsterRules(monsterConfig, Enemy, random, NullTelemetryScope.Instance);
             step = new EncounterStep(playerRules, monsterRules);
             step.Begin(view.PlayerStart, view.PatrolPositions());
-            view.Bind(Player, Enemy, ReadInterpolationAlpha);
+
+            // 背后处决：本场景自己那套规则（没有种类表、没有内核，理由见文件头）。
+            // 动作资产用 PlayerInput 上那一份——与正式流程从 IInputService 拿是同一个来源。
+            execution = FindObjectOfType<ExecutionInteractor>(true); // lint-ok: 只在 Awake 找一次并缓存，不在每帧路径上
+            if (execution != null)
+            {
+                execution.Configure(Player, monsterRules, step.FactSink, null, step, NullTelemetryScope.Instance,
+                    playerInput.actions);
+            }
+            else
+            {
+                // 面板第三行也会写「处决：未接线」，但那条只在 Game 视图里看得见——控制台里也该留一句。
+                Log.Warn("独立遭遇场景里没有 ExecutionInteractor：按 F 不会处决。"
+                         + "照 SampleScene 的接法挂在 Encounter 物体上。", this);
+            }
+
+            view.Bind(Player, Enemy, ReadInterpolationAlpha, execution);
             view.OnPlayerBlocked += step.CorrectPlayerPosition;
 
             playerInput.enabled = true;

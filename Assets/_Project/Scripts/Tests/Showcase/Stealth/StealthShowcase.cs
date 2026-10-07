@@ -19,10 +19,16 @@
 // 已知边界（本波**不**就地改，只把它演出来并写进报告）：遮挡目前只写 stealth.hidden / stealth.cover 这些
 //   **事实键**，不喂 MonsterRules.Sense——怪物照样看得见你、照样追过来。用例①的最后一个检查点专门钉这条边界，
 //   让它在报告里显式出现，而不是让人以为「躲到掩体后面怪物就看不见了」。
-// 不包括：F 键处决交互——`ExecutionInteractor` / `ExecutionResolver` / `ExecutionRules` 那一层属
-//   `PRP/stealth-execution` 波（2026-10-07 并行落地：判定 + 物种门槛 + `Gameplay/Execute` 绑 F）。
-//   两层分工：`AssassinationAllowed` 只答「位置（背后 + 距离）+ 目标未察觉」，物种门槛（`defeat_method == 暗杀`）
-//   是它上面那一层。本回放只演 S3 的绕背判定，不冒充处决交互，也不依赖那个还在动的 API。
+// ③ ExecuteKey_BehindEnemy_ExecutesTheTarget（2026-10-07 接线那一波新增）：潜行绕到巡逻怪背后，
+//   按 `Gameplay/Execute`（键鼠 F）→ 目标被处决。这一条演的是接线之后的完整链：
+//   场景里那只 `ExecutionInteractor` 被 `MonsterEncounterState.BindExecution` 接上玩家 / 怪物规则 /
+//   事实写入点 / 判定内核 / 遭遇结算 / 埋点，按 F 才真的会结算（接线前那个组件没有任何生产调用方）。
+//   断言口径：**怪死了 + `stealth.assassinated` 写进正式流程那份事实集 + 按键那一次的结果是「允许」**。
+//   埋点（`stealth/stealth_executed`）由 EditMode 的 `ExecutionSceneWiringTests` 用收集型 sink 断言
+//   ——回放侧拿不到 sink，不在这里假装看到。
+//   内容前提：`Boot.unity` 的 `MonsterInstaller.kindId = 1003`（市令：killable=false + defeat_method=暗杀）。
+//   回放**不读那个序列化字段**：它只按「场上这只怪能处决」来演，premise 不成立时失败信息里会带上拒绝原因。
+// 不包括：把这一刀做进确定性内核（处决是实时输入触发的交互，PRP §2.4 明确不进 `InputCommand`）。
 using System.Collections;
 using Game.Core.Input;
 using Game.Monster;
@@ -53,12 +59,16 @@ namespace Game.Tests.Showcase.Stealth
         private const float ConeSpotForward = 3f;
         private const float ConeSpotSideways = 1.5f;
 
+        /// <summary>按 F 那一轮最多等多久（真实秒）：要按到「按键那一次有结果」为止，见 <see cref="PressExecuteWhileBehind"/>。</summary>
+        private const float ExecuteTimeoutSeconds = 6f;
+
         private IInputService inputService;
         private PlayerModel player;
         private MonsterModel monster;
         private EncounterStep step;
         private EncounterSceneView view;
         private StealthKernel kernel;
+        private ExecutionInteractor interactor;
         private GameObject cover;
 
         // 绕背那一轮里逐帧记下来的事实（怪物一直在动，检查点只能对着「出现过的时刻」判）。
@@ -66,6 +76,13 @@ namespace Game.Tests.Showcase.Stealth
         private bool calmSeen;
         private bool behindSeen;
         private bool allowedSeen;
+
+        // 按 F 那一轮里逐帧记下来的事实。
+        private bool executePressed;
+        private bool executeAllowed;
+        private bool executeHintShown;
+        private bool executeBehindHeld;
+        private ExecutionReject executeReason;
 
         protected override string Module => "Stealth";
 
@@ -145,6 +162,57 @@ namespace Game.Tests.Showcase.Stealth
             yield return Input.Release(inputService.Actions.Gameplay.Sneak);
         }
 
+        // ───────────────────────── ③ 背后按 F 处决 ─────────────────────────
+
+        /// <summary>
+        /// ③ 接线之后的完整链：潜行绕到巡逻怪背后，按 `Gameplay/Execute`（键鼠 F）→ 目标被处决。
+        /// 前面两条演的是「判定」（stealth.behind / AssassinationAllowed），这一条演的是「按键真的结算了」。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ExecuteKey_BehindEnemy_ExecutesTheTarget()
+        {
+            yield return EnterWorld();
+            yield return GoToPatrolLookout();
+
+            yield return Step("找到场上那只 ExecutionInteractor（正式流程应当已经把它接好线）", null, 0f);
+            yield return Check("背后处决已接进正式流程：场上那只 ExecutionInteractor 处于已接线状态"
+                               + "（接线前它一个生产调用方都没有，「按 F 没反应」）",
+                () => interactor != null && interactor.IsConfigured);
+            if (interactor == null || !interactor.IsConfigured)
+            {
+                Assert.Fail("SampleScene 里没有已接线的 ExecutionInteractor："
+                            + "检查 Encounter 物体上有没有挂这个组件（照 SampleScene 的接法），"
+                            + "以及 MonsterEncounterState.BindExecution 是否真的被调到。");
+            }
+
+            yield return Step("等巡逻怪走完一段、进入巡逻停顿（停 2 秒、朝向不变，好绕背）", null, 0f);
+            yield return WaitUntil("怪物进入巡逻停顿",
+                () => monster.Mode == MonsterMode.PatrolPause && monster.PatrolPauseLeft > 1.2f, 15f);
+
+            yield return Step("按住潜行键，绕到怪物背后 1 米内", null, 0f);
+            yield return SneakUpBehind();
+
+            yield return Step("在背后近距按 F（Gameplay/Execute）；按键那一次的结果会被记下来", null, 0f);
+            yield return PressExecuteWhileBehind();
+            yield return Input.Release(inputService.Actions.Gameplay.Sneak);
+
+            yield return Check("按 F 之前面板提示「可处决」（Inspect 报的就是按键会用的那份判定）",
+                () => executeHintShown);
+            yield return Check($"按 F 确实走到了结算：最近一次结果是「允许」"
+                               + $"（记到的拒绝原因：{executeReason}；位置条件成立过：{executeBehindHeld}）",
+                () => executePressed && executeAllowed);
+            yield return Check("目标被处决：怪生命归零、进入 Dead", () => monster.Health == 0 && monster.Mode == MonsterMode.Dead);
+            yield return Check("stealth.assassinated 写进了正式流程那份事实集（命中即写，持久）",
+                () => step.Facts.IsTrue(StealthFactKeys.Assassinated));
+            yield return Snapshot("按 F 处决");
+
+            // 如实记录边界（本波不修）：处决把这一场承载成 Victory，但战斗结果**目前没有消费方**，
+            // 所以遭遇不会自己收尾。埋点 stealth_executed 由 EditMode 的 ExecutionSceneWiringTests 断言。
+            yield return Check("如实记录：处决承载了这一场的结果（BattleSettlement = Victory），"
+                               + "但 ResultConsumed 仍为假——战斗结果目前没有消费方，流程不会自己推进",
+                () => step.BattleSettlement.HasValue && !step.ResultConsumed);
+        }
+
         // ───────────────────────── 进场与驱动 ─────────────────────────
 
         /// <summary>
@@ -161,6 +229,9 @@ namespace Game.Tests.Showcase.Stealth
                 step = ResolveService<EncounterStep>();
                 kernel = ResolveService<StealthKernel>();
                 view = Object.FindObjectOfType<EncounterSceneView>();
+                // 处决交互入口：第 ③ 条用例要用（前两条不碰它，所以不并进下面那条共同前置断言里，
+                // 免得「处决没接线」把两条判定回放也一起判红）。
+                interactor = Object.FindObjectOfType<ExecutionInteractor>();
                 return inputService != null && inputService.Actions != null
                        && player != null && monster != null && step != null && kernel != null && view != null;
             }, "进世界后容器里取不到 PlayerModel / MonsterModel / IInputService / EncounterStep / StealthKernel，"
@@ -255,7 +326,9 @@ namespace Game.Tests.Showcase.Stealth
             allowedSeen = false;
             bool sneaking = false;
             float closeSince = -1f;
-            float deadline = Time.realtimeSinceStartup + 5f;
+            // 观察点定到 (15.5, 7.6) 后，到怪背后最远约 12.5 米，潜行 1.5 m/s 要 8.3 秒；
+            // 原来 5 秒的窗口会在「怪正好走到远端」时误判成失败，故放到 14 秒。
+            float deadline = Time.realtimeSinceStartup + 14f;
             while (Time.realtimeSinceStartup < deadline)
             {
                 Vector2 toPlayer = player.Position - monster.Position;
@@ -307,9 +380,66 @@ namespace Game.Tests.Showcase.Stealth
         }
 
         /// <summary>
+        /// 保持在怪物背后并按 `Gameplay/Execute`（键鼠 F，走虚拟键盘的真实事件路径），直到**按键那一次**
+        /// 有了结果（<c>ExecutionInteractor.LastVerdict</c> 被写下）或超时（6 秒）。
+        /// <para>
+        /// 与 <see cref="SneakUpBehind"/> 同一套走法：潜行键已经按住，每帧朝「怪物位置 − 朝向 × 1 米」走。
+        /// **只在确实处在背后近距时才按 F**——否则按出来的是 not_behind，测的就不是这一波的东西了。
+        /// 反复按是必要的：虚拟键盘的按下事件至少要跨过一个逻辑 tick 才被采样到（`ShowcaseInputDriver` 文件头坑②）。
+        /// </para>
+        /// <para>
+        /// 按键前先读一次 <see cref="ExecutionInteractor.Inspect"/>，把面板会显示的那份判定记下来——
+        /// 「面板说能下刀」与「按下去真的能下刀」必须是同一份判定（组件里两边共用同一套选目标规则）。
+        /// </para>
+        /// </summary>
+        private IEnumerator PressExecuteWhileBehind()
+        {
+            executePressed = false;
+            executeAllowed = false;
+            executeHintShown = false;
+            executeBehindHeld = false;
+            executeReason = ExecutionReject.None;
+            float deadline = Time.realtimeSinceStartup + ExecuteTimeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline && !executePressed)
+            {
+                Vector2 toPlayer = player.Position - monster.Position;
+                Vector2 behind = monster.Position - monster.Facing * BehindDistance;
+                Vector2 toBehind = behind - player.Position;
+                if (toBehind.magnitude <= 0.15f)
+                {
+                    Input.ReleaseStick();
+                }
+                else
+                {
+                    Input.SetStick(toBehind.normalized);
+                }
+
+                bool behindNow = player.IsSneaking && toPlayer.magnitude <= 1.5f
+                                 && Vector2.Dot(monster.Facing, toPlayer) < 0f;
+                if (behindNow)
+                {
+                    executeBehindHeld = true;
+                    executeHintShown |= interactor.Inspect().Allowed;
+                    yield return Input.Press(inputService.Actions.Gameplay.Execute);
+                    if (interactor.LastVerdict.HasValue)
+                    {
+                        executePressed = true;
+                        executeAllowed = interactor.LastVerdict.Value.Allowed;
+                        executeReason = interactor.LastVerdict.Value.Reject;
+                        break;
+                    }
+                }
+
+                yield return null;
+            }
+
+            Input.ReleaseStick();
+        }
+
+        /// <summary>
         /// 「这一刀能不能下」的 S3 判定：判定器与输入都取正式的——规则来自容器里那只 <see cref="StealthKernel"/>，
         /// 输入按 <c>EncounterStep.SettleStealth</c> 的同一口径填（未察觉 = 不在警戒 / 敌对）。
-        /// **不含** F 键处决那一层（`ExecutionRules` 的物种门槛 + `ExecutionResolver` 的结算），那属另一波。
+        /// **只答位置与察觉**；物种门槛与结算在 <see cref="ExecutionInteractor"/> 那一层（第 ③ 条用例走完整链）。
         /// </summary>
         private bool IsAssassinationAllowed()
         {

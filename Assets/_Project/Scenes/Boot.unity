@@ -147,6 +147,7 @@ GameObject:
   - component: {fileID: 351087057}
   - component: {fileID: 351087056}
   - component: {fileID: 351087058}
+  - component: {fileID: 351087059}
   m_Layer: 0
   m_Name: GameBootstrap
   m_TagString: Untagged
@@ -216,7 +217,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: e074ad7ceacbc42428e5db941035406b, type: 2}
-  kindId: 0
+  kindId: 1003
 --- !u!114 &351087046
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -383,6 +384,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a78d58264e779e547a93152f301ae05d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &351087059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 351087041}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 519770890d607d04badf8fdada80b6f9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  turnBasedConfig: {fileID: 11400000, guid: aadaf37fdfc591d4a9c429b11194f0f7, type: 2}
+  bossRoster: {fileID: 11400000, guid: 7ac7c73b7b9bec548a729e18f488536f, type: 2}
 --- !u!1 &1603631903
 GameObject:
   m_ObjectHideFlags: 0

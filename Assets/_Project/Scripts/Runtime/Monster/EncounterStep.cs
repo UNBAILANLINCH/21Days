@@ -141,6 +141,17 @@ namespace Game.Monster
         public IEncounterFacts Facts => facts;
 
         /// <summary>
+        /// 同一个事实集的**写侧契约**（<see cref="IStealthFactSink"/>）：潜行侧的处决交互靠它写
+        /// `stealth.assassinated`（背后处决接线那一波接上的）。
+        /// <para>
+        /// 与 <see cref="Facts"/> 是**同一个对象**（<see cref="EncounterFactLog"/> 两侧接口都实现）；
+        /// 分成两个属性是因为两个契约分属两个模块：读侧在 Narrative（消费方），写侧在 Stealth（生产方）。
+        /// 接线方（<c>MonsterEncounterState</c> / <c>StandaloneEncounterController</c>）拿这一个喂给处决交互。
+        /// </para>
+        /// </summary>
+        public IStealthFactSink FactSink => facts;
+
+        /// <summary>
         /// 视线遮挡查询器：场景就绪时由接线侧一次性喂遮挡体（<see cref="StealthSight.SetOccluders"/>），
         /// tick 里只做纯几何求交，**不做任何物理查询**（`docs/architecture.md` 的确定性内核要求）。
         /// </summary>

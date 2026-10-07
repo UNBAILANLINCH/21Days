@@ -174,6 +174,53 @@ namespace Game.Tests.EditMode.Stealth
             Assert.That(facts.Count, Is.Zero);
         }
 
+        /// <summary>
+        /// 只读查询 <see cref="ExecutionInteractor.Inspect"/>（接线那一波新增，白盒面板与回放靠它看状态）：
+        /// 它能报出「此刻能不能下刀」，且**什么都不改**——不写事实、不杀怪、不记最近结果、不承载战斗结果。
+        /// 「能不能下刀」与「已经杀过」仍然是两件事（PRP §2.5）。
+        /// </summary>
+        [Test]
+        public void Inspect_ExecutableTargetBehind_IsAllowedAndChangesNothing()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewExecutableTableTarget();
+            interactor.Configure(player.Model, target, facts, assassination);
+
+            ExecutionHint hint = interactor.Inspect();
+
+            Assert.That(hint.Configured, Is.True);
+            Assert.That(hint.HasTarget, Is.True);
+            Assert.That(hint.Allowed, Is.True, "背后 1 米、未察觉、物种是「暗杀」——这一刀此刻能下");
+            Assert.That(hint.Reject, Is.EqualTo(ExecutionReject.None));
+            Assert.That(hint.ToLabel(), Does.Contain("可处决"), "面板上要能看出「可以按 F」");
+            Assert.That(interactor.LastVerdict.HasValue, Is.False, "查询不是一次尝试，不该留下最近结果");
+            Assert.That(target.Model.Health, Is.GreaterThan(0), "查询不杀人");
+            Assert.That(facts.Count, Is.Zero, "查询不写事实");
+        }
+
+        /// <summary>
+        /// <see cref="ExecutionInteractor.LastVerdict"/> 如实记下**按了之后**的结果（含拒绝）：
+        /// 「按 F 没反应」与「功能坏了」在现场靠它分开。查询与按键必须给同一个原因，否则面板会骗人。
+        /// </summary>
+        [Test]
+        public void TryExecute_RejectedPress_RecordsTheSameReasonTheQueryShows()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewTarget(); // 没接种类表 → 物种门槛拒（「对于部分怪物」那条限定）
+            interactor.Configure(player.Model, target, facts, assassination);
+
+            ExecutionReject shown = interactor.Inspect().Reject;
+            Assert.That(shown, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
+            Assert.That(interactor.LastVerdict.HasValue, Is.False, "还没按过");
+
+            ExecutionVerdict verdict = interactor.TryExecute();
+
+            Assert.That(verdict.Reject, Is.EqualTo(shown), "面板说的原因与按下去得到的原因必须是同一条");
+            Assert.That(interactor.LastVerdict.HasValue, Is.True);
+            Assert.That(interactor.LastVerdict.Value.Reject, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
+            Assert.That(interactor.LastVerdict.Value.Allowed, Is.False);
+        }
+
         [Test]
         public void Configure_NullPlayerOrSink_IsRejected()
         {
@@ -212,6 +259,20 @@ namespace Game.Tests.EditMode.Stealth
             var kinds = new MonsterKindCatalog(stub, new YaoCatalog(stub), monsterConfig.HostileRadius);
             var target = new MonsterRules(monsterConfig, new MonsterModel(), new RandomService(3ul),
                 NullTelemetryScope.Instance, kinds.Get(1001));
+            target.Reset(new[] { Vector2.zero, new Vector2(10f, 0f) });
+            return target;
+        }
+
+        /// <summary>
+        /// 真表里**只能靠暗杀解决**的那只：`Tables/Data/yao/3.json`（市令，killable = false + defeat_method = 暗杀）
+        /// 与 `monster_species/1003.json`。用它才能覆盖交互层的成功路径（表里第一条不是暗杀，会被物种门槛拒）。
+        /// </summary>
+        private MonsterRules NewExecutableTableTarget()
+        {
+            var stub = new StubConfigService(ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes()));
+            var kinds = new MonsterKindCatalog(stub, new YaoCatalog(stub), monsterConfig.HostileRadius);
+            var target = new MonsterRules(monsterConfig, new MonsterModel(), new RandomService(3ul),
+                NullTelemetryScope.Instance, kinds.Get(1003));
             target.Reset(new[] { Vector2.zero, new Vector2(10f, 0f) });
             return target;
         }

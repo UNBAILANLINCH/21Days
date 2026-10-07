@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b0965f1212d355409801cde7e4e304e, type: 3}
   m_Name: DarkFog_Mo
   m_EditorClassIdentifier: 
-  color: {r: 0.050314426, g: 0, b: 0.006313967, a: 1}
+  color: {r: 0.106918216, g: 0, b: 0.016352203, a: 1}
   density: 1
   maximumDistance: 40
   steps: 16

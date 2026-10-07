@@ -39,7 +39,7 @@ namespace Game.LailaFace
         [SerializeField]
         private float lailaMinimumShadowSoftness = 0.28f;
 
-        [Tooltip("仅在 laila Play 中创建抓点提示与右手光标，不保存场景。")]
+        [Tooltip("仅在 laila 与独立候选试玩 Play 中创建抓点提示与右手光标，不保存场景。")]
         [SerializeField]
         private bool lailaPointerFeedback = true;
 
@@ -90,7 +90,8 @@ namespace Game.LailaFace
         private void Start()
         {
             if (Application.isPlaying && lailaPointerFeedback
-                && gameObject.scene.path == "Assets/_Project/Scenes/laila.unity"
+                && (gameObject.scene.path == "Assets/_Project/Scenes/laila.unity"
+                    || gameObject.scene.path == "Assets/_Project/Scenes/LailaRecognitionPlaytest.unity")
                 && GetComponent<Game.Gameplay.FacePointerFeedback>() == null)
             {
                 gameObject.AddComponent<Game.Gameplay.FacePointerFeedback>();

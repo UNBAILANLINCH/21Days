@@ -59,7 +59,8 @@ namespace Game.Gameplay
 
         private void Awake()
         {
-            if (gameObject.scene.path != "Assets/_Project/Scenes/laila.unity")
+            if (gameObject.scene.path != "Assets/_Project/Scenes/laila.unity"
+                && gameObject.scene.path != "Assets/_Project/Scenes/LailaRecognitionPlaytest.unity")
             {
                 enabled = false;
                 return;

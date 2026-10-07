@@ -8,7 +8,7 @@
 - [laila-binding-review.md](configs/rigs/laila-binding-review.md) 与 `configs/rigs/laila_rig.yaml` 是旧模型的 12 维 `laila_v1` 历史记录，不能直接用于当前分段模型的正式训练；保留用于旧实验复现。
 - 本目录是独立的 Python 子项目，不含任何 Unity 侧工作。
 
-2026-10-07 状态：原 `laila.unity` 保留 17→51→5，独立研究试玩默认使用定向修复 59D，并保留上一版反馈 / r779 / 原 51D 对照。配置见 `configs/rigs/laila_rig_v2_candidate.yaml`，正式 `laila_v2` 尚未冻结。输入变化清旧结果，最多 10Hz 自动识别；人工语义与完整拒识未验收。当前契约从训练 PRP §17 进入，下文是通用 CLI 与历史复现示例。
+2026-10-07 状态：唯一 `LailaRecognitionPlaytest.unity` 默认使用定向修复 59D，原 17→51→5 保留为同场景旧版对照，并保留上一版反馈 / r779 / 原 51D 对照。配置见 `configs/rigs/laila_rig_v2_candidate.yaml`，正式 `laila_v2` 尚未冻结。输入变化清旧结果，最多 10Hz 自动识别；人工语义与完整拒识未验收。当前契约从训练 PRP §17 进入，下文是通用 CLI 与历史复现示例。
 
 ### 当前人工开发标注入口
 

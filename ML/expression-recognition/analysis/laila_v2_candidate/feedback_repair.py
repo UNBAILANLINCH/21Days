@@ -135,7 +135,7 @@ def run_strength_repair(out):
     protected_paths = [CURRENT_ONNX, CURRENT_ONNX.with_suffix('.json'), MODEL_PATH, MODEL_PATH.with_suffix('.json'),
                        RESEARCH, RESEARCH.with_suffix('.json'), RIG_PATH, RUN_PATH/'ckpt.pt',
                        BUNDLE/'annotation-original.json', STRENGTH_SOURCE, REPO/'.git/index',
-                       REPO/'Assets/_Project/Scenes/laila.unity', REPO/'Assets/_Project/Scenes/LailaRecognitionPlaytest.unity']
+                       REPO/'Assets/_Project/Scenes/LailaRecognitionPlaytest.unity']
     protected_paths += [p for p in CURRENT_REPAIR.rglob('*') if p.is_file()]
     protected_paths += [p for p in (BASE/'playtest-feedback/batch-20261005T003226-72aec951').rglob('*') if p.is_file()]
     protected_paths += list((BASE/'dev-annotations').glob('*.json'))

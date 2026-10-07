@@ -17,7 +17,7 @@ def main():
         paths = subprocess.check_output(['git', 'ls-files', '-m', '-o', '--exclude-standard', '--',
                                          'Assets', 'ProjectSettings', 'Packages'], cwd=REPO).decode('utf-8').splitlines()
         paths += ['Assets/_Project/Scenes/RhythmDemo.unity', 'Assets/_Project/Scenes/Boot.unity',
-                  'Assets/Scenes/SampleScene.unity', 'Assets/_Project/Scenes/laila.unity',
+                  'Assets/Scenes/SampleScene.unity', 'Assets/_Project/Scenes/LailaRecognitionPlaytest.unity',
                   'Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset']
         hashes = {p: digest(REPO / p) for p in sorted(set(paths)) if (REPO / p).is_file()}
         write_json(OUT / 'before.json', hashes); print({'protected_files': len(hashes)}); return

@@ -7,7 +7,7 @@ maturity: seed
 
 # 莱拉表情识别实验
 
-2026-10-06更新，独立Editor试玩默认当日定向修复59D的五类稳定反馈，可切上一版反馈59D／旧r779／原51D；原laila保留原51D。单轮训练与Unity定向验证见下方收尾段。人工语义／Player未验收，集外拒识不是当前反馈验收要求。唯一当前执行入口：[训练PRP§17](../../../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)→§16；本指南维护Unity职责，不另设训练流程。17控制轴是ONNX外部输入，51／59维是各模式的图内空间，输出仍5类。拆6类未执行；旧12轴/v1仅历史复现。
+2026-10-06更新，独立Editor试玩默认当日定向修复59D的五类稳定反馈，可切上一版反馈59D／旧r779／原51D；原51D作为同场景的旧版对照保留。单轮训练与Unity定向验证见下方收尾段。人工语义／Player未验收，集外拒识不是当前反馈验收要求。唯一当前执行入口：[训练PRP§17](../../../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)→§16；本指南维护Unity职责，不另设训练流程。17控制轴是ONNX外部输入，51／59维是各模式的图内空间，输出仍5类。拆6类未执行；旧12轴/v1仅历史复现。
 
 ## 功能目的与范围
 
@@ -28,11 +28,11 @@ maturity: seed
 
 Runtime/LailaFaceRecognition：Sampler按17固定key严格采样，研究试玩赋权复用同一形态表且完整校验后才写；Recognizer负责元数据校验、Sentis CPU推理及输出／拒识，SetResearchCandidate显式更换研究引用并重新初始化，失败清旧输出；Panel显示等待／结果／错误。Playtest提供典型脸／三档／复位／四版模型切换及原下睑／旧怒眉对照，不采集或标注。仅通过现有Face控制器读写权重，不改几何。
 
-Editor/Tools：RecognitionTools安装局部UI并采集；CaptureWindow显式选择近邻组/划分；PlaytestTools在无Play／无脏场景时打开独立研究试玩；DeploymentCheck在Play/构建核对真实源ONNX与JSON及批准hash，正式Player拒绝研究模式。
+Editor/Tools：RecognitionTools采集未标注样本；CaptureWindow显式选择近邻组/划分；PlaytestTools在无Play／无脏场景时打开唯一研究试玩，退出恢复此前场景，不创建或升级资产；DeploymentCheck在Play/构建核对真实源ONNX与JSON及批准hash，正式Player拒绝研究模式。
 
 ## 接线
 
-唯一推荐菜单 `21Days/Laila/候选试玩（含旧版对照）` 单独加载 `LailaRecognitionPlaytest.unity` 并进入Play。默认研究引用 `Data/LailaFaceRecognition/Research/StrengthRepair20261006/laila_research59_strength_20261006`；按钮循环定向修复59D→上一版反馈59D→旧r779 59D→原51D→定向修复59D，四对引用及批准hash显式序列化且Editor核源字节。原laila仍旧模式，研究模式要求59D、未校准、单人开发标记；切换释放旧Worker重建，不改脸或门槛。Playtest保留旧眉／原下睑配方，默认加强眉并下睑0；设计意图不是标签。菜单拒绝已有Play、脏或未保存场景，仅升级保存独立研究场景；SessionState跨Play域重载保留原场景配置，退出或启动失败后恢复并清键退订。Play前隔离其他scene避免同时运行其Bootstrap，未改音游／调试包。Runtime原根对象暂停／恢复逻辑仍供手动附加研究场景兼容，不能代替菜单的初始化隔离。具体操作、实际测试及边界由ANNOTATOR维护。
+唯一推荐菜单 `21Days/Laila/候选试玩（含旧版对照）` 单独加载 `LailaRecognitionPlaytest.unity` 并进入Play。默认研究引用 `Data/LailaFaceRecognition/Research/StrengthRepair20261006/laila_research59_strength_20261006`；按钮循环定向修复59D→上一版反馈59D→旧r779 59D→原51D→定向修复59D，四对引用及批准hash显式序列化且Editor核源字节。研究模式要求59D、未校准、单人开发标记；切换释放旧Worker重建，不改脸或门槛。Playtest保留旧眉／原下睑配方，默认加强眉并下睑0；设计意图不是标签。菜单拒绝已有Play、脏或未保存场景，只打开既有场景，不升级或保存资产；SessionState跨Play域重载保留此前场景配置，退出或启动失败后恢复并清键退订。Play前隔离其他scene避免同时运行其Bootstrap。Runtime原根对象暂停／恢复逻辑仍供手动附加研究场景兼容，不能代替菜单的初始化隔离。具体操作、实际测试及边界由ANNOTATOR维护。
 
 只在laila场景创建 `LailaExpressionRecognition`，显式Face指向启用31形态Eve，引用 `Data/LailaFaceRecognition/laila_cand_v2_s42_20261003.onnx`、同名JSON及hash。没有修改其他场景。官方Sentis2.1.3支持当前Unity版本，程序集引用Unity.Sentis；不升级Unity。
 
@@ -182,7 +182,7 @@ Start／重新启用初始化；Disable／Destroy释放输入张量及Worker。P
 
 | 候选 | 用途与数据角色 |
 | --- | --- |
-| 原 51D | 原 `laila.unity` 接线，合成候选与历史拒识 |
+| 原 51D | 同一试玩场景中的旧版对照，合成候选与历史拒识 |
 | r779 59D | 单人开发意见研究候选；旧版对照 |
 | 反馈修复 59D | 原始五类概率加独立展示反馈；历史拒识未校准 |
 | 定向修复 59D，2026-10-06 | 当前独立试玩默认；补原下睑 / 旧眉三个愤怒目标，固定单轮训练 |
@@ -193,7 +193,7 @@ Start／重新启用初始化；Disable／Destroy释放输入张量及Worker。P
 原 111 张五类记录含训练 / 单类校准，独立测试仍为 0；不以 110/111 宣称泛化率。
 原始意见、history 与旧模型保持；具体训练设置、角色审计与失败证据从 spec §17 / ANNOTATOR 进入。
 
-指针提示由 `MuralFaceController.Start` 自动创建，`FacePointerFeedback.Awake` 只允许原场景和独立试玩。
+指针提示由 `MuralFaceController.Start` 自动创建，`FacePointerFeedback.Awake` 只允许 `LailaRecognitionPlaytest.unity`。
 编辑态没有序列化该组件是正常设计；不要为此补绑定或重建控制点。
 微小内眉拖动越过中性区后仍可能原始预测中性，单轴语义没有因此完成验收。
 研究候选只用于 Editor；构建校验会拒绝含启用研究识别器的 Player 场景。
@@ -217,7 +217,7 @@ Start／重新启用初始化；Disable／Destroy释放输入张量及Worker。P
 | `Assets/_Project/Scripts/Runtime/LailaFaceRecognition/LailaExpressionSampler.cs:40` | 严格只读采样；`:52`为复用暂存区入口 |
 | `Assets/_Project/Scripts/Runtime/LailaFaceRecognition/LailaExpressionRecognizer.cs:38` | 100ms限频；`Initialize` 初始化、`Decide` 历史拒识、`PublishFeedback` 展示 |
 | `Assets/_Project/Scripts/Runtime/LailaFaceRecognition/LailaExpressionPanel.cs:45` | 停用退订／释放链路 |
-| `Assets/_Project/Scripts/Editor/Tools/LailaRecognitionTools.cs:113` | 原始采集与相机恢复 |
+| `Assets/_Project/Scripts/Editor/Tools/LailaRecognitionTools.cs` | 原始采集与相机恢复 |
 | `ML/expression-recognition/analysis/laila_v2_candidate/annotator.py:46` | 默认包及版本校验；`:85`保存；`:215`本机HTTP |
 | `ML/expression-recognition/exprnet/datasets.py:376` | 合成源；`:388`是51D NPZ源 |
 | `ML/expression-recognition/exprnet/train.py:221` | 在验证正样本上拟合温度 |

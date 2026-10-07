@@ -8,7 +8,7 @@ maturity: seed
 # LailaFace 模块指南
 
 > 改 `Assets/_Project/Scripts/Runtime/Gameplay/` 中与 Head-topo 面部控制相关的代码前读这份。
-> 这是复刻莱拉脸部玩法的原型模块，服务 `Assets/_Project/Scenes/laila.unity` 与独立 `LailaRecognitionPlaytest.unity`。
+> 这是复刻莱拉脸部玩法的原型模块，唯一场景为 `Assets/_Project/Scenes/LailaRecognitionPlaytest.unity`。
 当前状态（2026-10-07）：启用 `Head-topo-expression-extended-brow-regions-refined3 1.fbx`，31 形态、17 区。
 唯一当前执行入口是 [训练 PRP §17](../../../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)→§16；资产逐项去留见 [文件清单](../../../../PRP/laila-expression-recognition/asset-disposition.md)。本指南的旧12区、22形态和早期源模型小节均为历史阶段，不作为当前接线命令。
 
@@ -32,7 +32,6 @@ maturity: seed
 | `MuralFace` Shader | `Assets/_Project/Art/Shaders/MuralFace.shader` | 只负责 Head-topo 的分层明暗、边缘光和轻微颗粒 |
 | `MuralFaceController` | `Assets/_Project/Scripts/Runtime/Gameplay/MuralFaceController.cs` | 在 Head-topo Inspector 调整阴影方向、阴影强度、边缘光和纸张颗粒 |
 | `LailaFaceShowcase` | `Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs` | 回放 16 个形变、成对映射与重置 |
-| `LailaFaceSetupMenu` | `Assets/_Project/Scripts/Editor/Tools/LailaFaceSetupMenu.cs` | 旧模型的 8 区接线工具；不用于当前扩展 FBX |
 
 当前没有 ScriptableObject：BlendShape 名称是模型的固定资产接口；成对范围为 `-1..1`，唇部单键范围为 `0..100`，眼球角度在控制区 Inspector 配置。
 
@@ -72,39 +71,6 @@ Inspector 调整：`Full Range Screen Fraction` 越小越灵敏；嘴角勾选 `
 
 进入 Play 后在 Game 视图拖拽，不是用 Scene 移动工具。`FaceBlendShapeController.ResetFace` 重置当前网格全部形态，但不重置视线；眼球控制区组件的 `Reset Gaze` 上下文菜单可在运行态恢复初始朝向。旧枚举序号 0–7 未变，水平拖拽默认关闭，旧场景保留原行为。
 
-## 旧模型的一键创建控制区
-
-**当前扩展模型已接线，不需再执行此菜单。** 此工具按旧 `Head-topo` 名称和旧 FBX 选择目标，不会自动扩展成 12 区；以下只适用于原 16 键模型。
-
-打开 `Assets/_Project/Scenes/laila.unity` 后，在 Unity 菜单执行：
-
-```text
-21Days / LailaFace / 一键创建 Head-topo 控制区
-```
-
-如果控制区已经调好，只想更新外观，执行：
-
-```text
-21Days / LailaFace / 仅应用聊斋材质
-```
-
-该菜单只替换 Head-topo 的材质槽，不移动或重建控制区。
-
-工具只接受当前活动场景为 `laila.unity`；如果场景里没有 `Head-topo`，会先从 `Assets/_Project/Art/fbx/Head-topo.fbx` 实例化。之后在 `Head-topo` 下创建或复用以下 8 个子物体：
-
-```text
-Control_Mouth_L
-Control_Mouth_R
-Control_Brow_L
-Control_Brow_R
-Control_Eye_L_Upper
-Control_Eye_L_Lower
-Control_Eye_R_Upper
-Control_Eye_R_Lower
-```
-
-每个控制区包含 `SphereCollider` 与 `FaceDragHandle`，并自动设置对应的 `FaceControl`。工具同时把 laila 主相机切到当前 `UniversalRP.asset` 中的 3D `UniversalRenderer`，确保 `SkinnedMeshRenderer` 能进入 Game 视图；并确保场景相机有 `PhysicsRaycaster`、场景有 `EventSystem + InputSystemUIInputModule`，绑定 `GameInput.inputactions` 的 UI 指针动作，创建或复用 `Assets/_Project/Art/Materials/Laila/M_LailaFace_Mural.mat`、添加 `MuralFaceController` 并只赋给 Head-topo，最后保存 `laila.unity`。控制区位置按当前相机和 Head-topo 的包围盒估算，首次生成后应在 Scene 视图微调碰撞体位置与半径；再次执行工具会复用已有控制区，不重置已调整的位置、碰撞体半径和拖拽参数。
-
 ## 依赖方向
 
 ```text
@@ -117,24 +83,9 @@ Game.Tests.Showcase.LailaFace
 
 控制器与拖拽区只写表现状态，不参与逻辑模拟；拖拽事件由 Unity EventSystem 派发，运行时没有平台分支。
 
-## laila 场景接线
+## 当前场景接线
 
-旧模型的接线示例（当前扩展模型以本节下方最新记录为准）：
-
-```text
-Head-topo（Head-topo.fbx 实例）
-├─ SkinnedMeshRenderer
-├─ FaceBlendShapeController（Face Renderer 指向自身 SkinnedMeshRenderer）
-└─ 8 个控制区子物体
-   ├─ SphereCollider + FaceDragHandle（MouthLeft）
-   ├─ SphereCollider + FaceDragHandle（MouthRight）
-   ├─ SphereCollider + FaceDragHandle（BrowLeft）
-   ├─ SphereCollider + FaceDragHandle（BrowRight）
-   ├─ SphereCollider + FaceDragHandle（EyeLeftUpperLid）
-   ├─ SphereCollider + FaceDragHandle（EyeLeftLowerLid）
-   ├─ SphereCollider + FaceDragHandle（EyeRightUpperLid）
-   └─ SphereCollider + FaceDragHandle（EyeRightLowerLid）
-```
+`LailaRecognitionPlaytest.unity` 已保存当前 31 形态模型、17 个控制区、识别结果与四版模型对照。菜单只打开试玩并在退出后恢复此前场景，不自动生成、升级或保存资产。旧 8 区搭建菜单、识别 UI 安装器及复制 / 升级代码已移除；后续修改走现有场景与组件。
 
 主相机需要通过 `UniversalAdditionalCameraData.SetRenderer(1)` 选择当前项目的 3D `UniversalRenderer`，并具有 `PhysicsRaycaster`，场景需要 `EventSystem`；不要使用不存在的公开 `rendererIndex` 属性。每个 `FaceDragHandle` 的 `Face` 指向同一个 `FaceBlendShapeController`。调试阶段保留控制区 Renderer，确认位置后再关闭 Renderer，只保留 Collider。
 
@@ -144,13 +95,15 @@ Head-topo 的材质使用 `MuralFace` Shader；材质资产位于 `Assets/_Proje
 
 | 类型 | 路径 | 覆盖 |
 | --- | --- | --- |
-| Showcase | `Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs` | 16 个名称、左嘴角 Up/Down、右上眼皮 Up/Down、Reset |
+| Showcase | `Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs` | 当前 31 形态采样、17 控制区、抓点反馈、嘴角 / 眼皮、Reset 与四版模型推理 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/LailaFace/FaceDragHandleTests.cs` | 双唇单键钳位与收回、嘴角双轴、旧行为、指针隔离、左右眼固定中心旋转与复位 |
-| 场景 | `Assets/_Project/Scenes/laila.unity` | 当前 31 形态脸部与 17 个启用控制区 |
+| 场景 | `Assets/_Project/Scenes/LailaRecognitionPlaytest.unity` | 当前 31 形态脸部与 17 个启用控制区 |
 
-Showcase 直接加载 `laila.unity`，这是遵循本任务“测试场景在 laila、其他场景不改”的特例；没有额外创建 `Scenes/Verify/LailaFace.unity`。
+Showcase 直接加载唯一的 `LailaRecognitionPlaytest.unity`，通过识别器的 Face 引用验证活动模型，不再检查停用的 16 形态备份。
 
-当前 EditMode 用例不依赖具体场景或 FBX。Showcase 仍只覆盖原 16 个形态，不能代替扩展交互验收；拖拽手感、牙龈遮挡与材质外观仍需开发者肉眼确认。
+2026-10-07 场景收敛后，定向 Showcase 1/1 通过、失败 / 跳过 0，报告 `Logs/verify/lailaface/20261007-175309/report.md` PASS；覆盖31形态严格采样、17控制区、抓点反馈、嘴角 / 眼皮、重置及四版模型实际推理。此结果不等于物理鼠标或人工语义验收。
+
+当前 EditMode 用例不依赖具体场景或 FBX。Showcase 的数值与模型切换检查不能代替实际鼠标交互验收；拖拽手感、牙龈遮挡与材质外观仍需开发者肉眼确认。
 
 ## 材质与几何约束
 
@@ -208,7 +161,7 @@ PRP 历史场景快照仍引用这些旧版本，不是正式运行依赖，不�
 
 ### 表情识别实验接线（2026-10-03）
 
-当前laila有局部 `LailaExpressionRecognition` 和右上角结果面板，使用真实Sentis2.1.3 CPU候选。严格17轴只读采样，四视线轴排除；输入变化即时清除旧结果，自动识别最多10次/秒，静止不重复；模型/输入错误与拒识分开显示，分数不是人工准确率，没有调参面板。人工标注采集仍为独立手动流程；采样与分类职责见识别模块指南。原专业设计与旧上限分析保留；正式语义/人工验收待完成。详见[识别模块指南](../lailafacerecognition/lailafacerecognition-module-guide.md)和训练PRP§17。
+当前唯一试玩场景有局部 `LailaExpressionRecognition` 和右上角结果面板，使用真实Sentis2.1.3 CPU候选。严格17轴只读采样，四视线轴排除；输入变化即时清除旧结果，自动识别最多10次/秒，静止不重复；模型/输入错误与拒识分开显示，分数不是人工准确率，没有调参面板。人工标注采集仍为独立手动流程；采样与分类职责见识别模块指南。原专业设计与旧上限分析保留；正式语义/人工验收待完成。详见[识别模块指南](../lailafacerecognition/lailafacerecognition-module-guide.md)和训练PRP§17。
 
 ### 编辑态预览生命周期（2026-10-03）
 

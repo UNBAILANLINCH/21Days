@@ -18,7 +18,7 @@ from exprnet.rig import load_rig
 ROUND = ROOT / 'artifacts/laila_v2_candidate/unity-round-20261003'
 PROTECTED = [
     'Assets/_Project/Scenes/Boot.unity', 'Assets/Scenes/SampleScene.unity',
-    'Assets/_Project/Scenes/laila.unity', 'Assets/Settings/UniversalRP.asset',
+    'Assets/_Project/Scenes/LailaRecognitionPlaytest.unity', 'Assets/Settings/UniversalRP.asset',
     'Assets/Settings/UniversalRenderer.asset', 'Packages/manifest.json',
     'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt',
     'Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset',

@@ -1,6 +1,6 @@
 # 首轮开发辅助标注器
 
-当前状态（2026-10-06）：唯一推荐Unity入口为 `21Days → Laila → 候选试玩（含旧版对照）`，默认使用当日定向修复59D，可依次切上一版反馈59D、旧r779 59D、原51D、定向修复59D。原 `laila.unity` 保留51D；独立 `LailaRecognitionPlaytest.unity` 承担候选与配方对照。授权单轮训练、205条Sentis及21档实际UI通过，三套愤怒9档均原始／展示愤怒；三个新增目标仅训练拟合，同原型其他档位不算独立测试。原场景、原模型、标签和门槛未覆盖；单轴内眉显著拖动仍模型中性，独立语义、物理鼠标、完整拒识及Player仍缺，不要求先补26图。本页历史训练与诊断记录保留；详见[本轮Unity证据](../../../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md#2026-10-06定向候选unity接线与验证)。
+当前状态（2026-10-07）：唯一推荐Unity入口为 `21Days → Laila → 候选试玩（含旧版对照）`，默认使用2026-10-06定向修复59D，可依次切上一版反馈59D、旧r779 59D、原51D、定向修复59D。唯一 `LailaRecognitionPlaytest.unity` 承担候选与配方对照，原51D在同场景切换；重复旧场景和一次性搭建代码已移除。授权单轮训练、205条Sentis及21档实际UI通过，三套愤怒9档均原始／展示愤怒；三个新增目标仅训练拟合，同原型其他档位不算独立测试。历史训练未覆盖原模型、标签和门槛；单轴内眉显著拖动仍模型中性，独立语义、物理鼠标、完整拒识及Player仍缺，不要求先补26图。本页历史训练与诊断记录保留；详见[本轮Unity证据](../../../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md#2026-10-06定向候选unity接线与验证)。
 
 
 功能状态：本地标注、保存、续标、导出及raw17＋单人标签成对51D／59D适配已验证；r696与r779研究微调分别存档，通用训练加载器未改。多人标签合并和独立语义验收未完成；历史r696指标不套用到最新r779，最新逐类结果见本文末尾。当前工程契约从[spec§17→§16](../../../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)进入；Unity职责见[识别模块指南](../../../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md)，本页负责标注操作和记录交接契约。

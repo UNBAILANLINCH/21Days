@@ -182,7 +182,7 @@
 | Disguise | 保留，改造为身份状态（S1 / S5） | 现为伪装期间不被攻击的开关 |
 | Inventory / Loot | 保留，按 S5 扩展 | 已有八类别、使用 / 合成纯规则与掉落结算入口；生产调用方与内容仍待接 |
 | Dialogue、Quest、Narrative、Performance、Session、IsometricExploration、CharacterPuppet、Replay | 保留（通用） | — |
-| laila 捏脸（`PRP/laila-expression-recognition`、`ML/expression-recognition`、Gameplay 模块、`laila.unity`、根目录 `.blend`） | 不动，待用户定 | 不是旧版衍生，聚光灯未提及 |
+| laila 捏脸（`PRP/laila-expression-recognition`、`ML/expression-recognition`、Gameplay 模块、`LailaRecognitionPlaytest.unity`、根目录 `.blend`） | 不动，待用户定 | 不是旧版衍生，聚光灯未提及 |
 | `PRP/music`（画面打印机 × 节奏音游 spec） | 不动，待用户定 | 不是旧版衍生；与聚光灯音乐解谜（sp00 已改为圆圈光点）不是同一玩法 |
 | `docs/design/product/`、`story/`、`features/` | 旧版保留备查 | — |
 

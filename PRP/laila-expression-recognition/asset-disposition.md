@@ -11,7 +11,7 @@
 | 文件（路径相对仓库） | 处理 | 后续用途 |
 | --- | --- | --- |
 | Assets/_Project/Art/fbx/Head-topo-expression-extended-brow-regions-refined3 1.fbx + .meta | 保留、提交 | 当前 Unity 正式 31 形态头模；校准 hash 的基准 |
-| Assets/_Project/Scenes/laila.unity | 保留、提交 | 17 区接线、眼球引用、控制点跟随设置 |
+| Assets/_Project/Scenes/LailaRecognitionPlaytest.unity + .meta | 唯一当前场景，保留 | 17 区接线、眼球引用、控制点跟随与四版模型对照；重复旧 laila 场景已删除 |
 | Assets/_Project/Art/Textures/Laila/T_LailaFace_BrowsLips_HandPainted.png + .meta | 保留、提交 | 手绘眉毛和唇色；以后继续上色 |
 | Assets/_Project/Art/Materials/Laila/M_LailaFace_Mural.mat | 保留、提交 | 手绘图片与脸部材质绑定 |
 | Assets/_Project/Art/Shaders/MuralFace.shader | 保留、提交 | 实际采样 PNG，不保留会丢掉眉毛/唇色效果 |

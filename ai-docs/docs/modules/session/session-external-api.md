@@ -43,6 +43,12 @@ public readonly struct SaveCompletedEvent { int Slot; string Reason; bool Succes
 SaveNowAsync 在对白运行或 NarrativeStable=false 时返回 false、保留待保存请求；退出/离场也不覆盖旧槽。
 ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)，后者必须只校验、不修改当前分区。
 
+> **新游戏入口要先放操作说明**：`NewGameAsync` 本身**不显示**开局操作说明（教程面板是 UI，塞进 `GameSession`
+> 会让它认识 `IUIService`）。Session 内部两条入口——`SessionTitleRouter`（标题「开始」）与 `SaveSlotsController`
+> （选槽面板的新游戏模式）——都先调 `NewGameTutorial.ShowAsync(ct)`、等玩家按键关掉教程，再调 `NewGameAsync`。
+> 别处新增新游戏入口时照做，否则那条路径会**静默跳过**教程（不报错、只是玩家看不到说明）。
+> `NewGameTutorial` 由 Session 自己注册（`SessionInstaller`），面板开不出来时它记错误日志后照常返回，不会挡开局。
+
 **线程 / 时序**：`SaveNowAsync` 的捕获段（`state.CaptureEncounter` + 更新 `SessionSaveData`）在第一个
 `await` 之前**同步**完成，所以在 `GameStateChangingEvent` 回调里调用时，捕获发生在前一状态 `ExitAsync`
 之前；落盘本身（`saves.SaveAsync`）是异步的。

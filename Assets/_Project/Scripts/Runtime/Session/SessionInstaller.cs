@@ -26,6 +26,7 @@ namespace Game.Session
     /// <summary>
     /// 存档会话注册器。**接线要求**：挂到 Boot 场景 <c>GameBootstrap</c> 物体上，排在最后（<c>ExplorationInstaller</c> 之后），
     /// 把 <c>Data/Session/SessionConfig.asset</c> 拖到 Config 字段。只 Register 不 Resolve。
+    /// <para>开局操作说明的最短展示秒数不在这里配，取 <c>Data/UI/UIConfig.asset</c> 的 <c>tutorialSeconds</c>。</para>
     /// </summary>
     public sealed class SessionInstaller : GameplayInstaller
     {
@@ -80,16 +81,26 @@ namespace Game.Session
             // 工厂注册：构造要 ITelemetryScope，容器里只有 ITelemetryService。
             builder.Register(resolver => new SaveSlotsController(
                     resolver.Resolve<GameSession>(),
+                    resolver.Resolve<NewGameTutorial>(),
                     resolver.Resolve<IUIService>(),
                     resolver.Resolve<SessionConfig>(),
                     resolver.Resolve<INotificationService>(),
                     resolver.Resolve<ISubscriber<GameStateChangingEvent>>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
 
+            // 开局操作说明闸门：被标题路由与选槽面板控制器按具体类型注入（两条新游戏入口共用同一份实现）。
+            // 工厂注册：构造要 ITelemetryScope，容器里只有 ITelemetryService。
+            builder.Register(resolver => new NewGameTutorial(
+                    resolver.Resolve<IUIService>(),
+                    resolver.Resolve<UIConfig>(),
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule),
+                    resolver.Resolve<ITelemetryClock>()), Lifetime.Singleton);
+
             // 标题路由：接管 TitleStart / TitleContinue / TitleLoad 三个事件（原 MonsterTitleRouter 已退役）。
             builder.RegisterEntryPoint(resolver => new SessionTitleRouter(
                     resolver.Resolve<GameSession>(),
                     resolver.Resolve<SaveSlotsController>(),
+                    resolver.Resolve<NewGameTutorial>(),
                     resolver.Resolve<IUIService>(),
                     resolver.Resolve<ISubscriber<TitleStartClickedEvent>>(),
                     resolver.Resolve<ISubscriber<TitleContinueClickedEvent>>(),

@@ -177,7 +177,7 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
   `EncounterStep.Step` 未激活或结果待结算、双方都不推进时也对齐。**不进存档、不进回放快照**；
   `PlayerRules.Reset`、`MonsterRules.Reset`、两者的 `Restore`（读档）与 `Deserialize`（快照恢复）都把它对齐为 `Position`，不跨瞬移插值。
 - **alpha 从哪来**：`Bind(player, monster, Func<float> alphaSource = null)`（`EncounterSceneView.cs`；此签名在 Q1 接线后行号已漂，故不写行号）。
-  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:172`）取
+  正式流程 `MonsterEncounterState.ReadInterpolationAlpha`（`MonsterEncounterState.cs:178`）取
   `EncounterProjection.InterpolationAlpha(runner.Accumulator, runner.Clock.FixedDeltaTime)`；`SimulationRunner` 处于 `Driven`
   （重放播放器逐 tick 推进、余量恒 0）时返回 1，直接显示当前 tick。独立场景 `StandaloneEncounterController` 用
   FixedUpdate 相位（`Time.time − Time.fixedTime`）/ `Time.fixedDeltaTime`，`ManualSimulation` 时返回 1。

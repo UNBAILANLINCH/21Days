@@ -29,7 +29,7 @@ Monster 读 `PlayerSnapshot`，伤害玩家通过 `PlayerRules.ApplyDamage`；�
 ## 场景契约
 
 `MonsterRules.MoveControlled(Vector2 movement, float deltaTime)`：驯服模块直接控制存活敌人，按巡逻速度移动；调用方不能同时推进敌人 AI，负步长抛出异常。
-`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs:118` 附近的 `PlayerBody` 同一批访问器）
+`EncounterSceneView.PlayerBody/MonsterBody` 提供相机目标；`PlayerScenePosition`（`EncounterSceneView.cs` 里紧挨 `PlayerBody` 的同一批访问器；该类行号在接线波后屡次漂移，故不写行号）
 只读暴露玩家纸片当前场景坐标（含贴地后的 Y；是两 tick 间插值后的渲染位置），供 Showcase 与跨模块读取而不碰私有字段；
 `MonsterModel.PreviousPosition` / `PlayerModel.PreviousPosition`：上一逻辑 tick 的位置，只读，仅供渲染插值；不进存档与快照。
 `StandaloneEncounterController.Simulate` 与 `ManualSimulation` 供验证场景确定性推进。

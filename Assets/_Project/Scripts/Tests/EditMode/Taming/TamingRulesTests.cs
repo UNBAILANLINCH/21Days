@@ -101,20 +101,6 @@ namespace Game.Tests.EditMode.Taming
             Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - (identityInEffect ? 0 : 2 * enemyConfig.AttackDamage)));
         }
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public void AdvanceTargets_PropagatesIdentityProtectionToBothEnemies(bool identityInEffect)
-        {
-            MonsterRules second = ConfigureTwo();
-            enemy.Reset(new[] { Vector2.right * 0.5f, Vector2.zero });
-            second.Reset(new[] { Vector2.left * 0.5f, Vector2.zero });
-
-            bool primaryAttacked = rules.AdvanceTargets(Vector2.zero, 0f, identityInEffect);
-
-            Assert.That(primaryAttacked, Is.EqualTo(!identityInEffect));
-            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - (identityInEffect ? 0 : 2 * enemyConfig.AttackDamage)));
-        }
-
         [Test]
         public void TryControl_UntamedOrUnknownTarget_IsRejected()
         {

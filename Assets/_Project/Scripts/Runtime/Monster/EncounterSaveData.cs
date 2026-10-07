@@ -33,7 +33,7 @@ namespace Game.Monster
             //   - 「地址在不在 TbScene / Addressables 里」**不在这里判**：本方法必须是纯数据方法
             //     （不许依赖 IConfigService）。那两件事分别归世界表校验（WorldCatalogValidator）与调用方
             //     （世界场景入口：WorldTransition.TryConsume 取用待处理转场时按 WorldCatalog 校验）；
-            //   - 分区 Version 不升：字段没改、Migrate 没有迁移动作，改的只是「合法值域」这一层判据。
+            //   - 场景键校验不改变快照布局；分区 v2 来自多目标控制字段，v1 单怪物快照仍兼容。
             if (!IsValidSceneKey(SceneKey) || Tick < 0 || EncounterId < 0 || ActivationId < 0 ||
                 (EncounterId == 0) != (ActivationId == 0) || Player == null || Monster == null ||
                 !Enum.IsDefined(typeof(EncounterStep.Result), Result) ||

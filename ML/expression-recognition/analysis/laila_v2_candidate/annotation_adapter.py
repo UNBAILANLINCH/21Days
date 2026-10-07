@@ -72,6 +72,8 @@ def prepare(annotation_path, packet=PACKET, captures=None, fbx_path=FBX_PATH,
         raise ValueError('59D解码只适用于当前固定17轴候选，绑定变化需重审')
     source_bytes = annotation_path.read_bytes()
     state = read_json(annotation_path)
+    if state.get('purpose') == 'single-annotator-pilot-role-preserved-not-training' or state.get('split') == 'pilot-dev-test-isolated' or 'sample_roles' in state:
+        raise ValueError('独立试点含校准／锁定测试角色，禁止作为训练标注输入')
     if state.get('schema_version') != 1 or state.get('purpose') != 'single-annotator-development-not-golden':
         raise ValueError('只接受本工具单人dev意见，不冒用golden')
     if not isinstance(state.get('annotator'), str) or not state['annotator'].strip() or len(state['annotator']) > 80:

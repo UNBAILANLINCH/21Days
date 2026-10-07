@@ -23,6 +23,7 @@ PRESETS = {
 EXTRA_NAMES = ['raw_brow_L_inner_y', 'raw_brow_L_mid_y', 'raw_brow_R_inner_y',
                'raw_brow_R_mid_y', 'lowerL_down', 'lowerR_down', 'cornerL_in', 'cornerR_in']
 REFERENCE_ROOT = ROOT / 'artifacts/laila_v2_candidate/reference-inputs-20261004-v2'
+CANDIDATE_ROOT = ROOT / 'artifacts/laila_v2_candidate/targeted-r779-s42-20261004-v2'
 
 
 def load_references(path, rig, model_hash):
@@ -118,7 +119,9 @@ class InputDiagnostic:
         self.captures = {}
         fbx_hash = digest(FBX_PATH)
         for entry in dataset.entries:
-            path = ROOT / 'data/laila-captures-v2/dev' / (entry['id'] + '.json')
+            if entry['split'] == 'test':
+                continue
+            path = dataset.capture_path(entry)
             if digest(path) != entry['capture_sha256']:
                 raise ValueError('原始快照hash变化：' + entry['id'])
             record = read_json(path)
@@ -127,6 +130,30 @@ class InputDiagnostic:
                 raise ValueError('快照ID或分组不一致')
             self.captures[entry['id']] = s.astype(np.float32)
         self.references = load_references(REFERENCE_ROOT, self.rig, self.meta['onnx']['sha256'])
+        self.candidate = None
+
+    def research_model(self):
+        import torch
+        from exprnet.models import load_checkpoint
+        from analysis.laila_v2_candidate.capture_diagnostics import RUN_PATH
+        from analysis.laila_v2_candidate.retrain_candidate import expanded_model
+        path = CANDIDATE_ROOT / 'new59_tau0.pt'
+        expected = read_json(CANDIDATE_ROOT / 'artifact-hashes.json')['new59_tau0.pt']
+        if digest(path) != expected:
+            raise ValueError('59D研究checkpoint校验失败')
+        if self.candidate is None:
+            checkpoint = torch.load(path, map_location='cpu', weights_only=False)
+            if (checkpoint.get('format') != 'laila-targeted-development-v1'
+                    or checkpoint.get('dimension') != 59 or checkpoint.get('source_revision') != 779
+                    or checkpoint.get('source_sha256') != '5c524a26287801e7ca37937ad761351312815137fd0fc6d86548ea9f634f54c9'
+                    or checkpoint['config'].get('deployment_compatible') is not False):
+                raise ValueError('59D研究checkpoint来源/维度不一致')
+            baseline, _, _ = load_checkpoint(RUN_PATH)
+            self.candidate = expanded_model(baseline, 59)
+            self.candidate.load_state_dict(checkpoint['state_dict'])
+            self.candidate.eval()
+            self.hashes[str(path)] = expected
+        return self.candidate, expected
 
     def catalog(self):
         refs = []
@@ -135,7 +162,9 @@ class InputDiagnostic:
             for index, value in axes.items():
                 values[index] = value
             refs.append({'key': key, 'values': values, 'source': 'design-reference-awaiting-user-confirmation'})
-        return {'sliders': self.meta['sliders'], 'presets': refs, 'ids': self.dataset.ids,
+        return {'sliders': self.meta['sliders'], 'presets': refs, 'ids': list(self.captures),
+                'models': [{'key': 'deployed51', 'title': '现部署51D', 'dimension': 51},
+                           {'key': 'research59', 'title': '新59D候选（研究拒识未校准）', 'dimension': 59}],
                 'mapping': audit(self.rig)['axes'], 'extra_names': EXTRA_NAMES,
                 'canonical_names': self.rig.canonical.names, 'labels': self.meta['labels'],
                 'threshold': self.meta['energy_threshold'], 'confidence': self.meta['min_confidence'],
@@ -168,7 +197,22 @@ class InputDiagnostic:
         x51 = self.rig.forward(s[None]) * self.rig.canonical.mask_vector
         x59 = extended_features(self.rig, s[None])
         x59[:, :51] = x51
-        p, e = self.session.run(['probs', 'energy'], {'sliders': s[None]})
+        model_key = request.get('model', 'deployed51')
+        if model_key not in ('deployed51', 'research59'):
+            raise ValueError('未知模型，不能自动回退')
+        model_hash = self.meta['onnx']['sha256']
+        if model_key == 'research59':
+            import torch
+            from exprnet.calibrate import softmax_np, energy_np
+            model, model_hash = self.research_model()
+            with torch.no_grad():
+                z = model(torch.from_numpy(x59.astype(np.float32))).numpy()
+            if z.shape != (1, 5) or not np.isfinite(z).all():
+                raise ValueError('59D研究分类输出无效')
+            p = softmax_np(z / self.meta['temperature'])
+            e = energy_np(z, self.meta['temperature'])
+        else:
+            p, e = self.session.run(['probs', 'energy'], {'sliders': s[None]})
         threshold = request.get('threshold', self.meta['energy_threshold'])
         confidence = request.get('confidence', self.meta['min_confidence'])
         formal = checked_decision(p[0], float(e[0]), self.meta['energy_threshold'], self.meta['min_confidence'])
@@ -187,5 +231,8 @@ class InputDiagnostic:
                 'trial_final': 'unknown' if trial['rejected'] else keys[trial['argmax_index']],
                 'formal': formal, 'trial': trial, 'exact_image_ids': matches,
                 'exact_reference_keys': [key for key, row in self.references.items() if np.array_equal(row['values'], s)],
-                'source': 'offline-deployed-onnx-input-probe', 'features59_model_used': False,
+                'source': 'offline-research59-checkpoint-input-probe' if model_key == 'research59' else 'offline-deployed-onnx-input-probe',
+                'model_key': model_key, 'model_sha256': model_hash,
+                'research_rejection_uncalibrated': model_key == 'research59',
+                'features59_model_used': model_key == 'research59',
                 'threshold_persisted': False, 'live_render_verified': False}

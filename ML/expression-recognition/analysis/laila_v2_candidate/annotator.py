@@ -48,14 +48,41 @@ class Dataset:
     def __init__(self, packet=PACKET):
         self.packet = Path(packet)
         manifest = json.loads((self.packet / 'steward-manifest.json').read_text(encoding='utf-8'))
+        self.is_pilot = manifest.get('format') == 'laila-independent-pilot-batch-v1'
+        self.preview_only = False
         self.entries = manifest['entries']
         self.ids = [e['id'] for e in self.entries]
         if not self.ids or len(set(self.ids)) != len(self.ids):
             raise ValueError('空数据或重复ID')
         groups = set()
+        group_splits = {}
+        pose_splits = {}
+        self.roles = {}
         for e in self.entries:
-            if e['split'] != 'dev' or not e.get('group') or not re.fullmatch('[0-9a-f]{32}', e['id']):
+            if e['split'] not in (('dev','test') if self.is_pilot else ('dev',)) or not e.get('group') or not re.fullmatch('[0-9a-f]{32}', e['id']):
                 raise ValueError('只接受有分组的匿名dev样本，禁止混入test')
+            if self.is_pilot:
+                expected_role = 'calibration' if e['split']=='dev' else 'locked-test'
+                if manifest.get('training_eligible') is not False or e.get('data_role') != expected_role:
+                    raise ValueError('试点角色不符／不得声明可训练')
+                if e['group'] in group_splits and group_splits[e['group']] != e['split']:
+                    raise ValueError('试点组跨校准／测试')
+                group_splits[e['group']] = e['split']
+                self.roles[e['id']] = {'split':e['split'],'group':e['group'],'data_role':expected_role}
+                capture = self.capture_path(e)
+                if not capture.is_file() or digest(capture)!=e['capture_sha256']:
+                    raise ValueError('试点快照缺失或hash不符')
+                raw = json.loads(capture.read_text(encoding='utf-8'))
+                if any(raw.get(k)!=e[k] for k in ('id','group','split','rig_hash','fbx_sha256')):
+                    raise ValueError('试点快照UUID／角色／版本不符')
+                from analysis.laila_v2_candidate.capture_diagnostics import validate_capture, FBX_PATH, RIG_PATH
+                from exprnet.canonical import load_canonical
+                from exprnet.rig import load_rig
+                values = validate_capture(raw, load_rig(RIG_PATH, load_canonical()), digest(FBX_PATH))
+                pose = tuple(float(value) for value in values)
+                if pose in pose_splits and pose_splits[pose] != e['split']:
+                    raise ValueError('相同raw17跨校准／测试')
+                pose_splits[pose] = e['split']
             groups.add(e['group'])
             image = self.image(e['id'])
             if not image.is_file() or digest(image) != e['image_sha256']:
@@ -82,6 +109,11 @@ class Dataset:
             raise ValueError('非法ID')
         return self.packet / 'annotators/images' / (sample_id + '.png')
 
+    def capture_path(self, entry):
+        if self.is_pilot:
+            return self.packet/'captures'/(entry['id']+'.json')
+        return ROOT/'data/laila-captures-v2'/entry['split']/(entry['id']+'.json')
+
 
 class Store:
     def __init__(self, dataset, output=OUTPUT):
@@ -95,14 +127,21 @@ class Store:
         return self.output / (key + '.json')
 
     def fresh(self, annotator):
-        return {'schema_version': 1, 'purpose': 'single-annotator-development-not-golden',
+        result = {'schema_version': 1, 'purpose': 'single-annotator-development-not-golden',
                 'split': 'dev', 'dataset_version': self.dataset.version, 'annotator': annotator.strip(),
                 'created_at': now(), 'revision': 0, 'cursor': 0, 'order': self.dataset.ids,
                 'annotations': {}, 'history': []}
+        if self.dataset.is_pilot:
+            result.update(purpose='single-annotator-pilot-role-preserved-not-training',split='pilot-dev-test-isolated',
+                          sample_roles=self.dataset.roles,training_eligible=False)
+        return result
 
     def validate(self, state, annotator):
-        if state.get('dataset_version') != self.dataset.version or state.get('order') != self.dataset.ids or state.get('annotator') != annotator.strip() or state.get('split') != 'dev':
+        expected_split = 'pilot-dev-test-isolated' if self.dataset.is_pilot else 'dev'
+        if state.get('dataset_version') != self.dataset.version or state.get('order') != self.dataset.ids or state.get('annotator') != annotator.strip() or state.get('split') != expected_split:
             raise ValueError('保存记录的数据版本/标注者不符，拒绝混用')
+        if self.dataset.is_pilot and (state.get('sample_roles')!=self.dataset.roles or state.get('training_eligible') is not False or state.get('purpose')!='single-annotator-pilot-role-preserved-not-training'):
+            raise ValueError('试点校准／测试角色变化，禁止覆盖')
         if not isinstance(state.get('revision'), int) or not 0 <= state.get('cursor', -1) < len(self.dataset.ids):
             raise ValueError('保存记录损坏')
         if not isinstance(state.get('history'), list) or not isinstance(state.get('annotations'), dict):
@@ -137,6 +176,8 @@ class Store:
             raise ValueError('未标或跳过不能带标签')
 
     def save(self, request):
+        if self.dataset.preview_only:
+            raise ValueError('暂无新试点采集；本窗口只可查看候选，不写旧139图标签')
         annotator = request['annotator']
         state = self.load(annotator)
         if request['revision'] != state['revision']:
@@ -176,12 +217,16 @@ class Store:
             return json.dumps(state, ensure_ascii=False, indent=2).encode('utf-8'), 'application/json'
         stream = io.StringIO(newline='')
         fields = ['id', 'label', 'clarity', 'note', 'status', 'annotator', 'split', 'dataset_version', 'order_index', 'updated_at']
+        if self.dataset.is_pilot:
+            fields += ['group','data_role']
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for index, sid in enumerate(self.dataset.ids):
             row = {'id': sid, 'label': '', 'clarity': '', 'note': '', 'status': 'unlabeled', 'updated_at': ''}
             row.update(state['annotations'].get(sid, {}))
             row.update(annotator=state['annotator'], split='dev', dataset_version=self.dataset.version, order_index=index)
+            if self.dataset.is_pilot:
+                row.update(self.dataset.roles[sid])
             # CSV可安全在表格软件打开；JSON保留备注原文供后续适配。
             for key in ('note', 'annotator'):
                 if row[key].lstrip().startswith(('=', '+', '-', '@')):
@@ -282,6 +327,12 @@ def serve(dataset, store, token):
                     except ValueError:
                         value = {'annotator': ''}
                     self.respond(value)
+                elif not post and parsed.path == '/context':
+                    self.respond({'pilot':dataset.is_pilot,'annotation_available':not dataset.preview_only,
+                                  'roles':dataset.roles,'count':len(dataset.ids),
+                                  'message':'新试点批次：校准与锁定测试分别保存；请先盲标，再查看候选' if dataset.is_pilot else
+                                            '尚无试点采集，可先打开输入诊断看59D候选；采集后重开本试点入口' if dataset.preview_only else
+                                            '原139图开发批次；新试点记录与此分开'})
                 elif not post and parsed.path.startswith('/image/'):
                     sid = parsed.path.removeprefix('/image/')
                     if sid not in dataset.ids:
@@ -315,6 +366,7 @@ def serve(dataset, store, token):
 def main():
     parser = argparse.ArgumentParser(description='本地dev标注器与只读输入诊断')
     parser.add_argument('--check-diagnostic', action='store_true', help='核查真实启动路径和诊断依赖，不开启服务或写标签')
+    parser.add_argument('--pilot',action='store_true',help='独立五类试点批次与候选查看；不关闭原139服务')
     args = parser.parse_args()
     if args.check_diagnostic:
         from analysis.laila_v2_candidate.input_diagnostic import InputDiagnostic
@@ -326,21 +378,31 @@ def main():
                           'feature_dims': [len(result['features51']), len(result['features59'])],
                           'classification': result['argmax_key'], 'final': result['formal_final']}, ensure_ascii=False))
         return
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    dataset = Dataset()
+    output = OUTPUT
+    if args.pilot:
+        from analysis.laila_v2_candidate.pilot_batches import build_batch
+        packet = build_batch()
+        if packet:
+            dataset = Dataset(packet)
+            output = packet/'annotations'
+        else:
+            dataset.preview_only = True
+            output = ROOT/'artifacts/laila_v2_candidate/pilot-preview'
+    output.mkdir(parents=True, exist_ok=True)
     try:
-        lock = InstanceLock(OUTPUT / 'server.lock')
+        lock = InstanceLock(output / 'server.lock')
     except RuntimeError:
-        endpoint = OUTPUT / 'endpoint.json'
+        endpoint = output / 'endpoint.json'
         if endpoint.exists():
             webbrowser.open(json.loads(endpoint.read_text())['url'])
         print('标注器已运行：已打开原页面。')
         return
     try:
-        dataset = Dataset()
         secret = secrets.token_urlsafe(32)
-        server = serve(dataset, Store(dataset), secret)
+        server = serve(dataset, Store(dataset,output), secret)
         url = f'http://127.0.0.1:{server.server_port}/?token={secret}'
-        atomic(OUTPUT / 'endpoint.json', {'url': url})
+        atomic(output / 'endpoint.json', {'url': url})
         print(f'dev辅助标注：{len(dataset.ids)}张，{dataset.group_count}组。仅本地，不是独立金标。\n{url}\n退出：页面按钮或Ctrl+C。', flush=True)
         webbrowser.open(url)
         server.timeout = .5

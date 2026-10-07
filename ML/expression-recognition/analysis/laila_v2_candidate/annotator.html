@@ -11,6 +11,9 @@
 const token=new URLSearchParams(location.search).get('token');
 const $=id=>document.getElementById(id);
 const labels=['neutral','happy','sad','surprise','fear','disgust','angry','ambiguous'];
+let context=null;
+setTimeout(()=>api('/context').then(c=>{context=c;document.querySelector('main>.muted').textContent=c.message;if(c.pilot)document.querySelector('h1').textContent='表情 — 独立试点标注';if(!c.annotation_available){$('start').disabled=true;$('who').disabled=true;}}).catch(()=>{}),0);
+new MutationObserver(()=>{const role=context?.roles?.[ids[index]];diagnosticLink.classList.toggle('hidden',role?.data_role==='locked-test');if(role&&!$('sample').textContent.includes('角色：'))$('sample').textContent+=' ｜ 角色：'+(role.data_role==='locked-test'?'锁定测试；先盲标，不看预测':'校准；先盲标');}).observe($('sample'),{childList:true});
 const chinese=['中性','高兴','悲伤','惊讶','恐惧','厌恶','愤怒','不明确／混合'];
 let state=null,ids=[],index=0,entry=null,queue=Promise.resolve(),dirty=false,timer=null,failed=false,moving=false;
 const url=(path,extra={})=>path+'?'+new URLSearchParams({token,...extra});

@@ -1,10 +1,10 @@
 # laila 捏脸表情识别接入规格
 
-版本：v0.3；日期：2026-10-03；状态：当前模型与输入契约已更新，v2 几何绑定、网络训练和 Unity 推理接入尚未完成。
+版本：v0.5；更新日期：2026-10-06；状态：原下睑／旧眉授权单轮候选训练及Unity定向验证完成，研究试玩默认定向修复59D并可切上一版反馈59D／旧r779／原51D；原laila保留51D。正式v2几何／独立语义／物理鼠标／完整拒识／Player未验收，显著单轴内眉仍模型中性。实际进展见§17。
 
-**接下来训练从 [§16](#16-当前模型的训练执行顺序2026-10-03) 开始。** §1–15 保留旧 22 形态 / 12 维方案与审阅历史；其中模型名称、输入维度、旧训练命令和旧版覆盖率结论不适用于当前模型。按钮触发、只读采样、数据护栏与独立盲标原则继续沿用；实际已有 Python 功能以 README 与源码为准，不能将历史的“拟新增”理解为现在仍未实现。
+**唯一当前执行入口：[§17工程进展](#17-当前工程候选接手入口2026-10-04)，契约与阶段顺序接着读[§16](#16-当前模型的训练执行顺序2026-10-03)。** §1–15 是旧 22 形态 / 12 维方案与审阅历史；模型名称、输入维度、旧训练命令、按钮专用触发和旧版覆盖率结论不适用于当前模型。只读采样、数据护栏与独立盲标原则继续沿用；当前实时触发以§17为准，已有 Python 功能以 README 与源码为准。
 
-本文是用户要求的技术 spec，不是实现完成报告，也不同时生成执行任务清单。文中的新文件、组件、命令产物和验收门槛均为拟实施内容；现有源码与接口事实单独标注。
+本文保留专业规格和历史审阅原文；§1–15的“拟新增”是当时状态，不代表现在仍未实现。§16记录当前契约及待冻结流程，§17维护当前工程状态和证据路由。工程通过不等于几何、人工语义或Player验收通过。
 
 ## 1. 目标与边界
 
@@ -506,13 +506,14 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
 | 控制与形态 | Unity 实测 31 个形态、17 个控制区；6 眉区、4 眼皮、2 嘴角、3 唇区、2 视线 |
 | 输入轴数量 | 15 个非视线控制区，两个嘴角各再增加 1 横轴，共 17 表情轴；4 视线轴不输入分类器 |
 | 现有绑定 | `configs/rigs/laila_rig.yaml` / `laila_v1` 只用于旧模型复现，12 维测试不证明 v2 完成 |
-| v2 绑定 | 尚未生成；拟用 `configs/rigs/laila_rig_v2.yaml`、name=`laila_v2`，几何校准后写入系数 |
+| v2 绑定 | `laila_rig_v2_candidate.yaml`候选已建立；正式`laila_rig_v2.yaml`/`laila_v2`仍待几何与人工语义验收后冻结 |
 | 已可复用流水线 | 五类配置、变体剔除、金标护栏、训练时温度/energy 标定、带 hash 的 ONNX 导出、带 tag 的评估 |
-| 尚未完成 | 当前模型语义校准、17 维契约测试、人工开发/测试集、当前绑定训练、当前模型 ONNX 与 Unity 推理 |
+| 已完成的工程候选 | 17轴候选映射/采样测试、纯合成训练、ONNX自检与Unity CPU推理/UI，实际证据见§17 |
+| 尚未完成 | 正式语义校准、人工开发/锁定测试、正式v2冻结与真实Player验收；合成工程检查不能代替这些 |
 
 形变与交互已经有检查证据；这不能代替规范表情基映射或识别准确率证明。新分段眉毛改善了控制自由度，但不能据此自动恢复七类目标；先沿用五类，重新计算覆盖率，取得人类开发集证据后再评估拆开惊讶/恐惧或增加厌恶。
 
-### 16.2 v2 固定输入顺序（设计契约，尚未实现采样器）
+### 16.2 v2 固定输入顺序（候选采样器已实现，正式语义待验收）
 
 `P(A,B)=(GetWeight(A)-GetWeight(B))/100`，`W(A)=GetWeight(A)/100`。
 全部默认 0；索引 0–13 范围 [-1,1]，14–16 范围 [0,1]。
@@ -539,7 +540,7 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
 
 31 个必需名称恰为 14 对双极键和 3 个单极键。采样先 HasShape 检查，再读有限且合法范围的权重；同对同时激活返回 PairConflict，不通过相减隐藏冲突。不得按导入索引打包，也不得把六段眉毛求平均、把左右上唇相加后继续使用旧 12 维契约。
 
-拟部署输入 `sliders [batch,17]`；输出 `probs [batch,5]`、`energy [batch]`，五类按 §15.1 顺序。当前 Python rig/export 可处理可变 K；Unity 采样器和 v2 专用测试尚待实现，不能只改 metadata 数字。
+候选已部署输入 `sliders [batch,17]`、输出 `probs [batch,5]`与`energy [batch]`，五类按§15.1顺序。Python rig/export处理可变K，Unity严格采样器与候选专用测试已实现，见§17；正式几何/人工语义校准未完成，不能仅凭metadata或工程测试称效果达标。
 
 ### 16.3 实际顺序与每步完成条件
 
@@ -554,7 +555,7 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
 
 ### 16.4 校准完成后使用的命令
 
-以下都在 `ML/expression-recognition/` 执行。**新 YAML 与 v2 契约测试目前尚不存在，先完成步骤 2–4；本轮没有执行训练、安装依赖或生成 ONNX。** 已有环境直接复用；缺依赖才按 README 安装。
+以下都在 `ML/expression-recognition/` 执行，属于**正式v2冻结后的命令**：正式 `laila_rig_v2.yaml`尚不存在，先完成语义校准与人工数据阶段，不直接执行。候选YAML、采样/映射测试、合成训练、ONNX与Unity接线已完成，见§17；不能将候选改名冒充正式v2。已有环境直接复用；缺依赖才按README安装。
 
 ```powershell
 .venv\Scripts\python.exe -m pytest tests -q -rs
@@ -577,14 +578,31 @@ Editor 通过不等于 Windows Player 或 Android 通过。先做 Windows Player
 
 只提交源码、配置、规格、可编辑最终模型和精选验收证据；训练环境、原图、投影缓存、权重和试验产物留在已有忽略目录。正式部署的 ONNX/JSON 待验收后放入 Assets 并提交配套 meta。详细文件去留见 [asset-disposition.md](asset-disposition.md)。旧模型备份与训练证据不是同一回事，不能为了清理工作区删掉唯一的原件回滚来源。
 
-## 17. 当前工程候选接手入口（2026-10-03）
+## 17. 当前工程候选接手入口（2026-10-04）
 
-2026-10-04收尾：按用户意愿暂停新模型训练、补采及扩类推进，仅保存本地标注器、raw17数据适配和配套测试／文档。本节为当前入口；输入契约继续按§16，旧v1仍只供历史复现。暂停不表示完成准确率或独立语义验收，现部署模型和阈值未修改。
+当前状态同步于 2026-10-07。推荐入口为 `21Days/Laila/候选试玩（含旧版对照）`：独立 `LailaRecognitionPlaytest.unity` 默认使用 2026-10-06 定向修复 59D，依次对照上一版反馈 59D、r779 59D 与原 51D；原 `laila.unity` 保留 51D。源模型与场景引用已配对，不将较早的“尚未部署 / 菜单待做”记录列为当前待办。
 
-本地工具由`ML/expression-recognition/launch_annotator.cmd`启动，固定139张匿名dev图、仅两个近邻组；原七类＋ambiguous与空值、备注、history独立保存。字段／保存位置／恢复和适配详情见[辅助标注器说明](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md)。
+| 项目 | 当前契约 |
+| --- | --- |
+| 几何与输入 | 31 个 BlendShape，17 个分类轴；4 个视线轴不参与分类。顺序见 §16.2 |
+| 推理 | ONNX 外部输入 `[batch,17]`，图内 51D / 59D；输出 neutral、happy、sad、surprise_fear、angry |
+| 触发与显示 | 输入变化清旧结果，最多 10Hz 自动推理；研究试玩展示另有中性区与迟滞，详情保留原始分类、概率和旧拒识决定 |
+| 原部署拒识 | energy −1.5637034177780151、min_confidence 0.4；研究候选沿用旧门槛作为参照，不代表重新校准 |
+| 当前研究资产 | `Research/StrengthRepair20261006/laila_research59_strength_20261006.onnx` 及同名 JSON；SHA256 `11f828902e4cd26eb6488a1f744a9bad71d9a06ab76108a50dca547b43bf3b3b` |
+| 数据角色 | r779 的 139 张仅来自两个开发组；单人意见、训练拟合和开发回归分别报告。三个新增设计目标参与训练，不作为独立验证 |
+| 平台边界 | 研究模式禁止正式 Player 构建；物理鼠标、独立语义、完整拒识及 Player 未验收 |
+| 已知缺口 | 显著单轴内眉仍被模型判中性；局部眼角自交与任意组合的几何验收未完成 |
 
-适配器按UUID／快照和图片hash关联完整17轴、31权重与单人开发意见，输出成对51D／59D候选及manifest；不随机拆train/test，不将单人意见当golden。surprise/fear仅在五类视图合并，disgust／ambiguous／空值默认不进五类监督；疑惑仅是保留原文证据的review tag，无辜／茫然不自动等同疑惑。候选包不能直接喂现有51D训练加载器。
+已有工程证据按阶段维护：初次 135 输入对照、实时增量、139 点开发取证、反馈修复的成对 149 输入，以及定向候选的 205 输入 / 21 档 UI 验证。205 条 Sentis 与 ONNX 最大概率误差 1.013279e−6、energy 1.66893e−6；三套怒脸九档均分类 / 展示为愤怒。它们验证对应工程与开发材料，不能合并成独立泛化测试。
 
-最新r696保持139个稳定ID，116张有分类／23张带备注空值，94张五类候选；现ONNX离线argmax一致65、最终一致45、拒识36，非独立泛化准确率。27张含疑惑备注全部argmax中性，最终中性23／拒识4，仅报输出分布不计错。相关测试56通过，59D还原raw17最大误差4.76837e-8；旧r562另目录复现63／43／36，旧证据未覆盖。
+| 要查什么 | 唯一维护位置 |
+| --- | --- |
+| 当前职责、生命周期、定向候选来源与验证 | [识别模块指南](../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md) |
+| 几何与控制限制 | [捏脸模块指南](../../ai-docs/docs/modules/lailaface/lailaface-module-guide.md) |
+| Python 环境与通用 CLI | [README](../../ML/expression-recognition/README.md) |
+| 标注操作、版本保存及各开发轮次的逐类结果 | [辅助标注器说明](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md) |
+| 十张反馈的标签、训练角色与修复结果 | [反馈记录](../../ML/expression-recognition/analysis/laila_v2_candidate/PILOT_FEEDBACK_20261005.md) |
+| 初次接线与实时增量的精选证据 | [检查点](../laila-recognition-20261003/checkpoint.md)、[实时增量](../laila-recognition-20261003/realtime-and-stack.md) |
+| 专业设计与来源 | [DESIGN](../../ML/expression-recognition/DESIGN.md)、[REFERENCES](../../ML/expression-recognition/REFERENCES.md) |
 
-原始标签与历史继续留在既有忽略范围，字节哈希核验备份为`ML/expression-recognition/artifacts/laila_v2_candidate/label-backup-20261004-precommit/`；本次Git仅保存工具／适配schema、候选配置、测试及说明，不宣称标签已Git版控。环境、图片、模型、训练与诊断缓存不加入；实验文件不删除。独立多人复核、训练加载器、锁测与部署验收均未完成。
+忽略目录中的训练、原始采集和完整回放产物不会随仓库自动分发；检查其可用性后才能复现历史结果。当前没有确定下一轮采样预算、扩类或训练任务，正式 v2 的冻结条件继续按 §16 核对。

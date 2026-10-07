@@ -6,7 +6,7 @@
 </style>
 <main><h1>莱拉 · 输入诊断</h1>
 <p>先确认输入方向和脸型，再看分类，最后检查拒识。这里的操作只在内存中试验，不保存标签、备注、history或正式阈值。</p>
-<p class="muted">当前为部署ONNX的离线输入探针。没有连接Unity实时渲染；不能据此宣称已验收运行时接线。经典参考是待你确认的设计姿态，尚非人类金标。</p>
+<p class="muted">默认使用现部署51D；模型菜单可显式选择新59D研究候选。没有连接Unity实时渲染。经典参考是待你确认的设计姿态，尚非人类金标。</p>
 <div class="row"><label>经典参考 <select id="preset"></select></label><button id="restore">恢复所选参考</button><button id="zero">全部归零</button><button id="export">下载当前输入（诊断JSON）</button></div>
 <div class="row"><label>原始Unity截图 <select id="archive"></select></label><button id="load">载入精确快照</button></div>
 <div id="status" role="status">正在核对本地模型与快照…</div>
@@ -17,7 +17,7 @@
 </section><section class="panel"><h2>2 · 分类（忽略拒识）</h2><p id="classification">等待输入</p><table><tbody id="probs"></tbody></table>
 <h2>3 · 拒识（保留分类分数）</h2><p>正式规则：energy大于阈值，或最高概率小于置信度下限，即拒识。边界相等通过。</p><p id="formal"></p>
 <div class="row"><label>试验energy阈值 <input id="threshold" type="number" step="0.01"></label><label>试验置信度 <input id="confidence" type="number" min="0" max="1" step="0.01"></label><button id="resetRules">恢复正式规则</button></div><p id="trial"></p>
-<p class="muted">概率是模型分数，不是人类准确率。放宽拒识不能修复错误分类；59D在此只计算候选特征，没有用于部署推理。惊讶／恐惧仍合并为一类。</p>
+<p class="muted">概率是模型分数，不是人类准确率。放宽拒识不能修复错误分类；选择新59D后调用实际研究checkpoint。惊讶／恐惧仍合并为一类。</p>
 <details><summary>原始17轴、31形态权重、51D与59D特征</summary><pre id="features"></pre></details>
 <details><summary>每轴正负映射与信息损失</summary><pre id="mapping"></pre></details>
 <details><summary>阈值来源与错误状态</summary><p>正式温度0.487122944970898；energy阈值来自合成负样本2000张、seed345的第5百分位（TNR95），置信度下限0.4；不是当前139张人工标签校准。energy越高越容易拒识。</p><p>模型／元数据／hash／维度不匹配、形态缺失、权重越界或非有限、正负形态同时非零、无效概率（5维、范围0–1、和偏离1超过0.001）属于错误状态，不能当作正常拒识。运行时输入变化先使旧结果失效，最多每100ms进行一次识别。</p></details>
@@ -25,15 +25,38 @@
 <script>
 const $=id=>document.getElementById(id),token=new URLSearchParams(location.search).get('token');
 const url=(p,q={})=>p+'?'+new URLSearchParams({token,...q});
-const names={neutral:'中性',happy:'高兴',sad:'悲伤',angry:'愤怒',surprise:'惊讶',fear:'恐惧',surprise_fear:'惊讶／恐惧',unknown:'不确定／认不出'};
+const names={neutral:'中性',happy:'高兴',sad:'悲伤',angry:'愤怒',surprise:'惊讶',fear:'恐惧',surprise_fear:'惊恐',unknown:'不确定／认不出'};
 let catalog,values=[],reference=[],latest=null,timer,generation=0;
-async function api(path,body,q={}){const r=await fetch(url(path,q),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok)throw Error(d.error||'诊断失败');return d;}
+const modelSelect=document.createElement('select'),modelLabel=document.createElement('label');
+modelLabel.textContent='识别模型 ';modelLabel.append(modelSelect);document.querySelector('.row').prepend(modelLabel);
+modelSelect.onchange=()=>{schedule();const research=modelSelect.value==='research59';document.querySelectorAll('h2')[2].textContent=research?'3 — 研究拒识（未校准；沿用旧阈值）':'3 — 正式拒识规则与临时试验';$('resetRules').textContent=research?'恢复旧规则研究参照':'恢复正式规则';};
+api('/diagnostic/catalog').then(c=>{for(const model of c.models||[]){const option=document.createElement('option');option.value=model.key;option.textContent=model.title;modelSelect.append(option);}});
+const candidateNotice=document.createElement('p');candidateNotice.className='muted';candidateNotice.textContent='选择新59D后，分类来自实际研究checkpoint；拒识沿用旧阈值，未校准。只支持归档输入或手动17轴，不是Unity实时预览。锁定test不出现在输入目录。';document.querySelector('main').insertBefore(candidateNotice,document.querySelector('.row'));
+new MutationObserver(()=>{[...$('archive').options].forEach((o,i)=>{if(/^[0-9a-f]{32}$/.test(o.textContent))o.textContent='采集图 '+(catalog?.ids.indexOf(o.value)+1);});}).observe($('archive'),{childList:true,subtree:true});
+async function api(path,body,q={}){if(path==='/diagnostic/evaluate')body={...body,model:modelSelect.value||'deployed51'};const r=await fetch(url(path,q),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok)throw Error(d.error||'诊断失败');return d;}
 function status(t,error=false){$('status').textContent=t;$('status').classList.toggle('error',error);}
 function hideImage(){ $('image').classList.add('hidden');$('image').removeAttribute('src');$('imageNotice').textContent='当前姿态尚无精确匹配的Unity截图。请在Unity逐轴设置对应31权重，查看真实脸型；本页不生成替代图。'; }
 function paint(){[...$('axes').children].forEach((tr,i)=>{tr.querySelector('input[type=range]').value=values[i];tr.querySelector('input[type=number]').value=values[i];});}
 function schedule(){generation++;latest=null;status('输入已变化，等待当前推理…');hideImage();$('classification').textContent='输入已变化，等待当前推理…';$('probs').replaceChildren();$('formal').textContent='';$('trial').textContent='';$('features').textContent='';clearTimeout(timer);timer=setTimeout(evaluate,180);}
 function reasons(d){let r=[];if(d.reasons.includes('energy_above_threshold'))r.push('energy高于阈值（超出 '+d.energy_margin.toFixed(6)+'）');if(d.reasons.includes('confidence_below_minimum'))r.push('最高概率低于下限（不足 '+(-d.confidence_margin).toFixed(6)+'）');return r.length?r.join('；'):'两项均通过';}
-async function evaluate(){const ticket=generation;try{const d=await api('/diagnostic/evaluate',{values,threshold:Number($('threshold').value),confidence:Number($('confidence').value)});if(ticket!==generation)return;latest=d;status('本地部署模型推理完成 · 不写标注数据');$('classification').textContent='最高概率类别：'+names[d.argmax_key]+' · '+(d.formal.maximum_probability*100).toFixed(1)+'%';$('probs').replaceChildren();catalog.labels.forEach((row,i)=>{const tr=document.createElement('tr'),label=document.createElement('td'),score=document.createElement('td');label.textContent=names[row.key];score.textContent=(d.probabilities[i]*100).toFixed(2)+'%';tr.append(label,score);$('probs').append(tr);});$('formal').textContent='正式结果：'+names[d.formal_final]+' · '+reasons(d.formal)+' · energy '+d.energy.toFixed(6);$('trial').textContent='临时试验结果：'+names[d.trial_final]+' · '+reasons(d.trial)+'（不保存）';$('features').textContent=JSON.stringify({raw17:Object.fromEntries(catalog.sliders.map((s,i)=>[s.key,d.raw17[i]])),weights31:d.weights31,features51:Object.fromEntries(catalog.canonical_names.map((k,i)=>[k,d.features51[i]])),extras59:Object.fromEntries(catalog.extra_names.map((k,i)=>[k,d.features59[51+i]])),dimensions:[d.features51.length,d.features59.length],source:d.source},null,2);if(d.exact_reference_keys?.length){const key=d.exact_reference_keys[0];$('image').src=url('/diagnostic/reference-image/'+key);$('image').classList.remove('hidden');$('imageNotice').textContent='Unity真实网格烘焙诊断截图 · '+key+' · 输入精确一致；离线参考，不是实时预览或已确认标签。';}else if(d.exact_image_ids.length){const sid=d.exact_image_ids[0];$('image').src=url('/image/'+sid);$('image').classList.remove('hidden');$('imageNotice').textContent='原始Unity截图：raw17完全一致 · '+sid+'。这是归档图，不代表当前Editor已连接。';}else hideImage();}catch(e){if(ticket===generation){latest=null;status(e.message,true);$('classification').textContent='输入／模型错误，本次没有有效分类或拒识结果';hideImage();}}}
+async function evaluate(){
+ const ticket=generation;
+ try{
+  const d=await api('/diagnostic/evaluate',{values,threshold:Number($('threshold').value),confidence:Number($('confidence').value)});
+  if(ticket!==generation)return;
+  latest=d;
+  status(d.research_rejection_uncalibrated?'新59D研究候选推理完成 · 拒识未校准 · 不写标注数据':'本地部署模型推理完成 · 不写标注数据');
+  $('classification').textContent='最高概率类别：'+names[d.argmax_key]+' · '+(d.formal.maximum_probability*100).toFixed(1)+'%';
+  $('probs').replaceChildren();
+  catalog.labels.forEach((row,i)=>{const tr=document.createElement('tr'),label=document.createElement('td'),score=document.createElement('td');label.textContent=names[row.key];score.textContent=(d.probabilities[i]*100).toFixed(2)+'%';tr.append(label,score);$('probs').append(tr);});
+  $('formal').textContent=(d.research_rejection_uncalibrated?'研究拒识（未校准）：':'正式结果：')+names[d.formal_final]+' · '+reasons(d.formal)+' · energy '+d.energy.toFixed(6);
+  $('trial').textContent='临时试验结果：'+names[d.trial_final]+' · '+reasons(d.trial)+'（不保存）';
+  $('features').textContent=JSON.stringify({raw17:Object.fromEntries(catalog.sliders.map((s,i)=>[s.key,d.raw17[i]])),weights31:d.weights31,features51:Object.fromEntries(catalog.canonical_names.map((k,i)=>[k,d.features51[i]])),extras59:Object.fromEntries(catalog.extra_names.map((k,i)=>[k,d.features59[51+i]])),dimensions:[d.features51.length,d.features59.length],source:d.source,model_sha256:d.model_sha256},null,2);
+  if(d.exact_reference_keys?.length){const key=d.exact_reference_keys[0];$('image').src=url('/diagnostic/reference-image/'+key);$('image').classList.remove('hidden');$('imageNotice').textContent='Unity真实网格烘焙诊断截图 · '+key+' · 输入精确一致；离线参考，不是实时预览或已确认标签。';}
+  else if(d.exact_image_ids.length){const sid=d.exact_image_ids[0];$('image').src=url('/image/'+sid);$('image').classList.remove('hidden');$('imageNotice').textContent='原始Unity截图：raw17完全一致 · '+sid+'。这是归档图，不代表当前Editor已连接。';}
+  else hideImage();
+ }catch(e){if(ticket===generation){latest=null;status(e.message,true);$('classification').textContent='输入／模型错误，本次没有有效分类或拒识结果';hideImage();}}
+}
 function apply(v,source){values=v.slice();paint();$('provenance').textContent=source;schedule();}
 $('preset').onchange=()=>{reference=catalog.presets.find(p=>p.key===$('preset').value).values.slice();apply(reference,'设计参考 · '+names[$('preset').value]+' · 等待实际脸型确认');};
 $('restore').onclick=()=>apply(reference,'恢复所选参考／快照');$('zero').onclick=()=>apply(Array(17).fill(0),'归零输入');

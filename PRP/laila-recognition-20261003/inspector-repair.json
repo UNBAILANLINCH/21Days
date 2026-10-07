@@ -1,0 +1,13 @@
+{
+  "before": [
+    {
+      "id": -46764,
+      "tracked": false,
+      "flags": "HideAndDontSave"
+    }
+  ],
+  "orphan_render_editors_removed": 1,
+  "after_invalid_editors": [],
+  "utc": "2026-10-03T05:04:25.1474386Z",
+  "operation": "Remove untracked native SkinnedMeshRendererEditor with null target only; rebuild Inspector; no assets/logs changed"
+}

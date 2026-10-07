@@ -1,0 +1,10 @@
+{
+  "wrong_pair_rejected": true,
+  "cross_group_rejected": true,
+  "panel_enable_cycles": 20,
+  "button_first_hit": true,
+  "single_click_callbacks": 1,
+  "p95_cpu_infer_ms": 0.4844,
+  "benchmark": "Editor CPU zero input, 20 warmup + 500 measured; excludes sampling/UI",
+  "status": "上次识别 · 实验模型"
+}

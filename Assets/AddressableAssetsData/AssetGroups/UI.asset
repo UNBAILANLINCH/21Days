@@ -117,6 +117,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9ce6a9e44961cbb458c83da93fa13de1
+    m_Address: BattleView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a3de1a952dfcfcf4ca2fe7fc00291e36
     m_Address: QuestHudView
     m_ReadOnly: 0

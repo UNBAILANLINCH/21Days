@@ -52,3 +52,6 @@ MonoBehaviour:
   roundLimit: 0
   roundLimitOutcome: 0
   stunTurnPolicy: 0
+  healItemId: 1004
+  healItemPercent: 30
+  healItemBase: 0

@@ -37,7 +37,24 @@ namespace Game.TurnBased
                 return issue;
             }
 
-            return ValidateFlow(settings.Flow);
+            issue = ValidateFlow(settings.Flow);
+            if (issue != null)
+            {
+                return issue;
+            }
+
+            return ValidateItems(settings.Items);
+        }
+
+        // 道具效果是占位（PRP/turnbased-battle D10，等 C91）：只钉「百分比要落在 0..100」这一条自洽性。
+        private static string ValidateItems(BattleItemSettings items)
+        {
+            if (!IsPercent(items.HealPercent))
+            {
+                return "治疗道具的回复百分比必须落在 0..100（占位 30%，等 C91），当前 " + items.HealPercent;
+            }
+
+            return null;
         }
 
         private static string ValidateEntry(BattleEntrySettings entry)

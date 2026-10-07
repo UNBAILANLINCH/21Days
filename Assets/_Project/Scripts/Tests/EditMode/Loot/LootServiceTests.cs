@@ -208,6 +208,31 @@ namespace Game.Tests.EditMode.Loot
             Assert.That(notifications.Received[0].Body, Does.Contain("#987654"));
         }
 
+        // 战斗里用掉一件道具（PRP/turnbased-battle D10）：扣分区里的数量，不发开箱 / 重置事件、不弹通知。
+        [Test]
+        public void TryConsume_OwnedItem_DeductsOneWithoutEventsOrNotifications()
+        {
+            Assert.That(service.TryCollect(CreateCrate("crate_c", 1004, 2)), Is.True);
+            int noticesBefore = notifications.Received.Count;
+            int collectedBefore = collected.Received.Count;
+
+            Assert.That(service.TryConsume(1004), Is.True);
+
+            Assert.That(service.Items[1004], Is.EqualTo(1));
+            Assert.That(saves.Get<LootSaveData>().Items[1004], Is.EqualTo(1), "写的是存档分区");
+            Assert.That(notifications.Received.Count, Is.EqualTo(noticesBefore));
+            Assert.That(collected.Received.Count, Is.EqualTo(collectedBefore));
+            Assert.That(reset.Received, Is.Empty);
+        }
+
+        [Test]
+        public void TryConsume_NotOwned_ReturnsFalseAndLeavesBackpack()
+        {
+            // 负对照：没有这件就不扣、不建出负数项。
+            Assert.That(service.TryConsume(1004), Is.False);
+            Assert.That(service.Items.ContainsKey(1004), Is.False);
+        }
+
         private SupplyCrate CreateCrate(string key, int itemId, int count)
         {
             var go = new GameObject("TestCrate_" + key);

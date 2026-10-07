@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93f5c89dc5dcf994ba531487797a3478, type: 3}
+  m_Name: BossRosterConfig
+  m_EditorClassIdentifier: 
+  bosses:
+  - id: sample_boss
+    displayName: "\u9636\u6BB5\u4E00 BOSS\uFF08\u5360\u4F4D\uFF09"
+    maxHealth: 12
+    outOfBattleDrunk: 50
+    playerHealth: 10
+    stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}

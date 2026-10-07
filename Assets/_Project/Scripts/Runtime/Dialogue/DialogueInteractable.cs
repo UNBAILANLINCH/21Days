@@ -3,6 +3,8 @@
 // 为什么新建：DialogueService 是纯 C# 服务，场景物体需要一个 MonoBehaviour 承载「对白 id / 交互半径 / 点击入口」；
 //   现有 Dialogue 目录里没有挂在场景物体上的组件可扩展（DialogueView 是 UI 面板，职责不同）。
 //   常驻台词加在这里而不是另起组件：它和对话树共用同一个交互入口（点击 / 焦点交互键 / 范围判定），拆开会有两套入口。
+//   交互转交（SetInteractionHandover，PRP/turnbased-battle W2b）同理：剧情入口（BOSS NPC 的 NarrativeTrigger）要的是
+//   同一个焦点 / 交互提示 / 头顶标记，只是「按下之后做什么」不同，所以转交而不是另起一套焦点。
 // 点击路径依赖：场景相机上挂 PhysicsRaycaster（3D 碰撞体）或 Physics2DRaycaster（Collider2D），本物体带对应碰撞体；
 //   EventSystem 由 UIService 创建（UI 动作图已显式绑定），DialogueService 由 Boot 场景的 DialogueSceneBinder 注入。
 //   直接 Play 玩法场景（不经 Boot）时二者都不存在：点击不会被派发，有对话树的物体在 Start 时记一条 Warn 提示。
@@ -33,6 +35,7 @@ namespace Game.Dialogue
         private DialogueService service;
         private Transform sceneActor;
         private int nextBubbleIndex;
+        private Action handover;
 
         public int DialogueId => dialogueId;
         public string DisplayName => displayName;
@@ -66,10 +69,14 @@ namespace Game.Dialogue
         /// </summary>
         public bool MarkerOverridden { get; private set; }
 
+        /// <summary>是否已把交互转交给外部组件（见 <see cref="SetInteractionHandover"/>）。</summary>
+        public bool HasHandover => handover != null;
+
         /// <summary>
-        /// 现在能否交互：在范围内、没有对白在进行，且「有树已绑定」或「无树但有台词」。
+        /// 现在能否交互：在范围内、没有对白在进行，且「已转交给外部组件」或「有树已绑定」或「无树但有台词」。
         /// </summary>
-        public bool CanInteract => InRange && !(service != null && service.IsRunning) && (HasTree ? IsBound : HasBubble);
+        public bool CanInteract => InRange && !(service != null && service.IsRunning)
+            && (handover != null || (HasTree ? IsBound : HasBubble));
 
         /// <summary>测距角色：Inspector 配的 actor 优先，其次场景里的 DialogueInteractionActor。</summary>
         private Transform RangeActor => actor != null ? actor : sceneActor;
@@ -121,6 +128,24 @@ namespace Game.Dialogue
             MarkerOverridden = overridden;
         }
 
+        /// <summary>
+        /// 交互转交：同物体上的别的入口（如剧情的 <c>NarrativeTrigger</c>）接管「交互键 / 交互提示 / 点 NPC」之后做什么。
+        /// 接管后本物体按「可交互」参与焦点（<see cref="CanInteract"/> 只看范围与对白占用），头顶标记、名字与底部交互提示照常；
+        /// <see cref="Interact"/> 只调 <paramref name="handler"/>，不再拉对白、不抛台词。传 null 解除。
+        /// 为什么不让接管方自己做焦点：焦点、提示 HUD、头顶标记都只认本组件（<see cref="DialogueInteractionFocus"/> 只从
+        /// <see cref="DialogueSceneBinder.Bound"/> 选），另起一套会出现两个焦点抢同一个交互键与提示（泛化成 IInteractable 属 roadmap A3）。
+        /// </summary>
+        public void SetInteractionHandover(Action handler)
+        {
+            handover = handler;
+        }
+
+        /// <summary>解除转交，但只在当前接管方就是 <paramref name="handler"/> 时才解除（别的接管方不受影响）。</summary>
+        public void ReleaseInteractionHandover(Action handler)
+        {
+            if (handover == handler) handover = null;
+        }
+
         // 场景加载时 DialogueSceneBinder 已在 sceneLoaded 里绑定，早于 Start；到这里还没绑定多半是直接 Play 了玩法场景。
         // 无对话树的物体不需要服务，不提示。
         private void Start()
@@ -138,7 +163,7 @@ namespace Game.Dialogue
         }
 
         /// <summary>
-        /// 交互：无树有台词 → 抛出下一句台词；有树 → 拉起对白。
+        /// 交互：已转交 → 调接管方；无树有台词 → 抛出下一句台词；有树 → 拉起对白。
         /// 未绑定 / 已有对白进行中 / 不在范围内 / 既无树也无台词时记 Warn 并忽略。
         /// </summary>
         public void Interact()
@@ -151,6 +176,11 @@ namespace Game.Dialogue
             if (!InRange)
             {
                 Log.Warn($"{name} 交互被忽略：超出交互半径 {interactRadius}", this);
+                return;
+            }
+            if (handover != null)
+            {
+                handover();
                 return;
             }
             if (!HasTree)

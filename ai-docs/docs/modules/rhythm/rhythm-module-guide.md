@@ -77,7 +77,7 @@ Perfect 得 1000 分，Good 得 500 分；漏按清空连击。Tap 一次结算�
 
 ## 生命周期
 
-明确采用候选现在先写独立Profile快照，成功后才更新内存与清候选；失败保留原补偿和候选，可重试或保留。保存期间使用独立锁禁止并行采用/试听/开始/换曲与手调；退出等待采用写完成后保存同一当前值。此后续事务补丁已有定向Edit50/50；最后编译及新增真实Profile失败/慢写Showcase因bridge连接中断待补验，不能以此前诊断文件故障回放替代。详见最新实施记录。
+明确采用候选现在先写独立Profile快照，成功后才更新内存与清候选；失败保留原补偿和候选，可重试或保留。保存期间使用独立锁禁止并行采用/试听/开始/换曲与手调；退出等待采用写完成后保存同一当前值。真实 Profile 失败 / 慢写与退出顺序已纳入 2026-10-06 曲库 PlayMode 13/13 记录；见页面实施报告。
 
 Enter 校验配置、读补偿、加载音频、克隆输入资产、暂停世界并打开面板。
 保存原 Gameplay 动作图启用状态，演奏期间禁用它，退出恢复。
@@ -136,10 +136,9 @@ EditMode：`Game.Tests.EditMode.Rhythm.RhythmRulesTests`，判定边界、重复
 Showcase：`Game.Tests.Showcase.Rhythm.RhythmShowcase`，独立场景四轨真实输入、完整当前谱面的 Tap/Hold 交错头尾（本轮 58 枚、2 Hold）、重试、漏按结算、保存及标题重入；短谱运行时副本经真实 State/UI/音频/输入验证 Hold 正负补偿、早放/重开和校准接受/拒绝、独立视觉值，不改正式谱面。
 回放依赖基类的临时 SaveRootOverride 隔离目录，开始前断言平台存档根目录确为该目录，收尾删除并恢复覆盖；补偿保存检查不会写玩家真实档案。
 回放报告在 `Logs/verify/rhythm/`；它验证流程和界面，不替代人工试听。
-2026-10-04 本轮 Showcase 3/3 通过，报告 `Logs/verify/rhythm/20261004-104628/report.md`：检查点失败 0、运行时异常 0。新增真实场景覆盖 350ms 主线程跨预约停音终点、二十次重试、诊断往返、音频暂停、应用暂停消息模拟和输入模式拒绝/中途变更；非 OS 挂起、真实设备切换或物理输出验收。测试节奏恢复至原倍率 1.0，结束时编辑器 idle、非 Play、Console error 0。
-导出与停止细因收尾：最新 EditMode 88/88、定向 Showcase 2/2；`Logs/verify/rhythm/20261004-110234/report.md` 为 PASS，故意目录错误的一条诊断错误已按框架预期错误机制单独过滤，其余异常 0。两张保存成功/失败截图已核对文字出现，视觉排版仍须用户确认。
-上传谱接入验证（2026-10-04）：EditMode 完成 88 个用例、失败 0；Showcase 4/4（无跳过），报告 `Logs/verify/rhythm/20261004-191705/report.md` 检查点失败 0、运行时异常 0。实际正式 SO 的 58 枚全部完成、2 Hold 成功、Miss=0，界面数量与操作说明按当前谱面显示。目录错误仍为明确预期错误；不是物理输出或人工音乐贴合度验收。
-视觉与手感最终验收仍由开发者试玩决定。
+验收按日期与范围引用，不把补验拼为一次全量通过。判定逻辑、真实 UI / 音频 / 输入回放与人工试听分别验收；
+历史失败保留在实施记录，30/60/144 FPS 数学检查不替代设备实测。
+校准路由最新记录见文末，曲库与暂停见 [页面实施](../../../../PRP/rhythm-ui-navigation-20261006/implementation-report.md)。
 
 ## 选曲与歌曲进度（2026-10-04）
 
@@ -173,25 +172,30 @@ Showcase：`Game.Tests.Showcase.Rhythm.RhythmShowcase`，独立场景四轨真�
 
 两首新曲采用已核实上传 bytes 的 MP3：吉他伴奏取 24.495–101.295 秒（76.800 秒），164 枚（157 Tap、7 Hold）；Attention 取 25.490–98.494 秒（约 73.004 秒），229 枚（214 Tap、15 Hold）。2026-10-06 只读核对两份文本与首次提交 `503d601` 及当前 HEAD 完全一致，本轮未改谱或音频。统计必须只读取 `notes`，不能混入另列的四枚 `practiceNotes`；本轮曾误报 168/233，已纠正。自动起音包络相关与相位搜索候选分别为 100、105.2 BPM，chartOffsetMs=0。这是固定网格测试谱，尚未人工确认完整乐句、Hold 音乐语义及浏览器/Unity 解码对齐。分析与可重跑校验见 [记录](../../../../PRP/rhythm-song-progression-20261004/README.md)。
 
-实际验收：Unity 编译成功，EditMode 120/120；原四项 Showcase 通过。第一轮新增长流程因默认 180 秒超时中止，入门低分/达标解锁、吉他 164 Perfect/7 Hold/Miss=0 已完成；之后只补跑 Attention 与存档重读 1/1（81.66 秒），229 Perfect/15 Hold/Miss=0，重试/换曲清零、真实档案写盘及重入三曲进度恢复通过，文字不溢出断言和截图核对通过。报告 `Logs/verify/rhythm/20261004-205648/report.md`；前置 fixture 明确预置入门和吉他成绩，不把补验说成再演奏前两曲。长流程现有明确 360 秒超时，本轮未重跑。慢写/失败注入和 OS 重启恢复未验收。收尾恢复干净 LailaRecognitionPlaytest、非 Play、无运行测试、倍率 1。
+## 历史验收入口
 
-## 确认式校准验收
+| 增量 | 证据入口与范围 |
+| --- | --- |
+| 三曲进度 | [曲目记录](../../../../PRP/rhythm-song-progression-20261004/README.md)：短曲解锁、两首完整结果与档案重读；长流程超时后补验不冒充全组重跑 |
+| 曲库 v2 | [曲库实施](../../../../PRP/rhythm-library-integration-20261005/implementation-report.md)：171 条 EditMode 历史快照，八项回放 7 PASS / 1 FAIL；校准 fixture 随后修复 |
+| 确认式校准 | [校准实施](../../../../PRP/rhythm-calibration-review-20261004/implementation-report.md)：32 拍、一次补测、确认 / 取消 / 试听；不能作为真人有效性 |
+| 时钟 / fixture | [回归记录](../../../../PRP/rhythm-final-regression-fix-20261005/implementation-report.md)：单调事件时间与非法时钟清理；保留首轮失败与定向补验 |
+| 分级 / Combat | [实施记录](../../../../PRP/rhythm-final-regression-fix-20261005/confidence-combat-implementation-report.md)：Low / Drift、自行采用、错身份与去重；世界伤害未接 |
+| 诊断 / 补测 | [诊断记录](../../../../PRP/rhythm-real-calibration-diagnostic-20261005/implementation-report.md)：逐拍 JSON、不可恢复主轮拒绝补测、保存失败 / 取消 |
+| 页面 / 暂停 | [页面实施](../../../../PRP/rhythm-ui-navigation-20261006/implementation-report.md)：13/13 曲库 PlayMode、事务与同局暂停；Attention / 档案重入另有定向补验 |
+| 校准返回曲库 | 2026-10-07 当前单条 Showcase 1/1：取消、采用落盘、结算后再校准及目标按钮命中；`Logs/verify/rhythm/20261007-153636/report.md` PASS、检查点失败 / 异常 0 |
 
-最新分级可信度与固定谱Combat增量：编译/error0、手动lint通过、定向Edit69/69；四项受影响Showcase分别通过，最后Combat1/1见`Logs/verify/rhythm/20261005-130646/report.md`（异常0）。校准确认/取消通过位于125820批次，时间戳对照通过位于130327；两批整体FAIL继续保留，不合并冒充一次全绿。Low估计试听/保留/明确采用与重入、真实两键Combat达标/低分/取消及纪录分流已验。Unity归还RhythmDemo idle、非Play/编译测试、倍率1、error0。[实施与边界](../../../../PRP/rhythm-final-regression-fix-20261005/confidence-combat-implementation-report.md)。
-
-2026-10-05 诊断与不可恢复补测修复实际验收：EditMode44/44，页内提示微调后State/Diagnostic33/33；Showcase2/2见`Logs/verify/rhythm/20261005-110306/report.md`，最终保存失败/取消UI补验1/1见`Logs/verify/rhythm/20261005-110957/report.md`，检查点失败与运行时异常均0。真实32拍fixture、一次8拍补测、Drift禁补测、JSON逐拍回读及失败/取消保留旧值均已验证。阈值未修改，历史真人失败无原始数据，不能推断原因或宣称真人通过。详情见`PRP/rhythm-real-calibration-diagnostic-20261005/implementation-report.md`。
-
-确认式校准验证（2026-10-04）：最终运行时代码EditMode131/131，手动C# lint通过。旧Hold/校准生命周期和跨轨组合在`Logs/verify/rhythm/20261004-224845/report.md`通过；该批新校准因整数滑块显示断言失败，保留整体FAIL。第一次定向复验的协程发键抖动使预设稳定样本误为Drift；未放宽产品门，改用明确事件时间戳经真实InputSystem/Action接线。最终定向1/1（95.47秒），报告`Logs/verify/rhythm/20261004-230245/report.md`为PASS、检查点失败0、运行时异常0，覆盖默认8+32、一次补测、建议/取消/确认保存、试听失焦提示、漂移和重入恢复。此测试不验收真实设备桥接或真人有效性。三首正式谱与项目设置hash保持；类型/接口及历史失败见[实现记录](../../../../PRP/rhythm-calibration-review-20261004/implementation-report.md)。
+音乐贴合、真人估计有效性、物理延迟与完整 Player 操作仍待验收。自动输入与隔离 Profile 只验证对应软件流程。
 
 ## 谱面边界
-
-2026-10-05 两项回归收尾：Runtime先校验时钟再记录诊断，非法样本保留明确Reason并停局清理，不捕获吞掉所有异常。校准回放press/release同用单调预定时刻，实际接收记录保留每拍timestamp/beat及invalid等计数；真实InputSystem受控卡顿对照为旧26/32 Drift、修复32/32 Suggested（offset80、MAD45、分块差0），质量门未变。定向EditMode35/35；首轮六项4通过/2失败保留，两个校准用例修正隔离后补验2/2，报告 `Logs/verify/rhythm/20261005-031538/report.md` PASS（检查点失败0、异常0）。当前六项各有通过证据，未重跑全部171项或全仓。实际已交还干净LailaRecognitionPlaytest、非Play/编译/测试、timeScale/倍率1、Console error0；边界和首轮时钟中断见[交付记录](../../../../PRP/rhythm-final-regression-fix-20261005/implementation-report.md)。
-
-2026-10-05 历史增量快照EditMode171/171，C# lint通过；定向八项Showcase **7通过/1失败**。五项新曲库回放、旧Hold生命周期和跨轨组合通过；确认式校准Suggested预设收到Drift，当时原因待定位，整体FAIL报告 `Logs/verify/rhythm/20261005-014637/report.md` 保留。该待定位项由上方本轮修复关闭，不把历史PASS或补验改写为原批次全绿。详情见[实施记录](../../../../PRP/rhythm-library-integration-20261005/implementation-report.md)。
 
 毫秒记录是版本 2 的权威数据，运行秒数仅为编译副本。时刻允许零，倒数使用负歌曲时间；不要求首音符晚于倒数。提前量至少覆盖 approach 和视觉偏移。
 ID 唯一，时间有限非负，Tap 时长零、Hold 时长正；同轨头窗不重叠、Hold 占用不能和下一枚头窗交叉。对齐后终点不能超出片段。
 片段结束停止声音，但保留 DSP 句柄至最后终点/头窗（含正输入补偿）关闭并加缓冲后结算，避免截掉尾部。
-# 2026-10-06 UI 定向验收补充
+## 2026-10-07 校准返回页面修复
 
-最终 Attention 演奏、重试、切歌和 v2 落盘恢复单项通过（job 78702fa84f254645afef170906f92cfd，Logs/verify/rhythm/20261006-113506/report.md）：229 命中、15 Hold、零 Miss。页面、中断、加载选择与四轨的定向检查通过；未重复已通过的暂停/Profile 全组。Showcase 输入调度按 PositionAtInputTime(realtime) 等待，与生产输入时钟一致；不改变谱面、判定窗口或原断言。历史四个 Hold Miss 无逐音符记录，旧 DSP 对照也通过，不能追溯断言具体原因。完整过程、失败证据及截图见 PRP/rhythm-ui-navigation-20261006/implementation-report.md。
+独立曲库入口的自动校准取消、保留及成功采用现在返回曲库；失败采用仍留候选页，外部指定演奏保持原准备路由。曲库关闭设置/手动/暂停/候选覆盖层，旧返回标题按钮不再出现在有曲库的准备页，准备与结算按钮共用同列锚点。
+
+定向 Showcase `CalibrationReturns_LibraryOnlyAndClickable_AfterCancelApplyAndResult` 最终 1/1 通过（job 9be980f6e8834e749b79b1513de82004，报告 `Logs/verify/rhythm/20261007-105750/report.md`）：使用框架临时存档与 1.5 秒短谱，覆盖取消、候选保留、显式采用落盘、结算后再次校准返回。1920×1080 与 2048×1152 共八张实际 Unity 渲染截图已查看；曲库之外所有根控件不可见，开始/设置按钮射线命中通过。候选为显式 fixture，不验证真人估计有效性。手动 lint 通过，未跑全量回归。
+
+测试 Player 已有构建与启动记录，但校准完整往返及指定尺寸的 Player 验收仍未完成；编辑器回归不代替实机操作。

@@ -391,6 +391,11 @@ namespace Game.Rhythm
         public void ShowSongMenu(RhythmCatalogConfig catalog, RhythmProgressData progress)
         {
             playing = false;
+            settingsPanel.SetActive(false);
+            manualPanel.SetActive(false);
+            developerPanel.SetActive(false);
+            pausePanel.SetActive(false);
+            HideCalibrationResult();
             for (int i = 0; i < catalog.Count; i++)
             {
                 var song = catalog.Song(i);
@@ -807,9 +812,16 @@ namespace Game.Rhythm
             playExit.gameObject.SetActive(active);
             settingsButton.gameObject.SetActive(!active);
             startButton.gameObject.SetActive(!active);
-            backButton.gameObject.SetActive(!active);
+            backButton.gameObject.SetActive(!active && songMenuButton == null);
             if (songMenuButton != null) songMenuButton.gameObject.SetActive(!active);
             instructions.gameObject.SetActive(!active);
+            if (!active && songMenuButton != null)
+            {
+                // 结算、校准与准备页共用同一列；不继承上一状态留下的锚点。
+                Place(startButton.GetComponent<RectTransform>(), new Vector2(0.71f, 0.32f), new Vector2(0.91f, 0.40f));
+                Place(songMenuButton.GetComponent<RectTransform>(), new Vector2(0.71f, 0.19f), new Vector2(0.91f, 0.27f));
+                Place(settingsButton.GetComponent<RectTransform>(), new Vector2(0.71f, 0.06f), new Vector2(0.91f, 0.14f));
+            }
         }
         private void SetLaneGuides(bool visible)
         {

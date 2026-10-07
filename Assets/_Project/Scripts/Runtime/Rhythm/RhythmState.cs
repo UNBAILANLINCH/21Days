@@ -929,7 +929,8 @@ namespace Game.Rhythm
             {
                 view.SetOffset((float)saved.OffsetMs);
                 view.HideCalibrationResult();
-                view.Ready($"已采用并保存输入补偿 {saved.OffsetMs:+0;-0;0} ms，视觉值保持");
+                if (catalog != null && externalRequest == null) ShowSongMenu();
+                else view.Ready($"已采用并保存输入补偿 {saved.OffsetMs:+0;-0;0} ms，视觉值保持");
             }
             else ShowCalibrationSuggestion("采用未保存，原补偿保持；可重试采用或保留原值");
             if (success) telemetry.Track("calibration_saved", ("offset_ms", saved.OffsetMs));
@@ -938,7 +939,8 @@ namespace Game.Rhythm
         {
             if (closing || view == null || calibrationApplying) return;
             StopRound(); ClearCalibrationSuggestion();
-            view.Ready("已保留原补偿；可继续演奏或手动调节");
+            if (catalog != null && externalRequest == null) ShowSongMenu();
+            else view.Ready("已保留原补偿；可继续演奏或手动调节");
         }
         private void ClearCalibrationSuggestion()
         {

@@ -86,7 +86,58 @@ namespace Game.Tests.Showcase.Rhythm
             yield return Snapshot("页面显隐与实际比例渲染");
         }
 
-        private void RenderPage(RhythmView view, int width, int height, string page)
+        [UnityTest, Timeout(90000)]
+        public IEnumerator CalibrationReturns_LibraryOnlyAndClickable_AfterCancelApplyAndResult()
+        {
+            yield return Prepare(3);
+            yield return Enter();
+            var view = ResolveService<IUIService>().Get<RhythmView>();
+            FindDeep<Button>(view.transform, "LibrarySettings").onClick.Invoke();
+            FindDeep<Button>(view.transform, "CalibrationButton").onClick.Invoke();
+            yield return WaitUntil("参考拍取消入口出现", () => FindDeep<Button>(view.transform, "PlayExit").gameObject.activeInHierarchy, 5f);
+            FindDeep<Button>(view.transform, "PlayExit").onClick.Invoke();
+            VerifyCalibrationReturn(view, "cancel");
+
+            state.StartCalibration();
+            SeedCalibrationCandidate(80); // 仅路由 fixture，不冒充真人估计。
+            FindDeep<Button>(view.transform, "CalibrationKeep").onClick.Invoke();
+            VerifyCalibrationReturn(view, "keep");
+
+            state.StartCalibration();
+            SeedCalibrationCandidate(80);
+            FindDeep<Button>(view.transform, "CalibrationApply").onClick.Invoke();
+            yield return WaitUntil("采用落盘后返回曲库", () => state.IsSongMenu && state.CalibrationCandidate == null, 5f);
+            VerifyCalibrationReturn(view, "apply");
+            RhythmCalibrationData saved = null;
+            yield return ResolveService<ISaveService>().ReadProfileAsync<RhythmCalibrationData>("rhythm-calibration").ContinueWith(value => saved = value).ToCoroutine();
+            Assert.That(saved.OffsetMs, Is.EqualTo(80));
+
+            FindDeep<Button>(view.transform, "LibraryStart").onClick.Invoke();
+            yield return WaitUntil("隔离短曲开始", () => state.IsPlaying, 5f);
+            yield return WaitUntil("隔离短曲结算", () => !state.IsPlaying, 5f);
+            FindDeep<Button>(view.transform, "SongMenuButton").onClick.Invoke();
+            FindDeep<Button>(view.transform, "LibrarySettings").onClick.Invoke();
+            FindDeep<Button>(view.transform, "CalibrationButton").onClick.Invoke();
+            yield return WaitUntil("结算后再次校准", () => FindDeep<Button>(view.transform, "PlayExit").gameObject.activeInHierarchy, 5f);
+            FindDeep<Button>(view.transform, "PlayExit").onClick.Invoke();
+            VerifyCalibrationReturn(view, "post-result-cancel");
+            yield return Snapshot("校准往返曲库无旧控件且目标按钮命中");
+        }
+
+        private void VerifyCalibrationReturn(RhythmView view, string page)
+        {
+            Assert.That(state.IsSongMenu, Is.True);
+            Assert.That(state.IsPlaying, Is.False);
+            foreach (Transform child in view.transform)
+            {
+                if (child.name == "SongSelection") continue;
+                Assert.That(child.gameObject.activeInHierarchy, Is.False, child.name + " 不应绘制或接收射线");
+            }
+            RenderPage(view, 1920, 1080, "calibration-return-" + page, true);
+            RenderPage(view, 2048, 1152, "calibration-return-" + page, true);
+        }
+
+        private void RenderPage(RhythmView view, int width, int height, string page, bool checkLibraryHit = false)
         {
             // 只改测试中的运行时 Canvas，实际按目标像素布局并渲染；不改 GameView/EditorPrefs 或任何资产。
             var canvas = view.GetComponentInParent<Canvas>().rootCanvas;
@@ -113,8 +164,24 @@ namespace Game.Tests.Showcase.Rhythm
                         Mathf.Log(height / reference.y, 2), scaler.matchWidthOrHeight));
                 }
                 Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
+                if (checkLibraryHit)
+                {
+                    var raycaster = canvas.GetComponent<GraphicRaycaster>();
+                    Assert.That(raycaster, Is.Not.Null);
+                    foreach (string name in new[] { "LibraryStart", "LibrarySettings" })
+                    {
+                        var button = FindDeep<Button>(view.transform, name);
+                        Assert.That(button.gameObject.activeInHierarchy && button.interactable, Is.True, name);
+                        var rect = button.GetComponent<RectTransform>();
+                        var point = RectTransformUtility.WorldToScreenPoint(camera, rect.TransformPoint(rect.rect.center));
+                        var hits = new List<UnityEngine.EventSystems.RaycastResult>();
+                        raycaster.Raycast(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = point }, hits);
+                        Assert.That(hits.Count, Is.GreaterThan(0), name);
+                        Assert.That(hits[0].gameObject.GetComponentInParent<Button>(), Is.SameAs(button), name + " 点击区域被遮挡");
+                    }
+                }
                 texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
-                string folder = Path.Combine("Logs", "verify", "rhythm-ui-20261006");
+                string folder = Path.Combine("Logs", "verify", checkLibraryHit ? "rhythm-ui-return-20261007" : "rhythm-ui-20261006");
                 Directory.CreateDirectory(folder);
                 File.WriteAllBytes(Path.Combine(folder, width + "x" + height + "-" + page + ".png"), texture.EncodeToPNG());
             }

@@ -15,12 +15,16 @@ maturity: seed
 ```csharp
 bool IsReady { get; } bool IsBusy { get; } bool CanSave { get; }
 long Generation { get; }
+event Action OnChanged;
+bool HasStoryFlag(string key);
 NarrativeConditionSource Conditions { get; }
 NarrativeSaveData Capture();
 UniTask<bool> StartAsync(string storyId, string targetId, CancellationToken ct = default);
 UniTask<bool> TryEncounterAsync(IEnumerable<EncounterRules.Candidate> candidates, CancellationToken ct = default);
 UniTask<bool> SubmitAsync(NarrativeIntent intent, CancellationToken ct = default);
 UniTask RetryAsync(CancellationToken ct = default);
+bool TryBeginBattle(long generation, long activationId, string targetId);
+void ReleaseBattle(long generation, long activationId);
 void ValidateCandidate(SaveSnapshot candidate);
 void ReloadFromSave();
 void CaptureIntoPartition();
@@ -31,7 +35,46 @@ void CaptureIntoPartition();
 - `Capture()` 是当前内存深拷贝，不承诺可落盘；Session 必须检查 CanSave，稳定等待/结束才支持恢复。
 - 提交意图从 Generation 与 Capture().Current 固定身份；不能 await 回来再读取新阶段身份。
 - `NarrativeTrigger.Configure(id, kind, service, actor)` 用于运行时 NPC；场景固定 NPC 由服务在加载时 Bind。
+- `NarrativeTrigger` 绑定时若同物体有 `DialogueInteractable`，会 `SetInteractionHandover` 接管交互（`NarrativeTrigger.cs:53-58`），`HasFocusEntry` 为 true；`InteractAsync` 在服务不可用时返回 `false`（`IsReady` 守卫，`:65`）。
 - `NarrativeChangedEvent.Stage` 是已写回分区的通知，Session 只合并保存请求，不参与推进。
+- `OnChanged`（`NarrativeService.cs:64`）与 `NarrativeChangedEvent` 同一时刻触发，给不进容器的场景组件用；回调里只读状态、**不得推进剧情**；订阅方抛异常会被逐个兜住。
+- `HasStoryFlag(key)`（`NarrativeService.cs:73`）：当前槽位剧情标记里有没有该键；未就绪 / 空键为 false；不含身份 / 遭遇的派生事实。
+- `TryEncounterAsync` 对 `TriggerKind == "Interact"` 且 `EntryEpoch == 0` 的候选，用 `NextActivationId` 当纪元（`NarrativeService.cs:148-152`）——`Reenter` 的主动交互可重复触发，调用方照旧传 0 即可。
+- 当前停在 Battle 阶段且战斗没在途时，同目标的有效 Interact 候选**不重新进入遭遇，而是重发开战通知**（`NarrativeService.cs:159-168`）。
+
+## 战斗阶段通知（`BattleStageEnteredEvent`，2026-10-07）
+
+```csharp
+public readonly struct BattleStageEnteredEvent
+{
+    long Generation; long ActivationId; string TargetId; string StageId; string Payload;   // 全是只读属性
+}
+// MessagePipe：IPublisher / ISubscriber<BattleStageEnteredEvent>，NarrativeInstaller.InstallEvents 注册（NarrativeInstaller.cs:20）
+```
+
+- **三个发布点**（都在 `NarrativeService`，经 `PublishBattleStage`，`:359`）：`DriveAsync` 停到 Battle 阶段（`:284-288`）、`ReloadFromSave` 恢复到 Battle 阶段（`:116-120`）、Battle 阶段上同目标主动交互重发（`:159-168`）。
+- 订阅方拿到三项身份（`Generation` / `ActivationId` / `TargetId`）原样带回 `CompleteBattleAsync`；`Payload` = 阶段表 payload 列（样例里是 BOSS 定义 id）。**不要换成遭遇步骤的 `EncounterId`**。
+- 发布时 `busy` 仍为 true：订阅方先 `TryBeginBattle` 登记在途，不要在回调里同步回写，否则会被 `CanAccept` 拒掉。
+
+```csharp
+bool TryBeginBattle(long generation, long activationId, string targetId); // NarrativeService.cs:227
+void ReleaseBattle(long generation, long activationId);                  // NarrativeService.cs:244
+```
+
+- `TryBeginBattle`：身份对得上当前 Battle 阶段且未在途才登记并 `Flush`；登记后 `CanSave` 为 false（战中不存档）。`false` = 旧身份或已在途，不要开仗。
+- `ReleaseBattle`：没打完就收场时调用，解除登记；阶段原地不动，可重试（同目标再交互或读档都会重发通知）。身份过期是空操作。
+- `IsStable` 的口径：Battle 阶段**没在打时稳定、在途时不稳定**（`NarrativeService.cs:345-347`）；`ValidateCandidate` 同口径。
+
+## `Game.Narrative.NarrativeFlagVisibility`（场景组件）
+
+```csharp
+string FlagKey { get; }  bool IsBound { get; }
+void Configure(string key);  void Bind(NarrativeService narrative);  void Unbind();  void Refresh();
+static bool ShouldBeVisible(bool flagSet);   // = !flagSet
+```
+
+标记成立 → `SetActive(false)`，不成立 → 显示；绑定、`OnChanged`、`Refresh()` 时重算；没绑定 / 键为空 / 服务未就绪不动物体。
+场景里的由 `NarrativeService` 加载时扫描绑定，运行时生成的自己调 `Bind`（`NarrativeFlagVisibility.cs:39-60`）。只读标记、不写标记。
 
 ## `Game.Narrative.EncounterContext`（`sealed class`，值语义快照）
 
@@ -76,7 +119,7 @@ public sealed class Stage { /* Id、Kind、PayloadId、AllowEncounter、IssueReq
 
 - 构造时强校验（失败即抛 `ArgumentException`）：`id`/`entry` 非空、阶段 ID 不重复、跳转目标存在、
   `Condition` 必须有 `True`/`False` 出口、`RequiredParts` 非空须有 `Success` 出口、`AllowEncounter` 只能在 `WaitAction`、连续 `Condition` 不能成环。
-- 构造后禁止修改 Stage；API 未深度冻结，修改会绕过校验。生产 Catalog 另拒绝无出口等待、Battle/外部请求/未接入目标事实。
+- 构造后禁止修改 Stage；API 未深度冻结，修改会绕过校验。生产 Catalog 另拒绝无出口等待与未接入目标事实；**`Battle` 阶段与外部请求（`IssueRequest`）已能进表**（Battle 须声明 `battleResults`，`IssueRequest` 须有出口，见 module guide 附录）。
 
 ## `Game.Narrative.NarrativeRules`（`sealed class`，持有可变状态，非线程安全）
 

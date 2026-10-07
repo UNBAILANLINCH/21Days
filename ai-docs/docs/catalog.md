@@ -40,7 +40,8 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Identity | guide（seed）；身份内核与 Boot 注册、遭遇禁攻；已有 Showcase | [`modules/identity/`](modules/identity/identity-module-guide.md) |
 | Stealth | guide（seed）；遮挡、绕背、击倒与追逐内核已接遭遇；已有 Showcase，处决受内容表限制 | [`modules/stealth/`](modules/stealth/stealth-module-guide.md) |
 | World | guide（seed）；Boot 注册、两界灰盒与传送 / 出生点接线；回放仍有失败 | [`modules/world/`](modules/world/world-module-guide.md) |
-| TurnBased | guide（seed）；回合制内核与白盒 Showcase；正式战斗入口 / UI 未接 | [`modules/turnbased/`](modules/turnbased/turnbased-module-guide.md) |
+| TurnBased | guide（seed）；回合制内核；已由 `Game.Battle` 接成正式战斗（剧情驱动、有界面）；`EncounterStep` 的进战斗判定（偷袭 / 被打）未接 | [`modules/turnbased/`](modules/turnbased/turnbased-module-guide.md) |
+| Battle | 三件套齐备（seed）；**回合制战斗落地**——剧情停在 Battle 阶段即开战：叠加加载战斗场景、按住世界、`BattleView` 界面、收场回写剧情；只给 SampleScene 的 `sample_boss` 用；回放 `Tests/Showcase/Battle/` | [`modules/battle/`](modules/battle/battle-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

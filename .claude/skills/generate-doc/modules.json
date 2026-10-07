@@ -117,6 +117,11 @@
       "src": "Assets/_Project/Scripts/Runtime/TurnBased",
       "docs": "ai-docs/docs/modules/turnbased",
       "status": "seed"
+    },
+    "battle": {
+      "src": "Assets/_Project/Scripts/Runtime/Battle",
+      "docs": "ai-docs/docs/modules/battle",
+      "status": "seed"
     }
   }
 }

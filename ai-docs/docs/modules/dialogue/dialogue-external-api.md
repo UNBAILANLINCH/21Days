@@ -44,19 +44,20 @@ maturity: stable
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `Interact` | `void Interact()` | 已有对白 / 超出半径 / 有树未绑定 / 无树无台词时记 Warn 并忽略；无树有台词 → 抛 `OnBubbleRequested`；有树 → 后台拉起（`DialogueInteractable.cs:144`） |
+| `Interact` | `void Interact()` | 已有对白 / 超出半径 / 有树未绑定 / 无树无台词时记 Warn 并忽略；已转交 → 只调接管方；无树有台词 → 抛 `OnBubbleRequested`；有树 → 后台拉起（`DialogueInteractable.cs:169`） |
+| `SetInteractionHandover` / `ReleaseInteractionHandover` / `HasHandover` | `void SetInteractionHandover(Action handler)`、`void ReleaseInteractionHandover(Action handler)`、`bool HasHandover { get; }` | 交互转交：同物体上的别的入口（现为 `NarrativeTrigger`，BOSS NPC）接管「交互键 / 交互提示 / 点 NPC」之后做什么；焦点、提示、头顶标记照常。`Release` 只撤自己那一份 |
 | `Bind` | `void Bind(DialogueService service)` | 场景里摆好的由 `DialogueSceneBinder` 自动调；**运行时实例化的要自己调** |
 | `OnCompleted` | `event Action<DialogueResult>` | 仅正常结束触发；取消 / 失败不触发 |
 | `OnBubbleRequested` | `event Action<string>` | 无树时每次交互抛下一句台词（按序循环）；不暂停世界、不切输入图 |
 | `InRange` | `bool InRange { get; }` | 测距角色（Inspector `actor`，否则场景 `DialogueInteractionActor`）为空或半径 ≤ 0 恒 true；否则三维距离 |
-| `CanInteract` | `bool CanInteract { get; }` | 在范围内、无对白进行，且「有树已绑定」或「无树有台词」 |
+| `CanInteract` | `bool CanInteract { get; }` | 在范围内、无对白进行，且「已转交」或「有树已绑定」或「无树有台词」 |
 | `Focused` | `bool Focused { get; internal set; }` | 是否当前交互焦点；**只读**，仅焦点系统写 |
 | `MarkerOverridden` | `bool MarkerOverridden { get; }` | 头顶「…/!」图标是否被外部世界空间标记接管（当前接管方：任务目标标记）；为 true 时头顶标记只隐图标，名字、气泡、点击与交互不受影响。写入口 `internal SetMarkerOverridden(bool)` 只供同程序集的接管方调用，接管方负责成对交还；`OnDisable` 不清它 |
 | `DisplayName` / `DialogueId` / `IsBound` / `HasTree` / `HasBubble` | 只读属性 | `DialogueId == 0` 即 `HasTree == false` |
 
 `Interact()` 不抛异常、不返回结果；要结果就订阅 `OnCompleted`，或直接调 `DialogueService.PlayAsync`。
 物体销毁会取消进行中的对白（用的是 `destroyCancellationToken`）。有树时走带锚点的重载、传**自身 Transform**
-（`DialogueInteractable.cs:192`），对话树里节点前插播的世界舞台演出摆到这个 NPC 所在位置。
+（`DialogueInteractable.cs:222`），对话树里节点前插播的世界舞台演出摆到这个 NPC 所在位置。
 
 ## `Game.Dialogue.DialogueInteractionFocus`（根作用域入口点，可构造注入）
 

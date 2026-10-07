@@ -13,9 +13,10 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 真源是策划 2026-10-07 补交的 `docs/design/spotlight/07_回合制作战文档.md`（86 行，全篇都对着写）；
 转写、规则编号与开放问题见 `docs/design/features-spotlight/09_BOSS战.md` §3.9（R40–R48）与 §9（Q17–Q19 → C90–C92）。
 
-> ⚠️ **本模块目前没有调用方**：没有接进 `EncounterStep`（遭遇流程 / `Runtime/Monster/`），
-> 没有接进 `Boot.unity`，也没有任何界面。它是一次「先把规则做出来、数值可注入、判定可测」的落地。
-> 不要因为看到它就以为战斗已经能跑——接线清单在本文最后一节。
+> **接线现状**：本模块是纯规则内核，**唯一的调用方是 [`Game.Battle`](../battle/battle-module-guide.md)**
+> （`BattleSetup.cs:102-106` 开仗、`BattleFlow.cs:301,331,337,351` 驱动回合；除 `Game.Battle` 外 `Runtime/` 下没有别的文件引用 `Game.TurnBased`）。
+> `Game.Battle` 已挂进 `Boot.unity`，剧情停在 Battle 阶段即可开战、有界面、有回放；但**只有「正面攻击、玩家先手」一种开战方式在用**，
+> `EncounterStep` 的进战斗判定（偷袭 / 被打）仍没接。逐项状态见本文最后一节「接线清单」。
 
 ## 职责边界
 
@@ -29,11 +30,12 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 | `BossDrunkRules` / `DrunkTierRules` / `DrunkSettings` / `DrunkTurnOutcome` | 醉酒值状态机（继承、+30 封顶、酩酊 −50 与持续 2 回合）与四档阈值 / 概率 / 跳过原因 |
 | `BossBattleRules` / `BossBattleSnapshot` | BOSS 侧：生命、醉酒（转发 `BossDrunkRules`）、减疗、招式 1 的「下次 +30%」挂起 |
 | `BossSkillRules` / `BossSkill` / `BossSkillResult` / `BossSkillSettings` | BOSS 三招式的权重选择（6:3:1）与效果（普攻 / 饮酒 / 高额伤害 + 薄醉晕眩） |
-| `BattleSession` | **一场战斗的驱动器**：按 07:46-58 的顺序推回合，每次动作后把 `BattleEvent` 摆出来 |
+| `BattleItemSettings` | 道具效果设置（**占位，等 C91**）：一条「治疗道具回复玩家生命百分比」——道具 id / 百分比 / 基数；`Heals(itemId)` 判是不是治疗道具（`BattleItemSettings.cs:40`） |
+| `BattleSession` | **一场战斗的驱动器**：按 07:46-58 的顺序推回合，每次动作后把 `BattleEvent` 摆出来；用道具时调 `ApplyItemEffect`（`BattleSession.cs:125,367`） |
 | `BattleEvent` / `BattleEventKind` / `BattleHintTexts` | 事件与「屏幕中央闪现提示」文案（07:71-73 原文逐字）。**只给结果，不做界面** |
 | `TurnBasedKernel` | 装配入口：配置 + `IRandomStream` + 背包口 → `TryStartBattle(...)` 开一场仗 |
-| `TurnBasedConfig` / `TurnBasedConfigValidation` | ScriptableObject 配置（40 个字段，逐个写「出处 07:行号 / 待拍板编号」）/ 它的纯函数校验 |
-| `BattleSettings` + 五份 `*Settings` | 纯值设置包（`BattleEntry` / `PlayerSkill` / `BossSkill` / `Drunk` / `Flow`）：**规则与测试都不依赖 ScriptableObject** |
+| `TurnBasedConfig` / `TurnBasedConfigValidation` | ScriptableObject 配置（**43 个 `[SerializeField]` 字段**，数自 `TurnBasedConfig.cs`，逐个写「出处 07:行号 / 待拍板编号」；最后三个是道具效果占位 `TurnBasedConfig.cs:168,171,174`）/ 它的纯函数校验（含道具百分比 0..100，`TurnBasedConfigValidation.cs:50`） |
+| `BattleSettings` + 六份 `*Settings` | 纯值设置包（`BattleEntry` / `PlayerSkill` / `BossSkill` / `Drunk` / `Flow` / `Items`）：**规则与测试都不依赖 ScriptableObject**；`Items` 是构造函数的可选末位参数，不传 = 没有任何道具效果（`BattleSettings.cs:24,58`） |
 | `BattleExitKeys` | 战斗结果 → 剧情出口键（`Victory` / `Downed`），对齐 `PRP/battle-to-narrative` 的词汇 |
 
 ## 为什么不复用既有模块的能力
@@ -51,6 +53,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 - 只依赖 `Game.Core`：`Game.Core.Simulation.IRandomStream`（**只读引用，不改 Core**）与 `Game.Core.Simulation.GameMath`（钳制）；
   外加 `UnityEngine` 一份——只有 `TurnBasedConfig` 是 ScriptableObject。
 - **不依赖** Monster / Player / Inventory / Narrative / Stealth / Identity；反向由接线侧调用本模块的公开接口。
+  接线侧就是 `Game.Battle`：它依赖本模块，另外还依赖 Narrative / Loot / CharacterPuppet / Core.UI / Core.Flow（见 battle guide「依赖方向」），本模块一概不知。
 
 ## 规则落点（对着 07 全文逐条）
 
@@ -66,11 +69,12 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 | 玩家施放招式后进入敌方回合（07:56） | `BattleSession.cs:159` |
 | 道具在施放招式之前使用（07:58） | `BattleSession.cs:101`（出招后 / 非玩家回合一律拒） |
 | 道具「用过了则置暗；未拥有则不显示」（07:42） | `ItemUseRules.cs:21`、`BattleItemLedger.cs`（`TryUse` 记账、`CanUse` 只判定） |
+| 道具效果（07 没写，**占位**）：治疗药水回复玩家生命百分比 | `BattleSession.cs:125`（用掉后调 `ApplyItemEffect`）、`BattleSession.cs:367-371`、`PlayerBattleRules.cs:177`（`Heal`，向下取整、封顶生命上限、已倒下不回）、`BattleItemSettings.cs:40` |
 | BOSS 进战斗继承战斗外的醉酒值（07:66） | `BossBattleSnapshot.cs`、`BossBattleRules.cs:31`（构造）、`TurnBasedConfig.cs:89` |
 | 正常 0-49 / 微醺 50-79（20%）/ 薄醉 80-99（40%）/ 酩酊 100（100%、−50、持续 2 回合）（07:70-73） | `DrunkTierRules.cs:17`、`DrunkTierRules.cs:33`、`DrunkTierRules.cs:55`、`BossDrunkRules.cs:66` |
 | 跳过回合时屏幕中央闪现提示（07:71-73） | `BattleHintTexts.cs`（三句原文逐字）、`BattleEvent.BossTurnSkipped`（带 `HintText`） |
 | BOSS 招式 1 普通攻击（07:79） | `BossSkillRules.cs:47`、`BossBattleRules.cs:148`（下次 +30% 只吃一次） |
-| BOSS 招式 2 饮酒：+30 醉酒、回 10% 生命、下次招式 1 +30%（07:80） | `BattleSession.cs:297-301`、`BossBattleRules.cs:53/100` |
+| BOSS 招式 2 饮酒：+30 醉酒、回 10% 生命、下次招式 1 +30%（07:80） | `BattleSession.cs:298-301`、`BossBattleRules.cs:53/100` |
 | BOSS 招式 3：正常 / 微醺 高额伤害；薄醉 高额伤害 + 晕眩玩家 1 回合（07:81-82） | `BossSkillRules.cs:56`、`BattleSession.cs:311`、`PlayerBattleRules.cs:85` |
 | 施放比例 6:3:1（07:84） | `BossSkillRules.cs:20`、`TurnBasedConfig.cs:145-151` |
 | 玩家状态右下角显示剩余回合（07:43）→ 有回合上限 | `BattleFlowSettings.cs`、`BattleSession.cs:324`（上限口径可配，数值等 C91） |
@@ -83,24 +87,30 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
   1. 概率为 0% 或 100% 时**不消耗随机数**（确定事件不该抽骰子，否则同场战斗里后面所有随机判定的位置会漂移）；
   2. 每次选招**恰好消耗一个**随机数（用 `Range(0, 权重和)` 一次取加权区间，不是三次抽样）。
 - **本模块不实现 `IReplayState`**：`BattleSession` 没有进任何 tick，状态全是可重建的整数
-  （怒气、生命、醉酒值、次数、已用道具 id）。接线时**必须**让 `IRandomStream` 来自 `IRandomService` 的
-  `logic.*` 流；「战中存档要不要把会话状态写进快照」留给接线波决定（若写，按 `Core/Replay/ReplayFormat` 的规矩升版）。
+  （怒气、生命、醉酒值、次数、已用道具 id）。
+- **接线波的结论（PRP `turnbased-battle` D8，原先这里写「必须来自 `logic.*` 流」已作废）**：`Game.Battle` **没有**用 `logic.*` 流——
+  战斗在确定性内核之外推进，消耗 `logic.*` 会让回放在战斗之后哈希对不上；`view.*` 又违背「表现流不影响逻辑」。
+  现状是每场开打从会话主种子派生一条本地流 `new XorShiftRandomStream(主种子 ^ 盐 ^ 场次)`，不登记进 `IRandomService`、不进快照
+  （`BattleSetup.cs:10-14`、`BattleSetup.cs:116-120`）。**代价：回放不覆盖回合制战斗**。本模块「概率只走注入的 `IRandomStream`」的要求照旧成立。
+- **战中存档**的结论（D9）：战斗会话状态**不进快照**、不升 `ReplayFormat`；战斗在途时剧情不可保存，读档停在 Battle 阶段则战斗从头开始
+  （`NarrativeService.cs:227-238`、`:345-347`、`:114-120`，详见 battle guide「战中不存档」）。
 
 ## 事实键纪律
 
 - 本模块**不写任何事实键**：`ai-docs/docs/story-facts.md` §4.5 把 `combat.phase.<n>` / `combat.tooth.weakened` /
   `combat.masks.ready` 的写入方登记为 **Monster / Inventory**，§6.1 是「一个键一个写入方」。
-- 战斗结果只经 `BattleSession.ExitKey`（`Victory` / `Downed`）交给**唯一一条路**：
-  `EncounterStep.PendingResult` → `NarrativeRules.CompleteBattle`（`PRP/battle-to-narrative/prp.md` §2.1）。
-  **不要自创结果键**，也不要在这里改剧情状态。
+- 战斗结果只经 `BattleSession.ExitKey`（`Victory` / `Downed`）交给**唯一一条路**：`NarrativeService.CompleteBattleAsync` → `NarrativeRules.CompleteBattle`
+  （`PRP/battle-to-narrative/prp.md` §2.1）。回合制这条路径现在由 `Game.Battle` 走通：`BattleFlow` 取 `session.ExitKey`（`BattleFlow.cs:321`）、
+  收场时经 `NarrativeBattlePort` 回写（`BattleFlow.cs:243`、`NarrativeBattlePort.cs:27-33`）。`EncounterStep.PendingResult`（`EncounterStep.cs:127`）那条路径
+  （潜行 / 遭遇的结果）**仍没有人消费**。**不要自创结果键**，也不要在这里改剧情状态。
 
 ## 配置与占位值
 
-- 资产：`Assets/_Project/Data/TurnBased/TurnBasedConfig.asset`（40 个字段，与 C# 声明逐一对齐）。
+- 资产：`Assets/_Project/Data/TurnBased/TurnBasedConfig.asset`（43 个字段，与 C# 声明逐一对齐；最后三个 `healItemId` / `healItemPercent` / `healItemBase` 在资产里是 `TurnBasedConfig.asset:55-57`）。
 - 每个数值字段的注释都写「出处 `07_回合制作战文档.md:行号` / 待拍板编号」；
   **原文没给的一律是占位值**（怒气上限、三招式伤害、额外伤害值、BOSS 普攻与高额伤害、减疗持续回合、
-  回合上限、百分比基数、取整口径），等 **C91**；适用范围（这套回合制是不是所有 BOSS 都用）等 **C90**；
-  界面等 **C92 / Q19**。
+  回合上限、百分比基数、取整口径、**道具效果**——占位「1004 治疗药水回复 30% 生命上限」，注释标「占位，等 C91」），等 **C91**；
+  适用范围（这套回合制是不是所有 BOSS 都用）等 **C90**；界面等 **C92 / Q19**。
 - 两处各写一遍默认值是有意的（配置要能在 Inspector 里改，规则要能脱离 Unity 测）：
   `TurnBasedConfig` 字段默认 ↔ `BattleSettings.PlaceholderDefault` 由测试
   `TurnBasedKernelTests.DefaultConfigAsset_MatchesPlaceholderSettings` 钉住，**不许漂移**。
@@ -108,8 +118,9 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 ## 已知约束（读代码前先知道这些）
 
 - **`BattleSession` 只被接线侧驱动**：它不会自己往前跑，也没有协程 / 计时器；表现层要按 `Phase` 收输入、
-  按 `Events` 播表现（每次动作前事件列表会清空，只反映最近一次动作）。
-- **玩家血量由外部注入**（`PlayerBattleSnapshot`）：原文没写玩家血量，本模块不设占位血量。
+  按 `Events` 播表现（每次动作前事件列表会清空，只反映最近一次动作）。现在的驱动者是 `BattleFlow.FightAsync`（`BattleFlow.cs:291-322`），它在每次动作后立刻拷贝事件交给表现层。
+- **玩家血量由外部注入**（`PlayerBattleSnapshot`）：原文没写玩家血量，本模块不设占位血量。`Game.Battle` 注入的是 `BossDefinition.PlayerHealth`
+  （占位 10，满血开打，战后不回写），**不读 `PlayerModel`、不是探索血量**（`BattleSetup.cs:95-105`、`BossDefinition.cs:20,35`）。
 - **百分比一律向下取整**（整数运算，`BossBattleRules.cs:85/100`）；原文没写取整口径，见交付报告「待拍板」。
 - **减疗重复施放是覆盖不是叠加**；「酩酊 −50」占位口径是**进入酩酊时降一次**，两种口径都有配置开关，
   可随 C91 改而不动代码。
@@ -119,21 +130,29 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 
 ## 验证入口
 
-- EditMode：`Assets/_Project/Scripts/Tests/EditMode/TurnBased/`——**11 个测试类、159 条**（含 12 个参数化边界），
-  每条判定都配负对照：进战斗的三条路径各配「条件少一条」的反例、怒气不足 / 同回合第二招 / 晕眩中出招、
+- EditMode：`Assets/_Project/Scripts/Tests/EditMode/TurnBased/`——**12 个测试类**（比旧版多 `BattleItemEffectTests`，道具效果占位）；PRP `turnbased-battle` §9 记 W1 时该组 165/165 通过
+  （这是 PRP 的回填数字，不是本文数出来的）。每条判定都配负对照：进战斗的三条路径各配「条件少一条」的反例、怒气不足 / 同回合第二招 / 晕眩中出招、
   未拥有与已用过的道具、醉酒阈值 49/50、79/80、99/100 逐个数到、6:3:1 的分布与同种子可重复、
   BOSS 生命归零结束。
   跑法：`/unity-test EditMode TurnBased`（MCP `run_tests(group_names=["Game.Tests.EditMode.TurnBased"])`）。
 - 测试辅助：同目录 `FixedRandomStream.cs`（按剧本吐数，多抽一个就抛）、`FakeBattleItemInventory.cs`。
-- **Showcase：尚无**（未接线）。接线后按 `docs/module-dev-spec.md` §1 补 `Scripts/Tests/Showcase/TurnBased/`。
-- 界面（招式格 / 怒气槽 / 血条 / 中央闪现提示）：**不存在**，见 C92 / Q19。
+- **Showcase**：本模块没有独立的 `Showcase/TurnBased/`；回合制战斗的回放在 [`Game.Battle` 的 `Tests/Showcase/Battle/`](../battle/battle-module-guide.md)
+  （两条用例：打赢、被击倒，`BattleShowcase.cs`）。**回放不覆盖随机流**（见上「随机数与回放」）。
+- 界面（招式格 / 怒气槽 / 血条 / 中央闪现提示）：**已有白盒**，在 `Game.Battle` 的 `BattleView`（`BattleView.cs:1-8` 文件头列了布局），
+  细节仍等 C92 / Q19，不属于本模块。
 
-## 接线清单（谁要调它、需要什么）
+## 接线清单（现状：已由 `Game.Battle` 接上的与仍缺的）
 
-| 环节 | 要做什么 | 卡在哪 |
+| 环节 | 状态 | 说明 / 出处 |
 | --- | --- | --- |
-| 进战斗判定 | 把潜行 / 偷袭是否命中 / 是否在警戒·敌对区域 / 怪物警觉档位 / 谁先动手填成 `BattleEntryRequest`，调 `TurnBasedKernel.TryStartBattle` | 需要 Monster 侧的警觉档位与区域查询（并行波次） |
-| 血量快照 | 玩家血量取 `PlayerConfig.maxHealth` + 玩家状态；BOSS 取 `MonsterConfig.ResolveMaxHealth` + 当前生命 + 战斗外醉酒值 | 需要怪物种类表（00 §8.2 步 1）与战斗外醉酒值的唯一出处 |
-| 背包口 | 写一个 `IBattleItemInventory` 适配器（问 Inventory 有没有） | Inventory 模块稳定后 |
-| 结果回写 | `BattleSession.ExitKey` → `EncounterStep.PendingResult` → `NarrativeRules.CompleteBattle` | roadmap **C5** / `PRP/battle-to-narrative` |
-| 界面 | 招式格 / 怒气槽 / 剩余回合 / 血条上下方的状态与醉酒值 / 中央闪现提示（文案已给） | **C92 / Q19** 未拍板 |
+| 开仗装配 | **已接** | `BattleSetup.TryCreate` 拼快照并调 `TurnBasedKernel.TryStartBattle`（`BattleSetup.cs:82-114`） |
+| 进战斗判定 | **只接了一种** | 固定拼「正面攻击、玩家先手」的请求（`BattleSetup.cs:104`）；偷袭 / 被打两条路径没有调用方——**`EncounterStep` 的进战斗判定（潜行 / 偷袭是否命中、是否在警戒·敌对区域、怪物警觉档位、谁先动手）仍没接**，需要 Monster 侧的警觉档位与区域查询 |
+| 玩家血量快照 | **已接，口径与原计划不同** | 读 `BossDefinition.PlayerHealth`（占位 10），不取 `PlayerConfig.maxHealth`、不读玩家状态（`BattleSetup.cs:95-105`） |
+| BOSS 血量与战斗外醉酒值 | **已接，出处是占位** | 读 `BossDefinition.MaxHealth`（`BossDefinition.cs:64`）与 `BossDefinition.OutOfBattleDrunk`（`BossDefinition.cs:67`），经 `BattleSetup.cs:105-106` 喂给内核，资产 `BossRosterConfig.asset:18-19` 为 12 / 50。**战斗外醉酒值仍没有「唯一真实出处」**（02:109 写 BOSS 100，口径未明，`BossDefinition` 文件头注释写明），等 C91 / 00 §8.1 #1；`MonsterConfig.ResolveMaxHealth` 没接 |
+| 背包口 | **已接** | `LootBattleBackpack` / `BattleItemInventory` 实现 `IBattleItemInventory`（`BattleItemInventory.cs:15`），扣减走 `LootService.TryConsume`（`LootBattleBackpack.cs:38`） |
+| 道具效果 | **占位** | 只有治疗药水回复百分比（`BattleItemSettings`），等 C91 |
+| 结果回写（回合制路径） | **已接** | `BattleSession.ExitKey` → `NarrativeService.CompleteBattleAsync`（`BattleFlow.cs:243`），在黑幕下、揭幕之前（`BattleFlow.cs:201-202`） |
+| 结果回写（潜行 / 遭遇路径） | **仍缺** | `EncounterStep.PendingResult`（`EncounterStep.cs:127`）没有消费方；roadmap C5 只覆盖了回合制这一条 |
+| 界面 | **白盒已接** | `BattleView`，细节等 **C92 / Q19** |
+| Boot 接线 | **已接** | `Boot.unity` 的 `GameBootstrap` 挂了 `BattleInstaller`（`BattleInstaller.cs:37`；`Boot.unity` 里能反查到它的 GUID） |
+| 适用范围 | 只给 `sample_boss` | 等 C90 |

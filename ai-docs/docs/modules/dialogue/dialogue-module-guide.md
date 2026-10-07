@@ -52,7 +52,7 @@ maturity: stable
 | `Game.Core.UI.Views.TranscriptView`（Core，原 `DialogueHistoryView` 下沉重命名，见下「为什么这样设计」） | `UIView`（**Top 层**：演出会整层藏 Popup 层，只有 Top 层能压在演出与对白之上；不进 UI 栈、不改 EventSystem 选中，Esc 与关闭都由调用方处理）：`Show(lines, truncated)` + 纯函数 `Format` 显示记录，格式来自静态 `DialogueController.BuildTranscript`（选择项说话者写「选择」） | Controller 按需开关（`history` 字段） |
 | `DialogueService` | **对外入口**：重入保护、世界暂停、输入图切换、藏探索 Hud 层（按进来前的值恢复）、事件广播、结果返回；`PlayAsync(id, performanceAnchor, ct)` 重载把插播演出锚点原样交给 Controller，两参重载转发时传 null（`DialogueService.cs:86`、`99`） | 根作用域单例 |
 | `IDialogueConditionSource` / `DefaultDialogueConditionSource` | 选项条件的事实快照来源；默认实现是占位 | 根作用域单例，Service 传给 Controller |
-| `DialogueInteractable` | 场景组件：对话树编号（`0` = 无树）+ 显示名 + 常驻台词 + 交互半径 + 点击入口；`Focused` 由焦点系统写；拉起对白时把**自身 Transform** 作插播演出锚点（`DialogueInteractable.cs:192`） | 场景物体；`DialogueSceneBinder` 注入 Service 与场景 Actor |
+| `DialogueInteractable` | 场景组件：对话树编号（`0` = 无树）+ 显示名 + 常驻台词 + 交互半径 + 点击入口；`Focused` 由焦点系统写；拉起对白时把**自身 Transform** 作插播演出锚点（`DialogueInteractable.cs:222`）；可把交互转交给同物体的别的入口（`SetInteractionHandover`，BOSS NPC 的 `NarrativeTrigger` 在用） | 场景物体；`DialogueSceneBinder` 注入 Service 与场景 Actor |
 | `DialogueSceneBinder` | 入口点：启动时与每次 `sceneLoaded` 扫场景，有树的 `Bind`、全部登记进 `Bound`，找玩家标记 `Actor`；`sceneUnloaded` 清已销毁项 | 根作用域入口点（`AsSelf`，焦点系统注入它） |
 | `DialogueKeyboardInput` | `ITickable` 入口点：对白进行中每帧读 `Dialogue` 动作图 + `UI/Cancel`，经静态纯函数 `Map(key, state)` 翻成处理动作，交给 `DialogueController.HandleKey` 调与点击同一套处理函数；首次拿到动作集时把按钮键位提示交给 Controller | 根作用域入口点（`DialogueInstaller`） |
 | `DialogueInteractionActor` | 玩家根上的空标记：测距原点 | 场景玩家物体 |
@@ -192,8 +192,8 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 选项 | 按 unscaled 时间每 0.25 s（`ChoiceRefreshInterval`）取一次条件快照刷新可用性，进入节点与提交后强制重算；不可用选项按 `hideWhenUnavailable` 隐藏或置灰并拼上原因；提交时规则再复验一次 | `DialogueController.cs:42`、`:314`、`:529`–`531`；`DialogueRules.cs:90` |
 | 选项图标 | `Choice.IconKey` 空 = 无图标（隐藏 `Icon`）；非空时先无图显示、异步加载完经 `SetChoiceIcon` 按选项 id 回填；按地址在**当前节点**内缓存，换节点 / 收尾整体释放；加载失败埋 Warn 不重试 | `DialogueController.cs:560`–`599`；`DialogueView.cs:279` |
 | 交互焦点 | 候选 = `Bound` 里激活、启用且 `CanInteract` 的；按到 Actor 的三维距离取最近 | `DialogueInteractionFocus.cs:89` |
-| `CanInteract` | 在范围内、没有对白进行，且「有树已绑定」或「无树有台词」 | `DialogueInteractable.cs:72` |
-| 范围 | Inspector `actor` 优先，否则场景 Actor（Binder 注入）；两者皆空或半径 ≤ 0 恒在范围；三维距离 | `DialogueInteractable.cs:74`–`87` |
+| `CanInteract` | 在范围内、没有对白进行，且「已转交给外部入口」或「有树已绑定」或「无树有台词」 | `DialogueInteractable.cs:78` |
+| 范围 | Inspector `actor` 优先，否则场景 Actor（Binder 注入）；两者皆空或半径 ≤ 0 恒在范围；三维距离 | `DialogueInteractable.cs:81`–`94` |
 | 头顶标记 | 焦点优先于可交互；气泡 `IsShowing` 时标记与名字全隐；名字只在焦点时显示；`MarkerOverridden` 时只隐「…/!」两张图、名字仍随焦点（判定在纯静态 `ResolveVisibility`） | `DialogueInteractableMarker.cs:53` |
 | 气泡 | 逐字（TMP 可见字符）→ ▼ → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs:102`、`108`、`114`、`125`、`156`、`163`–`170` |
 

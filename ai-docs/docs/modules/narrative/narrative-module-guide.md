@@ -52,8 +52,10 @@ Boot 挂接、定向测试、Showcase 与人工视觉验收的实际状态统一
 | `NarrativeCatalog` | Luban 翻译、对白出口与任务 ID 交叉校验、无出口等待/未实现能力及优先级冲突检查 | 惰性读取配置；构造时不读表 |
 | `NarrativeService` | 调用既有 DialogueService、固定异步身份、Session 重载、Quest 完成标记补齐 | 根作用域 IGameService；不直接改 Quest 进度 |
 | `NarrativeConditionSource` | PlayerModel 当前快照 + 当前槽位 StoryFlags + 已登记目标生命周期 | 实现 IDialogueConditionSource；无 Service 反向依赖，避免 DI 环 |
-| `NarrativeTrigger` | 无战斗 NPC 的稳定 ID、点击入口、距离判定、禁用/销毁取消 | 场景加载时绑定；运行时生成对象须 Configure/Bind |
+| `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:53-58,65`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
+| `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:93-94,407-408`）；BOSS NPC 靠它在胜利后退场 |
 | `NarrativeChangedEvent` | 分区已经写回的通知 | SaveTriggerBridge 合并保存请求 |
+| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是 `Game.Battle` | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:20`），`NarrativeService` 发布 |
 | `NarrativeInstaller` | 根作用域服务及 MessagePipe 注册 | Boot 的 GameBootstrap，配置加载完成后初始化 |
 
 ## 数据流（代码路径，资产接线与验证状态见 tasks.md）
@@ -98,8 +100,8 @@ DialogueService、Quest 公开事件/保存 DTO、SessionStartedEvent、PlayerMo
 | --- | --- | --- |
 | `DialogueInstaller` | `IDialogueConditionSource` | 尝试解析 NarrativeConditionSource；未装 Narrative 时使用原占位实现 |
 | `DialogueCatalog.cs:200`–`226` | `NarrativeCondition` | 内容表的 `anyOf[].all[]` 翻译为 `NarrativeCondition[][]`；`ConditionFact` 按名字映射到 `EncounterContext.Fact` |
-| `DialogueContent.cs:32`、`82` | `NarrativeCondition[][]` | 选项 `Conditions` 字段的类型；构造期用占位上下文校验一次 |
-| `DialogueController.cs:330` | `NarrativeCondition.Matches` | 每 0.25 s 刷新选项可用性 |
+| `DialogueContent.cs:32`、`84` | `NarrativeCondition[][]` | 选项 `Conditions` 字段的类型；构造期用占位上下文校验一次 |
+| `DialogueController.cs:538` | `NarrativeCondition.Matches` | 每 0.25 s 刷新选项可用性 |
 | `DialogueRules.cs:90` | `NarrativeCondition.Matches` | 提交选项时复验一次 |
 
 NarrativeService 在对白前固定 Generation/ActivationId/TargetId/RequestId，await 返回后构造 NarrativeIntent。
@@ -155,11 +157,11 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 
 - **资产接线与实测状态单独追踪**：有协调代码不等于 Boot 已运行；以 tasks.md 的实测记录为准。
 - **局部遭遇最多一层**：`EnterEncounter` 在 `CanEnterEncounter`（`state.Parent == null`）为 false 时直接拒绝，不支持递归嵌套（`NarrativeRules.cs:22`、`34`）。
-- **`ResolveAutomatic` 有 128 步上限**：连续 `Condition` 阶段超过这个数视为死循环抛 `InvalidOperationException`（`NarrativeRules.cs:66`、`88`），内容设计要避免。
-- **`Capture`/`Restore` 走 JSON 深拷贝**，不是引用赋值；`Restore` 会校验 `Current`/`Parent` 的 `Frame` 合法性（阶段存在、`ActivationId` 在范围内、`CompletedParts` 属于 `RequiredParts`），非法直接抛 `ArgumentException`（`NarrativeRules.cs:111`）。
+- **`ResolveAutomatic` 有 128 步上限**：连续 `Condition` 阶段超过这个数视为死循环抛 `InvalidOperationException`（`NarrativeRules.cs:71`、`95`），内容设计要避免。
+- **`Capture`/`Restore` 走 JSON 深拷贝**，不是引用赋值；`Restore` 会校验 `Current`/`Parent` 的 `Frame` 合法性（阶段存在、`ActivationId` 在范围内、`CompletedParts` 属于 `RequiredParts`），非法直接抛 `ArgumentException`（`NarrativeRules.cs:151`、`163`）。
 - **`EncounterContext.Fact` 与 Dialogue 的 `ConditionFact` 按名字映射**：两边任一改名或增项都要同步改（参见 dialogue-module-guide「内容表」一节）。
-- **战斗结果消费未定**：roadmap 提示 C5 之前要先决定 Player/Monster 的生命/伤害字段去留（设计支柱倾向无血条对抗），`Battle` 这个 `StageKind` 最终形态可能变化。
-- **章节 / 阶段结构以 [`stage-structure-spec.md`](../../stage-structure-spec.md) 为准**：旧版「章 / 幕 / 场」与聚光灯十二阶段怎么映射、十二段逐条能不能进内容表（`StageKind` 五态见 `NarrativeContent.cs:9`，但 `Battle` 目前被生产校验直接拒绝、见 `NarrativeCatalog.cs:79-80`）、旧版 [14] 哪些还成立，都在那份规范里。要落章节卡或阶段内容之前先读它。
+- **战斗结果消费**：回合制这条路径已由 `Game.Battle` 经 `CompleteBattleAsync` 走通（见下一附录与 [`battle-module-guide.md`](../battle/battle-module-guide.md)）；潜行 / 遭遇的结果（`EncounterStep.PendingResult`）仍没有消费方，roadmap C5 只覆盖了回合制。`Battle` 这个 `StageKind` 最终形态可能随 C90 / C91 变化。
+- **章节 / 阶段结构以 [`stage-structure-spec.md`](../../stage-structure-spec.md) 为准**：旧版「章 / 幕 / 场」与聚光灯十二阶段怎么映射、十二段逐条能不能进内容表（`StageKind` 五态见 `NarrativeContent.cs:9`，但 `Battle` 现在已能进表，见下方附录）、旧版 [14] 哪些还成立，都在那份规范里。要落章节卡或阶段内容之前先读它。
 
 ## 禁止事项
 
@@ -179,6 +181,57 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 
 **`IssueRequest` / `RequiredParts`**：两列已进 `Tables/Defines/narrative.xml`。`IssueRequest=true` 表示这一阶段会向外部系统发一次请求，校验要求它有至少一个出口；`RequiredParts` 是多部分行为，每部分提交一次 `Success`，全齐才真正迁移，因此必须有 `Success` 出口。
 
-**战斗阶段不是可恢复边界**：`NarrativeService.IsStable` 与 `DriveAsync` 都刻意让 `Battle` 停在原地等回写——外部战斗结果目前只活在内存里，未消费就落盘会得到一个永远等不到结果的阶段。
+**战斗阶段的可恢复边界（已被下一附录改写）**：`DriveAsync` 仍让 `Battle` 停在原地等回写（`NarrativeService.cs:280-288`）；但 `IsStable` **不再**对 Battle 一律返回 false——战斗没在打时稳定、在途时不稳定，见下一附录「`IsStable` 的新口径」。
 
 **剧情标记键名（V1–V3）**：`NarrativeCatalog.ValidateFacts` 现在按 [`story-facts.md`](../../story-facts.md) §3.2 校验 `StoryFlag` 的 `Key`：格式 `^[a-z][a-z0-9_]*(\.[a-z0-9_]+){0,2}$`（V1，1–3 段，允许下划线）、首段在白名单命名空间内（V2）、带档位段时第二段是字典 §4 登记的状态名（V3）。按 id 生成的历史键（`quest_completed_<id>`）走 `RegisteredIdKeyPrefixes` 通配前缀，不再逐个列举；三份白名单是 `NarrativeCatalog` 里的 `static readonly` 常量，改字典与改常量要同一次提交。
+
+## 附录·战斗阶段通知与战斗在途（2026-10-07，`PRP/turnbased-battle`）
+
+> 本节只记这次改动的增量；与上文冲突处以本节和源码为准。行号均指 `Assets/_Project/Scripts/Runtime/Narrative/NarrativeService.cs`，除非另写文件名。
+
+**`BattleStageEnteredEvent`（D2）**：`readonly struct`，字段 `Generation` / `ActivationId` / `TargetId` / `StageId` / `Payload`（`BattleStageEnteredEvent.cs:14-38`）。
+三个发布点，**全部经 `PublishBattleStage(reason)`**（`:359-366`），`reason` 只进埋点 `battle_stage_entered`：
+
+| 发布点 | reason | 位置 |
+| --- | --- | --- |
+| `DriveAsync` 的循环停到 Battle 阶段（发布后 `return`，剧情不空转） | `entered` | `:284-288` |
+| `ReloadFromSave`：读档 / 换槽后恢复到的阶段是 Battle（D9：战斗从头开始） | `restored` | `:116-120` |
+| `TryEncounterAsync`：停在 Battle 阶段而战斗没在跑，同目标主动交互 | `retried` | `:159-168` |
+
+注意：**发布发生在 `DriveAsync` 里（此刻 `busy` 仍为 true）**，订阅方不得在回调里同步跑完整场并回写——`CompleteBattleAsync` 会被 `CanAccept` 拒掉（`:329-335`；`Game.Battle` 的世界门闸先让出一帧，`SceneWorldGate.cs:29`）。
+`NarrativeService` 构造时 `IPublisher<BattleStageEnteredEvent>` 可空：没装战斗侧时停到 Battle 阶段只埋点、不通知（`:45-46`）。
+
+**`TryBeginBattle` / `ReleaseBattle`（D9）**：
+
+- `TryBeginBattle(generation, activationId, targetId)`（`:227`）：身份三项对得上当前 Battle 阶段（`rules.CanCompleteBattle`）且 `MarkRequestIssued` 成功才登记，复用阶段帧的 `RequestIssued`；
+  返回 `false` = 旧身份或已在途，战斗侧不该开仗（埋 `battle_begin_rejected`）。成功后立刻 `Flush`，`CanSave` 随之为 false。
+- `ReleaseBattle(generation, activationId)`（`:244`）：没打完就收场（异常 / 取消 / 表现缺失 / 回写被拒）时解除登记，阶段原地不动；身份过期是空操作。
+- 两者只管「在途登记」；结果回写仍是 `CompleteBattleAsync`（`:206`），不变。
+
+**`IsStable` 的新口径（PRP §9「W1 偏离①」）**：原来不把 Battle 阶段算稳定，读档会被拒，D9 走不到。现在 `IsStable`（`:345-347`）第三个分支是
+`Stage.Kind == Battle && !Current.RequestIssued`——**战斗在途（`TryBeginBattle` 登记的 `RequestIssued`）不稳定，没在打时稳定**。后果：
+
+- 战中不存档：复用 Session 现有的 `NarrativeStable` 闸门（`CanSave` 在 `:69`），Session 没改。
+- `ValidateCandidate`（`:100-108`）用同一个 `IsStable` 判候选：存档里停在「没在打」的 Battle 阶段可以提交；带在途标记的候选被拒。
+- 读档后 `ReloadFromSave` 先 `ClearRequestIssued` 清掉残留的在途标记（旧进程遗留，`:115-117`），再 `PublishBattleStage("restored")`。
+
+**Interact 纪元（PRP §9「W1 偏离②」）**：主动交互的 `Reenter` 原来只能触发一次——`NarrativeTrigger` 发的候选 `EntryEpoch` 恒为 0，消费键撞车。
+现在 `TryEncounterAsync` 对 `EntryEpoch == 0` 且 `TriggerKind == "Interact"` 的候选，用剧情的 `NextActivationId` 当纪元（`:139-152`，常量 `InteractTrigger` 在 `:22`）：
+上一段剧情跑过（任何阶段进入都会 +1）才算一次新的交互，同一段剧情里连按不会重复进入；它随 `NarrativeSaveData` 落盘，读档后不与已消费键冲突。
+`Once` / `RisingCondition` 的消费键不含纪元，不受影响（`:147` 注释）——所以 BOSS 打输后可再按 E 重打，打赢后靠条件里的标记不再触发。
+
+**Battle 阶段同目标重发**：Battle 阶段 + 战斗没在途（`!RequestIssued`）+ 同目标的 `Interact` 候选 + 玩家与目标存活 → 发布 `retried` 并返回 `true`，不再走仲裁（`:159-168`）。
+战斗在途时不重发，免得两场叠在一起。与下面「未完成对白的重试」同一口径。
+
+**`OnChanged` / `HasStoryFlag`**：
+
+- `event Action OnChanged`（`:64`）：剧情分区刚写回时触发，与 `NarrativeChangedEvent` 同一时刻（`Flush` 里，`:368-373`），含读档 / 换槽后的重载（`ReloadFromSave` → `SyncQuestFlags` → `Flush`）。
+  给不进容器的场景组件用；订阅方只读状态，**不得在回调里推进剧情**。逐个调用、各自兜住异常并埋 `changed_handler_failed`（`:376-385`）；`Dispose` 清空（`:418`）。
+- `bool HasStoryFlag(string key)`（`:73`）：当前槽位 `NarrativeSaveData.StoryFlags` 里有没有；未就绪或空键为 false。只看落进分区的标记，**不含身份 / 遭遇的派生事实**。
+
+**`NarrativeFlagVisibility`**：见上文类分工表。标记成立 → 隐藏（`ShouldBeVisible = !flagSet`，`NarrativeFlagVisibility.cs:63`）；订阅的是 C# 事件而非 `Update`，物体关着照样被调到，所以读档回到「标记没写」的进度时会重新显示（`:8-9` 文件头）。
+样例：`sample_boss` 的 `world.sampleboss.defeated`。
+
+**`NarrativeTrigger` 的交互转交**：`Bind` 时若同物体有 `DialogueInteractable`，就 `SetInteractionHandover(handover)`（`NarrativeTrigger.cs:53-58`）——焦点、底部「E 对话 · 名字」提示、头顶标记都由 Dialogue 那套驱动，
+按 E / 点提示 / 点 NPC 走本组件的 `InteractAsync`；转交后点击由 `DialogueInteractable` 接，`OnPointerClick` 直接返回（`:82`）；`Unbind` 时只撤自己那一份（`:103`）。
+`InteractAsync` 的 `IsReady` 守卫（`:65`）：服务不可用（根作用域已销毁、退出 Play 后场景里的 NPC 还挂着旧绑定、尚未初始化）直接返回 `false`，不往已释放的服务上调。

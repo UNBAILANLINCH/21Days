@@ -15,6 +15,7 @@ maturity: stable
 | --- | --- | --- |
 | `TryCollect` | `bool TryCollect(SupplyCrate crate)` | 打开箱子：已开 / `crate == null` 返回 `false`；成功顺序为写分区 → 箱子切开 → 上报任务 Counter → 通知 → 发布 `CrateCollectedEvent` |
 | `Reset` | `void Reset()` | 清空已开记录与背包，发布 `LootResetEvent`；场景里箱子的合上由订阅方（`LootSceneBinder`）负责，本方法不摸场景 |
+| `TryConsume` | `bool TryConsume(int itemId, int count = 1)` | 从背包扣掉 `count` 件（战斗里用掉道具，调用方 `Game.Battle`）：数量不够 / 不拥有 / 参数非法返回 `false` 且不改分区；扣到 0 把该项**从背包删掉**；**不发事件、不弹通知**，落盘由之后的保存请求带上（`LootService.cs:117-134`）。底层 `LootRules.Consume`（`LootRules.cs:56`） |
 | `IsCollected` | `bool IsCollected(string key)` | 该箱子键是否已开过 |
 | `Items` | `IReadOnlyDictionary<int, int> Items { get; }` | 最小背包：tbitem id → 累计数量，随分区变化；**内部按需重取分区，不要跨帧持有引用当缓存** |
 
@@ -66,6 +67,7 @@ maturity: stable
 - 需要 Boot 根作用域已建好（`LootInstaller` 已注册）——直接 Play 玩法场景没有 `LootService` / `SupplyCrateFocus`。
 - `TryCollect` 内部会查 `QuestService.IsReady`：任务系统未就绪时开箱仍会成功、写分区、弹通知，只是**不上报任务计数**（记 Warn）。
 - `Items` 与 `IsCollected` 随时可查，不需要等某个事件。
+- `TryConsume` **没有对应事件**：背包面板（`InventoryPanelController`）订阅的是 `CrateCollectedEvent` / `LootResetEvent`，扣减不会触发它刷新；要在面板开着时扣减，调用方自己负责让面板重读 `Items`。
 
 ## 禁止事项
 

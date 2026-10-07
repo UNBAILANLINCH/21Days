@@ -73,7 +73,7 @@ maturity: stable
 
 ## 禁止事项
 
-- **不要在别处写 Animator 参数 `Moving` / `Running` / `Speed`**，也不要直接 `Animator.Play` 切状态：唯一写入口是 `ChibiPuppet.SetMoving`，驱动者只有 `ChibiPuppetMotion`，多处写会互相覆盖、闪烁。
+- **不要在别处写 Animator 参数 `Moving` / `Running` / `Speed`**，也不要直接 `Animator.Play` 切状态：唯一写入口是 `ChibiPuppet.SetMoving`，驱动者常态只有 `ChibiPuppetMotion`；例外是战斗舞台：`BattleActor` 会先禁用该小人的 `ChibiPuppetMotion` 再自己调 `SetMoving` / `SetFacing`（`Assets/_Project/Scripts/Runtime/Battle/BattleActor.cs:271-278`），同一小人任一时刻仍只有一个驱动者。多处写会互相覆盖、闪烁。
 - **不要用 scaled 时间做小人动画**：Animator 必须保持 `UnscaledTime`，否则对话时停时画面定格。
 - 不要在运行时改 `ChibiPuppetConfig` 资产（所有小人预制体共用，改了全局生效且会写回磁盘）。
 - 不要直接改 `parts` 里 `SpriteRenderer.color` 做染色，走 `SetTint`，否则基底色丢失。

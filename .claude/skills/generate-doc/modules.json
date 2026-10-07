@@ -63,6 +63,11 @@
       "docs": "ai-docs/docs/modules/lailaface",
       "status": "seed"
     },
+    "lailafacerecognition": {
+      "src": "Assets/_Project/Scripts/Runtime/LailaFaceRecognition",
+      "docs": "ai-docs/docs/modules/lailafacerecognition",
+      "status": "seed"
+    },
     "narrative": {
       "src": "Assets/_Project/Scripts/Runtime/Narrative",
       "docs": "ai-docs/docs/modules/narrative",

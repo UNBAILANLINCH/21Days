@@ -1,14 +1,14 @@
-// 职责：独立回放驯服后移动与镜头接管；复用场景入口，不再创建第二套规则。
-// 舞台是 SampleScene（不加载 Boot）：Encounter 上的 StandaloneEncounterController 默认驱动遭遇，驯服挂点 Encounter/TamingDemo
-//   （TamingSceneController，默认不激活，正常游玩不受影响）。回放先停用前者、再激活挂点，两套控制器不会同时驱动同一视图。
+// 职责：从 Boot 标题进入真实遭遇，验证多巡逻者控制、输入归属、镜头和存档恢复。
 using System.Collections;
+using Game.Core.Flow;
+using Game.Core.Input;
 using Game.IsometricExploration;
 using Game.Monster;
+using Game.Player;
 using Game.Taming;
+using TMPro;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 
 namespace Game.Tests.Showcase.Taming
@@ -16,61 +16,97 @@ namespace Game.Tests.Showcase.Taming
     [Category("Showcase")]
     public sealed class TamingShowcase : ShowcaseScenario
     {
-        /// <summary>SampleScene 里驯服挂点的物体名（Encounter 的子物体，默认不激活）。</summary>
-        private const string TamingDemoName = "TamingDemo";
-
         protected override string Module => "Taming";
-        protected override string ScenePath => ShowcaseOptions.DemoScenePath;
-        protected override bool LoadBootScene => false;
+        protected override string ScenePath => null;
+        protected override bool LoadBootScene => true;
+
+        // 复用 0bcd63e 的探索回放规则：SampleScene 根节点主相机，正在渲染且等于 Camera.main。
+        private static Camera FindWorldCamera(EncounterSceneView view)
+        {
+            var scene = view.gameObject.scene;
+            if (!scene.isLoaded || scene.path != ShowcaseOptions.DemoScenePath) return null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.name != "Main Camera") continue;
+                Camera camera = root.GetComponent<Camera>();
+                return camera != null && camera.isActiveAndEnabled && Camera.main == camera ? camera : null;
+            }
+            return null;
+        }
 
         [UnityTest]
-        public IEnumerator ToggleControl_MovesEnemyAndCamera_ThenReturns()
+        public IEnumerator TwoPatrols_TameSwitchSaveUnloadRestore()
         {
-            var standalone = FindRequired<StandaloneEncounterController>("Encounter");
+            yield return EnterWorldFromTitle();
+            var step = ResolveService<EncounterStep>();
+            var player = ResolveService<PlayerModel>();
             var view = FindRequired<EncounterSceneView>("Encounter");
-            var follow = FindRequired<SmoothCameraFollow>("Main Camera");
-            // 挂点默认不激活，GameObject.Find 找不到，只能从 Encounter 下按名字取。
-            Transform demo = view.transform.Find(TamingDemoName);
-            if (demo == null)
+            SmoothCameraFollow follow = null;
+            yield return Check("SampleScene 渲染主相机有跟随组件且是实际控制镜头", () =>
             {
-                Assert.Fail($"SampleScene 的 Encounter 下没有驯服挂点「{TamingDemoName}」（TamingSceneController，默认不激活）。");
-            }
-
-            yield return Step("切到驯服玩法：停用遭遇原型控制器，激活驯服挂点", () =>
-            {
-                standalone.enabled = false;
-                demo.gameObject.SetActive(true);
-            });
-            var controller = demo.GetComponent<TamingSceneController>();
-            if (controller == null)
-            {
-                Assert.Fail($"驯服挂点「{TamingDemoName}」上没有 TamingSceneController。");
-            }
-
-            var keyboard = InputSystem.AddDevice<Keyboard>();
+                Camera camera = FindWorldCamera(view);
+                follow = camera == null ? null : camera.GetComponent<SmoothCameraFollow>();
+                return follow != null && follow == view.ControlCamera;
+            }, 3f);
+            if (follow == null || follow != view.ControlCamera) yield break;
+            Assert.That(view.PatrolActors.Length, Is.EqualTo(2));
+            string a = view.PatrolActors[0].StableId;
+            string b = view.PatrolActors[1].StableId;
+            string lastEvent = null;
+            System.Action<string> changed = id => lastEvent = id;
+            step.Taming.OnControlChanged += changed;
             try
             {
-            Vector2 start = controller.Player.Position;
-            Vector2 enemyStart = controller.Enemy.Position;
-            Vector3 cameraStart = follow.transform.position;
-            yield return Step("短按 T 驯服并接管敌人", () =>
-            {
-                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.T));
-                InputSystem.Update();
-                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-                InputSystem.Update();
-            });
-            yield return Check("镜头跟随敌人", () => follow.Target == view.MonsterBody, 2f);
-            controller.ManualSimulation = true;
-            yield return Step("控制敌人向右移动", () => controller.Simulate(new TamingIntent(Vector2.right, false), 1f));
-            yield return Check("敌人移动而玩家留在原地", () => controller.Enemy.Position.x > enemyStart.x && controller.Player.Position == start);
-            yield return Check("摄像机实际移动", () => follow.transform.position.x > cameraStart.x + 1f, 3f);
-            yield return Snapshot("敌人视角");
-            yield return Step("再次按 T 返回玩家", () => controller.Simulate(new TamingIntent(Vector2.zero, true), 0f));
-            yield return Check("镜头回到玩家且保留驯服", () => follow.Target == view.PlayerBody && controller.Rules.IsTamed);
-            yield return Snapshot("返回玩家");
+                yield return Step("未驯服不可接管", () => Assert.That(view.RequestControl(b), Is.False));
+                yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Tame);
+                yield return Check("原单敌 T 流程接管 A", () => step.CurrentControlId == a && follow.Target == view.PatrolActors[0].transform, 3f);
+                yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Tame);
+                yield return Check("再次 T 返回玩家", () => step.CurrentControlId == step.Taming.PlayerId && follow.Target == view.PlayerBody, 3f);
+                yield return Step("定向驯服 B", () => Assert.That(view.RequestControl(b, true), Is.True));
+                yield return Check("两名独立驯服且控制 B", () => step.CurrentControlId == b && step.Taming.IsTargetTamed(a) && step.Taming.IsTargetTamed(b), 3f);
+                for (int i = 0; i < 4; i++)
+                {
+                    string owner = i % 2 == 0 ? a : b;
+                    string other = owner == a ? b : a;
+                    yield return Step("定向切换 " + owner, () => Assert.That(view.RequestControl(owner), Is.True));
+                    yield return Check("对象、ID、镜头与事件一致", () => view.CurrentControlId == owner && lastEvent == owner
+                        && view.CurrentControlObject == follow.Target && view.CurrentControlObject.GetComponent<TamingActor>().StableId == owner, 3f);
+                    Vector2 before = step.Taming.GetTarget(owner).Model.Position;
+                    Vector2 idle = step.Taming.GetTarget(other).Model.Position;
+                    Vector2 playerBefore = player.Position;
+                    yield return Walk(Vector2.right, 0.4f);
+                    yield return Check("仅当前对象响应移动", () => step.Taming.GetTarget(owner).Model.Position.x > before.x
+                        && step.Taming.GetTarget(other).Model.Position == idle && player.Position == playerBefore);
+                }
+                yield return Check("显示标识与代码一致", () => view.PatrolActors[1].GetComponentInChildren<TMP_Text>(true).text
+                    == step.Taming.GetDisplayName(b) + " [" + b + "]");
+                yield return Snapshot("两名巡逻者已驯服·控制B");
+                yield return Step("无效请求保持控制", () => Assert.That(view.RequestControl("unknown"), Is.False));
+                var flow = ResolveService<IGameFlow>();
+                bool left = false;
+                yield return Step("回标题，走离场保存与卸载", () => BeginLeaveToTitle(flow, () => left = true), 0f);
+                yield return Check("已回标题", () => left && flow.Current is TitleState, 20f);
+                yield return Step("继续读取隔离存档", () => RequireTitleButton("ContinueButton").onClick.Invoke(), 0f);
+                yield return Check("重新进入且控制 B 恢复", () => step.IsActive && flow.Current is MonsterEncounterState && step.CurrentControlId == b, 20f);
+                view = FindRequired<EncounterSceneView>("Encounter");
+                yield return Check("恢复后同一规则定位世界渲染主相机", () =>
+                {
+                    Camera camera = FindWorldCamera(view);
+                    follow = camera == null ? null : camera.GetComponent<SmoothCameraFollow>();
+                    return follow != null && follow == view.ControlCamera;
+                }, 3f);
+                if (follow == null || follow != view.ControlCamera) yield break;
+                yield return Check("恢复后 A/B 可选且镜头跟随 B", () => step.Taming.CanControl(a) && step.Taming.CanControl(b) && view.CurrentControlObject == follow.Target, 3f);
+                yield return Step("禁用当前目标", () => view.PatrolActors[1].gameObject.SetActive(false));
+                yield return Check("自动返回玩家且禁用目标不可选", () => step.CurrentControlId == step.Taming.PlayerId && !view.RequestControl(b), 3f);
+                yield return Step("重新启用目标", () => view.PatrolActors[1].gameObject.SetActive(true));
+                yield return Step("按稳定 ID 再次选择", () => Assert.That(view.RequestControl(b), Is.True));
+                yield return Check("再次接管 B", () => step.CurrentControlId == b, 3f);
+                yield return Step("销毁当前目标", () => Object.Destroy(view.PatrolActors[1].gameObject));
+                yield return Check("销毁后返回玩家且旧 ID 不可选", () => step.CurrentControlId == step.Taming.PlayerId && !view.RequestControl(b), 3f);
+                yield return Snapshot("目标销毁后·返回玩家");
             }
-            finally { InputSystem.RemoveDevice(keyboard); }
+            finally { step.Taming.OnControlChanged -= changed; }
         }
     }
 }

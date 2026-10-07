@@ -8,6 +8,11 @@
     }
   },
   "modules": {
+    "rhythm": {
+      "src": "Assets/_Project/Scripts/Runtime/Rhythm",
+      "docs": "ai-docs/docs/modules/rhythm",
+      "status": "ready"
+    },
     "disguise": {
       "src": "Assets/_Project/Scripts/Runtime/Disguise",
       "docs": "ai-docs/docs/modules/disguise",
@@ -56,6 +61,11 @@
     "lailaface": {
       "src": "Assets/_Project/Scripts/Runtime/Gameplay",
       "docs": "ai-docs/docs/modules/lailaface",
+      "status": "seed"
+    },
+    "lailafacerecognition": {
+      "src": "Assets/_Project/Scripts/Runtime/LailaFaceRecognition",
+      "docs": "ai-docs/docs/modules/lailafacerecognition",
       "status": "seed"
     },
     "narrative": {

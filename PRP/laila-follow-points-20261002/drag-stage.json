@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "key": "Mouth_UpperLipR_Up",
+    "firstHit": "Control_UpperLip_R",
+    "weight": 100.0,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_LowerLip",
+    "key": "Mouth_LowerLip_Down",
+    "firstHit": "Control_LowerLip",
+    "weight": 100.0,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Up",
+    "firstHit": "Control_Brow_R_Mid",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Up",
+    "firstHit": "Control_Brow_L_Inner",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Up",
+    "firstHit": "Control_Brow_L_Mid",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Up",
+    "firstHit": "Control_Brow_R_Inner",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Up",
+    "firstHit": "Control_Brow_R_Outer",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "key": "Mouth_UpperLipL_Up",
+    "firstHit": "Control_UpperLip_L",
+    "weight": 100.0,
+    "noFeedbackDrift": true,
+    "released": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Up",
+    "firstHit": "Control_Brow_L_Outer",
+    "weight": 99.9999847,
+    "noFeedbackDrift": true,
+    "released": true
+  }
+]

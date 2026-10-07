@@ -519,6 +519,9 @@ namespace Game.Core.UI
                     UIView view = pair.Value;
                     if (view != null)
                     {
+                        // TMP 的 OnDisable 仍会读取字体材质，必须在 Addressables 释放依赖前完成。
+                        // 否则延迟销毁的面板在 UIRoot 清理时会访问已卸载的父文本材质。
+                        view.gameObject.SetActive(false);
                         assets.ReleaseInstance(view.gameObject);
                     }
                 }

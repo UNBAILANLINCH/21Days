@@ -1,0 +1,2547 @@
+{
+  "format": "21days-rhythm-song-test",
+  "version": 1,
+  "status": "automatic-test-chart-not-human-reviewed",
+  "source": {
+    "libraryFileId": "libfile_37e21aa91a1c8191b196d2b9751ace36",
+    "filename": "hybeboy吉他伴奏.mp3",
+    "bytes": 9188876,
+    "sha256": "237399cc3025c86a8f746372c8a6903d1bdbf03a9e1425a97d204abafbafeab0"
+  },
+  "song": {
+    "id": "hybeboy-guitar",
+    "title": "hybeboy 吉他伴奏",
+    "difficulty": "进阶 Lv.3 · 八分拍与双键",
+    "revision": "20261004-test-v1",
+    "prerequisiteId": "intro",
+    "passScorePercent": 60
+  },
+  "design": {
+    "reason": "固定32个四拍测试单元；完整乐句边界待听感确认。先打通进阶选择流程，保留整曲音频以扩展后续段落。",
+    "tempoEvidence": [
+      {
+        "bpm": 100,
+        "score": 17.802434079887423
+      },
+      {
+        "bpm": 102.1,
+        "score": 7.270422448409412
+      },
+      {
+        "bpm": 97.9,
+        "score": 6.887104468716416
+      },
+      {
+        "bpm": 104.2,
+        "score": 1.8092769626558403
+      },
+      {
+        "bpm": 95.8,
+        "score": 1.4760327766046526
+      },
+      {
+        "bpm": 80,
+        "score": 1.2191009519211442
+      },
+      {
+        "bpm": 133.4,
+        "score": 1.145681977250884
+      },
+      {
+        "bpm": 135.5,
+        "score": 1.121090711741877
+      }
+    ],
+    "candidatePhaseSeconds": 0.49500000000000033,
+    "phaseScore": 18.625018791047577,
+    "policy": "四分主拍保留；八分只取邻近强起音；少量强拍双键；长按代表乐句保持手势，不声明对应持续旋律音；不把所有瞬态转成音符。",
+    "timingCaveat": "Chromium解码基准未与Unity PCM人工对齐；chartOffset=0，不自动施加11ms补偿。",
+    "droppedCandidates": 0
+  },
+  "chart": {
+    "schemaVersion": 2,
+    "chartId": "hybeboy-guitar-test-32x4",
+    "audioKey": "HybeboyGuitar",
+    "laneCount": 4,
+    "chartOffsetMs": 0,
+    "clipStartSeconds": 24.495,
+    "durationSeconds": 76.8,
+    "approachSeconds": 2.5,
+    "countdownSeconds": 3,
+    "perfectMs": 65,
+    "goodMs": 140,
+    "finishBufferSeconds": 0.1,
+    "noteTimes": [],
+    "noteLanes": [],
+    "notes": [
+      {
+        "id": "hybeboy-guitar-000",
+        "lane": 0,
+        "timeMs": 35,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-001",
+        "lane": 1,
+        "timeMs": 605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-002",
+        "lane": 0,
+        "timeMs": 1195,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-003",
+        "lane": 1,
+        "timeMs": 1805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-004",
+        "lane": 3,
+        "timeMs": 2165,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-005",
+        "lane": 0,
+        "timeMs": 2395,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-006",
+        "lane": 1,
+        "timeMs": 3005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-007",
+        "lane": 0,
+        "timeMs": 3625,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-008",
+        "lane": 1,
+        "timeMs": 4205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-009",
+        "lane": 3,
+        "timeMs": 4485,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-010",
+        "lane": 0,
+        "timeMs": 4835,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-011",
+        "lane": 1,
+        "timeMs": 4835,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-012",
+        "lane": 1,
+        "timeMs": 5405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-013",
+        "lane": 0,
+        "timeMs": 5995,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-014",
+        "lane": 1,
+        "timeMs": 6605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-015",
+        "lane": 3,
+        "timeMs": 6965,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-016",
+        "lane": 0,
+        "timeMs": 7195,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-017",
+        "lane": 1,
+        "timeMs": 7805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-018",
+        "lane": 0,
+        "timeMs": 8425,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-019",
+        "lane": 1,
+        "timeMs": 9005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-020",
+        "lane": 3,
+        "timeMs": 9285,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-021",
+        "lane": 0,
+        "timeMs": 9635,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-022",
+        "lane": 1,
+        "timeMs": 9635,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-023",
+        "lane": 1,
+        "timeMs": 10205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-024",
+        "lane": 0,
+        "timeMs": 10795,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-025",
+        "lane": 1,
+        "timeMs": 11405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-026",
+        "lane": 3,
+        "timeMs": 11765,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-027",
+        "lane": 0,
+        "timeMs": 11995,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-028",
+        "lane": 1,
+        "timeMs": 12600,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-029",
+        "lane": 0,
+        "timeMs": 13205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-030",
+        "lane": 1,
+        "timeMs": 13805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-031",
+        "lane": 3,
+        "timeMs": 14085,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-032",
+        "lane": 0,
+        "timeMs": 14405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-033",
+        "lane": 1,
+        "timeMs": 14405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-034",
+        "lane": 1,
+        "timeMs": 15005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-035",
+        "lane": 0,
+        "timeMs": 15605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-036",
+        "lane": 1,
+        "timeMs": 16205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-037",
+        "lane": 0,
+        "timeMs": 16805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-038",
+        "lane": 1,
+        "timeMs": 17405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-039",
+        "lane": 0,
+        "timeMs": 18005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-040",
+        "lane": 1,
+        "timeMs": 18605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-041",
+        "lane": 3,
+        "timeMs": 18885,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-042",
+        "lane": 0,
+        "timeMs": 19205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-043",
+        "lane": 1,
+        "timeMs": 19205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-044",
+        "lane": 1,
+        "timeMs": 19805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-045",
+        "lane": 0,
+        "timeMs": 20405,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-046",
+        "lane": 1,
+        "timeMs": 21005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-047",
+        "lane": 0,
+        "timeMs": 21605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-048",
+        "lane": 1,
+        "timeMs": 22205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-049",
+        "lane": 0,
+        "timeMs": 22805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-050",
+        "lane": 1,
+        "timeMs": 23405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-051",
+        "lane": 3,
+        "timeMs": 23685,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-052",
+        "lane": 0,
+        "timeMs": 24005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-053",
+        "lane": 1,
+        "timeMs": 24005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-054",
+        "lane": 1,
+        "timeMs": 24605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-055",
+        "lane": 0,
+        "timeMs": 25205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-056",
+        "lane": 1,
+        "timeMs": 25805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-057",
+        "lane": 0,
+        "timeMs": 26405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-058",
+        "lane": 1,
+        "timeMs": 27005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-059",
+        "lane": 0,
+        "timeMs": 27605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-060",
+        "lane": 1,
+        "timeMs": 28205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-061",
+        "lane": 3,
+        "timeMs": 28485,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-062",
+        "lane": 0,
+        "timeMs": 28805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-063",
+        "lane": 1,
+        "timeMs": 28805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-064",
+        "lane": 1,
+        "timeMs": 29405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-065",
+        "lane": 0,
+        "timeMs": 30005,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-066",
+        "lane": 1,
+        "timeMs": 30605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-067",
+        "lane": 0,
+        "timeMs": 31205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-068",
+        "lane": 1,
+        "timeMs": 31805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-069",
+        "lane": 0,
+        "timeMs": 32405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-070",
+        "lane": 1,
+        "timeMs": 33005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-071",
+        "lane": 3,
+        "timeMs": 33285,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-072",
+        "lane": 0,
+        "timeMs": 33615,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-073",
+        "lane": 1,
+        "timeMs": 33615,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-074",
+        "lane": 1,
+        "timeMs": 34175,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-075",
+        "lane": 3,
+        "timeMs": 34545,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-076",
+        "lane": 0,
+        "timeMs": 34785,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-077",
+        "lane": 1,
+        "timeMs": 35405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-078",
+        "lane": 0,
+        "timeMs": 35995,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-079",
+        "lane": 1,
+        "timeMs": 36605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-080",
+        "lane": 3,
+        "timeMs": 36885,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-081",
+        "lane": 0,
+        "timeMs": 37200,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-082",
+        "lane": 1,
+        "timeMs": 37805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-083",
+        "lane": 3,
+        "timeMs": 38085,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-084",
+        "lane": 0,
+        "timeMs": 38400,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-085",
+        "lane": 1,
+        "timeMs": 38975,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-086",
+        "lane": 3,
+        "timeMs": 39265,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-087",
+        "lane": 0,
+        "timeMs": 39600,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-088",
+        "lane": 1,
+        "timeMs": 40215,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-089",
+        "lane": 3,
+        "timeMs": 40565,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-090",
+        "lane": 0,
+        "timeMs": 40795,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-091",
+        "lane": 1,
+        "timeMs": 41405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-092",
+        "lane": 3,
+        "timeMs": 41655,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-093",
+        "lane": 0,
+        "timeMs": 42000,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-094",
+        "lane": 1,
+        "timeMs": 42575,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-095",
+        "lane": 3,
+        "timeMs": 42865,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-096",
+        "lane": 0,
+        "timeMs": 43225,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-097",
+        "lane": 1,
+        "timeMs": 43225,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-098",
+        "lane": 1,
+        "timeMs": 43800,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-099",
+        "lane": 3,
+        "timeMs": 44125,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-100",
+        "lane": 0,
+        "timeMs": 44405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-101",
+        "lane": 1,
+        "timeMs": 45005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-102",
+        "lane": 3,
+        "timeMs": 45285,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-103",
+        "lane": 0,
+        "timeMs": 45595,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-104",
+        "lane": 1,
+        "timeMs": 46200,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-105",
+        "lane": 0,
+        "timeMs": 46805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-106",
+        "lane": 1,
+        "timeMs": 47405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-107",
+        "lane": 0,
+        "timeMs": 48005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-108",
+        "lane": 1,
+        "timeMs": 48005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-109",
+        "lane": 1,
+        "timeMs": 48605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-110",
+        "lane": 0,
+        "timeMs": 49205,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-111",
+        "lane": 1,
+        "timeMs": 49805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-112",
+        "lane": 0,
+        "timeMs": 50405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-113",
+        "lane": 1,
+        "timeMs": 51005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-114",
+        "lane": 0,
+        "timeMs": 51605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-115",
+        "lane": 1,
+        "timeMs": 52205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-116",
+        "lane": 3,
+        "timeMs": 52485,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-117",
+        "lane": 0,
+        "timeMs": 52805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-118",
+        "lane": 1,
+        "timeMs": 52805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-119",
+        "lane": 1,
+        "timeMs": 53405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-120",
+        "lane": 0,
+        "timeMs": 54005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-121",
+        "lane": 1,
+        "timeMs": 54605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-122",
+        "lane": 0,
+        "timeMs": 55205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-123",
+        "lane": 1,
+        "timeMs": 55805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-124",
+        "lane": 0,
+        "timeMs": 56405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-125",
+        "lane": 1,
+        "timeMs": 57005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-126",
+        "lane": 0,
+        "timeMs": 57605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-127",
+        "lane": 1,
+        "timeMs": 57605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-128",
+        "lane": 1,
+        "timeMs": 58205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-129",
+        "lane": 0,
+        "timeMs": 58805,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-130",
+        "lane": 1,
+        "timeMs": 59405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-131",
+        "lane": 0,
+        "timeMs": 60005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-132",
+        "lane": 1,
+        "timeMs": 60605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-133",
+        "lane": 0,
+        "timeMs": 61205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-134",
+        "lane": 1,
+        "timeMs": 61805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-135",
+        "lane": 3,
+        "timeMs": 62085,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-136",
+        "lane": 0,
+        "timeMs": 62405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-137",
+        "lane": 1,
+        "timeMs": 62405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-138",
+        "lane": 1,
+        "timeMs": 63005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-139",
+        "lane": 0,
+        "timeMs": 63605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-140",
+        "lane": 1,
+        "timeMs": 64205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-141",
+        "lane": 0,
+        "timeMs": 64805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-142",
+        "lane": 1,
+        "timeMs": 65405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-143",
+        "lane": 0,
+        "timeMs": 66005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-144",
+        "lane": 1,
+        "timeMs": 66605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-145",
+        "lane": 0,
+        "timeMs": 67205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-146",
+        "lane": 1,
+        "timeMs": 67205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-147",
+        "lane": 1,
+        "timeMs": 67805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-148",
+        "lane": 0,
+        "timeMs": 68405,
+        "type": 1,
+        "durationMs": 900
+      },
+      {
+        "id": "hybeboy-guitar-149",
+        "lane": 1,
+        "timeMs": 69005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-150",
+        "lane": 0,
+        "timeMs": 69605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-151",
+        "lane": 1,
+        "timeMs": 70205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-152",
+        "lane": 0,
+        "timeMs": 70805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-153",
+        "lane": 1,
+        "timeMs": 71405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-154",
+        "lane": 3,
+        "timeMs": 71685,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-155",
+        "lane": 0,
+        "timeMs": 72005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-156",
+        "lane": 1,
+        "timeMs": 72005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-157",
+        "lane": 1,
+        "timeMs": 72605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-158",
+        "lane": 0,
+        "timeMs": 73205,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-159",
+        "lane": 1,
+        "timeMs": 73805,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-160",
+        "lane": 0,
+        "timeMs": 74405,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-161",
+        "lane": 1,
+        "timeMs": 75005,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-162",
+        "lane": 0,
+        "timeMs": 75605,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "hybeboy-guitar-163",
+        "lane": 1,
+        "timeMs": 76205,
+        "type": 0,
+        "durationMs": 0
+      }
+    ],
+    "bpmSegments": [
+      {
+        "timeMs": 0,
+        "bpm": 100
+      }
+    ]
+  },
+  "noteEvidence": [
+    {
+      "id": "hybeboy-guitar-000",
+      "gridBeat": 0,
+      "kind": "quarter",
+      "onsetSeconds": 24.53,
+      "onsetStrength": 5.70733183754605,
+      "holdMeanRms": 0.07631
+    },
+    {
+      "id": "hybeboy-guitar-001",
+      "gridBeat": 1,
+      "kind": "quarter",
+      "onsetSeconds": 25.1,
+      "onsetStrength": 9.862487588999716,
+      "holdMeanRms": 0.03828
+    },
+    {
+      "id": "hybeboy-guitar-002",
+      "gridBeat": 2,
+      "kind": "quarter",
+      "onsetSeconds": 25.69,
+      "onsetStrength": 3.5582074593085062,
+      "holdMeanRms": 0.06049
+    },
+    {
+      "id": "hybeboy-guitar-003",
+      "gridBeat": 3,
+      "kind": "quarter",
+      "onsetSeconds": 26.3,
+      "onsetStrength": 20.367193285736306,
+      "holdMeanRms": 0.03777
+    },
+    {
+      "id": "hybeboy-guitar-004",
+      "gridBeat": 3.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 26.66,
+      "onsetStrength": 4.113534599107296,
+      "holdMeanRms": 0.05686
+    },
+    {
+      "id": "hybeboy-guitar-005",
+      "gridBeat": 4,
+      "kind": "quarter",
+      "onsetSeconds": 26.89,
+      "onsetStrength": 5.439254431270728,
+      "holdMeanRms": 0.10003
+    },
+    {
+      "id": "hybeboy-guitar-006",
+      "gridBeat": 5,
+      "kind": "quarter",
+      "onsetSeconds": 27.5,
+      "onsetStrength": 20.13334129924412,
+      "holdMeanRms": 0.04259
+    },
+    {
+      "id": "hybeboy-guitar-007",
+      "gridBeat": 6,
+      "kind": "quarter",
+      "onsetSeconds": 28.12,
+      "onsetStrength": 5.926611782833986,
+      "holdMeanRms": 0.07121
+    },
+    {
+      "id": "hybeboy-guitar-008",
+      "gridBeat": 7,
+      "kind": "quarter",
+      "onsetSeconds": 28.7,
+      "onsetStrength": 13.921673968045674,
+      "holdMeanRms": 0.05301
+    },
+    {
+      "id": "hybeboy-guitar-009",
+      "gridBeat": 7.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 28.98,
+      "onsetStrength": 4.0446307554358025,
+      "holdMeanRms": 0.03603
+    },
+    {
+      "id": "hybeboy-guitar-010",
+      "gridBeat": 8,
+      "kind": "accent-chord",
+      "onsetSeconds": 29.33,
+      "onsetStrength": 5.914988741215539,
+      "holdMeanRms": 0.07353
+    },
+    {
+      "id": "hybeboy-guitar-011",
+      "gridBeat": 8,
+      "kind": "quarter",
+      "onsetSeconds": 29.33,
+      "onsetStrength": 5.914988741215539,
+      "holdMeanRms": 0.07353
+    },
+    {
+      "id": "hybeboy-guitar-012",
+      "gridBeat": 9,
+      "kind": "quarter",
+      "onsetSeconds": 29.9,
+      "onsetStrength": 8.930815700269335,
+      "holdMeanRms": 0.03759
+    },
+    {
+      "id": "hybeboy-guitar-013",
+      "gridBeat": 10,
+      "kind": "quarter",
+      "onsetSeconds": 30.49,
+      "onsetStrength": 3.091392131128844,
+      "holdMeanRms": 0.05862
+    },
+    {
+      "id": "hybeboy-guitar-014",
+      "gridBeat": 11,
+      "kind": "quarter",
+      "onsetSeconds": 31.1,
+      "onsetStrength": 14.45093889344467,
+      "holdMeanRms": 0.02874
+    },
+    {
+      "id": "hybeboy-guitar-015",
+      "gridBeat": 11.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 31.46,
+      "onsetStrength": 3.316303769036393,
+      "holdMeanRms": 0.0523
+    },
+    {
+      "id": "hybeboy-guitar-016",
+      "gridBeat": 12,
+      "kind": "quarter",
+      "onsetSeconds": 31.69,
+      "onsetStrength": 4.514704729447433,
+      "holdMeanRms": 0.09035
+    },
+    {
+      "id": "hybeboy-guitar-017",
+      "gridBeat": 13,
+      "kind": "quarter",
+      "onsetSeconds": 32.3,
+      "onsetStrength": 25.283412095315498,
+      "holdMeanRms": 0.0549
+    },
+    {
+      "id": "hybeboy-guitar-018",
+      "gridBeat": 14,
+      "kind": "quarter",
+      "onsetSeconds": 32.92,
+      "onsetStrength": 3.9022597422257213,
+      "holdMeanRms": 0.07439
+    },
+    {
+      "id": "hybeboy-guitar-019",
+      "gridBeat": 15,
+      "kind": "quarter",
+      "onsetSeconds": 33.5,
+      "onsetStrength": 14.101566869150492,
+      "holdMeanRms": 0.05279
+    },
+    {
+      "id": "hybeboy-guitar-020",
+      "gridBeat": 15.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 33.78,
+      "onsetStrength": 5.123013001679753,
+      "holdMeanRms": 0.03748
+    },
+    {
+      "id": "hybeboy-guitar-021",
+      "gridBeat": 16,
+      "kind": "accent-chord",
+      "onsetSeconds": 34.13,
+      "onsetStrength": 5.831629730852926,
+      "holdMeanRms": 0.07522
+    },
+    {
+      "id": "hybeboy-guitar-022",
+      "gridBeat": 16,
+      "kind": "quarter",
+      "onsetSeconds": 34.13,
+      "onsetStrength": 5.831629730852926,
+      "holdMeanRms": 0.07522
+    },
+    {
+      "id": "hybeboy-guitar-023",
+      "gridBeat": 17,
+      "kind": "quarter",
+      "onsetSeconds": 34.7,
+      "onsetStrength": 10.05095647313083,
+      "holdMeanRms": 0.03796
+    },
+    {
+      "id": "hybeboy-guitar-024",
+      "gridBeat": 18,
+      "kind": "phrase-hold",
+      "onsetSeconds": 35.29,
+      "onsetStrength": 3.294248544323474,
+      "holdMeanRms": 0.052771648351648354
+    },
+    {
+      "id": "hybeboy-guitar-025",
+      "gridBeat": 19,
+      "kind": "quarter",
+      "onsetSeconds": 35.9,
+      "onsetStrength": 20.438658675358802,
+      "holdMeanRms": 0.03665
+    },
+    {
+      "id": "hybeboy-guitar-026",
+      "gridBeat": 19.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 36.26,
+      "onsetStrength": 5.382109249230121,
+      "holdMeanRms": 0.05632
+    },
+    {
+      "id": "hybeboy-guitar-027",
+      "gridBeat": 20,
+      "kind": "quarter",
+      "onsetSeconds": 36.49,
+      "onsetStrength": 7.22170771509645,
+      "holdMeanRms": 0.0995
+    },
+    {
+      "id": "hybeboy-guitar-028",
+      "gridBeat": 21,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "hybeboy-guitar-029",
+      "gridBeat": 22,
+      "kind": "quarter",
+      "onsetSeconds": 37.7,
+      "onsetStrength": 38.318982303259496,
+      "holdMeanRms": 0.29876
+    },
+    {
+      "id": "hybeboy-guitar-030",
+      "gridBeat": 23,
+      "kind": "quarter",
+      "onsetSeconds": 38.3,
+      "onsetStrength": 26.33023447211068,
+      "holdMeanRms": 0.27424
+    },
+    {
+      "id": "hybeboy-guitar-031",
+      "gridBeat": 23.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 38.58,
+      "onsetStrength": 2.1512707668631394,
+      "holdMeanRms": 0.04528
+    },
+    {
+      "id": "hybeboy-guitar-032",
+      "gridBeat": 24,
+      "kind": "accent-chord",
+      "onsetSeconds": 38.9,
+      "onsetStrength": 24.287714168034665,
+      "holdMeanRms": 0.27963
+    },
+    {
+      "id": "hybeboy-guitar-033",
+      "gridBeat": 24,
+      "kind": "quarter",
+      "onsetSeconds": 38.9,
+      "onsetStrength": 24.287714168034665,
+      "holdMeanRms": 0.27963
+    },
+    {
+      "id": "hybeboy-guitar-034",
+      "gridBeat": 25,
+      "kind": "quarter",
+      "onsetSeconds": 39.5,
+      "onsetStrength": 25.423553519194375,
+      "holdMeanRms": 0.2754
+    },
+    {
+      "id": "hybeboy-guitar-035",
+      "gridBeat": 26,
+      "kind": "quarter",
+      "onsetSeconds": 40.1,
+      "onsetStrength": 25.918600675602953,
+      "holdMeanRms": 0.28192
+    },
+    {
+      "id": "hybeboy-guitar-036",
+      "gridBeat": 27,
+      "kind": "quarter",
+      "onsetSeconds": 40.7,
+      "onsetStrength": 27.558794581470544,
+      "holdMeanRms": 0.28635
+    },
+    {
+      "id": "hybeboy-guitar-037",
+      "gridBeat": 28,
+      "kind": "quarter",
+      "onsetSeconds": 41.3,
+      "onsetStrength": 24.33453808594889,
+      "holdMeanRms": 0.28521
+    },
+    {
+      "id": "hybeboy-guitar-038",
+      "gridBeat": 29,
+      "kind": "quarter",
+      "onsetSeconds": 41.9,
+      "onsetStrength": 26.368878048776203,
+      "holdMeanRms": 0.28107
+    },
+    {
+      "id": "hybeboy-guitar-039",
+      "gridBeat": 30,
+      "kind": "quarter",
+      "onsetSeconds": 42.5,
+      "onsetStrength": 24.75828183855315,
+      "holdMeanRms": 0.28247
+    },
+    {
+      "id": "hybeboy-guitar-040",
+      "gridBeat": 31,
+      "kind": "quarter",
+      "onsetSeconds": 43.1,
+      "onsetStrength": 26.02823800198013,
+      "holdMeanRms": 0.27393
+    },
+    {
+      "id": "hybeboy-guitar-041",
+      "gridBeat": 31.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 43.38,
+      "onsetStrength": 2.086497387976848,
+      "holdMeanRms": 0.04533
+    },
+    {
+      "id": "hybeboy-guitar-042",
+      "gridBeat": 32,
+      "kind": "accent-chord",
+      "onsetSeconds": 43.7,
+      "onsetStrength": 23.77432235112026,
+      "holdMeanRms": 0.27729
+    },
+    {
+      "id": "hybeboy-guitar-043",
+      "gridBeat": 32,
+      "kind": "quarter",
+      "onsetSeconds": 43.7,
+      "onsetStrength": 23.77432235112026,
+      "holdMeanRms": 0.27729
+    },
+    {
+      "id": "hybeboy-guitar-044",
+      "gridBeat": 33,
+      "kind": "quarter",
+      "onsetSeconds": 44.3,
+      "onsetStrength": 24.97938219361264,
+      "holdMeanRms": 0.27642
+    },
+    {
+      "id": "hybeboy-guitar-045",
+      "gridBeat": 34,
+      "kind": "phrase-hold",
+      "onsetSeconds": 44.9,
+      "onsetStrength": 25.49445420232716,
+      "holdMeanRms": 0.06064142857142857
+    },
+    {
+      "id": "hybeboy-guitar-046",
+      "gridBeat": 35,
+      "kind": "quarter",
+      "onsetSeconds": 45.5,
+      "onsetStrength": 25.734291326955486,
+      "holdMeanRms": 0.28536
+    },
+    {
+      "id": "hybeboy-guitar-047",
+      "gridBeat": 36,
+      "kind": "quarter",
+      "onsetSeconds": 46.1,
+      "onsetStrength": 22.9152701340104,
+      "holdMeanRms": 0.2872
+    },
+    {
+      "id": "hybeboy-guitar-048",
+      "gridBeat": 37,
+      "kind": "quarter",
+      "onsetSeconds": 46.7,
+      "onsetStrength": 27.273753788738293,
+      "holdMeanRms": 0.28346
+    },
+    {
+      "id": "hybeboy-guitar-049",
+      "gridBeat": 38,
+      "kind": "quarter",
+      "onsetSeconds": 47.3,
+      "onsetStrength": 23.019141919125417,
+      "holdMeanRms": 0.27588
+    },
+    {
+      "id": "hybeboy-guitar-050",
+      "gridBeat": 39,
+      "kind": "quarter",
+      "onsetSeconds": 47.9,
+      "onsetStrength": 26.870149135458966,
+      "holdMeanRms": 0.2696
+    },
+    {
+      "id": "hybeboy-guitar-051",
+      "gridBeat": 39.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 48.18,
+      "onsetStrength": 1.74061880223081,
+      "holdMeanRms": 0.04332
+    },
+    {
+      "id": "hybeboy-guitar-052",
+      "gridBeat": 40,
+      "kind": "accent-chord",
+      "onsetSeconds": 48.5,
+      "onsetStrength": 24.34294057689995,
+      "holdMeanRms": 0.27603
+    },
+    {
+      "id": "hybeboy-guitar-053",
+      "gridBeat": 40,
+      "kind": "quarter",
+      "onsetSeconds": 48.5,
+      "onsetStrength": 24.34294057689995,
+      "holdMeanRms": 0.27603
+    },
+    {
+      "id": "hybeboy-guitar-054",
+      "gridBeat": 41,
+      "kind": "quarter",
+      "onsetSeconds": 49.1,
+      "onsetStrength": 25.627299305806854,
+      "holdMeanRms": 0.27451
+    },
+    {
+      "id": "hybeboy-guitar-055",
+      "gridBeat": 42,
+      "kind": "quarter",
+      "onsetSeconds": 49.7,
+      "onsetStrength": 25.89175980821945,
+      "holdMeanRms": 0.28246
+    },
+    {
+      "id": "hybeboy-guitar-056",
+      "gridBeat": 43,
+      "kind": "quarter",
+      "onsetSeconds": 50.3,
+      "onsetStrength": 27.53888862611549,
+      "holdMeanRms": 0.28544
+    },
+    {
+      "id": "hybeboy-guitar-057",
+      "gridBeat": 44,
+      "kind": "quarter",
+      "onsetSeconds": 50.9,
+      "onsetStrength": 24.523078992984992,
+      "holdMeanRms": 0.28478
+    },
+    {
+      "id": "hybeboy-guitar-058",
+      "gridBeat": 45,
+      "kind": "quarter",
+      "onsetSeconds": 51.5,
+      "onsetStrength": 26.225999945450877,
+      "holdMeanRms": 0.2823
+    },
+    {
+      "id": "hybeboy-guitar-059",
+      "gridBeat": 46,
+      "kind": "quarter",
+      "onsetSeconds": 52.1,
+      "onsetStrength": 24.501821685351068,
+      "holdMeanRms": 0.28163
+    },
+    {
+      "id": "hybeboy-guitar-060",
+      "gridBeat": 47,
+      "kind": "quarter",
+      "onsetSeconds": 52.7,
+      "onsetStrength": 26.254810547354523,
+      "holdMeanRms": 0.27726
+    },
+    {
+      "id": "hybeboy-guitar-061",
+      "gridBeat": 47.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 52.98,
+      "onsetStrength": 2.1118740724377627,
+      "holdMeanRms": 0.0452
+    },
+    {
+      "id": "hybeboy-guitar-062",
+      "gridBeat": 48,
+      "kind": "accent-chord",
+      "onsetSeconds": 53.3,
+      "onsetStrength": 23.782345499259254,
+      "holdMeanRms": 0.27688
+    },
+    {
+      "id": "hybeboy-guitar-063",
+      "gridBeat": 48,
+      "kind": "quarter",
+      "onsetSeconds": 53.3,
+      "onsetStrength": 23.782345499259254,
+      "holdMeanRms": 0.27688
+    },
+    {
+      "id": "hybeboy-guitar-064",
+      "gridBeat": 49,
+      "kind": "quarter",
+      "onsetSeconds": 53.9,
+      "onsetStrength": 25.066136799982488,
+      "holdMeanRms": 0.27646
+    },
+    {
+      "id": "hybeboy-guitar-065",
+      "gridBeat": 50,
+      "kind": "phrase-hold",
+      "onsetSeconds": 54.5,
+      "onsetStrength": 25.37847862367103,
+      "holdMeanRms": 0.06070967032967031
+    },
+    {
+      "id": "hybeboy-guitar-066",
+      "gridBeat": 51,
+      "kind": "quarter",
+      "onsetSeconds": 55.1,
+      "onsetStrength": 25.7559907786607,
+      "holdMeanRms": 0.28521
+    },
+    {
+      "id": "hybeboy-guitar-067",
+      "gridBeat": 52,
+      "kind": "quarter",
+      "onsetSeconds": 55.7,
+      "onsetStrength": 23.024734554915785,
+      "holdMeanRms": 0.28695
+    },
+    {
+      "id": "hybeboy-guitar-068",
+      "gridBeat": 53,
+      "kind": "quarter",
+      "onsetSeconds": 56.3,
+      "onsetStrength": 28.014033022605478,
+      "holdMeanRms": 0.28671
+    },
+    {
+      "id": "hybeboy-guitar-069",
+      "gridBeat": 54,
+      "kind": "quarter",
+      "onsetSeconds": 56.9,
+      "onsetStrength": 30.350981715835566,
+      "holdMeanRms": 0.27054
+    },
+    {
+      "id": "hybeboy-guitar-070",
+      "gridBeat": 55,
+      "kind": "quarter",
+      "onsetSeconds": 57.5,
+      "onsetStrength": 9.949587665899264,
+      "holdMeanRms": 0.02735
+    },
+    {
+      "id": "hybeboy-guitar-071",
+      "gridBeat": 55.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 57.78,
+      "onsetStrength": 3.9244969156755696,
+      "holdMeanRms": 0.03633
+    },
+    {
+      "id": "hybeboy-guitar-072",
+      "gridBeat": 56,
+      "kind": "accent-chord",
+      "onsetSeconds": 58.11,
+      "onsetStrength": 2.8339401550481202,
+      "holdMeanRms": 0.02798
+    },
+    {
+      "id": "hybeboy-guitar-073",
+      "gridBeat": 56,
+      "kind": "quarter",
+      "onsetSeconds": 58.11,
+      "onsetStrength": 2.8339401550481202,
+      "holdMeanRms": 0.02798
+    },
+    {
+      "id": "hybeboy-guitar-074",
+      "gridBeat": 57,
+      "kind": "quarter",
+      "onsetSeconds": 58.67,
+      "onsetStrength": 2.4310994555345062,
+      "holdMeanRms": 0.02503
+    },
+    {
+      "id": "hybeboy-guitar-075",
+      "gridBeat": 57.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 59.04,
+      "onsetStrength": 2.0376603416253674,
+      "holdMeanRms": 0.02326
+    },
+    {
+      "id": "hybeboy-guitar-076",
+      "gridBeat": 58,
+      "kind": "quarter",
+      "onsetSeconds": 59.28,
+      "onsetStrength": 2.018953350658728,
+      "holdMeanRms": 0.01885
+    },
+    {
+      "id": "hybeboy-guitar-077",
+      "gridBeat": 59,
+      "kind": "quarter",
+      "onsetSeconds": 59.9,
+      "onsetStrength": 16.56356650223311,
+      "holdMeanRms": 0.0321
+    },
+    {
+      "id": "hybeboy-guitar-078",
+      "gridBeat": 60,
+      "kind": "quarter",
+      "onsetSeconds": 60.49,
+      "onsetStrength": 3.0883469222764104,
+      "holdMeanRms": 0.04803
+    },
+    {
+      "id": "hybeboy-guitar-079",
+      "gridBeat": 61,
+      "kind": "quarter",
+      "onsetSeconds": 61.1,
+      "onsetStrength": 15.240849344145792,
+      "holdMeanRms": 0.02144
+    },
+    {
+      "id": "hybeboy-guitar-080",
+      "gridBeat": 61.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 61.38,
+      "onsetStrength": 2.492350708306952,
+      "holdMeanRms": 0.04111
+    },
+    {
+      "id": "hybeboy-guitar-081",
+      "gridBeat": 62,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.03342
+    },
+    {
+      "id": "hybeboy-guitar-082",
+      "gridBeat": 63,
+      "kind": "quarter",
+      "onsetSeconds": 62.3,
+      "onsetStrength": 20.873330847438865,
+      "holdMeanRms": 0.02662
+    },
+    {
+      "id": "hybeboy-guitar-083",
+      "gridBeat": 63.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 62.58,
+      "onsetStrength": 9.099045575308637,
+      "holdMeanRms": 0.03894
+    },
+    {
+      "id": "hybeboy-guitar-084",
+      "gridBeat": 64,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "hybeboy-guitar-085",
+      "gridBeat": 65,
+      "kind": "quarter",
+      "onsetSeconds": 63.47,
+      "onsetStrength": 3.209742340105987,
+      "holdMeanRms": 0.02354
+    },
+    {
+      "id": "hybeboy-guitar-086",
+      "gridBeat": 65.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 63.76,
+      "onsetStrength": 2.0687779050274386,
+      "holdMeanRms": 0.01915
+    },
+    {
+      "id": "hybeboy-guitar-087",
+      "gridBeat": 66,
+      "kind": "phrase-hold",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": 0.023609333333333336
+    },
+    {
+      "id": "hybeboy-guitar-088",
+      "gridBeat": 67,
+      "kind": "quarter",
+      "onsetSeconds": 64.71,
+      "onsetStrength": 13.170649343022678,
+      "holdMeanRms": 0.05088
+    },
+    {
+      "id": "hybeboy-guitar-089",
+      "gridBeat": 67.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 65.06,
+      "onsetStrength": 5.0698366056199315,
+      "holdMeanRms": 0.05106
+    },
+    {
+      "id": "hybeboy-guitar-090",
+      "gridBeat": 68,
+      "kind": "quarter",
+      "onsetSeconds": 65.29,
+      "onsetStrength": 6.038809769636484,
+      "holdMeanRms": 0.0547
+    },
+    {
+      "id": "hybeboy-guitar-091",
+      "gridBeat": 69,
+      "kind": "quarter",
+      "onsetSeconds": 65.9,
+      "onsetStrength": 13.42989335014693,
+      "holdMeanRms": 0.0366
+    },
+    {
+      "id": "hybeboy-guitar-092",
+      "gridBeat": 69.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 66.15,
+      "onsetStrength": 2.997838777785127,
+      "holdMeanRms": 0.03433
+    },
+    {
+      "id": "hybeboy-guitar-093",
+      "gridBeat": 70,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "hybeboy-guitar-094",
+      "gridBeat": 71,
+      "kind": "quarter",
+      "onsetSeconds": 67.07,
+      "onsetStrength": 7.505339983218772,
+      "holdMeanRms": 0.03795
+    },
+    {
+      "id": "hybeboy-guitar-095",
+      "gridBeat": 71.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 67.36,
+      "onsetStrength": 6.3782230996079585,
+      "holdMeanRms": 0.03567
+    },
+    {
+      "id": "hybeboy-guitar-096",
+      "gridBeat": 72,
+      "kind": "accent-chord",
+      "onsetSeconds": 67.72,
+      "onsetStrength": 5.276373597448275,
+      "holdMeanRms": 0.03355
+    },
+    {
+      "id": "hybeboy-guitar-097",
+      "gridBeat": 72,
+      "kind": "quarter",
+      "onsetSeconds": 67.72,
+      "onsetStrength": 5.276373597448275,
+      "holdMeanRms": 0.03355
+    },
+    {
+      "id": "hybeboy-guitar-098",
+      "gridBeat": 73,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "hybeboy-guitar-099",
+      "gridBeat": 73.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 68.62,
+      "onsetStrength": 3.164326910486324,
+      "holdMeanRms": 0.01148
+    },
+    {
+      "id": "hybeboy-guitar-100",
+      "gridBeat": 74,
+      "kind": "quarter",
+      "onsetSeconds": 68.9,
+      "onsetStrength": 3.8319210607705525,
+      "holdMeanRms": 0.01626
+    },
+    {
+      "id": "hybeboy-guitar-101",
+      "gridBeat": 75,
+      "kind": "quarter",
+      "onsetSeconds": 69.5,
+      "onsetStrength": 2.9527352072460764,
+      "holdMeanRms": 0.01029
+    },
+    {
+      "id": "hybeboy-guitar-102",
+      "gridBeat": 75.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 69.78,
+      "onsetStrength": 1.7996697175985683,
+      "holdMeanRms": 0.00716
+    },
+    {
+      "id": "hybeboy-guitar-103",
+      "gridBeat": 76,
+      "kind": "quarter",
+      "onsetSeconds": 70.09,
+      "onsetStrength": 3.6614940193305205,
+      "holdMeanRms": 0.00572
+    },
+    {
+      "id": "hybeboy-guitar-104",
+      "gridBeat": 77,
+      "kind": "quarter",
+      "onsetSeconds": null,
+      "onsetStrength": null,
+      "holdMeanRms": null
+    },
+    {
+      "id": "hybeboy-guitar-105",
+      "gridBeat": 78,
+      "kind": "quarter",
+      "onsetSeconds": 71.3,
+      "onsetStrength": 76.13590224140546,
+      "holdMeanRms": 0.29652
+    },
+    {
+      "id": "hybeboy-guitar-106",
+      "gridBeat": 79,
+      "kind": "quarter",
+      "onsetSeconds": 71.9,
+      "onsetStrength": 3.197197135027723,
+      "holdMeanRms": 0.01894
+    },
+    {
+      "id": "hybeboy-guitar-107",
+      "gridBeat": 80,
+      "kind": "accent-chord",
+      "onsetSeconds": 72.5,
+      "onsetStrength": 39.699845534459534,
+      "holdMeanRms": 0.27323
+    },
+    {
+      "id": "hybeboy-guitar-108",
+      "gridBeat": 80,
+      "kind": "quarter",
+      "onsetSeconds": 72.5,
+      "onsetStrength": 39.699845534459534,
+      "holdMeanRms": 0.27323
+    },
+    {
+      "id": "hybeboy-guitar-109",
+      "gridBeat": 81,
+      "kind": "quarter",
+      "onsetSeconds": 73.1,
+      "onsetStrength": 25.312264500890713,
+      "holdMeanRms": 0.26682
+    },
+    {
+      "id": "hybeboy-guitar-110",
+      "gridBeat": 82,
+      "kind": "phrase-hold",
+      "onsetSeconds": 73.7,
+      "onsetStrength": 25.872824757581945,
+      "holdMeanRms": 0.07478186813186813
+    },
+    {
+      "id": "hybeboy-guitar-111",
+      "gridBeat": 83,
+      "kind": "quarter",
+      "onsetSeconds": 74.3,
+      "onsetStrength": 26.813386146832876,
+      "holdMeanRms": 0.26977
+    },
+    {
+      "id": "hybeboy-guitar-112",
+      "gridBeat": 84,
+      "kind": "quarter",
+      "onsetSeconds": 74.9,
+      "onsetStrength": 23.23628870984022,
+      "holdMeanRms": 0.305
+    },
+    {
+      "id": "hybeboy-guitar-113",
+      "gridBeat": 85,
+      "kind": "quarter",
+      "onsetSeconds": 75.5,
+      "onsetStrength": 26.26490757078753,
+      "holdMeanRms": 0.28175
+    },
+    {
+      "id": "hybeboy-guitar-114",
+      "gridBeat": 86,
+      "kind": "quarter",
+      "onsetSeconds": 76.1,
+      "onsetStrength": 25.29232500379956,
+      "holdMeanRms": 0.2877
+    },
+    {
+      "id": "hybeboy-guitar-115",
+      "gridBeat": 87,
+      "kind": "quarter",
+      "onsetSeconds": 76.7,
+      "onsetStrength": 25.82289962806974,
+      "holdMeanRms": 0.26027
+    },
+    {
+      "id": "hybeboy-guitar-116",
+      "gridBeat": 87.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 76.98,
+      "onsetStrength": 1.9647160097476934,
+      "holdMeanRms": 0.05968
+    },
+    {
+      "id": "hybeboy-guitar-117",
+      "gridBeat": 88,
+      "kind": "accent-chord",
+      "onsetSeconds": 77.3,
+      "onsetStrength": 22.93364130235156,
+      "holdMeanRms": 0.27614
+    },
+    {
+      "id": "hybeboy-guitar-118",
+      "gridBeat": 88,
+      "kind": "quarter",
+      "onsetSeconds": 77.3,
+      "onsetStrength": 22.93364130235156,
+      "holdMeanRms": 0.27614
+    },
+    {
+      "id": "hybeboy-guitar-119",
+      "gridBeat": 89,
+      "kind": "quarter",
+      "onsetSeconds": 77.9,
+      "onsetStrength": 23.69404269114714,
+      "holdMeanRms": 0.26906
+    },
+    {
+      "id": "hybeboy-guitar-120",
+      "gridBeat": 90,
+      "kind": "quarter",
+      "onsetSeconds": 78.5,
+      "onsetStrength": 25.51942825658145,
+      "holdMeanRms": 0.29308
+    },
+    {
+      "id": "hybeboy-guitar-121",
+      "gridBeat": 91,
+      "kind": "quarter",
+      "onsetSeconds": 79.1,
+      "onsetStrength": 26.028454537462117,
+      "holdMeanRms": 0.27666
+    },
+    {
+      "id": "hybeboy-guitar-122",
+      "gridBeat": 92,
+      "kind": "quarter",
+      "onsetSeconds": 79.7,
+      "onsetStrength": 22.38950675312447,
+      "holdMeanRms": 0.29785
+    },
+    {
+      "id": "hybeboy-guitar-123",
+      "gridBeat": 93,
+      "kind": "quarter",
+      "onsetSeconds": 80.3,
+      "onsetStrength": 28.5814555301449,
+      "holdMeanRms": 0.26219
+    },
+    {
+      "id": "hybeboy-guitar-124",
+      "gridBeat": 94,
+      "kind": "quarter",
+      "onsetSeconds": 80.9,
+      "onsetStrength": 24.06954389659089,
+      "holdMeanRms": 0.28878
+    },
+    {
+      "id": "hybeboy-guitar-125",
+      "gridBeat": 95,
+      "kind": "quarter",
+      "onsetSeconds": 81.5,
+      "onsetStrength": 26.92463752777283,
+      "holdMeanRms": 0.26628
+    },
+    {
+      "id": "hybeboy-guitar-126",
+      "gridBeat": 96,
+      "kind": "accent-chord",
+      "onsetSeconds": 82.1,
+      "onsetStrength": 23.190992347066537,
+      "holdMeanRms": 0.27717
+    },
+    {
+      "id": "hybeboy-guitar-127",
+      "gridBeat": 96,
+      "kind": "quarter",
+      "onsetSeconds": 82.1,
+      "onsetStrength": 23.190992347066537,
+      "holdMeanRms": 0.27717
+    },
+    {
+      "id": "hybeboy-guitar-128",
+      "gridBeat": 97,
+      "kind": "quarter",
+      "onsetSeconds": 82.7,
+      "onsetStrength": 24.359789740726374,
+      "holdMeanRms": 0.26186
+    },
+    {
+      "id": "hybeboy-guitar-129",
+      "gridBeat": 98,
+      "kind": "phrase-hold",
+      "onsetSeconds": 83.3,
+      "onsetStrength": 25.129101339248894,
+      "holdMeanRms": 0.07449725274725275
+    },
+    {
+      "id": "hybeboy-guitar-130",
+      "gridBeat": 99,
+      "kind": "quarter",
+      "onsetSeconds": 83.9,
+      "onsetStrength": 26.808250466301068,
+      "holdMeanRms": 0.27618
+    },
+    {
+      "id": "hybeboy-guitar-131",
+      "gridBeat": 100,
+      "kind": "quarter",
+      "onsetSeconds": 84.5,
+      "onsetStrength": 23.779964781072323,
+      "holdMeanRms": 0.30128
+    },
+    {
+      "id": "hybeboy-guitar-132",
+      "gridBeat": 101,
+      "kind": "quarter",
+      "onsetSeconds": 85.1,
+      "onsetStrength": 25.829037898292455,
+      "holdMeanRms": 0.28293
+    },
+    {
+      "id": "hybeboy-guitar-133",
+      "gridBeat": 102,
+      "kind": "quarter",
+      "onsetSeconds": 85.7,
+      "onsetStrength": 25.47306978036354,
+      "holdMeanRms": 0.29101
+    },
+    {
+      "id": "hybeboy-guitar-134",
+      "gridBeat": 103,
+      "kind": "quarter",
+      "onsetSeconds": 86.3,
+      "onsetStrength": 26.522141834801666,
+      "holdMeanRms": 0.26899
+    },
+    {
+      "id": "hybeboy-guitar-135",
+      "gridBeat": 103.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 86.58,
+      "onsetStrength": 1.9707906027778521,
+      "holdMeanRms": 0.05919
+    },
+    {
+      "id": "hybeboy-guitar-136",
+      "gridBeat": 104,
+      "kind": "accent-chord",
+      "onsetSeconds": 86.9,
+      "onsetStrength": 22.92762493500121,
+      "holdMeanRms": 0.27477
+    },
+    {
+      "id": "hybeboy-guitar-137",
+      "gridBeat": 104,
+      "kind": "quarter",
+      "onsetSeconds": 86.9,
+      "onsetStrength": 22.92762493500121,
+      "holdMeanRms": 0.27477
+    },
+    {
+      "id": "hybeboy-guitar-138",
+      "gridBeat": 105,
+      "kind": "quarter",
+      "onsetSeconds": 87.5,
+      "onsetStrength": 23.77590204369314,
+      "holdMeanRms": 0.26626
+    },
+    {
+      "id": "hybeboy-guitar-139",
+      "gridBeat": 106,
+      "kind": "quarter",
+      "onsetSeconds": 88.1,
+      "onsetStrength": 25.142182827524874,
+      "holdMeanRms": 0.28953
+    },
+    {
+      "id": "hybeboy-guitar-140",
+      "gridBeat": 107,
+      "kind": "quarter",
+      "onsetSeconds": 88.7,
+      "onsetStrength": 25.913810830978196,
+      "holdMeanRms": 0.2768
+    },
+    {
+      "id": "hybeboy-guitar-141",
+      "gridBeat": 108,
+      "kind": "quarter",
+      "onsetSeconds": 89.3,
+      "onsetStrength": 21.60253051136277,
+      "holdMeanRms": 0.30259
+    },
+    {
+      "id": "hybeboy-guitar-142",
+      "gridBeat": 109,
+      "kind": "quarter",
+      "onsetSeconds": 89.9,
+      "onsetStrength": 29.250272967824966,
+      "holdMeanRms": 0.27246
+    },
+    {
+      "id": "hybeboy-guitar-143",
+      "gridBeat": 110,
+      "kind": "quarter",
+      "onsetSeconds": 90.5,
+      "onsetStrength": 33.19587832431865,
+      "holdMeanRms": 0.28143
+    },
+    {
+      "id": "hybeboy-guitar-144",
+      "gridBeat": 111,
+      "kind": "quarter",
+      "onsetSeconds": 91.1,
+      "onsetStrength": 2.9802315253633385,
+      "holdMeanRms": 0.02041
+    },
+    {
+      "id": "hybeboy-guitar-145",
+      "gridBeat": 112,
+      "kind": "accent-chord",
+      "onsetSeconds": 91.7,
+      "onsetStrength": 36.65394615743968,
+      "holdMeanRms": 0.28346
+    },
+    {
+      "id": "hybeboy-guitar-146",
+      "gridBeat": 112,
+      "kind": "quarter",
+      "onsetSeconds": 91.7,
+      "onsetStrength": 36.65394615743968,
+      "holdMeanRms": 0.28346
+    },
+    {
+      "id": "hybeboy-guitar-147",
+      "gridBeat": 113,
+      "kind": "quarter",
+      "onsetSeconds": 92.3,
+      "onsetStrength": 25.02457075913739,
+      "holdMeanRms": 0.27409
+    },
+    {
+      "id": "hybeboy-guitar-148",
+      "gridBeat": 114,
+      "kind": "phrase-hold",
+      "onsetSeconds": 92.9,
+      "onsetStrength": 25.32480348843133,
+      "holdMeanRms": 0.07393846153846156
+    },
+    {
+      "id": "hybeboy-guitar-149",
+      "gridBeat": 115,
+      "kind": "quarter",
+      "onsetSeconds": 93.5,
+      "onsetStrength": 26.4637979723654,
+      "holdMeanRms": 0.26905
+    },
+    {
+      "id": "hybeboy-guitar-150",
+      "gridBeat": 116,
+      "kind": "quarter",
+      "onsetSeconds": 94.1,
+      "onsetStrength": 23.33486995958321,
+      "holdMeanRms": 0.29217
+    },
+    {
+      "id": "hybeboy-guitar-151",
+      "gridBeat": 117,
+      "kind": "quarter",
+      "onsetSeconds": 94.7,
+      "onsetStrength": 26.771370824240655,
+      "holdMeanRms": 0.28006
+    },
+    {
+      "id": "hybeboy-guitar-152",
+      "gridBeat": 118,
+      "kind": "quarter",
+      "onsetSeconds": 95.3,
+      "onsetStrength": 25.439661367321513,
+      "holdMeanRms": 0.29018
+    },
+    {
+      "id": "hybeboy-guitar-153",
+      "gridBeat": 119,
+      "kind": "quarter",
+      "onsetSeconds": 95.9,
+      "onsetStrength": 26.35365139920533,
+      "holdMeanRms": 0.26698
+    },
+    {
+      "id": "hybeboy-guitar-154",
+      "gridBeat": 119.5,
+      "kind": "supported-eighth",
+      "onsetSeconds": 96.18,
+      "onsetStrength": 1.969376063441729,
+      "holdMeanRms": 0.06097
+    },
+    {
+      "id": "hybeboy-guitar-155",
+      "gridBeat": 120,
+      "kind": "accent-chord",
+      "onsetSeconds": 96.5,
+      "onsetStrength": 22.963499193284893,
+      "holdMeanRms": 0.27477
+    },
+    {
+      "id": "hybeboy-guitar-156",
+      "gridBeat": 120,
+      "kind": "quarter",
+      "onsetSeconds": 96.5,
+      "onsetStrength": 22.963499193284893,
+      "holdMeanRms": 0.27477
+    },
+    {
+      "id": "hybeboy-guitar-157",
+      "gridBeat": 121,
+      "kind": "quarter",
+      "onsetSeconds": 97.1,
+      "onsetStrength": 23.734760065101405,
+      "holdMeanRms": 0.26775
+    },
+    {
+      "id": "hybeboy-guitar-158",
+      "gridBeat": 122,
+      "kind": "quarter",
+      "onsetSeconds": 97.7,
+      "onsetStrength": 25.093231975138877,
+      "holdMeanRms": 0.29223
+    },
+    {
+      "id": "hybeboy-guitar-159",
+      "gridBeat": 123,
+      "kind": "quarter",
+      "onsetSeconds": 98.3,
+      "onsetStrength": 26.777812106823788,
+      "holdMeanRms": 0.27237
+    },
+    {
+      "id": "hybeboy-guitar-160",
+      "gridBeat": 124,
+      "kind": "quarter",
+      "onsetSeconds": 98.9,
+      "onsetStrength": 22.922404402883473,
+      "holdMeanRms": 0.29303
+    },
+    {
+      "id": "hybeboy-guitar-161",
+      "gridBeat": 125,
+      "kind": "quarter",
+      "onsetSeconds": 99.5,
+      "onsetStrength": 28.80802685726375,
+      "holdMeanRms": 0.26468
+    },
+    {
+      "id": "hybeboy-guitar-162",
+      "gridBeat": 126,
+      "kind": "quarter",
+      "onsetSeconds": 100.1,
+      "onsetStrength": 23.876477886949125,
+      "holdMeanRms": 0.29228
+    },
+    {
+      "id": "hybeboy-guitar-163",
+      "gridBeat": 127,
+      "kind": "quarter",
+      "onsetSeconds": 100.7,
+      "onsetStrength": 26.924068966908862,
+      "holdMeanRms": 0.27174
+    }
+  ]
+}

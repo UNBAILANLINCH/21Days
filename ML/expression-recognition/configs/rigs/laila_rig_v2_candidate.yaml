@@ -1,0 +1,25 @@
+# 实验候选；不是正式 laila_v2，也不是人类语义校准结果。
+# 当前 FBX SHA256: 86c77af278764973b27c7c6f7f0b86c2d5434c878cb0b63a6402cc0d74c8d136
+# 画面 L 对应角色 Right；须用当前几何复核，不能仅靠名字确认。
+# Inner/Mid/Outer 的正向分别偏向内眉/混合/外眉，保留分段差异；
+# 51维无独立 browMid 基，Mid 正向只能近似，Down 三段均归同侧 browDown。
+# 共享基系数合计1是防饱和的工程约定，不是测得的AU强度。
+name: laila_v2_candidate
+sliders:
+  - {key: brow_L_inner_y, range: [-1, 1], default: 0, pos: {browInnerUp: 0.4}, neg: {browDownRight: 0.4}}
+  - {key: brow_L_mid_y, range: [-1, 1], default: 0, pos: {browInnerUp: 0.1, browOuterUpRight: 0.25}, neg: {browDownRight: 0.35}}
+  - {key: brow_L_outer_y, range: [-1, 1], default: 0, pos: {browOuterUpRight: 0.75}, neg: {browDownRight: 0.25}}
+  - {key: brow_R_inner_y, range: [-1, 1], default: 0, pos: {browInnerUp: 0.4}, neg: {browDownLeft: 0.4}}
+  - {key: brow_R_mid_y, range: [-1, 1], default: 0, pos: {browInnerUp: 0.1, browOuterUpLeft: 0.25}, neg: {browDownLeft: 0.35}}
+  - {key: brow_R_outer_y, range: [-1, 1], default: 0, pos: {browOuterUpLeft: 0.75}, neg: {browDownLeft: 0.25}}
+  - {key: eye_L_upper_y, range: [-1, 1], default: 0, pos: {eyeWideRight: 1}, neg: {eyeBlinkRight: 1}}
+  - {key: eye_L_lower_y, range: [-1, 1], default: 0, pos: {eyeSquintRight: 1}, neg: {}}
+  - {key: eye_R_upper_y, range: [-1, 1], default: 0, pos: {eyeWideLeft: 1}, neg: {eyeBlinkLeft: 1}}
+  - {key: eye_R_lower_y, range: [-1, 1], default: 0, pos: {eyeSquintLeft: 1}, neg: {}}
+  - {key: mouth_corner_L_y, range: [-1, 1], default: 0, pos: {mouthSmileRight: 1}, neg: {mouthFrownRight: 1}}
+  - {key: mouth_corner_R_y, range: [-1, 1], default: 0, pos: {mouthSmileLeft: 1}, neg: {mouthFrownLeft: 1}}
+  - {key: mouth_corner_L_x, range: [-1, 1], default: 0, pos: {mouthStretchRight: 1}, neg: {}}
+  - {key: mouth_corner_R_x, range: [-1, 1], default: 0, pos: {mouthStretchLeft: 1}, neg: {}}
+  - {key: upper_lip_L, range: [0, 1], default: 0, pos: {mouthUpperUpRight: 1}}
+  - {key: upper_lip_R, range: [0, 1], default: 0, pos: {mouthUpperUpLeft: 1}}
+  - {key: lower_lip, range: [0, 1], default: 0, pos: {mouthLowerDownLeft: 1, mouthLowerDownRight: 1}}

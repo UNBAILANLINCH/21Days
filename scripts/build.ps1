@@ -87,10 +87,18 @@ param(
     # 工程默认已是 IL2CPP + ARM64，所以平时加不加都一样，它只防「默认被人改回 32 位」。
     [switch]$Release,
 
+    # 独立音游预设：单场景、精简 Addressables、整个测试存档目录隔离。
+    [switch]$RhythmTest,
+
     [string]$UnityPath
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($RhythmTest -and $Target -ne 'Windows') {
+    Write-Host '错误：-RhythmTest 仅支持 Windows。'
+    exit 4
+}
 
 # 参数值里有空格就补引号：Start-Process 把数组用空格拼成一整行命令行，不补引号路径会被拆开。
 function Format-UnityArgument {
@@ -200,6 +208,7 @@ else {
     $unityBuildTarget = 'Win64'
     $executeMethod = 'Game.Editor.BuildScript.BuildWindows'
     $defaultOutput = 'Builds/Windows/21Days.exe'
+    if ($RhythmTest) { $defaultOutput = 'Builds/RhythmTest/21Days-RhythmTest.exe' }
 }
 
 $unityArgs = @(
@@ -236,6 +245,11 @@ if ($Release) {
     $unityArgs += '-releaseBuild'
 }
 
+if ($RhythmTest) {
+    $unityArgs += '-rhythmTest'
+    Write-Host '独立音游预设：直接进入 RhythmDemo；测试数据位于 isolated-test/saves；构建后恢复原配置。'
+}
+
 Write-Host "目标平台：$Target"
 
 # 明确打出本次用的是哪种配置：出完包别让人对着体积猜自己刚才出的到底是不是能上架的那种。
@@ -259,8 +273,49 @@ Write-Host "日志：$logFile"
 Write-Host "命令行：$unityExe $($unityArgs -join ' ')"
 Write-Host "开始打包，首次切平台会重新导入资产，可能要几分钟……"
 
-$process = Start-Process -FilePath $unityExe -ArgumentList $unityArgs -Wait -PassThru -NoNewWindow
-$exitCode = $process.ExitCode
+# 独立预设的载体是本脚本显式 -RhythmTest 调用；正常或异常退出都恢复后结束。
+# Unity 启动就可能改版本/区域配置，TMP 预处理会清字体，因此不能等 BuildScript 才快照。
+# 状态锚点：控制台打印快照文件数，5 秒内可查；不修改正式字体的 ClearDynamicDataOnBuild。
+$rhythmSourceBytes = @{}
+if ($RhythmTest) {
+    $rhythmProtectedPaths = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'ProjectSettings'),
+        (Join-Path $projectRoot 'Assets/AddressableAssetsData') -Recurse -File)
+    $rhythmFontPaths = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Assets') -Recurse -Filter '*.asset' |
+        Select-String -SimpleMatch 'm_ClearDynamicDataOnBuild:' -List | Select-Object -ExpandProperty Path
+    foreach ($rhythmFile in $rhythmProtectedPaths) {
+        $rhythmSourceBytes[$rhythmFile.FullName] = [System.IO.File]::ReadAllBytes($rhythmFile.FullName)
+    }
+    foreach ($rhythmFontPath in $rhythmFontPaths) {
+        $rhythmSourceBytes[$rhythmFontPath] = [System.IO.File]::ReadAllBytes($rhythmFontPath)
+    }
+    $rhythmBackupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('21days-rhythm-build-' + [guid]::NewGuid().ToString('N'))
+    foreach ($rhythmEntry in $rhythmSourceBytes.GetEnumerator()) {
+        $rhythmRelativePath = $rhythmEntry.Key.Substring($projectRoot.Length).TrimStart('\', '/')
+        $rhythmBackupPath = Join-Path $rhythmBackupRoot $rhythmRelativePath
+        New-Item -ItemType Directory -Path (Split-Path -Parent $rhythmBackupPath) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($rhythmBackupPath, $rhythmEntry.Value)
+    }
+    Write-Host "独立测试构建保护：已快照 $($rhythmSourceBytes.Count) 个配置、Addressables 与 TMP 字体文件。"
+    Write-Host "构建前字节备份：$rhythmBackupRoot"
+}
+
+try {
+    $process = Start-Process -FilePath $unityExe -ArgumentList $unityArgs -Wait -PassThru -NoNewWindow
+    $exitCode = $process.ExitCode
+}
+finally {
+    foreach ($rhythmEntry in $rhythmSourceBytes.GetEnumerator()) {
+        [System.IO.File]::WriteAllBytes($rhythmEntry.Key, $rhythmEntry.Value)
+        $rhythmHash = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $rhythmExpectedHash = [System.BitConverter]::ToString($rhythmHash.ComputeHash($rhythmEntry.Value))
+            $rhythmRestoredHash = [System.BitConverter]::ToString($rhythmHash.ComputeHash([System.IO.File]::ReadAllBytes($rhythmEntry.Key)))
+            if ($rhythmExpectedHash -ne $rhythmRestoredHash) { throw "构建保护恢复校验失败：$($rhythmEntry.Key)" }
+        }
+        finally { $rhythmHash.Dispose() }
+    }
+    if ($RhythmTest) { Write-Host '独立测试构建保护：原文件字节已恢复。' }
+}
 if ($null -eq $exitCode) {
     Write-Host "错误：没拿到 Unity 的退出码，按失败处理。日志：$logFile"
     exit 1

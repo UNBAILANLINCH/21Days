@@ -1,0 +1,26 @@
+{
+  "rows": [
+    {
+      "key": "Mouth_L_Up",
+      "weight": 74.7,
+      "mouseY": 97.0
+    },
+    {
+      "key": "Mouth_L_Down",
+      "weight": 74.7,
+      "mouseY": 117.0
+    },
+    {
+      "key": "Eye_L_UpperLid_Up",
+      "weight": 74.7,
+      "mouseY": 417.0
+    },
+    {
+      "key": "Brow_L_Inner_Up",
+      "weight": 74.7,
+      "mouseY": 657.0
+    }
+  ],
+  "upCleared": true,
+  "shapeCount": 31
+}

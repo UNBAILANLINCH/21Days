@@ -1,0 +1,121 @@
+[
+  {
+    "number": 1,
+    "name": "Control_Brow_L_Inner",
+    "point": "(-0.0185185, 0.0600006, -0.1279738)",
+    "hit": "Control_Brow_L_Inner",
+    "visible": true
+  },
+  {
+    "number": 2,
+    "name": "Control_Brow_L_Mid",
+    "point": "(-0.0440759, 0.0731797, -0.1263609)",
+    "hit": "Control_Brow_L_Mid",
+    "visible": true
+  },
+  {
+    "number": 3,
+    "name": "Control_Brow_L_Outer",
+    "point": "(-0.0676741, 0.0718881, -0.1135060)",
+    "hit": "Control_Brow_L_Outer",
+    "visible": true
+  },
+  {
+    "number": 4,
+    "name": "Control_Brow_R_Inner",
+    "point": "(0.0181482, 0.0598147, -0.1280163)",
+    "hit": "Control_Brow_R_Inner",
+    "visible": true
+  },
+  {
+    "number": 5,
+    "name": "Control_Brow_R_Mid",
+    "point": "(0.0440759, 0.0731797, -0.1263609)",
+    "hit": "Control_Brow_R_Mid",
+    "visible": true
+  },
+  {
+    "number": 6,
+    "name": "Control_Brow_R_Outer",
+    "point": "(0.0676741, 0.0718881, -0.1135060)",
+    "hit": "Control_Brow_R_Outer",
+    "visible": true
+  },
+  {
+    "number": 7,
+    "name": "Control_Eye_L_Gaze",
+    "point": "(-0.0401566, 0.0368295, -0.0984498)",
+    "hit": "Control_Eye_L_Gaze",
+    "visible": true
+  },
+  {
+    "number": 8,
+    "name": "Control_Eye_L_Lower",
+    "point": "(-0.0478280, 0.0263836, -0.1073512)",
+    "hit": "Control_Eye_L_Lower",
+    "visible": true
+  },
+  {
+    "number": 9,
+    "name": "Control_Eye_L_Upper",
+    "point": "(-0.0405532, 0.0446310, -0.1125131)",
+    "hit": "Control_Eye_L_Upper",
+    "visible": true
+  },
+  {
+    "number": 10,
+    "name": "Control_Eye_R_Gaze",
+    "point": "(0.0421044, 0.0368295, -0.0984498)",
+    "hit": "Control_Eye_R_Gaze",
+    "visible": true
+  },
+  {
+    "number": 11,
+    "name": "Control_Eye_R_Lower",
+    "point": "(0.0478280, 0.0263836, -0.1073512)",
+    "hit": "Control_Eye_R_Lower",
+    "visible": true
+  },
+  {
+    "number": 12,
+    "name": "Control_Eye_R_Upper",
+    "point": "(0.0405532, 0.0446310, -0.1125131)",
+    "hit": "Control_Eye_R_Upper",
+    "visible": true
+  },
+  {
+    "number": 13,
+    "name": "Control_LowerLip",
+    "point": "(0.0000000, -0.0679909, -0.1223068)",
+    "hit": "Control_LowerLip",
+    "visible": true
+  },
+  {
+    "number": 14,
+    "name": "Control_Mouth_L",
+    "point": "(-0.0288953, -0.0556261, -0.1124660)",
+    "hit": "Control_Mouth_L",
+    "visible": true
+  },
+  {
+    "number": 15,
+    "name": "Control_Mouth_R",
+    "point": "(0.0288953, -0.0556261, -0.1124660)",
+    "hit": "Control_Mouth_R",
+    "visible": true
+  },
+  {
+    "number": 16,
+    "name": "Control_UpperLip_L",
+    "point": "(-0.0099109, -0.0406745, -0.1336402)",
+    "hit": "Control_UpperLip_L",
+    "visible": true
+  },
+  {
+    "number": 17,
+    "name": "Control_UpperLip_R",
+    "point": "(0.0099109, -0.0406745, -0.1336402)",
+    "hit": "Control_UpperLip_R",
+    "visible": true
+  }
+]

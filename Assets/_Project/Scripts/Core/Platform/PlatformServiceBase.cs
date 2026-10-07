@@ -17,6 +17,13 @@ namespace Game.Core.Platform
     public abstract class PlatformServiceBase : IPlatformService, IGameService
     {
         private const string SaveFolderName = "saves";
+#if GAME_ISOLATED_TEST_BUILD && !UNITY_EDITOR
+        private const bool IsolatedBuild = true;
+#else
+        private const bool IsolatedBuild = false;
+#endif
+        public static bool IsIsolatedTestBuild => IsolatedBuild;
+        public static string IsolatedBuildDefine => "GAME_ISOLATED_TEST_BUILD";
 
         private string saveRoot;
 
@@ -35,7 +42,11 @@ namespace Game.Core.Platform
 
         public abstract bool IsTouchPrimary { get; }
 
-        public string SaveRoot => SaveRootOverride ?? (saveRoot ??= Path.Combine(Application.persistentDataPath, SaveFolderName));
+        public string SaveRoot => SaveRootOverride ?? (saveRoot ??= GetPersistentSaveRoot(Application.persistentDataPath, IsolatedBuild));
+
+        // 整个测试档案目录隔离，settings、槽位、备份和模块档案共用同一边界；不读取正式目录作回退。
+        public static string GetPersistentSaveRoot(string persistentPath, bool isolatedTest)
+            => isolatedTest ? Path.Combine(persistentPath, "isolated-test", SaveFolderName) : Path.Combine(persistentPath, SaveFolderName);
 
         public abstract void Vibrate(VibrationKind kind);
 

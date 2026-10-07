@@ -2,9 +2,25 @@
 
 玩家在游戏里拖捏脸滑杆，网络判断这张脸「读起来是哪种表情」（默认 7 类基本情绪：中性、高兴、悲伤、惊讶、恐惧、厌恶、愤怒，类别可配置，也可用类别集合并 / 去掉部分类），并能判「认不出」。模型导出成 ONNX（opset 15），给 Unity Sentis 2.1.3 在客户端离线推理。
 
-- 设计：[DESIGN.md](DESIGN.md)（需求与设计决定以它为准）
+- 专业设计与通用原型依据：[DESIGN.md](DESIGN.md)；当前Laila执行契约与进度以spec§17→§16为准
 - 参考文献与数据集授权核对：[REFERENCES.md](REFERENCES.md)
+- 当前莱拉执行入口：先读[训练 PRP §17工程进展](../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)，再读§16契约与阶段顺序。31形态、17非视线轴候选已训练接线，正式v2尚待几何/人工语义验收。
+- [laila-binding-review.md](configs/rigs/laila-binding-review.md) 与 `configs/rigs/laila_rig.yaml` 是旧模型的 12 维 `laila_v1` 历史记录，不能直接用于当前分段模型的正式训练；保留用于旧实验复现。
 - 本目录是独立的 Python 子项目，不含任何 Unity 侧工作。
+
+2026-10-07 状态：唯一 `LailaRecognitionPlaytest.unity` 默认使用定向修复 59D，原 17→51→5 保留为同场景旧版对照，并保留上一版反馈 / r779 / 原 51D 对照。配置见 `configs/rigs/laila_rig_v2_candidate.yaml`，正式 `laila_v2` 尚未冻结。输入变化清旧结果，最多 10Hz 自动识别；人工语义与完整拒识未验收。当前契约从训练 PRP §17 进入，下文是通用 CLI 与历史复现示例。
+
+### 当前人工开发标注入口
+
+双击本目录[launch_annotator.cmd](launch_annotator.cmd)，填写稳定标注者代号，点“开始／续标”。固定139张匿名dev图、两个近邻组；七类＋ambiguous，自动保存、续标及CSV/JSON导出。操作、实际目录、数据版本、恢复和后续交接以[ANNOTATOR.md](analysis/laila_v2_candidate/ANNOTATOR.md)为准；Unity职责见[识别模块指南](../../ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md)。工具仅用Python标准库与本机浏览器，无需Unity、训练依赖或上传。
+
+原始采集保持 unlabeled，单人意见单独保存。r779 / 266 项 history 冻结后的五类研究中，111 张开发意见分类一致 110 张；其中 105 张训练、6 张单类校准，没有独立测试。51D 有三对同特征异标签，59D 保留区别；拒识仍有覆盖缺口。各阶段逐类结果见 ANNOTATOR，后续数据协议尚未确定；通用 `exprnet.train --golden` 仅评估。
+
+s42 合成复现 argmax 准确率 98.7484%，含拒识最终判对 96.5744%；新旧参数及评估数组相同。这是同源合成检查，不能外推玩家识别效果。
+
+历史首轮 revision562 有 113 张标签、26 张空值，相关诊断与备份见 ANNOTATOR。备注不自动转换为类别，开发一致率不作为独立人类准确率。
+
+受控合成对照：在本目录运行 `$env:PYTHONPATH='.'; .venv\Scripts\python.exe analysis/laila_v2_candidate/run_comparison.py`，只将当前候选眉段/左右上唇自由度锁回12轴，不是旧FBX对新版FBX或人工准确率。训练config snapshot/完整metrics/固定fixture在已有忽略的artifacts中。
 
 ## ⚠ 授权警告
 
@@ -27,13 +43,16 @@ configs/
   facs.yaml            AU→表情基映射、各情绪的 AU 原型变体（逐条标出处：emfacs / ckplus_min / ckplus_fig1）、强度档、
                        干净稀疏样本比例（clean_fraction，默认 25%）、负样本
   rigs/sample_rig.yaml 示例绑定（20 根滑杆，仅跑通流程；live2d 字段是历史参照，Live2D 路线已废弃）
+  rigs/laila_rig.yaml  历史12轴v1；仅旧资产复现
+  rigs/laila_rig_v2_candidate.yaml 当前17轴工程候选，未冻结正式语义
   label_sets/          类别集：laila_5class.yaml（laila 验收五类，规格 §15.1）
   train.yaml           训练超参
   sentis_ops.txt       Sentis 2.1 支持的 ONNX 算子白名单（附出处 URL 与抓取日期）
 golden/sample_rig.json 金标捏脸集占位（与合成器同源，不能证明泛化）
 analysis/laila_upper_bound/  laila 12 维输入的可分性上限分析（REPORT.md）与两份分析用候选绑定（不是正式绑定）
+analysis/laila_v2_candidate/ 工程诊断、单人dev适配和51D／59D研究微调；不自动部署或作为独立金标
 exprnet/               代码（见下）
-tests/                 pytest，不联网、不需要数据集（test_laila_contract.py 是 laila 12 维契约测试）
+tests/                 pytest，不联网、不需要数据集；test_laila_contract.py保留旧12维，test_laila_v2_candidate.py验证17轴候选映射；严格采样/冲突在Unity定向测试验证
 pytest.ini             让 pytest 以本目录为根（缓存不落到仓库根）
 requirements.txt       训练 / 导出 / 测试依赖
 requirements-extract.txt  抽特征依赖（mediapipe、opencv）
@@ -52,7 +71,7 @@ python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-extract.txt
 ```
 
-- torch 用 CPU 版就够：模型只有几万到十几万参数，合成数据训一次 CPU 上 3 分钟左右。
+- 可先用 CPU 版 torch 跑 ResMLP 基线；耗时取决于机器、样本量与绑定投影，不保证固定分钟数。
 - 在仓库根目录运行也行，把本目录加进 `PYTHONPATH`：`PYTHONPATH=ML/expression-recognition ML/expression-recognition/.venv/Scripts/python -m exprnet.train ...`（Git Bash 写法）。
 - 输出重定向到文件时中文乱码，可设 `PYTHONIOENCODING=utf-8`。
 
@@ -69,7 +88,7 @@ python -m pytest tests -q
 # 在仓库根目录：ML/expression-recognition/.venv/Scripts/python -m pytest ML/expression-recognition/tests -q
 ```
 
-不联网、不需要数据集。`tests/test_mediapipe_optional.py` 只有在装了 mediapipe、`.cache/face_landmarker.task` 已存在时才跑，否则自动跳过。`tests/test_laila_contract.py` 里检查正式绑定 `configs/rigs/laila_rig.yaml` 的那一条，在文件不存在时跳过（等阶段门 B 几何校准定稿），跳过理由会打印出来；pytest 加 `-rs` 可以看到。
+不联网、不需要数据集。`tests/test_mediapipe_optional.py` 只有在装了mediapipe、`.cache/face_landmarker.task`已存在时才跑，否则自动跳过。`test_laila_contract.py`仅检查历史v1；17轴候选映射由`test_laila_v2_candidate.py`验证，严格采样/冲突与判定边界由Unity定向测试验证。正式v2定稿后还须针对批准映射与人工样本验证，候选测试不证明语义效果。pytest加`-rs`查看跳过理由。
 
 ### 训练 `python -m exprnet.train`
 
@@ -220,4 +239,4 @@ python -m exprnet.extract --source imagefolder --input data/raw/xxx --out data/f
 - EMFACS 原型里的部分「其他原型 / 主要变体」来自二手转引（`facs.yaml` 里带 note 的条目），原书未逐字核对。
 - AU11、AU23、AU25 在 ARKit 里没有对应的表情基，映射是近似的。
 - 导出用的是 torch 的旧版 TorchScript 导出器（`dynamo=False`），torch 2.14 仍可用但已标为弃用。
-- 还没在 Unity Sentis 真机上加载验证（DESIGN §10，本期不动 `Packages/manifest.json`）。
+- Unity Editor的Sentis2.1.3 CPU已加载并完成数值/生命周期检查，阶段证据从spec§17进入；Windows Player/Android尚未验收。

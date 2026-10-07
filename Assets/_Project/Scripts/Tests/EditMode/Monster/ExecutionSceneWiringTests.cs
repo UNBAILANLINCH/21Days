@@ -301,6 +301,11 @@ namespace Game.Tests.EditMode.Monster
             builder.RegisterInstance(new SilentInputSource()).As<IInputSource>();
             builder.Register<SimulationRunner>(Lifetime.Singleton);
             builder.Register<ReplayStateRegistry>(Lifetime.Singleton).As<IReplayStateProvider>();
+            // MonsterEncounterState 的构造参数里有 LiveInputSource（驯服切控制那条排队通路）。
+            // 生产里由 GameLifetimeScope.RegisterSimulationDriver 注册；本组测试自建容器，
+            // 不补这一条会在 Resolve<MonsterEncounterState>() 时直接解析失败。
+            // 只建实例、不调 Initialize()：本组用例不推进输入采样，Initialize 在 EditMode 会去读动作集。
+            builder.RegisterInstance(new LiveInputSource(new StubInput(gameInput))).AsSelf();
 
             monsterInstaller.Install(builder);
             if (withStealth)

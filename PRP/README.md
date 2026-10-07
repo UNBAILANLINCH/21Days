@@ -35,8 +35,8 @@ PRP/<feature>/
 ```
 /refine-prd <feature> <需求>   →  prd.md            把模糊需求问清、收敛
         ↓  用户确认待确认问题
-/generate-prp <feature>        →  prp.md + tasks.md 强制读模块三件套 + .claude/rules/ + pitfalls
-        ↓
+/generate-prp <feature>        →  prp.md            强制读模块三件套 + .claude/rules/ + pitfalls
+        ↓  用户确认架构，再产 tasks.md
 /validate-prp <feature>        →  执行前逐项校验，有缺口回上一步
         ↓  通过
 /execute-prp <feature>         →  按 tasks 派单实现 + /unity-test + 沉淀 + /review-change 等审
@@ -62,4 +62,4 @@ PRP/<feature>/
 - 执行中发现 PRP 有误，**停下来改 PRP 再继续**，别让代码和 PRP 各走各的。
 - 功能做完后 PRP 目录保留，不删——它是留痕，不是临时草稿。
 
-> 本目录当前只有这份说明；真实 PRP 随 `/refine-prd` 产生。
+当前功能目录保留需求、决策和验收记录；临时代码副本、缓存与未实施建议不自动作为功能交付。

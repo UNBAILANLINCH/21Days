@@ -1,0 +1,30 @@
+[
+  {
+    "stage": "baseline",
+    "state": "geometry",
+    "feedback": "普通",
+    "marker": false,
+    "current": null
+  },
+  {
+    "stage": "baseline",
+    "state": "idle",
+    "feedback": "普通",
+    "marker": false,
+    "current": null
+  },
+  {
+    "stage": "baseline",
+    "state": "hover",
+    "feedback": "可抓取",
+    "marker": true,
+    "current": "Control_UpperLip_L"
+  },
+  {
+    "stage": "baseline",
+    "state": "grab",
+    "feedback": "抓取中",
+    "marker": true,
+    "current": "Control_UpperLip_L"
+  }
+]

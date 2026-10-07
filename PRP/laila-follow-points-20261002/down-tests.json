@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": -0.0144926608,
+    "newPositionHit": false,
+    "captured": true,
+    "pass": false
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": 0.002768606,
+    "newPositionHit": true,
+    "captured": true,
+    "pass": false
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": -0.01205422,
+    "newPositionHit": true,
+    "captured": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": 0.00230006874,
+    "newPositionHit": true,
+    "captured": true,
+    "pass": false
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": -0.0168344975,
+    "newPositionHit": true,
+    "captured": true,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "deltaY": -0.0140344948,
+    "newPositionHit": true,
+    "captured": true,
+    "pass": true
+  }
+]

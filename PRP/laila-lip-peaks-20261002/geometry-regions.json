@@ -1,0 +1,14 @@
+[
+  {
+    "key": "Mouth_UpperLipL_Up",
+    "dominantFraction": 0.951970339,
+    "leftPeakDelta": "(0.0000000, 0.0063711, 0.0000000)",
+    "rightPeakDelta": "(0.0000000, 0.0014461, 0.0000000)"
+  },
+  {
+    "key": "Mouth_UpperLipR_Up",
+    "dominantFraction": 0.778839469,
+    "leftPeakDelta": "(0.0000000, 0.0014461, 0.0000000)",
+    "rightPeakDelta": "(0.0000000, 0.0063711, 0.0000000)"
+  }
+]

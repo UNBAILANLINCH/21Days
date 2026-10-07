@@ -1,0 +1,17 @@
+[
+  {
+    "clipStartSeconds": 0,
+    "unityRelativeDelayMs": 11.0,
+    "correlation": 0.9999999891341834
+  },
+  {
+    "clipStartSeconds": 12,
+    "unityRelativeDelayMs": 11.0,
+    "correlation": 0.9999999860198778
+  },
+  {
+    "clipStartSeconds": 30,
+    "unityRelativeDelayMs": 11.0,
+    "correlation": 0.9999999901747546
+  }
+]

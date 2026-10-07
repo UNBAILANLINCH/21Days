@@ -1,0 +1,128 @@
+[
+  {
+    "control": "Control_UpperLip_R",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_LowerLip",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_L_Lower",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Mouth_R",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_R_Mid",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_L_Inner",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Mouth_L",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_L_Mid",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_R_Inner",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_L_Upper",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_R_Lower",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_R_Outer",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_R_Upper",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_UpperLip_L",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Brow_L_Outer",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_L_Gaze",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "control": "Control_Eye_R_Gaze",
+    "state": "可抓取",
+    "correct": true,
+    "visible": true
+  },
+  {
+    "test": "Drag retains current across other point",
+    "pass": true
+  },
+  {
+    "test": "Cancel clears capture and marker",
+    "pass": true
+  },
+  {
+    "test": "Empty clears marker",
+    "pass": true
+  },
+  {
+    "test": "UI blocks hover",
+    "pass": true
+  },
+  {
+    "test": "Behind face blocked",
+    "pass": true
+  },
+  {
+    "test": "Disable restores default cursor",
+    "pass": true
+  }
+]

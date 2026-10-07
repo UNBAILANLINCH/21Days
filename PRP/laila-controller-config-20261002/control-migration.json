@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "center": [
+      0.0038526298,
+      0.00141821767,
+      0.0315910354
+    ],
+    "radius": 0.0035
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "center": [
+      0.0,
+      -1.0186338E-08,
+      -0.0150499
+    ],
+    "radius": 0.0045
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "center": [
+      0.0,
+      -1.0186338E-08,
+      -0.0151544064
+    ],
+    "radius": 0.0045
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "center": [
+      -0.001263033,
+      0.00578490971,
+      -0.00449043373
+    ],
+    "radius": 0.00292664
+  }
+]

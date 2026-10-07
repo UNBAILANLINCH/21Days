@@ -12,7 +12,7 @@ maturity: seed
 1. 在 `FaceDragHandle.FaceControl` 增加枚举值。
 2. 在 `ResolveShapeNames()` 中补充唯一的 Up / Down 名称映射。
 3. 确认 FBX 的 `Import BlendShapes` 已开启，并且名称与映射完全一致。
-4. 在 `laila.unity` 增加一个 Collider 控制区，绑定同一个 `FaceBlendShapeController`。
+4. 在 `LailaRecognitionPlaytest.unity` 增加一个 Collider 控制区，绑定同一个 `FaceBlendShapeController`。
 5. 在 `LailaFaceShowcase` 增加一条数值检查。
 6. 同步 `lailaface-module-guide.md` 的控制映射表。
 

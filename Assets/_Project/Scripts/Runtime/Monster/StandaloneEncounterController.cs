@@ -30,6 +30,10 @@ namespace Game.Monster
         private InputAction disguise;
         private InputAction attack;
         private InputAction run;
+        private InputAction tame;
+        private bool pendingTame;
+        private int pendingSelection;
+        private uint pendingSelectionButton;
         private bool pendingAttack;
         private bool pendingDisguise;
         private bool pendingRun;
@@ -53,6 +57,7 @@ namespace Game.Monster
             var playerRules = new PlayerRules(playerConfig, Player, NullTelemetryScope.Instance);
             var monsterRules = new MonsterRules(monsterConfig, Enemy, random, NullTelemetryScope.Instance);
             step = new EncounterStep(playerRules, monsterRules);
+            view.ConfigureTaming(step);
             step.Begin(view.PlayerStart, view.PatrolPositions());
 
             // 背后处决：本场景自己那套规则（没有种类表、没有内核，理由见文件头）。
@@ -70,7 +75,9 @@ namespace Game.Monster
                          + "照 SampleScene 的接法挂在 Encounter 物体上。", this);
             }
 
+            // 视图绑定分两步（远端 taming 波）：execution 走 Bind 的可选参数，驯服控制回调走 BindControl。
             view.Bind(Player, Enemy, ReadInterpolationAlpha, execution);
+            view.BindControl(step, RequestControl);
             view.OnPlayerBlocked += step.CorrectPlayerPosition;
 
             playerInput.enabled = true;
@@ -81,6 +88,7 @@ namespace Game.Monster
             disguise = gameplay.FindAction("Disguise", true);
             attack = gameplay.FindAction("Attack", true);
             run = gameplay.FindAction("Run", true);
+            tame = gameplay.FindAction("Tame", true);
         }
 
         private void FixedUpdate()
@@ -92,11 +100,17 @@ namespace Game.Monster
             if (attack.IsPressed() || pendingAttack) buttons |= InputCommand.ButtonAttack;
             // 走 / 跑是按下沿切换，短按同样可能落在两个物理帧之间，照伪装的做法缓存一次按下。
             if (run.IsPressed() || pendingRun) buttons |= InputCommand.ButtonRun;
+            if (tame.IsPressed() || pendingTame) buttons |= InputCommand.ButtonTame;
+            if (pendingTame || (pendingSelectionButton & InputCommand.ButtonTame) != 0) buttons |= InputCommand.ButtonTamePressed;
+            buttons |= pendingSelectionButton;
             pendingAttack = false;
             pendingDisguise = false;
             pendingRun = false;
 
-            var command = new InputCommand(move.ReadValue<Vector2>(), Vector2.zero, buttons, Vector2.zero, 0);
+            var command = new InputCommand(move.ReadValue<Vector2>(), new Vector2(pendingSelection, 0f), buttons, Vector2.zero, 0);
+            pendingTame = false;
+            pendingSelection = 0;
+            pendingSelectionButton = 0;
             Simulate(in command, Time.fixedDeltaTime); // lint-ok: 独立场景原型以 FixedUpdate 作为唯一逻辑 tick，不参与正式回放
         }
 
@@ -118,6 +132,7 @@ namespace Game.Monster
             attack.performed += OnAttack;
             disguise.performed += OnDisguise;
             run.performed += OnRun;
+            tame.performed += OnTame;
         }
 
         private void OnDisable()
@@ -126,14 +141,24 @@ namespace Game.Monster
             attack.performed -= OnAttack;
             disguise.performed -= OnDisguise;
             run.performed -= OnRun;
+            tame.performed -= OnTame;
             pendingAttack = false;
             pendingDisguise = false;
             pendingRun = false;
+            pendingTame = false;
+            pendingSelection = 0;
+            pendingSelectionButton = 0;
         }
 
         private void OnAttack(InputAction.CallbackContext context) => pendingAttack = true;
         private void OnDisguise(InputAction.CallbackContext context) => pendingDisguise = true;
         private void OnRun(InputAction.CallbackContext context) => pendingRun = true;
+        private void OnTame(InputAction.CallbackContext context) => pendingTame = true;
+        private void RequestControl(int slot, bool tameTarget)
+        {
+            pendingSelection = slot;
+            pendingSelectionButton = tameTarget ? InputCommand.ButtonTame : InputCommand.ButtonSelectControl;
+        }
 
         private void OnDestroy()
         {

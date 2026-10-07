@@ -124,6 +124,8 @@ Shader "21Days/MuralFace"
                     _BaseColor.rgb,
                     _BaseColor.rgb * _ShadowColor.rgb,
                     shadowAmount);
+                // 白色贴图保留原效果；眉毛和唇色使用同一 UV 随网格形变。
+                muralColor *= SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb;
 
                 half edge = 1.0h - saturate(dot(normalWS, viewDirection));
                 half contour = pow(edge, 2.2h) * _InkStrength;

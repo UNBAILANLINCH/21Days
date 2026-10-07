@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "key": "Mouth_UpperLipR_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 50.0000076,
+    "pass": true
+  },
+  {
+    "name": "Control_LowerLip",
+    "key": "Mouth_LowerLip_Down",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 50.0000076,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "key": "Mouth_UpperLipL_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 50.0000076,
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Up",
+    "newPositionHit": true,
+    "captured": true,
+    "weightAfterRegrab": 49.99999,
+    "pass": true
+  }
+]

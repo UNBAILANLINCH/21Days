@@ -12,7 +12,9 @@
         "VContainer",
         "UniTask",
         "Unity.Timeline",
-        "Unity.Timeline.Editor"
+        "Unity.Timeline.Editor",
+        "Unity.Sentis",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

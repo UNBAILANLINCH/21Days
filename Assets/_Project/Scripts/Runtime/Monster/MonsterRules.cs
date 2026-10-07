@@ -33,6 +33,7 @@ namespace Game.Monster
 
         private readonly MonsterModel model;
         private readonly IRandomStream patrolRandom;
+        private readonly IRandomService random;
         private readonly ITelemetryScope telemetry;
         private float coneCosine;
         private Vector2[] waypoints = Array.Empty<Vector2>();
@@ -52,7 +53,7 @@ namespace Game.Monster
         /// </param>
         public MonsterRules(MonsterConfig config, MonsterModel model, IRandomService random,
             ITelemetryScope telemetry, MonsterKind kind = null, MonsterKindCatalog kindCatalog = null,
-            int kindId = 0, Func<string> describeKind = null)
+            int kindId = 0, Func<string> describeKind = null, string patrolStream = "logic.monster.patrol")
         {
             this.config = config == null ? throw new ArgumentNullException(nameof(config)) : config;
             this.kind = kind;
@@ -60,11 +61,14 @@ namespace Game.Monster
             this.kindId = kindId;
             this.describeKind = describeKind;
             this.model = model ?? throw new ArgumentNullException(nameof(model));
-            patrolRandom = (random ?? throw new ArgumentNullException(nameof(random))).Stream("logic.monster.patrol");
+            this.random = random ?? throw new ArgumentNullException(nameof(random));
+            patrolRandom = random.Stream(patrolStream);
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
         }
 
         public MonsterModel Model => model;
+        public MonsterRules CreateForActor(string stableId) => new MonsterRules(config, new MonsterModel(), random,
+            telemetry, kind, kindCatalog, kindId, describeKind, "logic.monster.patrol." + stableId);
 
         /// <summary>本只怪当前生效的攻击伤害（种类优先、否则全局）。</summary>
         public int AttackDamage => config.ResolveAttackDamage(kind);

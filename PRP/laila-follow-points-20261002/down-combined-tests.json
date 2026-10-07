@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 1.49011612E-08,
+    "hit": "Control_Brow_R_Mid",
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 3.332001E-08,
+    "hit": "Control_Brow_L_Inner",
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 2.98023224E-08,
+    "hit": "Control_Brow_L_Mid",
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 3.332001E-08,
+    "hit": "Control_Brow_R_Inner",
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 2.10734239E-08,
+    "hit": "Control_Brow_R_Outer",
+    "pass": true
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Down",
+    "up": 0.0,
+    "down": 100.0,
+    "followingError": 2.10734239E-08,
+    "hit": "Control_Brow_L_Outer",
+    "pass": true
+  }
+]

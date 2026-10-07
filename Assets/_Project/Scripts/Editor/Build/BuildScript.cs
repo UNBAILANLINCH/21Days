@@ -54,6 +54,8 @@ namespace Game.Editor
 
         /// <summary>Unity 模板的占位包名，原样上架会被 Unity 自己拦下来，提前报更清楚。</summary>
         private const string PlaceholderIdentifier = "com.Company.ProductName";
+        private static bool deferExit;
+        private static int? pendingExit;
 
         [MenuItem("21Days/打包/Windows 64 位")]
         public static void BuildWindows()
@@ -75,8 +77,29 @@ namespace Game.Editor
         /// <param name="defaultOutput">没给 -outputPath 时的默认产物路径，相对工程根。</param>
         private static void Build(BuildTarget target, BuildTargetGroup group, string defaultOutput)
         {
+            if (!HasFlag("-rhythmTest")) { BuildCore(target, group, defaultOutput, false); return; }
+            if (target != BuildTarget.StandaloneWindows64) { Fail("-rhythmTest 仅支持 Windows 64 位"); return; }
+            int exitCode = 1;
+            // EditorApplication.Exit 不展开 finally；必须等预设恢复完成后才退出批处理。
+            deferExit = true;
+            try
+            {
+                using (var preset = new Rhythm.RhythmTestBuildPreset())
+                {
+                    Log(preset.Validate());
+                    BuildCore(target, group, Rhythm.RhythmTestBuildPreset.OutputPath, true);
+                }
+                exitCode = pendingExit ?? 1;
+            }
+            catch (Exception error) { Debug.LogError($"{LogPrefix} 独立音游测试构建或恢复失败：{error}"); }
+            finally { deferExit = false; pendingExit = null; }
+            Quit(exitCode);
+        }
+
+        private static void BuildCore(BuildTarget target, BuildTargetGroup group, string defaultOutput, bool rhythmTest)
+        {
             // 场景清单只认 Build Settings 里勾上的，避免脚本里再维护一份会和编辑器对不上的列表。
-            string[] scenes = GetEnabledScenes();
+            string[] scenes = rhythmTest ? Rhythm.RhythmTestBuildPreset.Scenes : GetEnabledScenes();
             if (scenes.Length == 0)
             {
                 Fail("Build Settings 里没有任何启用的场景。打开 File > Build Settings，"
@@ -164,6 +187,7 @@ namespace Game.Editor
                 target = target,
                 targetGroup = group,
                 options = options,
+                extraScriptingDefines = rhythmTest ? Rhythm.RhythmTestBuildPreset.Defines : new string[0],
             };
 
             Log($"开始打包，产物 {fullOutputPath}");
@@ -646,6 +670,7 @@ namespace Game.Editor
         /// </summary>
         private static void Quit(int exitCode)
         {
+            if (deferExit) { pendingExit = exitCode; return; }
             if (!Application.isBatchMode)
             {
                 return;

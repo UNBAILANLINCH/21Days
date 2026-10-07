@@ -74,17 +74,17 @@ maturity: seed | stable | deprecated
 | `seed` | 只有 guide 骨架 | 查目录必须存在 |
 | `ready` | 三件套齐备且跟得上代码 | 查目录必须存在 |
 
-格式与示例见文件里的 `_说明` 与 `_示例` 字段。工程目前是空骨架，`modules` 为空，
-第一个玩法模块落地时（`/new-feature` 第 1 步定范围之后）在这里登记。
+格式与示例见文件里的 `_说明` 与 `_示例` 字段。现有模块以注册表为准；
+新模块在定范围后登记，更新已有模块先核对源码目录，不按旧空骨架描述重建。
 
 ## 配套钩子 detect.py
 
 PostToolUse 形态：编辑 `Assets/_Project/Scripts/Runtime/<Module>/*.cs` 之后，
 若该模块的 guide 已存在，提醒跑 `/generate-doc sync <模块>`。只提醒，从不阻断。
 
-**默认没在 `settings.json` 里注册** —— 现在一个模块都没有，挂上只有噪音。
-第一个模块的 guide 写出来之后，把这段加进 `.claude/settings.json` 的
-`PostToolUse` 里 `matcher` 为 `Edit|Write|MultiEdit` 的那组 `hooks` 数组：
+`detect.py` 是否自动运行以客户端实际配置为准，不由技能注册推断。
+若另行启用 Claude Code 的自动提醒，把下段加进 `.claude/settings.json` 的
+`PostToolUse` 中 `matcher` 为 `Edit|Write|MultiEdit` 的那组 `hooks` 数组：
 
 ```json
 {

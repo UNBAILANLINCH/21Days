@@ -1,0 +1,622 @@
+{
+  "format": "21days-rhythm-draft",
+  "version": 3,
+  "status": "unreviewed-draft",
+  "createdAt": "2026-10-04T10:52:03.554Z",
+  "source": {
+    "chartPath": "Assets/_Project/Data/Rhythm/ChongErFei.asset",
+    "audioPath": "Assets/_Project/Audio/Rhythm/ChongErFei.mp3",
+    "chartSha256": "8d418063eaceea8c037ce382dbbab529f80ac9ce616e6a60b6f5ce1f897fb1ee",
+    "audioSha256": "f5c98e150d1684b8308da39ee3384cf72b8f8e77c4f0028fe58438292f2362c4"
+  },
+  "review": {
+    "voice": "",
+    "reason": ""
+  },
+  "timing": {
+    "domain": "decoded-project-mp3",
+    "songStartSeconds": 16,
+    "clipDurationSeconds": 40,
+    "decoderCorrectionMs": 0
+  },
+  "chart": {
+    "chartId": "chongerfei-demo",
+    "audioKey": "ChongErFei",
+    "notes": [
+      {
+        "id": "legacy-0",
+        "lane": 0,
+        "timeMs": 464,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-1",
+        "lane": 1,
+        "timeMs": 1620,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-2",
+        "lane": 2,
+        "timeMs": 2290,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-3",
+        "lane": 3,
+        "timeMs": 2790,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-4",
+        "lane": 2,
+        "timeMs": 3370,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-5",
+        "lane": 1,
+        "timeMs": 3950,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-6",
+        "lane": 0,
+        "timeMs": 5110,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-7",
+        "lane": 2,
+        "timeMs": 5700,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-8",
+        "lane": 1,
+        "timeMs": 6280,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-9",
+        "lane": 3,
+        "timeMs": 6940,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-10",
+        "lane": 0,
+        "timeMs": 7440,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-11",
+        "lane": 3,
+        "timeMs": 8039,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-12",
+        "lane": 1,
+        "timeMs": 8610,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-13",
+        "lane": 2,
+        "timeMs": 9480,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-14",
+        "lane": 3,
+        "timeMs": 9786,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-15",
+        "lane": 0,
+        "timeMs": 12100,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-16",
+        "lane": 0,
+        "timeMs": 13270,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-17",
+        "lane": 1,
+        "timeMs": 13850,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-18",
+        "lane": 2,
+        "timeMs": 14430,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-19",
+        "lane": 3,
+        "timeMs": 15020,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-20",
+        "lane": 2,
+        "timeMs": 15600,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-21",
+        "lane": 1,
+        "timeMs": 16180,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-22",
+        "lane": 0,
+        "timeMs": 16770,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-23",
+        "lane": 2,
+        "timeMs": 17930,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-24",
+        "lane": 1,
+        "timeMs": 18510,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-25",
+        "lane": 3,
+        "timeMs": 19090,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-26",
+        "lane": 0,
+        "timeMs": 19680,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-27",
+        "lane": 3,
+        "timeMs": 20260,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-28",
+        "lane": 1,
+        "timeMs": 20840,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-29",
+        "lane": 2,
+        "timeMs": 21430,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-30",
+        "lane": 3,
+        "timeMs": 22580,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-31",
+        "lane": 0,
+        "timeMs": 23760,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-32",
+        "lane": 0,
+        "timeMs": 24340,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-33",
+        "lane": 1,
+        "timeMs": 24920,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-34",
+        "lane": 2,
+        "timeMs": 25500,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-35",
+        "lane": 3,
+        "timeMs": 26090,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-36",
+        "lane": 2,
+        "timeMs": 26670,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-37",
+        "lane": 1,
+        "timeMs": 27250,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-38",
+        "lane": 0,
+        "timeMs": 27830,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-39",
+        "lane": 2,
+        "timeMs": 28420,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-40",
+        "lane": 1,
+        "timeMs": 29000,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-41",
+        "lane": 3,
+        "timeMs": 29580,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-42",
+        "lane": 0,
+        "timeMs": 30459,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-43",
+        "lane": 3,
+        "timeMs": 30740,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-44",
+        "lane": 1,
+        "timeMs": 31360,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-45",
+        "lane": 2,
+        "timeMs": 31910,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-46",
+        "lane": 3,
+        "timeMs": 32490.000000000004,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-47",
+        "lane": 0,
+        "timeMs": 33058,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-48",
+        "lane": 0,
+        "timeMs": 34240,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-49",
+        "lane": 1,
+        "timeMs": 34820,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-50",
+        "lane": 2,
+        "timeMs": 35410,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-52",
+        "lane": 2,
+        "timeMs": 36750,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-53",
+        "lane": 1,
+        "timeMs": 37450,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-54",
+        "lane": 0,
+        "timeMs": 38030,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "legacy-55",
+        "lane": 2,
+        "timeMs": 39466,
+        "type": 0,
+        "durationMs": 0
+      },
+      {
+        "id": "review-12c48715-e5c6-4006-ac45-07823167870a",
+        "lane": 2,
+        "timeMs": 33058,
+        "type": 1,
+        "durationMs": 1165
+      },
+      {
+        "id": "review-d0962855-301e-496b-a356-0e6c25eb0890",
+        "lane": 0,
+        "timeMs": 35388,
+        "type": 1,
+        "durationMs": 1020
+      },
+      {
+        "id": "review-b359c4b0-e7b9-4a30-ae58-583f77693c5c",
+        "lane": 1,
+        "timeMs": 37136,
+        "type": 0,
+        "durationMs": 0
+      }
+    ],
+    "schemaVersion": 2,
+    "laneCount": 4,
+    "clipStartSeconds": 16,
+    "durationSeconds": 40,
+    "chartOffsetMs": 0,
+    "goodMs": 140
+  },
+  "differences": [
+    {
+      "operation": "move",
+      "id": "legacy-0",
+      "lane": 0,
+      "originalTimeMs": 870,
+      "candidateTimeMs": 464,
+      "deltaMs": -406,
+      "originalSongSeconds": 16.87,
+      "candidateSongSeconds": 16.464,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 870,
+      "candidateEndMs": 464,
+      "originalSongEndSeconds": 16.87,
+      "candidateSongEndSeconds": 16.464
+    },
+    {
+      "operation": "move",
+      "id": "legacy-11",
+      "lane": 3,
+      "originalTimeMs": 8020,
+      "candidateTimeMs": 8039,
+      "deltaMs": 19,
+      "originalSongSeconds": 24.02,
+      "candidateSongSeconds": 24.039,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 8020,
+      "candidateEndMs": 8039,
+      "originalSongEndSeconds": 24.02,
+      "candidateSongEndSeconds": 24.039
+    },
+    {
+      "operation": "move",
+      "id": "legacy-14",
+      "lane": 3,
+      "originalTimeMs": 11520,
+      "candidateTimeMs": 9786,
+      "deltaMs": -1734,
+      "originalSongSeconds": 27.52,
+      "candidateSongSeconds": 25.786,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 11520,
+      "candidateEndMs": 9786,
+      "originalSongEndSeconds": 27.52,
+      "candidateSongEndSeconds": 25.786
+    },
+    {
+      "operation": "move",
+      "id": "legacy-42",
+      "lane": 0,
+      "originalTimeMs": 30160,
+      "candidateTimeMs": 30459,
+      "deltaMs": 299,
+      "originalSongSeconds": 46.16,
+      "candidateSongSeconds": 46.459,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 30160,
+      "candidateEndMs": 30459,
+      "originalSongEndSeconds": 46.16,
+      "candidateSongEndSeconds": 46.459
+    },
+    {
+      "operation": "move",
+      "id": "legacy-47",
+      "lane": 0,
+      "originalTimeMs": 33470,
+      "candidateTimeMs": 33058,
+      "deltaMs": -412,
+      "originalSongSeconds": 49.47,
+      "candidateSongSeconds": 49.058,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 33470,
+      "candidateEndMs": 33058,
+      "originalSongEndSeconds": 49.47,
+      "candidateSongEndSeconds": 49.058
+    },
+    {
+      "operation": "remove",
+      "id": "legacy-51",
+      "lane": 3,
+      "originalTimeMs": 36300,
+      "candidateTimeMs": null,
+      "deltaMs": null,
+      "originalSongSeconds": 52.3,
+      "candidateSongSeconds": null,
+      "originalType": 0,
+      "candidateType": null,
+      "originalDurationMs": 0,
+      "candidateDurationMs": null,
+      "originalEndMs": 36300,
+      "candidateEndMs": null,
+      "originalSongEndSeconds": 52.3,
+      "candidateSongEndSeconds": null
+    },
+    {
+      "operation": "move",
+      "id": "legacy-55",
+      "lane": 2,
+      "originalTimeMs": 38730,
+      "candidateTimeMs": 39466,
+      "deltaMs": 736,
+      "originalSongSeconds": 54.73,
+      "candidateSongSeconds": 55.466,
+      "originalType": 0,
+      "candidateType": 0,
+      "originalDurationMs": 0,
+      "candidateDurationMs": 0,
+      "originalEndMs": 38730,
+      "candidateEndMs": 39466,
+      "originalSongEndSeconds": 54.73,
+      "candidateSongEndSeconds": 55.466
+    },
+    {
+      "operation": "add",
+      "id": "review-12c48715-e5c6-4006-ac45-07823167870a",
+      "lane": 2,
+      "originalTimeMs": null,
+      "candidateTimeMs": 33058,
+      "deltaMs": null,
+      "originalSongSeconds": null,
+      "candidateSongSeconds": 49.058,
+      "originalType": null,
+      "candidateType": 1,
+      "originalDurationMs": null,
+      "candidateDurationMs": 1165,
+      "originalEndMs": null,
+      "candidateEndMs": 34223,
+      "originalSongEndSeconds": null,
+      "candidateSongEndSeconds": 50.223
+    },
+    {
+      "operation": "add",
+      "id": "review-d0962855-301e-496b-a356-0e6c25eb0890",
+      "lane": 0,
+      "originalTimeMs": null,
+      "candidateTimeMs": 35388,
+      "deltaMs": null,
+      "originalSongSeconds": null,
+      "candidateSongSeconds": 51.388,
+      "originalType": null,
+      "candidateType": 1,
+      "originalDurationMs": null,
+      "candidateDurationMs": 1020,
+      "originalEndMs": null,
+      "candidateEndMs": 36408,
+      "originalSongEndSeconds": null,
+      "candidateSongEndSeconds": 52.408
+    },
+    {
+      "operation": "add",
+      "id": "review-b359c4b0-e7b9-4a30-ae58-583f77693c5c",
+      "lane": 1,
+      "originalTimeMs": null,
+      "candidateTimeMs": 37136,
+      "deltaMs": null,
+      "originalSongSeconds": null,
+      "candidateSongSeconds": 53.136,
+      "originalType": null,
+      "candidateType": 0,
+      "originalDurationMs": null,
+      "candidateDurationMs": 0,
+      "originalEndMs": null,
+      "candidateEndMs": 37136,
+      "originalSongEndSeconds": null,
+      "candidateSongEndSeconds": 53.136
+    }
+  ]
+}

@@ -44,7 +44,7 @@ namespace Game.Core.Simulation
     /// <see cref="Initialize"/> 里的说明。
     /// </para>
     /// </summary>
-    public sealed class LiveInputSource : IInputSource, IGameService
+    public sealed class LiveInputSource : IInputSource, IGameService, IDisposable
     {
         private const string MoveActionPath = "Gameplay/Move";
         private const string ConfirmActionPath = "Gameplay/Confirm";
@@ -108,6 +108,9 @@ namespace Game.Core.Simulation
         private InputAction attackAction;
         private InputAction runAction;
         private InputAction tameAction;
+        private bool pendingTame;
+        private uint queuedButtons;
+        private int queuedSelection;
         private InputAction interactAction;
         private InputAction inventoryAction;
 
@@ -141,6 +144,29 @@ namespace Game.Core.Simulation
         /// 重放时读不到这一路，录像就会分叉。置位与清位由持有该按钮的一方负责；这里不校验位，也不清。
         /// </summary>
         public uint HeldButtons { get; set; }
+
+        /// <summary>软件界面请求下一 tick 记录一次按钮与选择槽位，玩法不得直接改控制状态。</summary>
+        public void QueueSelection(int slot, uint button)
+        {
+            if (slot < 1) throw new ArgumentOutOfRangeException(nameof(slot));
+            queuedSelection = slot;
+            queuedButtons = button;
+        }
+
+        public void ClearQueuedSelection()
+        {
+            queuedSelection = 0;
+            queuedButtons = 0;
+            pendingTame = false;
+        }
+
+        private void OnTame(InputAction.CallbackContext context) => pendingTame = true;
+
+        public void Dispose()
+        {
+            if (tameAction != null) tameAction.performed -= OnTame;
+            ClearQueuedSelection();
+        }
 
         /// <summary>
         /// 缓存动作引用。要求注册顺序排在 <see cref="IInputService"/> 之后，
@@ -214,6 +240,7 @@ namespace Game.Core.Simulation
             attackAction = FindAction(asset, AttackActionPath);
             runAction = FindAction(asset, RunActionPath);
             tameAction = FindAction(asset, TameActionPath);
+            if (tameAction != null) tameAction.performed += OnTame;
             interactAction = FindAction(asset, InteractActionPath);
             inventoryAction = FindAction(asset, InventoryActionPath);
 
@@ -254,7 +281,7 @@ namespace Game.Core.Simulation
 
             Vector2 axis0 = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
 
-            uint buttons = HeldButtons;
+            uint buttons = HeldButtons | queuedButtons;
             if (confirmAction != null && confirmAction.IsPressed())
             {
                 buttons |= InputCommand.ButtonConfirm;
@@ -289,15 +316,13 @@ namespace Game.Core.Simulation
             {
                 buttons |= InputCommand.ButtonRun;
             }
+            if (pendingTame || (tameAction != null && tameAction.IsPressed())) buttons |= InputCommand.ButtonTame;
+            // performed 锁存与按住状态分开：两次短按之间没采到松开 tick 时，第二个按下沿也不能丢。
+            if (pendingTame || (queuedButtons & InputCommand.ButtonTame) != 0) buttons |= InputCommand.ButtonTamePressed;
+            var selection = new Vector2(queuedSelection, 0f);
+            ClearQueuedSelection();
 
-            // 下面三路是聚光灯 S1 / S3 要用的输入（附身、交互、背包），位定义见 InputCommand 上各自的常量。
-            // 现在还没有玩法消费它们，但采样必须先接上：等玩法接进来时再补，中间那段时间的录像里
-            // 这几路是空的，而且不会有任何报错。
-            if (tameAction != null && tameAction.IsPressed())
-            {
-                buttons |= InputCommand.ButtonTame;
-            }
-
+            // 交互与背包使用独立按钮位；驯服的按住与按下沿已在上面采样。
             if (interactAction != null && interactAction.IsPressed())
             {
                 buttons |= InputCommand.ButtonInteract;
@@ -309,9 +334,9 @@ namespace Game.Core.Simulation
             }
 
             // HeldButtons（软件侧按住位）已在上面作为初值 OR 进来。
-            // Axis1 / Pointer 当前没有对应动作，恒为零；Flags 预留，恒为 0。
+            // Axis1.x 记录界面选择槽位；Pointer 恒为零，Flags 预留，恒为 0。
             // bit31 的 QA 打点标记不在这里置位——它不来自动作图，由录制系统的热键按到命令上。
-            current = new InputCommand(axis0, Vector2.zero, buttons, Vector2.zero, 0);
+            current = new InputCommand(axis0, selection, buttons, Vector2.zero, 0);
         }
 
         /// <summary>

@@ -28,9 +28,13 @@ namespace Game.Monster
         private readonly MonsterModel monster;
         private readonly IGameFlow flow;
         private readonly SimulationRunner runner;
+        // 输入分两路（合并两侧）：LiveInputSource 是确定性内核那条「排队选择」通路（远端 taming 波：切控制对象）；
+        // IInputService 只在处决接线时借一次动作资产引用（清排队走 LiveInputSource）。
+        private readonly LiveInputSource input;
+        private readonly IInputService inputService;
+        // 处决接线（本地 2026-10-07 波）要用到的现场依赖：怪物规则（种类与掉落）、全局配置（感知范围可视化）、埋点、容器（可选判定内核）。
         private readonly MonsterRules monsterRules;
         private readonly MonsterConfig monsterConfig;
-        private readonly IInputService input;
         private readonly ITelemetryService telemetry;
         private readonly IObjectResolver container;
         private EncounterSceneView view;
@@ -52,17 +56,18 @@ namespace Game.Monster
         /// </param>
         public MonsterEncounterState(IAssetService assets, EncounterStep step, Game.Player.PlayerModel player,
             MonsterModel monster, IGameFlow flow, SimulationRunner runner, MonsterRules monsterRules,
-            MonsterConfig monsterConfig, IInputService input, ITelemetryService telemetry, IObjectResolver container)
-            : base(assets)
+            MonsterConfig monsterConfig, ITelemetryService telemetry, IObjectResolver container,
+            LiveInputSource input = null, IInputService inputService = null) : base(assets)
         {
             this.runner = runner;
+            this.input = input;
+            this.inputService = inputService;
             this.step = step;
             this.player = player;
             this.monster = monster;
             this.flow = flow;
             this.monsterRules = monsterRules;
             this.monsterConfig = monsterConfig;
-            this.input = input;
             this.telemetry = telemetry;
             this.container = container;
         }
@@ -96,10 +101,14 @@ namespace Game.Monster
 
             try
             {
+                view.ConfigureTaming(step);
                 if (restore != null) step.Restore(restore);
                 else step.Begin(view.PlayerStart, view.PatrolPositions());
                 restore = null;
+                // 视图绑定分两步（远端 taming 波）：Bind 只给模型与插值相位，BindControl 另给驯服控制回调；
+                // execution 由 Bind 的可选参数带进去，白盒面板因此多画一行「此刻能不能按 F」。
                 view.Bind(player, monster, ReadInterpolationAlpha, execution);
+                view.BindControl(step, RequestControl);
                 // S3 视线遮挡（Q3 波接线）：把场景里显式登记的遮挡体一次性转成纯数据几何喂给潜行内核，
                 // tick 路径因此只做几何求交、不做物理查询（StealthSight / EncounterSceneView 的分工）。
                 // 没登记遮挡体时喂进去的是空数组 = 视线不被遮挡，判定与接线前一致。
@@ -153,7 +162,7 @@ namespace Game.Monster
 
             // lint-ok 的理由：这一行取的是**动作资产引用**（交给输入层组件做按键绑定），不是设备读数——
             // 按键由 ExecutionInteractor 自己读，而处决按 PRP §2.4 明确不进确定性内核、不进回放（已知取舍）。
-            GameInput actions = input == null ? null : input.Actions; // lint-ok: 只取动作资产引用，不读输入设备；处决不进确定性内核
+            GameInput actions = inputService == null ? null : inputService.Actions; // lint-ok: 只取动作资产引用，不读输入设备；处决不进确定性内核
             interactor.Configure(player, monsterRules, step.FactSink,
                 kernel == null ? null : kernel.Assassination, step, telemetry.Scope("stealth"),
                 actions == null ? null : actions.asset);
@@ -161,6 +170,8 @@ namespace Game.Monster
 
         protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
+            // 清排队的入口在 LiveInputSource 上（远端 taming 波的通路）；IInputService 只借动作资产，不持有队列。
+            if (input != null) input.ClearQueuedSelection();
             step.End();
             if (view != null)
             {
@@ -171,6 +182,12 @@ namespace Game.Monster
             }
 
             return UniTask.CompletedTask;
+        }
+
+        private void RequestControl(int slot, bool tame)
+        {
+            if (input != null && step.IsActive && !runner.IsPaused)
+                input.QueueSelection(slot, tame ? InputCommand.ButtonTame : InputCommand.ButtonSelectControl);
         }
 
         // 渲染插值比例：实时模式取推进器余量 / 步长；重放（Driven）由播放器逐 tick 推进、余量恒为 0，

@@ -1,0 +1,52 @@
+// 显式 Unity MCP execute_code 片段（C# 6）；返回 imported/already-applied 为状态锚点。
+// 只在协调后的非 Play 空闲编辑器执行；此谱面退役后不再执行。
+if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode || UnityEditor.EditorApplication.isCompiling || UnityEditor.EditorApplication.isUpdating)
+    throw new System.InvalidOperationException("编辑器必须空闲且不在 Play/编译/导入中");
+const string path = "Assets/_Project/Data/Rhythm/ChongErFei.asset";
+const string audioPath = "Assets/_Project/Audio/Rhythm/ChongErFei.mp3";
+var config = UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Rhythm.RhythmConfig>(path);
+if (config == null || UnityEditor.EditorUtility.IsDirty(config)) throw new System.InvalidOperationException("谱面不存在或有未保存改动");
+using (var sha = System.Security.Cryptography.SHA256.Create())
+{
+    var hash = System.BitConverter.ToString(sha.ComputeHash(System.IO.File.ReadAllBytes(audioPath))).Replace("-", "").ToLowerInvariant();
+    if (hash != "f5c98e150d1684b8308da39ee3384cf72b8f8e77c4f0028fe58438292f2362c4") throw new System.InvalidOperationException("音频来源已变");
+    hash = System.BitConverter.ToString(sha.ComputeHash(System.IO.File.ReadAllBytes(path + ".meta"))).Replace("-", "").ToLowerInvariant();
+    if (hash != "5561bab9da2df87dd675d5fe5e9c8f75bf81e5c0f58e5bf913bae2f79d3b5944") throw new System.InvalidOperationException("谱面 meta 已变");
+}
+if (config.ClipStartSeconds != 16 || config.DurationSeconds != 40 || config.GoodMs != 140 || config.ChartOffsetMs != 0)
+    throw new System.InvalidOperationException("时间域或判定参数已变");
+var staged = UnityEngine.Object.Instantiate(config);
+staged.hideFlags = UnityEngine.HideFlags.HideAndDontSave;
+try
+{
+    UnityEngine.JsonUtility.FromJsonOverwrite(System.IO.File.ReadAllText("PRP/rhythm-chart-import-20261004/game-chart.fields.json"), staged);
+    var planned = staged.CreateRules(0, null);
+    int holds = 0;
+    for (int i = 0; i < planned.Count; i++) if (planned.NoteType(i) == Game.Rhythm.RhythmNoteType.Hold) holds++;
+    if (planned.Count != 58 || holds != 2 || planned.NoteTime(0) != 0.464 || System.Math.Abs(planned.LastEndSeconds - 39.466) > 1e-9)
+        throw new System.InvalidOperationException("预检记录不符合已授权谱面");
+    var actual = config.CreateRules(0, null);
+    bool same = actual.Count == planned.Count;
+    for (int i = 0; same && i < planned.Count; i++)
+        same = actual.NoteId(i) == planned.NoteId(i) && actual.NoteLane(i) == planned.NoteLane(i) && actual.NoteType(i) == planned.NoteType(i) && actual.NoteTime(i) == planned.NoteTime(i) && actual.NoteEnd(i) == planned.NoteEnd(i);
+    if (same) return "already-applied; 58 notes; 56 Tap + 2 Hold; GUID " + UnityEditor.AssetDatabase.AssetPathToGUID(path);
+    using (var sha = System.Security.Cryptography.SHA256.Create())
+    {
+        var hash = System.BitConverter.ToString(sha.ComputeHash(System.IO.File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
+        if (hash != "8d418063eaceea8c037ce382dbbab529f80ac9ce616e6a60b6f5ce1f897fb1ee") throw new System.InvalidOperationException("正式谱面来源已变，停止覆盖");
+    }
+    string guid = UnityEditor.AssetDatabase.AssetPathToGUID(path);
+    var source = new UnityEditor.SerializedObject(staged);
+    var destination = new UnityEditor.SerializedObject(config);
+    UnityEditor.Undo.RecordObject(config, "接入授权虫儿飞调试谱");
+    destination.CopyFromSerializedProperty(source.FindProperty("notes"));
+    destination.CopyFromSerializedProperty(source.FindProperty("noteTimes"));
+    destination.CopyFromSerializedProperty(source.FindProperty("noteLanes"));
+    destination.CopyFromSerializedProperty(source.FindProperty("schemaVersion"));
+    destination.ApplyModifiedProperties();
+    config.CreateRules(0, null);
+    UnityEditor.AssetDatabase.SaveAssetIfDirty(config);
+    if (UnityEditor.AssetDatabase.AssetPathToGUID(path) != guid) throw new System.InvalidOperationException("GUID 意外改变");
+    return "imported; 58 notes; 56 Tap + 2 Hold; GUID " + guid;
+}
+finally { UnityEngine.Object.DestroyImmediate(staged); }

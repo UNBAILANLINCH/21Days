@@ -1,0 +1,668 @@
+{
+  "dirty": true,
+  "nodes": [
+    {
+      "path": "Main Camera",
+      "position": "(0.0000000, 0.0000000, -10.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(1.0000000, 1.0000000, 1.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo",
+      "position": "(0.0000000, 0.0000000, -5.5600000)",
+      "rotation": "(0.0000000, 0.7072302, 0.7069834, 0.0000000)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": false,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo/Control_Mouth_L",
+      "position": "(0.0000760, -0.0011710, -0.0005630)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Mouth_R",
+      "position": "(-0.0003290, -0.0011710, -0.0005630)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Brow_L",
+      "position": "(0.0003090, -0.0011700, 0.0006970)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Brow_R",
+      "position": "(-0.0005800, -0.0011700, 0.0006970)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Eye_L_Upper",
+      "position": "(0.0003070, -0.0011700, 0.0004720)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Eye_L_Lower",
+      "position": "(0.0003070, -0.0011700, 0.0001990)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Eye_R_Upper",
+      "position": "(-0.0005970, -0.0011700, 0.0004720)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo/Control_Eye_R_Lower",
+      "position": "(-0.0005970, -0.0011700, 0.0001990)",
+      "rotation": "(0.0000000, -0.7072302, -0.7069834, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "EventSystem",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(1.0000000, 1.0000000, 1.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2",
+      "position": "(0.0000000, 0.0000000, -5.5600000)",
+      "rotation": "(0.0000000, 1.0000000, 0.0000000, 0.0000000)",
+      "scale": "(1.0000000, 1.0000000, 1.0000000)",
+      "active": false,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Circle.002",
+      "position": "(0.0000026, -0.0464000, 0.1152000)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.3121450, 9.6043370, 9.2320500)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Circle.003",
+      "position": "(-0.0000029, -0.0651000, 0.1098000)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.6050350, 9.6050350, 9.6050350)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eve",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/eye_2",
+      "position": "(0.0016000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/eye_2.001",
+      "position": "(0.0016000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_L_Pivot",
+      "position": "(0.0418000, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_L_Pivot/eye_1",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_L_Pivot/eye_cornea",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/eye_lids",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/eye_lids.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_R_Pivot",
+      "position": "(-0.0421044, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(70.0000000, 70.0000000, 70.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_R_Pivot/eye_1.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended2/Eye_R_Pivot/eye_cornea.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(1.0000000, 1.0000000, 1.0000000)",
+      "active": false,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Circle.002",
+      "position": "(0.0000026, -0.0422633, 0.1131063)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.3121450, 9.6043370, 9.2320500)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Circle.003",
+      "position": "(-0.0000029, -0.0634507, 0.1077551)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.6050350, 9.6050350, 9.6050350)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eve",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/eye_2",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/eye_2.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_L_Pivot",
+      "position": "(0.0401566, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_L_Pivot/eye_1",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_L_Pivot/eye_cornea",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/eye_lids",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/eye_lids.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_R_Pivot",
+      "position": "(-0.0421044, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_R_Pivot/eye_1.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3/Eye_R_Pivot/eye_cornea.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0011948, 0.0011948, 0.0011948)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 1.0000000, 0.0000000, 0.0000000)",
+      "scale": "(1.0000000, 1.0000000, 1.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Circle.002",
+      "position": "(0.0000026, -0.0422633, 0.1131063)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.3121450, 9.6043370, 9.2320500)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Circle.003",
+      "position": "(-0.0000029, -0.0634507, 0.1077551)",
+      "rotation": "(-0.7071069, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(9.6050350, 9.6050350, 9.6050350)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Mouth_L",
+      "position": "(0.0000760, -0.0011710, -0.0005410)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Mouth_R",
+      "position": "(-0.0003290, -0.0011710, -0.0005410)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_L_Mid",
+      "position": "(0.0003030, -0.0011700, 0.0007150)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0082910, 0.0082910, 0.0082910)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_R_Mid",
+      "position": "(-0.0005450, -0.0011700, 0.0007150)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0082910, 0.0082910, 0.0082910)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_L_Upper",
+      "position": "(0.0003070, -0.0011700, 0.0004720)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_L_Lower",
+      "position": "(0.0003070, -0.0011700, 0.0001990)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_R_Upper",
+      "position": "(-0.0005970, -0.0011700, 0.0004720)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_R_Lower",
+      "position": "(-0.0005970, -0.0011700, 0.0001990)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(-0.0152304, -0.0027423, 0.0000000)",
+      "radius": 0.0217605755
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_UpperLip_L",
+      "position": "(0.0000000, -0.0012820, -0.0004680)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0201980, 0.0225550, 0.0201980)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.004
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_LowerLip",
+      "position": "(0.0000000, -0.0011960, -0.0006560)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0237890, 0.0275570, 0.0237890)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.004
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_L_Gaze",
+      "position": "(0.0004180, -0.0015210, 0.0003740)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.006
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Eye_R_Gaze",
+      "position": "(-0.0004200, -0.0015210, 0.0003770)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.006
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_L_Inner",
+      "position": "(0.0001593, -0.0011700, 0.0006923)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.0045
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_L_Outer",
+      "position": "(0.0006993, -0.0011700, 0.0006923)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.0045
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_R_Inner",
+      "position": "(-0.0001487, -0.0011700, 0.0006923)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.0045
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_Brow_R_Outer",
+      "position": "(-0.0006887, -0.0011700, 0.0006923)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.0045
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eve/Control_UpperLip_R",
+      "position": "(-0.0001200, -0.0016464, -0.0005223)",
+      "rotation": "(0.0000000, -0.7071067, -0.7071068, 0.0000000)",
+      "scale": "(0.0100000, 0.0100000, 0.0100000)",
+      "active": true,
+      "center": "(0.0000000, 0.0000000, 0.0000000)",
+      "radius": 0.0045
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/eye_2",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/eye_2.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_L_Pivot",
+      "position": "(0.0401566, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_L_Pivot/eye_1",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0008364, 0.0008364, 0.0008364)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_L_Pivot/eye_cornea",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0008364, 0.0008364, 0.0008364)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/eye_lids",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/eye_lids.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_R_Pivot",
+      "position": "(-0.0421044, 0.0368295, 0.0702142)",
+      "rotation": "(-0.7071068, 0.0000000, 0.0000000, 0.7071067)",
+      "scale": "(100.0000000, 100.0000000, 100.0000000)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_R_Pivot/eye_1.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0008364, 0.0008364, 0.0008364)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    },
+    {
+      "path": "Head-topo-expression-extended-brow-regions-refined3 1/Eye_R_Pivot/eye_cornea.001",
+      "position": "(0.0000000, 0.0000000, 0.0000000)",
+      "rotation": "(0.0000000, 0.0000000, 0.0000000, 1.0000000)",
+      "scale": "(0.0008364, 0.0008364, 0.0008364)",
+      "active": true,
+      "center": null,
+      "radius": 0.0
+    }
+  ],
+  "weights": {
+    "Mouth_L_Up": 0.0,
+    "Mouth_L_Down": 0.0,
+    "Mouth_R_Up": 0.0,
+    "Mouth_R_Down": 0.0,
+    "Eye_L_UpperLid_Up": 0.0,
+    "Eye_L_UpperLid_Down": 0.0,
+    "Eye_L_LowerLid_Up": 0.0,
+    "Eye_L_LowerLid_Down": 0.0,
+    "Eye_R_UpperLid_Up": 0.0,
+    "Eye_R_UpperLid_Down": 0.0,
+    "Eye_R_LowerLid_Up": 0.0,
+    "Eye_R_LowerLid_Down": 0.0,
+    "Mouth_LowerLip_Down": 0.0,
+    "Mouth_L_Out": 0.0,
+    "Mouth_L_In": 0.0,
+    "Mouth_R_Out": 0.0,
+    "Mouth_R_In": 0.0,
+    "Mouth_UpperLipR_Up": 0.0,
+    "Mouth_UpperLipL_Up": 0.0,
+    "Brow_L_Inner_Up": 0.0,
+    "Brow_L_Mid_Up": 0.0,
+    "Brow_L_Outer_Up": 0.0,
+    "Brow_L_Inner_Down": 0.0,
+    "Brow_L_Mid_Down": 0.0,
+    "Brow_L_Outer_Down": 0.0,
+    "Brow_R_Inner_Up": 0.0,
+    "Brow_R_Mid_Up": 0.0,
+    "Brow_R_Outer_Up": 0.0,
+    "Brow_R_Inner_Down": 0.0,
+    "Brow_R_Mid_Down": 0.0,
+    "Brow_R_Outer_Down": 0.0
+  }
+}

@@ -57,5 +57,8 @@ namespace Game.Core.Audio
 
         /// <summary>停背景音乐并释放它的资源句柄。<paramref name="fadeSeconds"/> 语义同上。不等待淡出完成。</summary>
         void StopBgm(float fadeSeconds = 0.5f);
+
+        /// <summary>播放非循环片段，返回歌曲时间轴。调用方持有 clip；必须先释放播放句柄再释放 clip。</summary>
+        AudioPlayback PlayScheduledClip(AudioClip clip, float startSeconds, float delaySeconds);
     }
 }

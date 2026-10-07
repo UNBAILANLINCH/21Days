@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "handle": "Control_UpperLip_R",
+      "enabled": true,
+      "firstHit": "Control_UpperLip_R",
+      "correct": true
+    },
+    {
+      "handle": "Control_LowerLip",
+      "enabled": true,
+      "firstHit": "Control_LowerLip",
+      "correct": true
+    },
+    {
+      "handle": "Control_Mouth_R",
+      "enabled": true,
+      "firstHit": "Control_Mouth_R",
+      "correct": true
+    },
+    {
+      "handle": "Control_Mouth_L",
+      "enabled": true,
+      "firstHit": "Control_Mouth_L",
+      "correct": true
+    },
+    {
+      "handle": "Control_UpperLip_L",
+      "enabled": true,
+      "firstHit": "Control_UpperLip_L",
+      "correct": true
+    }
+  ],
+  "clamp": true
+}

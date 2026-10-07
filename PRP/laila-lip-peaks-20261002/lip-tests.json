@@ -1,0 +1,154 @@
+[
+  {
+    "test": "front grid",
+    "control": "Control_UpperLip_L",
+    "key": "Mouth_UpperLipL_Up",
+    "correct": 9,
+    "total": 9,
+    "screen": "(933.241, 430.179)",
+    "center": "(-0.0099109, -0.0406745, -0.1336402)",
+    "radius": 0.00292664
+  },
+  {
+    "test": "front grid",
+    "control": "Control_UpperLip_R",
+    "key": "Mouth_UpperLipR_Up",
+    "correct": 9,
+    "total": 9,
+    "screen": "(986.759, 430.179)",
+    "center": "(0.0099109, -0.0406745, -0.1336402)",
+    "radius": 0.0035
+  },
+  {
+    "test": "independent drag",
+    "left": 0.0,
+    "right": 0.0,
+    "actualLeft": 0.0,
+    "actualRight": 0.0,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 0.0,
+    "right": 50.0,
+    "actualLeft": 0.0,
+    "actualRight": 49.9999924,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 0.0,
+    "right": 100.0,
+    "actualLeft": 0.0,
+    "actualRight": 99.9999847,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 50.0,
+    "right": 0.0,
+    "actualLeft": 49.9999924,
+    "actualRight": 0.0,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 50.0,
+    "right": 50.0,
+    "actualLeft": 49.9999924,
+    "actualRight": 49.9999924,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 50.0,
+    "right": 100.0,
+    "actualLeft": 49.9999924,
+    "actualRight": 99.9999847,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 100.0,
+    "right": 0.0,
+    "actualLeft": 99.9999847,
+    "actualRight": 0.0,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 100.0,
+    "right": 50.0,
+    "actualLeft": 99.9999847,
+    "actualRight": 49.9999924,
+    "pass": true
+  },
+  {
+    "test": "independent drag",
+    "left": 100.0,
+    "right": 100.0,
+    "actualLeft": 99.9999847,
+    "actualRight": 99.9999847,
+    "pass": true
+  },
+  {
+    "test": "formal no text",
+    "pass": true
+  },
+  {
+    "test": "explicit editor debug",
+    "pass": true
+  },
+  {
+    "test": "debug off restores no text",
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": -20.0,
+    "control": "Control_UpperLip_L",
+    "hit": "Control_UpperLip_L",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": -20.0,
+    "control": "Control_UpperLip_R",
+    "hit": "Control_UpperLip_R",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": 20.0,
+    "control": "Control_UpperLip_L",
+    "hit": "Control_UpperLip_L",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": 20.0,
+    "control": "Control_UpperLip_R",
+    "hit": "Control_UpperLip_R",
+    "marker": true,
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": 180.0,
+    "control": "Control_UpperLip_L",
+    "hit": null,
+    "marker": false,
+    "pass": true
+  },
+  {
+    "test": "view",
+    "angle": 180.0,
+    "control": "Control_UpperLip_R",
+    "hit": null,
+    "marker": false,
+    "pass": true
+  }
+]

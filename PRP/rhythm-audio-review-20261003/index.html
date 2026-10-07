@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>虫儿飞谱面候选试听</title>
+<style>body{max-width:850px;margin:40px auto;padding:0 20px;font:17px/1.7 system-ui;background:#111827;color:#e5e7eb}section{padding:20px;background:#1f2937;margin:20px 0;border-radius:12px}audio{width:100%}small{color:#a5b4fc}a{color:#93c5fd}</style>
+<h1>虫儿飞局部 A/B 试听</h1>
+<p>这些文件仅供听辨，未修改正式谱面。每个片段重复四次；浏览器可勾选循环播放。请每次只播放一条，使用相同音量和设备。</p>
+<p>A：当前目标时刻叠加提示点击。B：按不同频段起音提出的候选时刻叠加点击。候选不代表正确答案；请判断点击应跟随哪个声部，以及哪组更自然。原声版本用于避免点击声影响判断。</p>
+<section><h2>中段：原音频 34.9–37.5 秒</h2><p>对应片段 18.9–21.5 秒，涉及 legacy-26、27、28。</p>
+<p>原声</p><audio controls loop preload="none" src="middle-original.wav"></audio>
+<p>A · 当前谱面</p><audio controls loop preload="none" src="middle-A.wav"></audio>
+<p>B · 低频候选，依次移动 -23.3 / +66.7 / +51.7ms</p><audio controls loop preload="none" src="middle-B.wav"></audio></section>
+<section><h2>后段：原音频 46.8–48.0 秒</h2><p>对应片段 30.8–32.0 秒，涉及 legacy-44。</p>
+<p>原声</p><audio controls loop preload="none" src="later-original.wav"></audio>
+<p>A · 当前谱面</p><audio controls loop preload="none" src="later-A.wav"></audio>
+<p>B · 中高频候选，移动 -28.3ms</p><audio controls loop preload="none" src="later-B.wav"></audio></section>
+<p><small>音源为 Unity 解码后的 PCM 片段。Windows 与 Unity 解码已观察到固定 11ms 原点差；B 已换算到 Unity 时间域。候选是频谱分析线索，不能证明音乐声部选择或物理延迟。详细记录见 <a href="candidate-diff.csv">candidate-diff.csv</a>，applied 全为 False。</small></p>
+<script>document.querySelectorAll('audio').forEach(a=>a.addEventListener('play',()=>document.querySelectorAll('audio').forEach(b=>{if(a!==b)b.pause()})))</script>
+</html>

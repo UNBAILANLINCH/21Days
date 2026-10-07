@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Control_UpperLip_R",
+    "key": "Mouth_UpperLipR_Up",
+    "anchor": "(-0.000108005, -0.001301063, -0.000364734)",
+    "offset": 0.0035,
+    "radius": 0.0035,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(0.0126422, -0.0356807, -0.1329750)",
+    "baselineError": 3.003425E-08
+  },
+  {
+    "name": "Control_LowerLip",
+    "key": "Mouth_LowerLip_Down",
+    "anchor": "(0.000000000, -0.001196000, -0.000656000)",
+    "offset": 0.0,
+    "radius": 0.004,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(0.0000000, -0.0656000, -0.1196000)",
+    "baselineError": 2.10734239E-08
+  },
+  {
+    "name": "Control_Brow_R_Mid",
+    "key": "Brow_R_Mid_Up",
+    "anchor": "(-0.000418725, -0.001170000, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0217605755,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(0.0418725, 0.0692263, -0.1170000)",
+    "baselineError": 1.66600049E-08
+  },
+  {
+    "name": "Control_Brow_L_Inner",
+    "key": "Brow_L_Inner_Up",
+    "anchor": "(0.000159275, -0.001320499, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0045,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(-0.0159275, 0.0692263, -0.1320499)",
+    "baselineError": 4.53201139E-08
+  },
+  {
+    "name": "Control_Brow_L_Mid",
+    "key": "Brow_L_Mid_Up",
+    "anchor": "(0.000429275, -0.001170000, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0217605755,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(-0.0429275, 0.0692263, -0.1170000)",
+    "baselineError": 1.70714252E-08
+  },
+  {
+    "name": "Control_Brow_R_Inner",
+    "key": "Brow_R_Inner_Up",
+    "anchor": "(-0.000148725, -0.001321543, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0045,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(0.0148725, 0.0692263, -0.1321543)",
+    "baselineError": 4.9980013E-08
+  },
+  {
+    "name": "Control_Brow_R_Outer",
+    "key": "Brow_R_Outer_Up",
+    "anchor": "(-0.000688725, -0.001170000, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0045,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(0.0688725, 0.0692263, -0.1170000)",
+    "baselineError": 1.66600049E-08
+  },
+  {
+    "name": "Control_UpperLip_L",
+    "key": "Mouth_UpperLipL_Up",
+    "anchor": "(0.000097934, -0.001301002, -0.000365180)",
+    "offset": 0.0035,
+    "radius": 0.00292664,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(-0.0116352, -0.0357253, -0.1329689)",
+    "baselineError": 3.003425E-08
+  },
+  {
+    "name": "Control_Brow_L_Outer",
+    "key": "Brow_L_Outer_Up",
+    "anchor": "(0.000699275, -0.001170000, 0.000692263)",
+    "offset": 0.0,
+    "radius": 0.0045,
+    "center": "(0.00, 0.00, 0.00)",
+    "world": "(-0.0699275, 0.0692263, -0.1170000)",
+    "baselineError": 1.66600049E-08
+  }
+]

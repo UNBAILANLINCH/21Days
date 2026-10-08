@@ -81,5 +81,39 @@ namespace Game.Tests.EditMode.Loot
             Assert.That(LootRules.IsCollected(data, "crate_a"), Is.False);
             Assert.That(LootRules.Collect(data, "crate_a", 1001, 2), Is.True, "重置后同一箱子可以再开");
         }
+
+        [Test]
+        public void Consume_EnoughItems_DeductsAndKeepsCrateRecord()
+        {
+            LootRules.Collect(data, "crate_c", 1004, 2);
+
+            Assert.That(LootRules.Consume(data, 1004, 1), Is.True);
+
+            Assert.That(data.Items[1004], Is.EqualTo(1));
+            Assert.That(LootRules.IsCollected(data, "crate_c"), Is.True, "扣物品不等于箱子没开过");
+        }
+
+        [Test]
+        public void Consume_LastOne_RemovesTheEntry()
+        {
+            LootRules.Collect(data, "crate_c", 1004, 1);
+
+            Assert.That(LootRules.Consume(data, 1004, 1), Is.True);
+
+            Assert.That(data.Items.ContainsKey(1004), Is.False, "扣到 0 删掉这一项，背包面板不显示 0 件");
+        }
+
+        [Test]
+        public void Consume_NotEnoughOrNotOwnedOrInvalid_ReturnsFalseWithoutChangingData()
+        {
+            // 负对照：数量不够 / 没有这件 / 件数非法 / 分区为空，都不改数据。
+            LootRules.Collect(data, "crate_c", 1004, 1);
+
+            Assert.That(LootRules.Consume(data, 1004, 2), Is.False);
+            Assert.That(LootRules.Consume(data, 1002, 1), Is.False);
+            Assert.That(LootRules.Consume(data, 1004, 0), Is.False);
+            Assert.That(LootRules.Consume(null, 1004, 1), Is.False);
+            Assert.That(data.Items[1004], Is.EqualTo(1));
+        }
     }
 }

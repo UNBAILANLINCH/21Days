@@ -1,6 +1,6 @@
 # PRP: 战斗结果 → 剧情（battle-to-narrative，roadmap C5）
 
-> 状态：草案（2026-10-07 建立），待 Q0-D（Narrative 补战斗能力）回收后执行。
+> 状态：草案（2026-10-07 建立）。Q0-D（Narrative 补战斗能力）已回收（提交 fa3a193）；回合制这条路径已由 [`PRP/turnbased-battle`](../turnbased-battle/prp.md) 落地（`Game.Battle` 经 `NarrativeService.CompleteBattleAsync` 回写）；潜行 / 遭遇路径（`EncounterStep.PendingResult`）仍待做。
 > 本 PRP 覆盖 roadmap **C5**：把「一场战斗怎么结束」接进剧情阶段机，让聚光灯的**四个战斗关阶段**（阶段一、三、六、九）能真正推进。
 > 上游：[`00_功能总览.md`](../docs/design/features-spotlight/00_功能总览.md) §8.2 步 2/步 10、[`11_剧情流程与章节结构.md`](../docs/design/features-spotlight/11_剧情流程与章节结构.md)、[`03_潜行与暗杀.md`](../docs/design/features-spotlight/03_潜行与暗杀.md)、[`09_BOSS战.md`](../docs/design/features-spotlight/09_BOSS战.md)
 > 相关：[`S组落地总规划.md`](../docs/planning/S组落地总规划.md)（波次与文件所有权）、[`story-facts.md`](../ai-docs/docs/story-facts.md)（`combat.*` 键）、`PRP/narrative-dialogue/`（C1–C3/B3）

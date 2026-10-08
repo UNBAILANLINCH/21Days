@@ -38,7 +38,7 @@ maturity: seed
 
 1. `NarrativeContent.cs`：在 `StageKind` 枚举加一项；如果这种阶段有自己的结构约束（像 `Condition` 必须有
    `True`/`False` 出口、`WaitAction` 多部分行为必须有 `Success` 出口），在构造函数的校验循环里补对应分支
-   （`NarrativeContent.cs:43`–`51` 是现有两个例子）。
+   （`NarrativeContent.cs:49`–`52` 是现有两个例子：`Condition` 必须有 True / False 出口、`AllowEncounter` 只能在 `WaitAction`）。
 2. `NarrativeRules.ResolveAutomatic`（`NarrativeRules.cs:69`）目前只自动处理 `Condition` 和 `End`；
    其余 `StageKind`（`Dialogue`、`WaitAction`、`Battle`，以及你新加的）都停在原地等待外部调用 `Apply` 推进——
    **不要把新阶段类型也塞进自动推进循环**，除非它确实是「无需等待任何外部输入」的纯判断阶段。
@@ -99,4 +99,9 @@ Boot 的 GameBootstrap 挂 NarrativeInstaller；场景或运行时 NPC 使用 Na
   换形态可以直接回到同一个战斗阶段（自环），那是「同一场战斗的下一形态」。
 - 战斗侧拿到结果后走 `NarrativeService.CompleteBattleAsync`，不要自己拼 `NarrativeIntent` 绕过身份校验；
   身份三项从战斗开始时登记的值来，不要用回调回来时才读的当前阶段（那正是要被拒绝的旧回调）。
-- 想让战斗阶段变成可存档边界，先让战斗结果能落盘；在那之前 `IsStable` 保持对 `Battle` 返回 false。
+- **战斗阶段现在有条件地算可存档边界**：`IsStable` 对 Battle 阶段「没在打时稳定、在途时不稳定」（`NarrativeService.cs:345-347`）。
+  战斗会话状态仍不落盘，所以**任何新的战斗侧实现都必须在开打前 `TryBeginBattle`、没打完 `ReleaseBattle`**，否则战斗进行中会被自动保存，读档后得到一个没有对应战斗的在途标记
+  （读档时 `ReloadFromSave` 会清掉残留标记并重发通知，`NarrativeService.cs:114-120`）。
+- 战斗侧订阅 `BattleStageEnteredEvent`（`NarrativeService.cs:359` 发布）而不是轮询阶段；样例见 [`battle-extension-guide.md`](../battle/battle-extension-guide.md)「新增一只 BOSS」。
+- 要让场景物体随剧情标记显隐（BOSS 退场、门开关），挂 `NarrativeFlagVisibility`（`flagKey` = 阶段 `setFlags` 写的标记），不要自己订阅 `NarrativeChangedEvent`。
+- 要给 NPC / BOSS 一个主动交互入口：同物体挂 `NarrativeTrigger` + `DialogueInteractable`，`NarrativeTrigger` 绑定时自动接管交互（`NarrativeTrigger.cs:53-58`）；遭遇表的 `repeat: Reenter` 对主动交互可重复触发（`NarrativeService.cs:139-152` 的纪元）。

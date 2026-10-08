@@ -18,6 +18,9 @@ namespace Game.Narrative
 {
     public sealed class NarrativeService : IGameService, IDisposable
     {
+        /// <summary>主动交互的触发类型（NarrativeTrigger 发出的候选）。</summary>
+        private const string InteractTrigger = "Interact";
+
         private readonly NarrativeCatalog catalog;
         private readonly DialogueService dialogue;
         private readonly DialogueSceneBinder scene;
@@ -25,6 +28,7 @@ namespace Game.Narrative
         private readonly ISubscriber<SessionStartedEvent> sessions;
         private readonly ISubscriber<QuestCompletedEvent> completed;
         private readonly IPublisher<NarrativeChangedEvent> changed;
+        private readonly IPublisher<BattleStageEnteredEvent> battleStages;
         private readonly ITelemetryScope telemetry;
         private NarrativeRules rules;
         private EncounterRules encounters;
@@ -35,8 +39,11 @@ namespace Game.Narrative
 
         public NarrativeService(NarrativeCatalog catalog, DialogueService dialogue, DialogueSceneBinder scene,
             NarrativeConditionSource conditions, ISaveService saves, ISubscriber<SessionStartedEvent> sessions,
-            ISubscriber<QuestCompletedEvent> completed, IPublisher<NarrativeChangedEvent> changed, ITelemetryScope telemetry)
+            ISubscriber<QuestCompletedEvent> completed, IPublisher<NarrativeChangedEvent> changed, ITelemetryScope telemetry,
+            IPublisher<BattleStageEnteredEvent> battleStages = null)
         {
+            // 可空：不装战斗侧的测试 / 场景照旧能建；为空时停到 Battle 阶段只埋点、不通知（与接线前行为一致）。
+            this.battleStages = battleStages;
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
             this.scene = scene ?? throw new ArgumentNullException(nameof(scene));
@@ -49,11 +56,26 @@ namespace Game.Narrative
         }
 
         public NarrativeConditionSource Conditions { get; }
+
+        /// <summary>
+        /// 剧情分区刚写回（与 <see cref="NarrativeChangedEvent"/> 同一时刻，含读档 / 换槽后的重载）。
+        /// 给不进容器的场景组件用（<see cref="NarrativeFlagVisibility"/>）；订阅方只读状态，不得在回调里推进剧情。
+        /// </summary>
+        public event Action OnChanged;
+
         public bool IsReady => rules != null && !disposed;
         public bool IsBusy => busy;
         public long Generation => RequireRules().Generation;
         public bool CanSave => IsReady && !busy && IsStable(rules);
         public NarrativeSaveData Capture() => RequireRules().Capture();
+
+        /// <summary>当前槽位的剧情标记里有没有 <paramref name="key"/>（只看落进分区的标记，不含身份 / 遭遇的派生事实）。未就绪时为 false。</summary>
+        public bool HasStoryFlag(string key)
+        {
+            if (!IsReady || string.IsNullOrEmpty(key)) return false;
+            HashSet<string> flags = saves.Get<NarrativeSaveData>().StoryFlags;
+            return flags != null && flags.Contains(key);
+        }
 
         public UniTask InitializeAsync(CancellationToken ct)
         {
@@ -68,6 +90,8 @@ namespace Game.Narrative
             SceneManager.sceneLoaded += BindScene;
             foreach (NarrativeTrigger target in UnityEngine.Object.FindObjectsByType<NarrativeTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 target.Bind(this, scene.Actor);
+            foreach (NarrativeFlagVisibility visibility in UnityEngine.Object.FindObjectsByType<NarrativeFlagVisibility>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                visibility.Bind(this);
             telemetry.Track("initialized", ("stories", catalog.Stories.Count));
             return UniTask.CompletedTask;
         }
@@ -87,8 +111,13 @@ namespace Game.Narrative
         {
             RequireRules().Restore(saves.Get<NarrativeSaveData>());
             playback?.Cancel(); // Restore 已使旧回调的 Generation 失效。
+            // PRP/turnbased-battle D9：读档停在 Battle 阶段 → 战斗从头开始（战斗会话状态不进存档，不升 ReplayFormat）。
+            // 存档里的「战斗在途」标记必然是旧进程的残留（在途时 CanSave=false，正常写不进盘），先清掉，下面 Flush 一并写回分区。
+            bool battle = rules.Stage != null && rules.Stage.Kind == NarrativeContent.StageKind.Battle;
+            if (battle) rules.ClearRequestIssued(rules.Generation, rules.Current.ActivationId);
             SyncQuestFlags();
             telemetry.Track("session_restored");
+            if (battle) PublishBattleStage("restored");
         }
 
         public async UniTask<bool> StartAsync(string storyId, string targetId, CancellationToken ct = default)
@@ -107,19 +136,40 @@ namespace Game.Narrative
             if (!CanAccept()) return false;
             ct.ThrowIfCancellationRequested();
             var current = new List<EncounterRules.Candidate>();
+            long interactEpoch = -1;
             foreach (EncounterRules.Candidate candidate in candidates ?? throw new ArgumentNullException(nameof(candidates)))
             {
                 if (candidate?.Context == null) throw new ArgumentException("遭遇候选缺少目标身份");
+                long epoch = candidate.EntryEpoch;
+                // 主动交互没有「进入区域」那种天然纪元（NarrativeTrigger 恒给 0），Reenter 规则的消费键会在第一次后永远撞上。
+                // 用剧情的 NextActivationId 当纪元：上一段剧情跑过（任何阶段进入都会 +1）才算一次新的交互，
+                // 同一段剧情里连按不会重复进入；它随 NarrativeSaveData 落盘，读档后不会与已消费键冲突。
+                // Once / RisingCondition 的消费键不含纪元，不受影响（PRP/turnbased-battle D11：BOSS 打输后可再按 E 重打）。
+                if (epoch == 0 && candidate.TriggerKind == InteractTrigger)
+                {
+                    if (interactEpoch < 0) interactEpoch = rules.Capture().NextActivationId;
+                    epoch = interactEpoch;
+                }
                 current.Add(new EncounterRules.Candidate
                 {
-                    TriggerId = candidate.TriggerId, TriggerKind = candidate.TriggerKind, EntryEpoch = candidate.EntryEpoch,
+                    TriggerId = candidate.TriggerId, TriggerKind = candidate.TriggerKind, EntryEpoch = epoch,
                     Context = Conditions.Snapshot(candidate.Context.TargetId),
                 });
             }
+            // 停在 Battle 阶段而战斗没在跑（上一次开战失败 / 表现缺失被放弃）：同目标主动交互 = 重新开这一仗，
+            // 与下面「未完成对白」的重试同一口径；战斗在途（RequestIssued）时不重发，免得两场叠在一起。
+            if (rules.Stage != null && rules.Stage.Kind == NarrativeContent.StageKind.Battle && !rules.Current.RequestIssued)
+                foreach (EncounterRules.Candidate candidate in current)
+                    if (candidate.TriggerKind == InteractTrigger && candidate.Context.TargetId == rules.Current.TargetId &&
+                        candidate.Context.PlayerAlive && candidate.Context.TargetAlive)
+                    {
+                        PublishBattleStage("retried");
+                        return true;
+                    }
             // Once 已在首次接受时消费；同目标主动交互恢复未完成对白，不重新进入遭遇。
             if (rules.Stage != null && rules.Stage.Kind == NarrativeContent.StageKind.Dialogue)
                 foreach (EncounterRules.Candidate candidate in current)
-                    if (candidate.TriggerKind == "Interact" && candidate.Context.TargetId == rules.Current.TargetId &&
+                    if (candidate.TriggerKind == InteractTrigger && candidate.Context.TargetId == rules.Current.TargetId &&
                         candidate.Context.PlayerAlive && candidate.Context.TargetAlive)
                     {
                         telemetry.Track("dialogue_retried", ("target", rules.Current.TargetId), ("activation", rules.Current.ActivationId));
@@ -169,6 +219,36 @@ namespace Game.Narrative
             return accepted;
         }
 
+        /// <summary>
+        /// 战斗侧开打前登记「战斗在途」（PRP/turnbased-battle D9 的「战中不存档」）：身份三项对得上当前 Battle 阶段才登记，
+        /// 复用阶段帧的 RequestIssued——登记后 <see cref="CanSave"/> 为 false，自动保存与离场保存都被 Session 闸住。
+        /// 返回 false = 旧身份（读档 / 换主线之后的迟到通知）或已经在途，战斗侧不该开仗。
+        /// </summary>
+        public bool TryBeginBattle(long generation, long activationId, string targetId)
+        {
+            RequireRules();
+            if (!rules.CanCompleteBattle(generation, activationId, targetId) || !rules.MarkRequestIssued(activationId))
+            {
+                telemetry.TrackWarn("battle_begin_rejected", TelemetryProps.Of(("generation", generation), ("activation", activationId)));
+                return false;
+            }
+            Flush();
+            telemetry.Track("battle_begun", ("activation", activationId));
+            return true;
+        }
+
+        /// <summary>
+        /// 战斗没打完就收场（异常 / 取消 / 表现缺失 / 回写被拒）：解除在途登记，阶段原地不动——Battle 阶段回到可保存、
+        /// 可重试（同目标再交互或读档都会重新发布 <see cref="BattleStageEnteredEvent"/>）。身份已过期时是空操作。
+        /// </summary>
+        public void ReleaseBattle(long generation, long activationId)
+        {
+            if (!IsReady) return;
+            rules.ClearRequestIssued(generation, activationId);
+            Flush();
+            telemetry.Track("battle_released", ("activation", activationId));
+        }
+
         /// <summary>取消/失败留在当前对白阶段，显式重试；不把整段重播伪装成读档恢复。</summary>
         public UniTask RetryAsync(CancellationToken ct = default)
         {
@@ -199,8 +279,14 @@ namespace Game.Narrative
                     if (rules.Stage == null) return;
                     // 战斗与操作等待都停在原地：战斗关的推进权在战斗侧，Narrative 只等结果回写。
                     // 这里必须和 WaitAction 一起停，否则 while 会对着同一个 Battle 阶段空转到取消。
-                    if (rules.Stage.Kind == NarrativeContent.StageKind.WaitAction ||
-                        rules.Stage.Kind == NarrativeContent.StageKind.Battle) return;
+                    // 停到 Battle 时同步通知战斗侧（PRP/turnbased-battle D2）。订阅方不得在回调里同步跑完整场：
+                    // 此刻 busy 仍为 true，CompleteBattleAsync 会被 CanAccept 拒掉（Game.Battle 的世界门闸先让出一帧）。
+                    if (rules.Stage.Kind == NarrativeContent.StageKind.Battle)
+                    {
+                        PublishBattleStage("entered");
+                        return;
+                    }
+                    if (rules.Stage.Kind == NarrativeContent.StageKind.WaitAction) return;
                     if (rules.Stage.Kind != NarrativeContent.StageKind.Dialogue) continue;
                     NarrativeSaveData.Frame frame = rules.Current;
                     // Frame 的四项身份固定在 await 前；恢复或换阶段后回来的结果会被 Apply 拒绝。
@@ -251,11 +337,14 @@ namespace Game.Narrative
         private NarrativeRules RequireRules() => IsReady ? rules : throw new InvalidOperationException("NarrativeService 尚未初始化或已释放");
 
         /// <summary>
-        /// 可恢复边界只认「无外部请求、无待回写结果的等待」。战斗阶段刻意不算稳定：
-        /// 战斗结果目前只活在内存里，未消费就落盘会得到一个永远等不到结果的阶段。
+        /// 可恢复边界只认「无外部请求、无待回写结果的等待」。
+        /// Battle 阶段（PRP/turnbased-battle D9）：战斗在途（RequestIssued，见 <see cref="TryBeginBattle"/>）时不稳定——
+        /// 战斗会话只活在内存里，不能落盘；没在打时稳定，读档后 <see cref="ReloadFromSave"/> 重新发布通知、战斗从头开始，
+        /// 所以不再是「永远等不到结果的阶段」。
         /// </summary>
         private static bool IsStable(NarrativeRules value) => value.Stage == null ||
-            (value.Stage.Kind == NarrativeContent.StageKind.WaitAction && !value.Stage.IssueRequest && !value.Current.RequestIssued);
+            (value.Stage.Kind == NarrativeContent.StageKind.WaitAction && !value.Stage.IssueRequest && !value.Current.RequestIssued) ||
+            (value.Stage.Kind == NarrativeContent.StageKind.Battle && !value.Current.RequestIssued);
 
         private void SyncQuestFlags()
         {
@@ -266,10 +355,33 @@ namespace Game.Narrative
             Flush();
         }
 
+        /// <summary>按当前阶段的身份发布 <see cref="BattleStageEnteredEvent"/>；reason 只进埋点（entered / restored / retried）。</summary>
+        private void PublishBattleStage(string reason)
+        {
+            NarrativeSaveData.Frame frame = rules.Current;
+            string payload = rules.Stage.PayloadId ?? string.Empty;
+            telemetry.Track("battle_stage_entered", ("stage", frame.StageId), ("payload", payload),
+                ("activation", frame.ActivationId), ("reason", reason));
+            battleStages?.Publish(new BattleStageEnteredEvent(rules.Generation, frame.ActivationId, frame.TargetId, frame.StageId, payload));
+        }
+
         private void Flush()
         {
             CopyToPartition();
             changed.Publish(new NarrativeChangedEvent(rules.Current?.StageId));
+            RaiseChanged();
+        }
+
+        // 场景组件的显隐回调不许把剧情推进一起炸掉：逐个调、各自兜住。
+        private void RaiseChanged()
+        {
+            Action handlers = OnChanged;
+            if (handlers == null) return;
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try { ((Action)handler)(); }
+                catch (Exception e) { telemetry.TrackError("changed_handler_failed", e); }
+            }
         }
 
         private void CopyToPartition()
@@ -289,8 +401,12 @@ namespace Game.Narrative
         private void BindScene(Scene loaded, LoadSceneMode mode)
         {
             foreach (GameObject root in loaded.GetRootGameObjects())
+            {
                 foreach (NarrativeTrigger target in root.GetComponentsInChildren<NarrativeTrigger>(true))
                     target.Bind(this, scene.Actor);
+                foreach (NarrativeFlagVisibility visibility in root.GetComponentsInChildren<NarrativeFlagVisibility>(true))
+                    visibility.Bind(this);
+            }
         }
 
         public void Dispose()
@@ -299,6 +415,7 @@ namespace Game.Narrative
             playback?.Cancel();
             subscriptions?.Dispose();
             SceneManager.sceneLoaded -= BindScene;
+            OnChanged = null;
         }
     }
 }

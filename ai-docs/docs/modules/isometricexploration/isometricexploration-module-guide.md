@@ -39,7 +39,7 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | `ExplorationConfirmView` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationConfirmView.cs:20` | Popup 层通用确认弹窗（首个用途「重置进度」），`WaitAsync` 交回确认 / 取消，被动关闭按取消处理不抛异常 |
 | `SceneOccluder` | `Assets/_Project/Scripts/Runtime/IsometricExploration/SceneOccluder.cs` | 场景组件（波 9）：挡住相机视线时把 `sharedMaterial` 换成半透明材质，离开换回 |
 | `OccluderFadePresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/OccluderFadePresenter.cs` | 入口点（波 9）：每帧相机→玩家胸口射线，命中的 `SceneOccluder` 淡出、离开恢复 |
-| `StandaloneEncounterController` | `Assets/_Project/Scripts/Runtime/Monster/StandaloneEncounterController.cs:12` | 直接播放场景时，用现有遭遇规则读取 Gameplay 输入并推进角色、敌人与战斗 |
+| `StandaloneEncounterController` | `Assets/_Project/Scripts/Runtime/Monster/StandaloneEncounterController.cs` | 直接播放场景时，用现有遭遇规则读取 Gameplay 输入并推进角色、敌人与战斗（2026-10-07 起还接场景里的 `ExecutionInteractor`，但那条路没有种类表，物种门槛恒拒） |
 
 位置只由 `EncounterStep` 推进，不存在写入 3D `Rigidbody` 的物理控制器
 （历史原型 `IsometricPlayerController3D` 已于 2026-09-28 删除，回放改走 Boot 真实流程，见下文「历史记录：3D 物理移动验证」）。

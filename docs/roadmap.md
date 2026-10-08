@@ -135,7 +135,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Dialogue | stable | 是 | SampleScene | **119** | 有 | 有 | 二期完成；遭遇触发、存读档 UI、条件真实来源归 Narrative |
 | Quest | seed | 是 | SampleScene | **127** | 有 | 有 | 主线 / 支线 / 追踪 / 指引 / 存档分区完成；奖励、通知、失败、已完成列表不做 |
-| Monster | stable | 是 | SampleScene（Boot 真实流程） | **103** | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击 + **按种类数值与掉落**（`monster_species` 表）；视线遮挡已接（纯数据遮挡体）；**背后处决的门槛与执行**（`ExecutionRules`/`ExecutionResolver`，主窗口 2026-10-07 独立复跑 103/103） |
+| Monster | stable | 是 | SampleScene（Boot 真实流程） | **107** | 有 | 有 | 巡逻 / 感知 / 警戒 / 追击 / 攻击 + **按种类数值与掉落**（`monster_species` 表）；视线遮挡已接（纯数据遮挡体）；**背后处决已接进正式流程**（`MonsterEncounterState.BindExecution` 在场景就绪时把场景里的 `ExecutionInteractor` Configure 上，白盒面板多一行「能否按 F」；**感知范围可视化**——红区/橙区扇形与背后贴身圈三条白盒线框（`MonsterAwarenessRanges`，补齐 `03:234` 那条「视野扇形不画在画面上」的缺口）；巡逻线由 4 米拉到 8 米（折返 2 秒 → 4 秒）；主窗口 2026-10-07 独立复跑 107/107） |
 | Player | stable | 是 | 无场景挂件；回放 SampleScene | **11** | 有 | 有 | 移动 / 潜行 / 伪装 / 攻击 / 受伤 / 死亡 + **击倒状态机**（只能慢走、不能攻击）；无背包、装备、成长 |
 | CharacterPuppet | stable | 不需要 | SampleScene | 9（未复跑） | 有 | 有 | 拼接小人待机 / 走路；无转身、奔跑、交互、战斗动画，Spine 待定 |
 | IsometricExploration | stable | 不需要 | SampleScene | 19（未复跑） | 有 | 有 | 纸片朝向、相机跟随、XY→XZ 投影；「场景表现原型，不是正式探索系统」 |
@@ -147,10 +147,11 @@
 | Inventory | seed | 是 | 无 | **48** | 无 | 三件套（seed） | 背包白盒 + **道具八类别**（材料/消耗品/线索/关键物/**皮/面具/钥匙/文书**）+ **合成与使用的纯规则**（无调用方） |
 | Performance | stable | 是 | SampleScene | （未复跑） | 有 | 有 | 演出管线（世界舞台 + 时间轴 + 场景触发 / 对白插播） |
 | Session | seed | 是 | 标题 / 槽位 | **40** | 有，历史 2/2 PASS | 三件套（seed） | 存档会话：自动保存触发 / 稳定边界闸门、槽位元数据、新游戏 / 继续 / 选槽 |
-| **Identity** | **seed** | 是 | Boot 遭遇 / Showcase | 55（2026-10-07 历史记录） | 有，历史 PASS | 只有 guide | 身份状态机、六种露馅、账簿与怀疑度；遭遇禁攻与 Narrative 条件来源已接。具体身份内容与剩余生命周期缺口见模块指南 |
-| **Stealth** | **seed** | 是 | Boot 遭遇 / Showcase | 164（2026-10-07 历史记录） | 有，历史 PASS | 只有 guide | 遮挡已贯通怪物察觉，绕背、击倒、追逐与 F 键处决规则已接；处决在当前内容中的可达性仍受怪物表限制 |
-| **World** | **seed** | 是 | 两张灰盒 HumanJingyang / YaoFangshi | 141（2026-10-07 历史记录） | 有，历史 FAIL | 只有 guide | 场景登记、传送、出生点与相机约束已接；新开局 / 读档进入世界场景及失败回放尚待收尾 |
-| **TurnBased** | **seed** | 未接 | 白盒 Showcase | 159（2026-10-07 历史记录） | 有，历史 PASS | 只有 guide | 回合制 BOSS 战内核与醉酒四档白盒；正式进战斗、内容数值、结果消费与 UI 未接，不按无调用方重新派发白盒 |
+| **Identity** | **seed** | 是 | Boot 遭遇 / Showcase | **55** | 有，历史 PASS | 只有 guide | 身份状态机、六种露馅、账簿与怀疑度；遭遇禁攻与 Narrative 条件来源已接。具体身份内容与剩余生命周期缺口见模块指南 |
+| **Stealth** | **seed** | 是 | Boot 遭遇 / Showcase | **164** | 有，历史 PASS | 只有 guide | 遮挡已贯通怪物察觉，绕背、击倒、追逐与 F 键处决规则已接；处决在当前内容中的可达性仍受怪物表限制 |
+| **World** | **seed** | 是 | 两张灰盒 HumanJingyang / YaoFangshi | **141** | 有，历史 FAIL | 只有 guide | 场景登记、传送、出生点与相机约束已接；新开局 / 读档进入世界场景及失败回放尚待收尾 |
+| **TurnBased** | **seed** | **是**（经 `Game.Battle`；本模块自己没有 Installer） | **SampleScene**（经 Battle 的 BOSS NPC 触发） | **165**（PRP `turnbased-battle` §9 W1 回填，主窗口未独立复跑） | 无独立回放（回放在 Battle） | **只有 guide** | **S7 回合制 BOSS 战内核**（49 个运行时文件）：三种进入方式的先手与偷袭 −20%、玩家三招式与怒气门槛、BOSS 醉酒四档（20/40/100% 跳过、酩酊 −50 持续 2 回合）、BOSS 三招权重 6:3:1、道具一场一次；**新增道具效果占位**（`BattleItemSettings`：1004 治疗药水回复 30% 生命上限，`TurnBasedConfig` 现 43 个字段）。**已由 `Game.Battle` 接线**（唯一调用方，只用「正面攻击、玩家先手」一种开战方式）；**`EncounterStep` 的进战斗判定（偷袭 / 被打）仍未接**，战斗外醉酒值没有真实出处。数值全是占位等 **C91** |
+| **Battle** | **seed** | **是**（`BattleInstaller` 已挂 `Boot` 末尾，GUID 已反查） | **SampleScene**（`Npc_SampleBoss`，(-4.2, 4.89, 8.4)）+ 叠加加载的 `BattleArena` | **85**（PRP `turnbased-battle` §9 审查意见修正后回填） | **有 Showcase（2 条回放 PASS，PRP §9 回填）** | **三件套齐备（seed）** | **回合制战斗落地**（36 个运行时文件）：剧情停在 Battle 阶段即开战——黑幕下叠加加载战斗场景、按住世界（暂停 / 关输入图 / 藏 HUD）、`BattleView` 白盒界面、出招位移与受击闪白；收场黑幕下回写剧情（Victory 写「已击败」标记、BOSS 退场；Downed 可重打），回写最多等 1 秒；战中不存档。只给 SampleScene 的 `sample_boss` 用；BOSS 定义在 `BossRosterConfig`（占位，不进 Luban 表）；**回放不覆盖回合制战斗的随机流**；交互提示动词仍显示「对话」。代码审查 PASS、审查意见已修，视觉验收未做 |
 | Sample | stable | **否** | 无 | 7（未复跑） | 无（按设计） | 有 | 样板模块；Installer 未挂、场景地址未登记，已过期 |
 
 ### 2.3 场景、资产与内容规模
@@ -231,7 +232,7 @@
 | C2 | 剧情标记条件源 | NarrativeConditionSource 读取真实玩家状态、槽位标记与目标生命周期；未装 Installer 时保留占位来源 | 选项定时刷新与提交时复验；无来源的敌意/感知条件拒绝用于生产内容 | Narrative + Dialogue | C1 | M | opus | 已实现并提交；工作区回归与人工验收通过，最终提交独立验证待补 |
 | C3 | 剧情内容进表与校验 | 已有三张 Narrative 表、Luban 输出及 Catalog 校验 | 剧情、遭遇、任务标记映射；引用、环路、冲突与未接入能力检查 | Narrative + Tables | C1 | M–L | opus | 最小内容管线已实现并提交；真实章节与完整内容校验工具不在本批，最终提交独立验证待补 |
 | C4 | Narrative 三件套与登记 | 已生成 | `/generate-doc narrative`、`modules.json`、catalog 补行 | 文档 | 无 | S | sonnet | 完成（2026-09-26） |
-| C5 | 战斗结果 → 剧情 | `EncounterStep.PendingResult` 有，消费方无 | **先按聚光灯 S2 / S3 / S7 重新审视**：本体打不过任何怪、挨打被击倒（S3），违反身份规则会暴露（S2），BOSS 有血量与多阶段（S7）；Battle 阶段的结果可能要能表达击倒、暴露、BOSS 转阶段 | Narrative + Monster | S2 / S3 / S7 定义 | M | opus | 待做 |
+| C5 | 战斗结果 → 剧情 | **回合制这一条路径已接通**（2026-10-07，`PRP/turnbased-battle`）：`Game.Battle` 订阅 `BattleStageEnteredEvent`、打完经 `NarrativeService.CompleteBattleAsync` 回写。**潜行和遭遇的结果回写仍未接**：`EncounterStep.PendingResult` 有，消费方无 | **先按聚光灯 S2 / S3 / S7 重新审视**：本体打不过任何怪、挨打被击倒（S3），违反身份规则会暴露（S2），BOSS 有血量与多阶段（S7）；Battle 阶段的结果可能要能表达击倒、暴露、BOSS 转阶段 | Narrative + Monster | S2 / S3 / S7 定义 | M | opus | 部分完成（2026-10-07）：回合制路径已落地；潜行 / 遭遇路径待做 |
 
 ### D. 演出与 UI 动效
 
@@ -292,7 +293,7 @@ G 组对应旧版 [`design/features/`](design/features/)（照镜 / 收押 / 两
 | S4 | 追逐（[[04]](design/features-spotlight/04_追逐.md)） | 已有追逐、召唤编队与固定追逐纯规则，以及遭遇追逐接线 | 核对场景化召唤 / 编队表现与正式内容 | 规则已有；完整场景验收待补 |
 | S5 | 皮、面具与道具（[[05]](design/features-spotlight/05_皮面具与道具.md)） | 背包八类别、合成 / 使用纯规则、按种类掉落结算入口已有；新入口尚无生产调用方 | 接调用方及正式物品内容；不重建类别 / 规则 | 机制已有；生产闭环待补 |
 | S6 | 关卡专属机制（[[07]](design/features-spotlight/07_关卡专属机制.md)） | 现有模块没有任何一条；幻象要原样复用前三阶段的机制（[07] §8 约束 1），每条机制都要能挪到别的场景 | 策划确认 [07] 的阻塞问题（00 §8.1 第 1、6、9、11、12 条）后 `/refine-prd` | 玩法定义已拆，待策划确认 |
-| S7 | BOSS 战（[[09]](design/features-spotlight/09_BOSS战.md)） | 回合制 BOSS 战规则与白盒 Showcase 已有，醉酒四档有历史回放通过记录 | 正式进战斗、数值、结果消费与界面接线 | 内核 / 白盒已有；正式闭环待补 |
+| S7 | BOSS 战（[[09]](design/features-spotlight/09_BOSS战.md)） | 回合制战斗已落地（`Game.Battle` + `Game.TurnBased`，PRP `turnbased-battle`）：SampleScene 占位 BOSS，按 E → 开战对白 → 独立战斗场景 → 胜负回写剧情（胜利 BOSS 退场、被击倒可重打）；只接了「正面攻击」一种开战，数值全是占位 | 偷袭 / 被打两种开战接 `EncounterStep`；适用范围、数值、界面等 C90 / C91 / C92；正式美术与出招动画 | 回合制闭环已通（占位数值）；范围与数值待策划 |
 | S8 | 小游戏（[[08]](design/features-spotlight/08_小游戏.md)） | 已有独立四轨 Rhythm 实现、三首 MP3 与对应曲谱，当前进度见 `HANDOVER.md` §1.8；这些不代表聚光灯小游戏或音乐解谜已接入，不能按“工程没有音游 / 零音频”重新派工（F4）；阶段一不用 sp02 套时可整项搁置 | 策划确认 [08] 的阻塞问题（00 §8.1 第 1、8 条）后 `/refine-prd` | 玩法定义已拆，待策划确认 |
 
 三项支撑文档不单列 S 行：[[06]](design/features-spotlight/06_怪物分层.md) 怪物分层落成「怪物种类数据化」（Monster 种类表进 Luban，S3 / S4 / S7 都要按种类配数值、可否击杀、掉落；表结构可与拍板并行），[[10]](design/features-spotlight/10_两界与场景结构.md) 两界与场景结构并入 A4 / A6（坊市 / 泾阳两张同构地图）；

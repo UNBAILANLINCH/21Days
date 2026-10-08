@@ -74,8 +74,10 @@ Inspector 调整：`Full Range Screen Fraction` 越小越灵敏；嘴角勾选 `
 ## 依赖方向
 
 ```text
-Game.LailaFace（Runtime / 表现）
+Game.Gameplay（Runtime / 表现，文件在 Runtime/Gameplay/）
   └─ UnityEngine + UnityEngine.EventSystems
+  ※ 2026-10-07 起命名空间从 Game.LailaFace 改为 Game.Gameplay，对齐目录（project-root.md 硬规则）；
+    旧名 Game.LailaFace 已不存在。
 
 Game.Tests.Showcase.LailaFace
   └─ Game.Runtime + Game.Tests.Showcase Framework

@@ -130,7 +130,33 @@ Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移
 逻辑 XY 由该视图投影到场景 XZ。缺少显式接线时状态会报错并返回标题，不再运行时按对象名补建。
 直接播放该场景时，`StandaloneEncounterController` 使用场景内 `PlayerInput` 推进同一个 `EncounterStep`；
 若检测到 Boot 的 `GameBootstrap`，该控制器立即停用，避免与正式 `SimulationRunner` 重复推进。
-`MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑。触屏虚拟摇杆与
+**感知范围可视化（2026-10-07）**：`MonsterAwarenessRanges`（`Assets/_Project/Scripts/Runtime/Monster/`）是新建的
+白盒表现组件，画出前方视野扇形（橙区半径）、红区扇形与背后贴身察觉圈——`03_潜行与暗杀.md:234` 把
+「**视野扇形不画在画面上**」列为已知缺口，它补的就是这一条；同文 `:251` 那条待拍板（「潜行速度下绕过去要几秒？
+要和巡逻停步的 2 秒对一下」）也因为这个可视化才第一次变得可判断。数值与 `MonsterRules.Sense` **同源**：
+视野角 / 橙区 / 贴身察觉取 `MonsterKind`（按种类），红区取 `MonsterConfig.HostileRadius`（全局），
+由 `EncounterSceneView.BindAwarenessRanges(kind, config)` 在 `Begin`（即 `Reset` 查表）之后接一次——
+`MonsterConfig` 由 `MonsterEncounterState` 从容器注入，**不靠 Inspector 手拖**（漏拖会静默少一层可视化）。
+顶点在局部坐标只建一次、每帧只写 transform；`LineAlignment` 用默认的 `View`（贴地环用 `TransformZ`
+在斜俯视下会「平躺」看不见）。把 `EncounterSceneView.showAwarenessRanges` 取消勾选即完全不画，判定零影响。
+
+**巡逻线（2026-10-07 调整）**：`SampleScene` 的 `PatrolPoint0/1` 由 **4 米**（x 13.86..17.86）拉到 **8 米**
+（x 13.86..21.86）。原线在 `patrolSpeed 2` 下**每 2 秒就折返一次**（每次转身都让 75° 视野锥扫过），
+拉长后是 **4 秒**；曾试过 14 米但**实测不可行**——玩家潜行 1.5 m/s 追不上巡逻 2 m/s 的怪，线越长怪越长时间
+在走，绕背在数学上办不到。改这两个点**必须按世界坐标设**：`EncounterSceneView.PatrolPositions()` 读的是
+`Transform.position`（世界）再转逻辑 XY，父物体一旦带旋转，`localPosition` 与它就不等价。
+回放的观察点也随之从 `(15.86, 5.4)` 挪到 `(15.5, 7.6)`：安全站位要满足「被视野锥排除（|dx| < 1.304·D，
+1.304 = 1/tan37.5°）**或**距离超过橙区（|dx|² + D² > 36）」，两者覆盖全部 |dx| 解出 **D ≥ 3.65 米**。
+
+`MonsterEncounterState` 在场景就绪后 `Begin`，绑定视图；离场时 `End`、解绑。**背后处决（2026-10-07 接线波）**：
+同一个 `OnSceneReadyAsync` 在场景根里找 `ExecutionInteractor`（与找 `EncounterSceneView` 同一模式），
+再由公开的 `BindExecution` 把它 Configure 上——玩家 / `MonsterRules` / `step.FactSink`（写
+`stealth.assassinated` 的那一侧契约）/ 可选的 `StealthKernel.Assassination` / `EncounterStep` /
+`stealth` 作用域埋点 / 从 `IInputService` 拿的动作资产。场景侧已在 `SampleScene` 的 `Encounter` 物体上挂好
+该组件（`inputActions` 字段**留空即可**：接线方传进来的动作资产优先，Inspector 那个字段只在没有接线方时兜底）；
+直接播放该场景那条路由 `StandaloneEncounterController.Awake` 接，但它**没有种类表**，物种门槛恒拒。
+组件缺位时只打一条 Warn（遭遇照跑）——「按 F 没反应」与「功能坏了」在现场要分得开。
+触屏虚拟摇杆与
 潜行 / 伪装 / 攻击按钮已不再由本状态创建（原 `EncounterTouchControls` 已删除），改由
 `Game.IsometricExploration` 的探索 HUD 预制体（`OnScreenStick` / `OnScreenButton`）按
 `IPlatformService.IsTouchPrimary` 显隐提供，映射到同一 Gameplay 动作；见

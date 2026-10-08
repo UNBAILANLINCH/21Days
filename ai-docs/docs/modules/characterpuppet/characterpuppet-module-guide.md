@@ -46,10 +46,15 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 ```
 
 - 不引用 Monster / IsometricExploration / Dialogue 任何类型；与 `EncounterSceneView` 的协作全靠**场景接线**（`facingSource` 指向纸片）。
-- 反过来，运行时代码里只有 Performance 的 `PerformanceTriggerRules.HideSceneCharacters`（演出前藏场景角色，对全部入口
-  一视同仁，含对白插播）引用 `Game.CharacterPuppet`：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
-  `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法；其余引用在编辑器工具、Showcase 与 EditMode 测试。
-  小人组件改名 / 挪命名空间要同步改那里。
+- 反过来，运行时代码里引用 `Game.CharacterPuppet` 的有两处：
+  1. Performance 的 `PerformanceTriggerRules.HideSceneCharacters`（演出前藏场景角色，对全部入口
+     一视同仁，含对白插播）：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
+     `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法。
+  2. **Battle 的 `BattleActor`**（回合制战斗舞台上的角色，`Assets/_Project/Scripts/Runtime/Battle/BattleActor.cs`，顶部 `using Game.CharacterPuppet;`）：挂上外观后**关掉小人自带的驱动层**
+     `ChibiPuppetMotion`（`BattleActor.cs:271-272`；原因是它在 `timeScale = 0` 时每帧把小人强制写回待机，`BattleActor.cs:7-8`），
+     再**自己调** `ChibiPuppet.SetMoving`（`BattleActor.cs:276-278`，奔跑演出时 `running = true`、播放速率 1.6）与 `ChibiPuppet.SetFacing`（`BattleActor.cs:134`）写走跑和朝向。
+     战斗全程世界暂停，所以这里不能靠「看位移」的 `ChibiPuppetMotion`。
+  其余引用在编辑器工具、Showcase 与 EditMode 测试。小人组件改名 / 挪命名空间、或改 `SetMoving` / `SetFacing` 签名要同步改这两处。
 - 不订阅事件、不注册 DI 服务、不走 Addressables；预制体以场景实例存在。
 
 ## 预制体
@@ -219,4 +224,4 @@ ResolveFacing → 变了才 ChibiPuppet.SetFacing(left) → 根 localScale.x = �
 - 各角色预制体是独立资产而非 Prefab Variant；结构统一由生成工具维护，改结构改工具后重跑。
 - 翻面是整张镜像：不对称的挂件镜像后会换边；「默认朝左」素材靠子物体 `Sprite.flipX`，与根 `localScale.x` 翻面叠加后仍正确。
 - 朝向在 `facingSource` 模式下完全由纸片决定，`facingDeadZone` 不生效。
-- 同一小人只允许一个驱动者写 `Moving` / `Running` / `Speed`（目前是 `ChibiPuppetMotion`）；再加一处写参数会互相覆盖。
+- 同一小人只允许一个驱动者写 `Moving` / `Running` / `Speed`：常态是 `ChibiPuppetMotion`；**战斗舞台上的小人例外**——`BattleActor` 先把 `ChibiPuppetMotion` 禁用、再自己写（`BattleActor.cs:271-278`），所以那里仍然只有一个驱动者。再加一处写参数会互相覆盖。

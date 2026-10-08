@@ -117,6 +117,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9ce6a9e44961cbb458c83da93fa13de1
+    m_Address: BattleView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a3de1a952dfcfcf4ca2fe7fc00291e36
     m_Address: QuestHudView
     m_ReadOnly: 0
@@ -144,6 +149,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e205b71d26673fd46a23e00f526b2731
     m_Address: PauseMenuView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e7cebd64d51a1aa4ab0cb65b50fd09c3
+    m_Address: TutorialView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

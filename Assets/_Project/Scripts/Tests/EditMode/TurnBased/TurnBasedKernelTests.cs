@@ -214,6 +214,13 @@ namespace Game.Tests.EditMode.TurnBased
 
                 Assert.That(asset.ItemOncePerBattle, Is.EqualTo(placeholder.ItemOncePerBattle));
                 Assert.That(asset.InheritsDrunkValue, Is.EqualTo(placeholder.InheritsDrunkValue));
+
+                // 道具效果占位（PRP/turnbased-battle D10，等 C91）：1004 治疗药水回复 30% 生命上限。
+                Assert.That(asset.Items.HealItemId, Is.EqualTo(placeholder.Items.HealItemId));
+                Assert.That(asset.Items.HealPercent, Is.EqualTo(placeholder.Items.HealPercent));
+                Assert.That(asset.Items.HealBase, Is.EqualTo(placeholder.Items.HealBase));
+                Assert.That(asset.Items.HealItemId, Is.EqualTo("1004"));
+                Assert.That(asset.Items.HealPercent, Is.EqualTo(30));
             }
             finally
             {

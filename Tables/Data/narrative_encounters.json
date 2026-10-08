@@ -3,5 +3,13 @@
         "id": "sample_traveler", "trigger": "Interact", "targetKind": "SampleTraveler",
         "priority": 10, "story": "sample_encounter", "entry": "check", "repeat": "Once",
         "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
+    },
+    {
+        "id": "sample_boss", "trigger": "Interact", "targetKind": "SampleBoss",
+        "priority": 10, "story": "sample_boss_battle", "entry": "taunt", "repeat": "Reenter",
+        "anyOf": [{"all": [
+            {"fact": "PlayerAlive", "key": "", "expected": true},
+            {"fact": "StoryFlag", "key": "world.sampleboss.defeated", "expected": false}
+        ]}]
     }
 ]

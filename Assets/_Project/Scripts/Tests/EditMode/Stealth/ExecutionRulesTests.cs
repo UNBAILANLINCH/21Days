@@ -131,12 +131,15 @@ namespace Game.Tests.EditMode.Stealth
         }
 
         /// <summary>
-        /// PRP §3.2：**用当前表里那两行真实数据**证明 `killable = true` 且
-        /// `defeat_method = 可击杀（方式没写）` 的怪**不能**被处决——否则绕背变成万能解。
+        /// PRP §3.2（2026-10-07 扩成两半）：**用当前真表数据**把门槛的两侧各钉一条——
+        /// ① `killable = true` + `defeat_method = 可击杀（方式没写）` 的怪（巡夜人 / 井边妇人）**不能**被处决，
+        ///    否则绕背变成万能解；
+        /// ② `killable = false` + `defeat_method = 暗杀` 的怪（市令）**必须**能被处决——这条是「处决在当前内容里
+        ///    真的可达」的正面证据：在它入库之前，真表里一只可处决的怪都没有，那一半只能靠手搓数据测。
         /// 走「真表字节 → 配置服务 → 妖物表 / 种类表」这条真链路，不手搓字符串。
         /// </summary>
         [Test]
-        public void SpeciesExecutable_CurrentTableRows_AreNotExecutable()
+        public void SpeciesExecutable_CurrentTableRows_SplitByDefeatMethod()
         {
             var config = ScriptableObject.CreateInstance<MonsterConfig>();
             try
@@ -144,26 +147,50 @@ namespace Game.Tests.EditMode.Stealth
                 var stub = new StubConfigService(ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes()));
                 var kinds = new MonsterKindCatalog(stub, new YaoCatalog(stub), config.HostileRadius);
 
-                Assert.That(kinds.Count, Is.GreaterThanOrEqualTo(2), "当前表里的种类条数（巡夜人 / 井边妇人）");
+                Assert.That(kinds.Count, Is.GreaterThanOrEqualTo(3), "当前表里的种类条数（巡夜人 / 井边妇人 / 市令）");
 
+                int executableKinds = 0;
                 for (int i = 0; i < kinds.All.Count; i++)
                 {
                     MonsterKind kind = kinds.All[i];
-                    Assert.That(kind.IsKillable, Is.True,
-                        $"表里这一行 {kind.Name} 是 killable = true（能被常规打死）——所以它绝不该也能被一键处决");
-                    Assert.That(kind.DefeatMethod, Is.EqualTo("可击杀（方式没写）"), "表里的 defeat_method 原文");
-                    Assert.That(ExecutionRules.SpeciesExecutable(kind.DefeatMethod), Is.False,
-                        $"{kind.Name} 的 defeat_method 不是「暗杀」，不能被处决（PRP §2.1 的「不要把 killable 当门槛」）");
+                    bool speciesExecutable = ExecutionRules.SpeciesExecutable(kind.DefeatMethod);
 
-                    // 走过完整门槛：位置与察觉都成立，仍然被条件 ② 拦下。
+                    if (kind.IsKillable)
+                    {
+                        // ① 能常规打死的怪绝不该也能被一键处决。
+                        Assert.That(kind.DefeatMethod, Is.EqualTo("可击杀（方式没写）"),
+                            $"表里这一行 {kind.Name} 是 killable = true，defeat_method 应当是同义的「可击杀（方式没写）」");
+                        Assert.That(speciesExecutable, Is.False,
+                            $"{kind.Name} 能被常规打死，不该也能被一键处决（PRP §2.1「不要把 killable 当门槛」的反面）");
+                    }
+                    else
+                    {
+                        // ② 常规杀不掉的怪必须说清非正面途径（与 YaoTableTests 的真表校验同源，这里从种类侧再看一遍）。
+                        Assert.That(kind.DefeatMethod, Is.Not.Empty.And.Not.EqualTo("可击杀（方式没写）"),
+                            $"表里这一行 {kind.Name} 是 killable = false，defeat_method 要说清怎么杀");
+
+                        if (speciesExecutable)
+                        {
+                            executableKinds++;
+                        }
+                    }
+
+                    // 走过完整门槛：位置与察觉都成立，结论只由条件 ② 决定。
                     ExecutionVerdict verdict = ExecutionRules.Evaluate(
                         new ExecutionInput(
                             new AssassinationInput(new Vector2(-1f, 0f), Vector2.right, Vector2.zero, Vector2.right,
                                 true, false, true),
-                            ExecutionRules.SpeciesExecutable(kind.DefeatMethod)),
+                            speciesExecutable),
                         rules);
-                    Assert.That(verdict.Reject, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
+                    Assert.That(verdict.Allowed, Is.EqualTo(speciesExecutable),
+                        $"{kind.Name}（defeat_method = {kind.DefeatMethod}）的门槛结论与物种条件不一致");
+                    Assert.That(verdict.Reject,
+                        Is.EqualTo(speciesExecutable ? ExecutionReject.None : ExecutionReject.SpeciesNotExecutable),
+                        $"{kind.Name} 的拒绝原因");
                 }
+
+                Assert.That(executableKinds, Is.EqualTo(1),
+                    "真表里恰有一只只能暗杀的怪（市令）——处决在内容上可达；增删这类怪要同步这条断言");
             }
             finally
             {

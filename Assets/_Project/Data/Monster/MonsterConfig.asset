@@ -15,17 +15,17 @@ MonoBehaviour:
   patrolSpeed: 2
   alertSpeedMultiplier: 1.1
   hostileSpeedMultiplier: 1.25
-  visionAngle: 75
-  alertRadius: 6
   hostileRadius: 2
-  nearSenseRadius: 1.5
-  attackRange: 0.8
   alertFillSeconds: 4
   alertFallSeconds: 6
   hostileLoseSeconds: 2
-  patrolPauseSeconds: 2
+  patrolPauseSeconds: 5
   patrolMinSeconds: 7
   patrolMaxSeconds: 10
+  visionAngle: 75
+  alertRadius: 6
+  nearSenseRadius: 1.5
+  attackRange: 0.8
   attackCooldown: 1
   maxHealth: 3
   attackDamage: 1

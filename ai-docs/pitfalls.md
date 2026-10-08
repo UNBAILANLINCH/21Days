@@ -181,6 +181,10 @@
 - **并行改同一批文件（2026-09-26）**：这次不是提交期撞车，是**开工期**就撞了——两个会话各自派 subagent 改 Player / Input / UIService 等同一批文件，而且两边设计还不一样（字段命名、迁移路径都不同）。发现得晚一步就会互相覆盖；这次是其中一个 subagent 中途 `git status`/`git diff` 发现对方的未提交改动跟自己要改的文件重叠，主动停手，另一边才没被覆盖。正确做法：开工前先 `git status` 看工作区有没有别人的未提交改动；有就先跨会话发消息划清各自改哪些文件、谁的底层设计为准，不要各写各的等提交时再对；改共用文件前**重新 `Read`**（别信自己上一轮读到的内容，对方可能已经改过），只做最小插入，不顺手重排或重构无关部分；改完等到「编译零错误 + EditMode 全绿」这个稳定点再通知对方开工，不要在半成品状态上招呼别人接手。
 - **共享索引与临时索引提交（2026-09-26）**：`git commit` 不带路径会把别的会话 `git add` 进共享索引的文件一起带走（今天两个会话各踩一次）；混合文件即使按路径提交（`git commit -- <路径…>`），只要该路径在共享索引里已经是对方 `add` 过的混合版本，拿到的仍是连着对方未完成追加的那一份，不是自己单独的改动。稳妥做法是以 `git show HEAD:<文件>` 为基线，只重放自己这一轮的改动生成一份临时文件，再走一条完全不碰共享索引的临时索引提交：`GIT_INDEX_FILE=<临时索引路径> git read-tree HEAD` 建一份独立索引 → `git hash-object -w --path <path> <临时文件>` 把重放结果写进对象库，`GIT_INDEX_FILE=<临时索引> git update-index --cacheinfo 100644,<hash>,<path>` 只把这一条换成新版本 → `GIT_INDEX_FILE=<临时索引> git write-tree` 出树 → `git commit-tree <树> -p HEAD -m <信息>` 出提交对象 → `git update-ref refs/heads/main <新提交> <提交前的旧 HEAD>` 带旧值校验推进分支。用这条路径出完提交后，**共享索引里那些被提交的路径仍指向提交前的旧 blob**，相对新 HEAD 会显示成「反向改动」（看起来像被撤销了一样）；必须紧接着 `git reset -- <这些路径>` 把共享索引对齐新 HEAD，否则下一个用整份索引提交（`git commit` 不带路径，或 `git add -A`）的人会把这次刚提交的内容撤掉。
 
+- **对方的合并 / 清理流程会把你的在建文件整个扫走（2026-10-07）**：这次不是提交期撞车，是**对方开工**撞的——另一边「临时分支合并前的全量暂存」跑了 `git reset --hard` + `git stash -u`（收未跟踪文件）切到合并分支，A 会话新建的 4 个 `.cs`、2 张 PNG、1 个脚本连同 Unity 刚生成的 `.meta` 一起从工作区消失，已跟踪文件上的改动也被回退。A 看到的现象是「文件一会儿在、一会儿不在」，同时 Unity 打 `Cannot open file '...meta' for write` 与 `'...png' does not exist`——**极像文件系统或沙箱故障**，顺着那条线查会白烧很久（本次就是这么烧的）。
+- 正确做法：**工作区的文件莫名消失时，第一件事是 `git stash list` + `git reflog`，不是查文件系统**。查到 `stash@{0}` 后别急着 pop（会把对方的 WIP 一起倒进树里、并在对方的文件上产生冲突，本次对方 pop 时确实撞了 4 个文件）：先用 `git ls-tree -r --name-only 'stash@{0}^3'` 列未跟踪树、`git show 'stash@{0}:<path>'` 读已跟踪文件，确认自己的产物都在，再等对方收尾。反过来，**要 stash / 合并 / `reset --hard` / `clean` 之前先 `git status --short -uall` 看清有没有别人正在写的未跟踪文件**，有就先打招呼——共用工作区里「未提交」的另一半就是对方的在建成果。
+- 关联：`CLAUDE.md #硬规则 4`、`.claude/skills/review-change/SKILL.md #并发会话`；2026-10-07 整份开局教程改动被扫掉时踩到（产物最终从 `stash@{0}` 全数取回，未丢）。
+
 ## 打包期间编辑器是关的，MCP 全部不可用，验证得提前想好命令行退路
 - 现象：`/build` 要求关闭编辑器（工程锁只允许一个实例），于是打包这段时间里 `read_console`、`run_tests`、`execute_code` 全部连不上——而人往往是打完包才想起「我要怎么确认它对不对」，这时只剩一个退出码可看。
 - 根因：MCP 是**遥控编辑器**的通道，编辑器进程没了通道自然断。这和「编辑器开着 batchmode 打不了包」是同一枚硬币的两面：两者互斥，不可能同时拥有。
@@ -497,3 +501,21 @@
 - 根因：Unity 只在编辑器窗口有焦点时自动刷新资产（Auto Refresh 的行为），编辑器在后台时改 `.cs` **不会**触发编译；MCP 的测试任务用当前已加载的程序集跑，不会替你编译一次。共用编辑器 / 无人值守时最容易踩。
 - 正确做法：改完代码再跑测试或回放，先过编译门——`refresh_unity(mode="force", scope="scripts", compile="request")`，然后核对 `Library/ScriptAssemblies/<目标程序集>.dll` 的时间戳晚于改动时间，再 `read_console` 看有没有编译错误。2026-09-30 验 Dialogue 回放时白跑了一轮（3.5 分钟）才发现。
 - 关联：`.claude/skills/verify-module/SKILL.md` 第 2 步（编译门）、`.claude/skills/unity-mcp/SKILL.md` 纪律 3；`ai-docs/pitfalls.md`「MCP 测试任务被中断后…」；2026-09-30。
+
+## 回放截图帧在编辑器里超过 100 毫秒，会触发 `core.perf/spike` 警告，警告计数跟着涨
+- 现象：Battle 回放里每做一个动作、截一张图，控制台的 Warn 计数就涨一格（2026-10-07 W2a 验收时 23 → 26），看着像战斗流程在报警。
+- 根因：不是功能问题。截图那一帧在编辑器里超过 100 毫秒，`PerformanceSampler` 对单帧超过阈值的帧立刻补一条 W 级 `core.perf/spike`（阈值 `spikeThresholdMs = 100`，`TelemetryConfig.cs:36`；发出点 `PerformanceSampler.cs:107`），同一段卡顿只报一次（`inSpike` 防抖）。
+- 正确做法：回放里要断言「警告数没涨」或排查「为什么多了几条 Warn」时，先看埋点时间线里新增的是不是 `core.perf/spike` 且发生在 `Snapshot` 那一步附近，是就不用查功能代码；要断言警告数时把 `core.perf/spike` 排除在外，或不要在同一个断言窗口里截图。
+- 关联：`Assets/_Project/Scripts/Core/Telemetry/PerformanceSampler.cs:107`、`TelemetryConfig.cs:36`；`PRP/turnbased-battle/prp.md` §9 W2a 验收与 W2b 结论；2026-10-07。
+
+## 叠加加载场景时，相机不能打 `MainCamera` 标签
+- 现象：叠加加载一张带相机的场景（战斗场景 `BattleArena`）后再卸载，若那台相机打了 `MainCamera`，缓存 `Camera.main` 的模块手里就是一台随场景销毁的相机。
+- 根因：`QuestSceneBinder` 在每次场景加载与卸载回调里都把 `Camera.main` 缓存进 `SceneCamera`（`QuestSceneBinder.cs:57,187,199`）。叠加场景里的相机一旦打了 `MainCamera`，加载回调缓存的就是它，卸载时它随场景一起销毁。
+- 正确做法：叠加场景里的相机**不打 `MainCamera` 标签、不挂 `AudioListener`**，由流程在开场时关掉世界相机的 `Camera` 组件（不关物体）、打开叠加相机，收场先交还再卸载场景（`BattleCameraHandoff.cs:8-9,48,61-79`；`BattleScenePresenter.cs:183-184`）。新增一个叠加加载的场景前，先搜一遍 `Camera.main` 的缓存点（`grep -rn "Camera.main" Assets/_Project/Scripts/Runtime`）。
+- 关联：`ai-docs/docs/modules/battle/battle-module-guide.md`「相机接管规则」「SceneBinder 审计结论」、`BattleStage.cs:27`；2026-10-07。
+
+## 共用一台编辑器进 Play 跑回放，要先锁程序集重载、用完对称解锁
+- 现象：多个会话共用一个 Unity 编辑器时，一个会话进 Play 跑回放，另一个会话保存了 `.cs`，编辑器在 Play 中重编译并做域重载，本次运行作废：协程被丢掉、进度卡住不报失败。
+- 根因：编辑器偏好「Script Changes While Playing」默认是边玩边重编译；谁保存代码谁触发，跟当前在跑什么无关。细节与现象见本文「Showcase 回放中途别人保存 .cs，Play 内域重载把测试协程吞掉」一条。
+- 正确做法：走 `ShowcaseScenario` 的回放，框架已在 SetUp 里 `LockReloadAssemblies()`、TearDown 里对称 `UnlockReloadAssemblies()`（`ShowcaseScenario.cs:220,247`，退出 Play 时兜底全部释放，`:317`）。**不走框架、自己用 MCP 进 Play 做验证时，同样要先 `EditorApplication.LockReloadAssemblies()`，结束后对称 `UnlockReloadAssemblies()`**，别忘了解锁：计数没归零，编辑器会一直认为「还有人要求不许重载」，磁盘上改好的代码编不进来（见本文关于 `LockReloadAssemblies` 计数没归零的那一条）。并行派单时约定回放期间不保存 `.cs`；跑之前先过一遍编译门。
+- 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.cs:220,247,317`；本文「Showcase 回放中途别人保存 .cs…」「共用一台编辑器的并发会话互相干扰」；2026-10-07 回放验收。

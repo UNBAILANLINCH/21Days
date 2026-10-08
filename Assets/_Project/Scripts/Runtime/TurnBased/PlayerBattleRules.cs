@@ -168,5 +168,23 @@ namespace Game.TurnBased
                 skill == PlayerSkill.Skill2 ? settings.Skill2HealReductionRounds : 0,
                 extraDamageCharges);
         }
+
+        /// <summary>
+        /// 回复生命（道具效果占位，`BattleItemSettings`，等 C91）。百分比向下取整（同 07 其余百分比的口径），
+        /// 封顶到生命上限；已被打倒时不回（战斗已经结束）。
+        /// </summary>
+        /// <returns>实际回复的生命。</returns>
+        public int Heal(int percent, HealthPercentBase basis)
+        {
+            if (percent <= 0 || IsDefeated)
+            {
+                return 0;
+            }
+
+            int baseValue = basis == HealthPercentBase.CurrentHealth ? health : MaxHealth;
+            int before = health;
+            health = GameMath.Clamp(health + baseValue * percent / 100, 0, MaxHealth);
+            return health - before;
+        }
     }
 }

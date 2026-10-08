@@ -55,8 +55,9 @@
 *.ogg binary
 *.aif binary
 *.aiff binary
-# 下面 9 行原本写成 *.{fbx,obj,blend,ttf,otf,dll,so,dylib,unitypackage}，git 不支持花括号展开，逐行展开：
+# 下面 10 行原本写成 *.{fbx,glb,obj,blend,ttf,otf,dll,so,dylib,unitypackage}，git 不支持花括号展开，逐行展开：
 *.fbx binary
+*.glb binary
 *.obj binary
 *.blend binary
 *.ttf binary

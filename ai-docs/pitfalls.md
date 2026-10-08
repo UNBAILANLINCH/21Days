@@ -531,3 +531,9 @@
 - 根因：提示的 `Root` 在预制体里默认未激活，`Show` 先改文字、先量宽、后激活——Play 里文字组件还没初始化，`GetPreferredValues` 量出的宽度退回最小宽度。
 - 正确做法：要按文字量尺寸的 UI，先 `SetActive(true)` 再量（`InteractPromptHudView.Show`）；写回放断言时检查 `TMP_Text.isTextTruncated` 与容器宽度，不只比文字内容。
 - 关联：`Assets/_Project/Scripts/Runtime/Interaction/InteractPromptHudView.cs`（`Show` / `FitWidth`）、`BattleShowcase.HudPromptFitsText`；2026-10-08。
+
+## GLTFUtility 按「字符数」读 GLB 的 JSON 块，重打包的 `.glb` 必须保持纯 ASCII
+- 现象：工程里放入重打包过的 `.glb`，Unity 报 `Asset import failed ... JsonReaderException: Additional text encountered after finished reading JSON content`，位置恰好等于 JSON 应有的字符数；同一份文件在 Blender、glTF 校验器里都正常，`bufferView` 边界、对齐、网格字节数与原件逐字节一致。
+- 根因：`com.siccity.gltfutility` 的 `Importer.GetGLBJson` 先从 GLB 头读出 chunk 的**字节长度**，却用 `new char[chunkLength]` + `reader.Read(jsonChars, 0, chunkLength)` 按**字符数**读（`Importer.cs:122-127`）。JSON 块里只要有一个非 ASCII 字符（哪怕只是中文材质名），字符数就小于字节数，于是它接着往 BIN 块里多读二进制，Newtonsoft 随即判定「JSON 结束后还有内容」。原始文件没事是因为 Blender 导出时把非 ASCII 全写成 `\uXXXX` 转义，字节数恰好等于字符数——这个前提是隐式的，重打包时最容易丢。
+- 正确做法：要进这个工程的 `.glb`，JSON 块必须序列化成纯 ASCII（`json.dumps(..., ensure_ascii=True)`，或让导出器转义非 ASCII），并断言 `len(json_bytes) == len(json_text)`；顺带确认 `buffers[0].byteLength` 等于 BIN chunk 长度、每个 `bufferView` 起点 4 字节对齐。别拿「文件在别的工具里能打开」当通过标准，判定要落在 Unity 的导入日志上。
+- 关联：`Library/PackageCache/com.siccity.gltfutility@*/Scripts/Importer.cs:96-135`、`Scripts/Editor/GLBImporter.cs`；`Assets/_Project/Art/scene/README.md`；2026-10-08 水井素材入库。

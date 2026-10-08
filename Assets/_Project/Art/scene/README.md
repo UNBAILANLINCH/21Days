@@ -133,6 +133,25 @@ Unity 不导入压缩包，改一处就要整包重存一份。
 **这是重建不是还原**：UV 窗口与源图集对不上，叶片形状不会精确吻合，只是色调和质感合理。
 真正修好要美术重导。
 
+### 补丁 5：井与桶的真 UV 换到 TEXCOORD_0（同日，修「光滑棕色」）
+
+Blender 里井壁有石砖、桶有木箍，进 Unity 后这两件各是一坨光滑棕色。
+
+**根因**：这两个网格有**两套 UV** —— `UVMap` 全是 `(0,0)`（退化），`UVMap.001` 才是真 UV。
+Blender 材质用 `UV Map` 节点显式指定了 `UVMap.001`，所以正常；glTF 靠 `texCoord` 序号选 UV 集，
+Blender 也**确实写对了** `"texCoord": 1`，但 **GLTFUtility 解析了 `texCoord` 却从不使用**
+（`GLTFMaterial.cs:259` 定义后无引用，`KHR_texture_transform.cs:37` 是 `// TODO texCoord`），
+导入时永远按 UV0 采样；而 Unity 侧 `mesh.uv = TEXCOORD_0`、`mesh.uv2 = TEXCOORD_1`
+（`GLTFMesh.cs:287-288`），于是采到的是那套退化 UV，整个网格只命中贴图上的**一个像素**。
+
+**处理**：把 2 个 primitive 的 `TEXCOORD_0` 指向原来 `TEXCOORD_1` 的 accessor、删掉 `TEXCOORD_1`，
+再把这两个材质所有贴图引用的 `texCoord` 归 0（让规范读取器一致）。只改 JSON 索引，不动 BIN 与几何。
+
+实测：`puit.021` 的 `mesh.uv` 变成 `u[0, 0.994] v[0, 1]`、`puit.096` 变成 `u[0, 1] v[0, 0.92]`，
+石砖与木箍正常显示。
+
+**影响范围只有这两个材质** —— 全库 34 个材质里只有 `pierre`、`seau` 带 `texCoord: 1`，其余 32 个本来就是 0。
+
 ### 仍待美术处理（我没动，也动不了）：
 
 - **`yezi2` 是纯黑遮罩**，不是 base color，`Eevee Tall Grass C White.002` 原本就指着它。

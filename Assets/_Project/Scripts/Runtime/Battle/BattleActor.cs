@@ -131,7 +131,7 @@ namespace Game.Battle
             Tint(Color.white);
             if (puppet != null)
             {
-                puppet.SetFacing(faceLeft);
+                puppet.SetFacing(faceLeft, true); // 立即翻面：ResetPose 只在挂外观（开场布台）时调，是初始站位，不该看到当场翻面
                 puppet.SetMoving(false, false, 1f);
             }
         }

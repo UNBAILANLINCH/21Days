@@ -243,7 +243,7 @@
 | D3 | 全屏演出与插图 | 无 | `NodeKind` 加全屏 / 插图节点，表字段，全屏 View，卷轴滚动 | Dialogue + Tables | 美术给规格 | L | opus，PRP | 由 `PRP/performance-pipeline/` 覆盖：演出管线 + Timeline 编辑器已实现（2026-09-26，待视觉验收）；2026-09-28 起只保留世界舞台，全屏立绘演出与第三方模型适配层已按用户决定下架；对白节点插播走 `performance` 字段而非新 `NodeKind` |
 | D4 | 面板过渡花样 | Fade / SlideUp / SlideDown / Scale 已实现 | 按面板选用预设 | Core/UI | 视觉规格 | S | sonnet | 已实现且已有采用：DialogueView.prefab transition=1（SlideUp）；本次未新增视觉验收 |
 | D5 | 按钮反馈 | 通用反馈已实现 | 按压缩放 + 音效钩子组件 | Core/UI | F4 音效 | S | sonnet | 已挂 Title / Dialogue / Quest / Inventory / Pause / Settings / SaveSlots 等预制体；不再列未挂载，音效内容及视觉验收单列 |
-| D6 | 角色动画补齐 | 待机 / 走路 | 转身、奔跑、交互动作；战斗表现定 Spine 后再议 | CharacterPuppet | A1、美术 | M | opus | 待做 |
+| D6 | 角色动画补齐 | 待机 / 走路（序列帧）；转身、交互为程序化表现 | 转身、奔跑、交互动作；战斗表现定 Spine 后再议 | CharacterPuppet | A1、美术 | M | opus | 程序侧完成（2026-10-08，待视觉验收）：**转身**已完成，是程序化翻面（根缩放补间 0.12 秒，`ChibiPuppet.SetFacing` / `FaceTowards` + 朝向保持），不需要美术帧；**奔跑**程序侧已完成，等美术交 `run` 帧；**交互**的程序化占位（`PlayInteractPulse` 挤压回弹）与接口已完成，**交互转向已由 A3 接线**（2026-10-08，`Game.Interaction.InteractionPuppetPresenter`：统一焦点触发交互时玩家小人 `FaceTowards` 目标 + `PlayInteractPulse`，NPC 小人转向玩家；Dialogue / Exploration / Battle 回放已断言），真动作帧（`chr_<名>_interact_NN`）等美术、生成器播放支持待扩 |
 
 ### E. 系统与流程
 

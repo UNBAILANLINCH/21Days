@@ -1,5 +1,7 @@
 // 职责：序列帧小人回放——驱动场景里 player 下现成的 Chibi_amiya：待机 → 向右走（Walk 态、朝右）→ 向左走（翻面）→ 停（Idle），
-//   走 / 跑步频差别，以及世界时停（对白）期间待机动画仍在播。
+//   走 / 跑步频差别，世界时停（对白）期间待机动画仍在播，以及 FaceTowards 补间转身 + 朝向保持（站着保持、一移动就解除）。
+// FaceTowards 一条直调门面公开接口：触发方（交互时转向目标）由 PRP/interaction 的 D11 接线，现在没有输入路径，验的正是接口本身。
+//   转身补间只有 0.12 秒，翻面中途那张图不用 WaitUntil / Check 去等（它们记报告、失败还会停顿），逐帧盯根缩放、到中途立刻截。
 // 舞台是 SampleScene，走 Boot 真实流程（标题「开始」进场），虚拟手柄推摇杆、虚拟键盘按动作驱动场景里的真实玩家，
 //   小人只从玩家根的位移反推动画（ChibiPuppetMotion），回放不碰小人本身，只读它的 Animator 状态与 Speed 参数。
 // 本次重写理由：原版不加载 Boot，另从预制体实例化一只独立小人、用协程逐帧推它的根——演的是「另一只」小人，
@@ -43,6 +45,21 @@ namespace Game.Tests.Showcase.CharacterPuppet
 
         /// <summary>播放倍率容差：Speed 参数 = clamp(速度 / 剪辑地速, rateMin, rateMax)，采样窗口有抖动。</summary>
         private const float RateTolerance = 0.1f;
+
+        /// <summary>FaceTowards 目标点沿相机右方向离玩家多远（米）。</summary>
+        private const float FaceTargetDistance = 2f;
+
+        /// <summary>
+        /// 截「翻面中途」图的门槛：根缩放绝对值降到原幅值的这个比例以下（经过 0 附近）；帧率低一帧跨过去时，
+        /// 以缩放已变号（刚过 0）为准，两者先到先截。
+        /// </summary>
+        private const float MidTurnScaleRatio = 0.25f;
+
+        /// <summary>站着观察朝向保持多久（秒）：覆盖驱动层约二十个采样窗口（0.05 秒一个）。</summary>
+        private const float HoldWatchSeconds = 1f;
+
+        /// <summary>纵向走多久（秒）：步行 3，上下各 0.5 秒、1.5 米，回到原处；纵向走纸片的逻辑朝向不变。</summary>
+        private const float VerticalSeconds = 0.5f;
 
         private static readonly int SpeedParamHash = Animator.StringToHash("Speed");
 
@@ -140,6 +157,67 @@ namespace Game.Tests.Showcase.CharacterPuppet
             yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => !player.IsRunning);
             yield return Check("回到步行模式、小人回到待机", () => !player.IsRunning && IsState("Idle"), 2f);
             yield return Snapshot("切回步行待机");
+        }
+
+        [UnityTest]
+        public IEnumerator FaceTowards_TurnsWithTweenAndHoldsUntilMoving()
+        {
+            yield return EnterWorld();
+            // 小人挂在 player/Visual 下，Visual 上停用的纸片就是它的朝向来源（facingSource），flipX 是玩家的逻辑朝向。
+            Transform visual = puppet.transform.parent;
+            SpriteRenderer paper = visual == null ? null : visual.GetComponent<SpriteRenderer>();
+            yield return Check("站着不动：待机，小人朝向与隐藏纸片的逻辑朝向一致",
+                () => paper != null && IsState("Idle") && !puppet.IsTurning && puppet.FaceLeft == paper.flipX, 2f);
+            bool logicalLeft = paper != null && paper.flipX;
+            float baseScale = Mathf.Abs(puppet.transform.localScale.x);
+            string backSide = logicalLeft ? "右" : "左";
+
+            yield return Step($"对静止的玩家调 FaceTowards：看向身后（{backSide}侧 {FaceTargetDistance} 米）的一点", null, 0f);
+            Vector3 target = puppet.transform.position
+                             + Camera.main.transform.right * (logicalLeft ? FaceTargetDistance : -FaceTargetDistance);
+            puppet.FaceTowards(target);
+            bool caughtMidTurn = false;
+            float startScale = puppet.transform.localScale.x;
+            float caughtScale = startScale;
+            float giveUp = Time.realtimeSinceStartup + 1f;
+            while (puppet.IsTurning && Time.realtimeSinceStartup < giveUp)
+            {
+                caughtScale = puppet.transform.localScale.x;
+                if (Mathf.Abs(caughtScale) <= baseScale * MidTurnScaleRatio || caughtScale * startScale < 0f)
+                {
+                    caughtMidTurn = true;
+                    break;
+                }
+
+                yield return null;
+            }
+
+            yield return Snapshot("转身补间中途");
+            yield return Check($"转身是补间不是一帧翻过去：截到翻面中途（根 localScale.x = {caughtScale:0.00}，原幅值 {baseScale:0.00}）",
+                () => caughtMidTurn);
+            yield return Check($"转身完成：朝{backSide}（根 localScale.x 回到 ±原幅值），并进入朝向保持",
+                () => !puppet.IsTurning && puppet.FaceLeft == !logicalLeft && puppet.FacingHeld
+                      && Mathf.Abs(puppet.transform.localScale.x - (logicalLeft ? baseScale : -baseScale)) < 1e-3f, 1f);
+
+            yield return Step($"原地站 {HoldWatchSeconds} 秒（驱动层每 0.05 秒判一次朝向）", null, 0f);
+            bool heldThroughout = true;
+            float watchUntil = Time.realtimeSinceStartup + HoldWatchSeconds;
+            while (Time.realtimeSinceStartup < watchUntil)
+            {
+                heldThroughout &= puppet.FacingHeld && puppet.FaceLeft == !logicalLeft && paper.flipX == logicalLeft;
+                yield return null;
+            }
+
+            yield return Check($"站着期间朝向保持：纸片逻辑朝向仍朝{(logicalLeft ? "左" : "右")}，小人没被驱动层拉回去", () => heldThroughout);
+            yield return Snapshot("朝向保持");
+
+            yield return Step($"摇杆向上推 {VerticalSeconds} 秒（纵向走，纸片逻辑朝向不翻）", null, 0f);
+            yield return Walk(Vector2.up, VerticalSeconds);
+            yield return Check("一移动保持就解除：小人转回纸片的逻辑朝向，跟着位移走",
+                () => !puppet.FacingHeld && puppet.FaceLeft == paper.flipX && !puppet.IsTurning, 1.5f);
+            yield return Step($"摇杆向下推 {VerticalSeconds} 秒回到原处", null, 0f);
+            yield return Walk(Vector2.down, VerticalSeconds);
+            yield return Snapshot("移动后保持解除");
         }
 
         [UnityTest]

@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   crateInteractRadius: 1.5
   crateQuestKey: crate
-  promptText: "E \u6253\u5F00\u7269\u8D44\u7BB1"
+  promptVerb: "\u6253\u5F00"
+  promptName: "\u7269\u8D44\u7BB1"
   rewardTitle: "\u83B7\u5F97\u7269\u8D44"
   rewardBodyFormat: "{0} \xD7{1}"
   markerLift: 0.3

@@ -1,5 +1,6 @@
 // 职责：驱动探索 HUD 的控件区——触屏控件（摇杆 / 三键 / 走跑按钮）按平台显隐、走跑标签跟随 PlayerModel.IsRunning、
-//   物资箱焦点提示、沉浸时整体隐藏控件区，以及「重置进度」确认 → 任务与物资箱复位 → 重进探索状态；埋点 progress_reset。
+//   沉浸时整体隐藏控件区，以及「重置进度」确认 → 任务与物资箱复位 → 重进探索状态；埋点 progress_reset。
+//   物资箱焦点提示已删：统一交互后提示由 Game.Interaction.InteractPromptHudView 显示（PRP/interaction D8）。
 // PC 优先：PC 走跑走 Gameplay/Run（左 Ctrl / 手柄左摇杆按下），触屏控件仅移植阶段启用（ShowStickOnDesktop 为开发开关）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：ExplorationHudPresenter 只管沉浸开关，QuestHudPresenter 只管任务栏；二者都不认识 Loot / Player。
@@ -34,8 +35,6 @@ namespace Game.IsometricExploration
         private readonly IPlatformService platform;
         private readonly IsometricExplorationConfig config;
         private readonly PlayerModel player;
-        private readonly SupplyCrateFocus focus;
-        private readonly LootConfig lootConfig;
         private readonly LootService loot;
         private readonly QuestService quest;
         private readonly IGameFlow flow;
@@ -47,26 +46,22 @@ namespace Game.IsometricExploration
 
         private IDisposable subscription;
         private ExplorationHudView hud;
-        private bool focusHooked;
         private bool runLabelApplied;
         private bool lastRunning;
         private bool resetting;
         private bool disposed;
 
         public ExplorationControlsPresenter(IUIService ui, IPlatformService platform, IsometricExplorationConfig config,
-            PlayerModel player, SupplyCrateFocus focus, LootConfig lootConfig, LootService loot, QuestService quest,
+            PlayerModel player, LootService loot, QuestService quest,
             IGameFlow flow, IHudVisibility hudVisibility, ISubscriber<BootCompletedEvent> bootCompleted,
             ISubscriber<HudVisibilityChangedEvent> hudChanged, ITelemetryScope telemetry)
         {
             this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
             this.platform = platform ?? throw new ArgumentNullException(nameof(platform));
-            // 两个 Config 都是 ScriptableObject，判空只用 == null。
+            // Config 是 ScriptableObject，判空只用 == null。
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
             this.player = player ?? throw new ArgumentNullException(nameof(player));
-            this.focus = focus ?? throw new ArgumentNullException(nameof(focus));
-            if (lootConfig == null) throw new ArgumentNullException(nameof(lootConfig));
-            this.lootConfig = lootConfig;
             this.loot = loot ?? throw new ArgumentNullException(nameof(loot));
             this.quest = quest ?? throw new ArgumentNullException(nameof(quest));
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
@@ -89,9 +84,6 @@ namespace Game.IsometricExploration
             bootCompleted.Subscribe(_ => OpenHudAsync().Forget()).AddTo(bag);
             hudChanged.Subscribe(e => HandleHudChanged(e.Hidden)).AddTo(bag);
             subscription = bag.Build();
-
-            focus.OnFocusChanged += HandleFocusChanged;
-            focusHooked = true;
         }
 
         public void Tick()
@@ -116,12 +108,6 @@ namespace Game.IsometricExploration
                 subscription = null;
             }
 
-            if (focusHooked)
-            {
-                focus.OnFocusChanged -= HandleFocusChanged;
-                focusHooked = false;
-            }
-
             if (hud != null) hud.OnResetClicked -= HandleResetClicked;
             hud = null;
         }
@@ -142,7 +128,6 @@ namespace Game.IsometricExploration
                 hud.SetTouchButtonsVisible(touchControls);
                 hud.SetRunToggleVisible(touchControls);
                 hud.SetControlsVisible(!hudVisibility.IsHudHidden);
-                hud.SetPrompt(focus.Current != null ? lootConfig.PromptText : string.Empty);
                 runLabelApplied = false;
                 telemetry.Track("controls_bound", ("touch", touch));
             }
@@ -161,12 +146,6 @@ namespace Game.IsometricExploration
         private void HandleHudChanged(bool hidden)
         {
             if (hud != null) hud.SetControlsVisible(!hidden);
-        }
-
-        // 焦点变化是事件驱动，不在每帧路径上。
-        private void HandleFocusChanged(SupplyCrate crate)
-        {
-            if (hud != null) hud.SetPrompt(crate != null ? lootConfig.PromptText : string.Empty);
         }
 
         private void HandleResetClicked() => ResetFlowAsync().Forget();

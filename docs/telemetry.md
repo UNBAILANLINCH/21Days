@@ -182,6 +182,14 @@ telemetry.Track("buy_item", ("id", intent.ItemId), ("n", intent.Count), ("ms", e
 **不该埋**：每帧都会触发的东西（移动、动画帧、Update 里的判定）。
 高频事件会把日志淹掉，让真正的线索沉底——需要每帧数据时用 `core.perf` 的采样，别自己埋一个每帧事件。
 
+各玩法模块的事件表放在各自 `ai-docs/docs/modules/<模块>/<模块>-module-guide.md` 的「埋点」节，这里不重复列。
+**迁移记录**（按旧名查日志时对照）：2026-10-08 统一交互（`PRP/interaction`）把交互焦点的 `focus_changed` 从模块 `dialogue` 迁到 `interaction`，
+属性 `target`（物体名）保留、`id`（对话树）去掉、新增 `verb`（提示动词）；同模块新增 `interacted`（`target` `verb` `via`=key/hud）、
+`interact_ignored`（焦点本帧刚变，`reason`=focus_changed_this_frame）、`hud_open_failed`（Error）。物资箱原来没有焦点埋点。
+第二波（同日）：模块 `interaction` 新增 `puppets_turned`（交互那一刻的小人转向，`target`、`player`/`npc`=是否找到小人）；
+按键型传送点不再由 `world` 读键，触发照旧埋 `world/portal_triggered`；模块 `stealth` 的 `stealth_execute_rejected` 新增原因码
+`reason = interaction_focus`（屏幕上有交互提示时 F 归交互、处决让位，另带 `focus` = 焦点对象名）。
+
 ---
 
 ## 3. 开关与开销

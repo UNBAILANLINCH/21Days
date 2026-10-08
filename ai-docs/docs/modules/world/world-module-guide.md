@@ -19,6 +19,10 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 传送点的调用方 `WorldSceneDriver` 与真实现 `WorldSpawnPlacement` 补上；`World` 组有了自己的 Showcase。
 详见文末「接线波落地」。
 
+**统一交互（2026-10-08，`PRP/interaction` 第二波 D9）**：按键型传送点改走 `Game.Interaction` 的统一焦点——
+`PortalAnchor` 实现 `IInteractable`，`WorldSceneDriver` 只负责登记 / 注销，不再读交互键；底部提示「[E] 前往 · 目的地」。
+详见下文「按键型传送点与统一交互」。
+
 ## 出生点锚点命名约定（本波定，后续场景照这套摆）
 
 一张世界场景的接线由四样东西描述，其余全是几何：
@@ -26,9 +30,9 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | 摆什么 | 怎么摆 | 谁读它 |
 | --- | --- | --- |
 | **出生点锚点** | 空物体，**物体名 `Spawn_<spawnId>`**，并挂 `SpawnAnchor` 组件、把 `spawnId` 填成逐字等于 `TbScene.spawn_points` 里那一项 | `WorldSpawnPlacement` 按 id 查它 |
-| **玩家根物体** | 一个物体（`Player`），**把它设成相机 `SmoothCameraFollow` 的 `Target`** —— 这个关系就是「谁是玩家根物体」的判定 | `WorldSceneBinder.PlayerRoot` |
+| **玩家根物体** | 一个物体（`Player`），**把它设成相机 `SmoothCameraFollow` 的 `Target`** —— 这个关系就是「谁是玩家根物体」的判定；**再挂一个 `InteractionActor`**（统一交互的玩家标记，没有它按键型出口永远不成焦点） | `WorldSceneBinder.PlayerRoot`；`IInteractionRegistry.Actor` |
 | **世界相机** | 一台相机挂 `SmoothCameraFollow`，`Target` = 玩家根物体，`Config` = `IsometricExplorationConfig.asset`；要边界就勾 `Use Bounds` 并摆好四个数值 | `WorldSceneBinder.Camera` |
-| **传送点** | 空物体挂 `PortalAnchor`，摆在 `TbPortal.anchor_id` 指的那个出生点位置上 | `WorldSceneDriver` 逐帧按距离判定 |
+| **传送点** | 空物体挂 `PortalAnchor`，摆在 `TbPortal.anchor_id` 指的那个出生点位置上（与玩家根同高：按键型由统一焦点按三维距离测） | 进入范围型：`WorldSceneDriver` 逐帧按 XZ 距离判定；按键型：`WorldSceneDriver` 登记进统一交互，焦点按 `triggerRadius` 测距 |
 
 **真源是组件字段，不是物体名**：`SpawnAnchor.spawnId` 才作数；物体名只是给人看的（改名不会破坏查找，但会误导下一个人）。
 `SpawnAnchor` 找不到时会**点名是哪个 spawnId、场景里现有的锚点有哪些**，不静默。
@@ -47,12 +51,12 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | `WorldValidationIssue` / `WorldValidationResult` | 问题条目 / 结果；**阻断问题与「未实装场景」分开**（后者是状态不是错误） |
 | `WorldRules` | 出生点选择**纯规则**：`Resolve`（失败抛 `WorldResolveException`）+ `TryResolveSpawn`（不抛，供调用方当分支处理） |
 | `SpawnResolution` / `WorldSpawnTarget` / `WorldResolveException` | 解析结果（失败是正常分支）/ 成功结果 / 抛异常入口 |
-| `PortalAnchor` | 场景里的传送点组件：两种触发（进入范围 / 交互键）；**交互键不由组件读**、不依赖 Physics、不做转场；`triggerRadius` 只是「我有多大」这个场地参数，判定在调用方 |
+| `PortalAnchor` | 场景里的传送点组件：两种触发（进入范围 / 交互键）；**交互键不由组件读**、不依赖 Physics、不做转场；`triggerRadius` 只是「我有多大」这个场地参数，判定在调用方。按键型实现 `Game.Interaction.IInteractable`（显式实现，`PortalAnchor.cs:192`–`:223`）：成为焦点 = `NotifyEntered`、按键 = `TryInteract`；提示动词 `interactVerb`（默认「前往」）+ 目的地名（`SetDestinationName`，由 Driver 下发） |
 | `PortalTriggerKind` / `PortalTriggerKindMap` | 运行期触发器枚举 + 表枚举映射（组件不引用生成物，避免生成物变更动到场景序列化） |
 | `SpawnAnchor` | **接线波新增**：出生点锚点（场景侧，只带 `spawnId`）。按 id 查落点；命名约定见上 |
 | `WorldSceneBinder` | **接线波新增**：世界场景登记器（`IStartable`）。扫已加载场景里的 `SpawnAnchor` / `PortalAnchor` / 相机 / 玩家根物体；判定「这是不是世界场景」只此一处 |
 | `WorldSpawnPlacement` | **接线波新增**：`ISpawnPlacement` 的真实现。按 id 找锚点 → `PlayerRules.Reset` 摆逻辑位置 → 摆场景根物体 → `SetTarget` + 立刻对准相机；任何一步不成立都返回 false 并点名缺什么 |
-| `WorldSceneDriver` | **接线波新增**：世界场景驱动（`IStartable` + `ITickable` + `ISimulationStep`）。逻辑 tick 按 `InputCommand` 推玩家；渲染帧投影玩家位置、跑传送点范围与交互键、写待处理转场并 `GoToAsync<WorldSceneState>()`。**`PortalAnchor` 的调用方就是它** |
+| `WorldSceneDriver` | **接线波新增**：世界场景驱动（`IStartable` + `ITickable` + `ISimulationStep`）。逻辑 tick 按 `InputCommand` 推玩家；渲染帧投影玩家位置、轮询进入范围型传送点（`UpdatePortals`，`WorldSceneDriver.cs:170`）、随 `PortalsVersion` 订阅 / 登记按键型传送点（`SyncPortalSubscriptions`，`:204`）、触发时写待处理转场并 `GoToAsync<WorldSceneState>()`。**`PortalAnchor` 的调用方就是它**；**不读交互键**（2026-10-08 起） |
 | `WorldSaveData` | **本模块唯一的存档分区**（版本 1）：按场景键记已开箱 / 已死怪 |
 | `SceneStateKey` / `SceneStateScope` | 场景作用域键拼法 / 一个场景的状态视图 |
 | `IWorldTransition` / `WorldTransition` | **待处理转场**（机制波新增）：一次只挂一个目标，重复请求后到覆盖并 Warn，`TryConsume` 校验「目标场景可加载」并**消费即清空**；`Peek` 只校验不消费（`SceneKey` 用） |
@@ -76,6 +80,18 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
   （`10_两界与场景结构.md:132` R4）。
 - `TbPortal.trigger_kind`：`EnterRange` / `Interact` 两种都留——原文「楼梯是走过去还是交互切换」是 `[待定]`。
 
+## 按键型传送点与统一交互（2026-10-08，`PRP/interaction` D9）
+
+| 环节 | 落点 |
+| --- | --- |
+| 登记 | `WorldSceneDriver.SyncPortalSubscriptions`：`PortalsVersion` 变了才重订；按键型先 `SetDestinationName(TbScene.display_name)` 再 `IInteractionRegistry.Register`（`WorldSceneDriver.cs:227`–`:228`）；换图 / `Dispose` 时逐个 `Unregister`（按引用，伪空也能注销，`:239`） |
+| 目的地名 | 只有 `TbScene.display_name`（「泾阳」「镜中妖界长安·坊市」）；`TbPortal` 没有显示名字段，**不为提示新增表字段**。表没就绪 / 查不到时提示只显示「前往」（`DestinationNameOf`，`:253`） |
+| 进入范围 | 统一焦点按 `InteractionRadius`（= `triggerRadius`；`requirePlayerInRange = false` 时不限距离）从 `InteractionActor` 测三维距离，成为焦点时回调 `OnFocusChanged(true)` → `NotifyEntered`；进入范围型仍由 Driver 按 XZ 距离轮询 |
+| 按键 | 焦点系统读 `Gameplay/Interact`，本帧焦点没变才调 `Interact()` → `TryInteract()` → `OnTriggered` → Driver `HandleTriggered`（与进入范围型同一条转场路） |
+| 让位 | 沿用统一焦点的四条：没有玩家标记 / Gameplay 图关 / 沉浸 / 世界暂停时出口不成焦点（旧实现不看这些，是行为收紧） |
+
+`PortalAnchor` 的契约不变（不读输入、不查物理、不做转场），`PortalAnchorTests` 仍 `AddComponent` 直测；新增「统一交互」一节用例。
+
 ## 依赖方向
 
 只依赖 `Game.Core`（存档 / 流程 / 配置 / 埋点 / 确定性内核 / 输入）。
@@ -88,6 +104,7 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | --- | --- | --- |
 | `Game.World` → `Game.IsometricExploration` | 出生点放置要 `SetTarget` + 对准 `SmoothCameraFollow`，场景登记要读它的 `Target`；A6 的约束策略本来就由本模块推给它 | `WorldSpawnPlacement` / `WorldSceneBinder` |
 | `Game.World` → `Game.Player`、`Game.Core.Simulation` | 世界场景要走确定性内核推玩家：`ISimulationStep` 读 `InputCommand` 交给既有的 `PlayerRules`（**不重写移动规则**） | `WorldSceneDriver` |
+| `Game.World` → `Game.Interaction`（2026-10-08） | 按键型传送点实现统一交互契约、由驱动登记进登记表（`PRP/interaction` D1、D9） | `PortalAnchor` / `WorldSceneDriver` |
 
 **为什么不复用 Monster 的 `EncounterStep` 推玩家**：那条路会连怪物与潜行结算一起激活，
 而世界场景只该推玩家；两条路各推各的玩家会变成速度翻倍。两条路用「场景里有没有 `SpawnAnchor`」区分开。
@@ -172,10 +189,13 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
   + 「格式合法但表里查不到」不由 `Validate` 拒的边界）。
 - **Showcase（接线波新增）**：`Assets/_Project/Scripts/Tests/Showcase/World/WorldShowcase.cs`
   （命名空间 `Game.Tests.Showcase.World`，`Module` 返回 `"World"`）。一条用例走完
-  「Boot → 标题 → 写待处理转场 → 切世界场景 → 落在指定的出生点 → 走到出口 → 按交互键换到妖界 → 再按一次走回来」，
+  「Boot → 标题 → 写待处理转场 → 切世界场景 → 落在指定的出生点 → 走到出口（统一焦点落在出口、提示「[E] 前往 · 镜中妖界长安·坊市」）→ 按交互键换到妖界 → 再按一次走回来」，
   三个机器可判的检查点：当前场景键、玩家落点（逻辑坐标 = 锚点坐标）、相机对准（`SmoothCameraFollow.Target` 是玩家根物体
-  且镜头已跟到落点附近）。报告与截图落 `Logs/verify/world/<时间戳>/report.md`。
-  跑法：`run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"], group_names=["World"])`。
+  且镜头已跟到落点附近）。2026-10-08 起另验统一交互：每次换图后统一登记表的玩家标记是**当前世界场景里那一个**
+  （`PRP/interaction` WARN 1），换图期间玩家标记的变化序列写进步骤说明（实测两次都是「空 → 新场景/Player」，即旧场景先卸）。
+  报告与截图落 `Logs/verify/world/<时间戳>/report.md`。
+  跑法：`run_tests(mode="PlayMode", assembly_names=["Game.Tests.Showcase"], group_names=["^Game\.Tests\.Showcase\.World\."])`
+  ——**组名要锚定**：只写 `World` 会把名字里带 World 的演出回放（`PlayById_ShowsSubtitlesAndRestoresWorld` 等）一起跑。
 - **⚠️ 造坏表的两种手法（接线波更新）**：`WorldRulesTests` 原来靠「反射清掉真表 `human_jingyang` 的
   `default_spawn_id`」造「没有默认出生点」的形状，前提是那一行 `implemented=false`（未实装不要求有默认出生点）。
   两张主图改成 `implemented=true` 之后，同一个动作会先撞上校验器的「实装必须有默认出生点」。

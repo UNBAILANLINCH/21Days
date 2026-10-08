@@ -5,6 +5,7 @@ using System.Collections;
 using Game.Core.Input;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -25,7 +26,7 @@ namespace Game.Tests.Showcase.Dialogue
             IInputService input = ResolveService<IInputService>();
             DialogueService dialogue = ResolveService<DialogueService>();
             IUIService ui = ResolveService<IUIService>();
-            DialogueInteractionFocus focus = ResolveService<DialogueInteractionFocus>();
+            IInteractionFocus focus = ResolveService<IInteractionFocus>();
             var overlay = FindRequired<ShowcaseOverlay>("ShowcaseOverlay");
 
             int visit = 0;
@@ -58,7 +59,7 @@ namespace Game.Tests.Showcase.Dialogue
                 else
                     // 正面：站到她正南 1.4 米（交互半径 2 以内，两张纸片前后错开、不重叠）。
                     yield return WalkTo(new Vector2(position.x, 7.4f), 0.25f);
-                yield return Check($"交互焦点落在{npc.DisplayName}", () => focus.Current == npc, 3f);
+                yield return Check($"交互焦点落在{npc.DisplayName}", () => ReferenceEquals(focus.Current, npc), 3f);
                 yield return Step($"按交互键与{npc.DisplayName}说话", hold: 0f);
                 yield return Input.Press(input.Actions.Gameplay.Interact);
                 yield return Check("气泡文字已完整打出，探索仍在运行",

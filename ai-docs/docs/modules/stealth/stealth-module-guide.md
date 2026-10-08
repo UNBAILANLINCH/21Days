@@ -22,7 +22,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | `AssassinationRules` | 绕背 + 距离 + **目标未察觉** + 可选潜行的四段判定；`IsBehind` 可单独给附身复用 |
 | `ExecutionRules` | 背后处决的**门槛**：位置与察觉（转 `AssassinationRules`）∧ 物种允许被处决（`defeat_method == 暗杀`）。纯逻辑，两个条件分开可调 |
 | `ExecutionResolver` | 判定通过之后的**结算三件事**：写 `stealth.assassinated`（只在执行成功之后）→ 让目标死亡（`MonsterRules.ApplyExecution`）→ 承载 `BattleResult(Victory)`；含三个埋点与表现钩子 |
-| `ExecutionInteractor` | 交互层的 MonoBehaviour：读 `Gameplay/Execute`、选最近的可处决目标、采快照交给上面两层。**本模块唯一依赖 Monster / Player / Narrative 的文件**（见「依赖方向」） |
+| `ExecutionInteractor` | 交互层的 MonoBehaviour：读 `Gameplay/Execute`、按 F 键归属裁决（交互焦点在场就让位，D6）、选最近的可处决目标、采快照交给上面两层。**本模块唯一依赖 Monster / Player / Narrative / Interaction 的文件**（见「依赖方向」） |
 | `KnockdownRules` | 击倒状态机（倒地 → 挣扎 → 起身）+ `DownedHitPolicy` 三口径开关 |
 | `ChaseRules` | 触发 / 摆脱 / 推进三判定 + `ChaseBaseline` 速度校验（**追兵必须快过步行、不快过奔跑**） |
 | `ChaseCaughtRules` | 「被抓」后果的五口径策略（纯函数，只答「该发生什么」） |
@@ -53,6 +53,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 （`BattleResult`）。理由：「对谁下刀、把结果交给谁承载」这件事本身跨模块，而 PRP 明确把**处决的门槛**
 （`defeat_method == 暗杀` 的语义）留在潜行侧——放去 Monster 会让怪物模块反向认识潜行语义。
 约束：**内核文件（`AssassinationRules` 等）仍只依赖 `Game.Core`**，新加的跨模块依赖只许出现在上面两个文件里。
+**2026-10-08 再加一条**（`PRP/interaction` D6）：`ExecutionInteractor.cs` 依赖 `Game.Interaction` 的只读接口 `IInteractionFocus`（只读 `Current`，判 F 键归属），不认识任何可交互实现。
 （`ExecutionResolver` 对 `EncounterStep` 的用法是只调 `SettleBattle` 承载结果，不推进剧情。）
 
 ## 按键
@@ -61,11 +62,14 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | --- | --- | --- | --- |
 | `Gameplay/Execute` | **`F`** | **`South`（□/X）** | 背后处决。出处：`docs/design/spotlight/06_怪物状态与交互设计文档.md:69`「玩家可以在怪物背后按F处决」 |
 
-⚠️ **F 与手柄 South 与 `Interact` 共用**（`Interact` = `E` / `F` / `South`，既有约定，本波没动它）。
-这不是绑错：两个动作各自有严格的目标门槛——`Interact` 只在焦点非空时生效
-（`DialogueInteractionFocus.cs:79` / `SupplyCrateFocus.cs:82` 都要求 `Current != null`），
-`Execute` 只在「背后 + 暗杀距离 + 目标未察觉 + `defeat_method = 暗杀`」四条同时成立时才杀人。
-改 F 的归属属于内容侧键位决策，见 PRP §5 与交付报告的「待策划拍板」。
+⚠️ **F 与手柄 South 与 `Interact` 共用**（`Interact` = `E` / `F` / `South`，`Execute` = `F` / `South`；动作图没有控制方案，按 F 两个动作各收到一次按下）。
+**归属规则（2026-10-08，`PRP/interaction` D6）：屏幕提示什么，按键就做什么**——按下时统一交互焦点
+（`Game.Interaction.IInteractionFocus.Current`）非空，也就是底部正显示「[E] 动词 · 名字」时，这一下归交互，
+`ExecutionInteractor.HandleExecuteKey`（`ExecutionInteractor.cs:199`）不选目标、不结算，只记一条拒绝
+（`ExecutionReject.YieldedToInteraction`，埋点 `stealth_execute_rejected`、`reason = interaction_focus`、`focus` = 焦点对象名，
+`ExecutionResolver.cs:186`）；白盒面板 `Inspect` 同口径报「屏幕上有交互提示，这一下按键归交互」。焦点为空时照常走四条门槛。
+焦点由 `MonsterEncounterState.BindExecution` 从容器可选取（`container.TryResolve`，`MonsterEncounterState.cs:167`）经 `Configure` 传入，
+组件不 GetComponent；没传（独立原型场景、测试）时不做这层裁决。处决没有提示 UI，所以让位的是它；要反过来让处决优先，只改 `HandleExecuteKey` 一处。
 
 ## 事实键
 
@@ -129,7 +133,8 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
   - `Tests/EditMode/Stealth/ExecutionResolverTests.cs`——三件事（事实 / 死亡 / 战斗结果）+ 三处埋点 +
     表现钩子，负对照含「不在遭遇里不承载结果」；
   - `Tests/EditMode/Stealth/ExecutionInteractorTests.cs`——交互层选目标与察觉口径，负对照含
-    「对着空气按 F 什么都不发生」；
+    「对着空气按 F 什么都不发生」；F 键归属（2026-10-08）：焦点在场时按键让位（不杀人、不写事实、记 `interaction_focus`，
+    面板与按键同一原因）、焦点为空 / 没接焦点时照常处决；
   - `Tests/EditMode/Stealth/ExecuteInputBindingTests.cs`——`Gameplay/Execute` 存在、绑 F + 手柄、
     且**只在 Gameplay 图**；顺带守住「Interact 的 E / F / South 没被动过」；
   - `Tests/EditMode/Monster/MonsterExecutionTests.cs`——`ApplyDamage` 对 `killable = false` 的怪仍拒伤、
@@ -162,6 +167,9 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
     **正式流程那份**事实集（`EncounterStep.Facts`）。截图 `01-按 F 处决.png`。
     埋点 `stealth_executed` 由 EditMode 的 `ExecutionSceneWiringTests` 用收集型 sink 断言——
     回放侧拿不到 sink，不在这里假装看到。
+    **F 键归属（2026-10-08 补两步）**：组件接到的统一交互焦点就是容器里那一份（反射读私有字段，验产品接线）；
+    按 F 那一刻焦点为空、这一下归处决。巡逻线背后附近没有 NPC / 物资箱，「焦点与处决目标同时在场」的让位分支
+    在这张图里不硬造，由 `ExecutionInteractorTests` 覆盖。
   - **接线落点（2026-10-07 接线波）**：场景侧在 `SampleScene` 的 `Encounter` 物体上挂了 `ExecutionInteractor`
     （`inputActions` 字段**留空**——动作资产由接线方从 `IInputService` 传进 `Configure`，不必手拖，避开了
     「给资产引用赋值会 Failed to convert」那个坑）；正式流程由 `MonsterEncounterState.BindExecution` 在

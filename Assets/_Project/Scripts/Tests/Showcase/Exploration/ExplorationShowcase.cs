@@ -1,6 +1,7 @@
 // 职责：探索层白盒示例回放——走 Boot 真实流程（标题「开始」→ MonsterEncounterState → IsometricEncounter 场景），
 //   验证探索 HUD 控件（走跑切换、摇杆 / 触屏三键按平台显隐）、万向标（屏外兴趣点贴边、沉浸隐藏）、
-//   物资箱（靠近提示、开箱奖励、任务计数、重复开箱无效）、重置进度（任务与箱子回初始、场景重进）。
+//   物资箱（靠近提示、按交互键开箱时玩家小人转向并播交互动作、开箱奖励、任务计数、重复开箱无效）、
+//   重置进度（任务与箱子回初始、场景重进；重进后统一交互的玩家标记重新找到、交互没有失灵——PRP/interaction 第二波 WARN 1）。
 //   覆盖 PRP/exploration-whitebox 验收 V1–V5。
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   复用 —— IsometricExplorationShowcase 不走 Boot、自己 new 规则对象，验不到容器接线与 HUD；QuestShowcase 用的是 Verify/Quest 场景，
@@ -11,9 +12,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Game.CharacterPuppet;
+using Game.Core.Input;
 using Game.Core.Simulation;
 using Game.Core.UI;
 using Game.Core.UI.Views;
+using Game.Interaction;
 using Game.IsometricExploration;
 using Game.Loot;
 using Game.Monster;
@@ -35,7 +39,8 @@ namespace Game.Tests.Showcase.Exploration
 
         private const int MainQuestId = 1001;
         private const int CrateQuestId = 2002;
-        private const string PromptText = "E 打开物资箱";
+        /// <summary>统一交互提示 HUD 右侧文字（PRP/interaction D8：动词「打开」+ 名字「物资箱」，来自 LootConfig；键位徽章「E」单独显示）。</summary>
+        private const string PromptLabel = "打开 · 物资箱";
         private const string RewardTitle = "获得物资";
 
         /// <summary>
@@ -75,7 +80,7 @@ namespace Game.Tests.Showcase.Exploration
         private PlayerModel playerModel;
         private PlayerRules playerRules;
         private LootService loot;
-        private SupplyCrateFocus focus;
+        private IInteractionFocus focus;
         private QuestService quest;
 
         protected override string Module => "Exploration";
@@ -197,15 +202,33 @@ namespace Game.Tests.Showcase.Exploration
                 () => !crateA.IsOpened && CrateMarkerActive(crateA) && CrateQuestCount() == 0, 3f);
 
             yield return Step("把玩家挪到 Crate_A 旁", () => playerRules.Reset(NearCrateA));
-            yield return Check("焦点落在 Crate_A，屏幕下方出现「E 打开物资箱」提示",
-                () => focus.Current == crateA && HudActive("InteractPrompt") && HudText("InteractPrompt") == PromptText, 3f);
+            yield return Check($"焦点落在 Crate_A，屏幕下方统一交互提示显示「[E] {PromptLabel}」",
+                () => ReferenceEquals(focus.Current, crateA) && PromptShows(PromptLabel), 3f);
             yield return Snapshot("靠近箱子·提示");
 
-            bool first = false;
             int itemsBefore = ItemTotal();
-            yield return Step("确认开箱", () => first = loot.TryCollect(focus.Current), 0f);
-            yield return Check("开箱成功：箱子变开、头顶标记消失、提示消失（这几项在 TryCollect 返回时已同步生效，不经过通知队列）",
-                () => first && crateA.IsOpened && !CrateMarkerActive(crateA) && !HudActive("InteractPrompt"), 3f);
+            // 走玩家真按键的那条路（统一焦点读交互键 → SupplyCrate.Interact → LootService.TryCollect），交互那一刻
+            // 统一焦点抛 OnInteracted，转向表现组件先订阅、先执行（PRP/interaction D11），这里随后记下玩家小人的状态。
+            ChibiPuppet playerPuppet = PlayerPuppet();
+            bool interacted = false;
+            bool pulsedAtInteract = false;
+            bool heldAtInteract = false;
+            void RecordInteract(IInteractable target)
+            {
+                if (!ReferenceEquals(target, crateA)) return;
+                interacted = true;
+                pulsedAtInteract = playerPuppet != null && playerPuppet.IsPulsing;
+                heldAtInteract = playerPuppet != null && playerPuppet.FacingHeld;
+            }
+
+            focus.OnInteracted += RecordInteract;
+            yield return Step("按交互键（E）开箱：统一焦点读键、触发焦点上的箱子", null, 0f);
+            yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
+            yield return Check("开箱成功：箱子变开、头顶标记消失、提示消失（这几项在开箱那一刻已同步生效，不经过通知队列）",
+                () => interacted && crateA.IsOpened && !CrateMarkerActive(crateA) && !PromptShown(), 3f);
+            focus.OnInteracted -= RecordInteract;
+            yield return Check("开箱那一刻玩家小人播了交互动作（挤压回弹）并转向箱子（进入朝向保持）",
+                () => pulsedAtInteract && heldAtInteract);
             // 期望正文数据驱动：物品名查 tbitem、拼法走 LootService.ComposeBody（同开箱路径），场景改 itemId / 表改名都不用改这里。
             string crateABody = ExpectedRewardBody(crateA);
             // 通知走 INotificationService 的共用单队列（NotificationQueue，仅同标题合并）：进场景时的任务
@@ -256,6 +279,15 @@ namespace Game.Tests.Showcase.Exploration
             yield return Snapshot("重置确认框");
 
             int oldCrateId = crateA.GetInstanceID();
+            IInteractionRegistry registry = ResolveService<IInteractionRegistry>();
+            int oldActorId = registry != null && registry.Actor != null ? registry.Actor.GetInstanceID() : 0;
+            actorChanges.Clear();
+            if (registry != null)
+            {
+                registry.OnActorChanged -= RecordActorChange;
+                registry.OnActorChanged += RecordActorChange;
+            }
+
             yield return Step("点确认", () => RequireConfirmButton("ConfirmButton").onClick.Invoke(), 0f);
             yield return WaitUntil("确认框关闭、场景重进（出现新的 Crate_A）",
                 () => ConfirmView() == null && FreshCrate(oldCrateId) != null, EnterTimeoutSeconds);
@@ -266,6 +298,33 @@ namespace Game.Tests.Showcase.Exploration
                 () => AllCratesClosed() && AllCrateMarkers(true) && loot.Items.Count == 0, 5f);
             yield return WaitCurtainRevealed();
             yield return Snapshot("重置后·回到初始");
+
+            // WARN 1：重置走 GameFlow 自重载（同一状态再进一次）。旧场景经 Addressables 异步卸载、不等，新场景紧接着加载，
+            // 新场景的 sceneLoaded 可能先于旧场景的 sceneUnloaded——那时新玩家标记被跳过，旧标记卸载后由重扫找回。
+            IInteractionRegistry interaction = ResolveService<IInteractionRegistry>();
+            yield return Check("重进场景后统一登记表的玩家标记是新场景里的玩家（不是已卸载的旧标记、也不是空）",
+                () => interaction != null && interaction.Actor != null && interaction.Actor.GetInstanceID() != oldActorId
+                      && interaction.Actor.gameObject.scene.isLoaded, 5f);
+            yield return Step($"重置期间玩家标记变化序列：{(actorChanges.Count == 0 ? "（无变化）" : string.Join(" → ", actorChanges))}", null, 0f);
+            if (interaction != null) interaction.OnActorChanged -= RecordActorChange;
+
+            SupplyCrate freshCrate = FreshCrate(oldCrateId);
+            yield return Step("把玩家挪到新的 Crate_A 旁", () => playerRules.Reset(NearCrateA));
+            yield return Check($"交互没有失灵：焦点落在新的 Crate_A，底部提示「[E] {PromptLabel}」",
+                () => freshCrate != null && ReferenceEquals(focus.Current, freshCrate) && PromptShows(PromptLabel), 3f);
+            yield return Snapshot("重置后·交互照常");
+        }
+
+        private readonly List<string> actorChanges = new List<string>();
+
+        private void RecordActorChange(InteractionActor actor) =>
+            actorChanges.Add(ReferenceEquals(actor, null) ? "空" : actor.gameObject.scene.name + "#" + actor.GetInstanceID());
+
+        /// <summary>玩家小人（玩家标记层级里的 ChibiPuppet）；取不到返回 null，由检查点判失败。</summary>
+        private ChibiPuppet PlayerPuppet()
+        {
+            IInteractionRegistry interaction = ResolveService<IInteractionRegistry>();
+            return interaction == null || interaction.Actor == null ? null : interaction.Actor.GetComponentInChildren<ChibiPuppet>();
         }
 
         // ───────────────────────── 波 9：多层地图 / 遮挡碰撞 / 遮挡半透明 ─────────────────────────
@@ -421,7 +480,7 @@ namespace Game.Tests.Showcase.Exploration
             playerModel = ResolveService<PlayerModel>();
             playerRules = ResolveService<PlayerRules>();
             loot = ResolveService<LootService>();
-            focus = ResolveService<SupplyCrateFocus>();
+            focus = ResolveService<IInteractionFocus>();
             quest = ResolveService<QuestService>();
         }
 
@@ -472,13 +531,18 @@ namespace Game.Tests.Showcase.Exploration
             return child != null && child.gameObject.activeInHierarchy;
         }
 
-        private string HudText(string objectName)
+        /// <summary>统一交互提示 HUD 正在显示，且右侧文字等于 <paramref name="label"/>。</summary>
+        private bool PromptShows(string label)
         {
-            ExplorationHudView hud = Hud();
-            // 文字组件可能挂在该物体自身或其子物体上，取子树里第一个。
-            Transform node = hud == null ? null : FindDeep<Transform>(hud.transform, objectName);
-            TMP_Text text = node == null ? null : node.GetComponentInChildren<TMP_Text>(true);
-            return text == null || text.text == null ? string.Empty : text.text;
+            InteractPromptHudView prompt = ui == null ? null : ui.Get<InteractPromptHudView>();
+            return prompt != null && prompt.IsShown && prompt.LabelText == label;
+        }
+
+        /// <summary>统一交互提示 HUD 是否在显示（有焦点）。</summary>
+        private bool PromptShown()
+        {
+            InteractPromptHudView prompt = ui == null ? null : ui.Get<InteractPromptHudView>();
+            return prompt != null && prompt.IsShown;
         }
 
         private T RequireHudChild<T>(string objectName) where T : Component

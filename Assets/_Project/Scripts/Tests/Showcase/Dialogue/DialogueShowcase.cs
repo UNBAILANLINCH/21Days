@@ -1,4 +1,4 @@
-// 职责：Dialogue 模块回放——范围焦点与底部交互提示、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、历史（LOG，Core 通用记录面板）、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
+// 职责：Dialogue 模块回放——范围焦点与底部交互提示（经焦点交互时玩家与 NPC 小人互相转向，PRP/interaction D11）、无对话树 NPC 的头顶台词气泡、交互拉起对白后的打字、三连点补全、历史（LOG，Core 通用记录面板）、倍速、自动推进、条件选项隐藏与图标、选择与跳过（含确认弹窗），
 //   以及对白期间世界时停、结束后恢复（PRD 验收 A4–A6）。
 using System;
 using System.Collections;
@@ -8,7 +8,9 @@ using Game.Core.Input;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Core.UI.Views;
+using Game.CharacterPuppet;
 using Game.Dialogue;
+using Game.Interaction;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -31,6 +33,12 @@ namespace Game.Tests.Showcase.Dialogue
 
         /// <summary>站位偏移：NPC 左侧 1 单位，落在交互半径 2 以内。</summary>
         private static readonly Vector3 StandOffset = new Vector3(-1f, 0f, 0f);
+
+        /// <summary>
+        /// 焦点用例的站位：长者右侧 1 单位（离旅人 2 单位，长者仍是最近者）。站右边是为了让转向看得出来——
+        /// 玩家小人开局朝右，交互后要翻面朝左才对着长者；长者则要朝右对着玩家。
+        /// </summary>
+        private static readonly Vector3 StandOffsetRight = new Vector3(1f, 0f, 0f);
 
         private IUIService ui;
         private DialogueService service;
@@ -265,12 +273,12 @@ namespace Game.Tests.Showcase.Dialogue
             yield return CloseTitleIfOpen();
 
             var elder = FindRequired<DialogueInteractable>("Npc_Elder");
-            yield return Step("玩家站到长者身边（交互半径内）", () => StandNextTo(elder), hold: 0.5f);
-            DialogueInteractionFocus focus = ResolveService<DialogueInteractionFocus>();
-            yield return WaitUntil("交互提示 HUD 已打开", () => ui != null && ui.Get<DialogueInteractHudView>() != null, 5f);
+            yield return Step("玩家站到长者右侧（交互半径内）", () => StandNextTo(elder, StandOffsetRight), hold: 0.5f);
+            IInteractionFocus focus = ResolveService<IInteractionFocus>();
+            yield return WaitUntil("交互提示 HUD 已打开", () => ui != null && ui.Get<InteractPromptHudView>() != null, 5f);
             yield return Check("玩家在长者附近：焦点是长者，底部「[E] 对话 · 老者」提示显示，长者头顶亮起「!」（任务标记接管时由任务标记代替）",
-                () => focus != null && focus.Current == elder && HudRootActive()
-                      && HudLabelText() == DialogueInteractHudView.FormatLabel(elder.DisplayName)
+                () => focus != null && ReferenceEquals(focus.Current, elder) && HudRootActive()
+                      && HudLabelText() == InteractPromptHudView.FormatLabel("对话", elder.DisplayName)
                       // SampleScene 里长者是主线目标：任务标记接管头顶图标（MarkerOverridden），此时对话「!」让位、不叠显示。
                       && ChildActive(elder, "MarkerFocus") != elder.MarkerOverridden
                       && ChildActive(elder, "NameLabel"), 3f);
@@ -285,6 +293,14 @@ namespace Game.Tests.Showcase.Dialogue
             yield return Check("对白 1001 拉起，焦点清空、对话按钮隐藏",
                 () => View() != null && service.IsRunning && focus.Current == null && !HudRootActive(), 3f);
 
+            // 交互转向（PRP/interaction D11）：经统一焦点交互后，玩家小人转向长者、长者小人转向玩家，双方进入朝向保持；
+            // 期望朝向按主相机右方向算（与 ChibiPuppet.FaceTowards 同一口径），不写死左右。时停里转身走 unscaled 补间，等它转完再看。
+            ChibiPuppet playerPuppet = FindRequired<InteractionActor>("player").GetComponentInChildren<ChibiPuppet>();
+            ChibiPuppet elderPuppet = elder.GetComponentInChildren<ChibiPuppet>();
+            yield return Check("交互转向：玩家小人转向长者、长者小人转向玩家（都在朝向保持中，转身补间已走完）",
+                () => FacesTowards(playerPuppet, elder.transform.position) && FacesTowards(elderPuppet, playerPuppet.transform.position), 3f);
+            yield return Snapshot("交互转向·玩家与长者对视");
+
             yield return Step("点跳过", () => RequireButton("SkipButton").onClick.Invoke());
             // 跳过确认弹窗由另一任务接入：存在就点确认，不存在就直接往下走。
             yield return Check("跳过已受理（弹出确认或已进入跳过）",
@@ -297,7 +313,7 @@ namespace Game.Tests.Showcase.Dialogue
             yield return Check("跳过停在选项处", () => rules.Phase == DialogueSaveData.Phase.AwaitChoice, 3f);
             yield return Step("选择第二项「拒绝」", () => ClickChoice(1));
             yield return Check("对白结束，世界恢复，焦点回到长者、对话按钮重新显示",
-                () => !service.IsRunning && hasResult && WorldRestored() && focus.Current == elder && HudRootActive(), 5f);
+                () => !service.IsRunning && hasResult && WorldRestored() && ReferenceEquals(focus.Current, elder) && HudRootActive(), 5f);
             yield return Snapshot("对白结束·焦点恢复");
             elder.OnCompleted -= RecordResult;
         }
@@ -458,11 +474,35 @@ namespace Game.Tests.Showcase.Dialogue
         /// 回放舞台是 SampleScene：NPC 的交互半径 2、actor 指向 player，玩家出生点离 NPC 超出半径时 Interact 会被忽略。
         /// 每条用例先把玩家挪到目标 NPC 左侧 1 单位（半径内且最近的就是它），再发起交互。
         /// </summary>
-        private void StandNextTo(DialogueInteractable npc)
+        private void StandNextTo(DialogueInteractable npc) => StandNextTo(npc, StandOffset);
+
+        private void StandNextTo(DialogueInteractable npc, Vector3 offset)
         {
-            var actor = FindRequired<DialogueInteractionActor>("player");
-            actor.transform.position = npc.transform.position + StandOffset;
+            var actor = FindRequired<InteractionActor>("player");
+            actor.transform.position = npc.transform.position + offset;
             Physics.SyncTransforms();
+        }
+
+        /// <summary>
+        /// 小人是否面向 <paramref name="target"/> 并处于朝向保持：按主相机右方向判左右（目标在相机右方 = 朝右），
+        /// 且转身补间已走完（根缩放的符号与目标朝向一致）。目标恰在正前 / 正后方（投影几乎为 0）时不判左右。
+        /// </summary>
+        private static bool FacesTowards(ChibiPuppet puppet, Vector3 target)
+        {
+            Camera camera = Camera.main;
+            if (puppet == null || camera == null || !puppet.FacingHeld || puppet.IsTurning)
+            {
+                return false;
+            }
+
+            float alongRight = Vector3.Dot(target - puppet.transform.position, camera.transform.right);
+            if (Mathf.Abs(alongRight) < 0.05f)
+            {
+                return true;
+            }
+
+            bool expectLeft = alongRight < 0f;
+            return puppet.FaceLeft == expectLeft && (puppet.transform.localScale.x < 0f) == expectLeft;
         }
 
         private void Connect()
@@ -497,7 +537,7 @@ namespace Game.Tests.Showcase.Dialogue
         /// <summary>交互 HUD 的卡片（物体名 Root）当前是否显示。</summary>
         private bool HudRootActive()
         {
-            DialogueInteractHudView hud = ui == null ? null : ui.Get<DialogueInteractHudView>();
+            InteractPromptHudView hud = ui == null ? null : ui.Get<InteractPromptHudView>();
             if (hud == null)
             {
                 return false;
@@ -510,13 +550,13 @@ namespace Game.Tests.Showcase.Dialogue
         /// <summary>交互 HUD 上的整卡按钮；HUD 没开或找不到就抛异常，让 Step 记失败。</summary>
         private string HudLabelText()
         {
-            DialogueInteractHudView hud = ui == null ? null : ui.Get<DialogueInteractHudView>();
+            InteractPromptHudView hud = ui == null ? null : ui.Get<InteractPromptHudView>();
             return hud == null ? string.Empty : hud.LabelText;
         }
 
         private Button RequireHudButton()
         {
-            DialogueInteractHudView hud = ui == null ? null : ui.Get<DialogueInteractHudView>();
+            InteractPromptHudView hud = ui == null ? null : ui.Get<InteractPromptHudView>();
             Button button = hud == null ? null : hud.GetComponentInChildren<Button>(true);
             if (button == null)
             {

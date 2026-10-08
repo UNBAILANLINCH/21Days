@@ -68,7 +68,7 @@ Narrative 订阅 QuestCompletedEvent 后读取持久完成状态写配置标记�
 | `QuestTarget.Position` | `Vector3 Position { get; }` | 测距用：地点位置 / NPC 根物体位置（脚底） |
 | `QuestTarget.Anchor` | `Vector3 Anchor { get; }` | 标记 / 屏幕投影用：地点位置 + `QuestConfig.LocationMarkerHeight`；NPC 三级取（`ResolveNpcAnchor`）：对话图标锚点 → Collider 顶部 + `QuestConfig.MarkerLift` → 同地点规则 |
 | `QuestTarget.Interactable` | `DialogueInteractable Interactable { get; }` | TalkTo 目标的 NPC 交互组件（任务标记据此接管其「…/!」图标）；地点目标为 null |
-| `SceneCamera` / `PlayerAnchor` | `Camera` / `Transform`（可为 null，用 `== null` 判） | 场景主相机（场景加载 / 卸载时重取）与玩家锚点（复用 `DialogueSceneBinder.Actor.Anchor`）；探索模块的万向标、遮挡半透明共用 |
+| `SceneCamera` / `PlayerAnchor` | `Camera` / `Transform`（可为 null，用 `== null` 判） | 场景主相机（场景加载 / 卸载时重取）与玩家锚点（取统一交互登记表的 `IInteractionRegistry.Actor.Anchor`）；探索模块的万向标、遮挡半透明共用 |
 
 `QuestHudPresenter` 用它摆世界标记与算屏幕指引；一般不用自己调，除非要做独立于 HUD 的目标提示（如小地图）。
 **NPC 头顶图标已被任务标记接管**：追踪目标是 NPC 时 `QuestHudPresenter` 调 `DialogueInteractable.SetMarkerOverridden`（Dialogue 同 asmdef 的 `internal` 开关）隐藏其「…/!」图，别的模块不要再去切这个开关，否则会与任务标记互相打架。

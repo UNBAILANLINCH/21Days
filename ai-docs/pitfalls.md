@@ -457,7 +457,7 @@
 ## 回放静置期玩家自走提前触发演出，恢复检查伪装成代码故障
 - 现象：2026-09-28 两次演出回放（`ScenePerformanceShowcase`）「结束后恢复」的三项检查连续失败；反复复跑同一份代码却能通过，看起来像间歇性 bug。
 - 根因：回放拍 before 快照前有一段静置等待，这段时间里玩家自己走动了（疑似卡键 / 外部输入落到了 Game 视图），提前走进了触发区，before 快照拍在演出已经开始运行之后，之后的所有「恢复」断言自然和预期对不上；代码本身没有问题。
-- 正确做法：排查回放失败先看 Editor.log 里的埋点时间线（`performance/trigger_fired`、`dialogue/focus_changed` 等），比对时间戳能不能对上用例预期的顺序，别一上来就改代码；回放在拍 before 快照前加「环境干净」守卫（演出尚未运行、玩家存活），环境不干净就直接报环境问题而不是走进断言失败。`ScenePerformanceShowcase.WalkIntoTrigger()` 已加上这道守卫（`Check("回放环境干净：演出尚未运行、玩家存活", …)`）。
+- 正确做法：排查回放失败先看 Editor.log 里的埋点时间线（`performance/trigger_fired`、`interaction/focus_changed`（2026-10-08 前为 `dialogue/focus_changed`）等），比对时间戳能不能对上用例预期的顺序，别一上来就改代码；回放在拍 before 快照前加「环境干净」守卫（演出尚未运行、玩家存活），环境不干净就直接报环境问题而不是走进断言失败。`ScenePerformanceShowcase.WalkIntoTrigger()` 已加上这道守卫（`Check("回放环境干净：演出尚未运行、玩家存活", …)`）。
 - 关联：`Assets/_Project/Scripts/Tests/Showcase/Performance/ScenePerformanceShowcase.cs:223`–`228`（`WalkIntoTrigger`）；2026-09-28 字幕逐字 / HUD 恢复那轮。
 
 ## 共用一台编辑器的并发会话互相干扰
@@ -519,3 +519,15 @@
 - 根因：编辑器偏好「Script Changes While Playing」默认是边玩边重编译；谁保存代码谁触发，跟当前在跑什么无关。细节与现象见本文「Showcase 回放中途别人保存 .cs，Play 内域重载把测试协程吞掉」一条。
 - 正确做法：走 `ShowcaseScenario` 的回放，框架已在 SetUp 里 `LockReloadAssemblies()`、TearDown 里对称 `UnlockReloadAssemblies()`（`ShowcaseScenario.cs:220,247`，退出 Play 时兜底全部释放，`:317`）。**不走框架、自己用 MCP 进 Play 做验证时，同样要先 `EditorApplication.LockReloadAssemblies()`，结束后对称 `UnlockReloadAssemblies()`**，别忘了解锁：计数没归零，编辑器会一直认为「还有人要求不许重载」，磁盘上改好的代码编不进来（见本文关于 `LockReloadAssemblies` 计数没归零的那一条）。并行派单时约定回放期间不保存 `.cs`；跑之前先过一遍编译门。
 - 关联：`Assets/_Project/Scripts/Tests/Showcase/Framework/ShowcaseScenario.cs:220,247,317`；本文「Showcase 回放中途别人保存 .cs…」「共用一台编辑器的并发会话互相干扰」；2026-10-07 回放验收。
+
+## 回放的 `group_names` 按子串匹配，只写模块名会带出别的模块
+- 现象：`run_tests(PlayMode, group_names=["World"])` 想只跑 World 回放，结果连演出回放 `PlayById_ShowsSubtitlesAndRestoresWorld`、`VillageEntrance_WorldStageTalkAndRestore` 一起跑了；后者超时没收尾，把紧接着的 World 回放也弄脏（画面里叠着标题界面，12 个检查点误报失败）。
+- 根因：组名是正则，对测试全名做子串匹配；任何测试名里含 `World` 都会命中。
+- 正确做法：一律写锚定正则 `^Game\.Tests\.Showcase\.<模块>\.`（EditMode 同理 `^Game\.Tests\.EditMode\.<模块>\.`），跑前看一眼返回的用例总数是否符合预期。
+- 关联：`ai-docs/docs/modules/world/world-module-guide.md`「验证入口」、`PRP/interaction/prp.md` §8 第二波第 9 条；2026-10-08。
+
+## TMP 文字在未激活的父物体下量首选宽度不准
+- 现象：交互提示 HUD 按文字算胶囊宽度，第一次显示时长提示被截成「前往 · 镜中妖界长安…」，之后再显示就正常；EditMode 里直接量同一预制体却是对的。
+- 根因：提示的 `Root` 在预制体里默认未激活，`Show` 先改文字、先量宽、后激活——Play 里文字组件还没初始化，`GetPreferredValues` 量出的宽度退回最小宽度。
+- 正确做法：要按文字量尺寸的 UI，先 `SetActive(true)` 再量（`InteractPromptHudView.Show`）；写回放断言时检查 `TMP_Text.isTextTruncated` 与容器宽度，不只比文字内容。
+- 关联：`Assets/_Project/Scripts/Runtime/Interaction/InteractPromptHudView.cs`（`Show` / `FitWidth`）、`BattleShowcase.HudPromptFitsText`；2026-10-08。

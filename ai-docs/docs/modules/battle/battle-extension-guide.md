@@ -32,10 +32,10 @@ maturity: seed
 3. `Tables/Data/narrative_encounters.json` 加一条 `trigger: Interact` 的遭遇，`targetKind` 对上场景物体的 `NarrativeTrigger.targetKind`，
    条件里加「标记未成立」让打赢后不再触发（样例 `sample_boss` 行）。只改 json 不改 schema，跑 `scripts/gen-tables.ps1`，**只提交 narrative 相关 bytes**（PRP §7 坑 7）。
 4. 场景里 BOSS NPC：同物体挂 `NarrativeTrigger`（`targetId` 场景内稳定唯一）、`DialogueInteractable`（焦点 / 提示 / 头顶标记）、`NarrativeFlagVisibility`（`flagKey` = 第 2 步写的标记）。
-   绑定时 `NarrativeTrigger` 自动接管 `DialogueInteractable` 的交互（`NarrativeTrigger.cs:53-58`）；标记成立时 `NarrativeFlagVisibility` 把物体隐藏（`NarrativeFlagVisibility.cs:55-60`）。
+   绑定时 `NarrativeTrigger` 自动接管 `DialogueInteractable` 的交互（`NarrativeTrigger.cs:55-60`）；标记成立时 `NarrativeFlagVisibility` 把物体隐藏（`NarrativeFlagVisibility.cs:55-60`）。
 5. 补 EditMode（`Game.Tests.EditMode.Battle`）与回放（`Tests/Showcase/Battle/`）；回放控制胜负用 `BattleSetup.OverrideSettings`，不改资产。
 
-交互提示的动词是写死的「对话」（`DialogueInteractHudView.cs:25`），新 BOSS 入口同样显示「对话」。
+交互提示的动词取 `DialogueInteractable` 的 `verb` 字段（默认「对话」，PRP/interaction D10）；新 BOSS 入口把它配成「挑战」。
 
 ## 新增一种演出种类
 

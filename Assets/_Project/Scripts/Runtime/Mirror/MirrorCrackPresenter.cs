@@ -156,7 +156,7 @@ namespace Game.Mirror
         }
 
         // 镜碎页开着时：过了按键保护时间后，UI/Submit、UI/Cancel 任一按下即交回（点击由页面自己的 tapArea 处理）。
-        // 镜碎属于表现与流程，不进确定性模拟、不影响回放，所以直接读 UI 动作（同 SupplyCrateFocus 读 Interact）。
+        // 镜碎属于表现与流程，不进确定性模拟、不影响回放，所以直接读 UI 动作（同 Game.Interaction.InteractionFocus 读 Interact）。
         private void PollShatterKeys()
         {
             if (!CanDismissShatter(clock.UnscaledTime - shatterOpenedAt, config.ShatterInputDelay)) return;

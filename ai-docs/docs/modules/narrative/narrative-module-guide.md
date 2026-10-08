@@ -52,10 +52,10 @@ Boot 挂接、定向测试、Showcase 与人工视觉验收的实际状态统一
 | `NarrativeCatalog` | Luban 翻译、对白出口与任务 ID 交叉校验、无出口等待/未实现能力及优先级冲突检查 | 惰性读取配置；构造时不读表 |
 | `NarrativeService` | 调用既有 DialogueService、固定异步身份、Session 重载、Quest 完成标记补齐 | 根作用域 IGameService；不直接改 Quest 进度 |
 | `NarrativeConditionSource` | PlayerModel 当前快照 + 当前槽位 StoryFlags + 已登记目标生命周期 | 实现 IDialogueConditionSource；无 Service 反向依赖，避免 DI 环 |
-| `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:53-58,65`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
-| `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:93-94,407-408`）；BOSS NPC 靠它在胜利后退场 |
+| `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:55-60,67`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
+| `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:95-96,409-410`）；BOSS NPC 靠它在胜利后退场 |
 | `NarrativeChangedEvent` | 分区已经写回的通知 | SaveTriggerBridge 合并保存请求 |
-| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是 `Game.Battle` | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:20`），`NarrativeService` 发布 |
+| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是 `Game.Battle` | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:21`），`NarrativeService` 发布 |
 | `NarrativeInstaller` | 根作用域服务及 MessagePipe 注册 | Boot 的 GameBootstrap，配置加载完成后初始化 |
 
 ## 数据流（代码路径，资产接线与验证状态见 tasks.md）
@@ -181,7 +181,7 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 
 **`IssueRequest` / `RequiredParts`**：两列已进 `Tables/Defines/narrative.xml`。`IssueRequest=true` 表示这一阶段会向外部系统发一次请求，校验要求它有至少一个出口；`RequiredParts` 是多部分行为，每部分提交一次 `Success`，全齐才真正迁移，因此必须有 `Success` 出口。
 
-**战斗阶段的可恢复边界（已被下一附录改写）**：`DriveAsync` 仍让 `Battle` 停在原地等回写（`NarrativeService.cs:280-288`）；但 `IsStable` **不再**对 Battle 一律返回 false——战斗没在打时稳定、在途时不稳定，见下一附录「`IsStable` 的新口径」。
+**战斗阶段的可恢复边界（已被下一附录改写）**：`DriveAsync` 仍让 `Battle` 停在原地等回写（`NarrativeService.cs:282-290`）；但 `IsStable` **不再**对 Battle 一律返回 false——战斗没在打时稳定、在途时不稳定，见下一附录「`IsStable` 的新口径」。
 
 **剧情标记键名（V1–V3）**：`NarrativeCatalog.ValidateFacts` 现在按 [`story-facts.md`](../../story-facts.md) §3.2 校验 `StoryFlag` 的 `Key`：格式 `^[a-z][a-z0-9_]*(\.[a-z0-9_]+){0,2}$`（V1，1–3 段，允许下划线）、首段在白名单命名空间内（V2）、带档位段时第二段是字典 §4 登记的状态名（V3）。按 id 生成的历史键（`quest_completed_<id>`）走 `RegisteredIdKeyPrefixes` 通配前缀，不再逐个列举；三份白名单是 `NarrativeCatalog` 里的 `static readonly` 常量，改字典与改常量要同一次提交。
 
@@ -232,6 +232,6 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 **`NarrativeFlagVisibility`**：见上文类分工表。标记成立 → 隐藏（`ShouldBeVisible = !flagSet`，`NarrativeFlagVisibility.cs:63`）；订阅的是 C# 事件而非 `Update`，物体关着照样被调到，所以读档回到「标记没写」的进度时会重新显示（`:8-9` 文件头）。
 样例：`sample_boss` 的 `world.sampleboss.defeated`。
 
-**`NarrativeTrigger` 的交互转交**：`Bind` 时若同物体有 `DialogueInteractable`，就 `SetInteractionHandover(handover)`（`NarrativeTrigger.cs:53-58`）——焦点、底部「E 对话 · 名字」提示、头顶标记都由 Dialogue 那套驱动，
+**`NarrativeTrigger` 的交互转交**：`Bind` 时若同物体有 `DialogueInteractable`，就 `SetInteractionHandover(handover)`（`NarrativeTrigger.cs:55-60`）——焦点、底部「E 对话 · 名字」提示、头顶标记都由 Dialogue 那套驱动，
 按 E / 点提示 / 点 NPC 走本组件的 `InteractAsync`；转交后点击由 `DialogueInteractable` 接，`OnPointerClick` 直接返回（`:82`）；`Unbind` 时只撤自己那一份（`:103`）。
 `InteractAsync` 的 `IsReady` 守卫（`:65`）：服务不可用（根作用域已销毁、退出 Play 后场景里的 NPC 还挂着旧绑定、尚未初始化）直接返回 `false`，不往已释放的服务上调。

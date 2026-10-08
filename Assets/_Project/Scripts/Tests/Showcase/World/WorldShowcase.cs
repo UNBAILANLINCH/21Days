@@ -20,10 +20,18 @@
 //
 // 三个机器可判的检查点（DoD）：① 当前场景键（`WorldSceneState.Spawn.SceneKey`）；② 玩家落点（逻辑坐标 = 锚点坐标）；
 //   ③ 相机对准（`SmoothCameraFollow.Target` 是玩家根物体，且镜头已经跟到它附近，不是还在上一张图的位置）。
+//
+// 统一交互（PRP/interaction 第二波，D9）：按键型出口改走 Game.Interaction 的统一焦点——走到出口跟前，焦点落在出口上、
+//   底部提示「[E] 前往 · 目的地」（目的地名取 TbScene.display_name），按交互键由焦点系统触发出口。
+//   换图同时验证 WARN 1：统一登记表的玩家标记每次换图后都要是**当前世界场景里那一个**（旧场景卸载后重扫找回），
+//   否则交互键会整个失灵；换图期间玩家标记的变化序列写进步骤说明，能看出这一次是哪种先后。
 using System.Collections;
 using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Input;
+using Game.Core.UI;
+using Game.Interaction;
 using Game.IsometricExploration;
 using Game.Player;
 using Game.World;
@@ -64,6 +72,11 @@ namespace Game.Tests.Showcase.World
         private IWorldTransition transition;
         private IInputService inputService;
         private PlayerModel player;
+        private IInteractionFocus focus;
+        private IInteractionRegistry interaction;
+        private IUIService ui;
+        private WorldCatalog catalog;
+        private readonly List<string> actorChanges = new List<string>();
 
         protected override string Module => "World";
 
@@ -81,28 +94,78 @@ namespace Game.Tests.Showcase.World
             Vector2 portal = PortalLogic();
             yield return Step("推摇杆走到人间的出口（街面锚点，TbPortal.anchor_id=jingyang_street）", null, 0f);
             yield return WalkTo(portal, 1.2f, 25f);
-            yield return Check("玩家进了出口的触发半径（WorldSceneDriver 逐帧按距离维护 PlayerInRange）",
-                () => PortalOf() != null && PortalOf().PlayerInRange, 3f);
-            yield return Snapshot("走到人间出口");
+            string toYao = PromptLabelTo(YaoScene);
+            yield return Check($"统一焦点落在出口上（= 进入交互范围，PlayerInRange 由焦点报给出口），底部提示「[E] {toYao}」",
+                () => PortalOf() != null && ReferenceEquals(focus.Current, PortalOf()) && PortalOf().PlayerInRange && PromptShows(toYao), 3f);
+            yield return Snapshot("走到人间出口·前往提示");
 
-            // —— 按交互键换图：TbPortal.trigger_kind=Interact，所以必须按一下 ——
-            yield return Step("按交互键（Gameplay/Interact）——出口把转场交给 WorldSceneDriver，黑幕由 GameFlow 统一落/揭", null, 0f);
+            // —— 按交互键换图：TbPortal.trigger_kind=Interact，所以必须按一下；交互键现在只由统一焦点读 ——
+            yield return Step("按交互键（Gameplay/Interact）——统一焦点触发出口，转场交给 WorldSceneDriver，黑幕由 GameFlow 统一落/揭", null, 0f);
+            actorChanges.Clear();
             yield return Input.Press(inputService.Actions.Gameplay.Interact);
             yield return WaitUntil($"换成妖界·坊市（场景键 {YaoScene}）", () => CurrentSceneKey() == YaoScene && SpawnOf(YaoPortalSpawn) != null, 25f);
             yield return WaitCurtainRevealed();
             yield return CheckYaoLanding();
+            yield return CheckActorIsCurrentWorld("人间 → 妖界");
             yield return Snapshot("妖界·坊市 落点");
 
             // —— 走回来：妖界的出口就在到达点上（TbPortal.target_spawn_id = fangshi_street = 出口锚点），
             //    所以这一步不用走，直接再按一次交互键。 ——
+            string toHuman = PromptLabelTo(HumanScene);
             yield return Step("原地再按一次交互键走回人间（妖界出口与到达点是同一个锚点）", null, 0f);
-            yield return WaitUntil("玩家又进到妖界出口的触发半径内", () => PortalOf() != null && PortalOf().PlayerInRange, 5f);
+            yield return WaitUntil($"焦点落在妖界出口上，底部提示「[E] {toHuman}」",
+                () => PortalOf() != null && ReferenceEquals(focus.Current, PortalOf()) && PortalOf().PlayerInRange && PromptShows(toHuman), 5f);
+            yield return Snapshot("妖界出口·前往提示");
+            actorChanges.Clear();
             yield return Input.Press(inputService.Actions.Gameplay.Interact);
             yield return WaitUntil($"换回人间（场景键 {HumanScene}）", () => CurrentSceneKey() == HumanScene && SpawnOf(HumanEntrySpawn) != null, 25f);
             yield return WaitCurtainRevealed();
             yield return Check($"回到人间：落点是妖界那条导线的 target_spawn_id「{HumanPortalSpawn}」（表里写的就是这个）",
                 () => CurrentSpawnId() == HumanPortalSpawn && NearLanding(SpawnLogic(HumanPortalSpawn)), 3f);
+            yield return CheckActorIsCurrentWorld("妖界 → 人间");
+            yield return Check($"回来后焦点又落在人间出口上（玩家就站在出口锚点上），提示「[E] {toYao}」——交互键没有失灵",
+                () => PortalOf() != null && ReferenceEquals(focus.Current, PortalOf()) && PromptShows(toYao), 5f);
             yield return Snapshot("走回人间");
+        }
+
+        /// <summary>
+        /// WARN 1：换图后统一登记表里的玩家标记必须是**当前世界场景里那一个**（不是已卸载的旧标记、也不是空）。
+        /// 同时把这一次换图期间玩家标记的变化序列写进步骤说明：「空 → 新」是旧场景先卸、新场景后到；只有「新」是新场景先到、
+        /// 旧标记卸载后由重扫找回（修复前这一种会让 Actor 永远为空）。
+        /// </summary>
+        private IEnumerator CheckActorIsCurrentWorld(string swap)
+        {
+            yield return Check($"{swap}：统一登记表的玩家标记就是当前世界场景里的玩家根物体（场景已卸载的旧标记不会留着）",
+                () =>
+                {
+                    InteractionActor actor = interaction.Actor;
+                    Scene world = LoadedWorldScene();
+                    return actor != null && world.IsValid() && actor.gameObject.scene == world
+                           && CameraOf() != null && CameraOf().Target == actor.transform;
+                }, 5f);
+            yield return Step($"{swap} 期间玩家标记变化序列：{(actorChanges.Count == 0 ? "（无变化）" : string.Join(" → ", actorChanges))}", null, 0f);
+        }
+
+        /// <summary>出口提示的期望文字：动词「前往」+ 目的地显示名（TbScene.display_name，数据驱动，不写死中文名）。</summary>
+        private string PromptLabelTo(string sceneKey)
+        {
+            string name = catalog != null && catalog.TryGetScene(sceneKey, out global::cfg.world.Scene scene) ? scene.DisplayName : string.Empty;
+            return InteractPromptHudView.FormatLabel(PortalAnchor.DefaultInteractVerb, name);
+        }
+
+        private bool PromptShows(string label)
+        {
+            InteractPromptHudView hud = ui == null ? null : ui.Get<InteractPromptHudView>();
+            return hud != null && hud.IsShown && hud.LabelText == label;
+        }
+
+        private void RecordActorChange(InteractionActor actor) =>
+            actorChanges.Add(ReferenceEquals(actor, null) ? "空" : actor.gameObject.scene.name + "/" + actor.name);
+
+        [TearDown]
+        public void StopRecordingActorChanges()
+        {
+            if (interaction != null) interaction.OnActorChanged -= RecordActorChange;
         }
 
         // ───────────────────────── 进场与判定 ─────────────────────────
@@ -118,11 +181,18 @@ namespace Game.Tests.Showcase.World
                     transition = ResolveService<IWorldTransition>();
                     inputService = ResolveService<IInputService>();
                     player = ResolveService<PlayerModel>();
+                    focus = ResolveService<IInteractionFocus>();
+                    interaction = ResolveService<IInteractionRegistry>();
+                    ui = ResolveService<IUIService>();
+                    catalog = ResolveService<WorldCatalog>();
                     return flow != null && flow.Current is TitleState
                            && transition != null && inputService != null && player != null
+                           && focus != null && interaction != null && ui != null && catalog != null
                            && ResolveService<WorldSceneDriver>() != null;
                 },
                 30f);
+            interaction.OnActorChanged -= RecordActorChange;
+            interaction.OnActorChanged += RecordActorChange;
 
             yield return Check("WorldInstaller 真的挂上了：容器里解析得出 WorldSceneDriver（挂不上就没有任何驱动）",
                 () => ResolveService<WorldSceneDriver>() != null);

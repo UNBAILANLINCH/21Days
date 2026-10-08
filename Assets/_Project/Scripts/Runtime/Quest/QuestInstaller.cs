@@ -74,7 +74,8 @@ namespace Game.Quest
                     resolver.Resolve<ISubscriber<QuestTrackingChangedEvent>>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
             // AsSelf：目标驱动与 HUD 要按具体类型注入 Binder（RegisterEntryPoint 默认只注册接口）。
-            // 构造要 DialogueSceneBinder + QuestConfig，两者容器里都有，按类型自动注入即可。
+            // 构造要 DialogueSceneBinder（TalkTo 的 NPC）+ IInteractionRegistry（InteractionInstaller 注册，玩家锚点从这里取）+ QuestConfig，
+            // 三者容器里都有，按类型自动注入即可。
             builder.RegisterEntryPoint<QuestSceneBinder>(Lifetime.Singleton).AsSelf();
             builder.RegisterEntryPoint(resolver => new QuestObjectiveDriver(
                     resolver.Resolve<QuestService>(),

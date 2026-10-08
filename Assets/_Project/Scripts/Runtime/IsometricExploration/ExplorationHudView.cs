@@ -1,5 +1,5 @@
 // 职责：探索场景常驻 Hud——左下角「沉浸」切换按钮（沉浸中改「退出沉浸」并半透明），右下角预留 RunSlot 给后续走 / 跑按钮；只显示与抛点击事件。
-// 为什么新建：复用——现有 Hud View（DialogueInteractHudView 只管「对话」卡片、QuestHudView 只管任务栏）职责与布局都不同，
+// 为什么新建：复用——现有 Hud View（交互提示 InteractPromptHudView 只管底部一条提示、QuestHudView 只管任务栏）职责与布局都不同，
 //   且二者沉浸时要隐藏，而这个面板必须留下（VisibleWhenHudHidden = true），不能合在同一个 View 里；
 //   扩展——IsometricExploration 模块此前没有任何 UI 面板可扩展。
 using System;
@@ -35,7 +35,8 @@ namespace Game.IsometricExploration
         [Tooltip("沉浸中按钮的 alpha（非沉浸时为 1）。")]
         [SerializeField, Range(0f, 1f)] private float immersiveAlpha = 0.5f;
 
-        // —— PRP/exploration-whitebox 波 3 追加：走跑 / 摇杆 / 触屏键 / 重置 / 交互提示 / 万向标。
+        // —— PRP/exploration-whitebox 波 3 追加：走跑 / 摇杆 / 触屏键 / 重置 / 万向标（原「交互提示」一行已随统一交互删除，
+        //    提示统一走 Game.Interaction.InteractPromptHudView，PRP/interaction D8）。
         //    全部可空容错，不列入 Validate 必填；由 ExplorationControlsPresenter / ExplorationCompassPresenter 驱动。
         [Tooltip("除沉浸按钮外全部控件的父物体（ControlsRoot）上的 CanvasGroup；沉浸时整体隐藏。可空。")]
         [SerializeField] private CanvasGroup controlsGroup;
@@ -49,8 +50,6 @@ namespace Game.IsometricExploration
         [SerializeField] private GameObject touchButtons;
         [Tooltip("左上角「重置进度」按钮。可空。")]
         [SerializeField] private Button resetButton;
-        [Tooltip("屏幕下方居中的交互提示文字。可空。")]
-        [SerializeField] private TMP_Text interactPrompt;
         [Tooltip("万向标父物体（铺满，不挡射线）。可空。")]
         [SerializeField] private RectTransform compassRoot;
         [Tooltip("万向标模板（箭头 Image + 子 Label），运行时隐藏，由呈现器复制。锚点须居中。可空。")]
@@ -152,15 +151,6 @@ namespace Game.IsometricExploration
         public void SetTouchButtonsVisible(bool visible)
         {
             if (touchButtons != null && touchButtons.activeSelf != visible) touchButtons.SetActive(visible);
-        }
-
-        /// <summary>交互提示；空串或 null 隐藏。</summary>
-        public void SetPrompt(string text)
-        {
-            if (interactPrompt == null) return;
-            bool show = !string.IsNullOrEmpty(text);
-            interactPrompt.text = show ? text : string.Empty;
-            if (interactPrompt.gameObject.activeSelf != show) interactPrompt.gameObject.SetActive(show);
         }
 
         private void RaiseReset() => OnResetClicked?.Invoke();

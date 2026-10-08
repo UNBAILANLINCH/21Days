@@ -1,12 +1,14 @@
 // 职责：钉住 DialogueInteractable 的范围判定（三维距离）、无对话树时的常驻台词轮换与可交互判定，
-//   以及交互焦点的「选最近可交互者」纯选择逻辑（DialogueInteractionFocus.SelectNearest）、交互提示 HUD 的拼字符串（键位回退「E」、「对话 · 名字」），
+//   作为统一交互对象（IInteractable，PRP/interaction D5、D10）的部分：契约的 CanInteract 不含距离、半径交给选择函数、
+//   提示动词（默认「对话」、可配「挑战」）、焦点回调写 Focused，以及经 InteractionSelector 选最近可交互者（跳过超范围），
 //   头顶图标接管开关（MarkerOverridden）的往返，以及头顶标记三个显隐结果的纯判定（DialogueInteractableMarker.ResolveVisibility）
-//   与图标世界锚点（DialogueInteractableMarker.TryGetIconAnchor）。
+//   与图标世界锚点（DialogueInteractableMarker.TryGetIconAnchor）。交互提示 HUD 的拼字符串已随 HUD 迁到 InteractPromptHudViewTests。
 // 为什么新建：现有 Dialogue 测试各测一个类（Rules / Catalog / Policy / Service），都不涉及场景组件；
 //   按「一个被测类一个测试类」新建。
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Dialogue;
+using Game.Interaction;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -187,7 +189,7 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         [Test]
-        public void SelectNearest_PicksClosestInteractable_SkippingOutOfRange()
+        public void Selector_PicksClosestInteractable_SkippingOutOfRange()
         {
             var far = new GameObject("Far");
             var near = new GameObject("Near");
@@ -200,12 +202,12 @@ namespace Game.Tests.EditMode.Dialogue
 
                 DialogueInteractable farOne = CreateBubbleNpc(far, new Vector3(0f, 0f, 3f), actor.transform);
                 DialogueInteractable nearOne = CreateBubbleNpc(near, new Vector3(0f, 0f, 4f), actor.transform);
-                var candidates = new List<DialogueInteractable> { interactable, farOne, nearOne };
+                var candidates = new List<IInteractable> { interactable, farOne, nearOne };
 
-                Assert.That(DialogueInteractionFocus.SelectNearest(actor.transform.position, candidates), Is.SameAs(nearOne));
+                Assert.That(InteractionSelector.Select(actor.transform.position, candidates), Is.SameAs(nearOne));
 
                 actor.transform.position = new Vector3(0f, 0f, 20f);
-                Assert.That(DialogueInteractionFocus.SelectNearest(actor.transform.position, candidates), Is.Null,
+                Assert.That(InteractionSelector.Select(actor.transform.position, candidates), Is.Null,
                     "全部超出半径时无焦点");
             }
             finally
@@ -215,23 +217,52 @@ namespace Game.Tests.EditMode.Dialogue
             }
         }
 
-        [TestCase(null, "E")]
-        [TestCase("", "E")]
-        [TestCase("   ", "E")]
-        [TestCase("F", "F")]
-        [TestCase(" Q ", "Q")]
-        public void HudKeyText_FallsBackToE_WhenBindingDisplayEmpty(string display, string expected)
+        [Test]
+        public void ContractCanInteract_IgnoresRange_PublicCanInteractDoesNot()
         {
-            Assert.That(DialogueInteractHudView.FormatKeyText(display), Is.EqualTo(expected));
+            SetBubble(interactable, 0, "台词");
+            npc.transform.position = Vector3.zero;
+            actor.transform.position = new Vector3(10f, 0f, 0f);
+            IInteractable contract = interactable;
+
+            Assert.That(interactable.CanInteract, Is.False, "公开 CanInteract 含距离（头顶标记在用）：半径外为 false");
+            Assert.That(contract.CanInteract, Is.True, "契约的 CanInteract 不含距离，距离交给选择函数");
+            Assert.That(contract.InteractionRadius, Is.EqualTo(3.5f));
+            Assert.That(contract.InteractionPriority, Is.EqualTo(0));
         }
 
-        [TestCase("长老", "对话 · 长老")]
-        [TestCase(" 旅人 ", "对话 · 旅人")]
-        [TestCase("", "对话")]
-        [TestCase(null, "对话")]
-        public void HudLabel_ShowsNpcName_OrVerbOnly(string npcName, string expected)
+        [Test]
+        public void ContractCanInteract_UnboundTreeOrNoContent_IsFalse()
         {
-            Assert.That(DialogueInteractHudView.FormatLabel(npcName), Is.EqualTo(expected));
+            IInteractable contract = interactable;
+            SetBubble(interactable, 1001);
+            Assert.That(contract.CanInteract, Is.False, "有树未绑定");
+            SetBubble(interactable, 0);
+            Assert.That(contract.CanInteract, Is.False, "既无树也无台词");
+        }
+
+        [Test]
+        public void Prompt_DefaultVerbIsDialogue_ConfiguredVerbOverrides()
+        {
+            SetDisplayName(interactable, "老者");
+            Assert.That(interactable.Verb, Is.EqualTo("对话"), "新挂的组件默认「对话」（旧场景缺字段时同样按默认）");
+            Assert.That(InteractPromptHudView.FormatLabel(interactable.Prompt), Is.EqualTo("对话 · 老者"));
+
+            SetVerb(interactable, "挑战");
+            Assert.That(InteractPromptHudView.FormatLabel(interactable.Prompt), Is.EqualTo("挑战 · 老者"));
+
+            SetVerb(interactable, "  ");
+            Assert.That(interactable.Verb, Is.EqualTo("对话"), "留空按「对话」");
+        }
+
+        [Test]
+        public void OnFocusChanged_WritesFocused()
+        {
+            IInteractable contract = interactable;
+            contract.OnFocusChanged(true);
+            Assert.That(interactable.Focused, Is.True);
+            contract.OnFocusChanged(false);
+            Assert.That(interactable.Focused, Is.False);
         }
 
         private static DialogueInteractable CreateBubbleNpc(GameObject go, Vector3 position, Transform rangeActor)
@@ -256,6 +287,20 @@ namespace Game.Tests.EditMode.Dialogue
             {
                 array.GetArrayElementAtIndex(i).stringValue = lines[i];
             }
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetVerb(DialogueInteractable target, string value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty("verb").stringValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetDisplayName(DialogueInteractable target, string value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty("displayName").stringValue = value;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

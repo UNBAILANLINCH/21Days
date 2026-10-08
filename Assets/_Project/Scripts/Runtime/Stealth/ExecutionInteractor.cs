@@ -2,7 +2,7 @@
 //   算条件 ②（物种是否允许被处决），交给 ExecutionResolver 结算。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
-//   1. 复用不行：`DialogueInteractionFocus` / `SupplyCrateFocus` 读的是 Interact 且只认自己的焦点类型；
+//   1. 复用不行：统一交互焦点 `InteractionFocus`（当时是对白与物资箱各一个焦点类）读的是 Interact 且只认可交互对象；
 //      `MirrorInputPresenter` 是照镜的入口点。没有一个能把「按 F → 绕背处决」接起来。
 //   2. 扩展不行：塞进 `ExecutionResolver` 会让结算认识 Input System 与场景（就没法在 EditMode 里直接 new 出来测）；
 //      塞进 `MonsterRules` 会让怪物模块反向认识潜行语义与输入（PRP §2.3 明确把落点定在本模块）。
@@ -15,16 +15,12 @@
 //   将来若要求回放能驱动处决：补一个 `InputCommand` 按钮位、把结算挪进 tick，**并在同一次改动里**
 //   同步位断言测试；若同时改到快照的字节布局，还要升 `ReplayFormat.CurrentFormatVersion`。
 //
-// 与 `Interact` 共用 F / 手柄 South 的说明（2026-10-07 核对，**不是重复绑定写错**）：
-//   `GameInput.inputactions` 里 `Interact` = E / **F** / South，本波新加的 `Execute` = **F** / South，
-//   该动作图没有控制方案（`controlSchemes: []`），所以按 F 会**同时**让两个动作各收到一次按下。
-//   这是**有意保留**的：两个动作各自有严格的目标门槛，互不重叠——
-//     · `Interact` 只在「焦点非空」时生效（`DialogueInteractionFocus.Tick` / `SupplyCrateFocus.Tick`：
-//       `Current != null` 才处理），焦点是最近的 NPC / 物资箱，且沉浸模式与对白中会清空；
-//     · 本组件只在「背后 + 暗杀距离 + 目标未察觉 + 物种 defeat_method = 暗杀」四条同时成立时才杀人。
-//   于是「站在怪物背后按 F」只有在**同一位置同时存在一个可交互 NPC/箱子**时才会两边都生效，
-//   而那种布局在当前内容里不存在。**没有替策划改 `Interact` 的既有绑定**（F 是既有约定，不是本波加的），
-//   改不改 F 的归属登记在交付报告的「待策划拍板」一节。
+// 与 `Interact` 共用 F / 手柄 South（`Interact` = E / **F** / South，`Execute` = **F** / South，动作图没有控制方案，
+//   按 F 会让两个动作各收到一次按下）。**归属规则（PRP/interaction D6，2026-10-08）：屏幕提示什么，按键就做什么**——
+//   按下时统一交互焦点非空（底部正显示「[E] 动词 · 名字」）→ 这一下归交互，本组件不处决，只记一条拒绝
+//   （`stealth_execute_rejected`，`reason = interaction_focus`）；焦点为空 → 照常走处决判定。处决没有提示 UI，所以让位的是它。
+//   焦点由接线方经 `Configure` 的 `interactionFocus` 传进来（`MonsterEncounterState.BindExecution` 从容器取），不 GetComponent；
+//   没传（独立原型场景、测试）时不做这层裁决，行为与 D6 之前一致。要反过来让处决优先，只改 `HandleExecuteKey` 这一处。
 //
 // 接线现状（2026-10-07「接进正式流程」那一波）：本组件此前**没有任何生产调用方**（只被测试与注释引用），
 //   现在由两处接线，两处都走 `Configure`：
@@ -44,6 +40,7 @@ using System;
 using Game.Core.Logging;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Interaction;
 using Game.Monster;
 using Game.Player;
 using UnityEngine;
@@ -125,6 +122,7 @@ namespace Game.Stealth
         private PlayerModel player;
         private MonsterRules[] targets = Array.Empty<MonsterRules>();
         private ExecutionResolver resolver;
+        private IInteractionFocus interactionFocus;
 
         /// <summary>是否已经接好线（没接线时按 F 什么都不做，也不埋点）。</summary>
         public bool IsConfigured => resolver != null;
@@ -156,10 +154,10 @@ namespace Game.Stealth
         /// </summary>
         public void Configure(PlayerModel playerModel, MonsterRules target, IStealthFactSink factSink,
             AssassinationRules rules = null, EncounterStep encounter = null, ITelemetryScope telemetry = null,
-            InputActionAsset actions = null)
+            InputActionAsset actions = null, IInteractionFocus interactionFocus = null)
         {
             Configure(playerModel, target == null ? Array.Empty<MonsterRules>() : new[] { target }, factSink,
-                rules, encounter, telemetry, actions);
+                rules, encounter, telemetry, actions, interactionFocus);
         }
 
         /// <summary>接线（多目标重载）。</summary>
@@ -167,10 +165,14 @@ namespace Game.Stealth
         /// 动作资产；为 null 时用 Inspector 上那个 <c>Input Actions</c> 字段。**代码接线（Showcase / 原型场景）
         /// 传这个参数**，就不必去改场景里组件的序列化字段。
         /// </param>
+        /// <param name="interactionFocus">
+        /// 统一交互焦点（PRP/interaction D6）：按键时它非空就让位给交互。为 null（独立原型场景、测试）时不做这层裁决。
+        /// </param>
         public void Configure(PlayerModel playerModel, MonsterRules[] monsterTargets, IStealthFactSink factSink,
             AssassinationRules rules = null, EncounterStep encounter = null, ITelemetryScope telemetry = null,
-            InputActionAsset actions = null)
+            InputActionAsset actions = null, IInteractionFocus interactionFocus = null)
         {
+            this.interactionFocus = interactionFocus;
             player = playerModel ?? throw new ArgumentNullException(nameof(playerModel));
             if (factSink == null) throw new ArgumentNullException(nameof(factSink));
             targets = monsterTargets ?? Array.Empty<MonsterRules>();
@@ -186,6 +188,22 @@ namespace Game.Stealth
 
             resolver = new ExecutionResolver(assassination, factSink, encounter, telemetry);
             BindInput(actions == null ? inputActions : actions);
+        }
+
+        /// <summary>
+        /// 按键路径：<see cref="Update"/> 收到 <c>Gameplay/Execute</c> 按下时调（测试直接调）。
+        /// 屏幕上有交互提示（统一交互焦点非空）时，这一下归交互、处决让位（PRP/interaction D6）：不选目标、不结算，
+        /// 只记一条拒绝（<see cref="ExecutionReject.YieldedToInteraction"/>，埋点 <c>reason = interaction_focus</c>）。
+        /// 焦点为空或没接焦点时与 <see cref="TryExecute"/> 完全相同；没接线时同样静默返回。
+        /// </summary>
+        public ExecutionVerdict HandleExecuteKey()
+        {
+            if (resolver != null && player != null && interactionFocus != null && interactionFocus.Current != null)
+            {
+                return Remember(resolver.RejectYieldedToInteraction(DescribeFocus(interactionFocus.Current)));
+            }
+
+            return TryExecute();
         }
 
         /// <summary>换目标（遭遇重开 / 场景切换时由接线方调）；传 null 或空表示当前没有可处决目标。</summary>
@@ -247,6 +265,13 @@ namespace Game.Stealth
             if (resolver == null || player == null)
             {
                 return new ExecutionHint(false, false, noTarget);
+            }
+
+            // 与按键路径同一条归属规则（D6）：焦点在场时按 F 归交互，面板如实说「这一下不会处决」。
+            if (interactionFocus != null && interactionFocus.Current != null)
+            {
+                return new ExecutionHint(true, targets.Length > 0,
+                    new ExecutionVerdict(false, ExecutionReject.YieldedToInteraction));
             }
 
             if (targets.Length == 0)
@@ -367,7 +392,18 @@ namespace Game.Stealth
                 return;
             }
 
-            TryExecute();
+            HandleExecuteKey();
+        }
+
+        // 埋点用的焦点对象名：组件取物体名，纯 C# 实现取类型名。只在按键让位那一下调用。
+        private static string DescribeFocus(IInteractable focus)
+        {
+            if (focus is Component component)
+            {
+                return component != null ? component.name : string.Empty;
+            }
+
+            return focus.GetType().Name;
         }
 
         private void OnDestroy()

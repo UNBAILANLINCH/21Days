@@ -2,7 +2,7 @@
 //   （推进 = 点对话框、自动 / 倍速 / 跳过 / 历史 = 点对应按钮、数字键 = 点第 N 个选项），弹窗打开时只放行弹窗键位。
 // 为什么新建：DialogueView 由 Addressables 实例化、不注入服务，按规则不能在 View 里读输入；DialogueController 是纯表现驱动、
 //   不依赖输入服务（EditMode 测试直接 new 它），把读动作塞进去会让它多一个 IInputService 依赖且没法单测映射；
-//   DialogueInteractionFocus 只管「对白开始前」的焦点与交互键（E / F），职责不同。所以单列一个 ITickable 协作者，
+//   统一交互焦点（Game.Interaction.InteractionFocus）只管「对白开始前」的焦点与交互键（E / F），职责不同。所以单列一个 ITickable 协作者，
 //   「哪个状态下哪个键有效」抽成静态纯函数 Map，EditMode 直接测。
 using System;
 using System.Collections.Generic;

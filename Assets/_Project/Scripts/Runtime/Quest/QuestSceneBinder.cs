@@ -1,11 +1,12 @@
 // 职责：登记已加载场景里的任务地点（QuestLocation）与场景相机，按地点键 / 对话 NPC 解析任务目标的世界坐标（测距点 + 头顶锚点），供目标判定与指引读取；
 //   NPC 头顶锚点优先对齐其对话「…/!」图标（DialogueInteractableMarker.TryGetIconAnchor），其次碰撞体顶部 + 抬升，再次固定高度。
-// 为什么新建：DialogueSceneBinder 只管对白物体与玩家标记，把任务地点塞进去会让对白模块认识任务；
+// 为什么新建：DialogueSceneBinder 只管对白物体，把任务地点塞进去会让对白模块认识任务；
 //   地点是场景物体、不在根容器里，只能扫场景登记，且扫场景只该有一处，判定与指引只读结果。
 using System;
 using System.Collections.Generic;
 using Game.Core.Logging;
 using Game.Dialogue;
+using Game.Interaction;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer.Unity;
@@ -14,11 +15,13 @@ namespace Game.Quest
 {
     /// <summary>
     /// 场景绑定入口点。只登记场景里摆好的地点（含未激活的）；运行时 Instantiate 的地点不登记。
-    /// DontDestroyOnLoad 场景不在扫描范围内。玩家锚点复用 <see cref="DialogueSceneBinder.Actor"/>，不再扫一遍。
+    /// DontDestroyOnLoad 场景不在扫描范围内。玩家锚点取统一交互登记表的 <see cref="IInteractionRegistry.Actor"/>
+    /// （扫玩家标记全工程只在 InteractionRegistry 一处，PRP/interaction D7），不再扫一遍。
     /// </summary>
     public sealed class QuestSceneBinder : IStartable, IDisposable
     {
         private readonly DialogueSceneBinder dialogueBinder;
+        private readonly IInteractionRegistry interaction;
         private readonly QuestConfig config;
         private readonly List<QuestLocation> locations = new List<QuestLocation>();
         private readonly Dictionary<string, QuestLocation> byKey = new Dictionary<string, QuestLocation>(StringComparer.Ordinal);
@@ -27,9 +30,12 @@ namespace Game.Quest
         private readonly List<DialogueInteractable> staleNpcKeys = new List<DialogueInteractable>();
         private bool subscribed;
 
-        public QuestSceneBinder(DialogueSceneBinder dialogueBinder, QuestConfig config)
+        /// <param name="dialogueBinder">TalkTo 目标的 NPC 从它登记的 <see cref="DialogueSceneBinder.Bound"/> 里找。</param>
+        /// <param name="interaction">玩家锚点从统一交互登记表的 <see cref="IInteractionRegistry.Actor"/> 取。</param>
+        public QuestSceneBinder(DialogueSceneBinder dialogueBinder, IInteractionRegistry interaction, QuestConfig config)
         {
             this.dialogueBinder = dialogueBinder ?? throw new ArgumentNullException(nameof(dialogueBinder));
+            this.interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
             // ScriptableObject 是 UnityEngine.Object，判空只用 == null。
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
@@ -42,7 +48,7 @@ namespace Game.Quest
         public Camera SceneCamera { get; private set; }
 
         /// <summary>玩家锚点；场景里没有玩家标记时为 null。</summary>
-        public Transform PlayerAnchor => dialogueBinder.Actor == null ? null : dialogueBinder.Actor.Anchor;
+        public Transform PlayerAnchor => interaction.Actor == null ? null : interaction.Actor.Anchor;
 
         public void Start()
         {

@@ -3210,6 +3210,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueId: 0
   displayName: "\u4E95\u8FB9\u5987\u4EBA"
+  verb: "\u5BF9\u8BDD"
   bubbleLines:
   - "\u8FD9\u4E95\u6C34\u2026\u2026\u4ECA\u5929\u683C\u5916\u51C9\u3002"
   interactRadius: 2
@@ -7058,6 +7059,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueId: 0
   displayName: "\u6751\u6C11"
+  verb: "\u5BF9\u8BDD"
   bubbleLines:
   - "\u8FD9\u4E2A\u79FB\u52A8\u5E73\u53F0\u6BD4\u6211\u5E74\u8F7B\u65F6\u89C1\u5230\u7684\u8001\u4E0D\u5C11\u3002"
   - "\u4ECA\u5929\u7684\u98CE\u6709\u70B9\u5927\uFF0C\u5C0F\u5FC3\u7AD9\u7A33\u3002"
@@ -8938,6 +8940,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueId: 1002
   displayName: "\u65C5\u4EBA"
+  verb: "\u5BF9\u8BDD"
   bubbleLines: []
   interactRadius: 2
   actor: {fileID: 1682945198}
@@ -10468,6 +10471,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueId: 1001
   displayName: "\u8001\u8005"
+  verb: "\u5BF9\u8BDD"
   bubbleLines: []
   interactRadius: 2
   actor: {fileID: 1682945198}
@@ -13806,11 +13810,11 @@ MonoBehaviour:
   walkClipSpeed: 3
   runClipSpeed: 5
   hasRunClip: 0
+  config: {fileID: 0}
 --- !u!95 &1961086349
 Animator:
   serializedVersion: 5
   m_ObjectHideFlags: 0
-  config: {fileID: 0}
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -15112,6 +15116,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dialogueId: 0
   displayName: "\u9636\u6BB5\u4E00 BOSS\uFF08\u5360\u4F4D\uFF09"
+  verb: "\u6311\u6218"
   bubbleLines: []
   interactRadius: 2
   actor: {fileID: 0}

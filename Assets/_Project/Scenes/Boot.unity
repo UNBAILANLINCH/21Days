@@ -135,6 +135,7 @@ GameObject:
   - component: {fileID: 351087042}
   - component: {fileID: 351087046}
   - component: {fileID: 351087045}
+  - component: {fileID: 351087060}
   - component: {fileID: 351087047}
   - component: {fileID: 351087052}
   - component: {fileID: 351087048}
@@ -398,6 +399,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   turnBasedConfig: {fileID: 11400000, guid: aadaf37fdfc591d4a9c429b11194f0f7, type: 2}
   bossRoster: {fileID: 11400000, guid: 7ac7c73b7b9bec548a729e18f488536f, type: 2}
+--- !u!114 &351087060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 351087041}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 080be0e88fe386146ac84e0b25e6e93e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1603631903
 GameObject:
   m_ObjectHideFlags: 0

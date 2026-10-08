@@ -7,6 +7,9 @@ maturity: stable
 
 # IsometricExploration 模块指南
 
+> 探索 HUD 不显示交互提示：物资箱、NPC、传送点的提示统一由 `Game.Interaction.InteractPromptHudView` 显示（统一交互，
+> [`PRP/interaction/prp.md`](../../../../PRP/interaction/prp.md) D8；原 `InteractPrompt` 一行、`ExplorationHudView.SetPrompt` 与订阅物资箱焦点那段已于 2026-10-08 删除）。
+
 ## 目的
 
 IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
@@ -32,7 +35,7 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 | `ExplorationInstaller` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationInstaller.cs:20` | 本模块的 GameplayInstaller：注册 `ExplorationHudPresenter` / `ExplorationControlsPresenter` / `ExplorationCompassPresenter` 三个入口点与 `IsometricExplorationConfig` |
 | `ExplorationHudView` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationHudView.cs:21` | 探索常驻 Hud：右上角「沉浸」切换按钮 + 走跑 / 摇杆 / 触屏三键 / 重置 / 交互提示 / 万向标（全部可空容错），`VisibleWhenHudHidden = true` |
 | `ExplorationHudPresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationHudPresenter.cs:23` | 启动后打开探索 HUD，驱动沉浸模式的进入 / 退出与埋点 `immersive_changed` |
-| `ExplorationControlsPresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationControlsPresenter.cs:30` | 入口点：摇杆 / 触屏三键按平台显隐、走跑标签跟随 `PlayerModel.IsRunning`、物资箱焦点提示、沉浸时整体隐藏控件区、驱动「重置进度」确认流程 |
+| `ExplorationControlsPresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationControlsPresenter.cs:31` | 入口点：摇杆 / 触屏三键按平台显隐、走跑标签跟随 `PlayerModel.IsRunning`、物资箱焦点提示、沉浸时整体隐藏控件区、驱动「重置进度」确认流程 |
 | `ExplorationCompassPresenter` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationCompassPresenter.cs:29` | 入口点：场景加载时登记 `ExplorationPointOfInterest`，每帧把屏外兴趣点摆到画布边缘（对象池复用模板），沉浸时整体跳过 |
 | `ExplorationCompassRules` | `Assets/_Project/Scripts/Runtime/IsometricExploration/ExplorationCompassRules.cs:16` | 纯函数：视口坐标 → 屏内不画 / 屏外贴边位置与箭头角度，复用 `QuestGuidanceMath.Solve` |
 | `ExplorationPointOfInterest` / `PoiKind` | `ExplorationPointOfInterest.cs:16` / `PoiKind.cs:6` | 场景组件：万向标指引目标（Npc / Crate / Location），`Crate` 类型在同物体 `SupplyCrate` 打开后不再可见 |
@@ -210,8 +213,7 @@ ExplorationHudView（RectTransform 铺满，CanvasGroup，ExplorationHudView）
 │  ├─ Stick（左下，OnScreenStick 绑 `<Gamepad>/leftStick`）── Knob
 │  ├─ TouchButtons（潜行 SneakButton / 伪装 DisguiseButton / 攻击 AttackButton，各自 OnScreenButton）
 │  ├─ ResetButton（右上，沉浸按钮下方）
-│  └─ InteractPrompt（屏幕下方居中 TMP，anchoredPosition (0, 72)、sizeDelta 320×48，与对白模块的交互提示
-│     `DialogueInteractHudView` 同位；两者由 `SupplyCrateFocus` / `DialogueInteractionFocus` 的让位规则互斥，不会同时出现）
+│  （原 InteractPrompt 一行已随统一交互删除，箱子提示改走 `Game.Interaction.InteractPromptHudView`，PRP/interaction D8）
 ├─ RunSlot（右下角锚点，独立 CanvasGroup = runToggleGroup，不在 ControlsRoot 下）
 │  └─ RunToggle（OnScreenButton 绑 `<Gamepad>/leftStickPress`）── Label（「散步」/「奔跑」）
 └─ CompassRoot（铺满，不挡射线）
@@ -226,7 +228,6 @@ ExplorationHudView（RectTransform 铺满，CanvasGroup，ExplorationHudView）
   三者统一取 `IsTouchPrimary || config.ShowStickOnDesktop`（`ShowStickOnDesktop` 是开发开关，默认关），
   走跑按钮经 `SetRunToggleVisible` 切 `RunToggle` 物体；PC 走跑走 `Gameplay/Run`（左 Ctrl / 手柄左摇杆按下）。
   预制体与代码保留作移动端移植的底子。走跑标签每帧读 `PlayerModel.IsRunning`（潜行时不改标签，只显示模式），只在变化时才写 TMP；
-  订阅 `Game.Loot.SupplyCrateFocus.OnFocusChanged` 显隐交互提示（文案取 `LootConfig.PromptText`）；
   沉浸时 `HudVisibilityChangedEvent` 驱动 `hud.SetControlsVisible(false)`，同时切 `ControlsRoot` 与
   `RunToggle` 两个 CanvasGroup。
 - **重置进度**（波 12 挪到右上角，2026-09-26）：`ImmersiveButton` 与 `ResetButton` 均改锚点/pivot
@@ -260,7 +261,7 @@ ExplorationHudView（RectTransform 铺满，CanvasGroup，ExplorationHudView）
 - **埋点补充**：`controls_bound`（`touch`）、`poi_bound`（`count`，场景加载时一次）、
   `compass_open_failed` / `controls_open_failed`（Error）。
 - **接线要求补充**：`ExplorationInstaller` 的 `Config` 拖 `Data/IsometricExploration/IsometricExplorationConfig.asset`；
-  控件区 / 万向标依赖 `Game.Loot.SupplyCrateFocus` / `LootService` / `LootConfig`（`LootInstaller`）、
+  控件区 / 万向标依赖 `Game.Loot.LootService`（`LootInstaller`）、
   `Game.Quest.QuestSceneBinder` / `QuestService`（`QuestInstaller`）、`Game.Player.PlayerModel`
   （`PlayerInstaller`），`ExplorationInstaller` 必须排在这些注册器之后；Addressables `UI` 组另增地址
   `ExplorationConfirmView`（预制体 `Assets/_Project/Prefabs/UI/ExplorationConfirmView.prefab`）。
@@ -496,10 +497,6 @@ PlayerModel.IsRunning
   → ExplorationControlsPresenter.Tick
   → ExplorationHudView.SetRunLabel
 
-SupplyCrateFocus.OnFocusChanged（Game.Loot）
-  → ExplorationControlsPresenter
-  → ExplorationHudView.SetPrompt（文案取 LootConfig.PromptText）
-
 ExplorationPointOfInterest（场景，含 SupplyCrate 只读 IsOpened）
   → ExplorationCompassPresenter.Tick
   → Camera.WorldToViewportPoint → ExplorationCompassRules.TryPlace（复用 QuestGuidanceMath.Solve）
@@ -512,7 +509,7 @@ ResetButton
 ```
 
 `ExplorationControlsPresenter → Game.Loot / Game.Quest / Game.Player / Game.Monster`（读
-`SupplyCrateFocus` / `LootService` / `LootConfig`、`QuestService`、`PlayerModel`、`MonsterEncounterState`
+`LootService`、`QuestService`、`PlayerModel`、`MonsterEncounterState`
 类型）；`ExplorationCompassPresenter → Game.Quest`（`QuestSceneBinder.SceneCamera`）、
 `ExplorationPointOfInterest → Game.Loot`（只读 `SupplyCrate.IsOpened`）。均为单向读取，反向禁止。
 

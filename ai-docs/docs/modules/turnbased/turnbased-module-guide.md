@@ -93,7 +93,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
   现状是每场开打从会话主种子派生一条本地流 `new XorShiftRandomStream(主种子 ^ 盐 ^ 场次)`，不登记进 `IRandomService`、不进快照
   （`BattleSetup.cs:10-14`、`BattleSetup.cs:116-120`）。**代价：回放不覆盖回合制战斗**。本模块「概率只走注入的 `IRandomStream`」的要求照旧成立。
 - **战中存档**的结论（D9）：战斗会话状态**不进快照**、不升 `ReplayFormat`；战斗在途时剧情不可保存，读档停在 Battle 阶段则战斗从头开始
-  （`NarrativeService.cs:227-238`、`:345-347`、`:114-120`，详见 battle guide「战中不存档」）。
+  （`NarrativeService.cs:229-240`、`:345-347`、`:114-120`，详见 battle guide「战中不存档」）。
 
 ## 事实键纪律
 

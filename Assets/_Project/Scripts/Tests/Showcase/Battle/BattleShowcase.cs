@@ -21,17 +21,23 @@
 //   · 被击倒那条：同样只出招式 1，伤害 10（= 本场玩家生命），BOSS 第一次出手就击倒玩家。
 //   微醺 20% 跳过回合只会让 BOSS 少出手，不影响结论。
 //
+// ── 统一交互第二波（PRP/interaction）：交互提示随文字加宽，「挑战 · 阶段一 BOSS（占位）」整句显示不截断；
+//   按 E 时 BOSS 小人转向玩家、玩家小人转向 BOSS（D11，朝向保持）。战斗舞台上的两只小人是另一份实例
+//   （BOSS 按 StagePrefab 现实例化、玩家是战斗场景里摆好的），朝向由 BattleActor 立即翻面定，不带世界里的朝向保持。
+//
 // ── 给物：经背包公开口 LootService.SettleMonsterDrop 放一瓶治疗药水（1004）入包 ─────────────────────────
 //   与开箱同一条「写背包分区 → 弹获得通知」的路径；村里能走到的箱子没有 1004（Crate_C 在巡逻线以南），这条是最短的真实入包口。
 using System;
 using System.Collections;
 using System.Globalization;
 using Game.Battle;
+using Game.CharacterPuppet;
 using Game.Core.Flow;
 using Game.Core.Input;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Loot;
 using Game.Player;
 using Game.TurnBased;
@@ -51,6 +57,9 @@ namespace Game.Tests.Showcase.Battle
     {
         private const string BossObjectName = "Npc_SampleBoss";
         private const string BossDisplayName = "阶段一 BOSS（占位）";
+
+        /// <summary>BOSS 的交互提示动词（SampleScene 里 Npc_SampleBoss 的 DialogueInteractable.verb，PRP/interaction D10）。</summary>
+        private const string BossVerb = "挑战";
         private const string DefeatedFlag = "world.sampleboss.defeated";
         private const string RetreatOutcome = "Downed";
         private const int HealItemId = 1004;
@@ -72,7 +81,7 @@ namespace Game.Tests.Showcase.Battle
         private NarrativeService narrative;
         private DialogueService dialogue;
         private DialogueRules dialogueRules;
-        private DialogueInteractionFocus focus;
+        private IInteractionFocus focus;
         private IUIService ui;
         private IWorldPauseService pause;
         private ILoadingCurtain curtain;
@@ -118,10 +127,17 @@ namespace Game.Tests.Showcase.Battle
                 () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, VictoryBossDamage)), 0f);
 
             yield return WalkToBossAndCheckPrompt("走到BOSS跟前·交互提示");
+            ChibiPuppet worldBossPuppet = bossObject.GetComponentInChildren<ChibiPuppet>();
+            ChibiPuppet worldPlayerPuppet = WorldPlayerPuppet();
             yield return Step("按交互键（E）", null, 0f);
             yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return Check("交互转向：BOSS 小人转向玩家、玩家小人转向 BOSS（两边都进入朝向保持）",
+                () => worldBossPuppet != null && worldBossPuppet.FacingHeld && worldPlayerPuppet != null && worldPlayerPuppet.FacingHeld, 3f);
             yield return ReadTaunt(true);
             yield return CheckEnteredBattle("进战斗场景：战斗相机接管（世界相机关掉）、世界暂停（timeScale 0）、战斗界面打开");
+            yield return Check("战斗舞台的两只小人是另一份实例、没有带进世界里的朝向保持，朝向等于 BattleActor 的站位朝向（立即翻面布台）",
+                () => StagePuppetFollowsActor(presenter.Stage.Boss, worldBossPuppet)
+                      && StagePuppetFollowsActor(presenter.Stage.Player, worldPlayerPuppet));
             yield return Snapshot("开战·玩家先手");
 
             // 先出招式 1，直到 BOSS 打中玩家一下（微醺可能跳过回合），好让药水真的回血。
@@ -167,7 +183,7 @@ namespace Game.Tests.Showcase.Battle
 
             yield return CheckBackToWorld();
             yield return Check($"写入 {DefeatedFlag}；BOSS NPC 退场（物体已隐藏）；交互提示不再显示 BOSS",
-                () => narrative.HasStoryFlag(DefeatedFlag) && !bossObject.activeSelf && focus.Current != bossEntry && !HudShowsBoss(), 5f);
+                () => narrative.HasStoryFlag(DefeatedFlag) && !bossObject.activeSelf && !ReferenceEquals(focus.Current, bossEntry) && !HudShowsBoss(), 5f);
 
             yield return Step("站在原地再按一次交互键（E）", null, 0f);
             yield return Input.Press(input.Actions.Gameplay.Interact);
@@ -211,7 +227,7 @@ namespace Game.Tests.Showcase.Battle
                     return saved.Current == null && saved.Outcome == RetreatOutcome && !narrative.HasStoryFlag(DefeatedFlag)
                            && bossObject.activeSelf;
                 }, 5f);
-            yield return Check("BOSS 仍是交互焦点，提示照常显示", () => focus.Current == bossEntry && HudShowsBoss(), 3f);
+            yield return Check("BOSS 仍是交互焦点，提示照常显示", () => ReferenceEquals(focus.Current, bossEntry) && HudShowsBoss(), 3f);
             yield return Snapshot("被击倒后BOSS还在");
 
             yield return Step("再按交互键（E），重打一次", null, 0f);
@@ -244,7 +260,7 @@ namespace Game.Tests.Showcase.Battle
             narrative = ResolveService<NarrativeService>();
             dialogue = ResolveService<DialogueService>();
             dialogueRules = ResolveService<DialogueRules>();
-            focus = ResolveService<DialogueInteractionFocus>();
+            focus = ResolveService<IInteractionFocus>();
             ui = ResolveService<IUIService>();
             pause = ResolveService<IWorldPauseService>();
             curtain = ResolveService<ILoadingCurtain>();
@@ -262,8 +278,10 @@ namespace Game.Tests.Showcase.Battle
         {
             yield return Step("走到村西北角的 BOSS 跟前（离巡逻怪十几米，绕开村口演出区）", null, 0f);
             yield return WalkTo(BossStandPoint, 0.3f, 8f);
-            yield return Check($"焦点落在 BOSS 上，底部交互提示写着「对话 · {BossDisplayName}」",
-                () => focus.Current == bossEntry && HudShowsBoss(), 3f);
+            // 进战斗前这一步钉住提示动词（PRP/interaction D10）：BOSS 经 handover 进战斗，提示应是「挑战」而不是「对话」。
+            yield return Check($"焦点落在 BOSS 上，底部交互提示写着「{BossVerb} · {BossDisplayName}」",
+                () => ReferenceEquals(focus.Current, bossEntry) && HudShowsChallenge(), 3f);
+            yield return Check("提示整句完整显示：胶囊随文字加宽（超过最小宽 320），文字没有被截成省略号", HudPromptFitsText, 3f);
             if (!string.IsNullOrEmpty(snapshot)) yield return Snapshot(snapshot);
         }
 
@@ -417,8 +435,39 @@ namespace Game.Tests.Showcase.Battle
 
         private bool HudShowsBoss()
         {
-            DialogueInteractHudView hud = ui.Get<DialogueInteractHudView>();
+            InteractPromptHudView hud = ui.Get<InteractPromptHudView>();
             return hud != null && hud.IsShown && hud.LabelText.Contains(BossDisplayName);
+        }
+
+        /// <summary>交互提示文字没被截断：TMP 没走省略号，且胶囊比最小宽度 320 更宽（这句放不进 320）。</summary>
+        private bool HudPromptFitsText()
+        {
+            InteractPromptHudView hud = ui.Get<InteractPromptHudView>();
+            if (hud == null || !hud.IsShown) return false;
+            TMP_Text label = FindDeep<TMP_Text>(hud.transform, "Label");
+            RectTransform root = FindDeep<RectTransform>(hud.transform, "Root");
+            return label != null && root != null && !label.isTextTruncated && root.rect.width > 320f;
+        }
+
+        /// <summary>世界里玩家的小人（统一交互登记表里玩家标记层级下的 ChibiPuppet）。</summary>
+        private ChibiPuppet WorldPlayerPuppet()
+        {
+            IInteractionRegistry registry = ResolveService<IInteractionRegistry>();
+            return registry == null || registry.Actor == null ? null : registry.Actor.GetComponentInChildren<ChibiPuppet>();
+        }
+
+        /// <summary>舞台角色的小人不是世界里那一只、不在朝向保持中、朝向等于 BattleActor 的站位朝向。</summary>
+        private static bool StagePuppetFollowsActor(BattleActor actor, ChibiPuppet worldPuppet)
+        {
+            ChibiPuppet puppet = actor == null ? null : actor.GetComponentInChildren<ChibiPuppet>();
+            return puppet != null && puppet != worldPuppet && !puppet.FacingHeld && puppet.FaceLeft == actor.FaceLeft;
+        }
+
+        /// <summary>交互提示整句正好是「挑战 · BOSS 名」（动词来自 BOSS 的 DialogueInteractable.verb）。</summary>
+        private bool HudShowsChallenge()
+        {
+            InteractPromptHudView hud = ui.Get<InteractPromptHudView>();
+            return hud != null && hud.IsShown && hud.LabelText == InteractPromptHudView.FormatLabel(BossVerb, BossDisplayName);
         }
 
         private int Potions() => loot.Items.TryGetValue(HealItemId, out int count) ? count : 0;

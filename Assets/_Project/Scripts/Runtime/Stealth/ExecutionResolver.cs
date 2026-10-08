@@ -178,6 +178,18 @@ namespace Game.Stealth
             return verdict;
         }
 
+        /// <summary>
+        /// 按下时统一交互焦点非空：这一下归交互、处决让位（PRP/interaction D6）。不选目标、不写事实、不改状态，
+        /// 只留一条 <c>stealth_execute_rejected</c>（<c>reason = interaction_focus</c>，<c>focus</c> = 焦点对象名），
+        /// 「站在怪背后按 F 却拉起了对白」时靠它在现场分清是让位而不是判定不过。
+        /// </summary>
+        public ExecutionVerdict RejectYieldedToInteraction(string focusTarget)
+        {
+            var verdict = new ExecutionVerdict(false, ExecutionReject.YieldedToInteraction);
+            telemetry.Track("stealth_execute_rejected", ("reason", verdict.ReasonCode), ("focus", focusTarget ?? string.Empty));
+            return verdict;
+        }
+
         // 拒绝路径是「玩家按了没反应」的唯一现场，所以判定用到的数值一起写进去（`docs/telemetry.md` §2.2 第 3 类）。
         // **属性上限是 4**（`ITelemetryScope.Track` 的重载最多四个槽位、`TelemetryProps.Capacity = 4`），
         // 这里刻意挑的四个与砍掉的两个，理由如下（下一个人想加字段时先看这段）：

@@ -34,7 +34,7 @@ namespace Game.IsometricExploration
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
 
             // —— PRP/exploration-whitebox 波 3 追加：配置、控件区与万向标入口点。
-            // 依赖的 SupplyCrateFocus / LootService / LootConfig（LootInstaller）、QuestSceneBinder / QuestService（QuestInstaller）、
+            // 依赖的 LootService（LootInstaller）、QuestSceneBinder / QuestService（QuestInstaller）、
             // PlayerModel（PlayerInstaller）都已 AsSelf 注册在根作用域，本注册器排在它们之后。
             builder.RegisterInstance(ResolveConfig());
             builder.RegisterEntryPoint(resolver => new ExplorationControlsPresenter(
@@ -42,8 +42,6 @@ namespace Game.IsometricExploration
                     resolver.Resolve<Game.Core.Platform.IPlatformService>(),
                     resolver.Resolve<IsometricExplorationConfig>(),
                     resolver.Resolve<Game.Player.PlayerModel>(),
-                    resolver.Resolve<Game.Loot.SupplyCrateFocus>(),
-                    resolver.Resolve<Game.Loot.LootConfig>(),
                     resolver.Resolve<Game.Loot.LootService>(),
                     resolver.Resolve<Game.Quest.QuestService>(),
                     resolver.Resolve<Game.Core.Flow.IGameFlow>(),

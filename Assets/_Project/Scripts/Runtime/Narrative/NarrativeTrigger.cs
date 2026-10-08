@@ -1,13 +1,15 @@
 // 职责：无战斗 NPC 的叙事点击入口；稳定 ID 进存档，运行时对象销毁/禁用即目标不可用。
 // 不创建新输入系统：点击沿用 EventSystem 射线，程序生成对象通过 Configure 显式绑定。
 // 交互键（E）与交互提示（PRP/turnbased-battle W2b）：同物体上挂了 DialogueInteractable 时，绑定即把交互转交过来——
-//   焦点、底部「[E] 对话 · 名字」提示、头顶「…/!」标记都由 Dialogue 那套照常驱动，按 E / 点提示 / 点 NPC 走本组件的
+//   焦点与底部「[E] 动词 · 名字」提示由统一交互（Game.Interaction）驱动、头顶「…/!」标记由 Dialogue 驱动，动词取
+//   DialogueInteractable 的 verb 字段（BOSS 配「挑战」，PRP/interaction D10）；按 E / 点提示 / 点 NPC 走本组件的
 //   InteractAsync（距离、生命周期守卫不变）。这时点击由 DialogueInteractable 接（它带沉浸模式判定），本组件不再重复响应。
 //   没挂 DialogueInteractable 的目标与原来一样只有点击入口。
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Dialogue;
+using Game.Interaction;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -22,7 +24,7 @@ namespace Game.Narrative
         [SerializeField, Min(0.1f), Tooltip("玩家到 NPC 的最大交互距离。")]
         private float radius = 2f;
         private NarrativeService service;
-        private DialogueInteractionActor actor;
+        private InteractionActor actor;
         private CancellationTokenSource lifetime;
         private DialogueInteractable focusEntry;
         private Action handover;
@@ -33,7 +35,7 @@ namespace Game.Narrative
         public bool HasFocusEntry => focusEntry != null;
         internal CancellationToken LifetimeToken => lifetime == null ? CancellationToken.None : lifetime.Token;
 
-        public void Configure(string id, string kind, NarrativeService narrative, DialogueInteractionActor player)
+        public void Configure(string id, string kind, NarrativeService narrative, InteractionActor player)
         {
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(kind)) throw new ArgumentException("叙事目标配置不可为空");
             Unbind();
@@ -42,7 +44,7 @@ namespace Game.Narrative
             Bind(narrative, player);
         }
 
-        public void Bind(NarrativeService narrative, DialogueInteractionActor player)
+        public void Bind(NarrativeService narrative, InteractionActor player)
         {
             Unbind();
             service = narrative ?? throw new ArgumentNullException(nameof(narrative));

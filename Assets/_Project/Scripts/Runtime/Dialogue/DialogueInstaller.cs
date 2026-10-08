@@ -1,9 +1,9 @@
-// 职责：把对白模块的配置、规则、内容目录、控制器、条件来源、服务、场景绑定与交互焦点入口点注册进根作用域。挂在 Boot 场景的 GameBootstrap 物体上。
+// 职责：把对白模块的配置、规则、内容目录、控制器、条件来源、服务、场景绑定与对白键位入口点注册进根作用域。挂在 Boot 场景的 GameBootstrap 物体上。
+//   交互焦点已迁到 Game.Interaction（InteractionInstaller，PRP/interaction D1），本注册器不再注册焦点。
 // 为什么新建：Game.Core 不许引用 Game.Runtime，玩法类型只能由玩法自己经 GameplayInstaller 缝注册；
 //   其他模块的 Installer 只服务各自模块，把对白塞进去会让模块互相耦合。
 using Game.Core.Assets;
 using Game.Core.Boot;
-using Game.Core.Events;
 using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Save;
@@ -12,7 +12,6 @@ using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Performance;
 using Game.Narrative;
-using MessagePipe;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -75,16 +74,9 @@ namespace Game.Dialogue
                     resolver.Resolve<DialogueService>()), Lifetime.Singleton)
                 .AsSelf()
                 .As<IGameService>();
-            // AsSelf：焦点系统要按具体类型注入 Binder（RegisterEntryPoint 默认只注册接口）。
+            // AsSelf：Quest 的场景登记器要按具体类型注入 Binder（RegisterEntryPoint 默认只注册接口）。
+            // 构造要的 IInteractionRegistry 由 InteractionInstaller 注册；解析发生在容器建好之后，与注册器顺序无关。
             builder.RegisterEntryPoint<DialogueSceneBinder>(Lifetime.Singleton).AsSelf();
-            builder.RegisterEntryPoint(resolver => new DialogueInteractionFocus(
-                    resolver.Resolve<DialogueSceneBinder>(),
-                    resolver.Resolve<DialogueService>(),
-                    resolver.Resolve<IUIService>(),
-                    resolver.Resolve<IHudVisibility>(),
-                    resolver.Resolve<IInputService>(),
-                    resolver.Resolve<ISubscriber<BootCompletedEvent>>(),
-                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton).AsSelf();
             // 对白键盘 / 手柄路径：每帧读 Dialogue 动作图，翻成与点击同一套处理（Dialogue 图由 DialogueService 开关）。
             builder.RegisterEntryPoint(resolver => new DialogueKeyboardInput(
                     resolver.Resolve<DialogueController>(),

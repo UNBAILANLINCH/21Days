@@ -458,7 +458,7 @@ NPC 头顶的「…」「!」标记是 `Marker_Idle.png` / `Marker_Focus.png`，
 | --- | --- |
 | `Assets/_Project/Prefabs/UI/DialogueView.prefab` | 对话框：名字、正文、左右立绘、右侧竖排胶囊选项、自动 / 倍速 / 跳过 / LOG 按钮 |
 | `Assets/_Project/Prefabs/UI/TranscriptView.prefab` | 台词记录面板（对白历史 / 演出 LOG 共用，Core 通用组件，Top 层） |
-| `Assets/_Project/Prefabs/UI/DialogueInteractHudView.prefab` | 靠近 NPC 时右下角的「对话」按钮 |
+| `Assets/_Project/Prefabs/UI/InteractPromptHudView.prefab` | 统一交互提示：靠近 NPC / 物资箱 / 传送点时屏幕底部居中的「[E] 动词 · 名字」胶囊（整条可点；宽度随文字在 320–640 之间伸缩，换底图用九宫格 Sliced） |
 | `Assets/_Project/Prefabs/UI/DialogueSkipConfirmView.prefab` | 「是否跳过剧情？」确认弹窗 |
 | `Assets/_Project/Prefabs/World/DialogueSpeechBubble.prefab` | 无对话树 NPC 头顶的台词气泡（世界空间） |
 

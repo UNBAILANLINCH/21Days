@@ -48,7 +48,7 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 ```
 
 - 不引用 Monster / IsometricExploration / Dialogue 任何类型；与 `EncounterSceneView` 的协作全靠**场景接线**（`facingSource` 指向纸片）。
-- 反过来，运行时代码里引用 `Game.CharacterPuppet` 的有两处：
+- 反过来，运行时代码里引用 `Game.CharacterPuppet` 的有三处：
   1. Performance 的 `PerformanceTriggerRules.HideSceneCharacters`（演出前藏场景角色，对全部入口
      一视同仁，含对白插播）：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
      `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法。
@@ -56,7 +56,14 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
      `ChibiPuppetMotion`（`BattleActor.cs:271-272`；原因是它在 `timeScale = 0` 时每帧把小人强制写回待机，`BattleActor.cs:7-8`），
      再**自己调** `ChibiPuppet.SetMoving`（`BattleActor.cs:276-278`，奔跑演出时 `running = true`、播放速率 1.6）与 `ChibiPuppet.SetFacing(faceLeft, true)`（`BattleActor.cs:134`，**立即翻面**：只在挂外观布台时调，是初始站位）写走跑和朝向。
      战斗全程世界暂停，所以这里不能靠「看位移」的 `ChibiPuppetMotion`。
-  其余引用在编辑器工具、Showcase 与 EditMode 测试。小人组件改名 / 挪命名空间、或改 `SetMoving` / `SetFacing` 签名要同步改这两处。
+  3. **Interaction 的 `InteractionPuppetPresenter`**（`Assets/_Project/Scripts/Runtime/Interaction/InteractionPuppetPresenter.cs:64`，统一交互第二波 D11）：
+     统一焦点触发一次交互（`IInteractionFocus.OnInteracted`）后，玩家小人（`InteractionActor` 层级里找）调 `FaceTowards(目标位置)` + `PlayInteractPulse()`，
+     目标层级（自身 / 子物体 / 父链）里有小人时调它的 `FaceTowards(玩家位置)`；找不到就跳过。只调门面，不写 Animator 参数。
+  其余引用在编辑器工具、Showcase 与 EditMode 测试。小人组件改名 / 挪命名空间、或改 `SetMoving` / `SetFacing` / `FaceTowards` / `PlayInteractPulse` 签名要同步改这三处。
+  本模块不反向认识 Interaction。
+  **朝向保持与战斗**：BOSS 被交互后转向玩家并进入保持，但战斗舞台上的小人是另一份实例，且 `BattleActor` 关掉了驱动层（保持唯一的读方）、
+  用 `SetFacing(faceLeft, true)` 立即翻面布台，保持不会带进战斗（2026-10-08 Battle 回放断言过）。
+- 补间用 LitMotion（`Game.Runtime` 已引用），句柄挂在门面上，`OnDisable` / `OnDestroy` 掐断。
 - 不订阅事件、不注册 DI 服务、不走 Addressables；预制体以场景实例存在。
 
 ## 预制体
@@ -84,6 +91,7 @@ running = moving && ChibiPuppetMotionRules.ResolveRunning(speed, runStart, runSt
 ChibiPuppetMotionRules.PlaybackRate(speed, running ? RunClipSpeed : WalkClipSpeed, rateMin, rateMax) → rate（待机时固定 1）
    ▼
 ChibiPuppet.SetMoving(moving, running, rate) → Animator Bool "Moving"、Bool "Running"、Float "Speed"
+   │                                         （moving 为真时门面解除朝向保持：KeepFacingHold）
    ▼
 门面 FacingHeld（FaceTowards 之后、真正移动之前）→ 本窗口不改朝向，到此为止
    ▼
@@ -94,7 +102,6 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 关键位置：
 
 | 环节 | 位置 |
-   │                                         （moving 为真时门面解除朝向保持：KeepFacingHold）
 | --- | --- |
 | 执行次序 `DefaultExecutionOrder(100)` | `ChibiPuppetMotion.cs:12` |
 | `trackedRoot` 自动解析（父链上第一个名字不是 `Visual` 的节点，找不到用自身） | `ChibiPuppetMotion.cs:147` |
@@ -133,13 +140,6 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 用速度（除以窗口时长）而不是位移过死区：帧率 / 窗口长短不改变判定（`ChibiPuppetMotion.cs:143`）。
 `Camera.main` 只在首次需要时取一次并缓存，不每帧 Find。
 
-## 采样窗口（0.05 s）
-
-早先逻辑 tick（60 Hz）与渲染帧率（120 / 144 Hz）不一致，角色根只在 tick 推进，按渲染帧看位移「有、无」交替，
-逐帧判定会闪回待机，所以曾用 0.1 s 窗口攒位移。现在视图已做 **tick 间插值**，角色根逐渲染帧连续移动，
-这个理由不再成立；窗口只用来抹平单帧噪声（帧时长抖动、插值末端的小跳），**0.05 s** 起步 / 停步延迟更短、更跟手。
-窗口长度在 `ChibiPuppetConfig.sampleWindow`（`ChibiPuppetConfig.cs:22`）。若某个驱动源又回到「只在 tick 推进、无插值」，
-窗口须重新拉到至少覆盖两次 tick（≥ 0.035 s，保险 0.1 s），否则会重新闪回待机。
 两种来源之上还有一层**朝向保持**（见下节）：门面 `FacingHeld` 为真时驱动层整个窗口不改朝向。
 
 ## 转身、朝向保持与交互动作（程序化，2026-10-08，roadmap D6）
@@ -175,6 +175,13 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 - 不冲突的依据（2026-10-08 核对全部 12 个 `chr_*.anim`）：剪辑只有 `m_PPtrCurves`、绑定 `path: Sprite`、`attribute: m_Sprite`、classID 212（SpriteRenderer），
   位置 / 旋转 / 缩放曲线全空，Animator 不会写 `Sprite` 子物体的 transform；根缩放归转身。将来剪辑加了 transform 曲线就会和它打架。
 
+## 采样窗口（0.05 s）
+
+早先逻辑 tick（60 Hz）与渲染帧率（120 / 144 Hz）不一致，角色根只在 tick 推进，按渲染帧看位移「有、无」交替，
+逐帧判定会闪回待机，所以曾用 0.1 s 窗口攒位移。现在视图已做 **tick 间插值**，角色根逐渲染帧连续移动，
+这个理由不再成立；窗口只用来抹平单帧噪声（帧时长抖动、插值末端的小跳），**0.05 s** 起步 / 停步延迟更短、更跟手。
+窗口长度在 `ChibiPuppetConfig.sampleWindow`（`ChibiPuppetConfig.cs:22`）。若某个驱动源又回到「只在 tick 推进、无插值」，
+窗口须重新拉到至少覆盖两次 tick（≥ 0.035 s，保险 0.1 s），否则会重新闪回待机。
 
 ## 时间口径
 

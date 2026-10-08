@@ -128,7 +128,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b12b6e979ff62c74e835ceff262d1023
-    m_Address: DialogueInteractHudView
+    m_Address: InteractPromptHudView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -99,9 +99,9 @@ Boot 的 GameBootstrap 挂 NarrativeInstaller；场景或运行时 NPC 使用 Na
   换形态可以直接回到同一个战斗阶段（自环），那是「同一场战斗的下一形态」。
 - 战斗侧拿到结果后走 `NarrativeService.CompleteBattleAsync`，不要自己拼 `NarrativeIntent` 绕过身份校验；
   身份三项从战斗开始时登记的值来，不要用回调回来时才读的当前阶段（那正是要被拒绝的旧回调）。
-- **战斗阶段现在有条件地算可存档边界**：`IsStable` 对 Battle 阶段「没在打时稳定、在途时不稳定」（`NarrativeService.cs:345-347`）。
+- **战斗阶段现在有条件地算可存档边界**：`IsStable` 对 Battle 阶段「没在打时稳定、在途时不稳定」（`NarrativeService.cs:347-349`）。
   战斗会话状态仍不落盘，所以**任何新的战斗侧实现都必须在开打前 `TryBeginBattle`、没打完 `ReleaseBattle`**，否则战斗进行中会被自动保存，读档后得到一个没有对应战斗的在途标记
-  （读档时 `ReloadFromSave` 会清掉残留标记并重发通知，`NarrativeService.cs:114-120`）。
-- 战斗侧订阅 `BattleStageEnteredEvent`（`NarrativeService.cs:359` 发布）而不是轮询阶段；样例见 [`battle-extension-guide.md`](../battle/battle-extension-guide.md)「新增一只 BOSS」。
+  （读档时 `ReloadFromSave` 会清掉残留标记并重发通知，`NarrativeService.cs:116-122`）。
+- 战斗侧订阅 `BattleStageEnteredEvent`（`NarrativeService.cs:361` 发布）而不是轮询阶段；样例见 [`battle-extension-guide.md`](../battle/battle-extension-guide.md)「新增一只 BOSS」。
 - 要让场景物体随剧情标记显隐（BOSS 退场、门开关），挂 `NarrativeFlagVisibility`（`flagKey` = 阶段 `setFlags` 写的标记），不要自己订阅 `NarrativeChangedEvent`。
-- 要给 NPC / BOSS 一个主动交互入口：同物体挂 `NarrativeTrigger` + `DialogueInteractable`，`NarrativeTrigger` 绑定时自动接管交互（`NarrativeTrigger.cs:53-58`）；遭遇表的 `repeat: Reenter` 对主动交互可重复触发（`NarrativeService.cs:139-152` 的纪元）。
+- 要给 NPC / BOSS 一个主动交互入口：同物体挂 `NarrativeTrigger` + `DialogueInteractable`，`NarrativeTrigger` 绑定时自动接管交互（`NarrativeTrigger.cs:55-60`）；遭遇表的 `repeat: Reenter` 对主动交互可重复触发（`NarrativeService.cs:141-154` 的纪元）。

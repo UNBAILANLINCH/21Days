@@ -28,9 +28,15 @@
 //   ——回放侧拿不到 sink，不在这里假装看到。
 //   内容前提：`Boot.unity` 的 `MonsterInstaller.kindId = 1003`（市令：killable=false + defeat_method=暗杀）。
 //   回放**不读那个序列化字段**：它只按「场上这只怪能处决」来演，premise 不成立时失败信息里会带上拒绝原因。
+//   F 键归属（PRP/interaction D6，2026-10-08）：统一交互焦点非空时按 F 归交互、处决让位。本条回放的站位（巡逻线背后）
+//   附近没有 NPC / 物资箱，按 F 那一刻焦点必然为空——回放如实断言「按下时焦点为空、这一下归处决」并核对接线
+//   （BindExecution 把容器里那份 IInteractionFocus 传给了组件）；「焦点与处决目标同时在场」的让位分支不在这张图里硬造，
+//   由 EditMode 的 ExecutionInteractorTests 覆盖。
 // 不包括：把这一刀做进确定性内核（处决是实时输入触发的交互，PRP §2.4 明确不进 `InputCommand`）。
 using System.Collections;
+using System.Reflection;
 using Game.Core.Input;
+using Game.Interaction;
 using Game.Monster;
 using Game.Player;
 using Game.Stealth;
@@ -83,6 +89,7 @@ namespace Game.Tests.Showcase.Stealth
         private bool executeHintShown;
         private bool executeBehindHeld;
         private ExecutionReject executeReason;
+        private bool executeFocusEmpty;
 
         protected override string Module => "Stealth";
 
@@ -185,6 +192,10 @@ namespace Game.Tests.Showcase.Stealth
                             + "以及 MonsterEncounterState.BindExecution 是否真的被调到。");
             }
 
+            IInteractionFocus focus = ResolveService<IInteractionFocus>();
+            yield return Check("F 键归属已接线：BindExecution 把容器里那份统一交互焦点传给了组件（PRP/interaction D6）",
+                () => focus != null && ReferenceEquals(WiredFocus(), focus));
+
             yield return Step("等巡逻怪走完一段、进入巡逻停顿（停 2 秒、朝向不变，好绕背）", null, 0f);
             yield return WaitUntil("怪物进入巡逻停顿",
                 () => monster.Mode == MonsterMode.PatrolPause && monster.PatrolPauseLeft > 1.2f, 15f);
@@ -198,6 +209,8 @@ namespace Game.Tests.Showcase.Stealth
 
             yield return Check("按 F 之前面板提示「可处决」（Inspect 报的就是按键会用的那份判定）",
                 () => executeHintShown);
+            yield return Check("按 F 那一刻屏幕上没有交互提示（统一焦点为空），这一下归处决、不让位",
+                () => executePressed && executeFocusEmpty && executeReason != ExecutionReject.YieldedToInteraction);
             yield return Check($"按 F 确实走到了结算：最近一次结果是「允许」"
                                + $"（记到的拒绝原因：{executeReason}；位置条件成立过：{executeBehindHeld}）",
                 () => executePressed && executeAllowed);
@@ -399,6 +412,8 @@ namespace Game.Tests.Showcase.Stealth
             executeHintShown = false;
             executeBehindHeld = false;
             executeReason = ExecutionReject.None;
+            executeFocusEmpty = false;
+            IInteractionFocus focus = ResolveService<IInteractionFocus>();
             float deadline = Time.realtimeSinceStartup + ExecuteTimeoutSeconds;
             while (Time.realtimeSinceStartup < deadline && !executePressed)
             {
@@ -420,6 +435,7 @@ namespace Game.Tests.Showcase.Stealth
                 {
                     executeBehindHeld = true;
                     executeHintShown |= interactor.Inspect().Allowed;
+                    executeFocusEmpty = focus != null && focus.Current == null;
                     yield return Input.Press(inputService.Actions.Gameplay.Execute);
                     if (interactor.LastVerdict.HasValue)
                     {
@@ -434,6 +450,14 @@ namespace Game.Tests.Showcase.Stealth
             }
 
             Input.ReleaseStick();
+        }
+
+        /// <summary>场上那只 ExecutionInteractor 接到的统一交互焦点（私有字段，经反射读：验的是产品接线，不是测试自己装的）。</summary>
+        private IInteractionFocus WiredFocus()
+        {
+            if (interactor == null) return null;
+            FieldInfo field = typeof(ExecutionInteractor).GetField("interactionFocus", BindingFlags.Instance | BindingFlags.NonPublic);
+            return field == null ? null : field.GetValue(interactor) as IInteractionFocus;
         }
 
         /// <summary>

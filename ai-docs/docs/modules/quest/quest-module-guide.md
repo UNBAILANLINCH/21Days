@@ -28,7 +28,7 @@ maturity: stable
 | `QuestCatalog` | Luban 表 → `QuestContent` 的翻译与缓存，首次访问才读表，额外校验 TalkTo 对话存在 | 根作用域单例 |
 | `QuestProgress` | 单条任务运行时进度（状态 / 当前目标 / 计数 / 激活序号），仅 `QuestRules` 能改 | `QuestRules` 持有 |
 | `QuestService` | **对外门面**：转发上报 / 追踪、写回存档、按固定顺序发布事件；读档重载（`ReloadFromSave`，订阅 `SessionStartedEvent`）与重置进度（`ResetProgress`）共用私有 `RestoreAndBroadcast` | 根作用域单例 + `IGameService` |
-| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；解析目标世界坐标（`QuestTarget`）。NPC 头顶锚点三级（纯静态 `ResolveNpcAnchor`）：① NPC 根上 `DialogueInteractableMarker.TryGetIconAnchor` → 与对话「…/!」图标同位；② 根 Collider 顶部 + `MarkerLift`；③ 位置上方 `LocationMarkerHeight`。Collider 与标记组件首次遇到时各 `GetComponent` 一次并缓存（含 null），场景卸载清已销毁项 | 根作用域入口点（`AsSelf`） |
+| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；玩家锚点 `PlayerAnchor` 取统一交互登记表的 `IInteractionRegistry.Actor`（`QuestSceneBinder.cs:51`）；解析目标世界坐标（`QuestTarget`）。NPC 头顶锚点三级（纯静态 `ResolveNpcAnchor`）：① NPC 根上 `DialogueInteractableMarker.TryGetIconAnchor` → 与对话「…/!」图标同位；② 根 Collider 顶部 + `MarkerLift`；③ 位置上方 `LocationMarkerHeight`。Collider 与标记组件首次遇到时各 `GetComponent` 一次并缓存（含 null），场景卸载清已销毁项 | 根作用域入口点（`AsSelf`） |
 | `QuestTarget` | 只读结构体：测距用 `Position`（脚底/地点）+ 标记与投影用 `Anchor`（头顶）+ `Interactable`（TalkTo 目标的 NPC 交互组件，有无碰撞体都带；地点目标为 null） | `QuestSceneBinder.TryResolveTarget` 产出 |
 | `QuestTargetMarker` | 世界空间标记 MonoBehaviour：`Show(Vector3)/Hide()`，朝向相机由预制体自带 `CameraBillboard` 负责；摆到 NPC 头顶时替代该 NPC 的对话「…/!」图标（由 `QuestHudPresenter` 接管，不叠加） | `QuestHudPresenter` 实例化并驱动；沉浸模式（`IHudVisibility.IsHudHidden`）下与对白期间一样隐藏，贴边箭头随 Hud 面板由 UIService 隐藏 |
 | `QuestLocation` | 场景组件：地点键 + 半径，供到达判定与指引 | 场景物体 |
@@ -81,7 +81,8 @@ maturity: stable
 ## 依赖方向
 
 `Game.Quest → Game.Core`（UI / Save / Config / Timing / Input / Events / Telemetry / Boot / Assets / Logging / `Simulation.GameMath`），
-`Game.Quest → Game.Dialogue`（只用 `DialogueService` 的 `OnStarted/OnEnded` 与 `IsRunning`、`DialogueSceneBinder.Actor/Bound`、
+`Game.Quest → Game.Interaction`（只用 `IInteractionRegistry.Actor` 当玩家锚点，`QuestSceneBinder.cs:51`），
+`Game.Quest → Game.Dialogue`（只用 `DialogueService` 的 `OnStarted/OnEnded` 与 `IsRunning`、`DialogueSceneBinder.Bound`、
 `DialogueInteractable.DialogueId/transform/SetMarkerOverridden`（`internal`）、`DialogueInteractableMarker.TryGetIconAnchor`），
 `Game.Quest → Game.Session`（只用 `SessionStartedEvent`，`QuestService.cs:123` 订阅）。`Game.Dialogue`、`Game.Core` 不认识 `Game.Quest`；Narrative 运行适配只读完成事件及存档 DTO，用于配置标记同步；
 反向调用方：`Game.Session`（`SaveTriggerBridge` 订阅任务事件、`SessionStateAdapter` 读 `QuestService`）、`Game.Loot`（`Report(Counter)`）、
@@ -96,9 +97,10 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
   `MessagePipeOptions`，Dialogue 因此退回 C# `event`（违反 `EventConventions.cs` 第 1 条）。Quest 不想再开这个例外，
   于是给 `GameplayInstaller` 加一个默认空实现的虚方法，在 `Install` 之前把 `options` 递进来，既有注册器零改动
   （`GameplayInstaller.cs`；`GameLifetimeScope.InstallGameplay`）。
-- **玩家原点复用 `DialogueSceneBinder.Actor.Anchor`**：SampleScene 玩家根已挂 `DialogueInteractionActor`，
-  再加一个空标记组件是重复登记，扫场景只该有一处（`QuestSceneBinder.PlayerAnchor`）。代价是没有对话模块的场景
-  任务系统就没有到达判定与指引；将来要解耦再在 Core 抽 `IPlayerAnchor`，只改这一处。
+- **玩家原点取统一交互的玩家标记 `IInteractionRegistry.Actor.Anchor`**（2026-10-08 起；此前借 `DialogueSceneBinder.Actor` 转发，
+  该转发属性已删）：扫玩家标记全工程只在 `Game.Interaction.InteractionRegistry` 一处，再加一个空标记组件是重复登记。
+  它还负责「旧场景卸载后重扫找回新标记」，任务的到达判定与指引因此在场景重进后也不会失灵。
+  将来要彻底解耦再在 Core 抽 `IPlayerAnchor`，只改 `QuestSceneBinder.PlayerAnchor` 这一处。
 - **指引数学用 `Game.Core.Simulation.GameMath` 而非 `Mathf`/`Math`**：Runtime 有「重放确定性」lint 规则禁用原生数学库，
   `QuestGuidanceMath` 改用 `GameMath.Atan2/Min/Abs/Floor`；弧度转角度的换算常量本地写字面值
   （`QuestGuidanceMath.cs:18`），半数进位用 `(int)GameMath.Floor(d + 0.5f)` 而非原生四舍五入（会做银行家舍入）。
@@ -133,7 +135,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | 目标标记预制体 | Addressables（UI 组）`QuestTargetMarker` → `Prefabs/World/QuestTargetMarker.prefab`（根 `QuestTargetMarker`，子 `Icon`：SpriteRenderer + `CameraBillboard`，缩放 0.45 与 NPC 对话标记 `MarkerIdle` / `MarkerFocus` 一致，贴图同为 `Marker_Focus.png` 染黄；改对话标记尺寸要同步改这里） | 找不到 / 根上无组件：画面内标记不显示，记 Error 并埋 `marker_missing`；画面外箭头不受影响 |
 | `QuestConfig` 标记字段 | `MarkerLift`(0.3，仅 NPC 没有对话标记图标时的降级)、`LocationMarkerHeight`(1.5)、`TargetMarkerAddress`("QuestTargetMarker") 需与预制体地址一致 | 地址对不上：走上一行的降级；高度 / 抬升值用默认值不影响编译 |
 | 场景地点 | 场景里 `QuestLocation` 的 `locationKey` 要与表里 `ReachLocation` 目标的 `key`（`location` 留空时兜底用 `key`）对应 | 找不到地点：驱动器不判定、指引不显示，`QuestSceneBinder` 记 Warn |
-| 玩家标记 | 玩家根挂 `DialogueInteractionActor`（复用对话模块） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
+| 玩家标记 | 玩家根挂 `InteractionActor`（`Game.Interaction`，与统一交互共用） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
 | 入口 | 从 Boot → 标题「开始」进场景才有任务服务 | 直接 Play 玩法场景：服务未初始化，`IsReady == false`，查询返回空、上报被忽略 |
 
 示例接线：`Assets/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；回放也在 SampleScene 上跑。

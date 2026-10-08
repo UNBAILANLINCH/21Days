@@ -4,6 +4,7 @@ using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Dialogue;
 using Game.Identity;
+using Game.Interaction;
 using Game.Quest;
 using Game.Session;
 using MessagePipe;
@@ -25,7 +26,7 @@ namespace Game.Narrative
             builder.Register<NarrativeConditionSource>(Lifetime.Singleton);
             builder.Register<NarrativeCatalog>(Lifetime.Singleton);
             builder.Register(resolver => new NarrativeService(
-                resolver.Resolve<NarrativeCatalog>(), resolver.Resolve<DialogueService>(), resolver.Resolve<DialogueSceneBinder>(),
+                resolver.Resolve<NarrativeCatalog>(), resolver.Resolve<DialogueService>(), resolver.Resolve<IInteractionRegistry>(),
                 resolver.Resolve<NarrativeConditionSource>(), resolver.Resolve<ISaveService>(),
                 resolver.Resolve<ISubscriber<SessionStartedEvent>>(), resolver.Resolve<ISubscriber<QuestCompletedEvent>>(),
                 resolver.Resolve<IPublisher<NarrativeChangedEvent>>(), resolver.Resolve<ITelemetryService>().Scope("narrative"),

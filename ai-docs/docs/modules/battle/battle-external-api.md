@@ -13,8 +13,8 @@ maturity: seed
 ## 怎么开一场仗（剧情侧）
 
 1. 剧情表里写一个 `kind: Battle` 阶段：`payload` = BOSS 定义 id，`battleResults` 声明 `Victory` / `Downed`（样例 `Tables/Data/narrative/sample_boss_battle.json`）。
-2. 场景里放一个剧情目标：`NarrativeTrigger`（`targetKind` 对上遭遇表）+ 同物体 `DialogueInteractable`（焦点 / 提示 / 头顶标记；`NarrativeTrigger` 绑定时接管交互，`NarrativeTrigger.cs:53-58`）。
-3. 剧情 `DriveAsync` 停到 Battle 阶段时同步发布 `Game.Narrative.BattleStageEnteredEvent`（`NarrativeService.cs:284-288`），`BattleFlow` 订阅并开战。
+2. 场景里放一个剧情目标：`NarrativeTrigger`（`targetKind` 对上遭遇表）+ 同物体 `DialogueInteractable`（焦点 / 提示 / 头顶标记；`NarrativeTrigger` 绑定时接管交互，`NarrativeTrigger.cs:55-60`）。
+3. 剧情 `DriveAsync` 停到 Battle 阶段时同步发布 `Game.Narrative.BattleStageEnteredEvent`（`NarrativeService.cs:286-290`），`BattleFlow` 订阅并开战。
 4. 打完 `BattleFlow` 用事件里带的三项身份 + `BattleExitKeys`（`Victory` / `Downed`）回写 `NarrativeService.CompleteBattleAsync`；剧情按出口迁移。
 
 BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记；id 对不上则开战报错、不开仗（`BattleFlow.cs:144-150`）。
@@ -33,9 +33,9 @@ BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记�
 | 成员 | 说明 |
 | --- | --- |
 | `BattleStageEnteredEvent`（`readonly struct`）：`Generation` / `ActivationId` / `TargetId` / `StageId` / `Payload` | 三个发布点见 narrative-external-api「战斗阶段通知」 |
-| `NarrativeService.TryBeginBattle(generation, activationId, targetId)` | 开打前登记在途；`false` = 旧身份或已在途，不该开仗。`NarrativeService.cs:227` |
-| `NarrativeService.ReleaseBattle(generation, activationId)` | 没打完就收场时解除在途。`NarrativeService.cs:244` |
-| `NarrativeService.CompleteBattleAsync(...)` | 按出口键回写。`NarrativeService.cs:206` |
+| `NarrativeService.TryBeginBattle(generation, activationId, targetId)` | 开打前登记在途；`false` = 旧身份或已在途，不该开仗。`NarrativeService.cs:229` |
+| `NarrativeService.ReleaseBattle(generation, activationId)` | 没打完就收场时解除在途。`NarrativeService.cs:246` |
+| `NarrativeService.CompleteBattleAsync(...)` | 按出口键回写。`NarrativeService.cs:208` |
 
 ## `Game.Battle.BossRosterConfig` / `BossDefinition`（ScriptableObject 数据）
 

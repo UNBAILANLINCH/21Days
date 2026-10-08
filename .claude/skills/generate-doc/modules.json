@@ -8,6 +8,11 @@
     }
   },
   "modules": {
+    "interaction": {
+      "src": "Assets/_Project/Scripts/Runtime/Interaction",
+      "docs": "ai-docs/docs/modules/interaction",
+      "status": "ready"
+    },
     "rhythm": {
       "src": "Assets/_Project/Scripts/Runtime/Rhythm",
       "docs": "ai-docs/docs/modules/rhythm",

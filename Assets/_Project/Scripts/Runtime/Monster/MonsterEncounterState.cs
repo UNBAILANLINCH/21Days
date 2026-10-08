@@ -5,6 +5,7 @@
 //   在此之前那个组件**没有任何生产调用方**（判定与结算三层齐全，但按 F 没人响应）。
 //   判定内核走**可选**的 StealthKernel（容器里没有它时按占位阈值跑，由组件自己打 Warn）：
 //   独立原型场景与纯 Monster 的测试作用域都没有 StealthInstaller，不许把它变成硬依赖。
+//   统一交互焦点（PRP/interaction D6，F 键归属）同样按可选取：容器里有 IInteractionFocus 就传给组件，按 F 时焦点在场让位给交互。
 // 触屏控件（原 EncounterTouchControls，代码现搭的虚拟摇杆 + 潜行 / 伪装 / 攻击）已从本状态移除：
 //   PRP/exploration-whitebox 波 2 起由 Exploration HUD 预制体（OnScreenStick / OnScreenButton）提供，按 IsTouchPrimary 显隐。
 using System.Threading;
@@ -15,6 +16,7 @@ using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Interaction;
 using Game.Stealth;
 using UnityEngine;
 using VContainer;
@@ -142,7 +144,9 @@ namespace Game.Monster
         /// 三处刻意的取值：① 判定内核取可选的 <c>StealthKernel</c>（容器里没有就用组件的占位阈值，它会打 Warn）；
         /// ② 埋点作用域固定 <c>stealth</c>（与 <c>ExecutionResolver</c> 的事件名同一模块）；
         /// ③ 动作资产从 <see cref="IInputService"/> 拿——那是「谁持有动作图」的唯一出处，
-        /// 组件 Inspector 上的字段只在「没有接线方」时兜底。
+        /// 组件 Inspector 上的字段只在「没有接线方」时兜底；
+        /// ④ 统一交互焦点取可选的 <see cref="IInteractionFocus"/>（PRP/interaction D6：按 F 时屏幕上有交互提示就归交互）——
+        /// 纯 Monster 的测试作用域没有 InteractionInstaller，同 StealthKernel 不许变成硬依赖。
         /// </para>
         /// </summary>
         public void BindExecution(ExecutionInteractor interactor)
@@ -159,13 +163,15 @@ namespace Game.Monster
             // 组件会退回占位阈值并打一条 Warn，不会静默改变手感。
             StealthKernel kernel = null;
             container.TryResolve(out kernel);
+            IInteractionFocus interactionFocus = null;
+            container.TryResolve(out interactionFocus);
 
             // lint-ok 的理由：这一行取的是**动作资产引用**（交给输入层组件做按键绑定），不是设备读数——
             // 按键由 ExecutionInteractor 自己读，而处决按 PRP §2.4 明确不进确定性内核、不进回放（已知取舍）。
             GameInput actions = inputService == null ? null : inputService.Actions; // lint-ok: 只取动作资产引用，不读输入设备；处决不进确定性内核
             interactor.Configure(player, monsterRules, step.FactSink,
                 kernel == null ? null : kernel.Assassination, step, telemetry.Scope("stealth"),
-                actions == null ? null : actions.asset);
+                actions == null ? null : actions.asset, interactionFocus);
         }
 
         protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)

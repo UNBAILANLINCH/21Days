@@ -8,6 +8,7 @@ using Game.Core.Boot;
 using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Quest;
 using Game.Session;
 using MessagePipe;
@@ -23,7 +24,8 @@ namespace Game.Narrative
 
         private readonly NarrativeCatalog catalog;
         private readonly DialogueService dialogue;
-        private readonly DialogueSceneBinder scene;
+        // 玩家锚点来源（PRP/interaction D7）：原来借 DialogueSceneBinder.Actor，现在直接取统一交互的登记表。
+        private readonly IInteractionRegistry interaction;
         private readonly ISaveService saves;
         private readonly ISubscriber<SessionStartedEvent> sessions;
         private readonly ISubscriber<QuestCompletedEvent> completed;
@@ -37,7 +39,7 @@ namespace Game.Narrative
         private bool busy;
         private bool disposed;
 
-        public NarrativeService(NarrativeCatalog catalog, DialogueService dialogue, DialogueSceneBinder scene,
+        public NarrativeService(NarrativeCatalog catalog, DialogueService dialogue, IInteractionRegistry interaction,
             NarrativeConditionSource conditions, ISaveService saves, ISubscriber<SessionStartedEvent> sessions,
             ISubscriber<QuestCompletedEvent> completed, IPublisher<NarrativeChangedEvent> changed, ITelemetryScope telemetry,
             IPublisher<BattleStageEnteredEvent> battleStages = null)
@@ -46,7 +48,7 @@ namespace Game.Narrative
             this.battleStages = battleStages;
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
-            this.scene = scene ?? throw new ArgumentNullException(nameof(scene));
+            this.interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
             Conditions = conditions ?? throw new ArgumentNullException(nameof(conditions));
             this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
             this.sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
@@ -89,7 +91,7 @@ namespace Game.Narrative
             subscriptions = bag.Build();
             SceneManager.sceneLoaded += BindScene;
             foreach (NarrativeTrigger target in UnityEngine.Object.FindObjectsByType<NarrativeTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                target.Bind(this, scene.Actor);
+                target.Bind(this, interaction.Actor);
             foreach (NarrativeFlagVisibility visibility in UnityEngine.Object.FindObjectsByType<NarrativeFlagVisibility>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 visibility.Bind(this);
             telemetry.Track("initialized", ("stories", catalog.Stories.Count));
@@ -403,7 +405,7 @@ namespace Game.Narrative
             foreach (GameObject root in loaded.GetRootGameObjects())
             {
                 foreach (NarrativeTrigger target in root.GetComponentsInChildren<NarrativeTrigger>(true))
-                    target.Bind(this, scene.Actor);
+                    target.Bind(this, interaction.Actor);
                 foreach (NarrativeFlagVisibility visibility in root.GetComponentsInChildren<NarrativeFlagVisibility>(true))
                     visibility.Bind(this);
             }

@@ -87,7 +87,7 @@ Game.Battle（Runtime/Battle/，走 Game.Runtime）
 ```text
 SampleScene 的 Npc_SampleBoss（NarrativeTrigger + DialogueInteractable）── 按 E
   → NarrativeService.TryEncounterAsync → 故事 sample_boss_battle：taunt（对白）→ fight（Battle，payload = sample_boss）
-  → DriveAsync 停在 Battle 阶段，同步发布 BattleStageEnteredEvent（NarrativeService.cs:284-288）
+  → DriveAsync 停在 Battle 阶段，同步发布 BattleStageEnteredEvent（NarrativeService.cs:286-290）
 BattleFlow.HandleStage → Begin（BattleFlow.cs:106,119）
   1 roster.TryGet(payload)                    找不到：Error + 埋点 boss_not_found，不开仗（:144-150）
   2 narrative.TryBeginBattle(stage)           登记「战斗在途」，之后 CanSave = false（:160）
@@ -135,11 +135,11 @@ Narrative：Victory → cleared（写 world.sampleboss.defeated，NarrativeFlagV
 
 ## 战中不存档（D9）
 
-- 开打前 `TryBeginBattle` 登记「战斗在途」（复用阶段帧的 `RequestIssued`，`NarrativeService.cs:227-238`）→ `NarrativeService.CanSave` 为假
-  （`NarrativeService.cs:69`、`IsStable` 在 `:345-347`）→ Session 的 `NarrativeStable` 闸门（`SessionStateAdapter.cs:72`、`GameSession.cs:251,275`）
+- 开打前 `TryBeginBattle` 登记「战斗在途」（复用阶段帧的 `RequestIssued`，`NarrativeService.cs:229-240`）→ `NarrativeService.CanSave` 为假
+  （`NarrativeService.cs:71`、`IsStable` 在 `:345-347`）→ Session 的 `NarrativeStable` 闸门（`SessionStateAdapter.cs:72`、`GameSession.cs:251,275`）
   挡住自动保存与离场保存。**Session 本身没改**（`BattleWorldLock.cs:7-8` 同样说明）。
 - 战斗会话状态不进快照（不升 `ReplayFormat`）。**读档时若剧情停在 Battle 阶段，`ReloadFromSave` 先清掉存档里残留的在途标记，再重发 `BattleStageEnteredEvent`，战斗从头开始**
-  （`NarrativeService.cs:114-120`）。读档恢复时世界可能还在标题 → 靠 `SceneWorldGate` 等「场景状态且黑幕没盖」才开战（`SceneWorldGate.cs:22`、`BattleFlow.cs:177`）。
+  （`NarrativeService.cs:116-122`）。读档恢复时世界可能还在标题 → 靠 `SceneWorldGate` 等「场景状态且黑幕没盖」才开战（`SceneWorldGate.cs:22`、`BattleFlow.cs:177`）。
 - 还在等世界就绪时换了身份的新通知会顶掉旧请求；同身份重复通知忽略并埋 `stage_duplicate`；已经按住世界后来的新通知忽略并埋 `stage_ignored_busy`
   （`BattleFlow.cs:122-141`）。
 
@@ -191,10 +191,15 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 - 返回句柄 Dispose 即恢复；只影响之后开打的仗（`BattleSetup.cs:57-60`）。不改任何配置资产。
 - 表现层（`BattleScenePresenter`）仍拿装配时那份数值画招式说明（`BattleSetup.cs:18-19`）；只换 BOSS 招式时两边不矛盾，换玩家招式数值会不一致。
 
-## 交互动词写死为「对话」
+## 交互提示「挑战」与交互转向（✅ 已做，原待办「交互动词写死为『对话』」，PRP §9「收尾修正」④）
 
-BOSS NPC 按 E 的提示是「E 对话 · 名字」：`DialogueInteractHudView.cs:25` 写死 `Verb = "对话"`，本模块**没有新加动词机制**（PRP §9「收尾修正」④），
-所以挑战 BOSS 的提示现在**仍显示「对话」**。要改成「挑战」需要给 `DialogueInteractable` 加动词字段，那是 Dialogue 模块的改动。
+- **动词**：BOSS NPC 的提示是「[E] 挑战 · 阶段一 BOSS（占位）」：统一交互（`PRP/interaction` D10）给 `DialogueInteractable` 加了 `verb` 字段（默认「对话」），
+  SampleScene 的 `Npc_SampleBoss` 配成「挑战」；提示由 `Game.Interaction.InteractPromptHudView` 显示，胶囊宽度随文字伸长（320–640），整句不截断。本模块没有自己的动词机制。
+- **转向**：按 E 时统一焦点抛 `OnInteracted`，`InteractionPuppetPresenter` 让 BOSS 小人转向玩家、玩家小人转向 BOSS（朝向保持，D11）。
+  **不带进战斗**：`BattleArena` 里的两只小人是另一份实例（BOSS 按 `StagePrefab` 现实例化，玩家是战斗场景里摆好的），`BattleActor.BindVisual`
+  关掉它们的 `ChibiPuppetMotion`（朝向保持唯一的读方，`BattleActor.cs:271-272`），`ResetPose` 再 `SetFacing(faceLeft, true)` 立即翻面布台（`BattleActor.cs:134`）。
+  所以本模块**不需要**在战斗接管时解除保持，`BattleActor` 一行没改。世界里那只 BOSS 小人回到世界后仍面向玩家上次站的方向（NPC 不走动，保持不解除）。
+  回放 `Victory_BossLeavesAndFlagWritten` 断言了这三件事（BOSS 与玩家进入保持、战斗小人不是同一实例且无保持、朝向等于 `BattleActor.FaceLeft`）。
 
 ## 占位与待拍板（PRP §8）
 
@@ -227,15 +232,15 @@ BOSS NPC 按 E 的提示是「E 对话 · 名字」：`DialogueInteractHudView.c
 流程：`stage_received` / `stage_duplicate` / `stage_stale` / `stage_ignored_busy` / `boss_not_found` / `presenter_missing` / `battle_started` / `battle_finished` /
 `battle_cancelled` / `battle_failed` / `result_rejected` / `write_back_outlived_curtain` / `settings_overridden` / `command_rejected` / `item_consume_failed`（均在 `BattleFlow.cs`）；
 场景：`arena_loaded` / `arena_load_failed` / `restore_failed` / `presenter_close_failed`（`BattleArena.cs`）；表现：`presenter_opened` / `presenter_closed` / `command_chosen`（`BattleScenePresenter.cs`）。
-剧情侧另有 `battle_begun` / `battle_released` / `battle_stage_entered`（`NarrativeService.cs:236,249,363`）。
+剧情侧另有 `battle_begun` / `battle_released` / `battle_stage_entered`（`NarrativeService.cs:238,251,365`）。
 
 ## 已知约束
 
 - **一次只跑一场**：`BattleArena.EnterAsync` 在场景已在时抛（`BattleArena.cs:53`）；`BattleFlow` 一次一个 `Run`（`BattleFlow.cs:60`）。
 - **表现层连续 100 次给被拒指令即放弃这一场**（`BattleFlow.cs:39,317-318`），防同步死循环。
-- **表现层坏了也不卡剧情**：没有 `IBattlePresenter` 时开战报错放弃、不登记在途，剧情停在 Battle 阶段，可再交互重试（`BattleFlow.cs:152-158`、`NarrativeService.cs:159-168`）。
+- **表现层坏了也不卡剧情**：没有 `IBattlePresenter` 时开战报错放弃、不登记在途，剧情停在 Battle 阶段，可再交互重试（`BattleFlow.cs:152-158`、`NarrativeService.cs:161-170`）。
 - **未接的路径**：EncounterStep 的进战斗判定（偷袭 / 被打）没接，战斗外醉酒值没有真实出处，潜行 / 遭遇的结果回写没接——详见 turnbased guide「接线清单」。
-- **BOSS NPC 的交互转交**依赖 `NarrativeTrigger` 与 `DialogueInteractable` 同物体（`NarrativeTrigger.cs:53-58`）；根作用域销毁后旧绑定的交互被 `IsReady` 守卫挡掉（`NarrativeTrigger.cs:65`）。
+- **BOSS NPC 的交互转交**依赖 `NarrativeTrigger` 与 `DialogueInteractable` 同物体（`NarrativeTrigger.cs:55-60`）；根作用域销毁后旧绑定的交互被 `IsReady` 守卫挡掉（`NarrativeTrigger.cs:67`）。
 
 ## 禁止事项
 

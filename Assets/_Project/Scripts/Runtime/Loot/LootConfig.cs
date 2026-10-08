@@ -1,4 +1,4 @@
-// 职责：物资箱模块的表现与规则参数（交互半径、任务上报键、提示 / 通知文案、头顶标记抬高）。
+// 职责：物资箱模块的表现与规则参数（交互半径、任务上报键、交互提示的动词与名字、通知文案、头顶标记抬高）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：QuestConfig / DialogueConfig 各管本模块文案与参数，物资箱的半径与奖励文案不属于它们。
 //   2. 扩展不行：塞进 QuestConfig 会让任务模块认识「物资箱」，依赖方向是 Loot → Quest，反过来不行。
@@ -17,8 +17,11 @@ namespace Game.Loot
         [Tooltip("开箱成功后向任务系统上报的 Counter 目标键（支线 2002 用 \"crate\"）。")]
         [SerializeField] private string crateQuestKey = "crate";
 
-        [Tooltip("焦点在箱子上时 HUD 显示的交互提示；按键提示随 Gameplay/Interact 的绑定手写，改绑定时同步。")]
-        [SerializeField] private string promptText = "E 打开物资箱";
+        [Tooltip("焦点在箱子上时统一交互提示里的动词：「[E] 动词 · 名字」。键位徽章由交互 HUD 按交互键的第一条键盘绑定自动显示，这里不写键。")]
+        [SerializeField] private string promptVerb = "打开";
+
+        [Tooltip("焦点在箱子上时统一交互提示里的名字。")]
+        [SerializeField] private string promptName = "物资箱";
 
         [Tooltip("开箱通知的标题。")]
         [SerializeField] private string rewardTitle = "获得物资";
@@ -31,7 +34,8 @@ namespace Game.Loot
 
         public float CrateInteractRadius => crateInteractRadius;
         public string CrateQuestKey => crateQuestKey;
-        public string PromptText => promptText;
+        public string PromptVerb => promptVerb;
+        public string PromptName => promptName;
         public string RewardTitle => rewardTitle;
         public string RewardBodyFormat => rewardBodyFormat;
         public float MarkerLift => markerLift;

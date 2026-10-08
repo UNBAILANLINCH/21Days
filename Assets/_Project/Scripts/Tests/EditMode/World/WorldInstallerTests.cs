@@ -11,6 +11,7 @@ using Game.Core.Save;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
+using Game.Interaction;
 using Game.IsometricExploration;
 using Game.Player;
 using Game.Tests.EditMode.Core;
@@ -122,14 +123,14 @@ namespace Game.Tests.EditMode.World
         /// 按 Boot 的接法把注册器挂到一个物体上再调 <c>Install</c>，然后建容器。
         /// <para>
         /// 本类依赖的服务里，框架侧用到 <c>IAssetService</c> / <c>IConfigService</c> / <c>ISaveService</c> /
-        /// <c>ITelemetryService</c> / <c>IGameFlow</c> / <c>IInputService</c>，玩法侧用到
-        /// <c>PlayerModel</c> / <c>PlayerRules</c> / <c>SimulationRunner</c>，各自补一个桩或真服务就能建起来
+        /// <c>ITelemetryService</c> / <c>IGameFlow</c>，玩法侧用到
+        /// <c>PlayerModel</c> / <c>PlayerRules</c> / <c>SimulationRunner</c> / <c>IInteractionRegistry</c>，各自补一个桩或真服务就能建起来
         /// （同 IdentityInstallerTests 的做法）。
         /// </para>
         /// <para>
         /// <b>为什么玩法侧那几个也要在这儿补</b>：<c>RegisterEntryPoint&lt;WorldSceneDriver&gt;</c> 会在
         /// **容器构建期**就解析该类型（VContainer 要把它挂进 player loop），所以「装了 World 就必须有
-        /// GameFlow / Input / Player / Simulation」是一条真实耦合，不是测试凑数。它换来的是
+        /// GameFlow / Player / Simulation / 统一交互登记表」是一条真实耦合，不是测试凑数。它换来的是
         /// 「驱动场景流转本来就依赖流程层」这件事在装配期就暴露，而不是等进场景才炸。
         /// </para>
         /// </summary>
@@ -152,8 +153,11 @@ namespace Game.Tests.EditMode.World
             builder.Register<TelemetryService>(Lifetime.Singleton).As<ITelemetryService>();
 
             // —— 驱动 WorldSceneDriver 要的框架侧依赖（真依赖，不是为过测试而加）——
+            // 驱动不再读交互键（PRP/interaction D9），所以不再要 IInputService。
             builder.RegisterInstance<IGameFlow>(new UnusedGameFlow());
-            builder.RegisterInstance<IInputService>(new UnusedInput());
+
+            // 按键型传送点改走统一交互：驱动只登记 / 注销，登记表用真实现（不 Start，不扫场景）。
+            builder.RegisterInstance<IInteractionRegistry>(new InteractionRegistry(() => null));
 
             // —— 驱动要的玩法侧依赖：用真类型 + 代码建的配置资产（字段默认值都是正数，构造校验过得去）——
             builder.RegisterInstance(UnityEngine.ScriptableObject.CreateInstance<PlayerConfig>());
@@ -187,20 +191,6 @@ namespace Game.Tests.EditMode.World
             public Cysharp.Threading.Tasks.UniTask GoToAsync<TState>(
                 System.Threading.CancellationToken ct = default) where TState : GameState =>
                 throw new System.NotSupportedException("装配测试不切状态");
-        }
-
-        /// <summary>动作集为空：本类测试不读输入（<c>Actions</c> 在真实服务初始化前也确实为 null）。</summary>
-        private sealed class UnusedInput : IInputService
-        {
-            public GameInput Actions => null;
-
-            public void EnableMap(string map)
-            {
-            }
-
-            public void DisableMap(string map)
-            {
-            }
         }
 
         /// <summary>推进器不取输入：本类测试不跑逻辑 tick。</summary>

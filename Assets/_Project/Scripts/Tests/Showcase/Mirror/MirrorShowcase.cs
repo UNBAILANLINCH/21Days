@@ -20,6 +20,7 @@ using Game.Core.Input;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Loot;
 using Game.Mirror;
 using Game.Monster;
@@ -135,10 +136,11 @@ namespace Game.Tests.Showcase.Mirror
         private SpiritSightPresenter sight;
         private LootService loot;
         private LootConfig lootConfig;
-        private SupplyCrateFocus crateFocus;
+        // 统一交互后箱子与 NPC 共用一个焦点（PRP/interaction）；两个字段指向同一个 IInteractionFocus，保留原名少改用例。
+        private IInteractionFocus crateFocus;
         private DialogueService dialogue;
         private DialogueRules dialogueRules;
-        private DialogueInteractionFocus dialogueFocus;
+        private IInteractionFocus dialogueFocus;
         private QuestService quest;
 
         protected override string Module => "Mirror";
@@ -280,7 +282,7 @@ namespace Game.Tests.Showcase.Mirror
             yield return Step("走到长者身前，面朝他", null, 0f);
             yield return WalkAround(elderPos + ElderStandOffset, 0.3f, elder.transform);
             yield return FaceToward(() => elderPos);
-            yield return Check("长者进入交互范围（屏幕下方出现交互提示）", () => dialogueFocus.Current == elder, 3f);
+            yield return Check("长者进入交互范围（屏幕下方出现交互提示）", () => ReferenceEquals(dialogueFocus.Current, elder), 3f);
 
             yield return Step("按交互键（Gameplay/Interact，键盘 E）和长者交谈", null, 0f);
             yield return Input.Press(inputService.Actions.Gameplay.Interact);
@@ -460,10 +462,10 @@ namespace Game.Tests.Showcase.Mirror
             sight = ResolveService<SpiritSightPresenter>();
             loot = ResolveService<LootService>();
             lootConfig = ResolveService<LootConfig>();
-            crateFocus = ResolveService<SupplyCrateFocus>();
+            crateFocus = ResolveService<IInteractionFocus>();
             dialogue = ResolveService<DialogueService>();
             dialogueRules = ResolveService<DialogueRules>();
-            dialogueFocus = ResolveService<DialogueInteractionFocus>();
+            dialogueFocus = ResolveService<IInteractionFocus>();
             quest = ResolveService<QuestService>();
             // MirrorConfig / LootConfig 是 ScriptableObject，判空只用 != null。
             return inputService != null && inputService.Actions != null && ui != null && worldPause != null
@@ -860,8 +862,8 @@ namespace Game.Tests.Showcase.Mirror
         /// <summary>等箱子成为交互焦点再按交互键；焦点不在它身上时不按（此时按 E 可能拉起旁边 NPC 的对白），由后续检查点记失败。</summary>
         private IEnumerator OpenCrate(SupplyCrate crate)
         {
-            yield return WaitUntil("箱子成为交互焦点（屏幕下方出现开箱提示）", () => crateFocus.Current == crate, 3f);
-            if (crateFocus.Current != crate)
+            yield return WaitUntil("箱子成为交互焦点（屏幕下方出现开箱提示）", () => ReferenceEquals(crateFocus.Current, crate), 3f);
+            if (!ReferenceEquals(crateFocus.Current, crate))
             {
                 yield break;
             }

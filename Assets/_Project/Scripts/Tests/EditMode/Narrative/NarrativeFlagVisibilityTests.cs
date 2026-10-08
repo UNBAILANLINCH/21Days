@@ -17,6 +17,7 @@ using Game.Core.Save;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Narrative;
 using Game.Player;
 using Game.Quest;
@@ -59,14 +60,15 @@ namespace Game.Tests.EditMode.Narrative
             var controller = new DialogueController(dialogueRules, dialogues, ui, new UnusedAssets(), new TestClock(), null);
             dialogue = new DialogueService(dialogues, dialogueRules, controller, Track(ScriptableObject.CreateInstance<DialogueConfig>()),
                 conditions, new Pause(), new NoInput(), ui, null);
-            var binder = new DialogueSceneBinder(dialogue, ui, new Bus<HudVisibilityChangedEvent>());
+            // 玩家锚点来源改为统一交互的登记表（PRP/interaction D7）；不 Start，Actor 为空，同原来未启动的 DialogueSceneBinder。
+            var interaction = new InteractionRegistry();
             sessions = new Bus<SessionStartedEvent>();
             var battles = new Bus<BattleStageEnteredEvent>();
             battles.Subscribe(new Handler<BattleStageEnteredEvent>(published.Add));
-            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, binder, conditions, saves,
+            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, interaction, conditions, saves,
                 sessions, new Bus<QuestCompletedEvent>(), new Bus<NarrativeChangedEvent>(), null, battles);
             narrative.InitializeAsync(default).GetAwaiter().GetResult();
-            var actor = Track(new GameObject("FlagVisibilityTestPlayer")).AddComponent<DialogueInteractionActor>();
+            var actor = Track(new GameObject("FlagVisibilityTestPlayer")).AddComponent<InteractionActor>();
             target = Track(new GameObject("FlagVisibilityTestBoss")).AddComponent<NarrativeTrigger>();
             target.Configure(BossTarget, BossKind, narrative, actor);
         }

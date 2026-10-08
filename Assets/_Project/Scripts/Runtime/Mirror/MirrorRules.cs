@@ -1,7 +1,7 @@
 // 职责：照镜的纯规则——扇形内选最近对象、按种类与线索给结果、自照恒空白、线索是否齐、结果写进辨认记录、
 //   候选逻辑位置取场景投影还是巡逻怪模型；不认识存档服务、场景、事件与配置表。
 // 为什么新建（复用 → 扩展 → 新建）：
-//   1. 复用不行：SupplyCrateFocus.SelectNearest 只按半径选最近的箱子，没有扇形、种类与线索判定。
+//   1. 复用不行：InteractionSelector.Select（Game.Interaction，原物资箱焦点的选最近已并入）只按半径选最近的可交互对象，没有扇形、种类与线索判定。
 //   2. 扩展不行：塞进 MonsterRules / PlayerRules 会让确定性内核认识妖物表与辨认记录（PRP/mirror-core 2.3「不改内核」）。
 //   同 LootRules / QuestRules 的分法：规则抽成纯 C#，脱离容器在 EditMode 穷举。
 using System.Collections.Generic;

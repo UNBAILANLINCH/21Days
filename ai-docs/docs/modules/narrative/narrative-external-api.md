@@ -35,12 +35,12 @@ void CaptureIntoPartition();
 - `Capture()` 是当前内存深拷贝，不承诺可落盘；Session 必须检查 CanSave，稳定等待/结束才支持恢复。
 - 提交意图从 Generation 与 Capture().Current 固定身份；不能 await 回来再读取新阶段身份。
 - `NarrativeTrigger.Configure(id, kind, service, actor)` 用于运行时 NPC；场景固定 NPC 由服务在加载时 Bind。
-- `NarrativeTrigger` 绑定时若同物体有 `DialogueInteractable`，会 `SetInteractionHandover` 接管交互（`NarrativeTrigger.cs:53-58`），`HasFocusEntry` 为 true；`InteractAsync` 在服务不可用时返回 `false`（`IsReady` 守卫，`:65`）。
+- `NarrativeTrigger` 绑定时若同物体有 `DialogueInteractable`，会 `SetInteractionHandover` 接管交互（`NarrativeTrigger.cs:55-60`），`HasFocusEntry` 为 true；`InteractAsync` 在服务不可用时返回 `false`（`IsReady` 守卫，`:65`）。
 - `NarrativeChangedEvent.Stage` 是已写回分区的通知，Session 只合并保存请求，不参与推进。
-- `OnChanged`（`NarrativeService.cs:64`）与 `NarrativeChangedEvent` 同一时刻触发，给不进容器的场景组件用；回调里只读状态、**不得推进剧情**；订阅方抛异常会被逐个兜住。
-- `HasStoryFlag(key)`（`NarrativeService.cs:73`）：当前槽位剧情标记里有没有该键；未就绪 / 空键为 false；不含身份 / 遭遇的派生事实。
-- `TryEncounterAsync` 对 `TriggerKind == "Interact"` 且 `EntryEpoch == 0` 的候选，用 `NextActivationId` 当纪元（`NarrativeService.cs:148-152`）——`Reenter` 的主动交互可重复触发，调用方照旧传 0 即可。
-- 当前停在 Battle 阶段且战斗没在途时，同目标的有效 Interact 候选**不重新进入遭遇，而是重发开战通知**（`NarrativeService.cs:159-168`）。
+- `OnChanged`（`NarrativeService.cs:66`）与 `NarrativeChangedEvent` 同一时刻触发，给不进容器的场景组件用；回调里只读状态、**不得推进剧情**；订阅方抛异常会被逐个兜住。
+- `HasStoryFlag(key)`（`NarrativeService.cs:75`）：当前槽位剧情标记里有没有该键；未就绪 / 空键为 false；不含身份 / 遭遇的派生事实。
+- `TryEncounterAsync` 对 `TriggerKind == "Interact"` 且 `EntryEpoch == 0` 的候选，用 `NextActivationId` 当纪元（`NarrativeService.cs:150-154`）——`Reenter` 的主动交互可重复触发，调用方照旧传 0 即可。
+- 当前停在 Battle 阶段且战斗没在途时，同目标的有效 Interact 候选**不重新进入遭遇，而是重发开战通知**（`NarrativeService.cs:161-170`）。
 
 ## 战斗阶段通知（`BattleStageEnteredEvent`，2026-10-07）
 
@@ -49,7 +49,7 @@ public readonly struct BattleStageEnteredEvent
 {
     long Generation; long ActivationId; string TargetId; string StageId; string Payload;   // 全是只读属性
 }
-// MessagePipe：IPublisher / ISubscriber<BattleStageEnteredEvent>，NarrativeInstaller.InstallEvents 注册（NarrativeInstaller.cs:20）
+// MessagePipe：IPublisher / ISubscriber<BattleStageEnteredEvent>，NarrativeInstaller.InstallEvents 注册（NarrativeInstaller.cs:21）
 ```
 
 - **三个发布点**（都在 `NarrativeService`，经 `PublishBattleStage`，`:359`）：`DriveAsync` 停到 Battle 阶段（`:284-288`）、`ReloadFromSave` 恢复到 Battle 阶段（`:116-120`）、Battle 阶段上同目标主动交互重发（`:159-168`）。
@@ -57,13 +57,13 @@ public readonly struct BattleStageEnteredEvent
 - 发布时 `busy` 仍为 true：订阅方先 `TryBeginBattle` 登记在途，不要在回调里同步回写，否则会被 `CanAccept` 拒掉。
 
 ```csharp
-bool TryBeginBattle(long generation, long activationId, string targetId); // NarrativeService.cs:227
-void ReleaseBattle(long generation, long activationId);                  // NarrativeService.cs:244
+bool TryBeginBattle(long generation, long activationId, string targetId); // NarrativeService.cs:229
+void ReleaseBattle(long generation, long activationId);                  // NarrativeService.cs:246
 ```
 
 - `TryBeginBattle`：身份对得上当前 Battle 阶段且未在途才登记并 `Flush`；登记后 `CanSave` 为 false（战中不存档）。`false` = 旧身份或已在途，不要开仗。
 - `ReleaseBattle`：没打完就收场时调用，解除登记；阶段原地不动，可重试（同目标再交互或读档都会重发通知）。身份过期是空操作。
-- `IsStable` 的口径：Battle 阶段**没在打时稳定、在途时不稳定**（`NarrativeService.cs:345-347`）；`ValidateCandidate` 同口径。
+- `IsStable` 的口径：Battle 阶段**没在打时稳定、在途时不稳定**（`NarrativeService.cs:347-349`）；`ValidateCandidate` 同口径。
 
 ## `Game.Narrative.NarrativeFlagVisibility`（场景组件）
 

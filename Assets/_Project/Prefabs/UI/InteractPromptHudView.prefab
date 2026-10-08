@@ -548,7 +548,7 @@ GameObject:
   - component: {fileID: 236958409587177112}
   - component: {fileID: 6280035684519582171}
   m_Layer: 0
-  m_Name: DialogueInteractHudView
+  m_Name: InteractPromptHudView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

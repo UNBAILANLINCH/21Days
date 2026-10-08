@@ -1,6 +1,6 @@
 # scene — 3D 场景资产
 
-美术交付的 3D 场景资产放这里。`readme.txt` 是美术留的「传送专用文件夹」说明，保留。
+美术交付的 3D 场景资产放这里 —— 美术那边的「传送专用文件夹」就是这个目录。
 
 ## 怎么组织：一个交付一个目录
 
@@ -12,7 +12,6 @@ Art/scene/
     env_well_colors.txt      ← 配色清单等参考资料（可无）
     README.md                ← 这一份资产自己的说明
   README.md                  ← 本文件
-  readme.txt
 ```
 
 **为什么按资产分而不是按文件类型分**：一次 3D 交付天然是一个整体 —— 模型、对照件、配色清单、
@@ -29,8 +28,10 @@ Art/scene/
 
 ## 提交前留意
 
-- **`.blend` 不入库**（`.gitignore` 里挡着）。Blender 源文件动辄几十上百 MB，而 `.glb` 已经够用；
-  要留源件就放在工程外，或走 LFS。
+- **`.blend` 不入库**（`.gitignore` 挡着 `*.blend` / `*.blend1` 连同它们的 `.meta`）。
+  Blender 源文件动辄几十上百 MB，`.glb` 已经够用。
+  **源件可以就放在资产自己的目录里**（如 `env_well/env_well.blend`），只是不进 git ——
+  本地留着方便改，别人拉下来没有它也不影响使用。
 - **`.glb` 单文件容易顶到 GitHub 的 50 MB 警告线**。入库前先降贴图分辨率
   （见 [`env_well/README.md`](env_well/README.md) 里 4096 → 2048 的做法），别再往上堆。
 - **贴图是 `.glb` 的子资产**，不走 Unity 的 Texture Importer —— Max Size、压缩格式、平台覆盖

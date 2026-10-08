@@ -12,6 +12,8 @@
 | `env_well.glb` | **Unity 用的那一份**。Blender 走 PBR 流程导出，材质已经烘成 贴图（BaseColor / Normal / Roughness 等），拖进场景即带材质 |
 | `env_well.fbx` | 美术给的对照件，只有几何 + Blender 专属 shader，**工程里导入是灰模**，不用于正式表现 |
 | `env_well_colors.txt` | 美术的配色清单（树叶、芦苇、高草丛等各部位的取色），供替换/调色时对照 |
+| `env_well.blend` | **Blender 源工程，本地留档、不入库**（`.gitignore` 挡着，86.9 MB）。要在 Blender 里改这块 diorama 就开它 |
+| `env_well.blend1` | Blender 的自动备份（`.blend` 上一次保存的副本），同样是本地文件、不入库；不需要可直接删，Blender 下次保存会重建 |
 
 **贴图已从 4096 降到 2048**：原始 `env_well.glb` 是 163 MB，其中水井石材 `pierre` 与木桶 `seau` 的 6 张
 4096×4096 PNG 就占 129 MB。两个硬约束都拦它——`docs/artist-guide.md` 第 10 章「不要提交超大贴图，

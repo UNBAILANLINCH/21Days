@@ -37,7 +37,7 @@ maturity: stable
 3. 如果新类型对键格式有约束（像 TalkTo 要求 `Key` 是整数字符串），在 `QuestContent.ValidateObjectives`（`QuestContent.cs:58`）补一段校验。
 4. 找到「谁能判定这个条件被满足」，在那一侧调 `QuestService.Report(kind, key, amount)`——参照
    `QuestObjectiveDriver.HandleDialogueEnded` / `Tick`：一次性事实（如对话结束）在回调里报一次；每帧判定的（如进入范围）在 `Tick` 里判、命中后 `return`（`Report` 会重建 `InProgress` 缓存，一帧只报一次）；
-   `QuestRules.Report`（`QuestRules.cs:93`）本身不用改：它只按 `QuestObjectiveDefinition.Matches(kind, key)` 匹配当前目标。
+   `QuestRules.Report`（`QuestRules.cs:95`）本身不用改：它只按 `QuestObjectiveDefinition.Matches(kind, key)` 匹配当前目标。
 
 ## 加指引来源
 
@@ -71,7 +71,8 @@ maturity: stable
 | `detailRoot` / `detailTitle` / `detailKind` / `detailDescription` | 详情区根节点 / 标题 / 类型 / 描述 |
 | `objectiveRoot` | 目标清单容器 |
 | `objectiveTemplate` | 目标行模板（子物体 `Mark`(TMP)、`Text`(TMP)），运行时隐藏、按需复用 |
-| `trackButton` / `trackLabel` / `closeButton` | 追踪 / 取消追踪按钮及文案 / 关闭按钮 |
+| `trackButton` / `trackLabel` / `closeButton` | 追踪 / 取消追踪按钮及文案 / 关闭按钮（已完成标签下 `trackButton` 整个物体隐藏） |
+| `tabInProgressButton` / `tabCompletedButton` | 「进行中」「已完成」标签按钮（预制体里是 `TabInProgress` / `TabCompleted`，挂 `UIButtonFeedback`）；各自须有子物体 `Selected` 作选中态，`Validate` 会查；`emptyLabel` 的文字由 Controller 按标签换（暂无进行中的任务 / 还没有完成的任务） |
 | `defaultSelected`（`UIView` 基类字段） | 打开后键盘 / 手柄默认选中项，当前拖的是 `trackButton`（列表项是运行时复制的，预制体里拖不到） |
 
 列表项与目标行都是复用池（按需 `Instantiate`，多余的隐藏），不要改成每次销毁重建。

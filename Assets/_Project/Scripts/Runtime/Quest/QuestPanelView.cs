@@ -1,4 +1,4 @@
-// 职责：全屏任务面板——左侧进行中任务列表、右侧选中任务详情（描述、目标清单、追踪按钮）；只显示与抛事件，不注入服务。
+// 职责：全屏任务面板——左侧「进行中 / 已完成」两个标签的任务列表、右侧选中任务详情（描述、目标清单、追踪按钮）；只显示与抛事件，不注入服务。
 // 为什么新建：任务系统首次落地（PRP/quest-system），HUD 是常驻 Hud 层的单行摘要，面板是 Panel 层的完整列表，层级与生命周期不同。
 using System;
 using System.Collections.Generic;
@@ -27,6 +27,7 @@ namespace Game.Quest
         private const string ObjectiveTextName = "Text";
         private const string DoneMark = "✓";
         private const string PendingMark = "○";
+        private const string TabSelectedName = "Selected";
 
         [Tooltip("任务列表容器（通常带 VerticalLayoutGroup）。")]
         [SerializeField] private RectTransform listRoot;
@@ -47,6 +48,10 @@ namespace Game.Quest
         [SerializeField] private Button trackButton;
         [SerializeField] private TMP_Text trackLabel;
         [SerializeField] private Button closeButton;
+        [Tooltip("「进行中」标签按钮；子物体 Selected 为选中态。")]
+        [SerializeField] private Button tabInProgressButton;
+        [Tooltip("「已完成」标签按钮；子物体 Selected 为选中态。")]
+        [SerializeField] private Button tabCompletedButton;
 
         private readonly List<ItemEntry> items = new List<ItemEntry>();
         private readonly List<ObjectiveEntry> objectives = new List<ObjectiveEntry>();
@@ -59,6 +64,8 @@ namespace Game.Quest
         public event Action OnTrackToggled;
         /// <summary>关闭按钮被点。</summary>
         public event Action OnClose;
+        /// <summary>标签按钮被点，携带目标标签。</summary>
+        public event Action<QuestPanelTab> OnTabSelected;
         /// <summary>面板已被关闭（不论谁关的），在 <see cref="OnCloseAsync"/> 里触发一次。</summary>
         public event Action OnClosed;
 
@@ -69,8 +76,12 @@ namespace Game.Quest
             objectiveTemplate.SetActive(false);
             trackButton.onClick.RemoveListener(RaiseTrackToggled);
             closeButton.onClick.RemoveListener(RaiseClose);
+            tabInProgressButton.onClick.RemoveListener(RaiseTabInProgress);
+            tabCompletedButton.onClick.RemoveListener(RaiseTabCompleted);
             trackButton.onClick.AddListener(RaiseTrackToggled);
             closeButton.onClick.AddListener(RaiseClose);
+            tabInProgressButton.onClick.AddListener(RaiseTabInProgress);
+            tabCompletedButton.onClick.AddListener(RaiseTabCompleted);
             return UniTask.CompletedTask;
         }
 
@@ -78,6 +89,8 @@ namespace Game.Quest
         {
             if (trackButton != null) trackButton.onClick.RemoveListener(RaiseTrackToggled);
             if (closeButton != null) closeButton.onClick.RemoveListener(RaiseClose);
+            if (tabInProgressButton != null) tabInProgressButton.onClick.RemoveListener(RaiseTabInProgress);
+            if (tabCompletedButton != null) tabCompletedButton.onClick.RemoveListener(RaiseTabCompleted);
             // 面板可能被 UIService 从外部关掉（返回键走 CloseTopAsync），通知持有者收尾暂停令牌与输入图。
             Action closed = OnClosed;
             OnClosed = null;
@@ -85,13 +98,23 @@ namespace Game.Quest
             OnQuestSelected = null;
             OnTrackToggled = null;
             OnClose = null;
+            OnTabSelected = null;
             for (int i = 0; i < items.Count; i++) SetActive(items[i].Root, false);
             for (int i = 0; i < objectives.Count; i++) SetActive(objectives[i].Root, false);
             return UniTask.CompletedTask;
         }
 
-        /// <summary>刷新列表。<paramref name="selectedId"/> 对应的项高亮；列表为空时显示空提示、隐藏详情。</summary>
-        public void SetList(IReadOnlyList<QuestProgress> ordered, int selectedId, string mainLabel, string sideLabel)
+        /// <summary>切换标签的选中态显示（只改外观，不抛事件）。</summary>
+        public void SetTab(QuestPanelTab tab)
+        {
+            SetTabSelected(tabInProgressButton, tab == QuestPanelTab.InProgress);
+            SetTabSelected(tabCompletedButton, tab == QuestPanelTab.Completed);
+        }
+
+        /// <summary>
+        /// 刷新列表。<paramref name="selectedId"/> 对应的项高亮；列表为空时显示 <paramref name="emptyText"/>、隐藏详情。
+        /// </summary>
+        public void SetList(IReadOnlyList<QuestProgress> ordered, int selectedId, string mainLabel, string sideLabel, string emptyText)
         {
             int count = ordered == null ? 0 : ordered.Count;
             while (items.Count < count) items.Add(CreateItem());
@@ -113,6 +136,8 @@ namespace Game.Quest
                 SetActive(entry.Root, true);
             }
 
+            TMP_Text emptyTmp = emptyLabel.GetComponent<TMP_Text>();
+            if (emptyTmp != null && emptyText != null) emptyTmp.text = emptyText;
             SetActive(emptyLabel, count == 0);
             if (count == 0) SetActive(detailRoot, false);
         }
@@ -120,12 +145,14 @@ namespace Game.Quest
         /// <summary>
         /// 刷新详情。<paramref name="progress"/> 为 null 时隐藏详情并禁用追踪按钮。
         /// 目标清单：当前目标之前打勾、当前与之后画圈；当前目标要求多次时追加「 已完成/需要」。
+        /// <paramref name="completed"/> 为 true（已完成标签）：所有目标打勾、不追加计数，追踪按钮隐藏。
         /// </summary>
-        public void SetDetail(QuestProgress progress, bool tracked, string kindLabel, string trackText, string untrackText)
+        public void SetDetail(QuestProgress progress, bool tracked, string kindLabel, string trackText, string untrackText, bool completed)
         {
             if (progress == null)
             {
                 SetActive(detailRoot, false);
+                SetActive(trackButton.gameObject, true);
                 trackButton.interactable = false;
                 return;
             }
@@ -148,14 +175,15 @@ namespace Game.Quest
                 }
 
                 QuestObjectiveDefinition def = defs[i];
-                bool current = i == progress.ObjectiveIndex;
-                entry.Mark.text = i < progress.ObjectiveIndex ? DoneMark : PendingMark;
+                bool current = !completed && i == progress.ObjectiveIndex;
+                entry.Mark.text = completed || i < progress.ObjectiveIndex ? DoneMark : PendingMark;
                 entry.Text.text = current && def.RequiredCount > 1
                     ? def.Text + " " + progress.Count + "/" + def.RequiredCount
                     : def.Text;
                 SetActive(entry.Root, true);
             }
 
+            SetActive(trackButton.gameObject, !completed);
             trackLabel.text = tracked ? untrackText : trackText;
             trackButton.interactable = true;
         }
@@ -217,6 +245,10 @@ namespace Game.Quest
             if (trackButton == null) missing.Add(nameof(trackButton));
             if (trackLabel == null) missing.Add(nameof(trackLabel));
             if (closeButton == null) missing.Add(nameof(closeButton));
+            if (tabInProgressButton == null) missing.Add(nameof(tabInProgressButton));
+            else if (tabInProgressButton.transform.Find(TabSelectedName) == null) missing.Add(nameof(tabInProgressButton) + "/" + TabSelectedName);
+            if (tabCompletedButton == null) missing.Add(nameof(tabCompletedButton));
+            else if (tabCompletedButton.transform.Find(TabSelectedName) == null) missing.Add(nameof(tabCompletedButton) + "/" + TabSelectedName);
             if (missing.Count > 0)
                 throw new InvalidOperationException("QuestPanelView 引用未接线：" + string.Join("、", missing));
         }
@@ -234,6 +266,14 @@ namespace Game.Quest
 
         private void RaiseTrackToggled() => OnTrackToggled?.Invoke();
         private void RaiseClose() => OnClose?.Invoke();
+        private void RaiseTabInProgress() => OnTabSelected?.Invoke(QuestPanelTab.InProgress);
+        private void RaiseTabCompleted() => OnTabSelected?.Invoke(QuestPanelTab.Completed);
+
+        private static void SetTabSelected(Button tab, bool selected)
+        {
+            Transform marker = tab.transform.Find(TabSelectedName);
+            if (marker != null) SetActive(marker.gameObject, selected);
+        }
 
         private sealed class ItemEntry
         {

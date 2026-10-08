@@ -11,6 +11,8 @@ namespace Game.Quest
     {
         private static readonly Comparison<QuestProgress> ByAcceptOrder = (a, b) => a.AcceptOrder.CompareTo(b.AcceptOrder);
 
+        private static readonly Comparison<QuestProgress> ByAcceptOrderDescending = (a, b) => b.AcceptOrder.CompareTo(a.AcceptOrder);
+
         private readonly ITelemetryScope telemetry;
         private readonly QuestProgress[] byIdOrder;
         private readonly Dictionary<int, QuestProgress> byId;
@@ -188,6 +190,26 @@ namespace Game.Quest
                     buffer.Add(inProgress[i]);
                 }
             }
+        }
+
+        /// <summary>
+        /// 清空后填入：所有已完成任务，按接取序（<see cref="QuestProgress.AcceptOrder"/>）倒序，最近接的在最前。
+        /// 注意是接取序不是完成序——存档不记完成时间 / 完成序。
+        /// </summary>
+        public void GetCompleted(List<QuestProgress> buffer)
+        {
+            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+
+            buffer.Clear();
+            for (int i = 0; i < byIdOrder.Length; i++)
+            {
+                if (byIdOrder[i].State == QuestState.Completed)
+                {
+                    buffer.Add(byIdOrder[i]);
+                }
+            }
+
+            buffer.Sort(ByAcceptOrderDescending);
         }
 
         public void CaptureInto(QuestSaveData data)

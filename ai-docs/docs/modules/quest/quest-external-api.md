@@ -22,6 +22,7 @@ maturity: stable
 | `TryGetTracked` | `bool TryGetTracked(out QuestProgress progress)` | 取当前追踪任务的进度；无追踪或未就绪返回 `false` |
 | `TryGet` | `bool TryGet(int id, out QuestProgress progress)` | 按 id 查进度（含未激活以外的所有已知任务） |
 | `GetOrdered` | `void GetOrdered(List<QuestProgress> buffer)` | 清空后填入：当前主线（若有）→ 支线按接取序号升序；只含进行中；未就绪只清空 |
+| `GetCompleted` | `void GetCompleted(List<QuestProgress> buffer)` | 清空后填入所有已完成任务，按**接取序号倒序**（最近接的在前）；**不是完成序**——存档不记完成时间 / 完成序；未就绪只清空。调用方传缓冲区，不分配 |
 | `InProgress` | `IReadOnlyList<QuestProgress> InProgress { get; }` | 进行中任务，按接取序号升序；**内部缓存，`Report` 后会重建，不要跨上报持有遍历** |
 | `Content` | `QuestContent Content { get; }` | 任务内容；未就绪时抛 `InvalidOperationException` |
 | `ResetProgress` | `void ResetProgress()` | 把全部任务重置回新开局（内存重置，不涉及读写盘）：新分区 → 重新激活 → 补发 `Activated`/`Progressed`/`TrackingChanged` 事件；未就绪记 Warn 并忽略 |
@@ -100,4 +101,4 @@ Narrative 订阅 QuestCompletedEvent 后读取持久完成状态写配置标记�
 - **不要绕过 `Report` 直接改 `QuestProgress`**：`State`/`ObjectiveIndex`/`Count`/`AcceptOrder` 的 setter 是 `internal`
   （同在 `Game.Runtime` 的模块编译上仍能写，靠约定），只有 `QuestRules` 该写；外部拿到的 `QuestProgress` 当只读用。
 - **不要长期持有 `QuestSaveData` 分区实例**：`ISaveService.Commit` 会整体替换，写完要 `Get<QuestSaveData>()` 再写。
-- **不要跨帧持有 `InProgress` / `GetOrdered` 的结果做遍历**：任何一次 `Report` 都可能重建缓存。
+- **不要跨帧持有 `InProgress` / `GetOrdered` / `GetCompleted` 的结果做遍历**：任何一次 `Report` 都可能重建缓存。

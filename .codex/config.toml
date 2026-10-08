@@ -4,3 +4,13 @@
 command = "uvx"
 args = ["--from", "mcpforunityserver==10.2.0", "mcp-for-unity", "--transport", "stdio"]
 startup_timeout_sec = 60
+
+# Blender MCP（PyPI 包名 mcp-for-blender，原 blender-mcp）。
+# 与 .mcp.json 里的 blender 条目同版本；服务端经 localhost:9876 连 Blender 侧的
+# socket，因此使用前必须有一个 GUI 模式的 Blender 在运行（后台模式 blender -b 下
+# 插件会拒绝启动服务端）。Blender 侧插件由 dsh-blender-mcp 安装：
+#   dsh-blender-mcp install-addon
+[mcp_servers.blender]
+command = "uvx"
+args = ["--from", "mcp-for-blender==2.1.9", "mcp-for-blender"]
+startup_timeout_sec = 60

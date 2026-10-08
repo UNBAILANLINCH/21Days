@@ -91,6 +91,35 @@ $projectPython = uv python find
 - **本机 `NO_PROXY` 含 `[::1]` 会让 httpx 直接崩**（Windows 代理覆盖表常见的 IPv6 回环写法）：`--transport http` 与 `unity-mcp` CLI 在打印版本横幅那一步就抛 `Invalid port: ':1]'`。要跑它们，先把环境变量收敛成 `NO_PROXY=localhost,127.0.0.1` 并在同一个 shell 里执行。
 - 没有 MCP 客户端、又要动编辑器时，可以直接连桥：握手 `WELCOME UNITY-MCP 1 FRAMING=1\n`，之后每条消息 = 8 字节大端长度 + UTF-8 JSON 负载（`{"type":"<命令>","params":{…}}`），负载为纯文本 `ping` 时回 `pong`。这仍然是「写入编辑器」，照样受「同一时间只写一个编辑器」的约定约束。
 
+## Blender MCP（Claude Code 与 Codex 共用）
+
+工程在 `.mcp.json` 与 `.codex/config.toml` 各声明了一条 `blender`，两端都锁 `mcp-for-blender==2.1.9`。
+与 UnityMCP 不同，这条**不依赖工程内任何包**——Blender 侧插件装在 Blender 自己的用户目录里，
+服务端经 `localhost:9876` 连它，所以三个 agent（含 DSH）可以指向同一个 Blender 实例。
+
+前置：
+
+1. Blender 4.5（本机在 `D:\Blender`，绿色版）。
+2. Blender 侧插件：`blender_mcp.py` 已在用户插件目录并启用。装的命令是
+   `dsh-blender-mcp install-addon`（包在 `D:\work\dsh-blender-mcp`，独立仓库，不在本工程内）；
+   它会让 Blender 自己报告真实插件目录，绿色版/装机版都适用。
+3. **必须是 GUI 模式的 Blender**。插件在 `blender -b` 下会拒绝启动服务端
+   （源码原话：`commands would never execute`），所以无头渲染自动化用不了这条通道。
+
+验证：
+
+1. 打开 Blender（插件默认自动启动服务端，无需手动点）。
+2. `dsh-blender-mcp doctor` —— 逐项报告 Blender 定位、插件版本、端口握手，退出码 0 才算通。
+   它完全只读，不装插件、不改偏好。
+3. 在客户端确认 `blender` 已加载，再让它读当前场景层级；实际返回才算连上。
+
+两个容易踩的点：
+
+- **多个 agent 可以同时连**（插件 `listen(5)`，每连接一个线程），但命令都排进同一个队列、
+  由 Blender 主线程串行执行。所以并发安全，但一个 agent 跑长任务时另一个会排队等。
+- 端口 9876 由两侧共同决定：`.mcp.json` / `.codex/config.toml` 里服务端连的端口，与 Blender
+  插件面板里监听的端口。改一处必须同时改另一处。
+
 ## Claude Code 钩子
 
 钩子在 `.claude/settings.json` 注册，无需额外安装，只要本机有 python3 与 node 就会自动生效。七个钩子各管一件事，详细说明与调试方法见 [`.claude/hooks/README.md`](../.claude/hooks/README.md)。

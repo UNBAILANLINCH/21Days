@@ -87,5 +87,13 @@ Assets/AddressableAssetsData/Windows.meta
 Assets/InitTestScene*.unity
 Assets/InitTestScene*.unity.meta
 
+# MCP for Unity 截图工具没指定 output_folder 时的默认落盘目录（Assets/Screenshots/）。
+# 那是过程产物不是资产，而且落在 Assets/ 下会被 Unity 逐张当 Sprite 导入。
+# 2026-10-09 一次对话就攒了 20 张 12 MB 冒在 git status 里。
+# 想让它别落这儿：截图时显式传 output_folder（本工程惯例是 Temp/shots），或改 MCP 的编辑器偏好。
+# .meta 一并忽略，理由同上面几条。
+/Assets/Screenshots/
+/Assets/Screenshots.meta
+
 # Laila 嘴部生成诊断明细：保留本地与已核验备份，仓库只跟踪小统计摘要。
 /PRP/laila-mouth-repair-20261002/candidate3-teeth.json

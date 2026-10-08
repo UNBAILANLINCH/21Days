@@ -537,3 +537,9 @@
 - 根因：`com.siccity.gltfutility` 的 `Importer.GetGLBJson` 先从 GLB 头读出 chunk 的**字节长度**，却用 `new char[chunkLength]` + `reader.Read(jsonChars, 0, chunkLength)` 按**字符数**读（`Importer.cs:122-127`）。JSON 块里只要有一个非 ASCII 字符（哪怕只是中文材质名），字符数就小于字节数，于是它接着往 BIN 块里多读二进制，Newtonsoft 随即判定「JSON 结束后还有内容」。原始文件没事是因为 Blender 导出时把非 ASCII 全写成 `\uXXXX` 转义，字节数恰好等于字符数——这个前提是隐式的，重打包时最容易丢。
 - 正确做法：要进这个工程的 `.glb`，JSON 块必须序列化成纯 ASCII（`json.dumps(..., ensure_ascii=True)`，或让导出器转义非 ASCII），并断言 `len(json_bytes) == len(json_text)`；顺带确认 `buffers[0].byteLength` 等于 BIN chunk 长度、每个 `bufferView` 起点 4 字节对齐。别拿「文件在别的工具里能打开」当通过标准，判定要落在 Unity 的导入日志上。
 - 关联：`Library/PackageCache/com.siccity.gltfutility@*/Scripts/Importer.cs:96-135`、`Scripts/Editor/GLBImporter.cs`；`Assets/_Project/Art/scene/README.md`；2026-10-08 水井素材入库。
+
+## GLTFUtility 解析了 `texCoord` 却从不使用，多套 UV 的模型只会按 UV0 采样
+- 现象：同一份 `.glb`，Blender 里井壁有石砖、桶有木箍，进 Unity 后这两件各是一坨**光滑的棕色**，其余物件贴图正常；模型顶点数、贴图、材质引用都对。
+- 根因：这两个网格有**两套 UV**——`UVMap` 全是 `(0,0)`（退化），`UVMap.001` 才是真 UV。Blender 的材质用 `UV Map` 节点**显式指定 `UVMap.001`**，所以正常；glTF 只能靠材质的 `texCoord` 序号选 UV 集，Blender 导出时也确实写对了 `"texCoord": 1`。但 GLTFUtility 只把 `texCoord` **解析进字段就完事**（`GLTFMaterial.cs:259` 定义后全文无引用，`KHR_texture_transform.cs:37` 是 `// TODO texCoord`），导入时永远按 UV0 采样——而在 Unity 里 `mesh.uv = TEXCOORD_0`、`mesh.uv2 = TEXCOORD_1`（`GLTFMesh.cs:287-288`），于是它采的是那套退化的 UV，整个网格只命中了贴图上的**一个像素**。
+- 正确做法：**把真 UV 换到 TEXCOORD_0 的位置**——对这些 primitive 令 `attributes["TEXCOORD_0"] = attributes.pop("TEXCOORD_1")`，再把该材质所有贴图引用（baseColor / metallicRoughness / normal / occlusion / emissive）的 `texCoord` 归 0，让规范读取器和 GLTFUtility 一致。**只改 JSON 索引，不动 BIN、不动几何。** 排查时先按材质列出「贴图指向第几套 UV」与「各套 UV 的实际范围」，退化的那套特征是 u、v 分别是常数。
+- 关联：`Library/PackageCache/com.siccity.gltfutility@*/Scripts/Spec/GLTFMaterial.cs:259`、`Scripts/Spec/GLTFMesh.cs:287-290`、`Scripts/Extensions/KHR_texture_transform.cs:37`；`Assets/_Project/Art/scene/README.md`；2026-10-08 水井素材入库（只有 `pierre`、`seau` 两个材质带 `texCoord: 1`，其余 32 个都是 0，所以只影响这两件）。

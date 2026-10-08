@@ -70,6 +70,7 @@
 | 放什么 | 放哪 | 放这里会自动获得什么 |
 | --- | --- | --- |
 | 图片（角色、场景、UI 切图、图标） | `Assets/_Project/Art/Sprites/` | **自动套一套 2D 导入设置**，见第 4 章 |
+| 3D 模型（`.glb` / `.fbx`）与配套的对照件、配色清单 | `Assets/_Project/Art/scene/<资产名>/` | 无自动规则，只是约定的位置；**一次交付一个目录**，见该目录的 [`README.md`](../Assets/_Project/Art/scene/README.md) |
 | 帧动画、Animator 控制器 | `Assets/_Project/Art/Animations/` | 无自动规则，只是约定的位置 |
 | 材质（`.mat`）与自定义 Shader 产物 | `Assets/_Project/Art/Materials/` | 无自动规则，只是约定的位置 |
 | 音乐、音效 | `Assets/_Project/Audio/` | 无自动规则，导入设置要手调，见第 8 章 |

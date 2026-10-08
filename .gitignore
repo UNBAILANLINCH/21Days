@@ -45,6 +45,16 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 
+# 美术源工程文件：Blender 的 .blend 动辄几十上百 MB，而工程只用导出的 .glb。
+# 2026-10-09 有个 87 MB 的 Untitled.blend 被存进 Assets/_Project/Art/scene/，
+# 决定不入库（理由与做法见 Assets/_Project/Art/scene/README.md）。
+# 要留可编辑源件就放在工程外，或走 LFS。
+# .meta 必须一起忽略，否则留下一个指向被忽略资产的孤儿 meta（同 Addressables 那段的道理）。
+*.blend
+*.blend1
+*.blend.meta
+*.blend1.meta
+
 # Luban 工具本体（第三方二进制，约 30 MB）。scripts/gen-tables.ps1 发现缺失会自动下载解压，
 # 不必进库；生成出来的代码与 .bytes 照常进 git。
 /Tools/Luban/

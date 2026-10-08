@@ -1,0 +1,15 @@
+# 执行载体：feishu-monitor.timer；状态锚点：systemctl status；退场：禁用 timer。
+[Unit]
+Description=Feishu document change monitor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/feishu-monitor
+ExecStart=/usr/bin/python3 /opt/feishu-monitor/monitor.py config.json
+TimeoutStartSec=8min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

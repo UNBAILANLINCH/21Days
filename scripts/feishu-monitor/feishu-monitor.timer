@@ -1,0 +1,12 @@
+# 执行载体：systemd timers.target；状态锚点：systemctl list-timers；退场：用户停止监测。
+[Unit]
+Description=Check Feishu changes every 30 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=30min
+AccuracySec=30s
+Unit=feishu-monitor.service
+
+[Install]
+WantedBy=timers.target

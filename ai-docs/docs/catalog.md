@@ -79,6 +79,7 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 新开发者首次上手（环境自检、MCP 连通、该读什么） | [`.claude/skills/onboard/SKILL.md`](../../.claude/skills/onboard/SKILL.md)（`/onboard`） |
 | 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
 | 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
+| 聚光灯飞书资产逐项映射、已有接收目录、角色拆件与现行接入差异 | [飞书资产映射](feishu-asset-map.md) |
 | 这套 AI 工作流本身：五层怎么交互、日常怎么用、新增东西放哪层 | [`docs/ai-workflow.md`](../../docs/ai-workflow.md) |
 | 某阶段做了什么、当时怎么取舍、刻意没做什么 | [`docs/history/`](../../docs/history/) 下按日期的建设纪要 |
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |

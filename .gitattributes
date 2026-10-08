@@ -34,7 +34,6 @@
 # 下面 2 行原本写成 *.{bat,cmd}，git 不支持花括号展开，逐行展开：
 *.bat text eol=crlf
 *.cmd text eol=crlf
-
 # 二进制资源（暂不启用 git-lfs；素材体积上来后再考虑）
 # 下面 11 行原本写成 *.{png,jpg,jpeg,gif,psd,tga,tif,tiff,bmp,exr,hdr}，git 不支持花括号展开，逐行展开：
 *.png binary
@@ -71,3 +70,4 @@
 *.xls binary
 *.xlsm binary
 *.bytes binary
+*.rar filter=lfs diff=lfs merge=lfs -text

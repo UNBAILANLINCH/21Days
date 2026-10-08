@@ -1,7 +1,9 @@
 # Unity generated
 /[Ll]ibrary/
 /[Tt]emp/
-/[Oo]bj/
+# obj/ 故意不锚根：Unity 在仓库根建 obj/，而 PRP 下的 dotnet 测试工程在自己的目录里
+# 也建 obj/（NuGet 还原 + 编译中间件）。锚根时后者盖不住，会一直冒在 git status 里。
+[Oo]bj/
 /[Bb]uild/
 /[Bb]uilds/
 /[Ll]ogs/

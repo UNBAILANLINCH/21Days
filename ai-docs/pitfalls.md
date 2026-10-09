@@ -270,6 +270,7 @@
 - 正确做法：场景改动**在同一次 MCP 调用里建完就 `EditorSceneManager.SaveScene`**，调用开头先判 `EditorApplication.isPlayingOrWillChangePlaymode`，是 Play 就退出等待，不要改；改前把场景文件复制一份到 scratchpad，保存后 `diff` 复核只增不删。
 - 关联：`.claude/skills/unity-mcp/SKILL.md` 改场景纪律、`PRP/exploration-whitebox/tasks.md` 波 9。
 - **补充（2026-09-28 换箱子标记那轮）**：两个会话的子代理在同一个编辑器里、同一个打开的 `SampleScene` 实例上各改各的物体，最后由一次保存一起写进磁盘（两组改动都在，没有覆盖）；但期间另一会话的 `.cs` 触发域重载，MCP 桥重启后 `batch_execute` 返回「0 成功、load 拒绝：当前场景有未保存改动」，磁盘却已带着全部改动落盘——**返回值失败不等于没保存，判定以磁盘 diff 为准**。`manage_scene load` 遇到脏场景会拒绝，但编辑态直接 `EditorSceneManager.OpenScene(Boot, Single)`（`execute_code` / 菜单）不会，会把别人内存里的改动悄悄丢掉：切场景前先 `manage_scene get_active` 看 `isDirty`，脏了就等对方保存，不要硬切。
+- **补充（2026-10-09 三渲二那轮）**：别的会话的测试正在跑时用 MCP 改场景，改动会落进测试的临时场景 `InitTestScene`，等于白改（测试结束它被丢掉，磁盘上的 `SampleScene` 一点没变）。动手前先确认编辑器没在跑测试：读 `mcpforunity://editor/state` 看是否在 Play / 编译中。
 
 ## 等距相机下「人在桥下」不等于「桥挡住人」
 - 现象：遮挡半透明回放把玩家放在桥正中下方 (17.25, 10.25)，桥始终不淡出；以为射线或层写错了。
@@ -307,10 +308,10 @@
 - 正确做法：已有文件一律用 Edit 局部改，不用 Write 整份重写；写完 `tr -cd '\r' < <文件> | wc -c` 应为 0；不小心变了用 Python `data.replace(b"\r\n", b"\n")` 转回再存盘。
 - 关联：`docs/designer-guide.md` 曾被整份重写变成 CRLF；2026-09-26 任务编辑器那轮。
 
-## MCP `execute_menu_item` 会把菜单项执行两遍
-- 现象：调一次 `execute_menu_item` 执行某菜单项，Console 里出现两份完全相同的输出。
+## MCP `execute_menu_item` 会把菜单项执行多遍（实测 2～5 次）
+- 现象：调一次 `execute_menu_item` 执行某菜单项，Console 里出现两份完全相同的输出；2026-10-09 三渲二转换菜单实测会执行 **3～5 次**，不止两遍。
 - 根因：MCP 工具本身的行为（未定位到具体原因），与被调用菜单项的代码无关。
-- 正确做法：验证菜单行为时按「结果会出现两遍」去看，不要当成代码 bug 去加去重；要精确验证一次调用的效果就用 `execute_code` 直接调那段静态方法。
+- 正确做法：**菜单必须幂等**（重复执行与执行一次结果一致，不能是「每跑一次多一份」）；验证菜单行为时按「结果会出现多遍」去看，不要当成代码 bug 去加去重；要精确验证一次调用的效果就用 `execute_code` 直接调那段静态方法。
 - 关联：`.claude/skills/unity-mcp/SKILL.md`；2026-09-26 任务编辑器那轮验证「校验任务表」菜单时发现。
 
 ## Luban 生成物内容相同时不重写文件，`.bytes` 时间戳不变
@@ -392,7 +393,7 @@
 - 现象：演出舞台相机（Overlay）叠进主相机的 `cameraStack` 后，2D 验证场景正常，SampleScene（3D）里黑边、字幕都在、舞台内容一片空白；服务没走退路、没埋点，只有游戏内调试面板的 Warning 计数每帧涨 1（2026-09-26 冒烟发现）。
 - 根因：URP 资产里有多个渲染器（0 号 Renderer2D、1 号 UniversalRenderer），舞台相机 `rendererIndex = -1` 落到默认的 0 号，主相机用 1 号；`UniversalRenderPipeline` 对渲染器类型不同的叠加相机直接跳过并每帧告警 `Only cameras with compatible renderer types can be stacked`，MCP 的 `read_console` 读不到这条原文。
 - 正确做法：叠加前把 Overlay 相机的渲染器对齐到主相机（URP 14 没有公开的索引 getter，反射读 `UniversalAdditionalCameraData.m_RendererIndex` 再 `SetRenderer`，收尾还原），叠加后再比一次 `scriptableRenderer.GetType()`，不一致就走 Base 退路并埋点；验证场景与正式场景用的渲染器不同时，两边都要冒烟一次。
-- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。（叠加模式与 Live2D 已于 2026-09-28 下架）
+- 关联：`Assets/_Project/Scripts/Runtime/Performance/PerformanceService.cs`（`AttachCamera` / `ReadRendererIndex`）、`PRP/performance-pipeline/tasks.md` T31b。（叠加模式与 Live2D 已于 2026-09-28 下架）另见 `#用离屏相机截图时，URP 资产的默认渲染器`（同一个 0 号 Renderer2D 的另一面）。
 
 ## 序列帧画布宽不是 4 的倍数，出包时块压缩退回不压缩；编辑器里看不出来
 - 现象：方舟小人第一次渲出的画布宽 242 / 318 / 330 px，导入后 Inspector 显示正常；但这台机器编辑器里所有贴图（连现有纸片）`Texture2D.format` 都是 `RGBA32`，从编辑器里根本判断不了出包是否压缩。
@@ -422,7 +423,7 @@
 - 现象：用 `execute_code` 走 `LoadPrefabContents → 加子物体 → SaveAsPrefabAsset` 给 `PerformanceView.prefab` 加面板节点，只调了一次、返回 `saved=True`；磁盘 YAML 里 `PanelBackground`、`Avatar`、`SkipHint` 等每个新节点都有 4 份，`get_history` 里同一段代码记了 2 次执行。
 - 根因：同 `execute_menu_item` 执行两遍那条，MCP 这一侧会重放请求（未定位到具体原因）；「加子物体」类脚本不幂等，每多跑一次就多一份。
 - 正确做法：改资产的 `execute_code` 脚本开头先查「是否已改过」（如 `if (find("PanelBackground") != null) return "already-applied";`），做成幂等；改完照「预制体舞台改动可能不落盘」那条用 `grep "m_Name:" | sort | uniq -c` 核对节点没有重复。已经加重了就用 `git show HEAD:<路径> > <路径>` 只恢复这一个文件再重跑（不要整目录 checkout，共用工作区）。
-- 关联：`ai-docs/pitfalls.md #MCP execute_menu_item 会把菜单项执行两遍`、`#MCP 预制体舞台改动可能不落盘`；2026-09-28 演出世界模式 / 对白面板那轮。
+- 关联：`ai-docs/pitfalls.md #MCP execute_menu_item 会把菜单项执行多遍`、`#MCP 预制体舞台改动可能不落盘`；2026-09-28 演出世界模式 / 对白面板那轮。
 
 ## 服务里懒建 `DontDestroyOnLoad` 根，EditMode 测试里一调就抛
 - 现象：给 `PerformanceService` 写 EditMode 服务级测试，`PlayAsync` 一调就同步结束，断言「应在播放」失败；主相机、摆放都没被动过。
@@ -543,3 +544,33 @@
 - 根因：这两个网格有**两套 UV**——`UVMap` 全是 `(0,0)`（退化），`UVMap.001` 才是真 UV。Blender 的材质用 `UV Map` 节点**显式指定 `UVMap.001`**，所以正常；glTF 只能靠材质的 `texCoord` 序号选 UV 集，Blender 导出时也确实写对了 `"texCoord": 1`。但 GLTFUtility 只把 `texCoord` **解析进字段就完事**（`GLTFMaterial.cs:259` 定义后全文无引用，`KHR_texture_transform.cs:37` 是 `// TODO texCoord`），导入时永远按 UV0 采样——而在 Unity 里 `mesh.uv = TEXCOORD_0`、`mesh.uv2 = TEXCOORD_1`（`GLTFMesh.cs:287-288`），于是它采的是那套退化的 UV，整个网格只命中了贴图上的**一个像素**。
 - 正确做法：**把真 UV 换到 TEXCOORD_0 的位置**——对这些 primitive 令 `attributes["TEXCOORD_0"] = attributes.pop("TEXCOORD_1")`，再把该材质所有贴图引用（baseColor / metallicRoughness / normal / occlusion / emissive）的 `texCoord` 归 0，让规范读取器和 GLTFUtility 一致。**只改 JSON 索引，不动 BIN、不动几何。** 排查时先按材质列出「贴图指向第几套 UV」与「各套 UV 的实际范围」，退化的那套特征是 u、v 分别是常数。
 - 关联：`Library/PackageCache/com.siccity.gltfutility@*/Scripts/Spec/GLTFMaterial.cs:259`、`Scripts/Spec/GLTFMesh.cs:287-290`、`Scripts/Extensions/KHR_texture_transform.cs:37`；`Assets/_Project/Art/scene/env_well/README.md`；2026-10-08 水井素材入库（只有 `pierre`、`seau` 两个材质带 `texCoord: 1`，其余 32 个都是 0，所以只影响这两件）。
+
+## 反壳描边 Pass 不能靠材质参数关掉：宽度乘 0 不等于不画，开放网格的背面会被整片涂成描边色
+- 现象：三渲二着色器曾带一个反壳描边 Pass（`LightMode = SRPDefaultUnlit`），环境材质把描边宽度设成 0 想「关掉」，但草卡、叶片卡和法线混乱的土台上仍出现整片深紫黑色块（2026-10-09 截图里那一大片）。
+- 根因：反壳描边靠「背面剔除反转 + 顶点沿法线外扩」出线。宽度乘 0 只是不外扩，Pass 仍在画。闭合网格的背面被自己的正面挡住看不见；**开放网格（单面叶片卡）和法线朝向混乱的网格，背面直接暴露**，整片被涂成描边色。
+- 正确做法：不要的 Pass 从着色器里整段删掉，别指望参数置零。`ToonLit` 现在只有前向 / ShadowCaster / DepthOnly / DepthNormals 四个 Pass。将来「可交互物高亮」是逐物体、动态的效果，同材质的反壳做不到（一开就是这份材质的所有物体一起亮），要另做，不放进环境材质。
+- 关联：`Assets/_Project/Art/Shaders/ToonLit.shader`（文件头「不描边」）；`docs/artist-guide.md` 3.1.1；2026-10-09 环境三渲二。
+
+## Play 时 RenderSettings（雾、环境光）跟激活场景 Boot 走，叠加加载的世界场景自己的雾和环境光不生效
+- 现象：在 SampleScene 里调了线性雾和环境光，编辑器里直接打开该场景时好好的，一进 Play（走 Boot）雾和环境光全不见，怎么调都没变化。
+- 根因：`RenderSettings` 是**激活场景**的属性。Play 流程里激活场景是 Boot，`SceneGameState` 以 Additive 方式叠加载入 SampleScene（`Assets/_Project/Scripts/Core/Flow/SceneGameState.cs:56`），全工程没有 `SetActiveScene`，所以雾和环境光读的是 Boot 的，Boot 的雾是关的。
+- 正确做法：要在 Play 里生效，把雾和环境光设在 Boot 场景上，或在世界场景就绪后用代码设置 `RenderSettings`。验证雾、环境光一律在 Play 里看，别拿编辑器里单开场景的画面当结论。
+- 关联：`docs/modules/isometricexploration.md` 第 5 节「光影基线」；2026-10-09 环境三渲二。
+
+## VolumeProfile 的组件必须存成子资产，否则引用是 null，profile 空转还不报错
+- 现象：`ExplorationVolumeProfile.asset` 里 `components:` 列表全是 `{fileID: 0}`，Volume 照常挂着、Inspector 看着也有这个 profile，但后期效果一个都不生效；c5d01ae 的提交说明声称的 Tonemapping 等效果其实从没存在过。
+- 根因：脚本 `profile.Add<T>()` 建出的组件只存在于内存，没 `AssetDatabase.AddObjectToAsset(component, profile)` 存成子资产就保存 profile，序列化下来的组件引用是 null。Unity 不报错、不告警。
+- 正确做法：脚本加完组件后 `AddObjectToAsset` 并 `SaveAssets`，再看 `.asset` 文本确认 `components:` 里每项都不是 `fileID: 0`。已有不变量守着：`invariants.py` 第 11 条。
+- 关联：`.claude/skills/evolution/invariants.py`（`check_volume_profile_components`）；`Assets/Settings/ExplorationVolumeProfile.asset`；2026-10-09 环境三渲二。
+
+## glb 里的材质是子资产：`GetAssetPath` 和 guid 对它们全都相同，记录来源要用 `GlobalObjectId`
+- 现象：转换器曾用资产 guid 记录「Toon 材质来自哪份源材质」，结果 `M_Toon_pierre` 的来源被记成了 `Eevee Grass B Gold.001`，「按新规则重写」一直写错对象；`AssetDatabase.FindAssets` 按名字也搜不到 glb 里的材质。
+- 根因：glb / fbx 内部的材质是宿主文件的子资产，共用宿主的路径和 guid，34 个子材质的 `GetAssetPath` 返回同一个 glb 路径，guid 全一样，区分不开。
+- 正确做法：记录来源用 `GlobalObjectId.GetGlobalObjectIdSlow(obj).ToString()`（含子资产 localFileId，唯一），还原用 `TryParse` + `GlobalObjectIdentifierToObjectSlow`；查不到就返回 null，不要猜。取预制体实例的原材质问 `PrefabUtility.GetCorrespondingObjectFromSource`，别按名字搜。
+- 关联：`Assets/_Project/Scripts/Editor/Art/ToonMaterialConverter.cs`（`GlobalIdOf` / `ReadSourceMaterialLabel`）；2026-10-09 环境三渲二。
+
+## 用离屏相机截图时，URP 资产的默认渲染器（0 号）是 Renderer2D，不 `SetRenderer(1)` 前向 Pass 整个不画
+- 现象：脚本建一个临时相机渲染到 RenderTexture 截图，ToonLit 环境一片空，只有 `SRPDefaultUnlit` 的东西（比如曾经的反壳描边）被画出来。
+- 根因：本工程 URP 资产有两个渲染器，0 号 Renderer2D、1 号 UniversalRenderer。新建相机的渲染器索引默认是 0，走 Renderer2D，它不画 3D 的 `UniversalForward` Pass。
+- 正确做法：离屏相机加 `UniversalAdditionalCameraData` 后 `SetRenderer(1)` 再渲染；要和主相机一致就对齐主相机的渲染器索引（见相机栈那条）。
+- 关联：`ai-docs/pitfalls.md #URP 相机栈只接受渲染器类型一致的相机`；2026-10-09 环境三渲二。

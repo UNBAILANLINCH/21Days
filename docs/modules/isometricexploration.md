@@ -41,7 +41,7 @@
 | 镜头跟随的「黏手感」 | Inspector 里选 `Assets/_Project/Data/IsometricExploration/IsometricExplorationConfig.asset` | `Camera Smooth Time`，现值 0.2 秒 | 越小镜头越紧贴玩家，越大停下时缓动越明显 | 最小 0.01 |
 | 角色走路速度 | 不在这里改 | — | 无 | 走 / 潜行 / 奔跑速度在 Player 模块的 `Assets/_Project/Data/Player/PlayerConfig.asset`，见 [player.md](player.md)；探索配置里原来的速度字段已删 |
 | 镜头构图（俯角、远近、视野） | 程序在 SampleScene 里调 `Main Camera` | 现值：俯角 38°、FOV 28、镜头在玩家上方 11、后方 14 | 整个画面构图 | 场景物体，找程序改；角色纸片正对镜头原样显示、按正面平视画，改俯角不用改角色图 |
-| 环境灰盒 → 正式模型 | SampleScene 的 `Environment_Graybox` 节点下 | 3D 低模 + 手绘贴图、模块化 Prefab、普通不透明材质 | 地图外观 | 按 [美术手册 3.1](../artist-guide.md) 做；可站立的物体必须放 `Ground` 层；每级台阶落差不超过 0.32，否则角色不贴上去 |
+| 环境灰盒 → 正式模型 | SampleScene 的 `Environment_Graybox` 节点下 | 3D 低模 + 手绘贴图、模块化 Prefab、材质用 `21Days/ToonLit`（手绘贴图 + 轻明暗，不描边；场景里的材质由 `21Days/表现/三渲二` 菜单从原材质转出，别手改，见美术手册 3.1.1） | 地图外观 | 按 [美术手册 3.1](../artist-guide.md) 做；可站立的物体必须放 `Ground` 层；每级台阶落差不超过 0.32，否则角色不贴上去 |
 | 角色整张纸片（非拼接小人时） | `Assets/_Project/Art/Sprites/Characters/` | 命名 `Chibi_<角色名>.png`，Pivot 底边中点，PPU 100，按正面平视画 | 角色外观 | 规格见 [美术手册 3.2](../artist-guide.md)；目前玩家和巡逻者显示的是拼接小人，整张纸片隐藏 |
 | 脚下影子、状态环 | `Assets/_Project/Art/Sprites/Fx/` | `Fx_BlobShadow.png`（直径约 0.9）、`Fx_SelectRing.png`（直径约 1.1） | 角色脚下贴片 | 状态环颜色由状态决定，贴图画成白 / 浅色 |
 | 光照、雾、后处理 | 程序在编辑器里调 | 场景里的 `Directional Light`、场景雾；后处理 `Assets/Settings/ExplorationVolumeProfile.asset` | 全场景明暗与色调 | 现值见第 5 节；不加 Bloom 是刻意的 |
@@ -55,7 +55,8 @@
 - **一张场景**：SampleScene，是目前唯一的探索场景。灰盒环境包含地面、后墙、左墙、塔、四级台阶、栏杆、三个路锥、两条长椅，全部是占位几何体。
 - **两个角色**：玩家与巡逻者，都是占位拼接小人；另有 3 个 NPC 与 2 个任务地点（归 [dialogue.md](dialogue.md)、[quest.md](quest.md)）。
 - **6 个旧的「室内」环境纸片**：已停用，保留在场景里备用。
-- **光影基线**：方向光角度 (50, -35, 0)、暖白色、强度 1.15、柔和阴影；线性雾 18–42 米、暖灰色；环境光平光灰。
+- **光影基线**：方向光角度 (50, -35, 0)（即 50, 325, 0）、暖白色、强度 1.15、柔和阴影；SampleScene 自己设了线性雾 30–80 米、暖灰色和环境光，但**这两样只在编辑器里直接打开 SampleScene 时生效**：Play 时激活场景是 Boot（`SceneGameState` 以 Additive 方式叠加载入 SampleScene，全工程没有 `SetActiveScene`），雾和环境光跟 Boot 走，Boot 的雾是关的。要让 Play 时也有雾，得改 Boot 或在运行时设置，不能只改 SampleScene。
+- **后处理**：生效的是 SampleScene 里 GlobalVolume 挂的 `Assets/Settings/ExplorationVolumeProfile.asset`，含白平衡（色温 +5、色调 +3）、Lift（暖色、轻抬暗部）、色彩调整（曝光 −0.25、对比度 +6、饱和度 −10）三个组件。
 - **画质两档**：高档（电脑默认）柔和阴影、阴影距离 40、2 倍抗锯齿、环境遮蔽；手游档（安卓默认）硬阴影、阴影距离 25、无抗锯齿、无环境遮蔽。
 - **探索 HUD**：左下角沉浸按钮已可用；右下角预留的空位留给移动端移植时的走跑按钮。
 - **回放用例**：「潜行从背后接近 → 正面被发现 → 被追 → 近身打倒巡逻者」与「走上台阶身体抬高、回平地落回」两条，均通过。

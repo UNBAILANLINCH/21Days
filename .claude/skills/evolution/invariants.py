@@ -14,7 +14,7 @@
 静默失效没人发现，才是最贵的。
 
 所以分工是：**能在一行里判完的归 lint，必须把整个仓库摊开才能判的归这里**。
-本文件十条检查没有一条能写成 `rules.json` 里的正则。
+本文件十一条检查没有一条能写成 `rules.json` 里的正则。
 
 ## 载体锚定（`.claude/rules/harness-authoring.md`）
 
@@ -38,7 +38,7 @@
   整份文件的退场条件是 `Assets/_Project/Scripts/` 不再是这个形状（换结构 / 换引擎），
   届时连同 `gc_scan.py` 第 5 项一起删，而不是留着让它一直报。
 
-## 查十条（每条都注明依据，便于以后判断该不该删）
+## 查十一条（每条都注明依据，便于以后判断该不该删）
 
     1. asmdef 依赖方向        Game.Core 不引用 Runtime/Editor/Tests；Game.Runtime 不引用 Editor/Tests
     2. 平台宏只在 Core/Platform/   Core（除 Platform/）与 Runtime 下不出现 #if UNITY_ANDROID 等平台宏
@@ -51,6 +51,11 @@
     9. InitTestScene 残留      Assets/ 根下没有 PlayMode 测试中断留下的 InitTestScene*.unity
    10. 文档代码引用失效       ai-docs 里 `Xxx.cs:行号` 的引用还指得到东西（越界 / 落在无代码行 / 与
                              文档自己写的成员名对不上）
+   11. VolumeProfile 组件为空     Assets/ 下 VolumeProfile 资产的 components 列表里不出现 {fileID: 0}
+                             （组件没存成子资产，profile 空转不报错）
+
+第 11 条的状态锚点：把 `Assets/Settings/ExplorationVolumeProfile.asset` 里 `components:` 下任一行
+临时改成 `- {fileID: 0}`，跑同一条命令应报该资产并 exit 1；改回来恢复静默。
 
 第 2 条**放行 `#if UNITY_EDITOR`**：`project-root.md` 明确允许 Runtime 里用它包
 调试 / Gizmos。把它一起报了就是误报，而误报会逼人整条关掉。
@@ -874,6 +879,43 @@ def check_doc_code_refs(root: Path) -> list:
         ))
     return problems
 
+# ------------------------------------------------------------------ 11. VolumeProfile 组件引用为空
+# 依据：pitfalls.md #VolumeProfile 的组件必须存成子资产。脚本 `profile.Add<T>()` 之后没
+#   AddObjectToAsset 就保存，序列化出来的 `components:` 全是 `{fileID: 0}`——Volume 照常挂着，
+#   后期效果一个不生效，Unity 不报错（ExplorationVolumeProfile 就这样空转过）。
+# 为什么 lint 做不了：.asset 是 YAML 且要看多行列表，不是 .cs 行级正则的对象。
+# 只认 `components:` 列表里的 `{fileID: 0}`；`components: []`（真空）是合法的，不报。
+# 退场条件：Unity 以后对空组件引用自己报错，或工程不再用 Volume 后处理，整条删。
+
+VOLUME_COMPONENTS_RE = re.compile(r"^  components:[ \t]*\r?\n((?:  - .*(?:\r?\n|$))+)", re.MULTILINE)
+REF_VOLUME_PROFILE = "pitfalls.md #VolumeProfile 的组件必须存成子资产"
+
+
+def check_volume_profile_components(root: Path) -> list:
+    problems = []
+    assets = root / "Assets"
+    if not assets.is_dir():
+        return problems
+    for asset in sorted(assets.rglob("*.asset")):
+        text = _read(asset)
+        if "components:" not in text:
+            continue
+        m = VOLUME_COMPONENTS_RE.search(text)
+        if not m:
+            continue
+        null_count = sum(1 for ln in m.group(1).splitlines() if re.search(r"\{fileID:\s*0\}", ln))
+        if null_count == 0:
+            continue
+        problems.append(Problem(
+            _rel(root, asset), _line_of(text, "  components:"),
+            f"VolumeProfile 的 components 列表里有 {null_count} 项是 {{fileID: 0}}（组件没存成子资产），"
+            f"profile 空转：挂着 Volume 却一个后期效果都不生效，Unity 不报错",
+            "脚本里对每个组件 AssetDatabase.AddObjectToAsset(component, profile)，再 SaveAssets；"
+            "或在 Inspector 里重新 Add Override",
+            REF_VOLUME_PROFILE,
+        ))
+    return problems
+
 # ------------------------------------------------------------------ 汇总
 
 CHECKS = (
@@ -887,6 +929,7 @@ CHECKS = (
     ("正式资产不引测试脚本", check_test_script_in_formal_asset),
     ("InitTestScene 残留", check_init_test_scene_leftovers),
     ("文档代码引用失效", check_doc_code_refs),
+    ("VolumeProfile 组件引用为空", check_volume_profile_components),
 )
 
 

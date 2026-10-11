@@ -16,6 +16,7 @@ Claude 从 [CLAUDE.md](CLAUDE.md)、Codex 从 [AGENTS.md](AGENTS.md) 读取 [共
 | **程序** | [`docs/developer-guide.md`](docs/developer-guide.md) 第 1～4 章（环境、上手、目录与程序集、提交规范）→ [`docs/architecture.md`](docs/architecture.md) 第 3 节（分层）→ 本文「快速上手」 | 写玩法模块看开发手册第 7 章 + [`Runtime/Sample/`](Assets/_Project/Scripts/Runtime/Sample/) 样板；各服务怎么用看第 6 章；查日志定位问题看 [`docs/telemetry.md`](docs/telemetry.md)；[`ai-docs/pitfalls.md`](ai-docs/pitfalls.md) 踩过的坑 |
 | **策划** | [`docs/designer-guide.md`](docs/designer-guide.md) 全文（改数值、加道具、加表、报错怎么查） | 存档字段与版本迁移看开发手册第 9 章；要加新表前先找程序对一下 |
 | **美术** | [`docs/artist-guide.md`](docs/artist-guide.md) 全文（资源放哪、导入规则、做 UI 面板、自查） | 面板与程序的分工看开发手册第 11 章；音频看第 12 章 |
+| **音乐 / 音效** | [`Assets/_Project/Audio/README.md`](Assets/_Project/Audio/README.md)（交付目录、格式、附带说明与文档入口）→ [`docs/artist-guide.md` 第 8 章](docs/artist-guide.md#8-音频) | 音游制谱与试听看 Audio README 中的对应链接；程序接入看 [`docs/developer-guide.md` 第 12 章](docs/developer-guide.md#12-音频) |
 | **用 Claude Code 协作的人** | [`CLAUDE.md`](CLAUDE.md)（会话自动加载）→ [`docs/ai-workflow.md`](docs/ai-workflow.md) | 不知道读哪份时去 [`ai-docs/docs/catalog.md`](ai-docs/docs/catalog.md)；钩子行为看 [`.claude/hooks/README.md`](.claude/hooks/README.md) |
 | **第一次拉到这个工程的任何人** | 在 Claude Code 里跑 `/onboard`，它会带着装环境、连编辑器、跑一次测试 | 不用 Claude Code 就照开发手册第 1 章手动装 |
 

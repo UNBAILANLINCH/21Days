@@ -1,4 +1,4 @@
-// 职责：UI 框架的可调数值——参考分辨率、缩放匹配系数、过渡动画时长、通知与角落小字停留时长、加载黑幕时长。
+// 职责：UI 框架的可调数值——参考分辨率、缩放匹配系数、过渡动画时长、通知与角落小字停留时长、加载黑幕时长、开局操作说明时长。
 // 为什么新建：这三个值要在 Inspector 上调（不同项目、不同平台取值不同），按 csharp-code.md
 //   「数值配置进 ScriptableObject」不能写死在 UIService 里；工程内没有任何框架级的 Config 资产可扩展。
 //   之后的通知停留、加载黑幕（roadmap E4）时长同属「UI 框架的可调数值」，扩展本文件而不是另建配置资产。
@@ -46,6 +46,12 @@ namespace Game.Core.UI
         [Min(0f)]
         [SerializeField] private float loadingHintDelaySeconds = 0.5f;
 
+        [Header("开局操作说明")]
+        [Tooltip("开始新游戏时那张操作说明图至少展示的秒数（真实时间）。这段里按键一律不响应，"
+                 + "免得玩家点「开始」的那一下顺手把教程也关掉；过了才提示「按任意键继续」。")]
+        [Min(0f)]
+        [SerializeField] private float tutorialSeconds = 3f;
+
         /// <summary>CanvasScaler 的参考分辨率。</summary>
         public Vector2 ReferenceResolution => referenceResolution;
 
@@ -66,5 +72,8 @@ namespace Game.Core.UI
 
         /// <summary>黑幕完全盖住后多少秒还没揭开才出加载指示。</summary>
         public float LoadingHintDelaySeconds => loadingHintDelaySeconds;
+
+        /// <summary>开局操作说明图至少展示的秒数；这段内按键不响应。0 表示不等，随时可按任意键跳过。</summary>
+        public float TutorialSeconds => tutorialSeconds;
     }
 }

@@ -2,7 +2,7 @@
 //   否则调 MirrorService 判定，组结果内容（真形图经 IAssetService 按地址加载）后打开结果画面，显示期间持世界暂停令牌；
 //   确认键或停留时间（真实时间）到了关闭，关闭时释放令牌与图片句柄。
 // 为什么新建（复用 → 扩展 → 新建）：
-//   1. 复用不行：SupplyCrateFocus 只认物资箱焦点与 Interact 键；DialogueInteractionFocus 只驱动对白。
+//   1. 复用不行：统一交互焦点（Game.Interaction.InteractionFocus）只认 IInteractable 与 Interact 键（对白 / 物资箱共用），照镜是另一组按键。
 //   2. 扩展不行：塞进 MirrorService 会让门面认识输入、UI 与资源加载，服务就没法在 EditMode 里脱离这些测试。
 //   照镜不属于确定性模拟（同 Loot 的开箱，PRP/mirror-core 2.3「不改内核」），所以直接读动作按下沿。
 using System;
@@ -99,8 +99,8 @@ namespace Game.Mirror
         public void Tick()
         {
             if (disposed) return;
-            // 动作集可能晚于入口点就绪，每帧判空容错（同 SupplyCrateFocus）。
-            GameInput actions = input.Actions; // lint-ok: 照镜不属于确定性模拟，同 SupplyCrateFocus 读 Interact 动作
+            // 动作集可能晚于入口点就绪，每帧判空容错（同 Game.Interaction.InteractionFocus）。
+            GameInput actions = input.Actions; // lint-ok: 照镜不属于确定性模拟，同 InteractionFocus 读交互动作
             if (actions == null) return;
 
             bool castPressed = actions.Gameplay.Mirror.WasPressedThisFrame();

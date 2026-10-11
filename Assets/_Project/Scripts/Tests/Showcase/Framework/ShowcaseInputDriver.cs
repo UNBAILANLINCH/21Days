@@ -150,6 +150,33 @@ namespace Game.Tests.Showcase
         }
 
         /// <summary>
+        /// 按一下虚拟键盘上的某个键（不经动作表），节奏同 <see cref="Press"/>。只给「任意键继续」这类设备级闸门用
+        /// （开局操作说明 TutorialView 读 <c>Keyboard.anyKey</c>，没有对应动作）；玩法与界面操作一律走 <see cref="Press"/>。
+        /// </summary>
+        public IEnumerator PressKey(Key key)
+        {
+            Keyboard device = EnsureKeyboard();
+            InputControl control = device == null ? null : device[key];
+            if (control == null)
+            {
+                Warn($"按键 {key} 失败：虚拟键盘不可用");
+                yield break;
+            }
+
+            WriteControl(device, control, 1f);
+            int frames = 0;
+            float pressedAt = Time.realtimeSinceStartup;
+            while (frames < MinPressFrames || Time.realtimeSinceStartup - pressedAt < MinPressSeconds)
+            {
+                yield return null;
+                frames++;
+            }
+
+            WriteControl(device, control, 0f);
+            yield return null;
+        }
+
+        /// <summary>
         /// 按住某个动作直到 <paramref name="changed"/> 成立（最多 <paramref name="maxSeconds"/> 真实秒）再松开、等一帧。
         /// Gameplay 开关键（走跑、伪装、攻击）首选它：按住时长跟着逻辑 tick 走，不会被漏采，也不会按太久连触发。
         /// 按住期间 <paramref name="changed"/> 每帧求值一次；超时不记失败（调用方随后自己 Check 结果）。

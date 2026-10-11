@@ -10,7 +10,11 @@
 //   交互键由外部输入层调 TryInteract。这样组件在 EditMode 里能直接测，不依赖 Physics。
 // 转场由谁做：本组件不认识 GameFlow，拿到的东西已经够用了——调用方读 TargetSceneKey / TargetSpawnId，
 //   再经 Game.World.WorldRules.Resolve 算落点、走既有流程（加载黑幕 E4 已由 GameFlow 统一落 / 揭）。
+// 统一交互（PRP/interaction D9）：按键型出口实现 Game.Interaction.IInteractable，由 WorldSceneDriver 登记进统一登记表；
+//   焦点、交互键、底部提示「[E] 前往 · 目的地」都由 InteractionFocus 统一驱动。组件仍不读输入、不查物理、不做转场：
+//   「成为焦点」就是外部报告的「进入范围」（OnFocusChanged → NotifyEntered / NotifyExited），按键由焦点系统调 Interact → TryInteract。
 using System;
+using Game.Interaction;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -22,7 +26,8 @@ namespace Game.World
     /// 两种触发方式（对应 <c>TbPortal.trigger_kind</c>）：
     /// <list type="bullet">
     /// <item><see cref="PortalTriggerKind.EnterRange"/>：调用方报告目标进出范围，进入那一刻触发一次；</item>
-    /// <item><see cref="PortalTriggerKind.Interact"/>：先进入范围，再由外部输入层调 <see cref="TryInteract"/>。</item>
+    /// <item><see cref="PortalTriggerKind.Interact"/>：先进入范围，再由外部输入层调 <see cref="TryInteract"/>。
+    /// 生产路径上这个「外部」是统一交互焦点：本组件作为 <see cref="IInteractable"/> 被登记，成为焦点 = 进入范围，按交互键 = <see cref="TryInteract"/>。</item>
     /// </list>
     /// </para>
     /// <para>
@@ -35,8 +40,11 @@ namespace Game.World
     /// </para>
     /// </summary>
     [AddComponentMenu("21Days/World/PortalAnchor")]
-    public sealed class PortalAnchor : MonoBehaviour
+    public sealed class PortalAnchor : MonoBehaviour, IInteractable
     {
+        /// <summary>按键型出口提示动词的缺省值（PRP/interaction D9）。</summary>
+        public const string DefaultInteractVerb = "前往";
+
         [Header("去哪")]
         [Tooltip("目标场景键（TbScene.scene_key）。转场由调用方做，本组件只把它交出去。")]
         [SerializeField] private string targetSceneKey = string.Empty;
@@ -48,7 +56,7 @@ namespace Game.World
         [Tooltip("触发方式：进入范围即触发 / 需要交互键（对应 TbPortal.trigger_kind）。")]
         [SerializeField] private PortalTriggerKind triggerKind = PortalTriggerKind.EnterRange;
 
-        [Tooltip("需要交互键时，玩家必须在范围内才能触发；进入范围之外的方式触发不了。")]
+        [Tooltip("需要交互键时，玩家必须在范围内才能触发；进入范围之外的方式触发不了。注意：按键型出口关掉此项后半径视为不限距离，只要它是全场最近的候选，就会在任意距离抢走交互焦点与按键。")]
         [SerializeField] private bool requirePlayerInRange = true;
 
         [Tooltip("本出口的触发半径（米）。**范围判定仍由调用方做**：本组件只是把「我有多大」这个场地信息交出去，"
@@ -62,8 +70,13 @@ namespace Game.World
         [Tooltip("出口触发后要通知谁。本组件不订阅任何东西，转场接线交给场景侧。")]
         [SerializeField] private UnityEvent onTriggered = new UnityEvent();
 
+        [Header("交互提示（只对需要交互键的出口）")]
+        [Tooltip("底部交互提示的动词「[E] 动词 · 目的地」。目的地名由 WorldSceneDriver 从 TbScene.display_name 下发，这里不写。")]
+        [SerializeField] private string interactVerb = DefaultInteractVerb;
+
         private bool playerInRange;
         private bool triggered;
+        private string destinationName = string.Empty;
 
         /// <summary>触发时发一次（同一个出口最多一次，除非 <see cref="ResetTriggered"/>）。</summary>
         public event Action<PortalAnchor> OnTriggered;
@@ -156,6 +169,57 @@ namespace Game.World
         public void ResetTriggered()
         {
             triggered = false;
+        }
+
+        // ---------------------------------------------------------------- 统一交互（只对需要交互键的出口）
+
+        /// <summary>目的地显示名（底部提示「前往 · 目的地」的名字部分）；空串 = 提示只显示动词。</summary>
+        public string DestinationName => destinationName;
+
+        /// <summary>交互提示：动词（Inspector「Interact Verb」，空则「前往」）+ 目的地显示名。</summary>
+        public InteractionPrompt Prompt =>
+            new InteractionPrompt(string.IsNullOrWhiteSpace(interactVerb) ? DefaultInteractVerb : interactVerb, destinationName);
+
+        /// <summary>
+        /// 下发目的地显示名（由 <see cref="WorldSceneDriver"/> 登记时从 <c>TbScene.display_name</c> 查好传进来）。
+        /// 组件不引用表的生成物，所以名字由调用方给；传空表示查不到，提示只显示动词。
+        /// </summary>
+        public void SetDestinationName(string displayName)
+        {
+            destinationName = displayName ?? string.Empty;
+        }
+
+        Vector3 IInteractable.Position => transform.position;
+
+        /// <summary>统一焦点测距用的半径 = 触发半径；不要求在范围内的「远程交互」出口不限距离（≤ 0）。</summary>
+        float IInteractable.InteractionRadius => requirePlayerInRange ? triggerRadius : 0f;
+
+        /// <summary>
+        /// 契约的可交互（不含距离）：只有需要交互键的出口、填了目标场景、还没触发过才参与焦点。
+        /// 进入范围型出口不登记、也永远不会成为焦点（它在 <see cref="NotifyEntered"/> 里当场触发）。
+        /// </summary>
+        bool IInteractable.CanInteract =>
+            triggerKind == PortalTriggerKind.Interact && !triggered && !string.IsNullOrEmpty(targetSceneKey);
+
+        int IInteractable.InteractionPriority => 0;
+
+        /// <summary>焦点系统按下交互键 / 点了提示时调：等同外部输入层调 <see cref="TryInteract"/>。</summary>
+        void IInteractable.Interact() => TryInteract();
+
+        /// <summary>
+        /// 焦点变化：成为焦点就是「玩家进入了交互范围」（焦点系统已按半径测过距离），失去焦点就是离开。
+        /// 对需要交互键的出口，<see cref="NotifyEntered"/> 只记范围、不触发，所以这里不会误走。
+        /// </summary>
+        void IInteractable.OnFocusChanged(bool focused)
+        {
+            if (focused)
+            {
+                NotifyEntered();
+            }
+            else
+            {
+                NotifyExited();
+            }
         }
 
         private void Awake()

@@ -92,7 +92,8 @@ namespace Game.World
                     resolver.Resolve<CameraConstraintPolicy>(),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
 
-            // 世界场景驱动（接线波新增）：ITickable 跑传送点范围 / 交互键 / 投影，ISimulationStep 按输入推玩家，
+            // 世界场景驱动（接线波新增）：ITickable 跑进入范围型传送点 / 按键型传送点的统一交互登记 / 投影，ISimulationStep 按输入推玩家，
+            // 按键型传送点的交互键归 Game.Interaction.InteractionFocus（PRP/interaction D9），本驱动要 IInteractionRegistry（InteractionInstaller 注册）；
             // IStartable 把自己挂进确定性内核的步骤表（见 WorldSceneDriver.Start 的注释）。
             // 它注册在最后：本类前面几项都是纯查询 / 纯状态，谁先谁后不影响启动串行（它不注册任何 IGameService）。
             builder.RegisterEntryPoint<WorldSceneDriver>(Lifetime.Singleton).AsSelf();

@@ -122,7 +122,7 @@ namespace Game.TurnBased
             ItemUseDecision decision = Items.TryUse(itemId, inventory);
             if (decision.Allowed)
             {
-                events.Add(BattleEvent.ItemUsed(itemId));
+                events.Add(BattleEvent.ItemUsed(itemId, ApplyItemEffect(itemId))); // 效果占位见 ApplyItemEffect
             }
 
             return decision;
@@ -356,6 +356,18 @@ namespace Game.TurnBased
             outcome = result;
             phase = BattlePhase.Ended;
             events.Add(result == BattleOutcome.Victory ? BattleEvent.BossDefeated() : BattleEvent.PlayerDefeated());
+        }
+
+        /// <summary>
+        /// 道具用掉之后的效果。07 没写道具效果（07:42、:58），占位只有一条：配置里的治疗道具回复玩家生命百分比
+        /// （`BattleItemSettings`，`PRP/turnbased-battle` D10，等 C91）。其余道具只记账、无效果。
+        /// 放在类尾是有意的：不挪动上面那些被模块 guide 按行号引用的方法。
+        /// </summary>
+        /// <returns>实际回复的生命（没有效果时为 0）。</returns>
+        private int ApplyItemEffect(string itemId)
+        {
+            BattleItemSettings items = settings.Items;
+            return items.Heals(itemId) ? Player.Heal(items.HealPercent, items.HealBase) : 0;
         }
     }
 }

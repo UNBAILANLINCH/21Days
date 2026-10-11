@@ -4,6 +4,9 @@
 // S3 视线遮挡（2026-10-07）：本视图另提供「场景里哪些东西挡视线」的纯数据清单（CollectSightOccluders），
 //   与 obstacleMask 分工不同——obstacleMask 走 EncounterCollision 的胶囊扫掠「挡人」（表现层），
 //   本清单是进确定性内核的「挡视线」几何，只在场景就绪时转一次，tick 路径不做物理查询。
+// 背后处决提示（2026-10-07，接进正式流程那一波）：面板第三行显示「此刻能不能按 F」——读的是
+//   ExecutionInteractor.Inspect()（无副作用查询，不写事实、不埋点），没接线时如实写「未接线」。
+//   与潜行 / 伪装两行同一块白盒面板：不引入新 UI 资产、不动预制体。
 using System;
 using Game.Player;
 using Game.Taming;
@@ -73,6 +76,17 @@ namespace Game.Monster
         [Tooltip("视线遮挡体：列进来的物体按下面的尺寸挡视线（纯数据，tick 里不做物理查询）。为空 = 不挡视线")]
         [SerializeField] private SightOccluderEntry[] sightOccluders;
 
+        // —— 感知范围可视化（2026-10-07）：把「判定用的那几个半径」画成 Game 视图可见的白盒线框。
+        //    出处：`03_潜行与暗杀.md:234` 把「视野扇形不画在画面上」列为已知缺口——玩家看不到范围就只能试错，
+        //    暗杀因此显得不讲道理（同文 `:251` 那条待拍板正是「潜行速度下绕过去要几秒？」）。
+        //    它**只读**判定参数、不参与任何判定；不勾开关或没拖配置时一行都不画，玩法零影响。
+        [Tooltip("红区（敌对）半径的出处：全局 MonsterConfig.HostileRadius。为空则不画感知范围")]
+        [SerializeField] private MonsterConfig awarenessConfig;
+        [Tooltip("不勾就不画感知范围线框（判定完全不受影响）")]
+        [SerializeField] private bool showAwarenessRanges = true;
+
+        private MonsterAwarenessRanges awarenessRanges;
+
         /// <summary>场景显式登记的一个视线遮挡体。</summary>
         [Serializable]
         private struct SightOccluderEntry
@@ -100,6 +114,14 @@ namespace Game.Monster
         private MonsterMode lastMode = (MonsterMode)255;
         private bool lastSneaking;
         private bool lastDisguised;
+        // 处决提示三件套：绑定的交互入口 + 上一次渲染的提示文字 + 上一次的判定形状（只在变化时重建字符串）。
+        private ExecutionInteractor execution;
+        private string executionStatus = ExecutionHint.UnboundLabel;
+        private bool executionBound;
+        private bool lastExecutionHasTarget;
+        private bool lastExecutionAllowed;
+        private ExecutionReject lastExecutionReject;
+        // 驯服控制 UI 与相机跟随（远端 taming 波）：调试面板画「当前控制 / 驯服并接管」，相机跟随当前控制对象。
         private EncounterStep encounter;
         private Action<int, bool> requestControl;
         private SmoothCameraFollow cameraFollow;
@@ -294,12 +316,18 @@ namespace Game.Monster
         /// <summary>
         /// 绑定要显示的模型。<paramref name="alphaSource"/> 每个渲染帧取一次两 tick 之间的插值比例 [0, 1]
         /// （正式流程读 SimulationRunner.Accumulator，独立场景读 FixedUpdate 相位）；为空时按 1，直接显示当前 tick 位置。
+        /// <para>
+        /// <paramref name="executionSource"/> 是处决交互入口（可为空）：给了就在状态面板上多画一行
+        /// 「此刻能不能按 F」。它只被读（<c>Inspect()</c>），本视图不驱动处决、不写任何事实。
+        /// </para>
         /// </summary>
-        public void Bind(PlayerModel playerModel, MonsterModel monsterModel, Func<float> alphaSource = null)
+        public void Bind(PlayerModel playerModel, MonsterModel monsterModel, Func<float> alphaSource = null,
+            ExecutionInteractor executionSource = null)
         {
             player = playerModel;
             monster = monsterModel;
             interpolationAlpha = alphaSource;
+            execution = executionSource;
             EnsureBodies();
             EnsureCamera();
         }
@@ -317,6 +345,41 @@ namespace Game.Monster
             player = null;
             monster = null;
             interpolationAlpha = null;
+            execution = null;
+            if (awarenessRanges != null)
+            {
+                awarenessRanges.Clear();
+            }
+        }
+
+        /// <summary>
+        /// 接线感知范围可视化。视野角 / 橙区半径 / 贴身察觉半径取自 <paramref name="kind"/>（按种类，
+        /// 与 `MonsterRules.Sense` 读的是同一批值），红区半径取自 <paramref name="config"/>（全局）。
+        /// <paramref name="kind"/> 为 null（没接种类表）时全部退回全局默认值。
+        /// </summary>
+        /// <param name="config">
+        /// 全局怪物配置，由接线方（`MonsterEncounterState`）从容器注入传入。**不靠 Inspector 手拖**：
+        /// 漏拖会静默少一层可视化，而那正是「看不到范围就靠试错」的老问题。序列化字段只在没有接线方时兜底
+        /// （直接播放场景那条路的 `StandaloneEncounterController` 还没接这一层）。
+        /// </param>
+        public void BindAwarenessRanges(MonsterKind kind, MonsterConfig config)
+        {
+            MonsterConfig source = config != null ? config : awarenessConfig;
+            if (!showAwarenessRanges || source == null)
+            {
+                return;
+            }
+
+            if (awarenessRanges == null)
+            {
+                awarenessRanges = gameObject.AddComponent<MonsterAwarenessRanges>();
+            }
+
+            awarenessRanges.SetProfile(
+                kind == null ? source.VisionAngle : kind.VisionAngle,
+                kind == null ? source.AlertRadius : kind.AlertRadius,
+                source.HostileRadius,
+                kind == null ? source.NearSenseRadius : kind.NearSenseRadius);
         }
 
         private void EnsureBodies()
@@ -453,6 +516,27 @@ namespace Game.Monster
                 lastMode = monster.Mode;
                 monsterStatus = $"怪物生命 {monster.Health}  状态 {monster.Mode}";
             }
+
+            RefreshExecutionStatus();
+        }
+
+        // 处决提示：每帧问一次「此刻能不能下刀」（纯浮点比较，不分配、不埋点），
+        // **只在判定形状变化时重建字符串**——面板每帧拼字符串会持续产生垃圾。
+        private void RefreshExecutionStatus()
+        {
+            bool bound = execution != null;
+            ExecutionHint hint = bound ? execution.Inspect() : default;
+            if (bound == executionBound && hint.HasTarget == lastExecutionHasTarget
+                && hint.Allowed == lastExecutionAllowed && hint.Reject == lastExecutionReject)
+            {
+                return;
+            }
+
+            executionBound = bound;
+            lastExecutionHasTarget = hint.HasTarget;
+            lastExecutionAllowed = hint.Allowed;
+            lastExecutionReject = hint.Reject;
+            executionStatus = hint.ToLabel();
         }
 
         private void RenderMonster(MonsterModel model, Transform body, SpriteRenderer sprite,
@@ -462,6 +546,9 @@ namespace Game.Monster
             Vector3 previous = body.position;
             body.position = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
             if (flipByMoveDirection) ApplyFlip(sprite, previous.x, body.position.x);
+            // 感知范围线框跟着纸片走：位置用刚投影出来的场景点，朝向用**逻辑朝向**
+            // （纸片本身只做左右翻转、不转身，所以朝向不能从 transform 读）。
+            if (awarenessRanges != null) awarenessRanges.UpdatePose(body.position, model.Facing);
             SpriteRenderer tint = indicator != null ? indicator : sprite;
             tint.color = model.Health <= 0 ? Color.black : isControlled ? Color.cyan : isTamed ? Color.green
                 : model.Mode == MonsterMode.Hostile ? Color.red
@@ -568,7 +655,13 @@ namespace Game.Monster
             }
 
             float buttonTop = Screen.height - DebugPanelMargin - BackButtonHeight;
-            float line2Top = buttonTop - LineHeight;
+            // 驯服控制块（远端 taming 波）摞在最上面，行数随登记角色数变化：没接驯服时不占位，
+            // 下面三行状态与警戒条整体跟着它下移，避免与「当前控制」那几行叠字。
+            bool showControlBlock = encounter != null && requestControl != null;
+            float controlTop = buttonTop - LineHeight; // 与原来的第三行同高，作为这块的锚点
+            float panelTop = showControlBlock ? controlTop - (actorIds.Length + 2) * LineHeight : controlTop;
+            float line3Top = panelTop;
+            float line2Top = line3Top - LineHeight;
             float line1Top = line2Top - LineHeight;
             float alertTop = line1Top - AlertBarGapAboveLines;
 
@@ -577,16 +670,17 @@ namespace Game.Monster
                 (AlertBarWidth - AlertBarPadding * 2f) * monster.Alert, AlertBarInnerHeight), string.Empty);
             GUI.Label(new Rect(DebugPanelMargin, line1Top, DebugPanelWidth, LineHeight), playerStatus);
             GUI.Label(new Rect(DebugPanelMargin, line2Top, DebugPanelWidth, LineHeight), monsterStatus);
-            if (encounter != null && requestControl != null)
+            // 第三行：背后处决提示（能否按 F）。没接线时写「处决：未接线」，不是留空。
+            GUI.Label(new Rect(DebugPanelMargin, line3Top, DebugPanelWidth, LineHeight), executionStatus);
+            if (showControlBlock)
             {
-                float top = alertTop - (actorIds.Length + 2) * LineHeight;
-                GUI.Label(new Rect(DebugPanelMargin, top, 650f, LineHeight),
+                GUI.Label(new Rect(DebugPanelMargin, controlTop, 650f, LineHeight),
                     "当前控制：" + encounter.Taming.GetDisplayName(CurrentControlId) + " [" + CurrentControlId + "]  | T 驯服最近巡逻者 / 返回玩家");
-                if (GUI.Button(new Rect(DebugPanelMargin, top + LineHeight, 140f, LineHeight), "控制玩家")) RequestControl(encounter.Taming.PlayerId);
+                if (GUI.Button(new Rect(DebugPanelMargin, controlTop + LineHeight, 140f, LineHeight), "控制玩家")) RequestControl(encounter.Taming.PlayerId);
                 for (int i = 0; i < actorIds.Length; i++)
                 {
                     string id = actorIds[i];
-                    float row = top + (i + 2) * LineHeight;
+                    float row = controlTop + (i + 2) * LineHeight;
                     GUI.Label(new Rect(DebugPanelMargin, row, 240f, LineHeight), encounter.Taming.GetDisplayName(id) + " [" + id + "]");
                     bool enabledBefore = GUI.enabled;
                     GUI.enabled = enabledBefore && encounter.Taming.IsAvailable(id) && encounter.Taming.GetTarget(id).Model.Health > 0 && player.Health > 0;

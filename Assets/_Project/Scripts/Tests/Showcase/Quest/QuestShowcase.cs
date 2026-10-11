@@ -12,6 +12,7 @@ using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Quest;
 using NUnit.Framework;
 using TMPro;
@@ -126,7 +127,7 @@ namespace Game.Tests.Showcase.Quest
             Connect();
             yield return CloseTitleIfOpen();
             yield return Check("任务 HUD 已打开", () => Hud() != null, 5f);
-            var player = FindRequired<DialogueInteractionActor>("player");
+            var player = FindRequired<InteractionActor>("player");
             Vector3 camp = FindRequired<Transform>(CampName).position;
             Vector3 lookout = FindRequired<Transform>(LookoutName).position;
 
@@ -161,6 +162,21 @@ namespace Game.Tests.Showcase.Quest
                 () => service.TryGet(SideQuestId, out QuestProgress s) && s.State == QuestState.Completed
                       && HudText("Root/Title").Contains("与旅人叙旧"), 3f);
             yield return Snapshot("支线完成·追踪不变");
+
+            // B4 已完成列表：1001 与 2001 此时都已完成，面板默认「进行中」，切到「已完成」应看到这两条。
+            yield return Step("点任务栏开面板", () => RequireHudChild<Button>("Root").onClick.Invoke());
+            yield return Check("面板打开，默认「进行中」标签（选中态在进行中）",
+                () => Panel() != null && TabSelected("TabInProgress") && !TabSelected("TabCompleted"), 5f);
+            yield return Step("切到「已完成」标签", () => RequirePanelChild<Button>("TabCompleted").onClick.Invoke());
+            yield return Check("已完成列表：最近接取的「观察神秘生物」在前，其次「找到落脚处」",
+                () => TabSelected("TabCompleted") && ItemIs(0, "观察神秘生物", "支线") && ItemIs(1, "找到落脚处", "主线")
+                      && ActiveItems().Count == 2, 3f);
+            yield return Check("详情里目标全部打 ✓，追踪按钮隐藏",
+                () => PanelText("Detail/Title") == "观察神秘生物" && !PanelActive("Detail/TrackButton") && AllObjectivesDone(), 3f);
+            yield return Snapshot("面板·已完成标签");
+
+            yield return Step("关面板", () => RequirePanelChild<Button>("CloseButton").onClick.Invoke());
+            yield return Check("面板关闭", () => Panel() == null, 5f);
         }
 
         [UnityTest]
@@ -200,7 +216,7 @@ namespace Game.Tests.Showcase.Quest
 
         /// <summary>从根容器取本回放要用的服务；取不到留 null，由后续检查点记失败。</summary>
         /// <summary>瞬移玩家到任务地点：player 根带运动学刚体，挪完同步一次物理变换，让地点判定当帧读到新位置。</summary>
-        private static void MovePlayer(DialogueInteractionActor player, Vector3 position)
+        private static void MovePlayer(InteractionActor player, Vector3 position)
         {
             player.transform.position = position;
             Physics.SyncTransforms();
@@ -350,6 +366,46 @@ namespace Game.Tests.Showcase.Quest
             }
 
             return result;
+        }
+
+        /// <summary>面板下某路径的物体在层级里是否显示。</summary>
+        private bool PanelActive(string path)
+        {
+            QuestPanelView panel = Panel();
+            Transform child = panel == null ? null : panel.transform.Find(path);
+            return child != null && child.gameObject.activeInHierarchy;
+        }
+
+        /// <summary>标签按钮的选中态子物体 Selected 是否显示。</summary>
+        private bool TabSelected(string tabName) => PanelActive(tabName + "/Selected");
+
+        /// <summary>详情目标清单里至少有一行，且每个显示中的行标记都是 ✓。</summary>
+        private bool AllObjectivesDone()
+        {
+            QuestPanelView panel = Panel();
+            Transform root = panel == null ? null : panel.transform.Find("Detail/Objectives");
+            if (root == null)
+            {
+                return false;
+            }
+
+            int shown = 0;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform row = root.GetChild(i);
+                if (!row.gameObject.activeSelf || row.name == "ObjectiveTemplate")
+                {
+                    continue;
+                }
+
+                shown++;
+                if (TextAt(row, "Mark") != "✓")
+                {
+                    return false;
+                }
+            }
+
+            return shown > 0;
         }
 
         private bool ItemIs(int index, string title, string kind)

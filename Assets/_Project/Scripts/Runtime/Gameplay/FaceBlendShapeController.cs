@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Game.LailaFace
+namespace Game.Gameplay
 {
+    // 命名空间对齐目录（2026-10-07）：本文件在 Runtime/Gameplay/ 下，原先写 Game.LailaFace，
+    // 与 project-root.md「命名空间与目录一致」不符（gc_scan 静态不变量长期报这一条）。
     // 职责：缓存 Head-topo 的 BlendShape 名称，并把成对的 Up/Down 权重映射成一个可拖拽的有符号值。
     // 新建原因：工程内没有可复用的面部 BlendShape 控制器；控制区和材质表现不应各自直接写 Renderer。
     // 编辑态载体：启用组件订阅 EditorApplication.update；5秒检查：调嘴/眉Key后其Transform与抓点同步。

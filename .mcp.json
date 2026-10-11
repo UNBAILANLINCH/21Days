@@ -3,6 +3,10 @@
     "UnityMCP": {
       "command": "uvx",
       "args": ["--from", "mcpforunityserver==10.2.0", "mcp-for-unity", "--transport", "stdio"]
+    },
+    "blender": {
+      "command": "uvx",
+      "args": ["--from", "mcp-for-blender==2.1.9", "mcp-for-blender"]
     }
   }
 }

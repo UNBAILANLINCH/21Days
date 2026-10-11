@@ -1,16 +1,13 @@
-// 职责：把物资箱模块的事件 broker、配置、服务、场景绑定与交互焦点注册进根作用域。
+// 职责：把物资箱模块的事件 broker、配置、服务与场景绑定注册进根作用域（交互焦点已统一到 Game.Interaction，PRP/interaction D8）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：Game.Core 不许引用 Game.Runtime，玩法类型只能经 GameplayInstaller 缝注册。
-//   2. 扩展不行：QuestInstaller / DialogueInstaller 只服务本模块，塞进去会让它们认识 Loot（依赖方向是 Loot → Quest / Dialogue）。
+//   2. 扩展不行：QuestInstaller / DialogueInstaller 只服务本模块，塞进去会让它们认识 Loot（依赖方向是 Loot → Quest / Interaction）。
 using Game.Core.Boot;
 using Game.Core.Config;
-using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Save;
 using Game.Core.Telemetry;
-using Game.Core.Timing;
 using Game.Core.UI;
-using Game.Dialogue;
 using Game.Quest;
 using MessagePipe;
 using UnityEngine;
@@ -56,20 +53,9 @@ namespace Game.Loot
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
                 .AsSelf()
                 .As<IGameService>();
-            // AsSelf：焦点与探索 HUD 要按具体类型注入 Binder（RegisterEntryPoint 默认只注册接口）。
-            // 构造参数容器里都有，按类型自动注入。
+            // AsSelf：验证代码要按具体类型取 Binder（RegisterEntryPoint 默认只注册接口）。
+            // 构造参数容器里都有（IInteractionRegistry 由 InteractionInstaller 注册，解析在容器建好之后，与注册器顺序无关），按类型自动注入。
             builder.RegisterEntryPoint<LootSceneBinder>(Lifetime.Singleton).AsSelf();
-            // AsSelf：探索 HUD 要订阅 OnFocusChanged。
-            builder.RegisterEntryPoint(resolver => new SupplyCrateFocus(
-                    resolver.Resolve<LootService>(),
-                    resolver.Resolve<LootSceneBinder>(),
-                    resolver.Resolve<LootConfig>(),
-                    resolver.Resolve<DialogueSceneBinder>(),
-                    resolver.Resolve<DialogueInteractionFocus>(),
-                    resolver.Resolve<DialogueService>(),
-                    resolver.Resolve<IWorldPauseService>(),
-                    resolver.Resolve<IHudVisibility>(),
-                    resolver.Resolve<IInputService>()), Lifetime.Singleton).AsSelf();
         }
 
         // 忘了拖配置时不让启动直接崩：记 Error 指明该拖哪个字段，再用代码建的默认值顶上（同 QuestInstaller）。

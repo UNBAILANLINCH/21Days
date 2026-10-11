@@ -22,6 +22,7 @@ maturity: stable
 | `TryGetTracked` | `bool TryGetTracked(out QuestProgress progress)` | 取当前追踪任务的进度；无追踪或未就绪返回 `false` |
 | `TryGet` | `bool TryGet(int id, out QuestProgress progress)` | 按 id 查进度（含未激活以外的所有已知任务） |
 | `GetOrdered` | `void GetOrdered(List<QuestProgress> buffer)` | 清空后填入：当前主线（若有）→ 支线按接取序号升序；只含进行中；未就绪只清空 |
+| `GetCompleted` | `void GetCompleted(List<QuestProgress> buffer)` | 清空后填入所有已完成任务，按**接取序号倒序**（最近接的在前）；**不是完成序**——存档不记完成时间 / 完成序；未就绪只清空。调用方传缓冲区，不分配 |
 | `InProgress` | `IReadOnlyList<QuestProgress> InProgress { get; }` | 进行中任务，按接取序号升序；**内部缓存，`Report` 后会重建，不要跨上报持有遍历** |
 | `Content` | `QuestContent Content { get; }` | 任务内容；未就绪时抛 `InvalidOperationException` |
 | `ResetProgress` | `void ResetProgress()` | 把全部任务重置回新开局（内存重置，不涉及读写盘）：新分区 → 重新激活 → 补发 `Activated`/`Progressed`/`TrackingChanged` 事件；未就绪记 Warn 并忽略 |
@@ -67,7 +68,7 @@ Narrative 订阅 QuestCompletedEvent 后读取持久完成状态写配置标记�
 | `QuestTarget.Position` | `Vector3 Position { get; }` | 测距用：地点位置 / NPC 根物体位置（脚底） |
 | `QuestTarget.Anchor` | `Vector3 Anchor { get; }` | 标记 / 屏幕投影用：地点位置 + `QuestConfig.LocationMarkerHeight`；NPC 三级取（`ResolveNpcAnchor`）：对话图标锚点 → Collider 顶部 + `QuestConfig.MarkerLift` → 同地点规则 |
 | `QuestTarget.Interactable` | `DialogueInteractable Interactable { get; }` | TalkTo 目标的 NPC 交互组件（任务标记据此接管其「…/!」图标）；地点目标为 null |
-| `SceneCamera` / `PlayerAnchor` | `Camera` / `Transform`（可为 null，用 `== null` 判） | 场景主相机（场景加载 / 卸载时重取）与玩家锚点（复用 `DialogueSceneBinder.Actor.Anchor`）；探索模块的万向标、遮挡半透明共用 |
+| `SceneCamera` / `PlayerAnchor` | `Camera` / `Transform`（可为 null，用 `== null` 判） | 场景主相机（场景加载 / 卸载时重取）与玩家锚点（取统一交互登记表的 `IInteractionRegistry.Actor.Anchor`）；探索模块的万向标、遮挡半透明共用 |
 
 `QuestHudPresenter` 用它摆世界标记与算屏幕指引；一般不用自己调，除非要做独立于 HUD 的目标提示（如小地图）。
 **NPC 头顶图标已被任务标记接管**：追踪目标是 NPC 时 `QuestHudPresenter` 调 `DialogueInteractable.SetMarkerOverridden`（Dialogue 同 asmdef 的 `internal` 开关）隐藏其「…/!」图，别的模块不要再去切这个开关，否则会与任务标记互相打架。
@@ -100,4 +101,4 @@ Narrative 订阅 QuestCompletedEvent 后读取持久完成状态写配置标记�
 - **不要绕过 `Report` 直接改 `QuestProgress`**：`State`/`ObjectiveIndex`/`Count`/`AcceptOrder` 的 setter 是 `internal`
   （同在 `Game.Runtime` 的模块编译上仍能写，靠约定），只有 `QuestRules` 该写；外部拿到的 `QuestProgress` 当只读用。
 - **不要长期持有 `QuestSaveData` 分区实例**：`ISaveService.Commit` 会整体替换，写完要 `Get<QuestSaveData>()` 再写。
-- **不要跨帧持有 `InProgress` / `GetOrdered` 的结果做遍历**：任何一次 `Report` 都可能重建缓存。
+- **不要跨帧持有 `InProgress` / `GetOrdered` / `GetCompleted` 的结果做遍历**：任何一次 `Report` 都可能重建缓存。

@@ -47,5 +47,19 @@ namespace Game.Loot
             if (data.Items == null) data.Items = new Dictionary<int, int>();
             else data.Items.Clear();
         }
+
+        /// <summary>
+        /// 从背包扣掉 <paramref name="count"/> 件 <paramref name="itemId"/>（战斗里用掉一件道具，PRP/turnbased-battle D10）。
+        /// 数量不够、data 为 null、count ≤ 0 返回 false 且不改数据；扣到 0 时把这一项从背包里删掉（背包面板不显示 0 件）。
+        /// 不碰 <see cref="LootSaveData.CollectedCrates"/>：扣的是物品，不是「箱子没开过」。
+        /// </summary>
+        public static bool Consume(LootSaveData data, int itemId, int count)
+        {
+            if (data == null || data.Items == null || count <= 0) return false;
+            if (!data.Items.TryGetValue(itemId, out int owned) || owned < count) return false;
+            if (owned == count) data.Items.Remove(itemId);
+            else data.Items[itemId] = owned - count;
+            return true;
+        }
     }
 }

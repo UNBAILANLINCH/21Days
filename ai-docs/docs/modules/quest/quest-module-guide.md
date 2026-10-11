@@ -14,21 +14,21 @@ maturity: stable
 ## 职责边界
 
 **做**：任务表 → 激活（前置 + 主线唯一）→ 目标推进 → 完成连锁；HUD 常驻任务栏 + 目标指引（屏内世界空间头顶标记 / 屏外 HUD 贴边箭头 + 距离）；
-任务面板（列表 + 详情 + 追踪切换）；与对话联动（对话结束推进 TalkTo）；场景到达点判定；存档分区；接取 / 完成通知（经 Core `INotificationService`）。
+任务面板（「进行中 / 已完成」标签 + 列表 + 详情 + 追踪切换）；与对话联动（对话结束推进 TalkTo）；场景到达点判定；存档分区；接取 / 完成通知（经 Core `INotificationService`）。
 
 **不做**（本期非目标，见 [`prd.md`](../../../../PRP/quest-system/prd.md)）：任务奖励、失败与限时、
-已完成任务列表页、任务对话内容、寻路距离、多语言。
+任务对话内容、寻路距离、多语言、完成时间 / 完成序（存档不记，已完成列表只能按接取序排）。
 
 ## 运行时类分工
 
 | 类 | 是什么 | 谁持有 / 谁调 |
 | --- | --- | --- |
-| `QuestRules` | **纯 C#** 规则：激活、`Report` 推进、完成连锁、追踪切换、排序、`Capture/Restore` | 根作用域单例；`QuestService` 调 |
+| `QuestRules` | **纯 C#** 规则：激活、`Report` 推进、完成连锁、追踪切换、排序（`GetOrdered` 进行中 / `GetCompleted` 已完成，接取序倒序）、`Capture/Restore` | 根作用域单例；`QuestService` 调 |
 | `QuestContent` / `QuestDefinition` / `QuestObjectiveDefinition` | 与表无关的内容模型，构造时校验 id / 目标 / 前置环 | `QuestCatalog` 产出，测试可直接 `new` |
 | `QuestCatalog` | Luban 表 → `QuestContent` 的翻译与缓存，首次访问才读表，额外校验 TalkTo 对话存在 | 根作用域单例 |
 | `QuestProgress` | 单条任务运行时进度（状态 / 当前目标 / 计数 / 激活序号），仅 `QuestRules` 能改 | `QuestRules` 持有 |
 | `QuestService` | **对外门面**：转发上报 / 追踪、写回存档、按固定顺序发布事件；读档重载（`ReloadFromSave`，订阅 `SessionStartedEvent`）与重置进度（`ResetProgress`）共用私有 `RestoreAndBroadcast` | 根作用域单例 + `IGameService` |
-| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；解析目标世界坐标（`QuestTarget`）。NPC 头顶锚点三级（纯静态 `ResolveNpcAnchor`）：① NPC 根上 `DialogueInteractableMarker.TryGetIconAnchor` → 与对话「…/!」图标同位；② 根 Collider 顶部 + `MarkerLift`；③ 位置上方 `LocationMarkerHeight`。Collider 与标记组件首次遇到时各 `GetComponent` 一次并缓存（含 null），场景卸载清已销毁项 | 根作用域入口点（`AsSelf`） |
+| `QuestSceneBinder` | 入口点：`sceneLoaded` 扫场景登记 `QuestLocation`；缓存 `Camera.main`；玩家锚点 `PlayerAnchor` 取统一交互登记表的 `IInteractionRegistry.Actor`（`QuestSceneBinder.cs:51`）；解析目标世界坐标（`QuestTarget`）。NPC 头顶锚点三级（纯静态 `ResolveNpcAnchor`）：① NPC 根上 `DialogueInteractableMarker.TryGetIconAnchor` → 与对话「…/!」图标同位；② 根 Collider 顶部 + `MarkerLift`；③ 位置上方 `LocationMarkerHeight`。Collider 与标记组件首次遇到时各 `GetComponent` 一次并缓存（含 null），场景卸载清已销毁项 | 根作用域入口点（`AsSelf`） |
 | `QuestTarget` | 只读结构体：测距用 `Position`（脚底/地点）+ 标记与投影用 `Anchor`（头顶）+ `Interactable`（TalkTo 目标的 NPC 交互组件，有无碰撞体都带；地点目标为 null） | `QuestSceneBinder.TryResolveTarget` 产出 |
 | `QuestTargetMarker` | 世界空间标记 MonoBehaviour：`Show(Vector3)/Hide()`，朝向相机由预制体自带 `CameraBillboard` 负责；摆到 NPC 头顶时替代该 NPC 的对话「…/!」图标（由 `QuestHudPresenter` 接管，不叠加） | `QuestHudPresenter` 实例化并驱动；沉浸模式（`IHudVisibility.IsHudHidden`）下与对白期间一样隐藏，贴边箭头随 Hud 面板由 UIService 隐藏 |
 | `QuestLocation` | 场景组件：地点键 + 半径，供到达判定与指引 | 场景物体 |
@@ -37,8 +37,8 @@ maturity: stable
 | `QuestHudView` | `UIView`（Hud 层）：任务栏 + 屏外贴边标识（`guidancePivot` 旋转带箭头公转、距离文本反向旋转保持正立），只显示与抛事件 | `IUIService` 实例化 |
 | `QuestHudPresenter` | 入口点：`BootCompletedEvent` 后开 HUD 常驻并实例化世界标记、挂任务键（`Gameplay/Journal`）订阅并把第一条键盘绑定写进 HUD 键位提示；订阅四个事件刷新文字；每帧摆标记（画面内只留标记，画面外才画贴边箭头 + 节流距离）并接管 / 交还 NPC 对话图标（`SetOverridden` → 纯静态 `SwitchIconOverride`）；对白中与沉浸模式隐藏；点任务栏或按任务键开面板 | 根作用域入口点 |
 | `QuestNotificationPresenter` | 入口点：订阅 `QuestActivatedEvent` / `QuestCompletedEvent`，经 `service.Content.TryGet` 取任务标题，按 `QuestConfig` 的两条格式拼好交给 `INotificationService.Show`；`BootCompletedEvent` 之前的事件（启动时激活首条任务）不弹 | 根作用域入口点 |
-| `QuestPanelView` | `UIView`（Panel 层）：列表 + 详情 + 追踪按钮，只显示与抛事件 | `IUIService` 实例化 |
-| `QuestPanelController` | 开关面板会话：持世界暂停令牌 + 关 Gameplay 图；把面板事件转成 `service.Track/Untrack`；被 Esc（Core `UICancelRouter`）从外部关掉时经 `OnClosed` 收尾 | 根作用域单例 |
+| `QuestPanelView` | `UIView`（Panel 层）：「进行中 / 已完成」两个标签按钮（子物体 `Selected` 为选中态，抛 `OnTabSelected(QuestPanelTab)`）+ 列表 + 详情 + 追踪按钮；已完成标签下目标全 ✓、追踪按钮隐藏；只显示与抛事件 | `IUIService` 实例化 |
+| `QuestPanelController` | 开关面板会话：持世界暂停令牌 + 关 Gameplay 图；记当前标签（每次打开默认「进行中」，按标签选 `GetOrdered` / `GetCompleted`，切标签选中首项，任务事件刷新保持当前标签）；把面板事件转成 `service.Track/Untrack`；被 Esc（Core `UICancelRouter`）从外部关掉时经 `OnClosed` 收尾 | 根作用域单例 |
 | `QuestConfig` | SO：指引留白 / 距离刷新间隔 / 标记抬升与高度 / 标记预制体地址 / HUD 与面板固定文案 / 接取与完成通知文案格式 | `Data/Quest/QuestConfig.asset` |
 | `QuestSaveData` / `QuestProgressData` | 存档分区（纯 DTO） | `rules.CaptureInto` 产出 |
 | 四个事件（`QuestActivatedEvent` 等） | `readonly struct`，一文件一个 | `QuestInstaller.InstallEvents` 注册 broker |
@@ -81,7 +81,8 @@ maturity: stable
 ## 依赖方向
 
 `Game.Quest → Game.Core`（UI / Save / Config / Timing / Input / Events / Telemetry / Boot / Assets / Logging / `Simulation.GameMath`），
-`Game.Quest → Game.Dialogue`（只用 `DialogueService` 的 `OnStarted/OnEnded` 与 `IsRunning`、`DialogueSceneBinder.Actor/Bound`、
+`Game.Quest → Game.Interaction`（只用 `IInteractionRegistry.Actor` 当玩家锚点，`QuestSceneBinder.cs:51`），
+`Game.Quest → Game.Dialogue`（只用 `DialogueService` 的 `OnStarted/OnEnded` 与 `IsRunning`、`DialogueSceneBinder.Bound`、
 `DialogueInteractable.DialogueId/transform/SetMarkerOverridden`（`internal`）、`DialogueInteractableMarker.TryGetIconAnchor`），
 `Game.Quest → Game.Session`（只用 `SessionStartedEvent`，`QuestService.cs:123` 订阅）。`Game.Dialogue`、`Game.Core` 不认识 `Game.Quest`；Narrative 运行适配只读完成事件及存档 DTO，用于配置标记同步；
 反向调用方：`Game.Session`（`SaveTriggerBridge` 订阅任务事件、`SessionStateAdapter` 读 `QuestService`）、`Game.Loot`（`Report(Counter)`）、
@@ -91,14 +92,15 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 ## 为什么这样设计（源码读不出来的部分）
 
 - **`QuestRules` 不持有存档分区引用**：`ISaveService.Commit` 会整体替换分区实例，长期持有旧引用会把进度写进一份没人读的对象；
-  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs:302`）。
+  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs:314`）。
 - **事件走 MessagePipe，Core 因此新增 `GameplayInstaller.InstallEvents`**：`Install` 拿不到根作用域的
   `MessagePipeOptions`，Dialogue 因此退回 C# `event`（违反 `EventConventions.cs` 第 1 条）。Quest 不想再开这个例外，
   于是给 `GameplayInstaller` 加一个默认空实现的虚方法，在 `Install` 之前把 `options` 递进来，既有注册器零改动
   （`GameplayInstaller.cs`；`GameLifetimeScope.InstallGameplay`）。
-- **玩家原点复用 `DialogueSceneBinder.Actor.Anchor`**：SampleScene 玩家根已挂 `DialogueInteractionActor`，
-  再加一个空标记组件是重复登记，扫场景只该有一处（`QuestSceneBinder.PlayerAnchor`）。代价是没有对话模块的场景
-  任务系统就没有到达判定与指引；将来要解耦再在 Core 抽 `IPlayerAnchor`，只改这一处。
+- **玩家原点取统一交互的玩家标记 `IInteractionRegistry.Actor.Anchor`**（2026-10-08 起；此前借 `DialogueSceneBinder.Actor` 转发，
+  该转发属性已删）：扫玩家标记全工程只在 `Game.Interaction.InteractionRegistry` 一处，再加一个空标记组件是重复登记。
+  它还负责「旧场景卸载后重扫找回新标记」，任务的到达判定与指引因此在场景重进后也不会失灵。
+  将来要彻底解耦再在 Core 抽 `IPlayerAnchor`，只改 `QuestSceneBinder.PlayerAnchor` 这一处。
 - **指引数学用 `Game.Core.Simulation.GameMath` 而非 `Mathf`/`Math`**：Runtime 有「重放确定性」lint 规则禁用原生数学库，
   `QuestGuidanceMath` 改用 `GameMath.Atan2/Min/Abs/Floor`；弧度转角度的换算常量本地写字面值
   （`QuestGuidanceMath.cs:18`），半数进位用 `(int)GameMath.Floor(d + 0.5f)` 而非原生四舍五入（会做银行家舍入）。
@@ -133,7 +135,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | 目标标记预制体 | Addressables（UI 组）`QuestTargetMarker` → `Prefabs/World/QuestTargetMarker.prefab`（根 `QuestTargetMarker`，子 `Icon`：SpriteRenderer + `CameraBillboard`，缩放 0.45 与 NPC 对话标记 `MarkerIdle` / `MarkerFocus` 一致，贴图同为 `Marker_Focus.png` 染黄；改对话标记尺寸要同步改这里） | 找不到 / 根上无组件：画面内标记不显示，记 Error 并埋 `marker_missing`；画面外箭头不受影响 |
 | `QuestConfig` 标记字段 | `MarkerLift`(0.3，仅 NPC 没有对话标记图标时的降级)、`LocationMarkerHeight`(1.5)、`TargetMarkerAddress`("QuestTargetMarker") 需与预制体地址一致 | 地址对不上：走上一行的降级；高度 / 抬升值用默认值不影响编译 |
 | 场景地点 | 场景里 `QuestLocation` 的 `locationKey` 要与表里 `ReachLocation` 目标的 `key`（`location` 留空时兜底用 `key`）对应 | 找不到地点：驱动器不判定、指引不显示，`QuestSceneBinder` 记 Warn |
-| 玩家标记 | 玩家根挂 `DialogueInteractionActor`（复用对话模块） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
+| 玩家标记 | 玩家根挂 `InteractionActor`（`Game.Interaction`，与统一交互共用） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
 | 入口 | 从 Boot → 标题「开始」进场景才有任务服务 | 直接 Play 玩法场景：服务未初始化，`IsReady == false`，查询返回空、上报被忽略 |
 
 示例接线：`Assets/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；回放也在 SampleScene 上跑。
@@ -164,11 +166,11 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 
 | 类型 | 位置 | 覆盖 |
 | --- | --- | --- |
-| EditMode | `Tests/EditMode/Quest/QuestRulesTests.cs`（19） | 激活 / 单主线 / 当前目标推进 / 完成连锁 / 排序 / 追踪切换与回落 / 事件顺序 |
+| EditMode | `Tests/EditMode/Quest/QuestRulesTests.cs`（22） | 激活 / 单主线 / 当前目标推进 / 完成连锁 / 排序 / `GetCompleted`（接取序倒序、空、只含已完成）/ 追踪切换与回落 / 事件顺序 |
 | EditMode | `.../QuestContentTests.cs`（12） | 内容构造期校验（id / 目标 / 前置环 / 键格式），非法一律抛 |
 | EditMode | `.../QuestCatalogTests.cs`（5） | 真实表翻译结果、每个 TalkTo 对话存在、缓存同一实例、TalkTo 对话缺失抛错 |
 | EditMode | `.../QuestSaveDataTests.cs`（6） | Capture/Restore 往返、接取序号延续、空分区、未知 id 跳过、追踪失效清零、经 `JsonSaveService` 落盘往返 |
-| EditMode | `.../QuestServiceTests.cs`（5） | `ResetProgress` / `ReloadFromSave` 后进度与分区一致并补发刷新事件；`SessionStartedEvent` 触发重载 |
+| EditMode | `.../QuestServiceTests.cs`（6） | `ResetProgress` / `ReloadFromSave` 后进度与分区一致并补发刷新事件；`SessionStartedEvent` 触发重载；`GetCompleted` 经门面透传 |
 | EditMode | `.../QuestGuidanceMathTests.cs`（9） | 屏内返回投影点 / 屏外贴边与箭头角 / 相机后翻转 / 零留白 / 距离半数进位 |
 | EditMode | `.../QuestTargetTests.cs`（6） | `QuestTarget` 带 / 不带交互组件；`ResolveNpcAnchor` 三级锚点优先级 |
 | EditMode | `.../QuestHudPresenterTests.cs`（6） | 任务键开面板判定、键位提示取第一条键盘绑定、`SwitchIconOverride` 成对接管 / 交还与跳过已销毁 NPC |
@@ -176,7 +178,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | EditMode | `.../QuestTableFileTests.cs`（10） | 编辑器文件层：现有 JSON 逐字节往返、缺字段 / 枚举大小写错抛 `FormatException`、字段顺序固定 |
 | EditMode | `.../QuestTableValidatorTests.cs`（32） | 编辑期校验每条规则的触发与不触发、聚合、排序、运行时兜底、`CollectContext` 收集真实工程键 |
 | EditMode | `.../QuestMainChainTests.cs`（13） | 主线链推导（线性 / 分叉 / 成环 / 空）、▲▼ 调序重写前置、支线解锁分组名 |
-| Showcase | `Tests/Showcase/Quest/QuestShowcase.cs`（3） | HUD 指引（屏内头顶标记 / 屏外贴边箭头）、对白与地点联动、面板暂停与追踪切换（肉眼验收） |
+| Showcase | `Tests/Showcase/Quest/QuestShowcase.cs`（3） | HUD 指引（屏内头顶标记 / 屏外贴边箭头）、对白与地点联动（末尾切「已完成」标签核对列表、目标全 ✓、追踪按钮隐藏）、面板暂停与追踪切换（肉眼验收） |
 | 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 透视相机、`player`、Elder/Traveler、两个 `QuestLocation` |
 
 跑 `/unity-test EditMode Quest`；视觉验收跑 `/verify-module Quest`（编辑器须打开，本轮尚未跑）。

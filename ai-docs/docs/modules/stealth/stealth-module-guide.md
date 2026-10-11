@@ -22,7 +22,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | `AssassinationRules` | 绕背 + 距离 + **目标未察觉** + 可选潜行的四段判定；`IsBehind` 可单独给附身复用 |
 | `ExecutionRules` | 背后处决的**门槛**：位置与察觉（转 `AssassinationRules`）∧ 物种允许被处决（`defeat_method == 暗杀`）。纯逻辑，两个条件分开可调 |
 | `ExecutionResolver` | 判定通过之后的**结算三件事**：写 `stealth.assassinated`（只在执行成功之后）→ 让目标死亡（`MonsterRules.ApplyExecution`）→ 承载 `BattleResult(Victory)`；含三个埋点与表现钩子 |
-| `ExecutionInteractor` | 交互层的 MonoBehaviour：读 `Gameplay/Execute`、选最近的可处决目标、采快照交给上面两层。**本模块唯一依赖 Monster / Player / Narrative 的文件**（见「依赖方向」） |
+| `ExecutionInteractor` | 交互层的 MonoBehaviour：读 `Gameplay/Execute`、按 F 键归属裁决（交互焦点在场就让位，D6）、选最近的可处决目标、采快照交给上面两层。**本模块唯一依赖 Monster / Player / Narrative / Interaction 的文件**（见「依赖方向」） |
 | `KnockdownRules` | 击倒状态机（倒地 → 挣扎 → 起身）+ `DownedHitPolicy` 三口径开关 |
 | `ChaseRules` | 触发 / 摆脱 / 推进三判定 + `ChaseBaseline` 速度校验（**追兵必须快过步行、不快过奔跑**） |
 | `ChaseCaughtRules` | 「被抓」后果的五口径策略（纯函数，只答「该发生什么」） |
@@ -53,6 +53,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 （`BattleResult`）。理由：「对谁下刀、把结果交给谁承载」这件事本身跨模块，而 PRP 明确把**处决的门槛**
 （`defeat_method == 暗杀` 的语义）留在潜行侧——放去 Monster 会让怪物模块反向认识潜行语义。
 约束：**内核文件（`AssassinationRules` 等）仍只依赖 `Game.Core`**，新加的跨模块依赖只许出现在上面两个文件里。
+**2026-10-08 再加一条**（`PRP/interaction` D6）：`ExecutionInteractor.cs` 依赖 `Game.Interaction` 的只读接口 `IInteractionFocus`（只读 `Current`，判 F 键归属），不认识任何可交互实现。
 （`ExecutionResolver` 对 `EncounterStep` 的用法是只调 `SettleBattle` 承载结果，不推进剧情。）
 
 ## 按键
@@ -61,11 +62,14 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | --- | --- | --- | --- |
 | `Gameplay/Execute` | **`F`** | **`South`（□/X）** | 背后处决。出处：`docs/design/spotlight/06_怪物状态与交互设计文档.md:69`「玩家可以在怪物背后按F处决」 |
 
-⚠️ **F 与手柄 South 与 `Interact` 共用**（`Interact` = `E` / `F` / `South`，既有约定，本波没动它）。
-这不是绑错：两个动作各自有严格的目标门槛——`Interact` 只在焦点非空时生效
-（`DialogueInteractionFocus.cs:79` / `SupplyCrateFocus.cs:82` 都要求 `Current != null`），
-`Execute` 只在「背后 + 暗杀距离 + 目标未察觉 + `defeat_method = 暗杀`」四条同时成立时才杀人。
-改 F 的归属属于内容侧键位决策，见 PRP §5 与交付报告的「待策划拍板」。
+⚠️ **F 与手柄 South 与 `Interact` 共用**（`Interact` = `E` / `F` / `South`，`Execute` = `F` / `South`；动作图没有控制方案，按 F 两个动作各收到一次按下）。
+**归属规则（2026-10-08，`PRP/interaction` D6）：屏幕提示什么，按键就做什么**——按下时统一交互焦点
+（`Game.Interaction.IInteractionFocus.Current`）非空，也就是底部正显示「[E] 动词 · 名字」时，这一下归交互，
+`ExecutionInteractor.HandleExecuteKey`（`ExecutionInteractor.cs:199`）不选目标、不结算，只记一条拒绝
+（`ExecutionReject.YieldedToInteraction`，埋点 `stealth_execute_rejected`、`reason = interaction_focus`、`focus` = 焦点对象名，
+`ExecutionResolver.cs:186`）；白盒面板 `Inspect` 同口径报「屏幕上有交互提示，这一下按键归交互」。焦点为空时照常走四条门槛。
+焦点由 `MonsterEncounterState.BindExecution` 从容器可选取（`container.TryResolve`，`MonsterEncounterState.cs:167`）经 `Configure` 传入，
+组件不 GetComponent；没传（独立原型场景、测试）时不做这层裁决。处决没有提示 UI，所以让位的是它；要反过来让处决优先，只改 `HandleExecuteKey` 一处。
 
 ## 事实键
 
@@ -104,9 +108,17 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 - **`stealth.assassinated` 只有处决能写**：判定门的 `AssassinationAllowed`（此刻能不能下刀）与这个键
   （已经用暗杀解决过目标）是两件事，拿前者点后者会把「站在守卫背后」写成「已经杀过他」（字典 §4.2、PRP §2.5）。
   写入点是 `ExecutionResolver`，**时机是执行成功之后**。
-- **当前表里没有 `defeat_method = 暗杀` 的行**：两行怪（巡夜人 / 井边妇人）都是 `可击杀（方式没写）`，
-  所以处决在**当前内容下不可达**（门槛会正确地拒掉它们）。这是内容缺口不是实现缺口——内容侧补一行
-  `defeat_method = 暗杀` 的妖物后即可用，见交付报告「待策划拍板」。
+- **`defeat_method = 暗杀` 的行已入库（2026-10-07）**：新增 `Tables/Data/yao/3.json`（市令，tier B，
+  `killable = false` + `defeat_method = 暗杀`；出处 `06_怪物分层.md:144`「阶段1 · B 特定怪物 · 5 市令：
+  暗杀，难度很高」）与 `Tables/Data/monster_species/1003.json`（`yao_id = 3`），并把 `Boot.unity` 的
+  `MonsterInstaller.kindId` 由 `0` 改为 `1003`——demo 场景那只怪从此是市令，**处决在内容上可达**
+  （`ExecutionRulesTests.SpeciesExecutable_CurrentTableRows_SplitByDefeatMethod` 用真表数据钉住这一条）。
+  这条**取代**了此前「当前表里没有 `defeat_method = 暗杀` 的行、处决在内容下不可达」的记录。
+  - **已知代价**：市令 `killable = false`，`MonsterRules.ApplyDamage` 对它**一律拒伤**（S3「本体打不过
+    任何怪」的设计意图），所以 `MonsterShowcase` 的「被打死」用例改成了「拒伤、但照样转敌对追打你」；
+    「常规击杀致死 → 状态 Dead」仍由 `MonsterRulesTests` 用可击杀的种类覆盖，不是丢了覆盖。
+  - **数值是占位**：市令的 `health 3 / vision_angle 90° / alert_radius 6` 等沿用同层占位值，
+    待策划按设计原文的「难度很高」调；改数值只动 `Tables/Data/monster_species/1003.json` 再跑生成。
 
 ## 验证入口
 
@@ -115,18 +127,22 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
   已察觉 / 已死 / 重合 / 零朝向、击倒期间按攻击键 / 负步长 / 未知口径、追兵 2.5 与 3.0 太慢 / 6.0 太快、
   断视线不足 / 距离不足、召唤半径内没人 / 不足一群 / 空编队、`default(StealthOccluder)` 等）。
 - 背后处决（2026-10-07 波）：
-  - `Tests/EditMode/Stealth/ExecutionRulesTests.cs`——门槛合取 + 四类拒绝负对照 + **用真表两行数据**证明
-    `killable = true` 的怪不能被处决；
+  - `Tests/EditMode/Stealth/ExecutionRulesTests.cs`——门槛合取 + 四类拒绝负对照 + **用真表数据分两半**：
+    `killable = true` 的怪不能被处决，而 `defeat_method = 暗杀` 的市令必须能——后者是「处决在内容上可达」
+    的正面证据（这条测试 2026-10-07 随内容改动扩写，是加强不是放宽）；
   - `Tests/EditMode/Stealth/ExecutionResolverTests.cs`——三件事（事实 / 死亡 / 战斗结果）+ 三处埋点 +
     表现钩子，负对照含「不在遭遇里不承载结果」；
   - `Tests/EditMode/Stealth/ExecutionInteractorTests.cs`——交互层选目标与察觉口径，负对照含
-    「对着空气按 F 什么都不发生」；
+    「对着空气按 F 什么都不发生」；F 键归属（2026-10-08）：焦点在场时按键让位（不杀人、不写事实、记 `interaction_focus`，
+    面板与按键同一原因）、焦点为空 / 没接焦点时照常处决；
   - `Tests/EditMode/Stealth/ExecuteInputBindingTests.cs`——`Gameplay/Execute` 存在、绑 F + 手柄、
     且**只在 Gameplay 图**；顺带守住「Interact 的 E / F / South 没被动过」；
   - `Tests/EditMode/Monster/MonsterExecutionTests.cs`——`ApplyDamage` 对 `killable = false` 的怪仍拒伤、
     而 `ApplyExecution` 能杀死它的**并存断言**。
-- **Showcase（2026-10-07 本波新增）**：`Assets/_Project/Scripts/Tests/Showcase/Stealth/StealthShowcase.cs`
-  —— 2 条用例、各 5 步：`Sight_BlockedByCover_HidesFromEnemy`、`Sneak_BehindEnemy_AllowsAssassination`。
+- **Showcase（2026-10-07，现 3 条用例）**：`Assets/_Project/Scripts/Tests/Showcase/Stealth/StealthShowcase.cs`
+  —— `Sight_BlockedByCover_HidesFromEnemy`、`Sneak_BehindEnemy_AllowsAssassination`，以及接线波新增的
+  `ExecuteKey_BehindEnemy_ExecutesTheTarget`（前两条各 5 步演判定，第三条端到端演按 F）。
+  **主窗口 2026-10-07 独立复跑：3 条全 PASS**（报告在 `Logs/verify/stealth/`，本地生成物不入库）。
   - **回放舞台**：`Assets/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
     玩家推摇杆走北侧路线到巡逻线北侧观察点，怪物是场景里那只真实巡逻怪（`enerme`）。
   - **遮挡体就登记在场景里**（这是正式场景的标准接法，正式场景照抄）：
@@ -144,11 +160,25 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
   - **回放特有的一步**：把那只**已经登记好的**掩体挪到玩家与怪物连线的中点再重采集一次几何——
     静态掩体不会自己出现在连线上，而怪物会一路走到玩家脚下（`MonsterRules` 的逻辑移动不吃碰撞）。
     正式场景里掩体是静态摆好的，**接法一致**，只有位置由关卡定。
-  - **与处决那一波的分工**：本 Showcase 断言的是 S3 的**绕背判定**（`AssassinationRules` → `AssassinationAllowed`），
-    **不含** F 键处决交互（`ExecutionInteractor` / `ExecutionResolver` / `ExecutionRules` 的物种门槛那一层，
-    属 `PRP/stealth-execution` 波）。两层的差别：`AssassinationAllowed` 只答「位置 + 察觉」，
-    `ExecutionRules` 再叠一条「`defeat_method == 暗杀`」——按本 guide 上面的已知约束，当前内容表里没有这种怪，
-    所以**演示怪（可击杀）在 F 键那条路上会被正确拒掉**，本 Showcase 不冒充它。
+  - **③ `ExecuteKey_BehindEnemy_ExecutesTheTarget`（接线波新增，端到端）**：前两条演「判定」，这一条演
+    「按键真的结算了」。断言五件事：① 场上那只 `ExecutionInteractor` 处于**已接线**状态（接线前它一个
+    生产调用方都没有）；② 按 F 之前白盒面板提示「可处决」（`Inspect()` 报的就是按键会用的那份判定）；
+    ③ 按 F 走到结算、最近一次结果是「允许」；④ 怪生命归零进 `Dead`；⑤ `stealth.assassinated` 写进
+    **正式流程那份**事实集（`EncounterStep.Facts`）。截图 `01-按 F 处决.png`。
+    埋点 `stealth_executed` 由 EditMode 的 `ExecutionSceneWiringTests` 用收集型 sink 断言——
+    回放侧拿不到 sink，不在这里假装看到。
+    **F 键归属（2026-10-08 补两步）**：组件接到的统一交互焦点就是容器里那一份（反射读私有字段，验产品接线）；
+    按 F 那一刻焦点为空、这一下归处决。巡逻线背后附近没有 NPC / 物资箱，「焦点与处决目标同时在场」的让位分支
+    在这张图里不硬造，由 `ExecutionInteractorTests` 覆盖。
+  - **接线落点（2026-10-07 接线波）**：场景侧在 `SampleScene` 的 `Encounter` 物体上挂了 `ExecutionInteractor`
+    （`inputActions` 字段**留空**——动作资产由接线方从 `IInputService` 传进 `Configure`，不必手拖，避开了
+    「给资产引用赋值会 Failed to convert」那个坑）；正式流程由 `MonsterEncounterState.BindExecution` 在
+    `OnSceneReadyAsync` 里 Configure；独立原型场景（直接 Play SampleScene）由
+    `StandaloneEncounterController.Awake` 接，**那条路没有种类表**，物种门槛恒拒
+    （`SpeciesNotExecutable`）——如实结果，不是接线失败。
+  - **如实记录的边界**：处决把这一场承载成 `BattleResult(Victory)`，但 `EncounterStep.ResultConsumed` 仍为假——
+    战斗结果目前**没有消费方**（`PRP/battle-to-narrative` §2.1），所以遭遇不会自己收尾。回放把这一条
+    **显式钉成检查点**，不让它看着像功能坏了。
 
 - 配置资产：`Assets/_Project/Data/Stealth/StealthConfig.asset`（28 字段与 C# 声明逐一对齐）。
 

@@ -1,7 +1,9 @@
 # Unity generated
 /[Ll]ibrary/
 /[Tt]emp/
-/[Oo]bj/
+# obj/ 故意不锚根：Unity 在仓库根建 obj/，而 PRP 下的 dotnet 测试工程在自己的目录里
+# 也建 obj/（NuGet 还原 + 编译中间件）。锚根时后者盖不住，会一直冒在 git status 里。
+[Oo]bj/
 /[Bb]uild/
 /[Bb]uilds/
 /[Ll]ogs/
@@ -43,6 +45,16 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 
+# 美术源工程文件：Blender 的 .blend 动辄几十上百 MB，而工程只用导出的 .glb。
+# 2026-10-09 有个 87 MB 的 Untitled.blend 被存进 Assets/_Project/Art/scene/，
+# 决定不入库（理由与做法见 Assets/_Project/Art/scene/README.md）。
+# 要留可编辑源件就放在工程外，或走 LFS。
+# .meta 必须一起忽略，否则留下一个指向被忽略资产的孤儿 meta（同 Addressables 那段的道理）。
+*.blend
+*.blend1
+*.blend.meta
+*.blend1.meta
+
 # Luban 工具本体（第三方二进制，约 30 MB）。scripts/gen-tables.ps1 发现缺失会自动下载解压，
 # 不必进库；生成出来的代码与 .bytes 照常进 git。
 /Tools/Luban/
@@ -74,6 +86,14 @@ Assets/AddressableAssetsData/Windows.meta
 # Unity 下次打开会报「meta 没有对应资产」再把它删掉，白白产生一次 diff。
 Assets/InitTestScene*.unity
 Assets/InitTestScene*.unity.meta
+
+# MCP for Unity 截图工具没指定 output_folder 时的默认落盘目录（Assets/Screenshots/）。
+# 那是过程产物不是资产，而且落在 Assets/ 下会被 Unity 逐张当 Sprite 导入。
+# 2026-10-09 一次对话就攒了 20 张 12 MB 冒在 git status 里。
+# 想让它别落这儿：截图时显式传 output_folder（本工程惯例是 Temp/shots），或改 MCP 的编辑器偏好。
+# .meta 一并忽略，理由同上面几条。
+/Assets/Screenshots/
+/Assets/Screenshots.meta
 
 # Laila 嘴部生成诊断明细：保留本地与已核验备份，仓库只跟踪小统计摘要。
 /PRP/laila-mouth-repair-20261002/candidate3-teeth.json

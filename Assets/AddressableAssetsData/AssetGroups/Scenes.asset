@@ -22,6 +22,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4b9e0e02ab63fbe47b12930e17fbfec3
+    m_Address: BattleArena
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7af5b1538095414439b6a62b9fc4b661
     m_Address: human_jingyang
     m_ReadOnly: 0

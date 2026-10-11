@@ -280,6 +280,20 @@ namespace Game.Quest
             rules.GetOrdered(buffer);
         }
 
+        /// <summary>清空后填入：所有已完成任务，按接取序倒序（最近接的在前，不是完成序）；未就绪时只清空。</summary>
+        public void GetCompleted(List<QuestProgress> buffer)
+        {
+            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+
+            if (!IsReady)
+            {
+                buffer.Clear();
+                return;
+            }
+
+            rules.GetCompleted(buffer);
+        }
+
         public void Dispose()
         {
             sessionSubscription?.Dispose();

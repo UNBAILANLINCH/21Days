@@ -4,6 +4,7 @@ using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Dialogue;
 using Game.Identity;
+using Game.Interaction;
 using Game.Quest;
 using Game.Session;
 using MessagePipe;
@@ -16,6 +17,8 @@ namespace Game.Narrative
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)
         {
             builder.RegisterMessageBroker<NarrativeChangedEvent>(options);
+            // 战斗阶段通知（PRP/turnbased-battle D2）：事件归剧情侧，订阅方是 Game.Battle；没装战斗模块时没人听，无副作用。
+            builder.RegisterMessageBroker<BattleStageEnteredEvent>(options);
         }
 
         public override void Install(IContainerBuilder builder)
@@ -23,10 +26,11 @@ namespace Game.Narrative
             builder.Register<NarrativeConditionSource>(Lifetime.Singleton);
             builder.Register<NarrativeCatalog>(Lifetime.Singleton);
             builder.Register(resolver => new NarrativeService(
-                resolver.Resolve<NarrativeCatalog>(), resolver.Resolve<DialogueService>(), resolver.Resolve<DialogueSceneBinder>(),
+                resolver.Resolve<NarrativeCatalog>(), resolver.Resolve<DialogueService>(), resolver.Resolve<IInteractionRegistry>(),
                 resolver.Resolve<NarrativeConditionSource>(), resolver.Resolve<ISaveService>(),
                 resolver.Resolve<ISubscriber<SessionStartedEvent>>(), resolver.Resolve<ISubscriber<QuestCompletedEvent>>(),
-                resolver.Resolve<IPublisher<NarrativeChangedEvent>>(), resolver.Resolve<ITelemetryService>().Scope("narrative")),
+                resolver.Resolve<IPublisher<NarrativeChangedEvent>>(), resolver.Resolve<ITelemetryService>().Scope("narrative"),
+                resolver.Resolve<IPublisher<BattleStageEnteredEvent>>()),
                 Lifetime.Singleton).AsSelf().As<IGameService>();
 
             // —— S 组内核接线（Q3 波）：身份 → 剧情事实投影（S1/S2）。

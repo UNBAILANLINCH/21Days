@@ -3,14 +3,18 @@
 //   这一段；条件 ② 的取值（物种 defat_method）与条件 ① 的察觉口径都只在交互层里组装，
 //   而真实表里两行怪都是 `可击杀（方式没写）`——本文件用**真表数据**钉住「它们绝不能被处决」。
 // 负对照：没有目标 / 目标在正面 / 超出距离 / 目标已察觉 / 物种不可处决 —— 五条都必须什么都没发生。
+// F 键归属（PRP/interaction D6）：统一交互焦点非空时按键让位（不处决、记 interaction_focus），焦点为空 / 没接焦点时照旧。
 using Game.Core.Config;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Interaction;
 using Game.Mirror;
 using Game.Monster;
 using Game.Player;
 using Game.Stealth;
 using Game.Tests.EditMode.Core;
+using Game.Tests.EditMode.Interaction;
+using Game.Tests.EditMode.Telemetry;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -174,6 +178,111 @@ namespace Game.Tests.EditMode.Stealth
             Assert.That(facts.Count, Is.Zero);
         }
 
+        /// <summary>
+        /// 只读查询 <see cref="ExecutionInteractor.Inspect"/>（接线那一波新增，白盒面板与回放靠它看状态）：
+        /// 它能报出「此刻能不能下刀」，且**什么都不改**——不写事实、不杀怪、不记最近结果、不承载战斗结果。
+        /// 「能不能下刀」与「已经杀过」仍然是两件事（PRP §2.5）。
+        /// </summary>
+        [Test]
+        public void Inspect_ExecutableTargetBehind_IsAllowedAndChangesNothing()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewExecutableTableTarget();
+            interactor.Configure(player.Model, target, facts, assassination);
+
+            ExecutionHint hint = interactor.Inspect();
+
+            Assert.That(hint.Configured, Is.True);
+            Assert.That(hint.HasTarget, Is.True);
+            Assert.That(hint.Allowed, Is.True, "背后 1 米、未察觉、物种是「暗杀」——这一刀此刻能下");
+            Assert.That(hint.Reject, Is.EqualTo(ExecutionReject.None));
+            Assert.That(hint.ToLabel(), Does.Contain("可处决"), "面板上要能看出「可以按 F」");
+            Assert.That(interactor.LastVerdict.HasValue, Is.False, "查询不是一次尝试，不该留下最近结果");
+            Assert.That(target.Model.Health, Is.GreaterThan(0), "查询不杀人");
+            Assert.That(facts.Count, Is.Zero, "查询不写事实");
+        }
+
+        /// <summary>
+        /// <see cref="ExecutionInteractor.LastVerdict"/> 如实记下**按了之后**的结果（含拒绝）：
+        /// 「按 F 没反应」与「功能坏了」在现场靠它分开。查询与按键必须给同一个原因，否则面板会骗人。
+        /// </summary>
+        [Test]
+        public void TryExecute_RejectedPress_RecordsTheSameReasonTheQueryShows()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewTarget(); // 没接种类表 → 物种门槛拒（「对于部分怪物」那条限定）
+            interactor.Configure(player.Model, target, facts, assassination);
+
+            ExecutionReject shown = interactor.Inspect().Reject;
+            Assert.That(shown, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
+            Assert.That(interactor.LastVerdict.HasValue, Is.False, "还没按过");
+
+            ExecutionVerdict verdict = interactor.TryExecute();
+
+            Assert.That(verdict.Reject, Is.EqualTo(shown), "面板说的原因与按下去得到的原因必须是同一条");
+            Assert.That(interactor.LastVerdict.HasValue, Is.True);
+            Assert.That(interactor.LastVerdict.Value.Reject, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
+            Assert.That(interactor.LastVerdict.Value.Allowed, Is.False);
+        }
+
+        // ──────────────────────── F 键归属（PRP/interaction D6） ────────────────────────
+
+        /// <summary>
+        /// 屏幕上有交互提示（统一焦点非空）时按 F：这一下归交互，处决让位——即便背后这一刀本来能下。
+        /// 不杀人、不写事实，只记一条拒绝（reason = interaction_focus），面板（Inspect）与按键给同一个原因。
+        /// </summary>
+        [Test]
+        public void HandleExecuteKey_InteractionFocusPresent_YieldsAndDoesNotExecute()
+        {
+            var sink = new RecordingTelemetrySink();
+            using var telemetryService = new TelemetryService(TelemetryOptions.Default, new FakeTelemetryClock(), sink);
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewExecutableTableTarget();
+            var focus = new FakeFocus { Current = new FakeInteractable(Vector3.zero, 2f) };
+            interactor.Configure(player.Model, target, facts, assassination, null, telemetryService.Scope("stealth"),
+                null, focus);
+
+            ExecutionHint hint = interactor.Inspect();
+            ExecutionVerdict verdict = interactor.HandleExecuteKey();
+
+            Assert.That(verdict.Allowed, Is.False);
+            Assert.That(verdict.Reject, Is.EqualTo(ExecutionReject.YieldedToInteraction));
+            Assert.That(hint.Reject, Is.EqualTo(ExecutionReject.YieldedToInteraction), "面板与按键同一条归属规则");
+            Assert.That(interactor.LastVerdict.HasValue && interactor.LastVerdict.Value.Reject == ExecutionReject.YieldedToInteraction,
+                Is.True, "按了、被让位：最近结果如实记下");
+            Assert.That(target.Model.Health, Is.GreaterThan(0), "让位不杀人");
+            Assert.That(facts.Count, Is.Zero, "让位不写事实");
+            string line = FindLine(sink, "stealth/stealth_execute_rejected");
+            Assert.That(line, Is.Not.Null, "让位要留一条拒绝埋点，现场才分得清是让位还是判定不过");
+            Assert.That(line, Does.Contain("\"reason\":\"" + ExecutionRules.ReasonYieldedToInteraction + "\""));
+        }
+
+        /// <summary>负对照：焦点为空（屏幕上没有交互提示）时按 F 照常处决，D6 不影响这条路。</summary>
+        [Test]
+        public void HandleExecuteKey_FocusEmpty_ExecutesAsBefore()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewExecutableTableTarget();
+            interactor.Configure(player.Model, target, facts, assassination, null, null, null, new FakeFocus());
+
+            ExecutionVerdict verdict = interactor.HandleExecuteKey();
+
+            Assert.That(verdict.Allowed, Is.True);
+            Assert.That(target.Model.Health, Is.Zero, "焦点为空：这一刀照常下");
+        }
+
+        /// <summary>没接焦点（独立原型场景、旧接线）时不做这层裁决，与 TryExecute 完全相同。</summary>
+        [Test]
+        public void HandleExecuteKey_NoFocusWired_BehavesLikeTryExecute()
+        {
+            PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
+            MonsterRules target = NewExecutableTableTarget();
+            interactor.Configure(player.Model, target, facts, assassination);
+
+            Assert.That(interactor.HandleExecuteKey().Allowed, Is.True);
+            Assert.That(target.Model.Health, Is.Zero);
+        }
+
         [Test]
         public void Configure_NullPlayerOrSink_IsRejected()
         {
@@ -214,6 +323,48 @@ namespace Game.Tests.EditMode.Stealth
                 NullTelemetryScope.Instance, kinds.Get(1001));
             target.Reset(new[] { Vector2.zero, new Vector2(10f, 0f) });
             return target;
+        }
+
+        /// <summary>
+        /// 真表里**只能靠暗杀解决**的那只：`Tables/Data/yao/3.json`（市令，killable = false + defeat_method = 暗杀）
+        /// 与 `monster_species/1003.json`。用它才能覆盖交互层的成功路径（表里第一条不是暗杀，会被物种门槛拒）。
+        /// </summary>
+        private MonsterRules NewExecutableTableTarget()
+        {
+            var stub = new StubConfigService(ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes()));
+            var kinds = new MonsterKindCatalog(stub, new YaoCatalog(stub), monsterConfig.HostileRadius);
+            var target = new MonsterRules(monsterConfig, new MonsterModel(), new RandomService(3ul),
+                NullTelemetryScope.Instance, kinds.Get(1003));
+            target.Reset(new[] { Vector2.zero, new Vector2(10f, 0f) });
+            return target;
+        }
+
+        private static string FindLine(RecordingTelemetrySink sink, string eventKey)
+        {
+            for (int i = 0; i < sink.Lines.Count; i++)
+            {
+                if (sink.Lines[i].Contains(eventKey)) return sink.Lines[i];
+            }
+
+            return null;
+        }
+
+        /// <summary>只读焦点替身：Current 可设，事件不触发（处决只读 Current）。</summary>
+        private sealed class FakeFocus : IInteractionFocus
+        {
+            public IInteractable Current { get; set; }
+
+            public event System.Action<IInteractable> OnFocusChanged
+            {
+                add { }
+                remove { }
+            }
+
+            public event System.Action<IInteractable> OnInteracted
+            {
+                add { }
+                remove { }
+            }
         }
 
         /// <summary>只递一份现成的 <c>cfg.Tables</c>（同 MonsterRulesTests 的写法）。</summary>

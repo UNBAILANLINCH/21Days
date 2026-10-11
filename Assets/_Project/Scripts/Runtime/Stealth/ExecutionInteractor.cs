@@ -2,7 +2,7 @@
 //   算条件 ②（物种是否允许被处决），交给 ExecutionResolver 结算。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
-//   1. 复用不行：`DialogueInteractionFocus` / `SupplyCrateFocus` 读的是 Interact 且只认自己的焦点类型；
+//   1. 复用不行：统一交互焦点 `InteractionFocus`（当时是对白与物资箱各一个焦点类）读的是 Interact 且只认可交互对象；
 //      `MirrorInputPresenter` 是照镜的入口点。没有一个能把「按 F → 绕背处决」接起来。
 //   2. 扩展不行：塞进 `ExecutionResolver` 会让结算认识 Input System 与场景（就没法在 EditMode 里直接 new 出来测）；
 //      塞进 `MonsterRules` 会让怪物模块反向认识潜行语义与输入（PRP §2.3 明确把落点定在本模块）。
@@ -15,16 +15,23 @@
 //   将来若要求回放能驱动处决：补一个 `InputCommand` 按钮位、把结算挪进 tick，**并在同一次改动里**
 //   同步位断言测试；若同时改到快照的字节布局，还要升 `ReplayFormat.CurrentFormatVersion`。
 //
-// 与 `Interact` 共用 F / 手柄 South 的说明（2026-10-07 核对，**不是重复绑定写错**）：
-//   `GameInput.inputactions` 里 `Interact` = E / **F** / South，本波新加的 `Execute` = **F** / South，
-//   该动作图没有控制方案（`controlSchemes: []`），所以按 F 会**同时**让两个动作各收到一次按下。
-//   这是**有意保留**的：两个动作各自有严格的目标门槛，互不重叠——
-//     · `Interact` 只在「焦点非空」时生效（`DialogueInteractionFocus.Tick` / `SupplyCrateFocus.Tick`：
-//       `Current != null` 才处理），焦点是最近的 NPC / 物资箱，且沉浸模式与对白中会清空；
-//     · 本组件只在「背后 + 暗杀距离 + 目标未察觉 + 物种 defeat_method = 暗杀」四条同时成立时才杀人。
-//   于是「站在怪物背后按 F」只有在**同一位置同时存在一个可交互 NPC/箱子**时才会两边都生效，
-//   而那种布局在当前内容里不存在。**没有替策划改 `Interact` 的既有绑定**（F 是既有约定，不是本波加的），
-//   改不改 F 的归属登记在交付报告的「待策划拍板」一节。
+// 与 `Interact` 共用 F / 手柄 South（`Interact` = E / **F** / South，`Execute` = **F** / South，动作图没有控制方案，
+//   按 F 会让两个动作各收到一次按下）。**归属规则（PRP/interaction D6，2026-10-08）：屏幕提示什么，按键就做什么**——
+//   按下时统一交互焦点非空（底部正显示「[E] 动词 · 名字」）→ 这一下归交互，本组件不处决，只记一条拒绝
+//   （`stealth_execute_rejected`，`reason = interaction_focus`）；焦点为空 → 照常走处决判定。处决没有提示 UI，所以让位的是它。
+//   焦点由接线方经 `Configure` 的 `interactionFocus` 传进来（`MonsterEncounterState.BindExecution` 从容器取），不 GetComponent；
+//   没传（独立原型场景、测试）时不做这层裁决，行为与 D6 之前一致。要反过来让处决优先，只改 `HandleExecuteKey` 这一处。
+//
+// 接线现状（2026-10-07「接进正式流程」那一波）：本组件此前**没有任何生产调用方**（只被测试与注释引用），
+//   现在由两处接线，两处都走 `Configure`：
+//     · 正式流程：`MonsterEncounterState.OnSceneReadyAsync` 在场景根里找本组件（与找 `EncounterSceneView`
+//       同一模式），再由公开的 `MonsterEncounterState.BindExecution` 喂进玩家 / 怪物规则 / 事实写入点 /
+//       判定内核 / 遭遇结算 / 埋点 / 动作资产；
+//     · 独立原型场景（直接 Play SampleScene）：`StandaloneEncounterController.Awake` 喂它自己 new 的那套规则。
+//       那条路**没有种类表**（`MonsterRules.Kind` 为 null），所以物种门槛恒拒——
+//       按 F 只会得到 `SpeciesNotExecutable`。这是如实的结果，不是接线失败。
+//   白盒可见性：`Inspect()` 是「此刻能不能下刀」的**无副作用**查询（由 `EncounterSceneView` 的状态面板显示），
+//   `LastVerdict` 记最近一次按 F 的结果。两者都只作观测，不参与判定、不改任何状态。
 //
 // 出处（真源）：
 //   - `docs/design/spotlight/06_怪物状态与交互设计文档.md:69`「对于部分怪物。玩家可以在怪物背后按F处决」
@@ -33,6 +40,7 @@ using System;
 using Game.Core.Logging;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Interaction;
 using Game.Monster;
 using Game.Player;
 using UnityEngine;
@@ -40,6 +48,61 @@ using UnityEngine.InputSystem;
 
 namespace Game.Stealth
 {
+    /// <summary>
+    /// 「此刻能不能下刀」的一次只读快照（<see cref="ExecutionInteractor.Inspect"/> 的返回值）。
+    /// <para>
+    /// 存在的理由：判定结果此前**没有任何 UI 消费方**，玩家无从知道什么时候能按 F。本类型只描述状态，
+    /// 不写事实、不埋点、不改任何规则对象——`stealth.assassinated` 仍然只在真的处决成功之后才写
+    /// （能力 ≠ 事实，见 <see cref="ExecutionVerdict.FactKey"/> 的说明）。
+    /// </para>
+    /// </summary>
+    public readonly struct ExecutionHint
+    {
+        /// <summary>没接线时的界面文字。放在这里是为了让面板初始化与 <see cref="ToLabel"/> 用同一份，
+        /// 不在第二处再写一遍中文。</summary>
+        public const string UnboundLabel = "处决：未接线";
+
+        public ExecutionHint(bool configured, bool hasTarget, ExecutionVerdict verdict)
+        {
+            Configured = configured;
+            HasTarget = hasTarget;
+            Verdict = verdict;
+        }
+
+        /// <summary>组件是否已经接线（没接线时按键也不响应，界面要如实说这一条）。</summary>
+        public bool Configured { get; }
+
+        /// <summary>附近有没有候选目标（有 = <see cref="Reject"/> 说的是「离他最近这只为什么不行」）。</summary>
+        public bool HasTarget { get; }
+
+        /// <summary>这一次的判定结果（<see cref="HasTarget"/> 为假时 <see cref="ExecutionReject.NoTarget"/>）。</summary>
+        public ExecutionVerdict Verdict { get; }
+
+        /// <summary>此刻能不能下刀。</summary>
+        public bool Allowed => Verdict.Allowed;
+
+        /// <summary>不能下刀的原因；能下刀时是 <see cref="ExecutionReject.None"/>。</summary>
+        public ExecutionReject Reject => Verdict.Reject;
+
+        /// <summary>白盒面板用的一句话（中文）。</summary>
+        public string ToLabel()
+        {
+            if (!Configured)
+            {
+                return UnboundLabel;
+            }
+
+            if (Allowed)
+            {
+                return "处决：可处决（按 F）";
+            }
+
+            return HasTarget
+                ? "处决：不可（" + ExecutionRules.Describe(Reject) + "）"
+                : "处决：附近没有目标";
+        }
+    }
+
     /// <summary>
     /// 背后处决的交互入口点。挂在玩家身上（或场景里任一常驻物体），接上玩家、目标与事实写入点即可用。
     /// <para>
@@ -59,12 +122,28 @@ namespace Game.Stealth
         private PlayerModel player;
         private MonsterRules[] targets = Array.Empty<MonsterRules>();
         private ExecutionResolver resolver;
+        private IInteractionFocus interactionFocus;
 
         /// <summary>是否已经接好线（没接线时按 F 什么都不做，也不埋点）。</summary>
         public bool IsConfigured => resolver != null;
 
         /// <summary>结算器；接线后可订阅它的 <see cref="ExecutionResolver.OnExecuted"/> 播被处决动画。</summary>
         public ExecutionResolver Resolver => resolver;
+
+        /// <summary>
+        /// 最近一次 <see cref="TryExecute"/> 的结果；<c>null</c> = **还没按过**（不是「被拒」）。
+        /// <para>
+        /// **只作观测用**（白盒面板、回放断言「按 F 到底走到哪一步了」）。它不参与判定，也不是持久事实——
+        /// 「已经用暗杀解决过目标」的唯一痕迹是 `stealth.assassinated`（命中那一刻才写）。
+        /// 用可空类型而不是让默认值兜底：`default(ExecutionVerdict)` 是 `Allowed = false, Reject = None`，
+        /// 那读起来像「通过了却被拒」，会把「没按过」和「按了的结果」混成一件事。
+        /// </para>
+        /// <para>
+        /// 没接线时的早退**不算一次尝试**（那条路连埋点都不写），所以它不会改写这个值。
+        /// 没接输入资产、只是被测试或别处直接调 <see cref="TryExecute"/> 时照记。
+        /// </para>
+        /// </summary>
+        public ExecutionVerdict? LastVerdict { get; private set; }
 
         /// <summary>
         /// 接线：玩家、目标、事实写入点，外加可选的判定内核 / 遭遇结算 / 埋点 / 动作资产。
@@ -75,10 +154,10 @@ namespace Game.Stealth
         /// </summary>
         public void Configure(PlayerModel playerModel, MonsterRules target, IStealthFactSink factSink,
             AssassinationRules rules = null, EncounterStep encounter = null, ITelemetryScope telemetry = null,
-            InputActionAsset actions = null)
+            InputActionAsset actions = null, IInteractionFocus interactionFocus = null)
         {
             Configure(playerModel, target == null ? Array.Empty<MonsterRules>() : new[] { target }, factSink,
-                rules, encounter, telemetry, actions);
+                rules, encounter, telemetry, actions, interactionFocus);
         }
 
         /// <summary>接线（多目标重载）。</summary>
@@ -86,10 +165,14 @@ namespace Game.Stealth
         /// 动作资产；为 null 时用 Inspector 上那个 <c>Input Actions</c> 字段。**代码接线（Showcase / 原型场景）
         /// 传这个参数**，就不必去改场景里组件的序列化字段。
         /// </param>
+        /// <param name="interactionFocus">
+        /// 统一交互焦点（PRP/interaction D6）：按键时它非空就让位给交互。为 null（独立原型场景、测试）时不做这层裁决。
+        /// </param>
         public void Configure(PlayerModel playerModel, MonsterRules[] monsterTargets, IStealthFactSink factSink,
             AssassinationRules rules = null, EncounterStep encounter = null, ITelemetryScope telemetry = null,
-            InputActionAsset actions = null)
+            InputActionAsset actions = null, IInteractionFocus interactionFocus = null)
         {
+            this.interactionFocus = interactionFocus;
             player = playerModel ?? throw new ArgumentNullException(nameof(playerModel));
             if (factSink == null) throw new ArgumentNullException(nameof(factSink));
             targets = monsterTargets ?? Array.Empty<MonsterRules>();
@@ -105,6 +188,22 @@ namespace Game.Stealth
 
             resolver = new ExecutionResolver(assassination, factSink, encounter, telemetry);
             BindInput(actions == null ? inputActions : actions);
+        }
+
+        /// <summary>
+        /// 按键路径：<see cref="Update"/> 收到 <c>Gameplay/Execute</c> 按下时调（测试直接调）。
+        /// 屏幕上有交互提示（统一交互焦点非空）时，这一下归交互、处决让位（PRP/interaction D6）：不选目标、不结算，
+        /// 只记一条拒绝（<see cref="ExecutionReject.YieldedToInteraction"/>，埋点 <c>reason = interaction_focus</c>）。
+        /// 焦点为空或没接焦点时与 <see cref="TryExecute"/> 完全相同；没接线时同样静默返回。
+        /// </summary>
+        public ExecutionVerdict HandleExecuteKey()
+        {
+            if (resolver != null && player != null && interactionFocus != null && interactionFocus.Current != null)
+            {
+                return Remember(resolver.RejectYieldedToInteraction(DescribeFocus(interactionFocus.Current)));
+            }
+
+            return TryExecute();
         }
 
         /// <summary>换目标（遭遇重开 / 场景切换时由接线方调）；传 null 或空表示当前没有可处决目标。</summary>
@@ -129,10 +228,104 @@ namespace Game.Stealth
 
             if (targets.Length == 0)
             {
-                return resolver.RejectNoTarget();
+                return Remember(resolver.RejectNoTarget());
             }
 
-            PlayerSnapshot attacker = player.Snapshot;
+            Candidate pick = Select(player.Snapshot);
+
+            // 有允许的 → 对最近的那个下手；一个都不允许 → 把最近那只的拒绝原因交给结算器埋点
+            //（「玩家按了没反应」时最想知道的就是离他最近这只为什么不行）。
+            // 两处都要先把属性落成局部：结算的入参是 `in`，属性不能按引用传（CS8156）。
+            if (pick.AllowedTarget != null)
+            {
+                ExecutionInput allowed = pick.AllowedInput;
+                return Remember(resolver.TryExecute(in allowed, pick.AllowedTarget));
+            }
+
+            if (pick.NearestTarget == null)
+            {
+                return Remember(resolver.RejectNoTarget());
+            }
+
+            ExecutionInput nearest = pick.NearestInput;
+            return Remember(resolver.TryExecute(in nearest, pick.NearestTarget));
+        }
+
+        /// <summary>
+        /// **只读查询**：此刻最近候选能不能下刀、不能的话差在哪一条。白盒面板与回放用它看状态。
+        /// <para>
+        /// 与 <see cref="TryExecute"/> 共用同一套选目标规则（<see cref="Select"/>），所以「面板说能下刀」
+        /// 与「按 F 真的下刀」不会各算一套。**它什么都不改**：不写事实、不埋点、不动 <see cref="LastVerdict"/>、
+        /// 不结算战斗结果。判定是纯函数，每次查询重算一遍（几次浮点比较），不值得为它加缓存。
+        /// </para>
+        /// </summary>
+        public ExecutionHint Inspect()
+        {
+            var noTarget = new ExecutionVerdict(false, ExecutionReject.NoTarget);
+            if (resolver == null || player == null)
+            {
+                return new ExecutionHint(false, false, noTarget);
+            }
+
+            // 与按键路径同一条归属规则（D6）：焦点在场时按 F 归交互，面板如实说「这一下不会处决」。
+            if (interactionFocus != null && interactionFocus.Current != null)
+            {
+                return new ExecutionHint(true, targets.Length > 0,
+                    new ExecutionVerdict(false, ExecutionReject.YieldedToInteraction));
+            }
+
+            if (targets.Length == 0)
+            {
+                return new ExecutionHint(true, false, noTarget);
+            }
+
+            Candidate pick = Select(player.Snapshot);
+            if (pick.AllowedTarget != null)
+            {
+                // 判定吃的是 `in` 参数，而 Candidate 的成员是只读属性（属性不能按引用传），先落到局部。
+                ExecutionInput allowed = pick.AllowedInput;
+                return new ExecutionHint(true, true, ExecutionRules.Evaluate(in allowed, assassination));
+            }
+
+            if (pick.NearestTarget == null)
+            {
+                return new ExecutionHint(true, false, noTarget);
+            }
+
+            // 最近的那只不允许：把它的拒绝原因交出去（玩家最想知道的就是这一条）。
+            ExecutionInput nearest = pick.NearestInput;
+            return new ExecutionHint(true, true, ExecutionRules.Evaluate(in nearest, assassination));
+        }
+
+        /// <summary>一次选目标的结果：允许下刀的最近一个 + 无论允不允许都最近的那一个。</summary>
+        private readonly struct Candidate
+        {
+            public Candidate(MonsterRules allowedTarget, in ExecutionInput allowedInput,
+                MonsterRules nearestTarget, in ExecutionInput nearestInput)
+            {
+                AllowedTarget = allowedTarget;
+                AllowedInput = allowedInput;
+                NearestTarget = nearestTarget;
+                NearestInput = nearestInput;
+            }
+
+            /// <summary>最近的、判定允许的目标；没有就是 null。</summary>
+            public MonsterRules AllowedTarget { get; }
+
+            /// <summary>上一个目标对应的判定输入。</summary>
+            public ExecutionInput AllowedInput { get; }
+
+            /// <summary>最近的目标（不管允不允许）；一个候选都没有时是 null。</summary>
+            public MonsterRules NearestTarget { get; }
+
+            /// <summary>最近那个目标对应的判定输入。</summary>
+            public ExecutionInput NearestInput { get; }
+        }
+
+        // 选目标：遍历全部候选，取**最近的、判定允许的**那一个；都不允许时用**最近的那只**的拒绝原因。
+        // TryExecute 与 Inspect 共用本方法，保证「面板说能下刀」与「按 F 真的下刀」永远是同一条规则。
+        private Candidate Select(in PlayerSnapshot attacker)
+        {
             MonsterRules nearestAllowed = null;
             ExecutionInput nearestAllowedInput = default;
             float nearestAllowedDistance = float.MaxValue;
@@ -165,17 +358,14 @@ namespace Game.Stealth
                 }
             }
 
-            // 有允许的 → 对最近的那个下手；一个都不允许 → 把最近那只的拒绝原因交给结算器埋点
-            //（「玩家按了没反应」时最想知道的就是离他最近这只为什么不行）。
-            if (nearestAllowed != null)
-            {
-                return resolver.TryExecute(in nearestAllowedInput, nearestAllowed);
-            }
+            return new Candidate(nearestAllowed, in nearestAllowedInput, nearestAny, in nearestAnyInput);
+        }
 
-            // 判定是纯函数，这里重算一次只为把同一份输入交给结算器统一埋点；每次按键最多算两遍，不值得为它加缓存。
-            return nearestAny == null
-                ? resolver.RejectNoTarget()
-                : resolver.TryExecute(in nearestAnyInput, nearestAny);
+        // 记录最近一次的真实结果（观测用），并把同一个 verdict 原样返回给调用方。
+        private ExecutionVerdict Remember(ExecutionVerdict verdict)
+        {
+            LastVerdict = verdict;
+            return verdict;
         }
 
         private void OnEnable()
@@ -202,7 +392,18 @@ namespace Game.Stealth
                 return;
             }
 
-            TryExecute();
+            HandleExecuteKey();
+        }
+
+        // 埋点用的焦点对象名：组件取物体名，纯 C# 实现取类型名。只在按键让位那一下调用。
+        private static string DescribeFocus(IInteractable focus)
+        {
+            if (focus is Component component)
+            {
+                return component != null ? component.name : string.Empty;
+            }
+
+            return focus.GetType().Name;
         }
 
         private void OnDestroy()

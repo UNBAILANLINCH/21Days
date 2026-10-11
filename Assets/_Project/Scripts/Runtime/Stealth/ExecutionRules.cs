@@ -50,6 +50,12 @@ namespace Game.Stealth
 
         /// <summary>**条件 ②**：这个物种不允许被处决（<c>defeat_method != 暗杀</c>）。</summary>
         SpeciesNotExecutable = 8,
+
+        /// <summary>
+        /// 按下时屏幕上有交互提示（统一交互焦点非空）：这一下 F / South 归交互，处决让位（PRP/interaction D6）。
+        /// 交互层用：判定层不会产出这个值（同 <see cref="NoTarget"/>）。
+        /// </summary>
+        YieldedToInteraction = 9,
     }
 
     /// <summary>
@@ -117,6 +123,9 @@ namespace Game.Stealth
     {
         /// <summary>埋点里「物种不可处决」的原因码。</summary>
         public const string ReasonSpeciesNotExecutable = "species_not_executable";
+
+        /// <summary>埋点里「因交互焦点让位」的原因码（PRP/interaction D6）。</summary>
+        public const string ReasonYieldedToInteraction = "interaction_focus";
 
         /// <summary>
         /// **条件 ②**：这个物种允不允许被处决。判据是 <c>defeat_method</c> 列等于白名单里的「暗杀」。
@@ -219,6 +228,8 @@ namespace Game.Stealth
                     return "same_position";
                 case ExecutionReject.SpeciesNotExecutable:
                     return ReasonSpeciesNotExecutable;
+                case ExecutionReject.YieldedToInteraction:
+                    return ReasonYieldedToInteraction;
                 default:
                     return "unknown";
             }
@@ -247,6 +258,8 @@ namespace Game.Stealth
                     return "与目标重合，朝向无意义";
                 case ExecutionReject.SpeciesNotExecutable:
                     return "这个物种不允许被处决";
+                case ExecutionReject.YieldedToInteraction:
+                    return "屏幕上有交互提示，这一下按键归交互";
                 default:
                     return "未知原因";
             }

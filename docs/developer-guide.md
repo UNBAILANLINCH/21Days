@@ -378,7 +378,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 
 **场景里放 NPC**：根上碰撞体（3D `BoxCollider` / 2D `Collider2D`）+ `DialogueInteractable`（填对话树编号、显示名、交互半径）+
 `DialogueInteractableMarker`，子物体放头顶标记 `MarkerIdle` / `MarkerFocus` 与名字 `NameLabel`（3D 场景再挂 `CameraBillboard`）。
-玩家根挂一个 `DialogueInteractionActor`，焦点系统据此选最近的 NPC，确认键或右下角「对话」按钮触发。
+玩家根挂一个 `InteractionActor`（Game.Interaction），焦点系统据此选最近的 NPC，确认键或右下角「对话」按钮触发。
 要支持鼠标 / 触屏点 NPC，场景相机挂 `PhysicsRaycaster`（3D 碰撞体）或 `Physics2DRaycaster`（`Collider2D`），缺了点击静默无效。
 现成样子照 `Assets/Scenes/SampleScene.unity` 的 `Npc_Elder` 抄。
 
@@ -442,7 +442,7 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
 **两种挂载点**：
 1. **场景触发器**：放一个 `PerformanceTrigger`（`isTrigger` 碰撞体 + `PerformanceId` + `Mode`：`OnEnter` 进区域自动播、
    `OnSceneStart` 场景加载即播；`Once` 控制只播一次），玩家根挂 `PerformanceTriggerActor` 标记（同 Dialogue 的
-   `DialogueInteractionActor` 做法，但两者互不依赖）。运行时新生成的触发器要靠 `PerformanceSceneBinder` 扫描绑定，
+   `InteractionActor` 做法，但两者互不依赖）。运行时新生成的触发器要靠 `PerformanceSceneBinder` 扫描绑定，
    不会自动生效。世界舞台（小人站在 3D 场景里）示例见菜单 `21Days/演出/生成示例·场景对白（世界舞台）` 与 SampleScene 的
    `Trigger_VillageEntrance`（锚点 `anchor`、`hideActorVisual`、`hiddenDuringPlay`），细节见演出模块 guide「世界舞台」。
 2. **对白节点前插播**：`Tables/Data/dialogue/<编号>.json` 节点的 `performance` 字段填演出 id（空串 `""` = 不插播，

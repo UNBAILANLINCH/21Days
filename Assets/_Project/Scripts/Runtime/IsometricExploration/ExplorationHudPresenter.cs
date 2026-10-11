@@ -117,7 +117,7 @@ namespace Game.IsometricExploration
         }
 
         // 经输入服务的动作集取「Gameplay/Cancel」动作，不读具体按键；只订阅一次。
-        // 沉浸模式是纯表现开关，不进确定性模拟、不影响回放，所以允许直接订阅动作（同 DialogueInteractionFocus 读确认键）。
+        // 沉浸模式是纯表现开关，不进确定性模拟、不影响回放，所以允许直接订阅动作（同 Game.Interaction.InteractionFocus 读交互键）。
         private void HookCancel()
         {
             if (cancelAction != null || immersiveAction != null || disposed) return;

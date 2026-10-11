@@ -17,6 +17,7 @@ using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Narrative;
 using Game.Player;
 using Game.Quest;
@@ -62,8 +63,9 @@ namespace Game.Tests.EditMode.Narrative
             var dialogueConfig = Track(ScriptableObject.CreateInstance<DialogueConfig>());
             dialogue = new DialogueService(dialogues, dialogueRules, controller, dialogueConfig, conditions,
                 new Pause(), new NoInput(), ui, null);
-            var binder = new DialogueSceneBinder(dialogue, ui, new Bus<HudVisibilityChangedEvent>());
-            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, binder, conditions, saves,
+            // 玩家锚点来源改为统一交互的登记表（PRP/interaction D7）；不 Start，Actor 为空，同原来未启动的 DialogueSceneBinder。
+            var interaction = new InteractionRegistry();
+            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, interaction, conditions, saves,
                 new Bus<SessionStartedEvent>(), new Bus<QuestCompletedEvent>(), new Bus<NarrativeChangedEvent>(),
                 telemetry.Scope("narrative"));
             narrative.InitializeAsync(default).GetAwaiter().GetResult();

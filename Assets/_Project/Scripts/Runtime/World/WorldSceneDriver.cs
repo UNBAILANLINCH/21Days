@@ -1,17 +1,20 @@
 // 职责：世界场景的驱动——把机制层的「传送点 → 待处理转场 → 世界场景状态」这一条链接起来，
 //   并让玩家在灰盒世界里真的能走：逻辑 tick 里按输入推进玩家，渲染帧里把逻辑位置投影到场景根物体、
-//   跑传送点的范围判定与交互键、发起转场。
+//   跑进入范围型传送点的范围判定、把按键型传送点登记进统一交互、发起转场。
+// 统一交互（PRP/interaction D9）：本类不再读交互键。按键型传送点（PortalAnchor 实现 IInteractable）随场景登记 / 注销进
+//   IInteractionRegistry，焦点、交互键、底部提示「前往 · 目的地」由 Game.Interaction.InteractionFocus 统一驱动；
+//   进入范围型照旧由本类每帧按 XZ 距离轮询。两类最后都走 PortalAnchor.OnTriggered → HandleTriggered 这同一条转场路。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：机制波交付的 PortalAnchor 只「发一个事件就结束」（它的类注释明说：交互键不由组件读、
 //      不做转场、调用方的事），而工程里**没有任何调用方**——PRP §1.2 第 3 条就是这个缺口。
 //   2. 扩展不行：把这一坨塞回 PortalAnchor 会推翻它的契约（读输入 + 认识 GameFlow + 逐帧测距），
 //      而那个契约正是它能在 EditMode 里直接 AddComponent 测出来的原因。
 //      塞进 WorldSceneState 也不行：状态是流程层的一次性进入逻辑，没有每帧 / 每 tick 的驱动位。
-//   3. 所以照 SupplyCrateFocus（逐帧读交互键的 ITickable）+ MonsterInstaller 的 AddStep（固定 tick 的玩法步）
+//   3. 所以照当时的物资箱焦点（逐帧读交互键的 ITickable，现已并入 Game.Interaction.InteractionFocus）+ MonsterInstaller 的 AddStep（固定 tick 的玩法步）
 //      的形状新建一个驱动。
 //
 // **为什么一个类同时实现 ITickable 与 ISimulationStep**：这两条时间线在世界场景里是同一件事的两半——
-//   逻辑 tick 推玩家（确定性内核，读 InputCommand，回放可复现），渲染帧投影与传送点判定（表现层，读输入动作）。
+//   逻辑 tick 推玩家（确定性内核，读 InputCommand，回放可复现），渲染帧投影与传送点判定（表现层，不读输入）。
 //   拆成两个类会各自持有一份 WorldSceneBinder 与玩家引用，反而更容易把「谁是权威位置」搞乱。
 //   两条路径各自读自己的时间源，不互相调用。
 //
@@ -21,13 +24,12 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Core.Flow;
-using Game.Core.Input;
 using Game.Core.Logging;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
+using Game.Interaction;
 using Game.Player;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using VContainer.Unity;
 
 namespace Game.World
@@ -38,7 +40,7 @@ namespace Game.World
     /// <item><b>ISimulationStep.Step</b>：世界场景在时按 <c>InputCommand</c> 推进玩家位置（走 <see cref="PlayerRules"/>，
     /// 不重写规则）；不在时一步都不推，所以不与遭遇原型场景的 <c>EncounterStep</c> 抢玩家。</item>
     /// <item><b>ITickable.Tick</b>：把 <see cref="PlayerModel.Position"/> 投影到玩家根物体、
-    /// 跑传送点范围判定与交互键，触发时写待处理转场并请流程切到 <see cref="WorldSceneState"/>。</item>
+    /// 跑进入范围型传送点的范围判定、同步按键型传送点的统一交互登记，触发时写待处理转场并请流程切到 <see cref="WorldSceneState"/>。</item>
     /// </list>
     /// </summary>
     public sealed class WorldSceneDriver : IStartable, ITickable, ISimulationStep, IDisposable
@@ -50,13 +52,14 @@ namespace Game.World
         private readonly WorldCatalog catalog;
         private readonly IWorldTransition transition;
         private readonly IGameFlow flow;
-        private readonly IInputService input;
+        private readonly IInteractionRegistry interaction;
         private readonly PlayerModel player;
         private readonly PlayerRules playerRules;
         private readonly SimulationRunner runner;
         private readonly ITelemetryScope telemetry;
 
-        // 已经订阅过 OnTriggered 的那一批传送点。传送点随场景加载 / 卸载换人，靠 binder.PortalsVersion 判断要不要重订。
+        // 已经订阅过 OnTriggered 的那一批传送点（按键型的同时登记在统一交互里）。传送点随场景加载 / 卸载换人，
+        // 靠 binder.PortalsVersion 判断要不要重订。
         private readonly System.Collections.Generic.List<PortalAnchor> subscribed =
             new System.Collections.Generic.List<PortalAnchor>();
 
@@ -65,14 +68,14 @@ namespace Game.World
         private bool disposed;
 
         public WorldSceneDriver(WorldSceneBinder binder, WorldCatalog catalog, IWorldTransition transition,
-            IGameFlow flow, IInputService input, PlayerModel player, PlayerRules playerRules, SimulationRunner runner,
+            IGameFlow flow, IInteractionRegistry interaction, PlayerModel player, PlayerRules playerRules, SimulationRunner runner,
             ITelemetryService telemetry)
         {
             this.binder = binder ?? throw new ArgumentNullException(nameof(binder));
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.transition = transition ?? throw new ArgumentNullException(nameof(transition));
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
-            this.input = input ?? throw new ArgumentNullException(nameof(input));
+            this.interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
             this.player = player ?? throw new ArgumentNullException(nameof(player));
             this.playerRules = playerRules ?? throw new ArgumentNullException(nameof(playerRules));
             this.runner = runner ?? throw new ArgumentNullException(nameof(runner));
@@ -116,7 +119,7 @@ namespace Game.World
             playerRules.Step(in intent, context.DeltaTime);
         }
 
-        /// <summary>渲染帧：投影玩家位置 → 传送点范围与交互键 → 触发时发起转场。</summary>
+        /// <summary>渲染帧：同步传送点订阅与统一交互登记 → 投影玩家位置 → 进入范围型传送点的范围判定 → 触发时发起转场。</summary>
         public void Tick()
         {
             if (disposed)
@@ -162,8 +165,8 @@ namespace Game.World
             root.position = new Vector3(position.x, y, position.y);
         }
 
-        // 传送点范围判定：纯距离（不查物理，同 PortalAnchor 的契约）。进范围叫 NotifyEntered（进入即触发的那一种当场就走），
-        // 出范围叫 NotifyExited。交互键的那一种在下面单独读一次动作。
+        // 进入范围型传送点的范围判定：纯距离（不查物理，同 PortalAnchor 的契约）。进范围叫 NotifyEntered（当场就走），出范围叫 NotifyExited。
+        // 按键型不在这里判：它登记在统一交互里，「进入范围」由焦点系统按半径测距后经 OnFocusChanged 报给它（PRP/interaction D9）。
         private void UpdatePortals()
         {
             System.Collections.Generic.IReadOnlyList<PortalAnchor> portals = binder.Portals;
@@ -176,7 +179,7 @@ namespace Game.World
             for (int i = 0; i < portals.Count; i++)
             {
                 PortalAnchor portal = portals[i];
-                if (portal == null)
+                if (portal == null || portal.TriggerKind != PortalTriggerKind.EnterRange)
                 {
                     continue;
                 }
@@ -194,30 +197,10 @@ namespace Game.World
                     portal.NotifyExited();
                 }
             }
-
-            // 交互键不属于确定性模拟（不进逻辑帧、不影响回放），同 SupplyCrateFocus / DialogueInteractionFocus 读同一路动作。
-            // 动作集可能晚于入口点就绪，每帧判空容错。
-            // 确定性那一路走的是 Step 里的 context.Input（InputCommand），两条路各自读自己的时间源。
-            GameInput actions = input.Actions; // lint-ok: 传送点触发不属于确定性模拟，同 SupplyCrateFocus 读动作表
-            if (actions == null || !actions.Gameplay.Interact.WasPressedThisFrame()) // lint-ok: 传送点触发不属于确定性模拟，同 SupplyCrateFocus 读 Interact 动作
-            {
-                return;
-            }
-
-            for (int i = 0; i < portals.Count; i++)
-            {
-                PortalAnchor portal = portals[i];
-                if (portal != null && portal.PlayerInRange && portal.TriggerKind == PortalTriggerKind.Interact
-                    && portal.TryInteract())
-                {
-                    // 一次只处理一个：TryInteract 会同步走 OnTriggered，本帧不再看别的出口。
-                    return;
-                }
-            }
         }
 
-        // 传送点随场景换人，所以订阅要跟着 binder 的登记表走。binder.PortalsVersion 变了才重订，
-        // 每帧只做一次 int 比较。
+        // 传送点随场景换人，所以订阅与统一交互登记要跟着 binder 的登记表走。binder.PortalsVersion 变了才重订，
+        // 每帧只做一次 int 比较。按键型登记前先下发目的地显示名（TbScene.display_name），组件自己不读表。
         private void SyncPortalSubscriptions()
         {
             if (binder.PortalsVersion == subscribedVersion)
@@ -239,6 +222,11 @@ namespace Game.World
 
                 portal.OnTriggered += HandleTriggered;
                 subscribed.Add(portal);
+                if (portal.TriggerKind == PortalTriggerKind.Interact)
+                {
+                    portal.SetDestinationName(DestinationNameOf(portal.TargetSceneKey));
+                    interaction.Register(portal);
+                }
             }
         }
 
@@ -247,6 +235,8 @@ namespace Game.World
             for (int i = 0; i < subscribed.Count; i++)
             {
                 PortalAnchor portal = subscribed[i];
+                // 注销按引用比较：场景已卸载、组件成了伪空也要从登记表里拿掉（登记表自己在卸载时也会清，这里是对称收尾）。
+                interaction.Unregister(portal);
                 if (portal != null)
                 {
                     portal.OnTriggered -= HandleTriggered;
@@ -254,6 +244,22 @@ namespace Game.World
             }
 
             subscribed.Clear();
+        }
+
+        /// <summary>
+        /// 目的地显示名：<c>TbScene.display_name</c>（表里唯一的显示名字段；<c>TbPortal</c> 没有）。
+        /// 表没就绪或查不到时给空串，提示只显示动词——不为这一句新增表字段（PRP/interaction 第二波）。只在登记时调，不在每帧路径上。
+        /// </summary>
+        private string DestinationNameOf(string sceneKey)
+        {
+            if (string.IsNullOrEmpty(sceneKey) || !catalog.IsReady)
+            {
+                return string.Empty;
+            }
+
+            return catalog.TryGetScene(sceneKey, out global::cfg.world.Scene scene) && scene != null
+                ? scene.DisplayName ?? string.Empty
+                : string.Empty;
         }
 
         /// <summary>

@@ -109,7 +109,7 @@ Dialogue，但没有任何模块引用 Mirror，不成环」）。反向禁止�
 ## 照镜不进确定性内核（同 Loot）
 
 `MirrorInputPresenter` 直接读 `Gameplay/Mirror`、`Gameplay/MirrorSelf` 的按下沿（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:106-107`，
-`actions.Gameplay.Mirror` 一行标了 `// lint-ok: 照镜不属于确定性模拟，同 SupplyCrateFocus 读 Interact 动作`，`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:103`）。
+`actions.Gameplay.Mirror` 一行标了 `// lint-ok: 照镜不属于确定性模拟，同 InteractionFocus 读交互动作`，`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:103`）。
 理由见文件头（`Assets/_Project/Scripts/Runtime/Mirror/MirrorInputPresenter.cs:7`）：照镜属于交互类功能，同 Loot 的开箱、Dialogue 的对话，都在确定性内核之外，回放格式因此不用升版。
 
 ## 结果图片的生命周期

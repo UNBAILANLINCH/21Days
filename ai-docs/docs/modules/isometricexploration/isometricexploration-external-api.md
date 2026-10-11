@@ -16,7 +16,7 @@ maturity: stable
 | `SmoothCameraFollow.SelectComparisonAngle(int index)` | 编辑器临时对比：0 原视角、1 为 30°、2 为 25°、3 为 20° | 仅 `UNITY_EDITOR` 存在，Start 已完成且 target 有效；非法索引不操作。正式玩法不得依赖此入口 |
 | `ExplorationHudView.RunSlot` | 右下角预留槽位，供走 / 跑按钮挂入 | 探索 HUD 已打开（`IUIService.Get<ExplorationHudView>()` 非空） |
 | `ExplorationHudView.SetImmersive(bool)` / `OnImmersiveToggle` | 按钮文字与透明度 / 按钮点击 | 只由 `ExplorationHudPresenter` 驱动；别的模块要切沉浸调 `IHudVisibility.SetHudHidden` |
-| `ExplorationHudView.SetRunLabel` / `SetStickVisible` / `SetTouchButtonsVisible` / `SetRunToggleVisible` / `SetPrompt` / `SetControlsVisible` | 走跑标签、摇杆 / 触屏三键 / 走跑按钮显隐、交互提示、控件区整体显隐 | 只由 `ExplorationControlsPresenter` 驱动；全部可空容错，未接线字段调用即空操作 |
+| `ExplorationHudView.SetRunLabel` / `SetStickVisible` / `SetTouchButtonsVisible` / `SetRunToggleVisible` / `SetControlsVisible`（`SetPrompt` 已随统一交互删除，PRP/interaction D8） | 走跑标签、摇杆 / 触屏三键 / 走跑按钮显隐、交互提示、控件区整体显隐 | 只由 `ExplorationControlsPresenter` 驱动；全部可空容错，未接线字段调用即空操作 |
 | `ExplorationHudView.OnResetClicked` / `CompassRoot` / `CompassMarkerTemplate` / `CanvasSize` | 重置按钮点击事件 / 万向标父节点 / 万向标模板 / 画布尺寸 | 分别由 `ExplorationControlsPresenter`、`ExplorationCompassPresenter` 驱动；模板与根节点未接线时呈现器记一次 Error 并埋 `compass_template_missing` |
 | `ExplorationConfirmView.OpenAsync(string)` + `WaitAsync(ct)` + `SetButtonLabels(...)` | 通用确认弹窗：打开 → 等选择 → 设按钮文案 | Addressables 地址 `ExplorationConfirmView`；`WaitAsync` 被关闭 / 取消 / token 取消都返回 `false`，不抛异常 |
 | `ExplorationCompassRules.TryPlace(...)` / `TrimLabel(...)` | 万向标摆位纯函数 / 标签截断纯函数 | 无状态、无 Unity 依赖，供其它需要「屏外指引」的表现层直接复用 |

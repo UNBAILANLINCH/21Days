@@ -115,6 +115,23 @@ namespace Game.Loot
         }
 
         /// <summary>
+        /// 从背包扣掉 <paramref name="count"/> 件物品（战斗里用掉一件道具，PRP/turnbased-battle D10）。
+        /// 数量不够或参数非法返回 false 且不改分区。**不发事件**：调用方是战斗流程，那时背包面板关着；
+        /// 落盘由战斗结束后剧情回写触发的保存请求带上（分区每次现取，见本类注释）。
+        /// </summary>
+        public bool TryConsume(int itemId, int count = 1)
+        {
+            if (!LootRules.Consume(Data, itemId, count))
+            {
+                telemetry.TrackWarn("consume_rejected", TelemetryProps.Of(("item", itemId), ("count", count)));
+                return false;
+            }
+
+            telemetry.Track("item_consumed", ("item", itemId), ("count", count));
+            return true;
+        }
+
+        /// <summary>
         /// 按怪物种类结算掉落：把 <paramref name="dropItemIds"/> 累加进背包、弹一次奖励通知、发布
         /// <see cref="MonsterDroppedEvent"/> 并埋点。成功顺序与开箱一致（写分区 → 通知 → 事件 → 埋点）。
         /// <para>

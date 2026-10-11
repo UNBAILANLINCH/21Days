@@ -15,6 +15,7 @@ using Game.Core.Telemetry;
 using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Narrative;
 using Game.Player;
 using Game.Quest;
@@ -57,20 +58,23 @@ namespace Game.Tests.EditMode.Narrative
             var controller = new DialogueController(dialogueRules, dialogues, ui, new UnusedAssets(), new TestClock(), null);
             dialogue = new DialogueService(dialogues, dialogueRules, controller, Track(ScriptableObject.CreateInstance<DialogueConfig>()),
                 conditions, new Pause(), new NoInput(), ui, null);
-            var binder = new DialogueSceneBinder(dialogue, ui, new Bus<HudVisibilityChangedEvent>());
+            // 玩家锚点来源改为统一交互的登记表（PRP/interaction D7）；Narrative 与 QuestSceneBinder 都直接取它，
+            // DialogueSceneBinder 只给 QuestSceneBinder 提供 TalkTo 的 NPC（Bound）。
+            var interaction = new InteractionRegistry();
+            var binder = new DialogueSceneBinder(dialogue, ui, new Bus<HudVisibilityChangedEvent>(), interaction);
             sessions = new Bus<SessionStartedEvent>();
             var completed = new Bus<QuestCompletedEvent>();
             quest = new QuestService(new QuestCatalog(config, NullTelemetryScope.Instance), saves,
                 new Bus<QuestActivatedEvent>(), new Bus<QuestObjectiveProgressedEvent>(), completed,
                 new Bus<QuestTrackingChangedEvent>(), sessions, NullTelemetryScope.Instance);
             quest.InitializeAsync(default).GetAwaiter().GetResult();
-            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, binder, conditions, saves,
+            narrative = new NarrativeService(new NarrativeCatalog(config, dialogues), dialogue, interaction, conditions, saves,
                 sessions, completed, new Bus<NarrativeChangedEvent>(), null);
             narrative.InitializeAsync(default).GetAwaiter().GetResult();
             objectives = new QuestObjectiveDriver(quest,
-                new QuestSceneBinder(binder, Track(ScriptableObject.CreateInstance<QuestConfig>())), dialogue, null);
+                new QuestSceneBinder(binder, interaction, Track(ScriptableObject.CreateInstance<QuestConfig>())), dialogue, null);
             objectives.Start();
-            var actor = Track(new GameObject("NarrativeTestPlayer")).AddComponent<DialogueInteractionActor>();
+            var actor = Track(new GameObject("NarrativeTestPlayer")).AddComponent<InteractionActor>();
             target = Track(new GameObject("NarrativeTestTarget")).AddComponent<NarrativeTrigger>();
             target.Configure("sample_target", "SampleTraveler", narrative, actor);
         }

@@ -47,7 +47,7 @@ namespace Game.Tests.Showcase
         /// 从标题「开始」进世界，走 Boot 真实流程：
         /// ① 等流程停在 <see cref="TitleState"/>、标题界面已打开；
         /// ② 先把虚拟手柄与键盘一起建出来（<see cref="ShowcaseInputDriver.Prime"/>：设备中途加入会复位已按住的动作），
-        ///    再点标题界面下的「StartButton」（记一步，hold 0）；
+        ///    再点标题界面下的「StartButton」（记一步，hold 0）；新游戏弹出开局操作说明时按任意键关掉（<see cref="DismissNewGameTutorial"/>）；
         /// ③ 等标题关闭、流程离开标题、SampleScene 已加载、<see cref="PlayerModel"/> 可解析；
         /// ④ 「等相机跟到玩家」停 1 秒（记一步）。
         /// 模块特有的就绪条件（HUD、箱子登记、存档槽……）在这之后自己 <c>WaitUntil</c>。
@@ -81,6 +81,7 @@ namespace Game.Tests.Showcase
                 string.IsNullOrEmpty(startStepTitle) ? "点标题界面「开始」" : startStepTitle,
                 () => RequireTitleButton("StartButton").onClick.Invoke(),
                 0f);
+            yield return DismissNewGameTutorial(enterTimeout);
 
             string worldScene = DemoSceneName();
             yield return WaitUntil(
@@ -97,6 +98,38 @@ namespace Game.Tests.Showcase
                 enterTimeout);
 
             yield return Step("等相机跟到玩家", null, 1f);
+        }
+
+        /// <summary>
+        /// 新游戏开局先弹「开局操作说明」（TutorialView，Session 的 NewGameTutorial 闸门）：展示满最短时长后才接受任意键，
+        /// 关掉之后流程才离开标题。这里像玩家一样用虚拟键盘按一个没绑任何动作的键（F8）关掉它——早于最短时长的按键会被忽略，
+        /// 所以每 0.2 秒补按一次。面板关掉、或流程没弹面板就离开了标题（读档 / 继续不弹），立即返回；最多等 <paramref name="timeout"/> 秒。
+        /// 不记报告条目：进没进世界由紧随其后的 WaitUntil 判定。
+        /// </summary>
+        private IEnumerator DismissNewGameTutorial(float timeout)
+        {
+            float deadline = Time.realtimeSinceStartup + timeout;
+            bool seen = false;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                IUIService ui = ResolveService<IUIService>();
+                TutorialView tutorial = ui == null ? null : ui.Get<TutorialView>();
+                if (tutorial != null)
+                {
+                    seen = true;
+                    yield return Input.PressKey(UnityEngine.InputSystem.Key.F8);
+                    yield return new WaitForSecondsRealtime(0.2f);
+                    continue;
+                }
+
+                IGameFlow flow = ResolveService<IGameFlow>();
+                if (seen || flow == null || !(flow.Current is TitleState))
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
         }
 
         /// <summary>

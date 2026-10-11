@@ -12,6 +12,7 @@ namespace Game.TurnBased
     public readonly struct BattleSettings
     {
         /// <summary>构造。</summary>
+        /// <param name="items">道具效果（占位，等 C91）；不传 = 没有任何道具效果（既有调用方行为不变）。</param>
         public BattleSettings(
             in BattleEntrySettings entry,
             in PlayerSkillSettings playerSkills,
@@ -19,7 +20,8 @@ namespace Game.TurnBased
             in DrunkSettings drunk,
             in BattleFlowSettings flow,
             bool itemOncePerBattle,
-            bool inheritsDrunkValue)
+            bool inheritsDrunkValue,
+            in BattleItemSettings items = default)
         {
             Entry = entry;
             PlayerSkills = playerSkills;
@@ -28,6 +30,7 @@ namespace Game.TurnBased
             Flow = flow;
             ItemOncePerBattle = itemOncePerBattle;
             InheritsDrunkValue = inheritsDrunkValue;
+            Items = items;
         }
 
         /// <summary>进入战斗的判定参数。</summary>
@@ -51,6 +54,9 @@ namespace Game.TurnBased
         /// <summary>进战斗是否继承战斗外的醉酒值（07:66）。</summary>
         public bool InheritsDrunkValue { get; }
 
+        /// <summary>道具效果（占位，等 C91；`PRP/turnbased-battle` D10）。</summary>
+        public BattleItemSettings Items { get; }
+
         /// <summary>本工程当前的占位默认值（与 `TurnBasedConfig` 的字段默认完全一致）。</summary>
         public static BattleSettings PlaceholderDefault =>
             new BattleSettings(
@@ -60,6 +66,7 @@ namespace Game.TurnBased
                 DrunkSettings.PlaceholderDefault,
                 BattleFlowSettings.PlaceholderDefault,
                 true,
-                true);
+                true,
+                BattleItemSettings.PlaceholderDefault);
     }
 }

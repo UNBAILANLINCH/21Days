@@ -1,7 +1,7 @@
 // 职责：出生点锚点——挂在场景里的空物体上，只带一个出生点 id，供 WorldSpawnPlacement 按 id 找到落点。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：工程里没有任何「按 id 查落点」的场景组件。EncounterSceneView.playerSpawn 是遭遇场景专用的**单个**
-//      起点（不是按 id 查的），DialogueInteractionActor 是对话测距用的玩家标记（不带出生点 id），
+//      起点（不是按 id 查的），InteractionActor 是交互测距用的玩家标记（不带出生点 id），
 //      SupplyCrate 带 id 但语义是「物资箱」不是「落点」。
 //   2. 扩展不行：往 WorldRules / WorldCatalog 里加场景引用，会让纯规则与表适配层认识 UnityEngine 的场景对象。
 //   3. 所以单独一个只带 id 的组件。

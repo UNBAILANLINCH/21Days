@@ -162,6 +162,17 @@ namespace Game.TurnBased
                  "占位 SkipTurn（整个玩家回合跳过）。")]
         [SerializeField] private StunTurnPolicy stunTurnPolicy = StunTurnPolicy.SkipTurn;
 
+        [Header("道具效果（占位，等 C91；PRP/turnbased-battle D10）")]
+        [Tooltip("治疗道具的 item id（背包 tbitem 主键，按字符串比较）。07 没写道具效果（07:42、:58 只写能用 / 置暗），" +
+                 "占位 1004 治疗药水；留空 = 不设治疗道具（删掉这条占位），等 C91。")]
+        [SerializeField] private string healItemId = "1004";
+
+        [Tooltip("治疗道具回复玩家生命的百分比（0..100）。原文没写，占位 30，等 C91。")]
+        [SerializeField] private int healItemPercent = 30;
+
+        [Tooltip("上面这个百分比的基数（上限还是当前生命）。原文没写，占位 MaxHealth（向下取整，同 07 其余百分比口径），等 C91。")]
+        [SerializeField] private HealthPercentBase healItemBase = HealthPercentBase.MaxHealth;
+
         /// <summary>进入战斗的判定参数。</summary>
         public BattleEntrySettings Entry => new BattleEntrySettings(sneakBossHealthLossPercent, sneakLossBase);
 
@@ -216,6 +227,9 @@ namespace Game.TurnBased
         /// <summary>一件道具同一场战斗是否只能用一次（07:42 / R45）。</summary>
         public bool ItemOncePerBattle => itemOncePerBattle;
 
+        /// <summary>道具效果（占位，等 C91）。</summary>
+        public BattleItemSettings Items => new BattleItemSettings(healItemId, healItemPercent, healItemBase);
+
         /// <summary>整份配置打包成纯值设置，交给规则类与会话使用。</summary>
         public BattleSettings Settings => new BattleSettings(
             Entry,
@@ -224,7 +238,8 @@ namespace Game.TurnBased
             Drunk,
             Flow,
             itemOncePerBattle,
-            inheritsDrunkValue);
+            inheritsDrunkValue,
+            Items);
 
         /// <summary>
         /// 校验整份配置。返回 null 表示没问题，否则返回第一条问题的中文描述。

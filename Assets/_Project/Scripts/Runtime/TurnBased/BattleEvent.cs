@@ -71,9 +71,9 @@ namespace Game.TurnBased
             new BattleEvent(BattleEventKind.SkillCast, damage, 0, skill, BossSkill.None,
                 DrunkTier.Normal, DrunkSkipReason.None, null, null, BattleOutcome.None);
 
-        /// <summary>玩家用掉一件道具。</summary>
-        public static BattleEvent ItemUsed(string itemId) =>
-            new BattleEvent(BattleEventKind.ItemUsed, 0, 0, PlayerSkill.None, BossSkill.None,
+        /// <summary>玩家用掉一件道具；<paramref name="healed"/> = 道具效果实际回复的生命（没有效果时 0）。</summary>
+        public static BattleEvent ItemUsed(string itemId, int healed = 0) =>
+            new BattleEvent(BattleEventKind.ItemUsed, healed, 0, PlayerSkill.None, BossSkill.None,
                 DrunkTier.Normal, DrunkSkipReason.None, null, itemId, BattleOutcome.None);
 
         /// <summary>怪物醉得跳过回合（带屏幕中央提示文案）。</summary>
@@ -126,7 +126,7 @@ namespace Game.TurnBased
                 case BattleEventKind.SkillCast:
                     return "玩家施放 " + PlayerSkillRules.Describe(PlayerSkill) + "，伤害 " + Amount;
                 case BattleEventKind.ItemUsed:
-                    return "使用道具：" + ItemId;
+                    return Amount > 0 ? "使用道具：" + ItemId + "，回复生命 " + Amount : "使用道具：" + ItemId;
                 case BattleEventKind.BossTurnSkipped:
                     return "怪物跳过回合（" + DrunkTierRules.Name(DrunkTier) + "）：" + HintText;
                 case BattleEventKind.BossSkillUsed:

@@ -20,6 +20,8 @@ namespace Game.Quest
     {
         private const string TrackText = "追踪";
         private const string UntrackText = "取消追踪";
+        private const string EmptyInProgressText = "暂无进行中的任务";
+        private const string EmptyCompletedText = "还没有完成的任务";
 
         private readonly QuestService service;
         private readonly QuestConfig config;
@@ -41,6 +43,7 @@ namespace Game.Quest
         private bool closing;
         private bool disposed;
         private int selectedId;
+        private QuestPanelTab tab;
 
         public QuestPanelController(QuestService service, QuestConfig config, IUIService ui, IWorldPauseService pause,
             IInputService input, ISubscriber<QuestActivatedEvent> activated,
@@ -89,9 +92,11 @@ namespace Game.Quest
                 view.OnQuestSelected += HandleQuestSelected;
                 view.OnTrackToggled += HandleTrackToggled;
                 view.OnClose += HandleCloseRequested;
+                view.OnTabSelected += HandleTabSelected;
                 view.OnClosed += HandleViewClosed;
 
                 IsOpen = true;
+                tab = QuestPanelTab.InProgress; // 每次打开默认「进行中」
                 selectedId = service.TrackedId; // 为 0 时 Refresh 会落到列表第一项
                 Refresh();
 
@@ -147,7 +152,8 @@ namespace Game.Quest
         private void Refresh()
         {
             if (view == null) return;
-            service.GetOrdered(buffer);
+            if (tab == QuestPanelTab.Completed) service.GetCompleted(buffer);
+            else service.GetOrdered(buffer);
 
             QuestProgress selected = null;
             for (int i = 0; i < buffer.Count; i++)
@@ -165,12 +171,15 @@ namespace Game.Quest
                 selectedId = selected == null ? 0 : selected.Id;
             }
 
-            view.SetList(buffer, selectedId, config.MainKindLabel, config.SideKindLabel);
+            bool showingCompleted = tab == QuestPanelTab.Completed;
+            view.SetTab(tab);
+            view.SetList(buffer, selectedId, config.MainKindLabel, config.SideKindLabel,
+                showingCompleted ? EmptyCompletedText : EmptyInProgressText);
             string kindLabel = selected == null
                 ? string.Empty
                 : selected.Definition.Kind == QuestKind.Main ? config.MainKindLabel : config.SideKindLabel;
-            bool tracked = selectedId != 0 && selectedId == service.TrackedId;
-            view.SetDetail(selected, tracked, kindLabel, TrackText, UntrackText);
+            bool tracked = !showingCompleted && selectedId != 0 && selectedId == service.TrackedId;
+            view.SetDetail(selected, tracked, kindLabel, TrackText, UntrackText, showingCompleted);
         }
 
         private void HandleQuestSelected(int id)
@@ -181,10 +190,20 @@ namespace Game.Quest
             Refresh();
         }
 
+        // 切标签：选中项回到新列表第一项（selectedId 清零，Refresh 落到首项；列表为空则 Refresh 清空详情）。
+        private void HandleTabSelected(QuestPanelTab target)
+        {
+            if (target == tab) return;
+            tab = target;
+            selectedId = 0;
+            telemetry.Track("tab_selected", ("tab", target.ToString()));
+            Refresh();
+        }
+
         // Service 发 QuestTrackingChangedEvent，由事件订阅触发 Refresh。
         private void HandleTrackToggled()
         {
-            if (selectedId == 0) return;
+            if (selectedId == 0 || tab == QuestPanelTab.Completed) return;
             if (selectedId == service.TrackedId)
             {
                 service.Untrack();
@@ -225,6 +244,7 @@ namespace Game.Quest
             target.OnQuestSelected -= HandleQuestSelected;
             target.OnTrackToggled -= HandleTrackToggled;
             target.OnClose -= HandleCloseRequested;
+            target.OnTabSelected -= HandleTabSelected;
             target.OnClosed -= HandleViewClosed;
         }
 

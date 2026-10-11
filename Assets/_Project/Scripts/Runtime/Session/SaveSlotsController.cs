@@ -1,5 +1,5 @@
 // 职责：选槽面板的会话控制——读槽摘要并开面板、按模式分派行点击（继续 / 新游戏 / 覆盖确认）、删除确认与刷新、
-//   离开标题状态时收掉面板、外部关闭时收尾。
+//   离开标题状态时收掉面板、外部关闭时收尾；新游戏那一支在开局前过一遍操作说明（与标题「开始」共用 NewGameTutorial）。
 // 为什么新建：SaveSlotsView 只显示不注入服务；GameSession 是存档入口，不该依赖 UI。标题「开始」（无空槽时）与
 //   「选择存档」两条路由都要一行调用打开面板，写法照 QuestPanelController（外部关闭 OnClosed 收尾）。
 //   与它不同：在标题页打开，不暂停世界、不动 Gameplay 输入图。
@@ -30,6 +30,7 @@ namespace Game.Session
         private const string DeleteFailedTitle = "删除存档失败";
 
         private readonly GameSession session;
+        private readonly NewGameTutorial tutorial;
         private readonly IUIService ui;
         private readonly SessionConfig config;
         private readonly INotificationService notifications;
@@ -49,10 +50,11 @@ namespace Game.Session
         /// 比派单多一个 <see cref="ISubscriber{GameStateChangingEvent}"/>：UIService 切状态时不会自动关 Panel，
         /// 继续 / 新游戏成功后流程离开标题，本面板若不自己收掉会盖在玩法画面上（并让保存闸门一直认为有面板开着）。
         /// </remarks>
-        public SaveSlotsController(GameSession session, IUIService ui, SessionConfig config,
+        public SaveSlotsController(GameSession session, NewGameTutorial tutorial, IUIService ui, SessionConfig config,
             INotificationService notifications, ISubscriber<GameStateChangingEvent> stateChanging, ITelemetryScope telemetry)
         {
             this.session = session ?? throw new ArgumentNullException(nameof(session));
+            this.tutorial = tutorial ?? throw new ArgumentNullException(nameof(tutorial));
             this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
             // SessionConfig 是 ScriptableObject，判空只用 ==。
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -206,6 +208,8 @@ namespace Game.Session
             }
 
             telemetry.Track("slot_new_game", ("slot", slot), ("overwrite", info.State != SlotState.Empty));
+            // 与标题「开始」同一条展示路径：先看操作说明再进游戏（面板开不出来时 ShowAsync 自己吞掉错误）。
+            await tutorial.ShowAsync();
             bool started = await session.NewGameAsync(slot);
             if (!started)
             {

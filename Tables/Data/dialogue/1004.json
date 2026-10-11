@@ -1,0 +1,38 @@
+{
+    "id": 1004,
+    "entry": "l1",
+    "nodes": [
+        {
+            "id": "l1",
+            "revision": 1,
+            "kind": "Line",
+            "speaker": "",
+            "speakerName": "阶段一 BOSS（占位）",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "又来一个不怕死的？想从这儿过去，先问问我手里这坛酒。",
+            "next": "e",
+            "outcome": "",
+            "blocking": true,
+            "performance": "",
+            "choices": []
+        },
+        {
+            "id": "e",
+            "revision": 1,
+            "kind": "End",
+            "speaker": "",
+            "speakerName": "",
+            "side": "Left",
+            "expression": "",
+            "clearOther": false,
+            "text": "",
+            "next": "",
+            "outcome": "Done",
+            "blocking": true,
+            "performance": "",
+            "choices": []
+        }
+    ]
+}

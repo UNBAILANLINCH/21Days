@@ -85,7 +85,7 @@ Editor手动采集 → 匿名PNG＋17轴/31权重JSON
 
 | 层 | 依赖及边界 |
 | --- | --- |
-| Runtime | `Game.Runtime`，使用已有`Game.LailaFace`公开读接口；依赖Sentis、Newtonsoft.Json、TMP及Unity UI |
+| Runtime | `Game.Runtime`，使用已有 `Game.Gameplay` 公开读接口（2026-10-07 前叫 `Game.LailaFace`，已改名对齐目录）；依赖Sentis、Newtonsoft.Json、TMP及Unity UI |
 | Editor | `Game.Editor`采集／部署校验；不得被Runtime引用 |
 | Python训练 | `ML/expression-recognition/exprnet/`，独立子项目，不随Unity运行 |
 | Python标注 | 盲标使用标准库HTTP；独立输入诊断延迟使用已有numpy／onnxruntime／exprnet，加载固定离线Unity参考包，不连接实时Unity或云服务 |

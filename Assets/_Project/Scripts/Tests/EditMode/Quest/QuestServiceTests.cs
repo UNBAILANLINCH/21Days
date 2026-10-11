@@ -197,6 +197,24 @@ namespace Game.Tests.EditMode.Quest
             Assert.That(tracking.Received[tracking.Received.Count - 1].QuestId, Is.EqualTo(MainQuest));
         }
 
+        [Test]
+        public void GetCompleted_AfterCompletingQuests_ListsThemNewestAcceptedFirst()
+        {
+            var buffer = new List<QuestProgress> { null };
+            service.GetCompleted(buffer);
+            Assert.That(buffer, Is.Empty, "新开局没有已完成任务，且旧缓冲被清空");
+
+            service.Report(QuestObjectiveKind.TalkTo, MainQuest.ToString());
+            service.Report(QuestObjectiveKind.ReachLocation, "camp");
+            service.Report(QuestObjectiveKind.ReachLocation, "lookout");
+            service.GetCompleted(buffer);
+
+            Assert.That(buffer.Count, Is.EqualTo(2));
+            Assert.That(buffer[0].Id, Is.EqualTo(LookoutQuest), "2001 比 1001 晚接取，排在前面");
+            Assert.That(buffer[1].Id, Is.EqualTo(MainQuest));
+            Assert.That(buffer.TrueForAll(q => q.State == QuestState.Completed), Is.True);
+        }
+
         /// <summary>只记录收到的消息。</summary>
         private sealed class FakePublisher<T> : IPublisher<T>
         {

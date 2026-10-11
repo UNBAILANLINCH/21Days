@@ -1,4 +1,5 @@
-// 职责：登记已加载场景里的物资箱与头顶标记，按存档恢复开合；重置时全部合上；沉浸模式切换时逐个切标记显隐。
+// 职责：登记已加载场景里的物资箱与头顶标记，按存档恢复开合；重置时全部合上；沉浸模式切换时逐个切标记显隐；
+//   给每只箱子下发交互参数（半径 / 提示 / 开箱回调）并登记进统一交互的登记表（PRP/interaction D8，原物资箱焦点类已删）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：QuestSceneBinder / DialogueSceneBinder 各扫自己模块的场景组件，不认识物资箱。
 //   2. 扩展不行：把箱子塞进它们会让任务 / 对白模块反向依赖 Loot。
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using Game.Core.Events;
 using Game.Core.Logging;
 using Game.Core.UI;
+using Game.Interaction;
 using MessagePipe;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,18 +27,25 @@ namespace Game.Loot
         private readonly ISubscriber<LootResetEvent> resetSubscriber;
         private readonly ISubscriber<HudVisibilityChangedEvent> hudSubscriber;
         private readonly IHudVisibility hudVisibility;
+        private readonly LootConfig config;
+        private readonly IInteractionRegistry interaction;
         private readonly List<SupplyCrate> crates = new List<SupplyCrate>();
         private readonly List<SupplyCrateMarker> markers = new List<SupplyCrateMarker>();
         private IDisposable subscription;
         private bool sceneSubscribed;
 
         public LootSceneBinder(LootService service, ISubscriber<LootResetEvent> resetSubscriber,
-            ISubscriber<HudVisibilityChangedEvent> hudSubscriber, IHudVisibility hudVisibility)
+            ISubscriber<HudVisibilityChangedEvent> hudSubscriber, IHudVisibility hudVisibility,
+            LootConfig config, IInteractionRegistry interaction)
         {
             this.service = service ?? throw new ArgumentNullException(nameof(service));
             this.resetSubscriber = resetSubscriber ?? throw new ArgumentNullException(nameof(resetSubscriber));
             this.hudSubscriber = hudSubscriber ?? throw new ArgumentNullException(nameof(hudSubscriber));
             this.hudVisibility = hudVisibility ?? throw new ArgumentNullException(nameof(hudVisibility));
+            // LootConfig 是 ScriptableObject，判空只用 == null。
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            this.config = config;
+            this.interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
         }
 
         /// <summary>已加载场景里登记的全部物资箱。场景卸载时移除已销毁项。</summary>
@@ -73,13 +82,17 @@ namespace Game.Loot
                 SceneManager.sceneUnloaded -= OnSceneUnloaded;
                 sceneSubscribed = false;
             }
+            for (int i = 0; i < crates.Count; i++)
+            {
+                interaction.Unregister(crates[i]);
+            }
             crates.Clear();
             markers.Clear();
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => BindScene(scene);
 
-        // 卸载回调时场景物体已销毁，UnityEngine.Object 的 == null 能认出来。
+        // 卸载回调时场景物体已销毁，UnityEngine.Object 的 == null 能认出来。登记表自己也会清掉已销毁的候选。
         private void OnSceneUnloaded(Scene scene)
         {
             for (int i = crates.Count - 1; i >= 0; i--)
@@ -97,6 +110,9 @@ namespace Game.Loot
         {
             int count = 0;
             bool hidden = hudVisibility.IsHudHidden;
+            // 提示与开箱回调对每只箱子都一样，场景加载时建一次；回调是方法组转委托，只在这里分配。
+            var prompt = new InteractionPrompt(config.PromptVerb, config.PromptName);
+            Func<SupplyCrate, bool> collect = service.TryCollect;
             foreach (GameObject root in scene.GetRootGameObjects())
             {
                 foreach (SupplyCrate crate in root.GetComponentsInChildren<SupplyCrate>(true))
@@ -108,6 +124,8 @@ namespace Game.Loot
                     }
                     crates.Add(crate);
                     crate.SetOpened(service.IsCollected(crate.Key));
+                    crate.BindInteraction(config.CrateInteractRadius, prompt, collect);
+                    interaction.Register(crate);
                     count++;
                 }
 

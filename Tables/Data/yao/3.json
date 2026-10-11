@@ -1,0 +1,17 @@
+{
+    "id": 3,
+    "disguise_name": "市令",
+    "true_name": "市令（占位真形）",
+    "true_desc": "占位描述：坊市里执令巡行的那位，镜中照出一团缠着告示的墨影。",
+    "true_image": "yao_true_demon",
+    "flaw": "占位破绽：它贴出的告示，墨迹从来没干过。",
+    "obsession": "占位执念：守着一张早已作废的市令。",
+    "clan": "占位族属",
+    "clue_items": [],
+    "sealable": false,
+    "mask": false,
+    "tier": "B",
+    "killable": false,
+    "defeat_method": "暗杀",
+    "drop_items": []
+}

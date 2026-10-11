@@ -28,6 +28,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Taming | Boot 多目标控制、稳定 ID、存档 / 回放已接；聚光灯附身语义未完成 | [`modules/taming/`](modules/taming/taming-module-guide.md) |
 | IsometricExploration | 三件套齐备；确定性潜行战斗接入等距纸片场景 | [`modules/isometricexploration/`](modules/isometricexploration/isometricexploration-module-guide.md) |
 | Dialogue | 三件套齐备；Unity 接线已完成，视觉验收待开发者跑 /verify-module | [`modules/dialogue/`](modules/dialogue/dialogue-module-guide.md) |
+| Interaction | 三件套齐备；统一交互（roadmap A3，2026-10-08）：一个焦点、一条提示「[E] 动词 · 名字」、交互键全工程只读一处；对白 NPC / 物资箱 / 按键型传送点是实现方；交互时小人转向；F 键归交互。新加可交互物看 extension-guide | [`modules/interaction/`](modules/interaction/interaction-module-guide.md) |
 | CharacterPuppet | 三件套齐备；序列帧小人待机 / 走路表现（编辑器工具生成），已替换 SampleScene 玩家、巡逻者与 NPC 纸片 | [`modules/characterpuppet/`](modules/characterpuppet/characterpuppet-module-guide.md) |
 | Quest | 三件套齐备；Unity 接线完成；策划侧有任务编辑器与编辑期校验（`Scripts/Editor/Quest/`）；回放 3 条 PASS，视觉验收由开发者持续跟进 | [`modules/quest/`](modules/quest/quest-module-guide.md) |
 | LailaFace / LailaFaceRecognition | 31 形态 / 17 输入轴、五类推理；原 51D 与独立 59D 研究试玩，人工语义 / Player 未验收 | 唯一执行入口：[spec§17](../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)；职责：[捏脸](modules/lailaface/lailaface-module-guide.md)、[识别](modules/lailafacerecognition/lailafacerecognition-module-guide.md)；操作：[辅助标注器](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md) |
@@ -40,7 +41,8 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | Identity | guide（seed）；身份内核与 Boot 注册、遭遇禁攻；已有 Showcase | [`modules/identity/`](modules/identity/identity-module-guide.md) |
 | Stealth | guide（seed）；遮挡、绕背、击倒与追逐内核已接遭遇；已有 Showcase，处决受内容表限制 | [`modules/stealth/`](modules/stealth/stealth-module-guide.md) |
 | World | guide（seed）；Boot 注册、两界灰盒与传送 / 出生点接线；回放仍有失败 | [`modules/world/`](modules/world/world-module-guide.md) |
-| TurnBased | guide（seed）；回合制内核与白盒 Showcase；正式战斗入口 / UI 未接 | [`modules/turnbased/`](modules/turnbased/turnbased-module-guide.md) |
+| TurnBased | guide（seed）；回合制内核；已由 `Game.Battle` 接成正式战斗（剧情驱动、有界面）；`EncounterStep` 的进战斗判定（偷袭 / 被打）未接 | [`modules/turnbased/`](modules/turnbased/turnbased-module-guide.md) |
+| Battle | 三件套齐备（seed）；**回合制战斗落地**——剧情停在 Battle 阶段即开战：叠加加载战斗场景、按住世界、`BattleView` 界面、收场回写剧情；只给 SampleScene 的 `sample_boss` 用；回放 `Tests/Showcase/Battle/` | [`modules/battle/`](modules/battle/battle-module-guide.md) |
 
 Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# 规则 → 意图 → 状态 → 面板 → 场景 → 注册 → 测试）。
 新玩法模块照它的形状写，文档照它的三件套写。**模块文档随 `/new-feature` 落地模块、`/generate-doc <模块>` 生成而产生**，产生后在本表补一行。

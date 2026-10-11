@@ -1,0 +1,29 @@
+{
+    "id": "sample_boss_battle", "entry": "taunt",
+    "stages": [
+        {
+            "id": "taunt", "kind": "Dialogue", "payload": "1004", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [{"result": "Done", "next": "fight"}], "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "fight", "kind": "Battle", "payload": "sample_boss", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": ["Victory", "Downed"],
+            "anyOf": [], "exits": [
+                {"result": "Victory", "next": "cleared"},
+                {"result": "Downed", "next": "retreat"}
+            ],
+            "setFlags": [], "outcome": ""
+        },
+        {
+            "id": "cleared", "kind": "End", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": ["world.sampleboss.defeated"], "outcome": "Success"
+        },
+        {
+            "id": "retreat", "kind": "End", "payload": "", "allowEncounter": false,
+            "issueRequest": false, "requiredParts": [], "battleResults": [],
+            "anyOf": [], "exits": [], "setFlags": [], "outcome": "Downed"
+        }
+    ]
+}

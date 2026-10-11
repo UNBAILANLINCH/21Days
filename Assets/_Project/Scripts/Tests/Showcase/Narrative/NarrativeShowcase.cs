@@ -7,6 +7,7 @@ using Game.Core.Flow;
 using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Dialogue;
+using Game.Interaction;
 using Game.Monster;
 using Game.Narrative;
 using Game.Quest;
@@ -200,7 +201,7 @@ namespace Game.Tests.Showcase.Narrative
         private void CreateTarget()
         {
             if (target != null) UnityEngine.Object.DestroyImmediate(target.gameObject);
-            DialogueInteractionActor actor = ResolveService<DialogueSceneBinder>().Actor;
+            InteractionActor actor = ResolveService<IInteractionRegistry>().Actor;
             Assert.That(actor != null, Is.True);
             GameObject root = Track(new GameObject("NarrativeSampleTarget"));
             root.transform.position = actor.Anchor.position + Vector3.right * 0.8f;

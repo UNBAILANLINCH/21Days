@@ -10,7 +10,7 @@
 //     Walk / Run 速度乘 Speed。有 run 帧时 Run 用 run 剪辑，没有时 Run 复用 walk 剪辑（控制器形状统一，驱动层不分支）。
 //     其它状态作孤立状态加入。
 //   · Prefabs/Characters/Chibi_<名字>.prefab：根 Animator(UnscaledTime) + ChibiPuppet（含 walkClipSpeed / runClipSpeed /
-//     hasRunClip，地速取 meta.json animations.<walk|run>.groundSpeed，缺省 3 / 5）+ ChibiPuppetMotion，子物体 Sprite。
+//     hasRunClip，地速取 meta.json animations.<walk|run>.groundSpeed，缺省 3 / 5；config 与驱动层同一份）+ ChibiPuppetMotion，子物体 Sprite。
 //   · 可选 Sprite Atlas（V2）：Art/Sprites/.../<名字>/<名字>.spriteatlasv2，包含帧目录；已存在不动；Sprite Packer 关着时跳过。
 //
 // 副作用说明：只写上面列出的资产，逐个 SaveAssetIfDirty，不调 AssetDatabase.SaveAssets（免得顺手保存别人未保存的改动）；
@@ -575,6 +575,7 @@ namespace Game.Editor.CharacterPuppet
                 puppetSo.FindProperty("walkClipSpeed").floatValue = clipMotion.WalkClipSpeed;
                 puppetSo.FindProperty("runClipSpeed").floatValue = clipMotion.RunClipSpeed;
                 puppetSo.FindProperty("hasRunClip").boolValue = clipMotion.HasRunClip;
+                puppetSo.FindProperty("config").objectReferenceValue = config; // 转身补间、交互动作参数，与驱动层同一份
                 puppetSo.ApplyModifiedPropertiesWithoutUndo();
 
                 var motionSo = new SerializedObject(motion);

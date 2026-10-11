@@ -1,5 +1,6 @@
 // 职责：每帧读角色根的位移，经 ChibiPuppetMotionRules 判定停 / 走 / 跑、播放速率与朝向，写给同根的 ChibiPuppet。
 //   只看位移，不读输入、不读玩家状态：谁推的、推的人认为自己在「跑」还是「走」，它一概不知。
+//   朝向：门面处于朝向保持（FaceTowards 之后、真正移动之前）时不改；启用后第一次定朝向用立即翻面，之后走门面的补间转身。
 // 为什么新建（project-root.md「加能力的顺序」）：
 //   1. 复用不行：没有现成组件从 Transform 位移反推动画状态；EncounterSceneView 只算 flipX；
 //   2. 扩展不行：放进 ChibiPuppet 会让表现门面依赖驱动来源——以后改由输入 / AI 直接驱动时只换这个组件。
@@ -28,7 +29,7 @@ namespace Game.CharacterPuppet
         private float pendingTime;
         private bool moving;
         private bool running;
-        private bool faceLeft;
+        private bool snapFacing;
 
         public Transform TrackedRoot => trackedRoot;
 
@@ -52,7 +53,8 @@ namespace Game.CharacterPuppet
             pendingTime = 0f;
             moving = false;
             running = false;
-            faceLeft = puppet.FaceLeft;
+            // 启用后（出生、读档进场、重新激活）第一次定朝向一帧到位，不让人看到小人当场翻个面。
+            snapFacing = true;
             puppet.SetMoving(false, false, IdlePlaybackRate);
         }
 
@@ -104,11 +106,20 @@ namespace Game.CharacterPuppet
                 : IdlePlaybackRate;
             puppet.SetMoving(moving, running, rate);
 
-            bool nextFaceLeft = ResolveFacing(delta, window);
-            if (nextFaceLeft != faceLeft)
+            bool snap = snapFacing;
+            snapFacing = false;
+            // 朝向保持（门面 FaceTowards 之后、真正移动之前）：不按位移 / 纸片改朝向。保持由门面记录，
+            // 上面 SetMoving 收到「在移动」时由门面自己解除（ChibiPuppetMotionRules.KeepFacingHold），这里只读。
+            if (puppet.FacingHeld)
             {
-                faceLeft = nextFaceLeft;
-                puppet.SetFacing(faceLeft);
+                return;
+            }
+
+            // 与门面的目标朝向比（不另存一份）：FaceTowards 改过朝向、保持解除后，这里才能发现与纸片不一致并转回去。
+            bool nextFaceLeft = ResolveFacing(delta, window);
+            if (nextFaceLeft != puppet.FaceLeft)
+            {
+                puppet.SetFacing(nextFaceLeft, snap);
             }
         }
 
@@ -124,13 +135,13 @@ namespace Game.CharacterPuppet
                 cachedCamera = Camera.main;
                 if (cachedCamera == null)
                 {
-                    return faceLeft;
+                    return puppet.FaceLeft;
                 }
             }
 
             // 用每秒速度而不是单帧位移过死区，帧率高低不改变判定。
             float alongRight = Vector3.Dot(delta, cachedCamera.transform.right) / dt;
-            return ChibiPuppetMotionRules.ResolveFacing(alongRight, config.FacingDeadZone, faceLeft);
+            return ChibiPuppetMotionRules.ResolveFacing(alongRight, config.FacingDeadZone, puppet.FaceLeft);
         }
 
         private static Transform ResolveTrackedRoot(Transform self)

@@ -1,8 +1,10 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-namespace Game.LailaFace
+namespace Game.Gameplay
 {
+    // 命名空间对齐目录（2026-10-07）：本文件在 Runtime/Gameplay/ 下，原先写 Game.LailaFace，
+    // 与 project-root.md「命名空间与目录一致」不符（gc_scan 静态不变量长期报这一条）。
     // 职责：把 3D 控制区拖拽映射为面部形态权重或眼球父节点旋转。
     // 新建原因：FaceBlendShapeController 只负责 Renderer 写入，不能承担指针事件与控制区映射。
     [ExecuteAlways]

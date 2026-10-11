@@ -1,4 +1,4 @@
-// 职责：标题页三个入口的去向——「开始」用第一个空槽开新游戏（没有空槽开选槽面板的新游戏模式）、
+// 职责：标题页三个入口的去向——「开始」用第一个空槽开新游戏（进游戏前先过一遍开局操作说明；没有空槽开选槽面板的新游戏模式）、
 //   「继续」读最近槽（没有则按新游戏处理）、「选择存档」开选槽面板的读档模式；回到标题时按有无可用存档显示 / 隐藏「继续」。
 // 为什么新建：Core 的 TitleState 只把点击转成框架事件，去向由玩法层决定（TitleState 文件头）。原先的 MonsterTitleRouter
 //   直接跳遭遇状态、不知道存档槽，按 PRP save-session D5 退役；这里归存档会话，Monster 不再管标题。
@@ -26,6 +26,7 @@ namespace Game.Session
     {
         private readonly GameSession session;
         private readonly SaveSlotsController slots;
+        private readonly NewGameTutorial tutorial;
         private readonly IUIService ui;
         private readonly ISubscriber<TitleStartClickedEvent> startClicked;
         private readonly ISubscriber<TitleContinueClickedEvent> continueClicked;
@@ -41,6 +42,7 @@ namespace Game.Session
         public SessionTitleRouter(
             GameSession session,
             SaveSlotsController slots,
+            NewGameTutorial tutorial,
             IUIService ui,
             ISubscriber<TitleStartClickedEvent> startClicked,
             ISubscriber<TitleContinueClickedEvent> continueClicked,
@@ -50,6 +52,7 @@ namespace Game.Session
         {
             this.session = session ?? throw new ArgumentNullException(nameof(session));
             this.slots = slots ?? throw new ArgumentNullException(nameof(slots));
+            this.tutorial = tutorial ?? throw new ArgumentNullException(nameof(tutorial));
             this.ui = ui ?? throw new ArgumentNullException(nameof(ui));
             this.startClicked = startClicked ?? throw new ArgumentNullException(nameof(startClicked));
             this.continueClicked = continueClicked ?? throw new ArgumentNullException(nameof(continueClicked));
@@ -148,6 +151,8 @@ namespace Game.Session
                 return;
             }
 
+            // 先看操作说明再进游戏；面板开不出来时 ShowAsync 自己吞掉错误，不会把开局挡在这里。
+            await tutorial.ShowAsync(ct);
             await session.NewGameAsync(slot, ct);
         }
 

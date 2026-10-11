@@ -1,0 +1,14 @@
+{
+    "id": 1003,
+    "yao_id": 3,
+    "name": "市令",
+    "health": 3,
+    "attack_damage": 1,
+    "attack_range": 0.8,
+    "attack_cooldown": 1.0,
+    "vision_angle": 75.0,
+    "alert_radius": 4.5,
+    "near_sense_radius": 1.5,
+    "alert_fill_seconds": 4.0,
+    "hostile_lose_seconds": 2.0
+}

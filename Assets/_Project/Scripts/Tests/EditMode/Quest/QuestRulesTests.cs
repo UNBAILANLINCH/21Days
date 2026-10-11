@@ -288,6 +288,47 @@ namespace Game.Tests.EditMode.Quest
             }));
         }
 
+        // ---------- 已完成列表 ----------
+
+        [Test]
+        public void GetCompleted_AfterSeveralCompleted_SortsByAcceptOrderDescending()
+        {
+            rules.ActivateAvailable();
+            CompleteMain1(rules);                                          // 接取序：1001=1，2001=2，1002=3
+            rules.Report(QuestObjectiveKind.ReachLocation, "lookout");     // 2001 完成（先接的 1001 早已完成）
+            rules.Report(QuestObjectiveKind.TalkTo, "1002");               // 1002 完成，接取序最大
+
+            var buffer = new List<QuestProgress>();
+            rules.GetCompleted(buffer);
+
+            Assert.That(Ids(buffer), Is.EqualTo(new[] { Main2, Side1, Main1 }), "最近接的排最前（接取序倒序，不是完成序）");
+        }
+
+        [Test]
+        public void GetCompleted_WhenNothingCompleted_ClearsBufferAndReturnsEmpty()
+        {
+            rules.ActivateAvailable();
+            var buffer = new List<QuestProgress> { Progress(Main1) };
+
+            rules.GetCompleted(buffer);
+
+            Assert.That(buffer, Is.Empty, "传入缓冲区里的旧内容必须被清掉");
+        }
+
+        [Test]
+        public void GetCompleted_OnlyContainsCompletedState()
+        {
+            rules.ActivateAvailable();
+            CompleteMain1(rules);
+
+            var buffer = new List<QuestProgress>();
+            rules.GetCompleted(buffer);
+
+            Assert.That(Ids(buffer), Is.EqualTo(new[] { Main1 }), "进行中（1002 / 2001）与未激活（1003 / 2002）都不算");
+            Assert.That(buffer[0].State, Is.EqualTo(QuestState.Completed));
+            Assert.That(buffer[0].ObjectiveIndex, Is.EqualTo(buffer[0].Definition.Objectives.Count), "已完成任务的目标下标等于目标数");
+        }
+
         private QuestProgress Progress(int id)
         {
             Assert.That(rules.TryGet(id, out QuestProgress progress), Is.True, $"任务 {id} 应存在");

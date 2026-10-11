@@ -53,8 +53,9 @@ maturity: stable
 1. 根物体：`BoxCollider`（3D）或 `Collider2D`（2D）+ `DialogueInteractable`（填 Id、`Display Name`，`Interact Radius` 建议 2.0，约一个多身位，`Actor` 留空）+ `DialogueInteractableMarker`。
 2. 子物体 `MarkerIdle` / `MarkerFocus`（SpriteRenderer，图 `Art/Sprites/Dialogue/Marker_Idle` / `Marker_Focus`）、
    `NameLabel`（TMP 3D）；3D 场景三者各挂 `CameraBillboard`。拖进标记的 `bubbleIdle` / `bubbleFocused` / `nameLabel`，`target` 拖自己。
-3. 玩家根要有 `DialogueInteractionActor`；相机要有 `PhysicsRaycaster`（3D）或 `Physics2DRaycaster`（2D）。参照 SampleScene 的 `Npc_Elder`。
-4. 从 Boot → 标题「开始」进场景验证（直接 Play 没有对白服务）：走近「…」→ 最近的变「!」+ 名字 + 右下角「对话」→ 确认键 / 点按钮拉起。
+3. 玩家根要有 `InteractionActor`（Game.Interaction）；相机要有 `PhysicsRaycaster`（3D）或 `Physics2DRaycaster`（2D）。参照 SampleScene 的 `Npc_Elder`。
+4. 从 Boot → 标题「开始」进场景验证（直接 Play 没有对白服务）：走近「…」→ 最近的变「!」+ 名字 + 底部「[E] 对话 · 名字」→ 交互键 / 点提示拉起，
+   玩家与 NPC 小人互相转向。要换提示动词（如 BOSS 的「挑战」）填 `DialogueInteractable` 的 `verb`。
 
 ## 加一个无树 NPC（只说常驻台词）
 
@@ -70,7 +71,7 @@ maturity: stable
 
 | 换什么 | 改哪 | 别动 |
 | --- | --- | --- |
-| 右下角「对话」卡片 | `Prefabs/UI/DialogueInteractHudView.prefab` 的 `Root` / `Icon` / 边框 Image | `root`、`button`、`label` 接线；地址 `DialogueInteractHudView` |
+| 底部交互提示 | 归 `Game.Interaction`：`Prefabs/UI/InteractPromptHudView.prefab`，见 [`interaction-extension-guide.md`](../interaction/interaction-extension-guide.md) | `root`、`button`、`label` 接线；地址 `InteractPromptHudView` |
 | 跳过确认弹窗 | `Prefabs/UI/DialogueSkipConfirmView.prefab` 的 `Panel` / 按钮 | `message` / `confirm` / `cancel` 接线；地址同名 |
 | 头顶气泡 | `Prefabs/World/DialogueSpeechBubble.prefab` 的 `Frame`（`Art/Sprites/Dialogue/Bubble_Frame`）、字体 | `Content` / `Name` / `Body` / `Arrow` 与根 `CanvasGroup` 接线；两级 `VerticalLayoutGroup` + 根 `ContentSizeFitter`（高度随文字自适应，别写死高度） |
 | 头顶标记 | 替换 `Marker_Idle.png` / `Marker_Focus.png` | 子物体名与标记字段接线 |
@@ -111,7 +112,8 @@ maturity: stable
 
 - 代码触发（遭遇、剧情、过场）：`await dialogueService.PlayAsync(id, ct)`，按 `Outcome` 分支；先看 `IsRunning`，进行中再调会抛。
 - 场景物体的其它输入（进入触发区等）：调物体上的 `DialogueInteractable.Interact()`，范围 / 占用 / 绑定已判定；
-  运行时生成的先 `Bind(service)`（不参与焦点）。确认键与 HUD 已由 `DialogueInteractionFocus` 接好，别再加一套按键监听。
+  运行时生成的先 `Bind(service)`（不参与焦点，要参与就自己 `IInteractionRegistry.Register`）。交互键与提示 HUD 已由
+  `Game.Interaction.InteractionFocus` 统一接好，别再加一套按键监听。
 
 ## 改表现参数（`DialogueConfig`）
 

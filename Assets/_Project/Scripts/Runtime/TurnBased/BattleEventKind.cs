@@ -19,7 +19,7 @@ namespace Game.TurnBased
         /// <summary>玩家施放招式（07:50-54）。<c>PlayerSkill</c> / <c>Amount</c> = 伤害。</summary>
         SkillCast = 2,
 
-        /// <summary>玩家用掉一件道具（07:58）。<c>ItemId</c> = 道具 id。</summary>
+        /// <summary>玩家用掉一件道具（07:58）。<c>ItemId</c> = 道具 id，<c>Amount</c> = 道具效果实际回复的生命（占位效果，见 BattleItemSettings）。</summary>
         ItemUsed = 3,
 
         /// <summary>怪物醉得跳过回合（07:71-73）。带档位、原因与屏幕中央要闪现的文案。</summary>

@@ -1,0 +1,245 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12341896dc52b4c4c890868f76c36ad6, type: 3}
+  m_Name: ToonMaterialMap
+  m_EditorClassIdentifier: 
+  pairs:
+  - sourceId: GlobalObjectId_V1-3-83513c2c6acc8b74290d0073139ea3c7-2100000-0
+    toonId: GlobalObjectId_V1-3-ad3556f255b933c49bd63620ed3a0d6a-2100000-0
+  - sourceId: GlobalObjectId_V1-3-61f9bf502c191024a918146a44cc24e3-2100000-0
+    toonId: GlobalObjectId_V1-3-e5c71953149734f409ee16b17ed903b5-2100000-0
+  - sourceId: GlobalObjectId_V1-3-3f52ca0a38b1ab642a4b5eaf4d15d06e-2100000-0
+    toonId: GlobalObjectId_V1-3-bf2d0df7a1f2eec429c0628216433b11-2100000-0
+  - sourceId: GlobalObjectId_V1-3-1232ef0d23e052b4ea482d8b6a913560-2100000-0
+    toonId: GlobalObjectId_V1-3-68f5c01c34766614cbc95c197a0f342c-2100000-0
+  - sourceId: GlobalObjectId_V1-3-9e4224692e8467047be573356e7f6ade-2100000-0
+    toonId: GlobalObjectId_V1-3-0a417e2e427ecb14483db3ef8eecf8d3-2100000-0
+  - sourceId: GlobalObjectId_V1-3-31321ba15b8f8eb4c954353edc038b1d-2100000-0
+    toonId: GlobalObjectId_V1-3-ee0eeb619485f9d4490ffbf7be3a19f7-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-9967612328235587755-0
+    toonId: GlobalObjectId_V1-3-8109768b7ac04ca4683c441147435d50-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15002439809352932502-0
+    toonId: GlobalObjectId_V1-3-d7c7405559abb314c99f6707c2e76244-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-12763035573781259666-0
+    toonId: GlobalObjectId_V1-3-da435281996a0ae4b9523ffad7dc2a49-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2154487784822041952-0
+    toonId: GlobalObjectId_V1-3-8f4af6eb9350bea45bcc60a1cdde19f2-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-7488959734034726970-0
+    toonId: GlobalObjectId_V1-3-1393ea7a78a63d744b74dcfbe7a31eec-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14306519180197608631-0
+    toonId: GlobalObjectId_V1-3-9bd69302eea07b14f8c4626a4e92ea2c-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-7648660012296514123-0
+    toonId: GlobalObjectId_V1-3-5f44b2ab43acfdb45a41f788dd0085df-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2844116122538793661-0
+    toonId: GlobalObjectId_V1-3-8203464188cad3b448831a6186ba14d4-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2052392590214404944-0
+    toonId: GlobalObjectId_V1-3-a9e8f98bee770c24a90027ec32480f23-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15993576862193571792-0
+    toonId: GlobalObjectId_V1-3-d789dbbb446ffe54494b51660fdc1eca-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2491974006452680919-0
+    toonId: GlobalObjectId_V1-3-a0f750749bfbf4947b0b365a5f8ff651-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15203371936230092301-0
+    toonId: GlobalObjectId_V1-3-878b4477935f3914b9b71c562f0aef47-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15325314914820639953-0
+    toonId: GlobalObjectId_V1-3-210393c95363bbc4faf7c62aca2a9b2f-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6922701124621143439-0
+    toonId: GlobalObjectId_V1-3-2c1a1d0976c52e84e89d1890aa62e9dd-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14163130406562937491-0
+    toonId: GlobalObjectId_V1-3-5d00468d9de7e834cbaae4a4d3162c01-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-543842327861466161-0
+    toonId: GlobalObjectId_V1-3-f3818f6bf11ac8140b2980fae23fd016-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8260840844984260542-0
+    toonId: GlobalObjectId_V1-3-f2adaa2d528deef4e8401b21821157fa-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15291470267579224751-0
+    toonId: GlobalObjectId_V1-3-d58ac985dcece80458cb1a2bb0b75890-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-253374637589594244-0
+    toonId: GlobalObjectId_V1-3-c337ef912ace2884fb559dc887d6c3a0-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6100595440269206501-0
+    toonId: GlobalObjectId_V1-3-3e813857b9f49cc4099591819e8221e0-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-11318067378811050906-0
+    toonId: GlobalObjectId_V1-3-89e6cf749125a4344b318d2005d6ea64-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2589572716648476624-0
+    toonId: GlobalObjectId_V1-3-e7f5388a4038d634fbbdd55a6f66b1da-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-12397071260495189177-0
+    toonId: GlobalObjectId_V1-3-fe7925c5b969adf49b7244f752ae8907-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8009249023445574251-0
+    toonId: GlobalObjectId_V1-3-f873f84c940e0cd4682cbdf3dc56a209-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-13166144112840428697-0
+    toonId: GlobalObjectId_V1-3-43c664720d8c35442809d40d8d9d5f54-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14483046548417583554-0
+    toonId: GlobalObjectId_V1-3-f011c63e3b0d48a4599d43c3e3fb807e-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6998583154992297749-0
+    toonId: GlobalObjectId_V1-3-7a5e591860af066419ef924e2594e5ca-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15742620395016589629-0
+    toonId: GlobalObjectId_V1-3-da4bd98b0108c0440a522d0456dfd0c5-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-9572173712079095516-0
+    toonId: GlobalObjectId_V1-3-ce95644144db741459f6c66326104cec-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-20999981327057513-0
+    toonId: GlobalObjectId_V1-3-d1be3c04dd824f54d9ff8a2a7b6e317e-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-9658064671445048159-0
+    toonId: GlobalObjectId_V1-3-045d95dda85046043a4f8c6333367d7b-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-3766646967299508737-0
+    toonId: GlobalObjectId_V1-3-4a2ec32ad73cce34c9a214aebd212746-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-16011039177044220755-0
+    toonId: GlobalObjectId_V1-3-6c9922b372ed496498ea73b802ac32bf-2100000-0
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8092546112538562263-0
+    toonId: GlobalObjectId_V1-3-b5a9034e1115f724c8b5ca4ef24caf6b-2100000-0
+  - sourceId: GlobalObjectId_V1-3-8997bdf26310a964caf5c92f687a8b1e-2100000-0
+    toonId: GlobalObjectId_V1-3-9332104374a1c774fb8cfcfb39053507-2100000-0
+  - sourceId: GlobalObjectId_V1-3-f8da9f6c087722c43a6e394283270377-2100000-0
+    toonId: GlobalObjectId_V1-3-ad06edee09dd17442a3c4015b383f0d8-2100000-0
+  grades:
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2844116122538793661-0
+    sourceName: Eevee Grass B Gold.001
+    hueShift: -3
+    saturation: 1.2
+    value: 0.95
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-7648660012296514123-0
+    sourceName: Eevee Grass B Gold.003
+    hueShift: -3
+    saturation: 1.2
+    value: 0.95
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14306519180197608631-0
+    sourceName: Eevee Grass D ferns.001
+    hueShift: -38
+    saturation: 0.6
+    value: 1
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15325314914820639953-0
+    sourceName: Eevee Grass D ferns.002
+    hueShift: -38
+    saturation: 0.6
+    value: 1
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2052392590214404944-0
+    sourceName: Eevee Grass D Gold.001
+    hueShift: -3
+    saturation: 1.2
+    value: 0.95
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6922701124621143439-0
+    sourceName: Eevee Tall Grass C White
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14163130406562937491-0
+    sourceName: Eevee Tall Grass C White.001
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-543842327861466161-0
+    sourceName: Eevee Tall Grass C White.002
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8260840844984260542-0
+    sourceName: Eevee Tall Grass C White.003
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15291470267579224751-0
+    sourceName: Eevee Tall Grass C White.004
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-253374637589594244-0
+    sourceName: Eevee Tall Grass C White.005
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6100595440269206501-0
+    sourceName: Eevee Tall Grass C White.006
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-11318067378811050906-0
+    sourceName: Eevee Tall Grass C White.007
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2589572716648476624-0
+    sourceName: Eevee Tall Grass C White.008
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-12397071260495189177-0
+    sourceName: Eevee Tall Grass C White.009
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8009249023445574251-0
+    sourceName: Eevee Tall Grass C White.010
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-13166144112840428697-0
+    sourceName: Eevee Tall Grass C White.011
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-14483046548417583554-0
+    sourceName: Eevee Tall Grass C White.012
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-6998583154992297749-0
+    sourceName: Eevee Tall Grass C White.013
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15742620395016589629-0
+    sourceName: Eevee Tall Grass C White.014
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-9572173712079095516-0
+    sourceName: Eevee Tall Grass C White.015
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-20999981327057513-0
+    sourceName: Eevee Tall Grass C White.016
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-9658064671445048159-0
+    sourceName: Eevee Tall Grass C White.017
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-3766646967299508737-0
+    sourceName: Eevee Tall Grass C White.018
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-16011039177044220755-0
+    sourceName: Eevee Tall Grass C White.019
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-8092546112538562263-0
+    sourceName: Eevee Tall Grass C White.020
+    hueShift: -46
+    saturation: 0.85
+    value: 1.5
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-15203371936230092301-0
+    sourceName: Plant_0.001
+    hueShift: -92
+    saturation: 0.6
+    value: 0.92
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-12763035573781259666-0
+    sourceName: "\u8349"
+    hueShift: -48
+    saturation: 0.68
+    value: 1.25
+  - sourceId: GlobalObjectId_V1-1-e06a0ea778e9f2f42aae838cbd0fb9e2-2491974006452680919-0
+    sourceName: "\u95EA\u4EAE\u98CE\u683C\u53F6\u5B50 001"
+    hueShift: -92
+    saturation: 0.6
+    value: 0.92

@@ -19,7 +19,7 @@ namespace Game.Tests.Showcase.Title
         protected override string ScenePath => null;
 
         [UnityTest]
-        public IEnumerator Appearance_ChangesTintAndRestoresWithoutExtraCanvas()
+        public IEnumerator Appearance_ChangesSpritesAndRestoresWithoutExtraCanvas()
         {
             TitleView title = null;
             yield return WaitUntil("Boot 标题页已就绪", () =>
@@ -38,22 +38,39 @@ namespace Game.Tests.Showcase.Title
                 yield return Check("标题背景已接线", () => false);
                 yield break;
             }
-            yield return Step("显示阳版原色", () => title.SetAppearanceTint(Color.white));
+            yield return WaitUntil("标题存档状态已刷新：无存档时继续隐藏", () =>
+                !RequireTitleButton("ContinueButton").gameObject.activeSelf, 3f);
+            yield return Step("显示阳版正式素材（预览完整菜单）", () =>
+            {
+                title.SetAlternateAppearance(false);
+                title.SetContinueVisible(true);
+                title.SetAppearanceTint(Color.white);
+            });
             Color normal = background.color;
+            Sprite normalBackground = background.sprite;
             int canvases = title.GetComponentsInChildren<Canvas>(true).Length;
             int images = title.GetComponentsInChildren<Image>(true).Length;
-            Color yin = ResolveService<SessionConfig>().TitleYinTint;
             yield return Snapshot("阳版");
 
-            yield return Step("以占位色调预览阴版", () => title.SetAppearanceTint(yin));
-            yield return Check("背景变为阴版色调", () => background.color == normal * yin);
-            yield return Snapshot("阴版预览");
+            bool applied = false;
+            yield return Step("切换阴版正式素材", () => applied = title.SetAlternateAppearance(true));
+            yield return Check("背景已替换为阴版，未叠加预览乘色", () => applied
+                && background.sprite != normalBackground && background.color == normal);
+            yield return Snapshot("阴版");
 
-            yield return Step("恢复阳版", () => title.SetAppearanceTint(Color.white));
-            yield return Check("原色恢复，图片和 Canvas 数量不变", () => background.color == normal
+            yield return Step("恢复阳版正式素材", () => title.SetAlternateAppearance(false));
+            yield return Check("阳版背景恢复，图片和 Canvas 数量不变", () => background.sprite == normalBackground
+                && background.color == normal
                 && title.GetComponentsInChildren<Canvas>(true).Length == canvases
                 && title.GetComponentsInChildren<Image>(true).Length == images);
             yield return Snapshot("恢复阳版");
+
+            UnityEngine.UI.Button load = RequireTitleButton("LoadButton");
+            yield return Step("键盘 / 手柄选中选择存档", () =>
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(load.gameObject));
+            yield return Check("选中图已应用", () => load.image.overrideSprite == load.spriteState.selectedSprite
+                && load.spriteState.selectedSprite != null);
+            yield return Snapshot("选中选择存档");
         }
     }
 }

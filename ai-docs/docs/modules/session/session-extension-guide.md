@@ -53,7 +53,8 @@ maturity: seed
 
 1. 文策确认节点后，按剧情事实字典登记标记；让该阶段通过已有 `SetFlags` 写入，不从标题 UI 写进度。
 2. 把同一个键赋到 `Data/Session/SessionConfig.asset` 的 `titleYinStoryFlag`；空值表示尚未绑定。
-3. 美术确认 `titleYinTint`，两版先共用图片与布局。正式切图交付后通过 Unity 编辑器修改 `TitleView.prefab`。
+3. 两版共用布局，正式图片分别放 `Art/Sprites/UI/Title/Yang/` 与 `Yin/`。通过 Unity 编辑器给 `TitleView.prefab` 的背景、按钮与 Sprite Swap 赋阳版图片；
+   在 TitleView 的 `backgroundImage`、`alternateBackground`、`alternateButtons` 接阴版与内部按钮引用。两版已有选中图，不再乘预览色。
 4. 若确认同一局会切回阳版，先定义标记的可逆语义；现有 SetFlags 是追加标记，不能靠追加一个未约定的复归标记猜优先级。
 5. 跑 `SessionTitleRulesTests`、`TitleViewTests` 与 `TitleShowcase`，再验冷启动、换档、删除最近槽与新游戏。
 

@@ -148,7 +148,8 @@ namespace Game.Session
                 ct.ThrowIfCancellationRequested();
                 // 较早的读盘结果不能覆盖后来的换档 / 删除结果，也不能操作已关闭的面板。
                 if (request != appearanceRequest || view == null || ui.Get<TitleView>() != view) return;
-                view.SetAppearanceTint(yin ? config.TitleYinTint : Color.white);
+                if (!view.SetAlternateAppearance(yin))
+                    view.SetAppearanceTint(yin ? config.TitleYinTint : Color.white);
                 telemetry.Track("title_appearance", ("yin", yin));
             }
             catch (OperationCanceledException)
@@ -158,7 +159,10 @@ namespace Game.Session
             catch (Exception e)
             {
                 if (!disposed && request == appearanceRequest && view != null)
+                {
+                    view.SetAlternateAppearance(false);
                     view.SetAppearanceTint(Color.white);
+                }
                 telemetry.TrackError("title_appearance_failed", e);
                 Log.Warn($"读取标题主题失败，使用阳版：{e.Message}");
             }

@@ -1,7 +1,7 @@
 // 职责：正式的登录 / 标题页（当前工程唯一的正式场景界面）——全屏背景 + Logo + 「开始游戏 / 继续 / 选择存档 / 设置 / 退出游戏」
 //   五个按钮 + 右下角版本号；只报告「哪个按钮被点了」，不注入服务，去向由 TitleState 决定。
-// 美术：背景、Logo 底板、按钮底图都是占位图，功能是正式的；美术在 Art/Sprites/UI/Title/ 下同名替换
-//   （ui_title_bg / ui_title_logo / ui_btn_menu_normal）即生效，正式 logo 带字时把 TitleLabel 隐藏。
+// 美术：正式阳 / 阴切图在 Art/Sprites/UI/Title/Yang 与 Yin；背景已带标题，旧 Logo 与按钮文字在预制体隐藏。
+//   阳版与选中图由 Image / Button.spriteState 持有，阴版引用配在本面板；切换不新增 UI 对象或 Canvas。
 // 为什么改（不是新建）：原本是跑通 UI 链路的占位面板（标题文字 + 开始按钮），职责一直是「标题界面」，
 //   这次把它做成正式页，扩展原文件；Addressables 地址、回放场景点 StartButton 的路径都保持不变。
 // 存档会话（PRP save-session D5）：预制体 Buttons 布局组追加「继续」「选择存档」两个按钮（顺序 开始 / 继续 / 选择存档 / 设置 / 退出），
@@ -51,9 +51,50 @@ namespace Game.Core.UI.Views
         [Tooltip("右下角版本号文字，由代码填 \"v\" + Application.version。")]
         [SerializeField] private TMP_Text versionLabel;
 
+        [Header("两套正式标题素材")]
+        [SerializeField] private Image backgroundImage;
+        [SerializeField] private Sprite alternateBackground;
+        [SerializeField] private ButtonAppearance[] alternateButtons = Array.Empty<ButtonAppearance>();
+
+        [Serializable]
+        private sealed class ButtonAppearance
+        {
+            [SerializeField] private Button button;
+            [SerializeField] private Sprite alternateNormal;
+            [SerializeField] private Sprite alternateSelected;
+
+            private bool captured;
+            private Sprite normal;
+            private SpriteState normalState;
+
+            public bool IsConfigured => button != null && button.image != null && alternateNormal != null;
+
+            public void Apply(bool alternate)
+            {
+                if (!captured)
+                {
+                    normal = button.image.sprite;
+                    normalState = button.spriteState;
+                    captured = true;
+                }
+
+                button.image.sprite = alternate ? alternateNormal : normal;
+                Sprite selected = alternateSelected != null ? alternateSelected : alternateNormal;
+                button.spriteState = alternate ? new SpriteState
+                {
+                    highlightedSprite = selected,
+                    selectedSprite = selected,
+                    pressedSprite = selected,
+                    disabledSprite = alternateNormal
+                } : normalState;
+            }
+        }
+
         private Image[] appearanceImages;
         private Color[] originalImageColors;
         private Color appearanceTint = Color.white;
+        private Sprite originalBackground;
+        private bool backgroundCaptured;
 
         /// <summary>
         /// 「开始」被点了。面板只报告**按钮被点了**这件事，不知道点完该去哪——
@@ -105,6 +146,25 @@ namespace Game.Core.UI.Views
                 if (appearanceImages[i] != null)
                     appearanceImages[i].color = originalImageColors[i] * tint;
             }
+        }
+
+        /// <summary>切换已接线的正式素材；旧预制体没有素材时返回 false，由调用方使用预览乘色。</summary>
+        public bool SetAlternateAppearance(bool alternate)
+        {
+            if (backgroundImage == null || alternateBackground == null || alternateButtons == null) return false;
+            for (int i = 0; i < alternateButtons.Length; i++)
+                if (alternateButtons[i] == null || !alternateButtons[i].IsConfigured) return false;
+
+            if (!backgroundCaptured)
+            {
+                originalBackground = backgroundImage.sprite;
+                backgroundCaptured = true;
+            }
+
+            SetAppearanceTint(Color.white);
+            backgroundImage.sprite = alternate ? alternateBackground : originalBackground;
+            for (int i = 0; i < alternateButtons.Length; i++) alternateButtons[i].Apply(alternate);
+            return true;
         }
 
         private void CaptureAppearance()

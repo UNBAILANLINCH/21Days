@@ -55,10 +55,12 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 ## 标题主题入口
 
-`SessionConfig.TitleYinStoryFlag`（默认空值）配置触发阴版的剧情标记，`TitleYinTint` 配置预览乘色。
+`SessionConfig.TitleYinStoryFlag`（默认空值）配置触发阴版的剧情标记，`TitleYinTint` 仅配置旧预制体的兼容预览乘色。
 正式阶段通过既有 `SetFlags` 写标记，标题路由只读剧情分区；不要从 UI 修改 NarrativeSaveData。
 冷启动通过只读候选决定最近槽的主题；读档与新游戏后不持有旧分区引用。
 表现层 `Game.Core.UI.Views.TitleView.SetAppearanceTint(Color)` 切换现有图片色调，白色恢复原色，不改变文本色和布局。
+`TitleView.SetAlternateAppearance(bool)` 切换已接线的正式背景、按钮和选中图；false 恢复阳版。
+缺背景或按钮绑定时返回 false，且不部分修改图片；路由在此情况下才回退乘色。正式素材不叠加预览乘色。
 `SaveSlotsController.OnSlotsChanged` 在选槽面板删除完成、槽摘要刷新后通知标题刷新；订阅者成对退订。
 占位入口尚未绑定真实节点，同一局剧情的复归条件尚未定案。
 

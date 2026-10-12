@@ -88,14 +88,14 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
 
 ## 标题阳 / 阴主题（2026-10-12）
 
-两版共用 `TitleView` 的图片、按钮和 `Canvas_Panel`，仅按原始 Image 颜色乘以色调；文字保留原色。
-`TitleView.SetAppearanceTint(Color.white)` 恢复原色，重复切换不累积乘色。首次打开缓存图片（包括隐藏的继续按钮），
-之后只在事件到来时修改颜色，没有新增 Canvas、材质实例或每帧剧情查询。
+两版共用 `TitleView` 的按钮与 `Canvas_Panel`，正式切图分别在 `Art/Sprites/UI/Title/Yang/`、`Yin/`。
+`TitleView.SetAlternateAppearance(bool)` 替换背景、按钮底图与选中图，false 恢复阳版；不额外叠加预览乘色。
+未接正式素材的旧预制体返回 false，路由继续使用 `SetAppearanceTint` 兼容。没有新增 Canvas、材质实例或每帧剧情查询。
 
 - `SessionConfig.TitleYinStoryFlag` 是**未绑定的占位入口**，默认空值；文策确定节点后，在正式阶段 `SetFlags` 设置该键并赋到配置。
   当前未新增真实剧情节点，也不把妖界或场景编号自动等同于阴版。
-- `TitleYinTint` 是待美术确认的预览色，正式切图尚未交付；悬挂菜单、中央标题与下方开始的锚点布局已通过 Unity MCP 接入，
-  铜镜、云纹与纹饰仍等待美术素材。开始按钮与标题使用同一中心锚点，垂直安全区缩进不会改变它们的间距。
+- `TitleYinTint` 只作为未接正式素材时的兼容预览色。正式素材已收到并原样复制，20 张 PNG 的字节与原文件一致。
+  背景自带铜镜、云纹和标题；按钮自带文字。旧 Logo 与文字叠层由预制体关闭，保留既有点击路由。
 - 回标题优先取当前会话的剧情分区；冷启动只读最近可用槽的候选，不 Commit、不改变当前内存进度。
   无档、旧档缺 Narrative 分区、未绑定或无标记时用阳版。剧情变化和选槽面板删除存档后刷新；迟到读盘不覆盖较新的刷新。
 - 表现接口支持恢复阳版；**同一局剧情是否切回尚未定案**，没有添加复归标记、优先级或永久锁定规则。
@@ -111,6 +111,27 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 埋点：`session/title_appearance` 记录显示的版本；`session/title_appearance_failed` 记录读取失败；
 `session/title_appearance_read` 记录冷启动候选读取耗时。
 本批没有新增帧循环埋点，历史候选点不纳入本批修补。
+
+### 正式素材映射（2026-10-13）
+
+`Yang/` 与 `Yin/` 各含以下 10 张图片，名称一致；只有目录区分版本。
+
+| 文件名 | 用途 |
+| --- | --- |
+| `ui_title_bg.png` | 无按钮背景，已经包含游戏标题 |
+| `ui_title_start.png` | 开始按钮，两版各一张；保留既有按压缩放反馈 |
+| `ui_title_settings_normal.png`、`ui_title_settings_selected.png` | 设置的普通 / 选中图 |
+| `ui_title_load_normal.png`、`ui_title_load_selected.png` | 选择存档的普通 / 选中图 |
+| `ui_title_continue_normal.png`、`ui_title_continue_selected.png` | 继续的普通 / 选中图 |
+| `ui_title_quit_normal.png`、`ui_title_quit_selected.png` | 退出游戏的普通 / 选中图 |
+
+导入为 Single Sprite，保留原尺寸与透明通道，Bilinear、无 mipmap、无压缩；Unity 生成并维护 `.meta`。
+菜单使用原生 Sprite Swap：悬停、键盘 / 手柄选中与按压共用对应选中图。
+放置位置参考图与 PSB 源文件不进入运行时资产目录。
+正式素材已通过 Unity MCP 接入 `TitleView.prefab`；Vector2 与内部按钮引用由编辑器 API 接线，未手改 YAML。
+本批实测：标题 EditMode 16/16、正式素材回放 1/1 通过；回放验证阴版替换、阳版恢复和菜单选中图，控制台无错误。
+报告在 `Logs/verify/title/20261013-000115/report.md`，包含阳版、阴版、恢复与选中图四张截图；最终视觉验收仍由开发者确认。
+回放临时显示完整四个菜单用于构图检查；正常游玩仍按有无存档控制「继续」，触屏平台仍隐藏「退出游戏」。
 
 ### 本批待审清单（未提交）
 

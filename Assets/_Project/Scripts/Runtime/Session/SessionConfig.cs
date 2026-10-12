@@ -27,11 +27,20 @@ namespace Game.Session
         [Tooltip("退出游戏前保存最多等多少秒（真实时间）；≤ 0 表示不单独限时，只受 GameQuit 的总超时约束。")]
         [SerializeField, Min(0f)] private float quitHookTimeoutSeconds = 2f;
 
+        [Header("标题主题（剧情节点待文策定案）")]
+        [Tooltip("切换阴版的剧情标记键；空值表示尚未绑定，不触发切换。正式节点通过阶段 SetFlags 写入。")]
+        [SerializeField] private string titleYinStoryFlag = "";
+
+        [Tooltip("阴版图片的乘色色调；文字保留原色。当前是待美术确认的预览值。")]
+        [SerializeField] private Color titleYinTint = new Color(0.45f, 0.35f, 0.6f, 1f);
+
         public int SlotCount => slotCount;
         public string SaveNoticeTitle => saveNoticeTitle;
         public float SaveNoticeSeconds => saveNoticeSeconds;
         public string LoadFailedTitle => loadFailedTitle;
         public string ProgressPlaceholder => progressPlaceholder;
         public float QuitHookTimeoutSeconds => quitHookTimeoutSeconds;
+        public string TitleYinStoryFlag => titleYinStoryFlag;
+        public Color TitleYinTint => titleYinTint;
     }
 }

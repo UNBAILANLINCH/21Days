@@ -49,9 +49,17 @@ maturity: seed
    按需要显示。
 5. 更新字段的时机在 `GameSession.SaveNowAsync`（`GameSession.cs:239` 附近，`await saves.SaveAsync` 之前那几行）。
 
+## 接入标题阳 / 阴主题的正式剧情节点
+
+1. 文策确认节点后，按剧情事实字典登记标记；让该阶段通过已有 `SetFlags` 写入，不从标题 UI 写进度。
+2. 把同一个键赋到 `Data/Session/SessionConfig.asset` 的 `titleYinStoryFlag`；空值表示尚未绑定。
+3. 美术确认 `titleYinTint`，两版先共用图片与布局。正式切图交付后通过 Unity 编辑器修改 `TitleView.prefab`。
+4. 若确认同一局会切回阳版，先定义标记的可逆语义；现有 SetFlags 是追加标记，不能靠追加一个未约定的复归标记猜优先级。
+5. 跑 `SessionTitleRulesTests`、`TitleViewTests` 与 `TitleShowcase`，再验冷启动、换档、删除最近槽与新游戏。
+
 ## 依赖方向约束
 
 `Game.Session → Game.Core`（Save / Flow / UI / Events / Boot / Timing / Simulation / Telemetry）、
-`Game.Session → Game.Quest / Game.Dialogue / Game.Monster / Game.Loot`（只经它们的公开 API 与事件）。
+`Game.Session → Game.Quest / Game.Dialogue / Game.Monster / Game.Loot / Game.Narrative`（只经它们的公开 API、保存 DTO 与事件）。
 反过来任何玩法模块都不得引用 `Game.Session`——需要感知会话生命周期一律走 `SessionStartedEvent` /
 `SaveCompletedEvent`，不要 `using Game.Session`。`Game.Core` 不认识 `Game.Session`。

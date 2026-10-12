@@ -86,6 +86,62 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
 - 面板与确认弹窗的文案（「取消」「覆盖」「删除」「无法开始新游戏」「删除存档失败」等）是
   `SaveSlotsController` / `SaveSlotsView` 里的私有常量，**没有**进 `SessionConfig`；改文案直接改这两个类。
 
+## 标题阳 / 阴主题（2026-10-12）
+
+两版共用 `TitleView` 的图片、按钮和 `Canvas_Panel`，仅按原始 Image 颜色乘以色调；文字保留原色。
+`TitleView.SetAppearanceTint(Color.white)` 恢复原色，重复切换不累积乘色。首次打开缓存图片（包括隐藏的继续按钮），
+之后只在事件到来时修改颜色，没有新增 Canvas、材质实例或每帧剧情查询。
+
+- `SessionConfig.TitleYinStoryFlag` 是**未绑定的占位入口**，默认空值；文策确定节点后，在正式阶段 `SetFlags` 设置该键并赋到配置。
+  当前未新增真实剧情节点，也不把妖界或场景编号自动等同于阴版。
+- `TitleYinTint` 是待美术确认的预览色，正式切图尚未交付；悬挂菜单、中央标题与下方开始的锚点布局已通过 Unity MCP 接入，
+  铜镜、云纹与纹饰仍等待美术素材。开始按钮与标题使用同一中心锚点，垂直安全区缩进不会改变它们的间距。
+- 回标题优先取当前会话的剧情分区；冷启动只读最近可用槽的候选，不 Commit、不改变当前内存进度。
+  无档、旧档缺 Narrative 分区、未绑定或无标记时用阳版。剧情变化和选槽面板删除存档后刷新；迟到读盘不覆盖较新的刷新。
+- 表现接口支持恢复阳版；**同一局剧情是否切回尚未定案**，没有添加复归标记、优先级或永久锁定规则。
+
+验证入口：`SessionTitleRulesTests` 的标记判定、`Tests/EditMode/Core/TitleViewTests.cs` 的恢复原色与隐藏图片测试、
+`Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的真实帧冷启动候选只读与新游戏恢复，
+以及 `Tests/Showcase/Title/TitleShowcase.cs` 的 Boot 标题阳 → 阴 → 阳预览。
+2026-10-12 实测：编译控制台无错误；标题 EditMode 13/13、路由 PlayMode 1/1、Title 回放 1/1 通过，
+回放两个表现检查点通过且无运行时异常，报告在 `Logs/verify/title/20261012-173355/report.md`。
+Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生成；最终视觉验收仍待开发者确认。
+未做真机 Profiler 测量；迟到读盘与删除最近槽仍未单独覆盖自动化测试。
+
+埋点：`session/title_appearance` 记录显示的版本；`session/title_appearance_failed` 记录读取失败；
+`session/title_appearance_read` 记录冷启动候选读取耗时。
+本批没有新增帧循环埋点，历史候选点不纳入本批修补。
+
+### 本批待审清单（未提交）
+
+路径均相对项目根；新增 C# 与目录的 Unity 生成 `.meta` 一并归入本批。
+
+| 文件路径 | 位置 | 改了什么 |
+| --- | --- | --- |
+| `Assets/_Project/Prefabs/UI/TitleView.prefab` | 标题、菜单、开始按钮 | 按参考构图使用锚点布局，移除竖排布局，关闭非交互射线 |
+| `Assets/_Project/Scripts/Core/UI/Views/TitleView.cs` | OnOpenAsync / SetAppearanceTint / OnRefresh | 缓存图片原色、切换乘色且可还原，标题文字可配置 |
+| `Assets/_Project/Scripts/Runtime/Session/SessionConfig.cs`、`Assets/_Project/Scripts/Runtime/Session/SessionTitleRules.cs` | 标题主题参数与判定 | 未绑定剧情标记占位入口、预览色调、纯标记判定 |
+| `Assets/_Project/Scripts/Runtime/Session/SessionTitleRouter.cs`、`Assets/_Project/Scripts/Runtime/Session/SessionInstaller.cs`、`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs` | 标题刷新与注册、删除通知 | 读取会话或只读候选、拒绝迟到结果、成对订阅、显示版本与失败及耗时埋点 |
+| `Assets/_Project/Scripts/Tests/EditMode/Core/TitleViewTests.cs`、`Assets/_Project/Scripts/Tests/EditMode/Session/SessionTitleRulesTests.cs` | 标题快测试 | 原色恢复、隐藏图片、未绑定及跨槽标记判定 |
+| `Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Game.Tests.PlayMode.asmdef` | 帧循环路由测试及已有库引用 | 验证只读候选不提交、当前进度不变、新游戏恢复阳版 |
+| `Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` | Boot 标题回放 | 阳 → 阴 → 阳，检查图片与 Canvas 数量不变并截图 |
+| `ai-docs/docs/modules/session/session-module-guide.md`、`ai-docs/docs/modules/session/session-external-api.md`、`ai-docs/docs/modules/session/session-extension-guide.md` | 标题主题说明 | 同步配置、公开入口、接线、验证状态与待定事项 |
+
+埋点门：本批主题显示、读取失败和异步读盘耗时已记录；没有新增代码对应的应埋未埋候选。
+沉淀门：本次无新结论；测试的真实帧要求已写在测试文件头，不另增重复规则。
+范围外：工作区原有字体、文档、工具与节奏玩法改动未纳入本批；全局 gc 扫描仍报已有 Dynamic 字体数据膨胀，未清除他人未提交的字体数据。
+
+拟提交信息（仅提案，尚未提交）：
+
+```text
+feat(ui): 标题悬挂菜单与阳阴主题切换入口
+
+- 标题页采用悬挂菜单、中央标题和下方开始的锚点布局
+- Session 读取剧情标记决定主题，冷启动只读最近槽候选
+- 补齐主题快测试、路由帧循环测试、视觉回放与模块说明
+- 留：正式切图、剧情节点和同一局切回条件待美术与文策定案
+```
+
 ## 开局操作说明（新手教程）
 
 开始新游戏时先盖一张全屏操作说明图（`TutorialView`，Core/UI 的面板，Addressables 地址 `TutorialView`），

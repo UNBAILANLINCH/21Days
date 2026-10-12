@@ -30,6 +30,9 @@ namespace Game.Core.UI.Views
         [Tooltip("标题文字（叠在 Logo 占位底板上）。正式 logo 图带字后可隐藏。")]
         [SerializeField] private TMP_Text titleLabel;
 
+        [Tooltip("Logo 没有自带文字时显示的标题。")]
+        [SerializeField] private string titleText = "镜非台";
+
         [Tooltip("「开始游戏」按钮；同时应拖到基类的 Default Selected 上，键盘 / 手柄导航从它开始。")]
         [SerializeField] private Button startButton;
 
@@ -47,6 +50,10 @@ namespace Game.Core.UI.Views
 
         [Tooltip("右下角版本号文字，由代码填 \"v\" + Application.version。")]
         [SerializeField] private TMP_Text versionLabel;
+
+        private Image[] appearanceImages;
+        private Color[] originalImageColors;
+        private Color appearanceTint = Color.white;
 
         /// <summary>
         /// 「开始」被点了。面板只报告**按钮被点了**这件事，不知道点完该去哪——
@@ -76,6 +83,7 @@ namespace Game.Core.UI.Views
 
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
+            CaptureAppearance();
             Hook(startButton, HandleStartClicked);
             Hook(continueButton, HandleContinueClicked);
             Hook(loadButton, HandleLoadClicked);
@@ -84,6 +92,29 @@ namespace Game.Core.UI.Views
 
             OnRefresh();
             return UniTask.CompletedTask;
+        }
+
+        /// <summary>共用同一套图片切换色调；白色恢复原色。文字保留原色，避免主题切换降低可读性。</summary>
+        public void SetAppearanceTint(Color tint)
+        {
+            CaptureAppearance();
+            if (appearanceTint == tint) return;
+            appearanceTint = tint;
+            for (int i = 0; i < appearanceImages.Length; i++)
+            {
+                if (appearanceImages[i] != null)
+                    appearanceImages[i].color = originalImageColors[i] * tint;
+            }
+        }
+
+        private void CaptureAppearance()
+        {
+            if (appearanceImages != null) return;
+            // 只在首次打开时缓存，包含暂时隐藏的按钮；不在每帧扫描或重复乘色。
+            appearanceImages = GetComponentsInChildren<Image>(true);
+            originalImageColors = new Color[appearanceImages.Length];
+            for (int i = 0; i < appearanceImages.Length; i++)
+                originalImageColors[i] = appearanceImages[i].color;
         }
 
         public override UniTask OnCloseAsync(CancellationToken ct)
@@ -106,7 +137,7 @@ namespace Game.Core.UI.Views
         }
 
         /// <summary>
-        /// 显示 / 隐藏「继续」按钮（没有可用存档时隐藏）。<c>Buttons</c> 是竖向布局组，隐藏后其余按钮自动上移；
+        /// 显示 / 隐藏「继续」按钮（没有可用存档时隐藏）。悬挂菜单使用固定锚点，隐藏后保留其他按钮的位置；
         /// 导航为 Automatic，键盘 / 手柄会跳过隐藏物体。显示时顺带恢复可点，避免残留置灰。按钮没接线时是空操作。
         /// </summary>
         public void SetContinueVisible(bool visible)
@@ -130,12 +161,12 @@ namespace Game.Core.UI.Views
             }
         }
 
-        /// <summary>刷新标题与版本号。标题文字暂时写死，接本地化后从本地化表取。</summary>
+        /// <summary>刷新配置的标题与版本号。</summary>
         public override void OnRefresh()
         {
             if (titleLabel != null)
             {
-                titleLabel.text = "21Days";
+                titleLabel.text = titleText;
             }
 
             if (versionLabel != null)

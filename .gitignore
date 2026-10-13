@@ -68,6 +68,9 @@ Thumbs.db
 # Python 脚本（钩子 / lint / 扫描）运行产生的字节码缓存
 __pycache__/
 
+# Node.js 下载的依赖目录，各层工具共用此规则。
+node_modules/
+
 # Codex hooks 的会话缓存
 .codex/.cache/
 

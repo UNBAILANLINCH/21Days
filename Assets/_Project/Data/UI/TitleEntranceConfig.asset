@@ -1,0 +1,1950 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23d2b4d853d547646b4e7fcda3e0f48a, type: 3}
+  m_Name: TitleEntranceConfig
+  m_EditorClassIdentifier: 
+  tracks:
+  - part: "\u5929\u7A7A_\u5408\u6210\u5E95\u8272"
+    delay: 0
+    duration: 0.25
+    fadeSeconds: 0.25
+    offset: {x: 0, y: 0}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u83B2\u82B1\u7EB9"
+    delay: 1.25
+    duration: 2.05
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 0}
+    scale: 0.28
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0.012
+    breathSeconds: 4.8
+  - part: "\u4E91_\u5DE6"
+    delay: 1.55
+    duration: 1.8
+    fadeSeconds: 0.65
+    offset: {x: 262.5, y: 116}
+    scale: 0.42
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 8, y: 3}
+    breathScale: 0
+    breathSeconds: 4.5
+  - part: "\u4E91_\u53F3"
+    delay: 1.72
+    duration: 1.9
+    fadeSeconds: 0.65
+    offset: {x: -301.5, y: 142.5}
+    scale: 0.42
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: -7, y: 4}
+    breathScale: 0
+    breathSeconds: 5.2
+  - part: "\u5934\u9876\u5706\u5149"
+    delay: 0.6
+    duration: 2.1
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 35}
+    scale: 0.9
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u8FDC\u5C71_\u53F3\u5185"
+    delay: 0.85
+    duration: 2.2
+    fadeSeconds: 0.65
+    offset: {x: 100, y: -24}
+    scale: 0.93
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u8FDC\u5C71_\u53F3\u5916"
+    delay: 0.97
+    duration: 2.2
+    fadeSeconds: 0.65
+    offset: {x: 100, y: -24}
+    scale: 0.93
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u8FDC\u5C71_\u5DE6\u5185"
+    delay: 1.09
+    duration: 2.2
+    fadeSeconds: 0.65
+    offset: {x: -100, y: -24}
+    scale: 0.93
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u8FDC\u5C71_\u5DE6\u5916"
+    delay: 1.21
+    duration: 2.2
+    fadeSeconds: 0.65
+    offset: {x: -100, y: -24}
+    scale: 0.93
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u4E1D\u5E26_\u5DE6"
+    delay: 2.5
+    duration: 1.45
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 0}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 1
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u4E1D\u5E26_\u53F3"
+    delay: 2.64
+    duration: 1.45
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 0}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: -1
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u77F3\u5934_\u5DE6\u8FDC\u666F"
+    delay: 1.5
+    duration: 1.8
+    fadeSeconds: 0.65
+    offset: {x: 649.5, y: 101}
+    scale: 0.32
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u96FE\u6C14_\u5DE6"
+    delay: 1.2
+    duration: 2.3
+    fadeSeconds: 0.65
+    offset: {x: 206.5, y: 142.5}
+    scale: 0.52
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u96FE\u6C14_\u53F3"
+    delay: 1.4
+    duration: 2.4
+    fadeSeconds: 0.65
+    offset: {x: -727.5, y: 194}
+    scale: 0.52
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6C34\u9762"
+    delay: 0.08
+    duration: 2.5
+    fadeSeconds: 1.1
+    offset: {x: 0, y: -165}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: -2.5}
+    breathScale: 0
+    breathSeconds: 5.8
+  - part: "\u94DC\u955C\u5012\u5F71_\u6C34\u5F71"
+    delay: 0.85
+    duration: 2.1
+    fadeSeconds: 0.65
+    offset: {x: 0, y: -110}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u94DC\u955C\u5012\u5F71_\u84DD"
+    delay: 0.93
+    duration: 2.1
+    fadeSeconds: 0.65
+    offset: {x: 0, y: -110}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u94DC\u955C\u5012\u5F71_\u6DF1"
+    delay: 1.01
+    duration: 2.1
+    fadeSeconds: 0.65
+    offset: {x: 0, y: -110}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u77F3\u5934_\u5DE6\u4E2D\u666F"
+    delay: 1.85
+    duration: 1.7
+    fadeSeconds: 0.65
+    offset: {x: 144, y: 169}
+    scale: 0.38
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u94DC\u955C_\u672C\u4F53"
+    delay: 0.32
+    duration: 2.4
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 420}
+    scale: 0.88
+    rotation: -32
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0.15
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.62
+        value: 0.91
+        inSlope: 1
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.86
+        value: 1.012
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 2}
+    breathScale: 0
+    breathSeconds: 5.4
+  - part: "\u77F3\u5934_\u53F3\u4E2D\u666F"
+    delay: 2.03
+    duration: 1.75
+    fadeSeconds: 0.65
+    offset: {x: -147, y: 206}
+    scale: 0.38
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u9E1F"
+    delay: 2.05
+    duration: 1.45
+    fadeSeconds: 0.65
+    offset: {x: 55, y: 35}
+    scale: 0.85
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u77F3\u5934_\u53F3\u524D\u666F"
+    delay: 1.72
+    duration: 1.9
+    fadeSeconds: 0.65
+    offset: {x: -829, y: 157.5}
+    scale: 0.32
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6807\u9898_\u955C\u975E\u53F0"
+    delay: 0.98
+    duration: 1.95
+    fadeSeconds: 0.65
+    offset: {x: 0, y: 255}
+    scale: 0.97
+    rotation: 3
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0.15
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.62
+        value: 0.91
+        inSlope: 1
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.86
+        value: 1.012
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5377\u8F74\u5E95"
+    delay: 3.65
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u540A\u7EBF\u4E0E\u83F1\u5F62"
+    delay: 3.65
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5E95\u90E8\u6E10\u53D8"
+    delay: 3.65
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u82B1\u7EB9"
+    delay: 4.33
+    duration: 0.55
+    fadeSeconds: 0.55
+    offset: {x: 0, y: 18}
+    scale: 0.88
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6587\u5B57"
+    delay: 4.4500003
+    duration: 0.6
+    fadeSeconds: 0.6
+    offset: {x: 0, y: 12}
+    scale: 0.97
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5377\u8F74\u5E95"
+    delay: 3.7900002
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u540A\u7EBF\u4E0E\u83F1\u5F62"
+    delay: 3.7900002
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5E95\u90E8\u6E10\u53D8"
+    delay: 3.7900002
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u82B1\u7EB9"
+    delay: 4.4700003
+    duration: 0.55
+    fadeSeconds: 0.55
+    offset: {x: 0, y: 18}
+    scale: 0.88
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6587\u5B57"
+    delay: 4.59
+    duration: 0.6
+    fadeSeconds: 0.6
+    offset: {x: 0, y: 12}
+    scale: 0.97
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5377\u8F74\u5E95"
+    delay: 3.93
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u540A\u7EBF\u4E0E\u83F1\u5F62"
+    delay: 3.93
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5E95\u90E8\u6E10\u53D8"
+    delay: 3.93
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u82B1\u7EB9"
+    delay: 4.61
+    duration: 0.55
+    fadeSeconds: 0.55
+    offset: {x: 0, y: 18}
+    scale: 0.88
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6587\u5B57"
+    delay: 4.73
+    duration: 0.6
+    fadeSeconds: 0.6
+    offset: {x: 0, y: 12}
+    scale: 0.97
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5377\u8F74\u5E95"
+    delay: 4.07
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u540A\u7EBF\u4E0E\u83F1\u5F62"
+    delay: 4.07
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5E95\u90E8\u6E10\u53D8"
+    delay: 4.07
+    duration: 0.84
+    fadeSeconds: 0.16
+    offset: {x: 0, y: 480}
+    scale: 1
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.42
+        value: 0.24
+        inSlope: 1.6
+        outSlope: 1.6
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.66
+        value: 1.035
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.84
+        value: 0.992
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u82B1\u7EB9"
+    delay: 4.75
+    duration: 0.55
+    fadeSeconds: 0.55
+    offset: {x: 0, y: 18}
+    scale: 0.88
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u6587\u5B57"
+    delay: 4.8700004
+    duration: 0.6
+    fadeSeconds: 0.6
+    offset: {x: 0, y: 12}
+    scale: 0.97
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0
+    breathSeconds: 4
+  - part: "\u5F00\u59CB\u6E38\u620F\u6309\u94AE"
+    delay: 5.05
+    duration: 1.25
+    fadeSeconds: 1.15
+    offset: {x: 0, y: -18}
+    scale: 0.96
+    rotation: 0
+    curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    revealDirection: 0
+    breathOffset: {x: 0, y: 0}
+    breathScale: 0.012
+    breathSeconds: 2.8

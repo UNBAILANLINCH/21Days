@@ -99,19 +99,29 @@ namespace Game.Tests.EditMode.Mirror
             Assert.That(tables.TbYao.Get(2).Mask, Is.True);
         }
 
+        /// <summary>
+        /// A 层怪的占位掉落：`06_怪物分层.md:115` R2「A 层的共同点：…击杀后掉这一阶段的『皮』」，
+        /// 坊市那一行是 `:135` 表 3.2「妖民 → 普通皮」；道具侧定义见 `05_皮面具与道具.md:151`。
+        /// 具体 id 由 `Tables/Data/yao/1.json` / `2.json` 的 `drop_items` 给出，此处跟着数据钉住。
+        /// </summary>
+        private const int CommonSkinItemId = 1101;
+
         [Test]
         public void DemoRows_TierKillableAndDropsParsed()
         {
-            // 聚光灯「怪物分层」（[06]）新加的三列：两只 demo 妖都是 A 底层、可击杀；掉落还没定，写 [] 不算错。
+            // 聚光灯「怪物分层」（[06]）新加的三列：两只 demo 妖都是 A 底层、可击杀。
+            // 掉落（2026-10-08 填上占位）：原来这里断言的是空列表——那是「掉落还没定」时的写法，本用例的注释
+            // 当时已经预告「写 [] 不算错」只在当时成立；数据一填就必须跟着改，别把空列表当成契约。
+            // 「id 是不是真物品」不在这里守，由 AllRows_DropItemsExistInItemTable 对着 tbitem 查。
             global::cfg.yao.Yao watchman = tables.TbYao.Get(1);
             Assert.That(watchman.Tier, Is.EqualTo("A"));
             Assert.That(watchman.Killable, Is.True);
-            Assert.That(watchman.DropItems, Is.Empty);
+            Assert.That(watchman.DropItems, Is.EqualTo(new[] { CommonSkinItemId }));
 
             global::cfg.yao.Yao woman = tables.TbYao.Get(2);
             Assert.That(woman.Tier, Is.EqualTo("A"));
             Assert.That(woman.Killable, Is.True);
-            Assert.That(woman.DropItems, Is.Empty);
+            Assert.That(woman.DropItems, Is.EqualTo(new[] { CommonSkinItemId }));
         }
 
         [Test]
@@ -228,7 +238,8 @@ namespace Game.Tests.EditMode.Mirror
             Assert.That(catalog.TierOf(1), Is.EqualTo("A"));
             Assert.That(catalog.TierOf(2), Is.EqualTo("A"));
             Assert.That(catalog.IsKillable(1), Is.True);
-            Assert.That(catalog.DropItemsOf(1), Is.Empty);
+            // 掉落列也经 YaoCatalog 转读，不是空列表：数据填上之后这里必须跟着改（原来断言 Is.Empty）。
+            Assert.That(catalog.DropItemsOf(1), Is.EqualTo(new[] { CommonSkinItemId }));
         }
 
         [Test]

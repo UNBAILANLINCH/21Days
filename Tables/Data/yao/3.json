@@ -13,5 +13,5 @@
     "tier": "B",
     "killable": false,
     "defeat_method": "暗杀",
-    "drop_items": []
+    "drop_items": [1101]
 }

@@ -24,7 +24,7 @@ BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记�
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
 | `IsBattleRunning` | `bool` | 有一场战斗在流程里（含等世界就绪）。`BattleFlow.cs:83` |
-| `IsBattleEngaged` | `bool` | 已越过门闸、世界被按住（舞台 / 界面在场或正在进出）。`BattleFlow.cs:86` |
+| `IsBattleEngaged` | `bool` | 已越过门闸、世界被按住（舞台 / 界面在场或正在进出）。`BattleFlow.cs` |
 
 别的模块想「战斗中不要做 X」读这两个即可，不要自己监听事件拼状态。其余方法都是内部的（`Start` / `Dispose` 由容器调）。
 
@@ -60,7 +60,7 @@ BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记�
 | 成员 | 说明 |
 | --- | --- |
 | `BattleSetup.OverrideSettings(in BattleSettings)` | 临时换回合制数值，返回 `IDisposable`。**只在 `Debug.isDebugBuild` 可用**，否则抛；开打时埋 `battle/settings_overridden`。仅供回放，玩法代码不得调。`BattleSetup.cs:68-75` |
-| `BattleSetup.Settings` / `IsOverridden` | 开仗实际用的数值 / 是否处于替换状态。`BattleSetup.cs:52,55` |
+| `BattleSetup.Settings` / `IsOverridden` | 开仗实际用的数值 / 是否处于替换状态。`BattleSetup.cs` |
 | `BattleScenePresenter.Stage` / `View` / `IsAwaitingCommand` | 回放读舞台、界面与「正在等指令」。`BattleScenePresenter.cs:77,80,83` |
 
 ## 前置条件与注意

@@ -1,6 +1,6 @@
 # PRP: 战斗结果 → 剧情（battle-to-narrative，roadmap C5）
 
-> 状态：草案（2026-10-07 建立）。Q0-D（Narrative 补战斗能力）已回收（提交 fa3a193）；回合制这条路径已由 [`PRP/turnbased-battle`](../turnbased-battle/prp.md) 落地（`Game.Battle` 经 `NarrativeService.CompleteBattleAsync` 回写）；潜行 / 遭遇路径（`EncounterStep.PendingResult`）仍待做。
+> 状态：**机制已落地（2026-10-09 第二波）**。Q0-D（Narrative 补战斗能力）已回收（提交 fa3a193）；回合制这条路径已由 [`PRP/turnbased-battle`](../turnbased-battle/prp.md) 落地（`Game.Battle` 经 `NarrativeService.CompleteBattleAsync` 回写）；**潜行 / 遭遇路径（`EncounterStep.PendingResult`）同日接通**——用户拍板「**一场实时遭遇打赢或被击倒，等于这一关结束**」，实现是 `Runtime/Monster/EncounterBattleBridge.cs`（空 payload 的 Battle 阶段归它，非空归 `BattleFlow`），测试 `Tests/EditMode/Monster/EncounterBattleBridgeTests.cs`。
 > 本 PRP 覆盖 roadmap **C5**：把「一场战斗怎么结束」接进剧情阶段机，让聚光灯的**四个战斗关阶段**（阶段一、三、六、九）能真正推进。
 > 上游：[`00_功能总览.md`](../docs/design/features-spotlight/00_功能总览.md) §8.2 步 2/步 10、[`11_剧情流程与章节结构.md`](../docs/design/features-spotlight/11_剧情流程与章节结构.md)、[`03_潜行与暗杀.md`](../docs/design/features-spotlight/03_潜行与暗杀.md)、[`09_BOSS战.md`](../docs/design/features-spotlight/09_BOSS战.md)
 > 相关：[`S组落地总规划.md`](../docs/planning/S组落地总规划.md)（波次与文件所有权）、[`story-facts.md`](../ai-docs/docs/story-facts.md)（`combat.*` 键）、`PRP/narrative-dialogue/`（C1–C3/B3）
@@ -140,3 +140,23 @@ Q0-D 的失败用例 `CompleteBattle_..._AdvancesByItsOwnExit("Victory","cleared
 | 4 | 阶段一用 sp02 / sp03 / 拼 | 四个战斗关的**内容**（机制不受影响） | `00` §8.1 #1 |
 | 5 | **`Boot.unity` / `GameInput.inputactions` 的改动窗口** | 接线（若需要新动作） | 本文 1.3、`S组落地总规划.md` 第 2 节 |
 | 6 | **Taming 是否解除「不接 Boot」** | 与 S1 共用绕背判定时的接线方式 | `taming-module-guide.md:11` |
+
+---
+
+## 6·进度回填（2026-10-09 第二波）
+
+**用户决定**：*「一场实时遭遇打赢或被击倒，等于这一关结束。」* 这一句话同时解决了 §1.1 的缺口与 §5 第 1 行的**机制侧**问题，实现随之落地：
+
+| 落点 | 现状 |
+| --- | --- |
+| §2.1 唯一写入方 | **保持**：遭遇侧只 `SettleBattle`（承载），推进只经 `NarrativeService.CompleteBattleAsync`；两个写入方（`BattleFlow` / `EncounterBattleBridge`）按事件 `payload` 分工，不重叠 |
+| §2.2 承载而不是替换 | **照做**：`EncounterStep.BattleSettlement` 不进快照、不升 `ReplayFormat`；`EncounterStep` 的构造参数一字未动 |
+| §2.3 四种结果 | `Downed` 与 `Victory` 现在都有遭遇侧生产者（玩家生命归零 / 小怪清空或处决）+ 回写方；**`Exposed` 与 `BossPhaseChanged:<形态>` 仍无生产者**，进表但跑不到（等 S2 / S7） |
+| §2.4 出口键衔接 | 不变：剧情的 `battleResults` / `exits[].result` 与 `BattleResult.ExitKey` 一一对应，校验器强制的口径没改 |
+| §2.6 埋点 | 剧情侧 `battle_result_applied` / `battle_result_rejected` 照旧；遭遇侧多了 `battle_settled`（既有）与桥的 `battle_linked` / `battle_result_forwarded`；`BattleFlow` 多一条 `stage_live_encounter`（空 payload 跳过的痕迹） |
+| §3 验证清单 | 1–5、7 由 EditMode 覆盖（`NarrativeBattleRejectionTests` / `EncounterBattleSettlementTests` / 新增 `EncounterBattleBridgeTests`）；**6（失败口径不硬编）被用户决定取代**——击倒就写 `Downed`，不再由策略注入；8（镜碎页）仍未做：镜碎现在是「被击倒后重开本场」的表现，出口归属等 S3 |
+
+**与原文的两处偏离（写清楚，免得下一波当成错）**：
+
+1. **桥不调 `TryBeginBattle`**：原文没写这一条；不给阶段帧打「战斗在途」是为了不动存档边界（活遭遇是实时玩法，退出即离场，战中存档闸门仍只剩 tick 内窗口）。
+2. **取走结果必须在结算的同一个 tick 里**（桥是 `ISimulationStep`，紧跟 `EncounterStep`）：镜碎在同一帧更晚的渲染回调里 `End()`、下一场 `Begin()` 会抹掉结果——轮询式实现要同时赌两个帧序假设，不采用。

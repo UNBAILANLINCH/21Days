@@ -23,5 +23,9 @@ namespace Game.Session
 
         /// <summary>「继续」是否显示：有最近可用槽（槽号从 1 起，0 = 没有可用存档，此时隐藏按钮）。</summary>
         public static bool ShouldShowContinue(int latestSlot) => latestSlot > 0;
+
+        /// <summary>未绑定节点、旧档缺标记或标记不成立时使用阳版，不推断场景所属世界。</summary>
+        public static bool ShouldUseYinAppearance(ISet<string> storyFlags, string flagKey) =>
+            !string.IsNullOrWhiteSpace(flagKey) && storyFlags != null && storyFlags.Contains(flagKey);
     }
 }

@@ -1,7 +1,14 @@
 // 职责：开一场仗——按 BOSS 定义做玩家快照（本场玩家生命，满血）与 BOSS 快照（满血 + 战斗外醉酒值），
-//   配好随机源与背包口，以「正面攻击」进 TurnBasedKernel。
+//   配好随机源与背包口，按**现场局势快照**（有就给、没有就按「正面攻击」）进 TurnBasedKernel。
 // 为什么新建：这是 turnbased-module-guide「接线清单」里血量快照 / 背包口两行的落点；内核不认识 Player / Loot（依赖方向），
 //   BattleFlow 管时序，把「怎么拼快照」拆出来，流程测试能直接换数值。
+//
+// 进战斗方式（2026-10-08，S 组「偷袭 / 被打两种开战入口」）：
+//   `TryCreate(boss, context, ...)` 收一个 `Game.Monster.IBattleEntryContext`（实现方是 `EncounterStep`），
+//   把它的五个量翻成 `BattleEntryRequest`，于是 07 的偷袭（`BattleEntryKind.SneakAttack`，BOSS −20% 生命）
+//   与被打（`Ambushed`，BOSS 先手）两条分支在生产侧第一次有了入口。
+//   **context 为 null 时退回接线前那句硬编码请求**（正面攻击、玩家先手），独立原型场景与纯 Battle 测试作用域
+//   走的正是那一支——这条缺省行为有负对照测试钉住（`BattleSetupTests`）。
 //
 // 玩家血量（W2a 主窗口定，改掉 W1 的「读 PlayerModel」）：战斗血量与探索血量分开。探索里玩家只有 3 血，BOSS 重击 3、
 //   药水 30% 取整为 0，演示不出东西；07 没写玩家血量，也没说与探索血量挂钩。所以改读 BossDefinition.PlayerHealth
@@ -78,8 +85,34 @@ namespace Game.Battle
         /// 按 BOSS 定义开一场「正面攻击、玩家先手」的仗（PRP U2：走近按 E = 07「正面攻击」）。
         /// 失败（配置不自洽 / 本场玩家生命非正 / 进战斗判定被拒）返回 false 并给出中文原因。
         /// 玩家生命取 <see cref="BossDefinition.PlayerHealth"/>，满血开打，不读也不写探索血量。
+        /// <para>
+        /// 这是**没有局势快照时**的入口（独立原型场景、纯 Battle 测试作用域，以及接线前的调用方）：
+        /// 请求写死成「正面攻击、玩家先手」，与接线前逐字一致。正式流程走
+        /// <see cref="TryCreate(BossDefinition, Game.Monster.IBattleEntryContext, out BattleSession, out string)"/>。
+        /// </para>
         /// </summary>
-        public bool TryCreate(BossDefinition boss, out BattleSession session, out string error)
+        public bool TryCreate(BossDefinition boss, out BattleSession session, out string error) =>
+            TryCreate(boss, null, out session, out error);
+
+        /// <summary>
+        /// 按**现场局势快照**开一场仗——07 的三种进入方式（偷袭 / 正面攻击 / 被打）从这里进去。
+        /// <para>
+        /// <paramref name="context"/> 为 null 时退回「正面攻击、玩家先手」的硬编码请求，
+        /// 行为与 <see cref="TryCreate(BossDefinition, out BattleSession, out string)"/> 逐字相同
+        /// （**这条缺省行为有负对照测试钉住**：没有遭遇侧的快照时，开战方式不许变）。
+        /// </para>
+        /// <para>
+        /// 翻译职责在这里：`Game.Monster` 只交出五个量（<see cref="Game.Monster.IBattleEntryContext"/>），        /// `Game.TurnBased` 只回答「进不进 / 怎么进 / 谁先手 / 扣多少血」（<see cref="BattleEntryRequest"/>），
+        /// 本类负责把前者拼成后者——两个模块都不认识对方。
+        /// </para>
+        /// <para>
+        /// ⚠️ **它不解决剧情身份**：开战之后回写走的是 `BattleStageEnteredEvent` 的
+        /// generation / activationId / targetId，与 `EncounterStep.EncounterId` 不是同一套 id
+        /// （见 `Game.Monster.IBattleEntryContext` 文件头）。本方法只影响「怎么进这场仗」。
+        /// </para>
+        /// </summary>
+        public bool TryCreate(BossDefinition boss, Game.Monster.IBattleEntryContext context,
+            out BattleSession session, out string error)
         {
             session = null;
             if (boss == null) throw new ArgumentNullException(nameof(boss));
@@ -100,8 +133,7 @@ namespace Game.Battle
             }
 
             var kernel = new TurnBasedKernel(current, NextStream(), inventory);
-            // 07 正面攻击：在警戒区域内、玩家先动手 → 玩家先手（BattleEntryRules.cs 的 FrontalAttack 分支）。
-            var request = new BattleEntryRequest(false, false, true, false, MonsterAlertState.Alert, BattleInitiator.PlayerAttacked);
+            BattleEntryRequest request = BuildEntryRequest(context);
             if (!kernel.TryStartBattle(request, new PlayerBattleSnapshot(playerHealth, playerHealth),
                     new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, boss.OutOfBattleDrunk), out session, out BattleEntryReject reject))
             {
@@ -111,6 +143,60 @@ namespace Game.Battle
 
             error = null;
             return true;
+        }
+
+        /// <summary>
+        /// 局势快照 → 进战斗请求。**没有快照时**用 07 的「正面攻击」那一支
+        /// （在警戒区域内、玩家先动手：`07_回合制作战文档.md:20-23`），与接线前的硬编码请求逐字相同。
+        /// </summary>
+        private static BattleEntryRequest BuildEntryRequest(Game.Monster.IBattleEntryContext context)
+        {
+            if (context == null)
+            {
+                return new BattleEntryRequest(false, false, true, false, MonsterAlertState.Alert, BattleInitiator.PlayerAttacked);
+            }
+
+            return new BattleEntryRequest(
+                context.PlayerSneaking,
+                context.SneakAttackLanded,
+                context.PlayerInAlertZone,
+                context.PlayerInHostileZone,
+                context.MonsterState,
+                context.Initiator);
+        }
+
+        /// <summary>
+        /// 遭遇侧此刻**有没有发言权**——它报的局势够不够构成一次开战理由。
+        /// <para>
+        /// 为什么需要这一道（2026-10-09 实测踩到，`BattleShowcase` 两条回放全红）：正式流程里唯一的开战触发是
+        /// **剧情 Battle 阶段**（demo 是 `Npc_SampleBoss` 的「挑战」，PRP U2 定「走近按 E = 正面攻击」），
+        /// 它与巡逻遭遇是两回事。把十几米外巡逻怪的**平静**快照交出去，<see cref="BattleEntryRules"/> 会判
+        /// 「不在警戒 / 敌对区域、怪物也未察觉」（07:22、:27）而**把这一仗拒掉**——boss 战直接开不了。
+        /// 遭遇平静时它没有发言权，退回硬编码缺省（与 <c>context == null</c> 同一口径）。
+        /// </para>
+        /// <para>
+        /// <b>刻意不含「正在潜行」</b>：潜行着但没偷袭命中，按 07:22/:27 确实是「拒绝开战」——
+        /// 那说的是「潜行去袭击这只怪」这件事（<see cref="BattleEntryRules"/> 的规则层不动，那条负对照测试仍在）。
+        /// 但剧情 NPC 的「挑战」跟玩家恰好在潜行无关，不该被它拒掉。
+        /// </para>
+        /// <para>
+        /// 够得上发言权的四种：偷袭已命中（07:15-18）、玩家在警戒区域、玩家在敌对区域、怪物处于警戒 / 敌对态
+        /// （<see cref="Game.Monster.IBattleEntryContext.MonsterAware"/>，两条等价写法都认）。
+        /// </para>
+        /// </summary>
+        public static bool IsEncounterEngaged(Game.Monster.IBattleEntryContext context)
+        {
+            if (context == null) return false;
+            // ⚠️ 偷袭那一支必须**同时要求此刻正在潜行**（2026-10-09 实测踩到）：
+            // `SneakAttackLanded` 读的是持久事实 `stealth.assassinated`——这一局只要处决过谁它就一直是真，
+            // 不会衰减。只认它的话，「暗杀过一个目标之后、任何一次不潜行的挑战」都会被判成「遭遇有发言权」，
+            // 而请求按现场翻出来是「没潜行 + 不在警戒/敌对」→ 规则落进最后一条分支、用 `NoTrigger` 把整场仗拒掉
+            // （现象与 07:22/:27 那条旧回归的报错逐字相同，但成因不同：那次是闸没做，这次是闸太松）。
+            // 潜行是**当下状态**，事实是**历史**；两者同时成立才算「此刻正在偷袭」。
+            return (context.SneakAttackLanded && context.PlayerSneaking)
+                   || context.PlayerInAlertZone
+                   || context.PlayerInHostileZone
+                   || context.MonsterAware;
         }
 
         private IRandomStream NextStream()

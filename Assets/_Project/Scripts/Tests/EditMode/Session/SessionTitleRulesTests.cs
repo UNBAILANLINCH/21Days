@@ -52,5 +52,29 @@ namespace Game.Tests.EditMode.Session
         {
             Assert.That(SessionTitleRules.ShouldShowContinue(2), Is.True);
         }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" ")]
+        public void ShouldUseYinAppearance_WhenNodeUnbound_ReturnsFalse(string key)
+        {
+            Assert.That(SessionTitleRules.ShouldUseYinAppearance(new HashSet<string> { "world.title_yin" }, key), Is.False);
+        }
+
+        [Test]
+        public void ShouldUseYinAppearance_WhenMatchingFlagPresent_ReturnsTrue()
+        {
+            Assert.That(SessionTitleRules.ShouldUseYinAppearance(new HashSet<string> { "world.title_yin" },
+                "world.title_yin"), Is.True);
+        }
+
+        [Test]
+        public void ShouldUseYinAppearance_WhenSwitchingToEarlierSlot_ReturnsFalse()
+        {
+            Assert.That(SessionTitleRules.ShouldUseYinAppearance(new HashSet<string> { "world.title_yin" },
+                "world.title_yin"), Is.True);
+            Assert.That(SessionTitleRules.ShouldUseYinAppearance(new HashSet<string>(), "world.title_yin"), Is.False);
+            Assert.That(SessionTitleRules.ShouldUseYinAppearance(null, "world.title_yin"), Is.False);
+        }
     }
 }

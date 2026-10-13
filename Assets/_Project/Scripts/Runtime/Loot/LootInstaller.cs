@@ -8,6 +8,7 @@ using Game.Core.Logging;
 using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Core.UI;
+using Game.Monster;
 using Game.Quest;
 using MessagePipe;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace Game.Loot
             builder.RegisterMessageBroker<CrateCollectedEvent>(options);
             builder.RegisterMessageBroker<MonsterDroppedEvent>(options);
             builder.RegisterMessageBroker<LootResetEvent>(options);
+            builder.RegisterMessageBroker<BackpackChangedEvent>(options);
         }
 
         public override void Install(IContainerBuilder builder)
@@ -47,12 +49,21 @@ namespace Game.Loot
                     resolver.Resolve<IConfigService>(),
                     resolver.Resolve<QuestService>(),
                     resolver.Resolve<INotificationService>(),
-                    resolver.Resolve<IPublisher<CrateCollectedEvent>>(),
-                    resolver.Resolve<IPublisher<MonsterDroppedEvent>>(),
-                    resolver.Resolve<IPublisher<LootResetEvent>>(),
+                    new LootEventPublishers(
+                        resolver.Resolve<IPublisher<CrateCollectedEvent>>(),
+                        resolver.Resolve<IPublisher<MonsterDroppedEvent>>(),
+                        resolver.Resolve<IPublisher<LootResetEvent>>(),
+                        resolver.Resolve<IPublisher<BackpackChangedEvent>>()),
                     resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
                 .AsSelf()
                 .As<IGameService>();
+            // 击杀掉落的实现侧（Game.Monster 声明接口、本模块实现，同 Stealth 的 IStealthFactSink 接法）：
+            // 遭遇结算的死亡分支按 IMonsterDropSink 取它；注册成 AsSelf + As<IMonsterDropSink>，
+            // 装配由 MonsterInstaller 的构建回调 TryResolve 完成，**不接这一层时怪物什么都不掉**。
+            builder.Register<LootMonsterDropSink>(resolver => new LootMonsterDropSink(resolver.Resolve<LootService>()),
+                    Lifetime.Singleton)
+                .AsSelf()
+                .As<IMonsterDropSink>();
             // AsSelf：验证代码要按具体类型取 Binder（RegisterEntryPoint 默认只注册接口）。
             // 构造参数容器里都有（IInteractionRegistry 由 InteractionInstaller 注册，解析在容器建好之后，与注册器顺序无关），按类型自动注入。
             builder.RegisterEntryPoint<LootSceneBinder>(Lifetime.Singleton).AsSelf();

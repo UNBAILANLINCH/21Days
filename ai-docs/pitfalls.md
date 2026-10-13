@@ -574,3 +574,27 @@
 - 根因：本工程 URP 资产有两个渲染器，0 号 Renderer2D、1 号 UniversalRenderer。新建相机的渲染器索引默认是 0，走 Renderer2D，它不画 3D 的 `UniversalForward` Pass。
 - 正确做法：离屏相机加 `UniversalAdditionalCameraData` 后 `SetRenderer(1)` 再渲染；要和主相机一致就对齐主相机的渲染器索引（见相机栈那条）。
 - 关联：`ai-docs/pitfalls.md #URP 相机栈只接受渲染器类型一致的相机`；2026-10-09 环境三渲二。
+
+## 容器构建回调里 `FindObjectOfType` 看不见玩法场景：那时还在 Boot 场景
+- 现象：`BattleInstaller` 的 `RegisterBuildCallback` 里找 BOSS 身上那份 `BossEntryContext`，永远返回 null；BOSS 战拿不到自己的局势，静默退回缺省口径（不回放根本看不出来）。
+- 根因：构建回调跑在根作用域建好那一刻，**活动场景还是 Boot**；玩家点「开始」之后才加载 SampleScene。同理，任何「按场景物体解析」的接线放进构建回调都是这个下场。
+- 正确做法：把**解析这个动作**交出去、等真正用的时候再执行（`BattleFlow.BindEntryContextProvider(Func<string, …>)`：开仗那一刻按 payload 现找），而不是在构建期把结果绑死。诊断时埋一条「没找到 + 为什么」的遥测（`boss_entry_context_missing`），比 `Debug.Log` 管用——`Log.Info` 不进遥测日志。
+- 关联：`Runtime/Battle/BattleInstaller.cs`（`FindBossContext`）、`Runtime/Battle/BattleFlow.cs`（`ResolveEntryContext`）；2026-10-10 BOSS 自己的局势（③ 方案 2）。
+
+## 编辑器里 `AddComponent` 之后没 `SaveScene`，下一次 `OpenScene` 就把这次场景编辑丢掉
+- 现象：给 `Npc_SampleBoss` 加完组件、回放里也能找到它；随后为了查别的场景调了一次 `OpenScene(Boot)`，再跑回放就找不到那个组件了——`.unity` 文件里根本没有它（按脚本 GUID 搜为 0 处）。
+- 根因：`AddComponent` 只改内存里的场景，`OpenScene(Single)` 不提示就丢未保存改动。MCP 的 `manage_scene load` 与 `execute_code` 里的 `EditorSceneManager.OpenScene` 都是这个行为。
+- 正确做法：改完场景**立刻 `manage_scene save`**，再按脚本 GUID grep 一遍 `.unity` 确认落盘了，然后才跑回放。别把「回放里能看到」当成「已经保存」——Play 用的是内存里那一份。
+- 关联：`scripts/unity_mcp_check.py --meta` 之外的资产核对习惯；2026-10-10 BOSS 局势接线。
+
+## 纸片角色的 `transform.up` 是朝向相机的，不能当视线方向
+- 现象：给 BOSS 做「看没看见玩家」时想复用巡逻怪的视野锥，用 `transform.up` 当朝向；结果玩家站在它南边算「看不见」、北边算「看见」——而那只是 `CameraBillboard` 把纸片立起来的结果。
+- 根因：本工程 2D 小人是纸片 + `CameraBillboard`（`pitfalls.md` 另有一条：别给它加 `ExecuteAlways`），朝向跟着相机走；巡逻怪的朝相反而是 `MonsterRules` 自己维护的转向运动。两者不是一回事。
+- 正确做法：没有「NPC 面朝哪边」的表现规则时**不要假装有视线**——按半径判（`MonsterRules.SenseFrom` 传零朝向 = 跳过视锥那一档），把「绕到背后躲不开它」这个代价写进注释；等 S6 那条表现规则落地再补视锥。
+- 关联：`Runtime/Battle/BossEntryContext.cs`（`SenseLevel`）、`Runtime/Monster/MonsterRules.cs`（`SenseFrom`）；2026-10-10 BOSS 自己的局势（③ 方案 2）。
+
+## 外部改完 `.cs` 立刻刷新时，Unity 可能还按改前的文本编译：`Editor.log` 会留下已经修掉的那条 error
+- 现象：`edit` 改完一行 → `refresh_unity(force, compile)` → `Editor.log` 里仍是改前那条 `error CS`，但对应 DLL 的时间戳是刷新之后；`run_tests` 跑起来一切正常（那条错已经不存在了）。
+- 根因：Unity 的文件监视与刷新请求有竞态，第一次刷新可能读到写盘前的旧文本。**DLL 时间戳新 + 日志里是旧错误**就是这一种，不是「改错了」。
+- 正确做法：判「编译过没过」看三样对齐——DLL 时间戳、日志末尾的 `## Script Compilation Error`、以及**直接跑一次测试**；三者不一致时再 touch 一下文件重刷一次。别照着日志里那条已经修掉的报错去改代码（会白改一轮）。
+- 关联：`HANDOVER.md` §5 工具速查「强制 Unity 重编」；2026-10-10 BOSS 局势接线。

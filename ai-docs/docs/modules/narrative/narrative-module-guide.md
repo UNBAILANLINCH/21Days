@@ -55,7 +55,7 @@ Boot 挂接、定向测试、Showcase 与人工视觉验收的实际状态统一
 | `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:55-60,67`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
 | `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:95-96,409-410`）；BOSS NPC 靠它在胜利后退场 |
 | `NarrativeChangedEvent` | 分区已经写回的通知 | SaveTriggerBridge 合并保存请求 |
-| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是 `Game.Battle` | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:21`），`NarrativeService` 发布 |
+| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是两个、按 payload 分工：**非空 → `Game.Battle` 的 `BattleFlow`（BOSS 战）**，**空 → `Game.Monster` 的 `EncounterBattleBridge`（活遭遇档）** | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:21`），`NarrativeService` 发布 |
 | `NarrativeInstaller` | 根作用域服务及 MessagePipe 注册 | Boot 的 GameBootstrap，配置加载完成后初始化 |
 
 ## 数据流（代码路径，资产接线与验证状态见 tasks.md）
@@ -160,7 +160,9 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 - **`ResolveAutomatic` 有 128 步上限**：连续 `Condition` 阶段超过这个数视为死循环抛 `InvalidOperationException`（`NarrativeRules.cs:71`、`95`），内容设计要避免。
 - **`Capture`/`Restore` 走 JSON 深拷贝**，不是引用赋值；`Restore` 会校验 `Current`/`Parent` 的 `Frame` 合法性（阶段存在、`ActivationId` 在范围内、`CompletedParts` 属于 `RequiredParts`），非法直接抛 `ArgumentException`（`NarrativeRules.cs:151`、`163`）。
 - **`EncounterContext.Fact` 与 Dialogue 的 `ConditionFact` 按名字映射**：两边任一改名或增项都要同步改（参见 dialogue-module-guide「内容表」一节）。
-- **战斗结果消费**：回合制这条路径已由 `Game.Battle` 经 `CompleteBattleAsync` 走通（见下一附录与 [`battle-module-guide.md`](../battle/battle-module-guide.md)）；潜行 / 遭遇的结果（`EncounterStep.PendingResult`）仍没有消费方，roadmap C5 只覆盖了回合制。`Battle` 这个 `StageKind` 最终形态可能随 C90 / C91 变化。
+- **战斗结果消费（两条路都已接通，按事件的 `payload` 分工）**：回合制 BOSS 战由 `Game.Battle` 经 `CompleteBattleAsync` 回写（见下面的附录与
+  [`battle-module-guide.md`](../battle/battle-module-guide.md)）；**空 payload 的活遭遇档**由 `Game.Monster.EncounterBattleBridge`
+  在遭遇结算的同一个 tick 里取走结果、渲染帧回写（2026-10-09 接通，见文末附录）。`Battle` 这个 `StageKind` 最终形态可能随 C90 / C91 变化。
 - **章节 / 阶段结构以 [`stage-structure-spec.md`](../../stage-structure-spec.md) 为准**：旧版「章 / 幕 / 场」与聚光灯十二阶段怎么映射、十二段逐条能不能进内容表（`StageKind` 五态见 `NarrativeContent.cs:9`，但 `Battle` 现在已能进表，见下方附录）、旧版 [14] 哪些还成立，都在那份规范里。要落章节卡或阶段内容之前先读它。
 
 ## 禁止事项
@@ -235,3 +237,19 @@ ContinueAsync 先对同一 SaveSnapshot 校验，再 Commit，避免二次读盘
 **`NarrativeTrigger` 的交互转交**：`Bind` 时若同物体有 `DialogueInteractable`，就 `SetInteractionHandover(handover)`（`NarrativeTrigger.cs:55-60`）——焦点、底部「E 对话 · 名字」提示、头顶标记都由 Dialogue 那套驱动，
 按 E / 点提示 / 点 NPC 走本组件的 `InteractAsync`；转交后点击由 `DialogueInteractable` 接，`OnPointerClick` 直接返回（`:82`）；`Unbind` 时只撤自己那一份（`:103`）。
 `InteractAsync` 的 `IsReady` 守卫（`:65`）：服务不可用（根作用域已销毁、退出 Play 后场景里的 NPC 还挂着旧绑定、尚未初始化）直接返回 `false`，不往已释放的服务上调。
+
+## 附录·实时遭遇的结果也回写剧情（2026-10-09，roadmap C5 剩下的那一半）
+
+> 本节只记这次改动的增量；与上文冲突处以本节和源码为准。机制、时序与边界写在
+> [`monster-module-guide.md` 的同名附录](../monster/monster-module-guide.md)（生产方在主窗口那一侧），这里只记**剧情侧看到了什么**。
+
+- **语义**（用户 2026-10-09 拍板）：**一场实时遭遇打赢或被击倒，等于这一关结束**。所以遭遇侧现在产出两种结果码：`Victory`（小怪清空 / 处决）
+  与 `Downed`（玩家生命归零）；`Exposed` / `BossPhaseChanged:<形态>` 仍没有遭遇侧的生产者。
+- **身份三项由桥自己记着**：`BattleStageEnteredEvent` 的 `Generation` / `ActivationId` / `TargetId` 原样带回 `CompleteBattleAsync`，
+  **不是** `EncounterStep.EncounterId`（`BattleStageEnteredEvent.cs:11-12` 的纪律没变）。
+- **剧情侧不新增任何接口**：桥直接调 `NarrativeService.CompleteBattleAsync`（写入口不变、唯一写入方纪律不变）；
+  阶段没声明该结果码、或身份对不上（读档换代）时返回 `false`、埋 `battle_result_rejected`，**桥把它当正常拒绝**（不抛、不重试）。
+- **`CompleteBattleAsync` 的 `CanAccept` 仍是硬闸门**：桥在渲染帧回写，此刻 `busy` 为 false 才可能被接受；剧情正忙（对白中）时这一帧的
+  调用会返回 `false` 并留 `request_rejected` 痕迹——与 BOSS 战那条路的 `NarrativeBattlePort` 不同，桥**没有等待重试**，
+  这是刻意的（活遭遇没有黑幕与收场时序可以借来等）。
+- **不新增阶段类型、不改表结构**：本节完全落在既有 `Battle` 阶段 + `battleResults` 词汇之内，内容侧只需要给活遭遇档声明它可能产出的结果码。

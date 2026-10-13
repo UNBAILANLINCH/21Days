@@ -115,6 +115,9 @@ namespace Game.Monster
                 // tick 路径因此只做几何求交、不做物理查询（StealthSight / EncounterSceneView 的分工）。
                 // 没登记遮挡体时喂进去的是空数组 = 视线不被遮挡，判定与接线前一致。
                 step.Sight.SetOccluders(view.CollectSightOccluders());
+                // 掩体贯通（2026-10-08）：同一次几何要交给**每一只巡逻怪**，否则怪物自己的视锥仍然穿墙看人
+                // （「事实说没看见、怪照样追」那条缺陷）。放在这一句之后——遮挡体正是在上一行才进 Sight 的。
+                step.BindOcclusion(step.Sight);
                 // 感知范围可视化（白盒）：种类值在 Begin（Reset 查表）之后才拿得到，所以放在这一步之后。
                 // 没拖 awarenessConfig 时它什么都不画，判定不受影响。
                 view.BindAwarenessRanges(monsterRules.Kind, monsterConfig);

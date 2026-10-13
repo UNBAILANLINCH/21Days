@@ -13,5 +13,5 @@
     "tier": "A",
     "killable": true,
     "defeat_method": "可击杀（方式没写）",
-    "drop_items": []
+    "drop_items": [1101]
 }

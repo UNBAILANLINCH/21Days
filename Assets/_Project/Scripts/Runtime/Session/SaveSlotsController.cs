@@ -67,6 +67,9 @@ namespace Game.Session
         /// <summary>面板是否开着（打开流程走完、关闭流程未开始收尾）。</summary>
         public bool IsOpen { get; private set; }
 
+        /// <summary>删除槽位并刷新完成，标题需重新读取最近槽的表现。</summary>
+        public event Action OnSlotsChanged;
+
         /// <summary>按 <paramref name="slotsMode"/> 打开选槽面板；已开着时切模式并刷新，正在开 / 关时直接返回。</summary>
         public async UniTask OpenAsync(SlotsMode slotsMode, CancellationToken ct = default)
         {
@@ -208,13 +211,20 @@ namespace Game.Session
             }
 
             telemetry.Track("slot_new_game", ("slot", slot), ("overwrite", info.State != SlotState.Empty));
-            // 与标题「开始」同一条展示路径：先看操作说明再进游戏（面板开不出来时 ShowAsync 自己吞掉错误）。
-            await tutorial.ShowAsync();
-            bool started = await session.NewGameAsync(slot);
-            if (!started)
+            // 选槽是全屏面板；确认开局后先关掉它，标题镜子才能在转场中实际可见。
+            await CloseAsync();
+            TitleView title = ui.Get<TitleView>();
+            try
             {
-                notifications.Show(NewGameFailedTitle);
-                await RefreshAsync(default);
+                using (telemetry.BeginSpan("title_start_transition"))
+                    if (title != null) await title.PlayStartTransitionAsync(title.GetCancellationTokenOnDestroy());
+                await tutorial.ShowAsync();
+                bool started = await session.NewGameAsync(slot);
+                if (!started) notifications.Show(NewGameFailedTitle);
+            }
+            finally
+            {
+                if (title != null) title.ResetStartTransition();
             }
         }
 
@@ -231,6 +241,7 @@ namespace Game.Session
             // 删掉的可能是最近槽：标题「继续」跟着更新（面板关掉后标题直接可见，不等下一次回标题）。
             TitleView title = ui.Get<TitleView>();
             if (title != null) title.SetContinueVisible(SessionTitleRules.ShouldShowContinue(session.LatestSlot));
+            OnSlotsChanged?.Invoke();
         }
 
         // 开通用确认弹窗等玩家选择；弹窗被 Esc 关掉按取消。关闭由调用方负责（ConfirmView 约定）。

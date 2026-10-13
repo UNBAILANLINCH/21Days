@@ -190,6 +190,32 @@ namespace Game.Stealth
         /// 判定「某个敌人能不能看见玩家」：先在距离 / 角度上被感知到（调用方给的
         /// <paramref name="perceivesByCone"/>），再看两点之间通不通视。
         /// 这条判据对应 `03_潜行与暗杀.md:129-136`（R24–R28：借掩体潜行）。
+        /// <para>
+        /// ⚠️ <b>它现在已经不在感知的生产路径上了（2026-10-08），用之前先读这段。</b>
+        /// 口径改成「事实层直接抄行为层的答案」：`EncounterStep.SettleStealth` 的 <c>perceives</c> 取
+        /// <c>MonsterRules.Detects</c>，不再经过本方法。两个原因：
+        /// </para>
+        /// <list type="number">
+        /// <item>
+        /// <b>它会把贴身那一档误掐掉。</b> <paramref name="perceivesByCone"/> 若传的是**整支**感知
+        /// （含不分朝向的近距察觉），本方法就会拿「对视线的遮挡」去切断一个**按设计不受遮挡**的档位——
+        /// 于是「怪已经贴到你身上进了警戒」与 <c>stealth.hidden</c> 为真同时成立。
+        /// 主窗口 2026-10-08 复跑抓到过这一条。
+        /// </item>
+        /// <item>
+        /// <b>它不满足 tick 路径的零分配要求。</b> 它走 <see cref="StealthSight.HasSight"/>，而那个口在
+        /// 「确有遮挡体挡在连线上」时会 <c>new int[count]</c>；每 tick 每只怪一次，正是
+        /// `.claude/rules/csharp-code.md` 明令禁止的每帧分配。行为层因此用
+        /// <see cref="StealthSight.HasSightNonAlloc"/>（`MonsterRules.Sense` 里那一句就是这条规则现在的实现处）。
+        /// </item>
+        /// </list>
+        /// <para>
+        /// <b>保留它是因为它仍是本模块对外的公开入口</b>：<see cref="StealthKernel.EnemyPerceives"/> 转发到这里，
+        /// 服务「不在 tick 上、也不在乎一次分配」的调用方（表现层、调试工具、测试）。判定本体
+        /// （<c>视锥 ∧ 通视</c>）与 `MonsterRules.Sense` 内联的那一句逐字相同，**改一处要同步改另一处**。
+        /// 若将来确实一个调用方都不剩，应当连同 <see cref="StealthKernel.EnemyPerceives"/> 一起删掉，
+        /// 而不是留在这里让人以为它还是感知的正式入口。
+        /// </para>
         /// </summary>
         public static bool PerceivesThroughCover(in StealthSight sight, Vector2 enemyEye, Vector2 playerPosition, bool perceivesByCone)
         {

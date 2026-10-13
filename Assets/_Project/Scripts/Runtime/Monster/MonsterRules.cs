@@ -4,12 +4,23 @@
 //   按种类的那部分（生命、伤害、攻击距离 / 冷却、视野角度、橙区半径、背后近距半径、警戒升满时长、丢失目标时长）
 //   经 MonsterConfig.Resolve* 取「种类优先、否则全局」；全局的那部分（巡逻节奏、速度倍率、敌对半径）直接读 MonsterConfig。
 //   字段归属的依据与文件头见 MonsterConfig.cs / MonsterKind.cs。
+//
+// 视线遮挡（2026-10-08「掩体贯通到怪物察觉」，判据变更见下）：
+//   在 `Sense` 里，**视锥那两档**（红区 `config.HostileRadius`、橙区 `config.ResolveAlertRadius(kind)`）
+//   要额外过一道「两点之间通不通视」（`StealthSight`，纯几何、场景一次性喂入、tick 里无物理查询）。
+//   **贴身那一档（`config.ResolveNearSenseRadius(kind)`）不查**：`docs/design/spotlight/06_怪物状态与交互设计文档.md:71-73`
+//   明写那是「不分朝向的近距察觉区、玩家需要进入潜行状态才不会被察觉」——近身感知不是视觉，遮挡不该改它。
+//   不注入遮挡（`UseOcclusion` 从未被调）时行为与改动前逐位一致：`sight == null` 时视锥分支等同「没有遮挡」。
+//   两个查询口（都在这一个文件里，只差「视锥那一支要不要过 sightClear」）：
+//     `Detects`（= `Sense`）——**行为层**，含遮挡，警戒 / 敌对 / 追击走它；
+//     `PerceivedBySenses`（= `SenseBySensesOnly`）——**不含遮挡**，给事实层算子用，理由见那个方法的文档。
 using System;
 using Game.Core.Replay;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Identity;
 using Game.Player;
+using Game.Stealth;
 using UnityEngine;
 
 namespace Game.Monster
@@ -31,6 +42,9 @@ namespace Game.Monster
         // 本只怪当前生效的按种类数值；null = 没接种类表（或表里没有这个种类），全部按全局默认跑。
         private MonsterKind kind;
 
+        // 视线遮挡查询器；null = 没接遮挡（视锥判定与接线前一致）。装配走后置方法 UseOcclusion。
+        private StealthSight sight;
+
         private readonly MonsterModel model;
         private readonly IRandomStream patrolRandom;
         private readonly IRandomService random;
@@ -51,15 +65,21 @@ namespace Game.Monster
         /// 查不到种类时写进报错消息的来源说明（如「MonsterInstaller」）；为 null 时用一句通用说明。
         /// 传进来而不是在这里拼，是为了让日志能点到真正的接线点。
         /// </param>
+        /// <param name="sight">
+        /// 视线遮挡查询器（可空）。只有 <see cref="CreateForActor"/> 会用这个参数把主怪那一份传下去，
+        /// 让多只巡逻者共享同一个实例；正式装配一律走 <see cref="UseOcclusion"/>。
+        /// </param>
         public MonsterRules(MonsterConfig config, MonsterModel model, IRandomService random,
             ITelemetryScope telemetry, MonsterKind kind = null, MonsterKindCatalog kindCatalog = null,
-            int kindId = 0, Func<string> describeKind = null, string patrolStream = "logic.monster.patrol")
+            int kindId = 0, Func<string> describeKind = null, string patrolStream = "logic.monster.patrol",
+            StealthSight sight = null)
         {
             this.config = config == null ? throw new ArgumentNullException(nameof(config)) : config;
             this.kind = kind;
             this.kindCatalog = kindCatalog;
             this.kindId = kindId;
             this.describeKind = describeKind;
+            this.sight = sight;
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.random = random ?? throw new ArgumentNullException(nameof(random));
             patrolRandom = random.Stream(patrolStream);
@@ -68,7 +88,22 @@ namespace Game.Monster
 
         public MonsterModel Model => model;
         public MonsterRules CreateForActor(string stableId) => new MonsterRules(config, new MonsterModel(), random,
-            telemetry, kind, kindCatalog, kindId, describeKind, "logic.monster.patrol." + stableId);
+            telemetry, kind, kindCatalog, kindId, describeKind, "logic.monster.patrol." + stableId, sight);
+
+        /// <summary>
+        /// 注入视线遮挡（S3「掩体贯通到怪物察觉」，2026-10-08）。
+        /// <para>
+        /// <b>多只怪可以共用同一个 <see cref="StealthSight"/> 实例</b>：它的查询是「观察者位置 + 目标位置」的
+        /// 纯函数（<see cref="StealthSight.HasSightNonAlloc"/>，不分配、不持有查询状态），遮挡体列表又是整场
+        /// 遭遇共用的一份场景几何。所以 <see cref="EncounterStep"/> 把同一个实例喂给主怪与
+        /// <see cref="CreateForActor"/> 造出来的每一只巡逻者，不需要按怪各拷一份。
+        /// </para>
+        /// <para>
+        /// 传 null = 不查遮挡（行为与接线前逐位一致）；重复调用以最后一次为准（装配顺序见
+        /// <c>EncounterStep.ApplyMonsterOcclusion</c>）。
+        /// </para>
+        /// </summary>
+        public void UseOcclusion(StealthSight occlusion) => sight = occlusion;
 
         /// <summary>本只怪当前生效的攻击伤害（种类优先、否则全局）。</summary>
         public int AttackDamage => config.ResolveAttackDamage(kind);
@@ -97,7 +132,37 @@ namespace Game.Monster
         public System.Collections.Generic.IReadOnlyList<int> DropItemIds =>
             kind == null ? Array.Empty<int>() : kind.DropItemIds;
 
+        /// <summary>
+        /// 这只怪此刻有没有察觉到目标（<see cref="Sense"/> 结果大于 0）。
+        /// <para>
+        /// 2026-10-08 起**包含遮挡**：被掩体切断视线的视锥内目标不算被察觉（<see cref="UseOcclusion"/> 注入后）。
+        /// 行为层（警戒、敌对、追击）走这一支；事实层需要「不含遮挡」的那份答案时用
+        /// <see cref="PerceivedBySenses"/>，两者差的正是遮挡这一层。
+        /// </para>
+        /// </summary>
         public bool Detects(in PlayerSnapshot target) => model.Health > 0 && Sense(in target) > 0;
+
+        /// <summary>
+        /// **不含遮挡**的感知：视锥那两档只按「距离 + 夹角（+ 伪装）」判、贴身那一档只按「距离 + 潜行」判，
+        /// 一条视线查询都不做，返回 <c>2</c> / <c>1</c> / <c>0</c> 的同一套档位。
+        /// <para>
+        /// <b>为什么必须留这一支</b>（2026-10-08）：`EncounterStep.SettleStealth` 要算
+        /// 「视线本来够得着、被遮挡体切断」= <c>perceivesByCone &amp;&amp; !perceives</c>（即 <c>stealth.cover</c>），
+        /// 它是一个**布尔相减**。如果两个输入都含遮挡，被挡住时前者就已经是 false，相减恒为 0，
+        /// `stealth.cover` 在正式流程里永远点不亮——「躲进掩体」那条摆脱条件（`04_追逐.md:104` R23）
+        /// 与 `03_潜行与暗杀.md:129-136` R24–R28 的判据落点会一起失效，而 EditMode 里
+        /// 只在不注入遮挡的夹具上还亮着，正是「测试绿、实机假」的形状。
+        /// </para>
+        /// <para>
+        /// 分层口径（2026-10-08）：**行为层**由 <see cref="Sense"/> 自己吃遮挡（怪不再穿墙看人）；
+        /// **事实层**（`EncounterStep.SettleStealth`）**不自己再算一遍**——它的 `perceives` 直接取
+        /// <see cref="Detects"/>，「两层取同一个答案」。主窗口复跑抓到过一次两层各算各的而分叉：
+        /// 事实说「你藏得好好的」、行为说「我已经贴到你身上进了警戒」。
+        /// 所以 `StealthDecisionGate.PerceivesThroughCover` 不在那条路径上（理由见它的文档注释）。
+        /// 本方法只服务「不含遮挡的那一半」——`stealth.cover` 那个布尔相减的被减数。
+        /// </para>
+        /// </summary>
+        public int PerceivedBySenses(in PlayerSnapshot target) => model.Health > 0 && target.IsAlive ? SenseBySensesOnly(in target) : 0;
 
         public MonsterSaveData Capture()
         {
@@ -482,6 +547,19 @@ namespace Game.Monster
             }
         }
 
+        /// <summary>
+        /// 这一 tick 对这个目标的感知（**行为层**口径）：<c>2</c> = 红区（敌对）、<c>1</c> = 橙区 / 贴身（警戒）、
+        /// <c>0</c> = 没察觉。
+        /// <para>
+        /// <b>视锥两档受遮挡，贴身一档不受</b>（2026-10-08 掩体贯通，判据见文件头）：
+        /// 红区与橙区都要求「视线没被切断」，贴身察觉不查遮挡。
+        /// </para>
+        /// <para>
+        /// 判定顺序保持不变：先夹角（纯数学、便宜），再查遮挡（几个几何求交），最后才比半径。
+        /// 遮挡查询用 <see cref="StealthSight.HasSightNonAlloc"/>——**零分配**，tick 路径上不许出现
+        /// <c>TrySight</c>（它在有遮挡体时会 new 一个数组）。
+        /// </para>
+        /// </summary>
         private int Sense(in PlayerSnapshot target)
         {
             if (!target.IsAlive)
@@ -492,14 +570,93 @@ namespace Game.Monster
             Vector2 difference = target.Position - model.Position;
             float distance = GameMath.Magnitude(difference);
             bool inCone = distance == 0f || GameMath.Dot(model.Facing, difference / distance) >= coneCosine;
-            // 红区用全局 HostileRadius、橙区与背后近距用按种类解析后的值：种类表不开放敌对半径，
-            // 改它会动「红区优先于伪装与潜行」的语义（见 MonsterConfig.hostileRadius 的注释）。
-            if (inCone && distance <= config.HostileRadius)
+            // 视线：只有「在视锥里」才值得问（锥外本来就不看），零长度线段的退化情形再由 StealthSight 自己挡。
+            bool sightClear = !inCone || sight == null || sight.HasSightNonAlloc(model.Position, target.Position);
+            return ClassifyByRanges(target, distance, inCone && sightClear);
+        }
+
+        /// <summary>
+        /// 不含遮挡的同一套档位（口径与用途见 <see cref="PerceivedBySenses"/>）：
+        /// 与 <see cref="Sense"/> 只差「视锥那一支要不要过 sightClear」。
+        /// </summary>
+        private int SenseBySensesOnly(in PlayerSnapshot target)
+        {
+            Vector2 difference = target.Position - model.Position;
+            float distance = GameMath.Magnitude(difference);
+            bool inCone = distance == 0f || GameMath.Dot(model.Facing, difference / distance) >= coneCosine;
+            return ClassifyByRanges(target, distance, inCone);
+        }
+
+        /// <summary>
+        /// 一套「从某点朝某向、按这份配置与这个种类」的感知判定——<b>供不跑 tick 的调用方复用同一套档位</b>。
+        /// <para>
+        /// 2026-10-10 新增（③ 方案 2「给 boss 自己的局势」）：BOSS 是个剧情 NPC，没有巡逻 / 状态机，
+        /// 但它开战时同样要回答「玩家在不在我的警戒 / 敌对范围内」。**判据必须与巡逻怪逐字相同**，
+        /// 否则同一个玩家位置会因对手不同而得到两种答案（这正是本波要消掉的那类分叉）。
+        /// 所以把档位判定与视锥几何抽成静态纯函数，<see cref="Sense"/> / <see cref="SenseBySensesOnly"/> 与本方法
+        /// 三者只在「传进来的位置 / 朝向 / 种类是谁的」上有区别。
+        /// </para>
+        /// <para>
+        /// <b>不做遮挡查询</b>：调用方（<c>BossEntryContext</c>）没有也不会拿到遭遇侧的遮挡体集合，
+        /// 而这里要的是「站在这只 boss 面前算不算进了它的警戒圈」。这是**有意的简化**，
+        /// 写在契约里而不是悄悄漏掉。
+        /// </para>
+        /// </summary>
+        /// <param name="config">数值来源（全局兜底）。</param>
+        /// <param name="kind">按种类的数值；null = 全用全局值（同本类其余解析口径）。</param>
+        /// <param name="senseFrom">感知方所在位置（巡逻怪 = 它的 <c>model.Position</c>，BOSS = NPC 位置）。</param>
+        /// <param name="senseFacing">感知方朝向（单位向量；零向量会让视锥那一支恒不成立 = 只留贴身档）。</param>
+        /// <param name="target">被感知者快照（玩家）。</param>
+        /// <returns>2 = 红区（敌对）、1 = 橙区 / 贴身（警戒）、0 = 没察觉。与 <see cref="Sense"/> 同一口径。</returns>
+        public static int SenseFrom(MonsterConfig config, MonsterKind kind, Vector2 senseFrom, Vector2 senseFacing,
+            in PlayerSnapshot target)
+        {
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            if (!target.IsAlive)
+            {
+                return 0;
+            }
+
+            Vector2 difference = target.Position - senseFrom;
+            float distance = GameMath.Magnitude(difference);
+            // 朝向为零 = 调用方声明「这一侧没有视线方向」（剧情 NPC：纸片角色的旋转是朝向相机的）。
+            // 那就不做视锥判定：半径之内一律算「看见了」——**没有背后的盲区**。
+            // ⚠️ 连带的取舍：贴身那一档本来就要求「没在潜行」（`Classify` 的第二支），
+            // 所以潜行玩家在警戒半径内同样会被察觉，绕到 BOSS 背后躲不开它。
+            // 要恢复「背后盲区」得先有「NPC 面朝哪边」的表现规则（归类 S6），不是在这里补一个假朝向。
+            float coneCosine = GameMath.Cos(config.ResolveVisionAngle(kind) * 0.5f * 0.01745329252f);
+            bool inCone = senseFacing == Vector2.zero
+                          || distance == 0f
+                          || GameMath.Dot(senseFacing, difference / distance) >= coneCosine;
+            return Classify(config, kind, target, distance, inCone);
+        }
+
+        /// <summary>
+        /// 按半径分档：<paramref name="inSightCone"/> = 「在正面视野锥里**并且**看得见」。
+        /// 红区用全局 <c>HostileRadius</c>、橙区与贴身用按种类解析后的值——种类表不开放敌对半径，
+        /// 改它会动「红区优先于伪装与潜行」的语义（见 <c>MonsterConfig.hostileRadius</c> 的注释）。
+        /// <para>
+        /// 贴身那一档 <b>不看 <paramref name="inSightCone"/></b>：它是「不分朝向的近距察觉」，
+        /// 免它的办法是潜行（`docs/design/spotlight/06_怪物状态与交互设计文档.md:71-73`），不是掩体。
+        /// </para>
+        /// <para><paramref name="distance"/> 由调用方算好传进来，本方法不再算一次（tick 路径上少一次开方）。</para>
+        /// </summary>
+        private int ClassifyByRanges(in PlayerSnapshot target, float distance, bool inSightCone)
+            => Classify(config, kind, in target, distance, inSightCone);
+
+        /// <summary>
+        /// 档位本体（静态）：<see cref="ClassifyByRanges"/> 与 <see cref="SenseFrom"/> 共用这一份，
+        /// 保证「巡逻怪此刻算不算察觉」与「某只 NPC 算不算察觉」永远是同一套判据。
+        /// </summary>
+        private static int Classify(MonsterConfig config, MonsterKind kind, in PlayerSnapshot target,
+            float distance, bool inSightCone)
+        {
+            if (inSightCone && distance <= config.HostileRadius)
             {
                 return 2;
             }
 
-            if ((inCone && distance <= config.ResolveAlertRadius(kind) && !target.IsDisguised)
+            if ((inSightCone && distance <= config.ResolveAlertRadius(kind) && !target.IsDisguised)
                 || (distance <= config.ResolveNearSenseRadius(kind) && !target.IsSneaking))
             {
                 return 1;

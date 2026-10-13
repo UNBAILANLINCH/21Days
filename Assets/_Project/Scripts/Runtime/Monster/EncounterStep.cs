@@ -4,10 +4,17 @@
 //   1. 身份 → 敌人攻击许可（S1）：身份状态经 BindIdentity 进来，逐 tick 填进 MonsterIntent；
 //   2. 潜行 → 事实与追逐（S3/S4）：双方规则推进之后调一次 StealthDecisionGate，结果写进内存事实集
 //      （stealth.*），追逐四键由本类（Monster 侧）写，见 SettleChase；
-//   3. 战斗结果（C5）：Result 枚举仍然只管流程收尾，新增 BattleSettlement 承载 BattleResult。
+//   3. 战斗结果（C5）：Result 枚举仍然只管流程收尾，新增 BattleSettlement 承载 BattleResult；
+//      **胜负两侧都结算**（2026-10-09 用户拍板）：打赢写 Victory，玩家生命归零写 Downed——
+//      「一场实时遭遇打赢或被击倒，等于这一关结束」。`SettleBattle` 的两道闸门不变（本场只结一次、default 不收）；
+//   4. 掩体贯通（2026-10-08）：BindOcclusion / UseStealth 把 StealthSight 交给每一只巡逻怪，
+//      视锥两档（红区 / 橙区）从此吃遮挡，见 MonsterRules.Sense 的文件头；
+//   5. 进战斗快照（2026-10-08）：本类实现 IBattleEntryContext，把「潜行 / 偷袭是否命中 / 是否在警戒敌对区域 /
+//      怪物警觉档位 / 谁先动手」五个量交给战斗侧，见 IBattleEntryContext.cs；
+//   6. 击杀掉落（2026-10-08）：死亡分支调一次 BindDropSink 接进来的 IMonsterDropSink，见 SettleKillDropOnce。
 // 装配方式：本类由 VContainer 构造，**构造参数不能变**（TypeAnalyzer 取参数最多的构造函数且不看默认值），
-//   所以潜行内核、身份状态、埋点都走后置装配方法（UseStealth / BindIdentity / UseTelemetry），
-//   不装配时用各内核的占位默认值。
+//   所以潜行内核、身份状态、埋点、遮挡、掉落口都走后置装配方法
+//   （UseStealth / BindIdentity / UseTelemetry / BindOcclusion / BindDropSink），不装配时用各内核的占位默认值。
 using System;
 using System.Collections.Generic;
 using Game.Core.Replay;
@@ -83,7 +90,7 @@ namespace Game.Monster
         }
     }
 
-    public sealed class EncounterStep : ISimulationStep, IReplayState
+    public sealed class EncounterStep : ISimulationStep, IReplayState, IBattleEntryContext
     {
         public enum Result : byte { None, Victory, Defeat, Aborted }
 
@@ -109,6 +116,13 @@ namespace Game.Monster
         private IdentityState identity;
         private ITelemetryScope telemetry = NullTelemetryScope.Instance;
         private readonly EncounterFactLog facts = new EncounterFactLog();
+
+        // 击杀掉落口（Game.Loot 实现，本模块只持一个可空引用）：不接时什么都不掉（独立原型场景 / 纯 Monster 测试）。
+        private IMonsterDropSink dropSink;
+
+        // 本场遭遇的主怪掉落有没有结过。**一只怪只结一次**由它把关（重复结算会让掉落翻倍）。
+        // 不进快照、不进存档：它管的是「这一次死亡有没有结」，Begin 时清零（下一场要能再掉）。
+        private bool killDropSettled;
 
         public EncounterStep(PlayerRules player, MonsterRules monster)
         {
@@ -140,6 +154,9 @@ namespace Game.Monster
                 authoredRoutes[i] = (Vector2[])routes[i].Clone();
                 Taming.RegisterTarget(ids[i], names[i], rules);
             }
+
+            // 巡逻者是在这里才造出来的，所以遮挡要在这里补发一次（UseStealth 可能跑在它前面，见 BindOcclusion 注释）。
+            ApplyMonsterOcclusion();
         }
 
         public bool IsActive { get; private set; }
@@ -154,6 +171,14 @@ namespace Game.Monster
         /// 与 <see cref="PendingResult"/> 的分工（PRP/battle-to-narrative §2.2）：后者管「这场遭遇结束了没有」，
         /// 前者管「怎么结束的」。枚举保持不变是为了不动回放快照的字节布局——本属性**不进 Serialize**，
         /// 因此不触发 <c>ReplayFormat</c> 升版；战斗阶段本身也不在可存档边界内（NarrativeService.IsStable）。
+        /// </para>
+        /// <para>
+        /// ⚠️ <b>它是「取走型」字段</b>：<see cref="Begin"/>（下一场遭遇）与换了身份的 <see cref="StartBattle"/>
+        /// 都会把它清成 null。**<see cref="End"/> 不清它**（只置 <c>IsActive = false</c> 并清瞬时事实）——
+        /// 但 <see cref="End"/> 之后本类整体不再推进，而消费方若把「遭遇还活着」当成读结果的前提，
+        /// 就会在镜碎那条路上永远读不到：镜碎在**同一帧**结算之后调 <see cref="End"/>，
+        /// 而下一场遭遇的 <see cref="Begin"/> 会把这份结果连痕迹一起抹掉。
+        /// 所以消费方（<c>EncounterBattleBridge</c>）在结算那一刻就把它抄进自己的字段，不等下一渲染帧。
         /// </para>
         /// </summary>
         public BattleResult? BattleSettlement { get; private set; }
@@ -188,6 +213,17 @@ namespace Game.Monster
         public void UseTelemetry(ITelemetryScope scope) => telemetry = scope ?? NullTelemetryScope.Instance;
 
         /// <summary>
+        /// 接入击杀掉落口（<see cref="IMonsterDropSink"/>，实现方在 <c>Game.Loot</c>）。
+        /// 做成后置装配的理由同 <see cref="UseStealth"/>：<b>本类构造参数不能变</b>
+        /// （TypeAnalyzer 取参数最多的构造函数且不看默认值）。
+        /// <para>
+        /// <b>不接时什么都不掉</b>，与接线前逐字一致——独立原型场景与纯 Monster 测试作用域没有 Loot，
+        /// 那里不该凭空多出一条掉落。传 null 等于断开。
+        /// </para>
+        /// </summary>
+        public void BindDropSink(IMonsterDropSink sink) => dropSink = sink;
+
+        /// <summary>
         /// 用正式配置装配潜行关口（`StealthConfig` 装配的 <see cref="StealthKernel"/>）。
         /// 配置非法当场抛（配置错误不许静默跑，见 <see cref="StealthKernel.Validate"/>）。
         /// </summary>
@@ -214,6 +250,54 @@ namespace Game.Monster
             if (player != null)
             {
                 player.UseKnockdown(knockdown);
+            }
+
+            ApplyMonsterOcclusion();
+        }
+
+        /// <summary>
+        /// 把 <see cref="Sight"/> 注入到**每一只**巡逻怪，让视锥那两档也吃遮挡
+        /// （2026-10-08「掩体贯通到怪物察觉」）。
+        /// <para>
+        /// <b>三处调用点，缺一处就有怪漏判</b>：① <see cref="UseStealth"/>（换成内核那只 sight 之后）；
+        /// ② <see cref="ConfigureTaming"/>（<see cref="MonsterRules.CreateForActor"/> 造出来的巡逻者）；
+        /// ③ <see cref="MonsterInstaller"/> 的构建回调里 <c>BindOcclusion</c> 之后。
+        /// 场景就绪时 <c>MonsterEncounterState</c> 才把遮挡体喂进 <see cref="Sight"/>，那时装配早就走完了，
+        /// 所以本方法只搬引用、不查任何数据。
+        /// </para>
+        /// <para>
+        /// **多只怪共享同一个 <see cref="StealthSight"/> 实例是有意的**：它的查询是「观察者位置 + 目标位置」
+        /// 的纯函数、零分配、不持查询状态（见 <see cref="MonsterRules.UseOcclusion"/> 的注释）。
+        /// </para>
+        /// </summary>
+        public void BindOcclusion(StealthSight occlusion)
+        {
+            if (occlusion == null)
+            {
+                throw new ArgumentNullException(nameof(occlusion));
+            }
+
+            sight = occlusion;
+            ApplyMonsterOcclusion();
+        }
+
+        // 把当前 sight 分发给主怪与所有巡逻者。语义上「所有巡逻怪」= Taming.TargetIds 那一组（主怪也是其中一只），
+        // 所以遍历它就够；monster 那一句是防 Taming 为空或列表为空的兜底，**不是**为了给主怪特判。
+        private void ApplyMonsterOcclusion()
+        {
+            if (monster != null)
+            {
+                monster.UseOcclusion(sight);
+            }
+
+            if (Taming == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < Taming.TargetIds.Count; i++)
+            {
+                Taming.GetTarget(Taming.TargetIds[i]).UseOcclusion(sight);
             }
         }
 
@@ -242,6 +326,10 @@ namespace Game.Monster
 
         /// <summary>
         /// 记录一次战斗结算（C5 的唯一入口）。返回值：false = 没接受（<c>default</c> 结果、或本场已结算过）。
+        /// <para>
+        /// 两处调用方：<see cref="Step"/> 的胜负那一处（Victory / Downed）与潜行侧的 <c>ExecutionResolver</c>
+        /// （背后处决命中即写 Victory，见它的注释）。消费方是 <c>EncounterBattleBridge</c>。
+        /// </para>
         /// <para>
         /// <b>只记结果，不推进剧情</b>：推进只走 <c>NarrativeRules.CompleteBattle</c>
         /// （PRP §2.1「唯一写入方」，身份四项对不上由剧情侧拒绝）。
@@ -299,6 +387,8 @@ namespace Game.Monster
             chasePhase = ChasePhase.Idle;
             chase.Reset(true);
             facts.Clear();
+            // 掉落闸门随遭遇重开：上一场结过的掉落不该让下一场的同一只怪不掉。
+            killDropSettled = false;
             IsActive = true;
         }
 
@@ -383,15 +473,27 @@ namespace Game.Monster
             if (EncounterId != 0 && Taming.IsTamed && PendingResult == Result.None) AbortBattle();
             // 双方规则推进之后再做潜行结算（StealthKernel 的接线建议）：先把这一 tick 的结果合成事实键。
             SettleStealth(in target, monster.Model, enemyAttacked, context.DeltaTime);
+            // 掉落：**死亡那一处**结算，与「这算不算一场战斗」无关——遭遇里没有 EncounterId 也会掉。
+            // 放在 Step 末尾（双方规则都推完之后）是为了让「主怪这一 tick 死了没有」这个判断拿到终态，
+            // 而不是在某个中间分支里提前读一次生命。
+            SettleKillDropOnce();
             if (EncounterId != 0 && PendingResult == Result.None)
             {
                 PendingResult = player.Model.Health == 0 ? Result.Defeat : monster.Model.Health == 0 ? Result.Victory : Result.None;
                 if (PendingResult == Result.Victory)
                 {
-                    // 小怪清空 / BOSS 收押 → Victory（BattleOutcome 的四种之一），是唯一无歧义、不依赖未拍板口径的映射。
-                    // 失败侧（Downed / Exposed）属于 §8.1 #3/#4 的策略注入点，本波不替策划决定，见交付报告「待策划拍板」。
+                    // 小怪清空 / BOSS 收押 → Victory（BattleOutcome 的四种之一），唯一无歧义、不依赖未拍板口径的映射。
                     SettleBattle(new BattleResult(BattleOutcome.Victory));
                 }
+                else if (PendingResult == Result.Defeat)
+                {
+                    // 玩家生命归零 → Downed（被击倒）。口径由用户 2026-10-09 拍板：
+                    // **一场实时遭遇打赢或被击倒，等于这一关结束**，失败侧不再是「留空等策划」。
+                    // 阶段没声明 Downed 时剧情侧会正常拒绝（CompleteBattle → battle_result_rejected），
+                    // 这里不预判内容：战斗侧只负责如实报出「玩家被击倒了」。
+                    SettleBattle(new BattleResult(BattleOutcome.Downed));
+                }
+                // Result.Aborted 不在这里：它由 AbortBattle 单独写（收服收尾，不是战斗结果，不承载 BattleSettlement）。
             }
         }
 
@@ -404,11 +506,29 @@ namespace Game.Monster
         /// </summary>
         private void SettleStealth(in PlayerSnapshot target, MonsterModel enemy, bool enemyAttacked, float deltaTime)
         {
-            // 「看得见」= 距离 / 夹角够得着（MonsterRules.Detects）**再叠一层视线遮挡**（StealthSight 纯几何）。
-            bool perceivesByCone = monster.Detects(in target);
-            bool perceives = StealthDecisionGate.PerceivesThroughCover(sight, enemy.Position, target.Position, perceivesByCone);
-            // 视线本来够得着、被遮挡体切断 = 这一 tick 处于掩体遮挡下。
-            bool coverBlocks = perceivesByCone && !perceives;
+            // 「察觉」这一个量要同时满足两件事，两个来源各自的分工写在下面——
+            // 2026-10-08 主窗口复跑抓到过一次「两层各算各的」在这里分叉（见第 3 点），所以现在的取法是：
+            // 「行为层说什么，事实层就抄什么」，从结构上不可能再分叉。
+            //
+            // 1) **答案取行为层**：`perceives` 直接抄 `MonsterRules.Detects`，也就是警戒 / 敌对 / 追击用的那个答案。
+            //    它内部已经正确地做到了「视锥两档吃遮挡、贴身那一档不吃」
+            //    （`06_怪物状态与交互设计文档.md:71-73`：近距察觉要潜行才免，掩体不免）。
+            //    ⚠️ 不能在这里再叠一层 `StealthDecisionGate.PerceivesThroughCover`：那个门的输入若是**整支**感知
+            //    （`PerceivedBySenses` 已经含着不分朝向的贴身察觉），它就会拿「对视线的遮挡」去掐掉贴身那一档，
+            //    于是「怪已经贴到你身上进了警戒」与「`stealth.hidden` 为真」同时成立——正是本波要消灭的
+            //    自相矛盾，只是方向反了。事实层与行为层必须同向，这条比「走哪个门」重要。
+            //
+            // 2) **`coverBlocks` 仍要算那一对差**：`reachesTarget` 用不含遮挡的整支感知（`PerceivedBySenses`），
+            //    减去行为层的答案。「视线本来够得着、结果没察觉」= 这一 tick 处于掩体遮挡下。
+            //    ⚠️ 这个减法里的减数**必须**含遮挡、被减数**必须**不含——两个都含或都不含，相减恒为 0/1，
+            //    `stealth.cover` 就会永远点不亮或永远点亮（「躲进掩体」那条摆脱条件 `04:104` R23 的判据落点）。
+            //
+            // 3) 副作用（修②带出的口径变化，需主窗口确认，本次修复的报告里已点名）：贴身察觉穿透掩体这一类现场里
+            //    `reachesTarget && perceives` 都是真，于是 `coverBlocks` 为假——「敌人已经贴身发现了你」时
+            //    不再对外声称「你处于掩体遮挡下」。变化只发生在这一个窄格子里，且方向更对：掩体此刻并没有帮到你。
+            bool reachesTarget = monster.PerceivedBySenses(in target) > 0;
+            bool perceives = monster.Detects(in target);
+            bool coverBlocks = reachesTarget && !perceives;
 
             bool aware = enemy.Mode != MonsterMode.PatrolWalk && enemy.Mode != MonsterMode.PatrolPause;
             var assassinationInput = new AssassinationInput(target.Position, target.Facing, enemy.Position, enemy.Facing,
@@ -489,6 +609,153 @@ namespace Game.Monster
 
             facts.Set(StealthFactKeys.ChaseActive, chasePhase == ChasePhase.Chasing);
         }
+
+        /// <summary>
+        /// 主怪死亡时结算一次击杀掉落（<see cref="IMonsterDropSink"/>，实现在 <c>Game.Loot</c>）。
+        /// <para>
+        /// <b>边界（2026-10-08 明写，别当成漏了）</b>：只结**主怪**（<c>Taming.TargetIds[0]</c>，也就是
+        /// 场景里那只 <c>enerme</c>）。<see cref="Taming"/> 管着的其它巡逻者这一轮不结——它们没有
+        /// 「这一场遭遇的主体是谁」的语义，掉落文案与埋点也按主怪记；要扩到全部巡逻者得先决定
+        /// 「一只巡逻者死了算不算这次遭遇的战果」，那是内容侧的事。
+        /// </para>
+        /// <para>
+        /// <b>一只怪只结一次</b>：<see cref="killDropSettled"/> 是闸门。它在 <see cref="Begin"/> 里清零，
+        /// 所以重开一场遭遇能再掉；同一场里连点多少次都只掉一次（重复结算会让掉落翻倍）。
+        /// </para>
+        /// <para>
+        /// <b>种类为 null 时跳过</b>：<c>MonsterKind</c> 为 null 表示表没就绪或这只怪没接种类
+        /// （<see cref="MonsterRules.Kind"/> 的注释）——那时没有 <c>yaoId</c>，也没有掉落列表，
+        /// <b>不猜一个 id 出来</b>。
+        /// </para>
+        /// <para>
+        /// 副作用边界（已知，接受）：掉落是写背包的副作用，**不进确定性内核、不进快照**。
+        /// 回放时被驱动方重放「死亡那一 tick」会让 <see cref="killDropSettled"/> 从 false 起步、
+        /// 于是再掉一次——与本模块既有的「遭遇回放不覆盖 Game.Loot」同一类边界（`Runtime/Battle` 的
+        /// 回合制战斗同样不进回放，见 turnbased guide「随机数与回放」）。
+        /// </para>
+        /// </summary>
+        /// <returns>本次真的结算了返回 true。</returns>
+        public bool SettleKillDropOnce()
+        {
+            if (killDropSettled || dropSink == null || monster == null || monster.Model.Health > 0)
+            {
+                return false;
+            }
+
+            // 「有没有种类」先判，再落闸：表没就绪时 Kind 恒为 null（它在 Reset 里查一次、整场不变），
+            // 这时落闸与不落闸的结果一样，但先判能让「闸门 = 确实结算过一次」这个含义保持干净。
+            MonsterKind kind = monster.Kind;
+            if (kind == null)
+            {
+                // 表没就绪 / 这只怪没接种类：没有 yaoId 就没有掉落内容，跳过而不是猜一个 id 出来。
+                return false;
+            }
+
+            // 先落闸再调外部口：万一实现方抛异常，也不会在同一场里被反复重试成多次掉落。
+            killDropSettled = true;
+            dropSink.SettleKillDrop(kind.YaoId, monster.DropItemIds);
+            telemetry.Track("kill_drop_settled", ("yao", kind.YaoId), ("items", monster.DropItemIds.Count),
+                ("encounter", EncounterId));
+            return true;
+        }
+
+        // ───────────────────────── 进战斗的局势快照（IBattleEntryContext） ─────────────────────────
+        //
+        // 五个量的来源与**推断成分**（2026-10-08 接线，逐条写清楚是哪一种，别让下一个人以为是原文给的）：
+        //   ① PlayerSneaking    —— 现取 `player.Model.Snapshot.IsSneaking`，实读。
+        //   ② SneakAttackLanded —— 现取事实集里的 `stealth.assassinated`（字典 §4.2「命中即写」），实读。
+        //   ③ PlayerInAlertZone / PlayerInHostileZone —— 由怪物当前模式反推（警戒态 / 敌对态）。
+        //      **推断**：遭遇内核里没有单独的「玩家在不在某个半径里」查询，而 `07:22`、`:27` 把
+        //      「玩家在警戒 / 敌对区域内」与「怪物正处于警戒 / 敌对状态」写成并列条件（`or`），
+        //      且本工程里怪物只在玩家进入对应区域时才会进这两态。所以反推与正查等价，且不会自动进敌对。
+        //   ④ MonsterState      —— 由 `MonsterMode` 逐值翻译（Monster 的通用状态 → 内核的三档枚举）。
+        //   ⑤ Initiator         —— 见 `DeriveInitiator`，**含一处显式推断**。
+
+        /// <summary>`07:17` 偷袭条件的一半：玩家此刻在潜行。</summary>
+        public bool PlayerSneaking => player != null && player.Model.Snapshot.IsSneaking;
+
+        /// <summary>
+        /// `07:17` 的另一半：这一场里偷袭**已经命中**过目标。
+        /// 判据是持久事实 `stealth.assassinated`（字典 §4.2），写入方是潜行侧的处决结算（`ExecutionResolver`）。
+        /// <para>
+        /// ⚠️ <b>现状下这一支几乎到不了</b>：处决成功会让目标当场死亡（`MonsterRules.ApplyExecution`），
+        /// 而 BOSS 死了就不会再进战斗阶段。等 `00_功能总览.md` §8.1 #5（暗杀交互形式）拍板、
+        /// 「偷袭」有独立于处决的表现之后这条才是活的。**接线本身是对的，缺的是内容侧的定义。**
+        /// </para>
+        /// </summary>
+        public bool SneakAttackLanded => facts.IsTrue(StealthFactKeys.Assassinated);
+
+        /// <summary>`07:22`：玩家在警戒区域内。由怪物处于警戒态反推，见本节顶部注释 ③。</summary>
+        public bool PlayerInAlertZone => monster != null && monster.Model.Mode == MonsterMode.Alert;
+
+        /// <summary>`07:22`：玩家在敌对区域内。由怪物处于敌对态反推，见本节顶部注释 ③。</summary>
+        public bool PlayerInHostileZone => monster != null && monster.Model.Mode == MonsterMode.Hostile;
+
+        /// <summary>怪物当前的警觉档位（`MonsterMode` → <c>Game.TurnBased.MonsterAlertState</c>）。</summary>
+        public Game.TurnBased.MonsterAlertState MonsterState => ToAlertState(monster == null ? MonsterMode.Dead : monster.Model.Mode);
+
+        /// <summary>
+        /// 这只巡逻怪此刻察觉到玩家了吗（＝它处于警戒 / 敌对态）。
+        /// <para>
+        /// 巡逻怪有状态机，所以这一条与 <see cref="MonsterState"/> 是同一件事的两种写法；
+        /// 契约把它单列出来是为了**没有状态机的那一侧**（剧情 BOSS 的 `BossEntryContext`）——
+        /// 那边只有「这一刻的感知结果」，见 `IBattleEntryContext.MonsterAware` 的注释。
+        /// </para>
+        /// </summary>
+        public bool MonsterAware => monster != null
+            && (monster.Model.Mode == MonsterMode.Alert || monster.Model.Mode == MonsterMode.Hostile);
+
+        /// <summary>
+        /// 谁先动的手。口径见 <see cref="DeriveInitiator"/>——那里有一条**显式推断**（本工程没有「BOSS 攻击玩家开战」这一路）。
+        /// </summary>
+        public Game.TurnBased.BattleInitiator Initiator => DeriveInitiator(
+            monster == null ? MonsterMode.Dead : monster.Model.Mode, PlayerSneaking);
+
+        /// <summary>
+        /// 怪物模式 → 内核的三档警觉枚举。**逐值写全**（含 Dead 与 PatrolPause）而不是给个 <c>default</c>：
+        /// 将来 <see cref="MonsterMode"/> 加值时会在这里编译期暴露，不会静默算成「未察觉」。
+        /// </summary>
+        private static Game.TurnBased.MonsterAlertState ToAlertState(MonsterMode mode)
+        {
+            switch (mode)
+            {
+                case MonsterMode.Alert:
+                    return Game.TurnBased.MonsterAlertState.Alert;
+                case MonsterMode.Hostile:
+                    return Game.TurnBased.MonsterAlertState.Hostile;
+                case MonsterMode.PatrolWalk:
+                case MonsterMode.PatrolPause:
+                case MonsterMode.Dead:
+                    return Game.TurnBased.MonsterAlertState.Unaware;
+                default:
+                    // 加了新的 MonsterMode 而这里没跟上：当场炸，不要静默算成「未察觉」。
+                    throw new ArgumentOutOfRangeException(nameof(mode), mode, "未知的怪物模式，MonsterAlertState 的映射没跟上");
+            }
+        }
+
+        /// <summary>
+        /// 先手方。三条触发路径（`07:15-28`）里只有两条能落到本工程：
+        /// <list type="bullet">
+        /// <item>怪物已敌对 + 玩家没在潜行 → <see cref="Game.TurnBased.BattleInitiator.BossAttacked"/>
+        /// （「被打」：BOSS 已经动手打你了 → BOSS 先手）。</item>
+        /// <item>其余 → <see cref="Game.TurnBased.BattleInitiator.PlayerAttacked"/>（玩家先动手 → 玩家先手）。</item>
+        /// </list>
+        /// <para>
+        /// <b>⚠️ 显式推断（不是原文给的）</b>：现在的开战时机是「剧情停在 Battle 阶段 → 战斗侧订阅通知开打」，
+        /// **没有「玩家物理挥刀」这一路**（`EncounterStep` 的进战斗登记 `StartBattle` 至今没有生产调用方）。
+        /// 所以「谁先动手」只能从局势反推：怪物已经进入敌对追击（`MonsterMode.Hostile`，即红区或警戒升满）
+        /// 且玩家并没有在潜行 → 按现场读作「它先动的手」。
+        /// </para>
+        /// <para>
+        /// <b>代价与边界</b>：玩家在敌对态下主动上前开战，也会被判成「被打」（BOSS 先手）。
+        /// 要分辨这两者，需要内容侧给一个「玩家主动攻击开战」的入口（例如 BOSS NPC 的交互动词）；
+        /// 那属于 `00_功能总览.md` §8.1 #7 与 `09_BOSS战.md` 的拍板范围，本波不替策划决定。
+        /// </para>
+        /// </summary>
+        private static Game.TurnBased.BattleInitiator DeriveInitiator(MonsterMode mode, bool playerSneaking) =>
+            mode == MonsterMode.Hostile && !playerSneaking
+                ? Game.TurnBased.BattleInitiator.BossAttacked
+                : Game.TurnBased.BattleInitiator.PlayerAttacked;
 
         private string SelectionId(float selection)
         {

@@ -10,11 +10,14 @@ using Cysharp.Threading.Tasks;
 using Game.Core.Events;
 using Game.Core.Flow;
 using Game.Core.Logging;
+using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Core.UI;
 using Game.Core.UI.Views;
+using Game.Narrative;
 using MessagePipe;
 using VContainer.Unity;
+using UnityEngine;
 
 namespace Game.Session
 {
@@ -33,11 +36,15 @@ namespace Game.Session
         private readonly ISubscriber<TitleLoadClickedEvent> loadClicked;
         private readonly ISubscriber<GameStateChangedEvent> stateChanged;
         private readonly ITelemetryScope telemetry;
+        private readonly ISaveService saves;
+        private readonly SessionConfig config;
+        private readonly ISubscriber<NarrativeChangedEvent> narrativeChanged;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         private IDisposable subscriptions;
         private bool routing;
         private bool disposed;
+        private int appearanceRequest;
 
         public SessionTitleRouter(
             GameSession session,
@@ -48,7 +55,10 @@ namespace Game.Session
             ISubscriber<TitleContinueClickedEvent> continueClicked,
             ISubscriber<TitleLoadClickedEvent> loadClicked,
             ISubscriber<GameStateChangedEvent> stateChanged,
-            ITelemetryScope telemetry)
+            ITelemetryScope telemetry,
+            ISaveService saves,
+            SessionConfig config,
+            ISubscriber<NarrativeChangedEvent> narrativeChanged)
         {
             this.session = session ?? throw new ArgumentNullException(nameof(session));
             this.slots = slots ?? throw new ArgumentNullException(nameof(slots));
@@ -59,6 +69,10 @@ namespace Game.Session
             this.loadClicked = loadClicked ?? throw new ArgumentNullException(nameof(loadClicked));
             this.stateChanged = stateChanged ?? throw new ArgumentNullException(nameof(stateChanged));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
+            this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            this.config = config;
+            this.narrativeChanged = narrativeChanged;
         }
 
         public void Start()
@@ -68,6 +82,9 @@ namespace Game.Session
             continueClicked.Subscribe(_ => RouteAsync(TitleAction.Continue).Forget()).AddTo(bag);
             loadClicked.Subscribe(_ => RouteAsync(TitleAction.Load).Forget()).AddTo(bag);
             stateChanged.Subscribe(HandleStateChanged).AddTo(bag);
+            if (narrativeChanged != null)
+                narrativeChanged.Subscribe(_ => RefreshTitle()).AddTo(bag);
+            slots.OnSlotsChanged += RefreshTitle;
             subscriptions = bag.Build();
         }
 
@@ -75,6 +92,7 @@ namespace Game.Session
         {
             if (disposed) return;
             disposed = true;
+            slots.OnSlotsChanged -= RefreshTitle;
             subscriptions?.Dispose();
             subscriptions = null;
             lifetime.Cancel();
@@ -83,24 +101,71 @@ namespace Game.Session
 
         private void HandleStateChanged(GameStateChangedEvent e)
         {
-            if (e.To == typeof(TitleState)) RefreshContinueNextFrameAsync(lifetime.Token).Forget();
+            if (e.To == typeof(TitleState)) RefreshTitle();
+        }
+
+        private void RefreshTitle()
+        {
+            if (disposed) return;
+            RefreshTitleNextFrameAsync(++appearanceRequest, lifetime.Token).Forget();
         }
 
         // 下一帧再设：TitleState.EnterAsync 刚开完面板，等本帧的开面板收尾（默认选中等）走完再改按钮状态。
-        private async UniTaskVoid RefreshContinueNextFrameAsync(CancellationToken ct)
+        private async UniTaskVoid RefreshTitleNextFrameAsync(int request, CancellationToken ct)
         {
+            TitleView view = null;
             try
             {
                 await UniTask.NextFrame(ct);
+                if (request != appearanceRequest) return;
+                view = ui.Get<TitleView>();
+                if (view == null) return;
+                view.SetContinueVisible(SessionTitleRules.ShouldShowContinue(session.LatestSlot));
+
+                bool yin = false;
+                if (!string.IsNullOrWhiteSpace(config.TitleYinStoryFlag))
+                {
+                    NarrativeSaveData narrative = null;
+                    if (session.CurrentSlot > 0)
+                    {
+                        narrative = saves.Get<NarrativeSaveData>();
+                    }
+                    else if (session.LatestSlot > 0)
+                    {
+                        // 冷启动只读候选；查看标题不能提交存档或覆盖当前内存分区。
+                        using (telemetry.BeginSpan("title_appearance_read"))
+                        {
+                            SaveSnapshot candidate = await saves.ReadCandidateAsync(session.LatestSlot, ct);
+                            if (candidate != null && candidate.Contains<SessionSaveData>() && candidate.Contains<NarrativeSaveData>())
+                                narrative = candidate.Require<NarrativeSaveData>();
+                        }
+                    }
+
+                    yin = SessionTitleRules.ShouldUseYinAppearance(narrative == null ? null : narrative.StoryFlags,
+                        config.TitleYinStoryFlag);
+                }
+
+                ct.ThrowIfCancellationRequested();
+                // 较早的读盘结果不能覆盖后来的换档 / 删除结果，也不能操作已关闭的面板。
+                if (request != appearanceRequest || view == null || ui.Get<TitleView>() != view) return;
+                if (!view.SetAlternateAppearance(yin))
+                    view.SetAppearanceTint(yin ? config.TitleYinTint : Color.white);
+                telemetry.Track("title_appearance", ("yin", yin));
             }
             catch (OperationCanceledException)
             {
-                return;
+                // 作用域销毁时不再改变面板。
             }
-
-            // TitleView 是 MonoBehaviour，判空只用 != null。
-            TitleView view = ui.Get<TitleView>();
-            if (view != null) view.SetContinueVisible(SessionTitleRules.ShouldShowContinue(session.LatestSlot));
+            catch (Exception e)
+            {
+                if (!disposed && request == appearanceRequest && view != null)
+                {
+                    view.SetAlternateAppearance(false);
+                    view.SetAppearanceTint(Color.white);
+                }
+                telemetry.TrackError("title_appearance_failed", e);
+                Log.Warn($"读取标题主题失败，使用阳版：{e.Message}");
+            }
         }
 
         private async UniTaskVoid RouteAsync(TitleAction action)
@@ -151,9 +216,19 @@ namespace Game.Session
                 return;
             }
 
-            // 先看操作说明再进游戏；面板开不出来时 ShowAsync 自己吞掉错误，不会把开局挡在这里。
-            await tutorial.ShowAsync(ct);
-            await session.NewGameAsync(slot, ct);
+            TitleView title = ui.Get<TitleView>();
+            try
+            {
+                using (telemetry.BeginSpan("title_start_transition"))
+                    if (title != null) await title.PlayStartTransitionAsync(ct);
+                // 暗幕由操作说明和原场景加载流程接住；不绕过教程或存档初始化。
+                await tutorial.ShowAsync(ct);
+                await session.NewGameAsync(slot, ct);
+            }
+            finally
+            {
+                if (title != null) title.ResetStartTransition();
+            }
         }
 
         // 「继续」：读最近槽；没有可用存档（按钮本应隐藏，键盘 / 旧状态绕过时）按「开始」处理。

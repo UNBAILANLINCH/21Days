@@ -1,0 +1,941 @@
+{
+  "canvas": {
+    "width": 1920,
+    "height": 1080
+  },
+  "coordinateSystem": "左上角原点，x向右、y向下；允许负坐标；PNG已烘焙原图不透明度与图层样式",
+  "renderer": "Adobe Photoshop 原生渲染",
+  "assets": [
+    {
+      "file": "01_场景/天空_合成底色.png",
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1031,
+      "centerX": 960.0,
+      "centerY": 515.5,
+      "layers": [
+        {
+          "id": 1401,
+          "name": "天空",
+          "blend": "BlendMode.PASSTHROUGH",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/莲花纹.png",
+      "x": 479,
+      "y": 51,
+      "width": 962,
+      "height": 637,
+      "centerX": 960,
+      "centerY": 369.5,
+      "layers": [
+        {
+          "id": 911,
+          "name": "莲花纹",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 27.0588235294118
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/头顶圆光.png",
+      "x": 700,
+      "y": -387,
+      "width": 521,
+      "height": 522,
+      "centerX": 960.5,
+      "centerY": -126,
+      "layers": [
+        {
+          "id": 910,
+          "name": "头顶圆光",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 54.1176470588235
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/云_左.png",
+      "x": 405,
+      "y": 445,
+      "width": 385,
+      "height": 262,
+      "centerX": 597.5,
+      "centerY": 576,
+      "layers": [
+        {
+          "id": 955,
+          "name": "左侧云",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/云_右.png",
+      "x": 1084,
+      "y": 378,
+      "width": 555,
+      "height": 449,
+      "centerX": 1361.5,
+      "centerY": 602.5,
+      "layers": [
+        {
+          "id": 952,
+          "name": "右侧云",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/丝带_左.png",
+      "x": -794,
+      "y": -754,
+      "width": 1660,
+      "height": 1318,
+      "centerX": 36,
+      "centerY": -95,
+      "layers": [
+        {
+          "id": 1397,
+          "name": "左侧丝带",
+          "blend": "BlendMode.PASSTHROUGH",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/丝带_右.png",
+      "x": 977,
+      "y": -801,
+      "width": 1838,
+      "height": 1228,
+      "centerX": 1896,
+      "centerY": -187,
+      "layers": [
+        {
+          "id": 940,
+          "name": "右侧丝带",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/远山_右内.png",
+      "x": 1141,
+      "y": 504,
+      "width": 810,
+      "height": 620,
+      "centerX": 1546,
+      "centerY": 814,
+      "layers": [
+        {
+          "id": 864,
+          "name": "山 不可商",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 41.1764705882353
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/远山_右外.png",
+      "x": 1538,
+      "y": 633,
+      "width": 677,
+      "height": 376,
+      "centerX": 1876.5,
+      "centerY": 821,
+      "layers": [
+        {
+          "id": 865,
+          "name": "山 不可商 拷贝",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 30.1960784313726
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/远山_左内.png",
+      "x": -169,
+      "y": 509,
+      "width": 794,
+      "height": 438,
+      "centerX": 228,
+      "centerY": 728,
+      "layers": [
+        {
+          "id": 883,
+          "name": "山 不可商 拷贝 2",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 41.1764705882353
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "01_场景/远山_左外.png",
+      "x": -368,
+      "y": 701,
+      "width": 677,
+      "height": 376,
+      "centerX": -29.5,
+      "centerY": 889,
+      "layers": [
+        {
+          "id": 884,
+          "name": "山 不可商 拷贝 2",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 30.1960784313726
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "02_石头/石头_左远景.png",
+      "x": -53,
+      "y": 483,
+      "width": 327,
+      "height": 416,
+      "centerX": 110.5,
+      "centerY": 691,
+      "layers": [
+        {
+          "id": 587,
+          "name": "左侧远景石头",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 87.0588235294118
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "02_石头/石头_左中景.png",
+      "x": 588,
+      "y": 557,
+      "width": 236,
+      "height": 384,
+      "centerX": 706,
+      "centerY": 749,
+      "layers": [
+        {
+          "id": 872,
+          "name": "左边中景石头",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "02_石头/石头_右中景.png",
+      "x": 1034,
+      "y": 599,
+      "width": 366,
+      "height": 374,
+      "centerX": 1217,
+      "centerY": 786,
+      "layers": [
+        {
+          "id": 1391,
+          "name": "右边中景石头",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "02_石头/石头_右前景.png",
+      "x": 1710,
+      "y": 366,
+      "width": 598,
+      "height": 753,
+      "centerX": 2009,
+      "centerY": 742.5,
+      "layers": [
+        {
+          "id": 775,
+          "name": "右前景石头",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "03_镜子与标题/铜镜_本体.png",
+      "x": 519,
+      "y": 63,
+      "width": 882,
+      "height": 880,
+      "centerX": 960,
+      "centerY": 503,
+      "layers": [
+        {
+          "id": 571,
+          "name": "铜镜",
+          "blend": "BlendMode.PASSTHROUGH",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "03_镜子与标题/标题_镜非台.png",
+      "x": 633,
+      "y": 496,
+      "width": 641,
+      "height": 335,
+      "centerX": 953.5,
+      "centerY": 663.5,
+      "layers": [
+        {
+          "id": 902,
+          "name": "镜非台",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "03_镜子与标题/鸟.png",
+      "x": 1202,
+      "y": 574,
+      "width": 133,
+      "height": 212,
+      "centerX": 1268.5,
+      "centerY": 680,
+      "layers": [
+        {
+          "id": 914,
+          "name": "鸟",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "04_水面与倒影/水面.png",
+      "x": 1,
+      "y": 868,
+      "width": 1919,
+      "height": 212,
+      "centerX": 960.5,
+      "centerY": 974.0,
+      "layers": [
+        {
+          "id": 558,
+          "name": "水面",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": "水纹已在 Photoshop 原画布上按 SoftLight 烘焙进水面，避免 Unity 普通透明叠加产生亮白条。"
+    },
+    {
+      "file": "04_水面与倒影/雾气_左.png",
+      "x": -37,
+      "y": 729,
+      "width": 1401,
+      "height": 207,
+      "centerX": 663.5,
+      "centerY": 832.5,
+      "layers": [
+        {
+          "id": 1074,
+          "name": "图层 41",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "04_水面与倒影/雾气_右.png",
+      "x": 1137,
+      "y": 790,
+      "width": 1401,
+      "height": 218,
+      "centerX": 1837.5,
+      "centerY": 899,
+      "layers": [
+        {
+          "id": 1076,
+          "name": "图层 41 拷贝",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "04_水面与倒影/铜镜倒影_水影.png",
+      "x": 449,
+      "y": 859,
+      "width": 1017,
+      "height": 251,
+      "centerX": 957.5,
+      "centerY": 984.5,
+      "layers": [
+        {
+          "id": 1126,
+          "name": "水影",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "04_水面与倒影/铜镜倒影_蓝.png",
+      "x": 583,
+      "y": 921,
+      "width": 761,
+      "height": 263,
+      "centerX": 963.5,
+      "centerY": 1052.5,
+      "layers": [
+        {
+          "id": 1129,
+          "name": "铜镜倒影蓝",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "04_水面与倒影/铜镜倒影_深.png",
+      "x": 650,
+      "y": 856,
+      "width": 660,
+      "height": 423,
+      "centerX": 980,
+      "centerY": 1067.5,
+      "layers": [
+        {
+          "id": 578,
+          "name": "铜镜倒影深",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/设置/未选中/卷轴底.png",
+      "x": 92,
+      "y": -361,
+      "width": 227,
+      "height": 624,
+      "centerX": 205.5,
+      "centerY": -49,
+      "layers": [
+        {
+          "id": 928,
+          "name": "卷轴",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/设置/未选中/文字.png",
+      "x": 129,
+      "y": 142,
+      "width": 153,
+      "height": 87,
+      "centerX": 205.5,
+      "centerY": 185.5,
+      "layers": [
+        {
+          "id": 933,
+          "name": "设置",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/设置/未选中/花纹.png",
+      "x": 157,
+      "y": 83,
+      "width": 99,
+      "height": 98,
+      "centerX": 206.5,
+      "centerY": 132,
+      "layers": [
+        {
+          "id": 932,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/设置/未选中/吊线与菱形.png",
+      "x": 198,
+      "y": -194,
+      "width": 16,
+      "height": 263,
+      "centerX": 206,
+      "centerY": -62.5,
+      "layers": [
+        {
+          "id": 930,
+          "name": "矩形 6",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        },
+        {
+          "id": 931,
+          "name": "矩形 7",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/设置/未选中/底部渐变.png",
+      "x": 120,
+      "y": 81,
+      "width": 170,
+      "height": 151,
+      "centerX": 205,
+      "centerY": 156.5,
+      "layers": [
+        {
+          "id": 929,
+          "name": "渐变",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 52.156862745098
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/选择存档/未选中/卷轴底.png",
+      "x": 414,
+      "y": -239,
+      "width": 227,
+      "height": 624,
+      "centerX": 527.5,
+      "centerY": 73,
+      "layers": [
+        {
+          "id": 1425,
+          "name": "卷轴",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/选择存档/未选中/文字.png",
+      "x": 464,
+      "y": 202,
+      "width": 127,
+      "height": 141,
+      "centerX": 527.5,
+      "centerY": 272.5,
+      "layers": [
+        {
+          "id": 1422,
+          "name": "选择 存档",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/选择存档/未选中/花纹.png",
+      "x": 479,
+      "y": 144,
+      "width": 99,
+      "height": 98,
+      "centerX": 528.5,
+      "centerY": 193,
+      "layers": [
+        {
+          "id": 1421,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/选择存档/未选中/吊线与菱形.png",
+      "x": 520,
+      "y": -133,
+      "width": 16,
+      "height": 263,
+      "centerX": 528,
+      "centerY": -1.5,
+      "layers": [
+        {
+          "id": 1419,
+          "name": "线",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        },
+        {
+          "id": 1420,
+          "name": "矩形 7",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/选择存档/未选中/底部渐变.png",
+      "x": 442,
+      "y": 205,
+      "width": 170,
+      "height": 151,
+      "centerX": 527,
+      "centerY": 280.5,
+      "layers": [
+        {
+          "id": 1424,
+          "name": "渐变",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 52.156862745098
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/继续/未选中/卷轴底.png",
+      "x": 1305,
+      "y": -239,
+      "width": 227,
+      "height": 624,
+      "centerX": 1418.5,
+      "centerY": 73,
+      "layers": [
+        {
+          "id": 874,
+          "name": "卷轴",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/继续/未选中/文字.png",
+      "x": 1341,
+      "y": 256,
+      "width": 154,
+      "height": 88,
+      "centerX": 1418,
+      "centerY": 300,
+      "layers": [
+        {
+          "id": 906,
+          "name": "继续",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/继续/未选中/花纹.png",
+      "x": 1370,
+      "y": 203,
+      "width": 99,
+      "height": 98,
+      "centerX": 1419.5,
+      "centerY": 252,
+      "layers": [
+        {
+          "id": 876,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/继续/未选中/吊线与菱形.png",
+      "x": 1411,
+      "y": -74,
+      "width": 16,
+      "height": 263,
+      "centerX": 1419,
+      "centerY": 57.5,
+      "layers": [
+        {
+          "id": 878,
+          "name": "矩形 6",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        },
+        {
+          "id": 879,
+          "name": "矩形 7",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/继续/未选中/底部渐变.png",
+      "x": 1333,
+      "y": 203,
+      "width": 170,
+      "height": 151,
+      "centerX": 1418,
+      "centerY": 278.5,
+      "layers": [
+        {
+          "id": 881,
+          "name": "渐变",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 52.156862745098
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/退出游戏/未选中/卷轴底.png",
+      "x": 1600,
+      "y": -366,
+      "width": 236,
+      "height": 634,
+      "centerX": 1718,
+      "centerY": -49,
+      "layers": [
+        {
+          "id": 919,
+          "name": "卷轴",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/退出游戏/未选中/文字.png",
+      "x": 1653,
+      "y": 84,
+      "width": 129,
+      "height": 140,
+      "centerX": 1717.5,
+      "centerY": 154,
+      "layers": [
+        {
+          "id": 926,
+          "name": "退出 游戏",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/退出游戏/未选中/花纹.png",
+      "x": 1669,
+      "y": 39,
+      "width": 99,
+      "height": 98,
+      "centerX": 1718.5,
+      "centerY": 88,
+      "layers": [
+        {
+          "id": 923,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/退出游戏/未选中/吊线与菱形.png",
+      "x": 1710,
+      "y": -238,
+      "width": 16,
+      "height": 263,
+      "centerX": 1718,
+      "centerY": -106.5,
+      "layers": [
+        {
+          "id": 921,
+          "name": "矩形 6",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        },
+        {
+          "id": 922,
+          "name": "矩形 7",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "05_卷轴按钮/退出游戏/未选中/底部渐变.png",
+      "x": 1632,
+      "y": 81,
+      "width": 170,
+      "height": 151,
+      "centerX": 1717,
+      "centerY": 156.5,
+      "layers": [
+        {
+          "id": 920,
+          "name": "渐变",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 52.156862745098
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/文字_开始游戏.png",
+      "x": 861,
+      "y": 789,
+      "width": 198,
+      "height": 48,
+      "centerX": 960,
+      "centerY": 813,
+      "layers": [
+        {
+          "id": 1105,
+          "name": "开始游戏",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/按键底_含山纹.png",
+      "x": 740,
+      "y": 682,
+      "width": 440,
+      "height": 263,
+      "centerX": 960,
+      "centerY": 813.5,
+      "layers": [
+        {
+          "id": 1106,
+          "name": "按键底",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        },
+        {
+          "id": 1113,
+          "name": "山纹",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 52.156862745098
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/花纹_左长线.png",
+      "x": 743,
+      "y": 808,
+      "width": 107,
+      "height": 10,
+      "centerX": 796.5,
+      "centerY": 813,
+      "layers": [
+        {
+          "id": 1111,
+          "name": "矢量智能对象 拷贝 3",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/花纹_左菱形.png",
+      "x": 788,
+      "y": 802,
+      "width": 36,
+      "height": 22,
+      "centerX": 806,
+      "centerY": 813,
+      "layers": [
+        {
+          "id": 1112,
+          "name": "矢量智能对象 拷贝 3",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/花纹_右长线.png",
+      "x": 1070,
+      "y": 808,
+      "width": 107,
+      "height": 10,
+      "centerX": 1123.5,
+      "centerY": 813,
+      "layers": [
+        {
+          "id": 1109,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    },
+    {
+      "file": "06_开始游戏按钮/花纹_右菱形.png",
+      "x": 1096,
+      "y": 802,
+      "width": 36,
+      "height": 22,
+      "centerX": 1114,
+      "centerY": 813,
+      "layers": [
+        {
+          "id": 1107,
+          "name": "矢量智能对象",
+          "blend": "BlendMode.NORMAL",
+          "opacity": 100
+        }
+      ],
+      "note": ""
+    }
+  ],
+  "unityPositionHint": "Canvas参考分辨率1920×1080；中心锚点、中心pivot时 anchoredPosition=(centerX-960,540-centerY)；保持PNG原始像素尺寸，不透明度已经烘焙，不要重复相乘。"
+}

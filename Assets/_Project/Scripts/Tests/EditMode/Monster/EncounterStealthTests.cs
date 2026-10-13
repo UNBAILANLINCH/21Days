@@ -13,9 +13,16 @@ namespace Game.Tests.EditMode.Monster
 {
     public sealed class EncounterStealthTests
     {
-        /// <summary>挡在 (3,0) 与 (0,0) 之间的那块掩体：0.5 × 2 的轴对齐矩形。</summary>
+        /// <summary>挡在 (3,0) 与 (0,0) 之间的那块掩体：0.5 × 2 的轴对齐矩形（`MakeRectangle` 收全长）。</summary>
         private static readonly StealthOccluder[] BlockBetween =
             { StealthOccluder.MakeRectangle(new Vector2(1.5f, 0f), new Vector2(0.5f, 2f), 1) };
+
+        /// <summary>
+        /// 挡在 (0,0) 与 (-1,0) 之间的那块掩体：x∈[-0.9, -0.1]。
+        /// 近距察觉那条用例要它——**必须真的横在连线上**，否则测的是「没有遮挡」，证明不了遮挡无关。
+        /// </summary>
+        private static readonly StealthOccluder[] BlockBehind =
+            { StealthOccluder.MakeRectangle(new Vector2(-0.5f, 0f), new Vector2(0.8f, 4f), 2) };
 
         private PlayerConfig playerConfig;
         private MonsterConfig monsterConfig;
@@ -36,20 +43,32 @@ namespace Game.Tests.EditMode.Monster
 
         // ──────────────────────────── 遮挡 → 感知 ────────────────────────────
 
+        /// <summary>
+        /// 遮挡 → 事实键，且**感知本身也被挡住**（2026-10-08 判据变更，见下）。
+        /// <para>
+        /// 变更前这条用例最后一句断言的是 `Detects == true`（「感知本身没被本波改动」）——那时遮挡只进事实层，
+        /// 结果就是「`stealth.hidden` 为真、怪照样警戒照样追」这条自相矛盾的缺陷。变更后视锥两档吃遮挡，
+        /// 所以这里反过来钉「感知确实看不见了」。
+        /// </para>
+        /// <para>
+        /// 夹具按正式流程接法走：遮挡体喂进 `step.Sight` 之后 `BindOcclusion` 分发给每一只怪，
+        /// 与 `MonsterEncounterState` / `MonsterInstaller` 的接线一致。
+        /// </para>
+        /// </summary>
         [Test]
         public void Step_WhileOccluderBlocksSight_PlayerCountsAsHiddenAndCovered()
         {
             Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
-            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.True, "距离与夹角上都够得着");
+            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.True, "没遮挡时距离与夹角上都够得着");
 
             rig.Step.Sight.SetOccluders(BlockBetween);
+            rig.Step.BindOcclusion(rig.Step.Sight);
             Tick(rig, 0f);
 
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.True, "视线被挡 = 未被察觉");
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Cover), Is.True, "处于掩体遮挡下");
-            // 边界：本波遮挡只进事实层与追逐的视线输入，**不改** MonsterRules 的红区 / 橙区感知
-            //（掩体做不做、要不要连战斗一起挡是 `00_功能总览.md` §8.1 #6 的未定项）。
-            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.True, "感知本身没被本波改动");
+            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.False,
+                "2026-10-08 判据变更：怪物的视锥也吃遮挡——事实层与行为层从此是同一个答案");
         }
 
         [Test]
@@ -57,12 +76,145 @@ namespace Game.Tests.EditMode.Monster
         {
             Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
             rig.Step.Sight.SetOccluders(null);
+            rig.Step.BindOcclusion(rig.Step.Sight);
 
             Tick(rig, 0f);
 
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.False, "没遮挡就是被看见");
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Cover), Is.False);
         }
+
+        /// <summary>
+        /// 正式接法下 `stealth.cover` 必须真的点亮（2026-10-08 主窗口复核抓到的一处回归）。
+        /// <para>
+        /// 回归的形状：`SettleStealth` 的 `coverBlocks = perceivesByCone &amp;&amp; !perceives` 是**两个布尔相减**。
+        /// 若第一层 `perceivesByCone` 用的是含遮挡的 `MonsterRules.Detects`，被挡住时它已经是 false，
+        /// 相减恒为 0 → `stealth.cover` 在正式流程里永远点不亮，只剩「不注入遮挡的夹具」还亮着。
+        /// 修法是第一层改走不含遮挡的 `MonsterRules.PerceivedBySenses`（行为层与事实层分层，
+        /// 见 `EncounterStep.SettleStealth` 的注释）。
+        /// </para>
+        /// <para>
+        /// **这条用例钉的就是那个相减**：光断言 `Detects == false`（上面那条）证明不了 `cover` 还活着。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void Step_WithOccluderAndInSightCone_WritesCoverFact()
+        {
+            Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
+            Assert.That(rig.MonsterRules.PerceivedBySenses(rig.PlayerModel.Snapshot), Is.GreaterThan(0),
+                "前置：这把尺子（不含遮挡）在 3 米橙区里够得着——它就是「视线本来够得着」那一半");
+
+            rig.Step.Sight.SetOccluders(BlockBetween);
+            rig.Step.BindOcclusion(rig.Step.Sight);
+            Tick(rig, 0f);
+
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Cover), Is.True, "视线够得着却被切断 = 掩体遮挡下");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.True, "同一 tick 里就是未被察觉");
+            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.False, "行为层也看不见（怪不追）");
+        }
+
+        /// <summary>
+        /// 负对照：同一位置**没有掩体**时 `stealth.cover` 必须为假——证明它不是恒真。
+        /// 与上一条配对，缺一条就分不清「修好了」与「`cover` 被写成了常量 true」。
+        /// </summary>
+        [Test]
+        public void Step_WithoutOccluderInSightCone_DoesNotWriteCoverFact()
+        {
+            Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
+
+            rig.Step.Sight.SetOccluders(null);
+            rig.Step.BindOcclusion(rig.Step.Sight);
+            Tick(rig, 0f);
+
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Cover), Is.False, "没有遮挡就不是掩体遮挡下");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.False, "而且确实被看见了");
+        }
+
+        /// <summary>
+        /// 贴身那一档确实没被遮挡改掉（走的是 `EncounterStep` 那条完整链，不只是 `MonsterRules` 直接调）：
+        /// **不潜行**、背后 1 米、掩体**真的横在两人连线上** → 照样被发现，怪进警戒并转身。
+        /// 出处 `docs/design/spotlight/06_怪物状态与交互设计文档.md:71-73`（不分朝向的近距察觉区、要潜行才免）。
+        /// <para>
+        /// 用的是 <see cref="BlockBehind"/> 而不是 <see cref="BlockBetween"/>：后者横在 (3,0)–(0,0) 上，
+        /// 与「怪 (0,0) → 玩家 (-1,0)」这条线**没有交点**，拿它来测「遮挡不影响贴身」等于在测「没有遮挡」。
+        /// 所以下面先断言这块掩体确实切断了连线。
+        /// </para>
+        /// <para>
+        /// 这条**故意不断言 `stealth.cover`**：贴身察觉与视锥是两档，1 米处的玩家没进正面锥，
+        /// 「视线够得着」那一半不成立，所以几何上就不算「处于掩体遮挡下」。
+        /// `stealth.cover` 的语义与正例由上面那对 `Step_WithOccluderAndInSightCone_*` 用例钉住。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void Step_NearSenseThroughOccluder_WithoutSneak_StillAlerts()
+        {
+            Rig rig = NewRig(new Vector2(-1f, 0f), Vector2.zero, new Vector2(5f, 0f));
+            rig.Step.Sight.SetOccluders(BlockBehind);
+            rig.Step.BindOcclusion(rig.Step.Sight);
+            Assert.That(rig.MonsterRules.PerceivedBySenses(rig.PlayerModel.Snapshot), Is.EqualTo(1),
+                "前置：只有贴身那一档够得着（背后 1 米、正面锥外）");
+            Assert.That(rig.Step.Sight.IsBlocked(rig.MonsterModel.Position, rig.PlayerModel.Position), Is.True,
+                "前置：掩体确实切断了怪 → 玩家这条线");
+
+            Tick(rig, 0.1f);
+
+            Assert.That(rig.MonsterModel.Mode, Is.EqualTo(MonsterMode.Alert), "贴身察觉穿透掩体");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.False, "被发现了就不是 hidden");
+        }
+
+        // ──────────────────────────── 事实层与行为层必须同向 ────────────────────────────
+
+        /// <summary>
+        /// **事实层与行为层同向（贴身侧）**——2026-10-08 主窗口复跑抓到的**真产品缺陷**，方向与缺陷①相反。
+        /// <para>
+        /// 现场：玩家在怪背后 1 米、不潜行、掩体真的横在连线上。行为层（`MonsterRules.Sense`）按设计
+        /// **穿过掩体**发现他（贴身那一档不吃遮挡，`06:71-73`「要潜行才免」），于是 `stealth.hidden` 不许为真。
+        /// </para>
+        /// <para>
+        /// 修前的形状：`SettleStealth` 拿**整支**感知（含贴身那一档）去喂
+        /// <c>StealthDecisionGate.PerceivesThroughCover</c>，那个门用「对视线的遮挡」把它掐掉了 →
+        /// 怪已经进警戒、`stealth.hidden` 却是真。修法：事实层直接抄行为层的答案
+        /// （<c>MonsterRules.Detects</c>），两层从结构上不可能再分叉。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void Step_WhenNearSensePiercesOccluder_FactLayerAgreesWithBehaviour()
+        {
+            Rig rig = NewRig(new Vector2(-1f, 0f), Vector2.zero, new Vector2(5f, 0f));
+            rig.Step.Sight.SetOccluders(BlockBehind);
+            rig.Step.BindOcclusion(rig.Step.Sight);
+
+            Tick(rig, 0.1f);
+
+            bool aware = IsAware(rig);
+            Assert.That(aware, Is.True, "前置：贴身察觉穿透掩体，怪进了警戒");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.EqualTo(!aware),
+                "事实层与行为层同向：它已经发现你了，stealth.hidden 就不许为真");
+        }
+
+        /// <summary>
+        /// **事实层与行为层同向（视锥侧）**：与上一条配对，覆盖相反的方向。
+        /// 玩家在正面锥内 3 米、掩体切断视线 → 行为层看不见（警戒不涨），那么 `stealth.hidden` 必须为真。
+        /// 两条合起来才说明「同向」不是碰巧——只留一条时，把 `hidden` 写死成常量也能过。
+        /// </summary>
+        [Test]
+        public void Step_WhenConeBlockedByOccluder_FactLayerAgreesWithBehaviour()
+        {
+            Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
+            rig.Step.Sight.SetOccluders(BlockBetween);
+            rig.Step.BindOcclusion(rig.Step.Sight);
+
+            Tick(rig, 0f);
+
+            bool aware = IsAware(rig);
+            Assert.That(aware, Is.False, "前置：视线被切断，怪没察觉");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.EqualTo(!aware),
+                "事实层与行为层同向：它确实没看见你，stealth.hidden 就该为真");
+        }
+
+        /// <summary>行为层的「察觉」口径：不在巡逻两态就是被惊动了（同 `EncounterStep.SettleStealth` 里的 <c>aware</c>）。</summary>
+        private static bool IsAware(Rig rig) =>
+            rig.MonsterModel.Mode != MonsterMode.PatrolWalk && rig.MonsterModel.Mode != MonsterMode.PatrolPause;
 
         /// <summary>
         /// 绕背（`stealth.behind`）：**潜行**贴到怪物背后且在暗杀距离内。

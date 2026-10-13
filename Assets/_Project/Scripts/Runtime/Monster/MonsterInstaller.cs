@@ -7,6 +7,15 @@
 //   **种类不在本类里查**：本类的 Install 与下面的 RegisterBuildCallback 都跑在容器构建期
 //   （回调在容器建好之后、IGameService 初始化之前），那时配置表还没加载，查只会永远拿到「表没就绪」。
 //   所以只把目录与种类 id 交给 MonsterRules，由它在 Reset（遭遇场景就绪）时查一次。
+// 构建回调里的最后一段（2026-10-08 掩体贯通 / 击杀掉落）：`UseStealth(stealth)` 现在会把潜行内核那只
+//   `StealthSight` 一并交给每一只巡逻怪（`EncounterStep.ApplyMonsterOcclusion`），怪物视锥从此吃遮挡；
+//   另外用 `TryResolve<IMonsterDropSink>()` 把击杀掉落口接进遭遇结算。
+// 2026-10-09（roadmap C5 剩下的那一半）：新建 `EncounterBattleBridge` 并**紧跟 `EncounterStep` 之后**
+//   加入同一张 tick 步骤表——它把空 payload 的 Battle 阶段（活遭遇档）标成一仗，胜负出了就在同一 tick 里
+//   取走结果、在渲染帧回写剧情。顺序不能改（镜碎会在**同一帧更晚的渲染回调**里 `End()`，下一场遭遇的 `Begin()`
+//   会把结果抹掉——理由与时序见那个类的文件头），
+//   剧情侧仍走**消费方自己拉**：`TryResolve<NarrativeService>()` + `TryResolve<ISubscriber<BattleStageEnteredEvent>>()`，
+//   两个都拿不到就不 Bind——桥每帧只走一次布尔早退，行为与接线前逐字一致。
 using Game.Core.Boot;
 using Game.Core.Config;
 using Game.Core.Logging;
@@ -18,8 +27,10 @@ using Game.Mirror;
 using Game.Narrative;
 using Game.Player;
 using Game.Stealth;
+using MessagePipe;
 using UnityEngine;
 using VContainer;
+using VContainer.Unity;
 
 namespace Game.Monster
 {
@@ -60,13 +71,24 @@ namespace Game.Monster
                     kindId: kindId,
                     describeKind: () => "MonsterInstaller(GameBootstrap)"), Lifetime.Singleton);
             builder.Register<EncounterStep>(Lifetime.Singleton);
+            // 实时遭遇 → 剧情的结果桥（roadmap C5 剩下的那一半）。注册成入口点（ITickable）才能每渲染帧拿到回写时机；
+            // 步骤表里的位置在下面的构建回调里定（必须紧跟 EncounterStep）。
+            builder.RegisterEntryPoint(resolver => new EncounterBattleBridge(resolver.Resolve<EncounterStep>()), Lifetime.Singleton)
+                .AsSelf();
             builder.Register<MonsterEncounterState>(Lifetime.Singleton);
             // 标题「开始」不在本模块路由：已由存档会话（Game.Session 的 SessionTitleRouter）接管，PRP/save-session D5。
 
             builder.RegisterBuildCallback(resolver =>
             {
                 EncounterStep step = resolver.Resolve<EncounterStep>();
-                resolver.Resolve<SimulationRunner>().AddStep(step);
+                SimulationRunner runner = resolver.Resolve<SimulationRunner>();
+                runner.AddStep(step);
+
+                // 桥必须**紧跟在 EncounterStep 之后**（顺序 = tick 顺序）：玩家生命归零那一刻，
+                // 镜碎会在同一帧更晚的渲染回调里调 step.End()，把 PendingResult / BattleSettlement 一起抹掉——
+                // 只有落在同一个 tick 里的取走步骤能抢在它前面。理由与全过程见 EncounterBattleBridge 文件头。
+                EncounterBattleBridge bridge = resolver.Resolve<EncounterBattleBridge>();
+                runner.AddStep(bridge);
 
                 // 接线顺序就是快照字节布局，改变时必须升级 ReplayFormat 版本。
                 IReplayStateProvider replay = resolver.Resolve<IReplayStateProvider>();
@@ -98,6 +120,29 @@ namespace Game.Monster
                 if (resolver.TryResolve(out NarrativeConditionSource conditions))
                 {
                     conditions.BindEncounterFacts(step.Facts);
+                }
+
+                // 击杀掉落口（IMonsterDropSink，实现在 Game.Loot）：不接时什么都不掉，与接线前逐字一致——
+                // 独立原型场景与纯 Monster 测试作用域没有 Loot，那里不该凭空多出一条掉落。
+                // 同上是**消费方自己拉**：Monster 声明接口、Loot 反向实现，Monster 不认识 LootService。
+                if (resolver.TryResolve(out IMonsterDropSink dropSink))
+                {
+                    step.BindDropSink(dropSink);
+                }
+
+                // —— 实时遭遇的结果回写（C5 剩下的那一半）：把桥接上剧情侧。
+                // 同样是**消费方自己拉**：Monster 认识 Narrative（同上面 NarrativeConditionSource 那一行），
+                // Narrative 不反过来认识 Monster。两样缺任一件（没装 NarrativeInstaller 的测试作用域 / 独立原型场景）
+                // 就不 Bind：桥不登记、不结算、不回写，行为与接线前逐字一致。
+                if (resolver.TryResolve(out ITelemetryService telemetryService))
+                {
+                    bridge.UseTelemetry(telemetryService.Scope("monster"));
+                }
+
+                if (resolver.TryResolve(out NarrativeService narrative)
+                    && resolver.TryResolve(out ISubscriber<BattleStageEnteredEvent> battleStages))
+                {
+                    bridge.Bind(narrative, battleStages);
                 }
             });
         }

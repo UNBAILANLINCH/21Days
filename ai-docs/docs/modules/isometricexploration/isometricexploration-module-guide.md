@@ -69,9 +69,10 @@ Encounter
 └─ PatrolPoint1
 ```
 
-`Crates`（场景根节点，与 `Encounter` 平级）下 `Crate_A` / `Crate_B` / `Crate_C` 三只物资箱（归 Loot 模块，
+`Crates`（场景根节点，与 `Encounter` 平级）下 `Crate_A` / `Crate_B` / `Crate_C` / `Crate_D` / `Crate_E` 五只物资箱（归 Loot 模块，
 见 `ai-docs/docs/modules/loot/loot-module-guide.md`）；每只箱子根物体额外挂 `ExplorationPointOfInterest`
-（`kind = Crate`）供本模块的万向标指引：
+（`kind = Crate`）供本模块的万向标指引（`Crate_D` / `Crate_E` 是 2026-10-09 为合成示例加的两只原料箱，
+由 `Crate_C` 复制而来，所以同样带 `ExplorationPointOfInterest`）：
 
 ```text
 Crates
@@ -79,7 +80,9 @@ Crates
 │  ├─ Closed / Opened（两套外观）
 │  └─ Marker（头顶标记：SpriteRenderer + CameraBillboard）
 ├─ Crate_B（同构）
-└─ Crate_C（同构）
+├─ Crate_C（同构）
+├─ Crate_D（同构；奖励 1401 水痕 ×1，合成示例的原料）
+└─ Crate_E（同构；奖励 1102 湿皮 ×1，合成示例的原料）
 ```
 
 场景里 3 个 NPC 与 2 个 `QuestLocation` 同样挂了 `ExplorationPointOfInterest`（`kind = Npc` / `Location`），

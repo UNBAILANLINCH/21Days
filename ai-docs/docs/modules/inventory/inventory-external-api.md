@@ -36,7 +36,7 @@ HUD 按钮或别的入口要开背包，一行 `controller.OpenAsync().Forget()`
 `InventoryEntry`：`readonly struct`，`Id` / `Name`（查不到为「#id」）/ `Count` / `Quality` / `Category` / `Desc`（可空串）。
 `InventoryFilter`：`All = 0`、`Items = 1`（材料 + 消耗品 + 关键物 + 皮 + 面具 + 钥匙）、`Clues = 2`（线索 + 文书）。
 
-## 道具使用与合成（纯规则，S5 波次 1；还没有调用方）
+## 道具使用与合成（S5 波次 1 立规则，2026-10-07 补上调用方）
 
 | 类型 | 签名 | 说明 |
 | --- | --- | --- |
@@ -46,14 +46,24 @@ HUD 按钮或别的入口要开背包，一行 `controller.OpenAsync().Forget()`
 | `ItemCraftRules.TryCraft` | `ItemCraftResult TryCraft(IReadOnlyDictionary<int,int> items, ItemRecipe recipe)` | 判定一条配方：`Ok` / `NoRecipe` / `EmptyIngredients` / `InvalidRecipe` / `MissingIngredient`（缺哪件看 `MissingItemId`） |
 | `ItemCraftRules.TryCraft` | `ItemCraftResult TryCraft(IReadOnlyDictionary<int,int> items, IReadOnlyList<ItemRecipe> recipes, int productId)` | 按产物 id 找第一条命中的配方再判 |
 | `ItemUseRules.TryUse` | `ItemUseResult TryUse(IReadOnlyDictionary<int,int> items, int itemId, IReadOnlyList<ItemUseSpec> specs)` | 判定能不能用：`Ok` / `UnknownItem` / `InvalidSpec` / `NotEnough`；`Ok` 时 `EffectId` 是效果标识 |
+| `ItemUseService.TryUse` | `ItemUseOutcome TryUse(int itemId, IItemEffectTarget target)` | **完整的使用通路**（判定 → 找执行者 → 执行 → 扣件数）。`NoExecutor` / `EffectRejected` 是新增的两个失败码；`ConsumedCount` 是实际扣掉的件数 |
+| `ItemCraftService.TryCraft` | `ItemCraftResult TryCraft(int productId)` | **完整的合成通路**（找配方 → 判定原料 → 可选扣料 → 产物入包）。新增失败码 `AlreadyOwned` |
+| `ItemCraftService.FindRecipeUsingIngredient` | `ItemRecipe FindRecipeUsingIngredient(int itemId)` | 找一条**把这件东西当原料**的配方（取第一条命中；找不到返回 null）。**给「选中原料 → 合成产物」那条路用**：面板列表只列已持有的东西，而 `TryCraft` 拒绝重复持有，不给这条路就选不中也合不了。同一原料出现在多条配方时只取第一条，属占位口径（`05:107 R8` 待拍板） |
+| `ItemEffectRegistry` | `void Register(IItemEffect)` / `ItemEffectOutcome Execute(string effectId, ItemEffectContext)` | 效果执行口：按 `effectId` 分发；查不到回 `ItemEffectStatus.NoExecutor` + 中文原因 |
+| `IItemEffect` | `string EffectId { get; }` / `ItemEffectOutcome Apply(ItemEffectContext)` | 一个效果的执行者；**皮 / 面具类归 S1「换皮与附身」**，本波次只有占位治疗 `HealPlayerEffect` |
+| `IItemEffectTarget` | `int CurrentHealth { get; }` / `int TryHeal(int amount)` | 效果目标口（玩家生命）。契约声明在本模块，实现方是 `PlayerItemEffectTarget`（也在本模块，持 `PlayerRules` 转发）；**Player 侧不认识 Inventory** |
+| `PlayerItemEffectTarget` | `PlayerItemEffectTarget(PlayerRules rules)` | 上面那个口的具体实现；底层 `PlayerRules.Heal(int)`（2026-10-07 新增，封顶 `PlayerConfig.MaxHealth`）。由 `InventoryInstaller` 构造 |
+| `InventoryConfig` | SO，`CreateUseSpecs()` / `CreateRecipes()` / `ConsumeIngredients` | 占位使用表与配方表（`Data/Inventory/InventoryConfig.asset`）；**没填任何行时回占位默认**，不返回空表；不建 Luban 表 |
 
-两个规则都**只判定、不写背包、不执行效果**：命中后扣料 / 加产物 / 落盘由调用方走 Loot 的公开方法或将来的背包服务；
-`EffectId` 的执行者是 S1 换皮与附身后续波次（详见 `ItemUseRules.cs` / `ItemCraftRules.cs` 文件头）。
-配方与使用表本波次由调用方传列表，没有 Luban 表。
+两个纯规则都**只判定、不写背包、不执行效果**；落盘与扣减由 `ItemUseService` / `ItemCraftService` 走 Loot 的公开口
+（`TryConsume` / `GrantItems`）。**别的模块要用道具 / 合成，注入这两个服务，不要自己拼这几步**。
+配方与使用表现在是 SO 占位配置，没有 Luban 表（理由见 `InventoryConfig` 文件头）。
 
 ## 事件
 
-本模块不发布 MessagePipe 事件；面板开关埋点 `inventory_opened` / `inventory_closed`（模块名 `inventory`）。
+本模块**不发布** MessagePipe 事件；面板开关埋点 `inventory_opened` / `inventory_closed`（模块名 `inventory`），
+使用 / 合成埋点 `item_used` / `item_crafted` 与失败埋点 `use_rejected` / `craft_rejected`（W 级）。
+本模块**订阅** Loot 的 `CrateCollectedEvent` / `LootResetEvent` / `BackpackChangedEvent`（面板开着时刷新）。
 
 ## 调用时机与前置条件
 
@@ -64,3 +74,6 @@ HUD 按钮或别的入口要开背包，一行 `controller.OpenAsync().Forget()`
 
 - 不要绕过 Controller 直接开 `InventoryPanelView`。
 - 不要往 `InventoryPanelView` 注入服务；要加显示内容，加 View 的 `SetXxx` 方法由 Controller 调。
+- **不要自己拼「判定 + 扣件数 + 执行效果」这几步**：注入 `ItemUseService` / `ItemCraftService`，它们只走 Loot 的公开口写背包。
+- **不要在效果没有执行者时静默失败**：读 `ItemUseOutcome.Status`，`NoExecutor` 要显示成给玩家看的中文短句。
+- **不要在本模块复制一份玩家生命 / 效果实现**：需要的效果写一个 `IItemEffect` 并注册进 `ItemEffectRegistry`。

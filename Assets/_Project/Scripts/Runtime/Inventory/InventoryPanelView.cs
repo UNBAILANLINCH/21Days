@@ -19,6 +19,12 @@ namespace Game.Inventory
     /// 接线提示：<c>itemTemplate</c> 根上挂 Button，子物体须有 <c>Highlight</c>、<c>Icon</c>(Image)、<c>Name</c>(TMP)、
     /// <c>Count</c>(TMP)、<c>Tag</c>(TMP)；三个筛选按钮各有子物体 <c>Highlight</c>（当前档位显示）。模板运行时隐藏，行按需复制并复用。
     /// </para>
+    /// <para>
+    /// 动作按钮：<c>Detail</c> 下挂 <c>UseButton</c>(Button) / <c>CraftButton</c>(Button) 与 <c>RecipeLabel</c>(TMP)。
+    /// **这三个是可选字段**：没接时面板照常打开，只在控制台记一条 Warn（见 <see cref="ValidateActionButtons"/>）。
+    /// 键鼠 UI 导航不用额外接线：按钮是标准 <c>Button</c>，EventSystem 的上下左右选中与 Enter 提交天然可用
+    /// （所以本波次**没有**新增输入动作）。
+    /// </para>
     /// </summary>
     public sealed class InventoryPanelView : UIView
     {
@@ -49,6 +55,15 @@ namespace Game.Inventory
         [Tooltip("右上「< 返回」。")]
         [SerializeField] private Button closeButton;
 
+        [Tooltip("详情区「使用」按钮（子物体 Label）。**预制体字段**：缺了只在打开时记一条 Warn，面板照常可用。")]
+        [SerializeField] private Button useButton;
+
+        [Tooltip("详情区「合成」按钮（子物体 Label）。**预制体字段**：缺了只在打开时记一条 Warn，面板照常可用。")]
+        [SerializeField] private Button craftButton;
+
+        [Tooltip("详情区合成说明（原料清单 / 拒绝原因）。**预制体字段**：缺了只是不显示这行字。")]
+        [SerializeField] private TMP_Text recipeLabel;
+
         [Header("品质色（白盒占位图标的颜色）")]
         [SerializeField] private Color commonColor = new Color(0.85f, 0.85f, 0.85f, 1f);
         [SerializeField] private Color rareColor = new Color(0.30f, 0.55f, 0.95f, 1f);
@@ -70,18 +85,25 @@ namespace Game.Inventory
         public event Action<int> OnEntrySelected;
         /// <summary>返回按钮被点。</summary>
         public event Action OnClose;
+        /// <summary>「使用」按钮被点（用当前选中的那件道具）。</summary>
+        public event Action OnUseRequested;
+        /// <summary>「合成」按钮被点（合当前选中的那件产物）。</summary>
+        public event Action OnCraftRequested;
         /// <summary>面板已被关闭（不论谁关的），在 <see cref="OnCloseAsync"/> 里触发一次。</summary>
         public event Action OnClosed;
 
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
             Validate();
+            ValidateActionButtons();
             itemTemplate.SetActive(false);
             RemoveListeners();
             filterAllButton.onClick.AddListener(RaiseFilterAll);
             filterItemsButton.onClick.AddListener(RaiseFilterItems);
             filterCluesButton.onClick.AddListener(RaiseFilterClues);
             closeButton.onClick.AddListener(RaiseClose);
+            if (useButton != null) useButton.onClick.AddListener(RaiseUse);
+            if (craftButton != null) craftButton.onClick.AddListener(RaiseCraft);
             return UniTask.CompletedTask;
         }
 
@@ -95,6 +117,8 @@ namespace Game.Inventory
             OnFilterChanged = null;
             OnEntrySelected = null;
             OnClose = null;
+            OnUseRequested = null;
+            OnCraftRequested = null;
             for (int i = 0; i < items.Count; i++) SetActive(items[i].Root, false);
             return UniTask.CompletedTask;
         }
@@ -144,6 +168,33 @@ namespace Game.Inventory
             detailName.text = entry.Name;
             detailCategory.text = InventoryRules.CategoryLabel(entry.Category);
             detailDescription.text = entry.Desc;
+        }
+
+        /// <summary>
+        /// 刷新两个动作按钮与合成说明。<paramref name="useHint"/> / <paramref name="craftHint"/> 是要显示给玩家的
+        /// 中文短句（空串 = 隐藏那一行的说明）；按钮的**可点性只由这两个 bool 决定**——禁用不是错误。
+        /// <para>
+        /// 预制体没接这两个按钮时（<see cref="ValidateActionButtons"/> 已经 Warn 过一次）这里静默跳过：
+        /// 面板其余部分照常可用，不为了兼容再写一套 UI。
+        /// </para>
+        /// </summary>
+        public void SetActions(bool canUse, bool canCraft, string useHint, string craftHint)
+        {
+            if (useButton != null) useButton.interactable = canUse;
+            if (craftButton != null) craftButton.interactable = canCraft;
+            if (recipeLabel == null) return;
+
+            string use = useHint ?? string.Empty;
+            string craft = craftHint ?? string.Empty;
+            if (use.Length == 0 && craft.Length == 0)
+            {
+                recipeLabel.text = string.Empty;
+                SetActive(recipeLabel.gameObject, false);
+                return;
+            }
+
+            recipeLabel.text = use.Length == 0 ? craft : (craft.Length == 0 ? use : use + "\n" + craft);
+            SetActive(recipeLabel.gameObject, true);
         }
 
         private Color QualityColor(global::cfg.EItemQuality quality)
@@ -207,6 +258,27 @@ namespace Game.Inventory
                 throw new InvalidOperationException("InventoryPanelView 引用未接线：" + string.Join("、", missing));
         }
 
+        /// <summary>
+        /// 两个动作按钮与合成说明是**新增字段**（预制体外由主窗口用 MCP 落）：它们没接时**不抛**，
+        /// 只记一条 Warn 点名缺了哪个字段。理由：抛的话整块背包面板打不开（连筛选与详情都用不了），
+        /// 而缺两个按钮只是少两个动作——降级要按影响面分级。
+        /// </summary>
+        private void ValidateActionButtons()
+        {
+            var missing = new List<string>();
+            if (useButton == null) missing.Add(nameof(useButton));
+            if (craftButton == null) missing.Add(nameof(craftButton));
+            if (recipeLabel == null) missing.Add(nameof(recipeLabel));
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            Debug.LogWarning("InventoryPanelView 的动作按钮未接线：" + string.Join("、", missing)
+                             + "。背包面板照常打开，但「使用」「合成」不可点。"
+                             + "把 Prefabs/UI/InventoryPanelView.prefab 里 Detail 下的按钮拖到这些字段上。", this);
+        }
+
         private static void CheckFilterButton(Button button, string fieldName, List<string> missing)
         {
             if (button == null) missing.Add(fieldName);
@@ -236,12 +308,16 @@ namespace Game.Inventory
             if (filterItemsButton != null) filterItemsButton.onClick.RemoveListener(RaiseFilterItems);
             if (filterCluesButton != null) filterCluesButton.onClick.RemoveListener(RaiseFilterClues);
             if (closeButton != null) closeButton.onClick.RemoveListener(RaiseClose);
+            if (useButton != null) useButton.onClick.RemoveListener(RaiseUse);
+            if (craftButton != null) craftButton.onClick.RemoveListener(RaiseCraft);
         }
 
         private void RaiseFilterAll() => OnFilterChanged?.Invoke(InventoryFilter.All);
         private void RaiseFilterItems() => OnFilterChanged?.Invoke(InventoryFilter.Items);
         private void RaiseFilterClues() => OnFilterChanged?.Invoke(InventoryFilter.Clues);
         private void RaiseClose() => OnClose?.Invoke();
+        private void RaiseUse() => OnUseRequested?.Invoke();
+        private void RaiseCraft() => OnCraftRequested?.Invoke();
 
         private sealed class ItemEntry
         {

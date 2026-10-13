@@ -259,7 +259,8 @@ namespace Game.Tests.EditMode.Mirror
                     new Bus<QuestObjectiveProgressedEvent>(), new Bus<QuestCompletedEvent>(), new Bus<QuestTrackingChangedEvent>(),
                     new Bus<SessionStartedEvent>(), null);
                 loot = new LootService(Create<LootConfig>(), saves, tables, quest, new NoNotifications(),
-                    new Bus<CrateCollectedEvent>(), new Bus<MonsterDroppedEvent>(), new Bus<LootResetEvent>(), null);
+                    new LootEventPublishers(new Bus<CrateCollectedEvent>(), new Bus<MonsterDroppedEvent>(),
+                        new Bus<LootResetEvent>(), new Bus<BackpackChangedEvent>()), null);
                 MirrorConfig config = Create<MirrorConfig>();
                 service = new MirrorService(config, saves, tables, loot, new PlayerModel(), Create<PlayerConfig>(),
                     new MirrorSceneBinder(new MonsterModel(), null), new Bus<MirrorCastEvent>(), _ => { }, null);

@@ -115,5 +115,48 @@ namespace Game.Tests.EditMode.Loot
             Assert.That(LootRules.Consume(null, 1004, 1), Is.False);
             Assert.That(data.Items[1004], Is.EqualTo(1));
         }
+
+        // 入包规则（Grant，2026-10-07 合成产物入包）：与 Collect 的区别是「不认箱子键、不做幂等」。
+        [Test]
+        public void Grant_AddsCountWithoutTouchingCrateKeys()
+        {
+            LootRules.Collect(data, "crate_a", 1004, 1);
+
+            Assert.That(LootRules.Grant(data, 1701, 2), Is.True);
+
+            Assert.That(data.Items[1701], Is.EqualTo(2));
+            Assert.That(data.Items[1004], Is.EqualTo(1), "别的物品不动");
+            Assert.That(data.CollectedCrates, Is.EqualTo(new[] { "crate_a" }), "入包不写箱子键");
+        }
+
+        [Test]
+        public void Grant_WhenItemIdWasNeverOwned_StartsFromZero()
+        {
+            Assert.That(LootRules.Grant(data, 1701, 1), Is.True);
+
+            Assert.That(data.Items[1701], Is.EqualTo(1), "不拥有过的 id 也按 0 起算");
+        }
+
+        [Test]
+        public void Grant_SameItemTwice_Accumulates()
+        {
+            LootRules.Grant(data, 1701, 1);
+            LootRules.Grant(data, 1701, 3);
+
+            Assert.That(data.Items[1701], Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Grant_NonPositiveArguments_ReturnsFalseAndDoesNotCreateTheKey()
+        {
+            // 负对照：非法参数不建出 key（防止「静默加了个 0 件或负数件」）。
+            Assert.That(LootRules.Grant(data, 1701, 0), Is.False);
+            Assert.That(LootRules.Grant(data, 1701, -2), Is.False);
+            Assert.That(LootRules.Grant(data, 0, 1), Is.False);
+            Assert.That(LootRules.Grant(data, -1, 1), Is.False);
+            Assert.That(LootRules.Grant(null, 1701, 1), Is.False);
+
+            Assert.That(data.Items.ContainsKey(1701), Is.False);
+        }
     }
 }

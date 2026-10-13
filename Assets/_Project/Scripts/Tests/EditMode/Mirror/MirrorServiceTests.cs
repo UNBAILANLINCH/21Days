@@ -62,8 +62,9 @@ namespace Game.Tests.EditMode.Mirror
             LootConfig lootConfig = ScriptableObject.CreateInstance<LootConfig>();
             created.Add(lootConfig);
             loot = new LootService(lootConfig, saves, configService, quest, new NoopNotificationService(),
-                new FakePublisher<CrateCollectedEvent>(), new FakePublisher<MonsterDroppedEvent>(),
-                new FakePublisher<LootResetEvent>(), NullTelemetryScope.Instance);
+                new LootEventPublishers(new FakePublisher<CrateCollectedEvent>(), new FakePublisher<MonsterDroppedEvent>(),
+                    new FakePublisher<LootResetEvent>(), new FakePublisher<BackpackChangedEvent>()),
+                NullTelemetryScope.Instance);
 
             PlayerConfig playerConfig = ScriptableObject.CreateInstance<PlayerConfig>();
             created.Add(playerConfig);

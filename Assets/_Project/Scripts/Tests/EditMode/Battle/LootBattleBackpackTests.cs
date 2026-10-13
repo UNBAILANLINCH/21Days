@@ -43,8 +43,9 @@ namespace Game.Tests.EditMode.Battle
                 new BattleFakes.Bus<SessionStartedEvent>(), NullTelemetryScope.Instance);
             quest.InitializeAsync(CancellationToken.None).GetAwaiter().GetResult();
             config = ScriptableObject.CreateInstance<LootConfig>();
-            loot = new LootService(config, saves, configService, quest, new Notifications(), new Publisher<CrateCollectedEvent>(),
-                new Publisher<MonsterDroppedEvent>(), new Publisher<LootResetEvent>(), NullTelemetryScope.Instance);
+            loot = new LootService(config, saves, configService, quest, new Notifications(),
+                new LootEventPublishers(new Publisher<CrateCollectedEvent>(), new Publisher<MonsterDroppedEvent>(),
+                    new Publisher<LootResetEvent>(), new Publisher<BackpackChangedEvent>()), NullTelemetryScope.Instance);
             loot.InitializeAsync(CancellationToken.None).GetAwaiter().GetResult();
             backpack = new LootBattleBackpack(loot, configService);
         }

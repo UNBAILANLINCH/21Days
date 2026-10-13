@@ -17,5 +17,15 @@ namespace Game.Inventory
 
         /// <summary>背包里这件道具的件数不够用一次（实际有几件见 <see cref="ItemUseResult.OwnedCount"/>）。</summary>
         NotEnough = 3,
+
+        /// <summary>
+        /// 效果标识没有执行者：<see cref="ItemUseResult.EffectId"/> 在注册表里查不到（本波次只接了占位治疗，
+        /// 皮 / 面具类效果归 S1「换皮与附身」，见 ItemUseRules.cs 文件头）。
+        /// <b>明确失败，不静默</b>——调用方要把它翻成给玩家看的中文短句。
+        /// </summary>
+        NoExecutor = 4,
+
+        /// <summary>执行者拒绝了这个效果（例如玩家满血、目标不存在）。背包与件数都不动。</summary>
+        EffectRejected = 5,
     }
 }

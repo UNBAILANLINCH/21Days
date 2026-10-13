@@ -33,6 +33,7 @@ namespace Game.Tests.EditMode.Loot
         private FakePublisher<CrateCollectedEvent> collected;
         private FakePublisher<MonsterDroppedEvent> monsterDropped;
         private FakePublisher<LootResetEvent> reset;
+        private FakePublisher<BackpackChangedEvent> backpackChanged;
         private LootConfig config;
         private LootService service;
         private readonly List<Object> created = new List<Object>();
@@ -61,8 +62,9 @@ namespace Game.Tests.EditMode.Loot
             collected = new FakePublisher<CrateCollectedEvent>();
             monsterDropped = new FakePublisher<MonsterDroppedEvent>();
             reset = new FakePublisher<LootResetEvent>();
-            service = new LootService(config, saves, configService, quest, notifications, collected, monsterDropped,
-                reset, NullTelemetryScope.Instance);
+            backpackChanged = new FakePublisher<BackpackChangedEvent>();
+            service = new LootService(config, saves, configService, quest, notifications,
+                new LootEventPublishers(collected, monsterDropped, reset, backpackChanged), NullTelemetryScope.Instance);
             service.InitializeAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
 
@@ -231,6 +233,78 @@ namespace Game.Tests.EditMode.Loot
             // 负对照：没有这件就不扣、不建出负数项。
             Assert.That(service.TryConsume(1004), Is.False);
             Assert.That(service.Items.ContainsKey(1004), Is.False);
+        }
+
+        // 入包口（GrantItems）：合成产物这类「非开箱、非掉落」的写入走这条。
+        [Test]
+        public void GrantItems_AddsToTheBackpackPublishesAndDoesNotTouchCrateKeysOrQuest()
+        {
+            Assert.That(service.TryCollect(CreateCrate("crate_a", tables.TbItem.Get(1001).Id, 1)), Is.True);
+            int noticesBefore = notifications.Received.Count;
+
+            Assert.That(service.GrantItems(1701, 2), Is.True);
+
+            Assert.That(service.Items[1701], Is.EqualTo(2));
+            Assert.That(saves.Get<LootSaveData>().Items[1701], Is.EqualTo(2), "写的是存档分区");
+            Assert.That(saves.Get<LootSaveData>().CollectedCrates, Is.EqualTo(new[] { "crate_a" }), "入包不动箱子键");
+            Assert.That(backpackChanged.Received.Count, Is.EqualTo(1));
+            Assert.That(backpackChanged.Received[0].ItemId, Is.EqualTo(1701));
+            Assert.That(backpackChanged.Received[0].Count, Is.EqualTo(2));
+            Assert.That(notifications.Received.Count, Is.EqualTo(noticesBefore), "入包不自己弹通知：文案由发起方拼");
+            Assert.That(quest.TryGet(CrateQuest, out QuestProgress progress), Is.True, "物资箱任务应当还在");
+            Assert.That(progress.Count, Is.EqualTo(1), "入包不推物资箱计数");
+        }
+
+        // 负对照：非法参数一件都不加、也不发事件（防止「静默加了个 0 件或负数件」）。
+        [Test]
+        public void GrantItems_WithNonPositiveArguments_IsRejectedWithoutEvent()
+        {
+            Assert.That(service.GrantItems(1004, 0), Is.False);
+            Assert.That(service.GrantItems(1004, -3), Is.False);
+            Assert.That(service.GrantItems(0, 1), Is.False);
+
+            Assert.That(service.Items.ContainsKey(1004), Is.False, "被拒时不建出这个 key");
+            Assert.That(backpackChanged.Received, Is.Empty);
+        }
+
+        // 击杀掉落口的实现侧：Game.Monster 声明接口、Game.Loot 实现（同 Stealth 的 IStealthFactSink 接法）。
+        [Test]
+        public void LootMonsterDropSink_ForwardsToSettleMonsterDrop()
+        {
+            // 按接口类型持有：钉住「实现类真的能当 IMonsterDropSink 用」，而不是只测自己的方法名。
+            Game.Monster.IMonsterDropSink sink = new LootMonsterDropSink(service);
+            int[] drops = { tables.TbItem.Get(1401).Id };
+
+            sink.SettleKillDrop(2, drops);
+
+            Assert.That(service.Items[drops[0]], Is.EqualTo(1), "转发到 LootService.SettleMonsterDrop 并写了背包");
+            Assert.That(monsterDropped.Received.Count, Is.EqualTo(1));
+        }
+
+        // 空操作安全（IMonsterDropSink.cs:27-30 的硬要求）：三种退化都不得抛。
+        [Test]
+        public void LootMonsterDropSink_WithBadArguments_DoesNotThrow()
+        {
+            var sink = new LootMonsterDropSink(service);
+
+            Assert.DoesNotThrow(() => sink.SettleKillDrop(0, new[] { 1001 }));
+            Assert.DoesNotThrow(() => sink.SettleKillDrop(2, new int[0]));
+            Assert.DoesNotThrow(() => sink.SettleKillDrop(2, null));
+            Assert.DoesNotThrow(() => sink.SettleKillDrop(-1, null));
+
+            Assert.That(service.Items, Is.Empty);
+            Assert.That(monsterDropped.Received, Is.Empty);
+        }
+
+        // 入包口经 LootRules.Grant：不拥有过的 id 也按 0 起算（不是「没这件就不给加」）。
+        [Test]
+        public void GrantItems_Twice_Accumulates()
+        {
+            Assert.That(service.GrantItems(1701, 1), Is.True);
+            Assert.That(service.GrantItems(1701, 2), Is.True);
+
+            Assert.That(service.Items[1701], Is.EqualTo(3));
+            Assert.That(backpackChanged.Received.Count, Is.EqualTo(2));
         }
 
         private SupplyCrate CreateCrate(string key, int itemId, int count)

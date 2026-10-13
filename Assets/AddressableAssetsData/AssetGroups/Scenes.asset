@@ -17,6 +17,11 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: fd025ba1153228a44a083410d7c78aa7
   m_SerializeEntries:
+  - m_GUID: 08ce300f019afd1429bdb6d1740da519
+    m_Address: ShopPlaytestBattleScene
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 12405b41aa0cf5e428010ce95403b1c1
     m_Address: RhythmDemoScene
     m_ReadOnly: 0
@@ -37,8 +42,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b4f4e6ac525bb284aa63b17b27e93ff3
+    m_Address: ShopPlaytestBoot
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e64940bde22b5d146a55ab25e2abf9fb
     m_Address: yao_fangshi
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ec380473bbe5ea64f9dd81285547a1e5
+    m_Address: ShopPlaytestWorldScene
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

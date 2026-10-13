@@ -172,5 +172,51 @@ namespace Game.Tests.EditMode.Taming
             Assert.That(rules.IsTargetTamed("patrol-b"), Is.True);
             Assert.That(rules.CurrentControlId, Is.EqualTo("patrol-b"));
         }
+
+        [Test]
+        public void PassiveActor_NearPlayer_PatrolsWithoutAlertOrDamage()
+        {
+            enemy.Reset(new[] { Vector2.zero, Vector2.right * 3 });
+            rules.ConfigureActor("enemy", true, false);
+            for (int i = 0; i < 10; i++) rules.AdvanceTargets(Vector2.zero, .1f);
+            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth));
+            Assert.That(enemy.Model.Alert, Is.Zero);
+            Assert.That(enemy.Model.Position.x, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void AddedShopActor_OldSaveKeepsOriginalOwnerAndNewActorInitialState()
+        {
+            rules.TryTame("enemy"); rules.TryControl("enemy");
+            var saved = rules.Capture();
+            MonsterRules added = enemy.CreateForActor("shop_smith"); added.Reset(new[] { Vector2.right * 30 });
+            rules.RegisterTarget("shop_smith", "金银匠", added); rules.ConfigureActor("shop_smith", true, true);
+            rules.Restore(saved, "enemy", false);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("enemy"));
+            Assert.That(added.Model.Position, Is.EqualTo(Vector2.right * 30));
+            Assert.That(rules.IsTargetTamed("shop_smith"), Is.False);
+        }
+
+        [Test]
+        public void SelectionPermission_HiddenActorCannotBeBorrowed_ExistingOwnerRemainsControlled()
+        {
+            ConfigureTwo(); rules.TryTame("patrol-a"); rules.TryControl("patrol-a");
+            rules.BindSelection(_ => false);
+            Assert.That(rules.TryTame("patrol-b"), Is.False);
+            rules.ValidateControl();
+            Assert.That(rules.CurrentControlId, Is.EqualTo("patrol-a"));
+        }
+
+        [Test]
+        public void ChangePatrolRoute_PreservesHealthControlAndPosition()
+        {
+            rules.TryTame("enemy"); rules.TryControl("enemy");
+            int hp = enemy.Model.Health; Vector2 position = enemy.Model.Position;
+            enemy.ChangePatrolRoute(new[] { Vector2.one * 50 });
+            Assert.That(enemy.Model.Health, Is.EqualTo(hp));
+            Assert.That(enemy.Model.Position, Is.EqualTo(position));
+            Assert.That(rules.CurrentControlId, Is.EqualTo("enemy"));
+            Assert.That(enemy.Capture().WaypointX[0], Is.EqualTo(50));
+        }
     }
 }

@@ -180,18 +180,19 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 
 ## 对白面板（`Prefabs/UI/PerformanceView.prefab`）
 
-参考分辨率 1920×1080、按高度匹配。节点名是 Showcase / 测试的查找键，**不要改名**：
+参考分辨率 1920×1080、按高度匹配。2026-10-13 同步正式对话素材与思源宋体 Bold；默认阳版，阴版只保留显式预览入口，等待剧情节点，**不按妖界场景切换**。裁切、字体与文字效果参数见 [`Art/Sprites/UI/Dialogue/README.md`](../../../../Assets/_Project/Art/Sprites/UI/Dialogue/README.md)。节点名是 Showcase / 测试的查找键，**不要改名**：
 
 | 节点 | 父 | 锚点 / 位置 / 尺寸 | 说明 |
 | --- | --- | --- | --- |
-| `SubtitleRoot` | 根 | min(0,0) max(1,0) pivot(0.5,0)；左 80 右 70 底 65 高 280 | 自身 Image 已停用，只做容器 |
-| `PanelBackground` | SubtitleRoot（最底） | 全拉伸 | 9 切圆角白底 `Art/Sprites/UI/Performance/ui_perf_panel_round.png`，#FFFFFF α0.86 |
-| `AvatarFrame` / `Avatar` | SubtitleRoot | 锚 (0,0.5) pivot(0,0.5)；(74,0) 232² / (80,0) 220² | 左头像组，默认隐藏；`Avatar` 保持比例 |
-| `AvatarFrameRight` / `AvatarRight` | SubtitleRoot | 锚 (1,0.5) pivot(1,0.5)；(-74,0) 232² / (-80,0) 220² | 右头像组，默认隐藏；`AvatarRight` 保持比例。只显示说话者那一侧的头像 + 框，另一侧隐藏，旁白两侧都隐藏 |
-| `Speaker` | SubtitleRoot | 锚 (0,1) pivot(0,1)；(340,-40) 1090×48 | 40 号粗体 #2B2B2B |
-| `Body` | SubtitleRoot | 全拉伸；left 340 right 340 top 100 bottom 30 | 34 号 #333333、行距 +12、左上、换行；左右对称留边，避免说话者切换时正文跟着跳动（代价：说话者在左侧时右边留白、在右侧时左边留白） |
-| `HoldPrompt` / `HoldHint` | SubtitleRoot / HoldPrompt | 锚 (0.5,0) pivot(1,0) (184,16) 40² / 在 ▼ 左侧 | 「▼」32 号 #555555（文案取 `PerformanceConfig.holdPromptText`）；「点击或按空格继续」22 号灰字固定在预制体；从右下角挪到**底部居中**，给两侧头像让位 |
-| `SkipRoot` | 根 | 锚 (1,1) pivot(1,1) (-60,-50) **160×90**（原 360×90，2026-09-28 改窄；右上角不动，子节点与 `SkipFill` 屏幕位置不变） | 含 `SkipLabelShadow`（2px 深色投影）、`SkipLabel`「跳过 ▶」38 号白、`SkipHint`（键位，取 `skipHintFormat`「长按 {0}」）22 号、`SkipFill` 进度环；新挂透明 `Image`（开 raycast）与 `Core.UI.UIPointerHold`（字段 `skipHold`）：鼠标按住等同长按跳过键 |
+| `SubtitleRoot` | 根 | min(0,0) max(1,0) pivot(0.5,0)；左/右 63、底 31、高 396 | 自身 Image 已停用，只做容器 |
+| `PanelBackground` | SubtitleRoot（最底） | 横向拉伸，offsetMin(146,4)、offsetMax(-43,269) | 拆出的正式矩形底框，Image 白色 α1；右头像时镜像纹样与布局 |
+| `StoneBird` | SubtitleRoot，底框之后、头像之前 | 锚 (1,0)、pivot(0.5,0)、(-129,0)、366×396 | 独立石鸟；右头像时镜像移到左侧，避免被头像遮住 |
+| `AvatarFrame` / `Avatar` | SubtitleRoot | 锚/pivot (0,0)；(0,67) 347×348 / (29,97) 289² | 左头像组，默认隐藏；`Avatar` 保持比例 |
+| `AvatarFrameRight` / `AvatarRight` | SubtitleRoot | 锚/pivot (1,0)；(0,67) 347×348 / (-29,97) 289² | 右头像组，默认隐藏；只显示说话者那一侧，旁白两侧都隐藏 |
+| `Speaker` | SubtitleRoot | 左侧锚/pivot (0,0)，(397,285)；右侧锚/pivot (1,0)，(-397,285)；1050×60 | 思源宋体 Bold 44.45、白色；跟随可见头像侧别靠左/靠右，文字不翻转 |
+| `Body` | SubtitleRoot | 横向拉伸，左 397 右 387，底 70 高 160 | 思源宋体 Bold 34.06，阳版 #1B174F；阴版白→#670A0A 渐变与 #520B0B 外发光；保留左上换行与行距 |
+| `HoldPrompt` / `HoldHint` | SubtitleRoot / HoldPrompt | 锚 (1,0) pivot(1,0) (-252,11) 40² / 提示在其左侧 | 按用户参考移到右下装饰左侧；保留 TMP 引用供原显隐逻辑使用，字色透明；子节点 `ContinueIcon` 显示正式 51×24 三角形。提示 22 号，配色随正文 |
+| `SkipRoot` | 根 | 锚 (1,1) pivot(1,1) (-60,-50) 160×90 | 含 `SkipLabelShadow`（2px 深色投影）、`SkipLabel`「跳过 ▶」思源宋体 Bold 34.06 白、`SkipHint`（「长按 {0}」）22 号、`SkipFill` 进度环；透明 Image 与 `UIPointerHold` 接线不变 |
 | `AutoButton`（新增） | 根 | 锚 / pivot (1,1)，(-428,-50)，160×90 | 从 `DialogueView` 同名按钮克隆（`LabelShadow`/`Label`/`Hint`）；标签「自动」/「自动中」（`autoLabel`/`autoLabelShadow`）+ 键位小字 `autoHint` |
 | `HistoryButton`（新增） | 根 | 锚 / pivot (0,1)，(60,-50)，160×90 | 从 `DialogueView` 同名按钮克隆；固定文案「LOG」+ 键位小字 `historyHint` |
 | `Fade`、`TapArea` | 根 | 未改 | **`TapArea` 不再是根的最后一个子物体**：根子节点顺序现为 `Fade → SubtitleRoot → TapArea → SkipRoot → AutoButton → HistoryButton`，三个控件排在 `TapArea` 之下（否则会挡住控件点击）；2026-09-28 删掉了原来夹在 `Fade` 与 `SubtitleRoot` 之间的两条全宽黑条节点 |

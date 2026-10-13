@@ -8,7 +8,9 @@
 // Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……），比的正是落盘的值；
 //   只有强制布局用到 uGUI 的 LayoutGroup / LayoutRebuilder（对白的自动 / 跳过按钮由布局组排位，不跑布局量不出真实位置）。
 using System.Collections.Generic;
+using Game.Core.UI;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -43,7 +45,7 @@ namespace Game.Tests.EditMode.Dialogue
 
         // 两边同名、样式必须完全一致的对白面板节点。
         private static readonly string[] SharedNodes =
-            { "SubtitleRoot", "PanelBackground", "AvatarFrame", "AvatarFrameRight", "Speaker", "Body", "HoldPrompt", "HoldHint" };
+            { "SubtitleRoot", "PanelBackground", "StoneBird", "AvatarFrame", "AvatarFrameRight", "Speaker", "Body", "HoldPrompt", "HoldHint" };
 
         // 固定文案也要一致的节点（其余节点的文字由运行时填）。
         private static readonly HashSet<string> FixedTextNodes = new HashSet<string> { "HoldPrompt", "HoldHint" };
@@ -75,6 +77,85 @@ namespace Game.Tests.EditMode.Dialogue
                 CompareText(label, d, p, FixedTextNodes.Contains(node), diffs);
             }
             AssertNoDiffs(diffs);
+        }
+
+        [TestCase(DialoguePath)]
+        [TestCase(PerformancePath)]
+        public void FormalArt_DefaultsToYang_AlternateRequiresExplicitCall(string path)
+        {
+            GameObject instance = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));
+            try
+            {
+                var appearance = instance.GetComponent<UIPanelAppearance>();
+                Assert.That(appearance, Is.Not.Null);
+                var panel = FindDeep(instance.transform, "PanelBackground").GetComponent<Image>();
+                var body = FindDeep(instance.transform, "Body").GetComponent<TMP_Text>();
+                var speaker = FindDeep(instance.transform, "Speaker").GetComponent<TMP_Text>();
+                Assert.That(AssetDatabase.GetAssetPath(panel.sprite), Does.Contain("/Yang/"));
+                Assert.That(body.font.name, Is.EqualTo("SourceHanSerifCN-Bold SDF"));
+                Assert.That(body.fontSize, Is.EqualTo(34.06f).Within(Tolerance));
+                Assert.That(speaker.fontSize, Is.EqualTo(44.45f).Within(Tolerance));
+                Assert.That(body.color, Is.EqualTo((Color)new Color32(27, 23, 79, 255)));
+                Assert.That(body.enableVertexGradient, Is.False);
+                appearance.Apply(true);
+                Assert.That(AssetDatabase.GetAssetPath(panel.sprite), Does.Contain("/Yin/"));
+                Assert.That(body.enableVertexGradient, Is.True);
+                Assert.That(body.colorGradient.bottomLeft, Is.EqualTo((Color)new Color32(103, 10, 10, 255)));
+                Assert.That(body.fontSharedMaterial.GetColor("_GlowColor"), Is.EqualTo((Color)new Color32(82, 11, 11, 255)));
+                appearance.Apply(false);
+                Assert.That(AssetDatabase.GetAssetPath(panel.sprite), Does.Contain("/Yang/"));
+                Assert.That(body.enableVertexGradient, Is.False);
+                var indicator = FindDeep(instance.transform, "ContinueIcon").GetComponent<Image>();
+                Assert.That(indicator.sprite.rect.size, Is.EqualTo(new Vector2(51, 24)));
+                Assert.That(panel.sprite.rect.size, Is.EqualTo(new Vector2(1606, 265)));
+            }
+            finally { Object.DestroyImmediate(instance); }
+        }
+
+        [TestCase(DialoguePath, false, 1920)]
+        [TestCase(DialoguePath, true, 1920)]
+        [TestCase(PerformancePath, false, 1920)]
+        [TestCase(PerformancePath, true, 1920)]
+        [TestCase(DialoguePath, true, 2560)]
+        [TestCase(PerformancePath, true, 2560)]
+        public void SpeakerSide_MirrorsDecoration_WithoutCoveringName(string path, bool alternate, int width)
+        {
+            GameObject canvas = CreateReferenceCanvas();
+            var canvasRect = (RectTransform)canvas.transform;
+            canvasRect.sizeDelta = new Vector2(width, 1080);
+            try
+            {
+                GameObject instance = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path), canvas.transform, false);
+                var appearance = instance.GetComponent<UIPanelAppearance>();
+                appearance.Apply(alternate);
+                Sprite portrait = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/_Project/Art/Sprites/Dialogue/Portrait_traveler_default.png");
+                var name = FindDeep(instance.transform, "Speaker").GetComponent<TMP_Text>();
+                var bird = (RectTransform)FindDeep(instance.transform, "StoneBird");
+                var initialName = name.rectTransform.anchoredPosition;
+                for (int i = 0; i < 4; i++)
+                {
+                    bool right = i % 2 == 0;
+                    if (path == DialoguePath)
+                    {
+                        var view = instance.GetComponent<Game.Dialogue.DialogueView>();
+                        view.SetPortrait(0, right ? null : portrait, !right, true);
+                        view.SetPortrait(1, right ? portrait : null, right, true);
+                    }
+                    else instance.GetComponent<Game.Performance.PerformanceView>().ShowSubtitle("旅人", "这是正文。", portrait,
+                        right ? Game.Performance.PerformanceAvatarSide.Right : Game.Performance.PerformanceAvatarSide.Left);
+                    appearance.RefreshLayout();
+                    Rect frame = ScreenRect(canvasRect, FindDeep(instance.transform, right ? "AvatarFrameRight" : "AvatarFrame"));
+                    Rect label = ScreenRect(canvasRect, name.transform);
+                    Rect ornament = ScreenRect(canvasRect, bird);
+                    Assert.That(label.Overlaps(frame), Is.False, "名字不能被头像框遮挡");
+                    Assert.That(ornament.Overlaps(frame), Is.False, "石鸟必须在头像对侧");
+                    Assert.That(name.horizontalAlignment, Is.EqualTo(right ? HorizontalAlignmentOptions.Right : HorizontalAlignmentOptions.Left));
+                    Assert.That(name.rectTransform.localScale.x, Is.GreaterThan(0), "文字不翻转");
+                    Assert.That(bird.localScale.x, Is.EqualTo(right ? -1 : 1));
+                    if (!right) Assert.That(name.rectTransform.anchoredPosition, Is.EqualTo(initialName), "反复切换应恢复原位置");
+                }
+            }
+            finally { Object.DestroyImmediate(canvas); }
         }
 
         // 左右头像位分别对齐：对白左槽 ↔ 演出左头像、对白右槽 ↔ 演出右头像。
@@ -254,7 +335,8 @@ namespace Game.Tests.EditMode.Dialogue
             Vector3 min = canvas.InverseTransformPoint(corners[0]);
             Vector3 max = canvas.InverseTransformPoint(corners[2]);
             Vector2 offset = ReferenceResolution * 0.5f;
-            return Rect.MinMaxRect(min.x + offset.x, min.y + offset.y, max.x + offset.x, max.y + offset.y);
+            return Rect.MinMaxRect(Mathf.Min(min.x, max.x) + offset.x, Mathf.Min(min.y, max.y) + offset.y,
+                Mathf.Max(min.x, max.x) + offset.x, Mathf.Max(min.y, max.y) + offset.y);
         }
 
         private static void CompareScreenRect(string label, RectTransform canvas, Transform d, Transform p, List<string> diffs)

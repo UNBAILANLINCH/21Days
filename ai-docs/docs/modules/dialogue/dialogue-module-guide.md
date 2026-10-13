@@ -279,7 +279,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | `historyLabel` | `HistoryButton/Label` | |
 | `autoHintLabel` / `speedHintLabel` / `skipHintLabel` / `historyHintLabel`（均可选） | 对应按钮下的 `Hint` | 接了：键位写这里、主标签只写文案（跳过 / LOG 仍是固定文案）；不接：键位拼进主标签 |
 | `autoLabelShadow` / `speedLabelShadow`（均可选） | `AutoButton/LabelShadow`、`SpeedButton/LabelShadow` | 接了就镜像主标签文案 |
-| `choiceRoot` / `choiceTemplate` | `ChoiceRoot`（VerticalLayoutGroup，右侧竖排：anchor / pivot (1, 0.5)、右边距 40、宽 560）/ `ChoiceTemplate`（白色圆角胶囊，同一张 `ui_perf_panel_round.png` Sliced，`pixelsPerUnitMultiplier = 2`，560×44，文字字号 22 自适应到 16；悬停淡金 + `UIButtonFeedback`） | 模板下须有子物体 `Icon`（Image，名字写死）与 `Label`（TMP）；运行时隐藏 |
+| `choiceRoot` / `choiceTemplate` | `ChoiceRoot`（VerticalLayoutGroup，右侧竖排：anchor / pivot (1, 0.5)、右边距 40、宽 576、行距 18）/ `ChoiceTemplate`（正式阳版选项底图 Sliced，`pixelsPerUnitMultiplier = 1`，576×107，思源宋体 Bold 34.06 自适应到 24、居中；悬停反馈保留） | 模板下须有子物体 `Icon`（Image，名字写死）与 `Label`（TMP）；运行时隐藏 |
 
 漏接任一必需字段（含模板缺 `Icon`），`OnOpenAsync` 的 `Validate()` 会逐个点名抛出（`DialogueView.cs:355`）；可选字段漏接只是没有对应的显隐 / 键位小字 / 投影，不抛异常。
 
@@ -292,7 +292,9 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 
 ## 对白面板视觉与演出面板共用规范
 
-`DialogueView.prefab` 与 `Prefabs/UI/PerformanceView.prefab` 是同一套视觉语言（白色圆角面板、左右两个头像位——谁说话头像就在谁那一侧、深灰字、底部居中 ▼ 继续提示、右上白字投影控件），2026-09-28 起以演出面板为基准。改样式先看
+2026-10-13 修复右侧遮挡：矩形底框与 `StoneBird` 装饰分开，根上 `UIPanelAppearance` 按可见头像调整左右布局；右头像显示时名字靠右、装饰和底框纹样镜像到对侧，文字与人物图不翻转。入退场重叠时按图片透明度选择侧别；只读取序列化图片引用，不在每帧查找对象。阴/阳配色选择仍只接受显式调用，与左右布局独立。
+
+`DialogueView.prefab` 与 `Prefabs/UI/PerformanceView.prefab` 共用正式对话素材与思源宋体 Bold（2026-10-13 替换）：默认阳间面板、左右头像框、正文/选项 34.06、角色名 44.45、右下图像三角形、右上白字投影控件。阴间样式仅保留显式预览入口，等待剧情节点接入，**不根据妖界场景切换**。素材裁切、颜色与发光参数见 [`Art/Sprites/UI/Dialogue/README.md`](../../../../Assets/_Project/Art/Sprites/UI/Dialogue/README.md)。改样式先看
 [`performance-module-guide.md` 的「对白面板」一节](../performance/performance-module-guide.md#对白面板prefabsuiperformanceviewprefab)
 里的节点 / 锚点 / 颜色表，两边共用节点名与样式值。`Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs` 读两份真实预制体逐节点比对 Rect、Image、TMP 属性；改任一面板必须同步另一份，否则这组测试会挂。样式全在预制体，代码（`DialogueView.cs` / `PerformanceView.cs`）只填文字与显隐。
 
@@ -368,7 +370,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 - **NPC 被交互后一直面向玩家上次站的方向**：转向带朝向保持，NPC 不走动就不会解除（见 interaction-module-guide「小人表现的边界」）。
 - **常驻台词未进表**：`bubbleLines` 在 Inspector 配，不走 Luban、未本地化。
 - **`FallbackCamera` 只在场景加载 / 卸载时判断**：玩法场景加载后才启用的相机不会让它让位。
-- 对白与美术装饰（手绘边框、贴纸、背景模糊）仍是占位（PRP 8.4）。
+- 正式手绘面板、头像底框、选项底图和字体已替换；人物头像仍用既有占位素材，背景模糊未实现。阴间样式等待用户指定剧情节点后接入，不按场景推断。
 - **已读记录走独立档案 `dialogue-read`**：启动读入、对白结束写出（`DialogueReadStore.cs`）；只在对白结束时落盘，对白进行中强退会丢这一段的已读键。
 - **存读档未接**：`Capture / Restore` 与 `DialogueSaveData` 已有且有测试，但没有调用方；`Preparing` 阶段不能 `Capture`。
 - **条件源按根注册选择**：装有 NarrativeInstaller 时使用真实玩家状态与当前槽位 StoryFlags；未装时保留

@@ -274,6 +274,18 @@ namespace Game.Tests.EditMode.Battle
             /// </summary>
             public bool MonsterAware { get; }
         }
+
+        [Test]
+        public void LiveDrunkSource_ZeroOverridesDefault_ClearRestores_InvalidRejects()
+        {
+            var setup = NewSetup(); var boss = new BossDefinition("b", "B", 12, 50);
+            setup.BindDrunkSource(id => id == "b" ? (int?)0 : null);
+            Assert.That(setup.TryCreate(boss, out var sober, out _), Is.True); Assert.That(sober.Boss.DrunkValue, Is.Zero);
+            setup.BindDrunkSource(_ => 80);
+            Assert.That(setup.TryCreate(boss, out var drunk, out _), Is.True); Assert.That(drunk.Boss.DrunkValue, Is.EqualTo(80));
+            setup.BindDrunkSource(_ => -1); Assert.That(setup.TryCreate(boss, out _, out _), Is.False);
+            setup.BindDrunkSource(null); setup.TryCreate(boss, out var restored, out _); Assert.That(restored.Boss.DrunkValue, Is.EqualTo(50));
+        }
     }
 }
 

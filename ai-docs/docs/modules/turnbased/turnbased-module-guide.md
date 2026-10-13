@@ -7,6 +7,8 @@ maturity: seed
 
 # TurnBased 模块指南
 
+2026-10-12增量：独立酒肆通过BattleSetup的调用方醉酒来源向本内核传实际场外值；正式Boot尚未绑定，仍回退原占位值。本内核未改饮酒或回合规则。见[独立试玩接线](../shopplaytest/shopplaytest-module-guide.md)。
+
 S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进战斗方式与先手权、一个回合的推进顺序、
 玩家三招式的怒气收支、道具一场一次、BOSS 醉酒四档的跳过回合、BOSS 三招式的 6:3:1 权重。
 

@@ -103,6 +103,10 @@ namespace Game.Monster
         private readonly PlayerRules player;
         private readonly MonsterRules monster;
         private Vector2[][] authoredRoutes;
+        private Func<float> playerSpeed;
+        private Func<bool> playerCanSneak;
+        public void BindPlayerModifiers(Func<float> speed, Func<bool> canSneak)
+        { playerSpeed = speed; playerCanSneak = canSneak; }
 
         // —— 潜行关口的接线位（S3/S4）。全部给占位默认值：不装配时遮挡体为空、判定与接线前一致。
         private StealthSight sight = new StealthSight();
@@ -360,6 +364,7 @@ namespace Game.Monster
             if (saved.TamingTargets != null && saved.PlayerActorId != Taming.PlayerId)
                 throw new ArgumentException("存档玩家稳定标识与场景不匹配");
             Taming.ValidateRestore(saved.TamingTargets);
+            ResetAdditionalTargets();
             player.Model.Restore(saved.Player);
             if (saved.TamingTargets == null)
             {
@@ -446,9 +451,12 @@ namespace Game.Monster
             if (command.HasButton(InputCommand.ButtonTamePressed)) Taming.ProcessToggle(false);
             Taming.ProcessToggle(command.HasButton(InputCommand.ButtonTame) && (command.Axis1.x == 0f || requested != null), requested);
             bool enemyControlled = Taming.IsControllingEnemy;
+            Vector2 movement = command.Axis0;
+            if (GameMath.SqrMagnitude(movement) > 1f) movement = GameMath.Normalize(movement);
+            if (playerSpeed != null) movement *= playerSpeed();
             var playerIntent = new PlayerIntent(
-                enemyControlled ? Vector2.zero : command.Axis0,
-                !enemyControlled && command.HasButton(InputCommand.ButtonSneak),
+                enemyControlled ? Vector2.zero : movement,
+                !enemyControlled && command.HasButton(InputCommand.ButtonSneak) && (playerCanSneak == null || playerCanSneak()),
                 !enemyControlled && command.HasButton(InputCommand.ButtonDisguise),
                 !enemyControlled && command.HasButton(InputCommand.ButtonAttack),
                 !enemyControlled && command.HasButton(InputCommand.ButtonRun));
@@ -458,7 +466,7 @@ namespace Game.Monster
             {
                 MonsterRules rules = Taming.GetTarget(id);
                 MonsterModel enemy = rules.Model;
-                if (!attacked || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
+                if (!attacked || Taming.IsPassive(id) || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
                     || GameMath.Distance(target.Position, enemy.Position) > player.AttackRange) continue;
                 Vector2 difference = enemy.Position - target.Position;
                 if (GameMath.SqrMagnitude(difference) == 0f

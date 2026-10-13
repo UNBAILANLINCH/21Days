@@ -14,12 +14,19 @@ namespace Game.Monster
         /// （<c>EncounterStep.BindIdentity</c>）持有并逐 tick 填进来，规则类不认识 Identity 模块的状态对象。
         /// </para>
         /// </param>
-        public MonsterIntent(PlayerSnapshot target, float deltaTime, bool isIdentityInEffect = false)
+        public MonsterIntent(PlayerSnapshot target, float deltaTime, bool isIdentityInEffect = false, float awarenessScale = 1f, float movementScale = 1f)
         {
+            if (float.IsNaN(awarenessScale) || float.IsInfinity(awarenessScale) || awarenessScale <= 0f || awarenessScale > 1f ||
+                float.IsNaN(movementScale) || float.IsInfinity(movementScale) || movementScale <= 0f || movementScale > 1f)
+                throw new System.ArgumentOutOfRangeException(nameof(awarenessScale));
             Target = target;
             DeltaTime = deltaTime;
             IsIdentityInEffect = isIdentityInEffect;
+            AwarenessScale = awarenessScale;
+            MovementScale = movementScale;
         }
+        public float AwarenessScale { get; }
+        public float MovementScale { get; }
 
         public PlayerSnapshot Target { get; }
         public float DeltaTime { get; }

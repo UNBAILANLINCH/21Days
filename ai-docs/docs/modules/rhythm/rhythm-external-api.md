@@ -34,6 +34,10 @@ maturity: stable
 
 ## 外部进入与结束
 
+2026-10-12独立戏班增量：`OpenActivityAsync(request,consumer,ct)`在原场景内打开，`CloseActivityAsync()`收场并释放输入/暂停；只读`IsActivityOpen`与`OnActivityClosed`通知活动生命周期。结果回调中先排到后续帧再关闭，不能直接重入退出。
+`ConfigureActivityProfile(name)`仅在关闭时设置合法档案前缀；独立试玩使用shop-playtest，不覆盖正式曲库/校准。`RhythmView.SetActivityExit(bool)`只改准备页/暂停页的退出文案，不负责路由。
+ShopPlaytest已组合真实Taming权限并验完整演奏回店，正式Boot主线仍未接；使用场景内活动时不用IGameFlow替换原世界状态。
+
 当前新增 `RhythmFixedChartCombatPolicy(songId, chartId, revision, rulesetId, scoringVersion, passScorePercent=60)`：固定全身份，比例1～100，匹配Completed Combat按目标分判成功。ExternalSession使用该具体策略时增加错曲开始/错谱版本消费守卫；其他自定义policy不自动获得此过滤。
 
 当前校准结果增加 `Confidence`（Invalid/Low/Reliable）、`MedianLowerMs/MedianUpperMs`、`PrecisionRadiusMs`和`TemporalProbability`。Stable为Reliable，Suggested/Drift为Low，三者有限Offset均有HasCandidate；其他原因无候选。区间取全部matched，少于6拍无有限95%区间，依赖独立同分布假设；PrecisionRadius是候选到两端的最大距离。置换概率非显著不等于稳定。Supplement保留主轮中心/区间且不能将主轮Low升级Reliable。下面旧接口说明中“仅Stable/Suggested候选”是此前策略，以上更新优先。

@@ -44,3 +44,57 @@ MonoBehaviour:
     abilities: []
     accessRights:
     - fenfu_shrine
+  - id: apprentice
+    displayName: "\u5B66\u5F92"
+    sourceCharacterId: shop_apprentice
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: director
+    displayName: "\u90FD\u77E5"
+    sourceCharacterId: shop_director
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: musician
+    displayName: "\u4E50\u6B63"
+    sourceCharacterId: shop_musician
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: customer0
+    displayName: "\u987E\u5BA2\u7532"
+    sourceCharacterId: shop_customer0
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: customer1
+    displayName: "\u987E\u5BA2\u4E59"
+    sourceCharacterId: shop_customer1
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: customer2
+    displayName: "\u987E\u5BA2\u4E19"
+    sourceCharacterId: shop_customer2
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: officer
+    displayName: "\u5B98\u8BC1"
+    sourceCharacterId: shop_officer
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: smith
+    displayName: "\u91D1\u94F6\u5320"
+    sourceCharacterId: shop_smith
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: guest
+    displayName: "\u9152\u5BA2"
+    sourceCharacterId: shop_guest
+    origin: 1
+    abilities: []
+    accessRights: []

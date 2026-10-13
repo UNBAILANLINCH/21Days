@@ -28,6 +28,8 @@
 
 ## 2. 第一次准备
 
+还没有 Git 的 Windows 工作站：让负责人把 [`tools/artist-git/`](../tools/artist-git/README.md) 中的两个工具文件一起发给你，解压后双击 `启动.cmd`。可视化向导覆盖 Git、Git LFS、SourceTree 的安装、Git 身份配置、项目克隆和素材检查；首次登录及 SourceTree 使用系统 Git 的设置按窗口与说明操作。安装 LFS 客户端不代表本仓库已启用 LFS 跟踪。
+
 ### 2.1 装 Unity
 
 1. 装 **Unity Hub**（官网下载安装包即可，Hub 本身没有版本要求）。

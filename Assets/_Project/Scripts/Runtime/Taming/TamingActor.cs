@@ -16,11 +16,15 @@ namespace Game.Taming
         [SerializeField] private SpriteRenderer stateIndicator;
         [SerializeField] private TMP_Text nameLabel;
         [SerializeField] private Transform[] patrolPoints;
+        [SerializeField] private bool passive;
+        [SerializeField] private bool addedForShops;
 
         public string StableId => stableId;
         public string DisplayName => displayName;
         public SpriteRenderer Visual => visual;
         public SpriteRenderer StateIndicator => stateIndicator;
+        public bool Passive => passive;
+        public bool AddedForShops => addedForShops;
         public event Action<TamingActor, bool> OnAvailabilityChanged;
 
         // Reset 由编辑器添加组件时调用，保存后沿用；运行时和复制时都不偷偷重造标识。

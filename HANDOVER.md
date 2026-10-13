@@ -5,7 +5,7 @@
 > **现状口径**：当前接线以源码与场景为准，剩余验收见本文；测试数字只对应所列日期与范围。
 > **系统层**：加载黑幕相位守卫、回放等待揭幕与不进队列的存档角落提示已实现。2026-10-07 历史记录：EditMode 1115/1115、Session 回放 2/2、Exploration 8/8；视觉验收仍待确认。
 > **S 组**：Identity / Stealth 已挂 Boot，遭遇接了身份禁攻、遮挡与处决；World 已挂 Boot 并有两张灰盒；TurnBased 仍为纯规则加白盒回放，正式战斗入口 / UI 未接。
-> **S 组历史验证（2026-10-07）**：EditMode 1836/1836；identity / stealth / turnbased 回放 PASS，world 回放 FAIL（13 个失败检查点）。此记录不能替代之后的回归。
+> **S 组历史验证（2026-10-07）**：EditMode 1836/1836；S 组规划的后续收尾记录载明 identity / stealth / turnbased / world 回放全部 PASS，其中 World 为 20 个通过检查点、0 个失败，World EditMode 141/141。此记录不能替代之后的回归。
 > **2026-10-09 接线波（主窗口独立复跑）**：**全量 EditMode 2417/2417**（0 失败 0 跳过，含三方包用例；锚点 `Game.Tests.EditMode.dll` 新于最新源码）；回放 `Game.Tests.Showcase.Stealth` **3/3 PASS**（连跑两次，39 个检查点、失败 0、异常 0）、`Game.Tests.Showcase.Inventory` **PASS**（2/2，26 检查点）。本波关掉的是「有代码没接上」的六项（见 §1.11）——其中五项当日落地并验证，**第 ④ 项当日判定契约不成立、等策划拍板，同日第二波按用户决定接通**（复跑见下一行）。**这不代表全仓所有 Showcase 回放都已重新跑过**。
 > **2026-10-10 复跑与 demo 收口**：全量 EditMode **2439 / 2439**（0 失败 0 跳过）；`Showcase.Battle` **4 / 4 PASS**、`Showcase.Stealth` **3 / 3 PASS**、`Showcase.Inventory` **2 / 2 PASS**；`gc_scan` 只剩字体资产一项。§1.11 ④ 的复跑因此关闭，「较量」那一局原先卡在战斗阶段的真因是**内容只声明了 `Victory`**（机制没坏），细节与证据见 §1.11 末与 §1.12。
 > **依据**：[S 组规划](docs/planning/S组落地总规划.md)、[状态字典](ai-docs/docs/story-facts.md)、[World PRP](PRP/world-scenes/prp.md)、[处决 PRP](PRP/stealth-execution/prp.md)；报告为 `Logs/verify/` 生成物。
@@ -29,7 +29,7 @@
 
 - **§1 / §2 是已有模块的收尾与待拍板事项**，具体范围见下面的清单。
 - **§3 是内容层，仍有大量待定**：2026-10-06 起策划以《聚光灯》为准（`docs/design/spotlight/`，玩法拆分见 `docs/design/features-spotlight/`），照镜 demo（`PRP/mirror-core`）随旧版策划冻结。`docs/roadmap.md` 的 C1–C3/B3/W2 状态已同步，旧“20 条完全没开始”不再作为当前统计。这一片仍需策划与美术输入。
-- **S 组的剩余工作**：区分接线、白盒验收与正式内容。Identity / Stealth / World 的 Installer 和相关 Showcase 已存在，不重新派发“从零接线 / 新建回放”。World 回放尚有失败，新开局 / 读档进入世界场景仍有缺口；TurnBased 正式入口与 UI 未接。**（2026-10-09 更正）**「处决受怪物表 `defeat_method` 内容限制」这条已过期：`Tables/Data/yao/3.json` 的市令就是 `defeat_method = 暗杀`，`Boot.unity` 的 `kindId` 也已指到 1003，接线与数据两侧都通；剩下的只是**回放验收**（见 §1.11）。
+- **S 组的剩余工作**：区分接线、白盒验收与正式内容。Identity / Stealth / World 的 Installer 和相关 Showcase 已存在，不重新派发“从零接线 / 新建回放”。World 的两界往返回放已有通过记录，新开局 / 读档进入世界场景仍有缺口；TurnBased 正式入口与 UI 未接。**（2026-10-09 更正）**「处决受怪物表 `defeat_method` 内容限制」这条已过期：`Tables/Data/yao/3.json` 的市令就是 `defeat_method = 暗杀`，`Boot.unity` 的 `kindId` 也已指到 1003，接线与数据两侧都通；剩下的只是**回放验收**（见 §1.11）。
 - **正式内容**：真实章节、怪物数值和场景 / UI 美术仍需外部输入；S6 / S8 / B4 的待定事项按策划总览处理。两份补交的怪物交互与回合制原件已入库，歧义见 `docs/design/features-spotlight/待策划拍板问题.md`。
 
 ---
@@ -86,12 +86,14 @@ D4 / D5 的旧「未采用」待办已过期：`DialogueView.prefab` 已采用 S
 - “所有项目聊天自动注册 MCP、持续保活”尚未完成；不能把已注册项目 hooks 当成该能力已实现。连接成功以实际读取目标编辑器为准，测试/域重载期间出现短暂断连时先等待再重连，不反复重启健康 bridge。
 - `.codex/hooks/README.md`、`adapter.py`、`test_adapter.py` 的长文记账兼容修复已入库。项目 hooks 是否生效以各会话实测为准；操作限制与处理方式见该 README，不关闭护栏绕过。
 
-### 1.7 Laila 捏脸与表情识别：已接独立研究试玩，继续补组合测试
+### 1.7 Laila 捏脸与表情识别：已有验证已归档，后续语义验收暂缓
 
 - **已实现**：31 个形态、17 个交互轴的采样与五类 Sentis 推理；自动更新、错误清理、稳定反馈与展示迟滞；标注工具、匿名采集、反馈保存和有界候选训练。唯一场景 `LailaRecognitionPlaytest.unity` 默认定向修复 59D，保留上一版反馈、r779 与原 51D 对照；重复旧场景及一次性搭建代码已移除。17 轴是模型输入，51D / 59D 是图内特征空间，输出仍是中性、高兴、悲伤、惊恐、愤怒五类。
 - **入口与维护**：Unity 菜单 `21Days/Laila/候选试玩（含旧版对照）`；接手先读 [spec §17](PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)，再读[识别模块指南](ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md)与[试玩 / 标注说明](ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md)。旧 12 轴 / v1 阶段门留在规格中作历史复现，不再照旧清单重新派工。
-- **已有验证记录**：候选的 205 条 Sentis / ONNX 数值对照、21 档实际 UI、四版切换 / 清理和抓点 hover 回归见模块指南；三个新增怒点属于训练拟合，同原型预设属于暴露开发回归。2026-10-07 标注与反馈修复相关的四份 Python 测试文件共 **36/36 通过**；该结果不包含 Unity 或人工语义验收。
-- **剩余工作**：冻结组合姿态反例，复核脸型表达、左右响应和跨帧稳定性；独立人工语义验收、物理鼠标与 Player 仍未完成，研究拒识未校准。先补测试缺口，再讨论场景整合；不自动追加训练、扩类或接关卡判定。公开集来源的研究模型不按正式发布模型交付。
+- **已有验证记录**：候选 205 条 Sentis / ONNX 对照、21 档 UI、17/17 悬停及同帧跟随、0.18 秒展示迟滞 / 静止收敛和 9 项跨帧 UI 已有历史证据。模型 `11f82890…` 另完成眼睑×嘴角 9 格及眉毛 / 嘴唇 9 点，共 18 点、18 张渲染检查，含左右响应差异；汇总为 `ML/expression-recognition/artifacts/laila_v2_candidate/brow-lip-combinations-20261006-v1/combined-summary.json`。Windows SendInput 真实 Unity 窗口拖动和 20 秒 / 120 帧录像记录在同根目录 `closed-eye-mouth-real-mouse-20261006-v1/video-eye-left-drag-mouse.json`、`video-verification.json`。这些忽略的 artifacts 不保证随检出存在，历史范围也不自动覆盖之后的入口改动。
+- **入口清理验证（2026-10-07）**：相关 EditMode 完成 37 项、失败记录 0；唯一场景 Showcase 1/1 通过，覆盖 31 形态、17 控制轴、指针反馈、复位与四版模型初始化。报告 `Logs/verify/lailaface/20261007-175309/report.md` 为 PASS，检查点失败 / 运行时异常 0；该项不代替人工语义或连续拖动验收。
+- **已发现、待人工判定**：闭眼＋嘴角下拉输出中性 40.08%，内眉上抬＋半闭眼输出高兴 87.94%；左 / 右上唇 0.5 分别为惊恐 91.78% / 愤怒 99.92%。raw17、自动展示与冻结 ONNX 一致，未证明输入接线故障；不能仅降阈值、强制左右同类或把不确定归中性。
+- **暂缓与恢复入口**：当前停止后续开发，独立测试、反例修复和新增训练暂不推进。恢复时先复用四张既有反例截图核对人工语义、数据覆盖、标签与特征，再确定最小修复范围；不从零重复已有组合和实鼠标验证。独立人工语义测试标签仍为 0；已有开发标注、训练拟合和暴露回归不算独立泛化证据。全部组合连续拖动、Player 和研究拒识校准未完整验收；扩类、关卡接入与正式模型发布另定。
 
 ### 1.8 Rhythm 四轨音游：曲库、校准、同局暂停已实现
 

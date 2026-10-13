@@ -333,7 +333,7 @@ namespace Game.Monster
             }
 
             model.AttackCooldownLeft = GameMath.Max(0f, model.AttackCooldownLeft - deltaTime);
-            int sensed = Sense(intent.Target);
+            int sensed = Sense(intent.Target, intent.AwarenessScale);
             if (sensed == 2)
             {
                 EnterHostile(intent.Target.Position);
@@ -390,7 +390,7 @@ namespace Game.Monster
             switch (model.Mode)
             {
                 case MonsterMode.PatrolWalk:
-                    MoveTowards(waypoints[model.WaypointIndex], config.PatrolSpeed, deltaTime);
+                    MoveTowards(waypoints[model.WaypointIndex], config.PatrolSpeed * intent.MovementScale, deltaTime);
                     if (GameMath.Distance(model.Position, waypoints[model.WaypointIndex]) <= 0.001f)
                     {
                         model.WaypointIndex = (model.WaypointIndex + 1) % waypoints.Length;
@@ -415,11 +415,11 @@ namespace Game.Monster
                 case MonsterMode.Alert:
                     if (sensed > 0)
                     {
-                        MoveTowards(intent.Target.Position, config.PatrolSpeed * config.AlertSpeedMultiplier, deltaTime);
+                        MoveTowards(intent.Target.Position, config.PatrolSpeed * config.AlertSpeedMultiplier * intent.MovementScale, deltaTime);
                     }
                     break;
                 case MonsterMode.Hostile:
-                    MoveTowards(model.LastKnownTarget, config.PatrolSpeed * config.HostileSpeedMultiplier, deltaTime);
+                    MoveTowards(model.LastKnownTarget, config.PatrolSpeed * config.HostileSpeedMultiplier * intent.MovementScale, deltaTime);
                     if (sensed > 0 && intent.Target.IsAlive
                         // 攻击许可的两层：旧伪装布尔（DisguiseRules，语义原样保留）+ 身份生效中（S1）。
                         // 身份那一层的判据在 Game.Identity.IdentityAttackRules，本类不认识身份状态对象。
@@ -435,6 +435,16 @@ namespace Game.Monster
             }
 
             return false;
+        }
+
+        public void ChangePatrolRoute(Vector2[] points)
+        {
+            if (points == null || points.Length == 0 || points.Length > 1024) throw new ArgumentException("巡逻路线不能为空");
+            foreach (Vector2 point in points)
+                if (float.IsNaN(point.x) || float.IsInfinity(point.x) || float.IsNaN(point.y) || float.IsInfinity(point.y))
+                    throw new ArgumentException("巡逻点必须有限");
+            waypoints = (Vector2[])points.Clone();
+            model.WaypointIndex = FindNearestWaypoint();
         }
 
         // 驯服验证的公开移动入口；调用方接管期间不再调用 AI Step。
@@ -560,7 +570,7 @@ namespace Game.Monster
         /// <c>TrySight</c>（它在有遮挡体时会 new 一个数组）。
         /// </para>
         /// </summary>
-        private int Sense(in PlayerSnapshot target)
+        private int Sense(in PlayerSnapshot target, float scale = 1f)
         {
             if (!target.IsAlive)
             {
@@ -572,7 +582,7 @@ namespace Game.Monster
             bool inCone = distance == 0f || GameMath.Dot(model.Facing, difference / distance) >= coneCosine;
             // 视线：只有「在视锥里」才值得问（锥外本来就不看），零长度线段的退化情形再由 StealthSight 自己挡。
             bool sightClear = !inCone || sight == null || sight.HasSightNonAlloc(model.Position, target.Position);
-            return ClassifyByRanges(target, distance, inCone && sightClear);
+            return ClassifyByRanges(target, distance, inCone && sightClear, scale);
         }
 
         /// <summary>
@@ -641,23 +651,23 @@ namespace Game.Monster
         /// </para>
         /// <para><paramref name="distance"/> 由调用方算好传进来，本方法不再算一次（tick 路径上少一次开方）。</para>
         /// </summary>
-        private int ClassifyByRanges(in PlayerSnapshot target, float distance, bool inSightCone)
-            => Classify(config, kind, in target, distance, inSightCone);
+        private int ClassifyByRanges(in PlayerSnapshot target, float distance, bool inSightCone, float scale = 1f)
+            => Classify(config, kind, in target, distance, inSightCone, scale);
 
         /// <summary>
         /// 档位本体（静态）：<see cref="ClassifyByRanges"/> 与 <see cref="SenseFrom"/> 共用这一份，
         /// 保证「巡逻怪此刻算不算察觉」与「某只 NPC 算不算察觉」永远是同一套判据。
         /// </summary>
         private static int Classify(MonsterConfig config, MonsterKind kind, in PlayerSnapshot target,
-            float distance, bool inSightCone)
+            float distance, bool inSightCone, float scale = 1f)
         {
-            if (inSightCone && distance <= config.HostileRadius)
+            if (inSightCone && distance <= config.HostileRadius * scale)
             {
                 return 2;
             }
 
-            if ((inSightCone && distance <= config.ResolveAlertRadius(kind) && !target.IsDisguised)
-                || (distance <= config.ResolveNearSenseRadius(kind) && !target.IsSneaking))
+            if ((inSightCone && distance <= config.ResolveAlertRadius(kind) * scale && !target.IsDisguised)
+                || (distance <= config.ResolveNearSenseRadius(kind) * scale && !target.IsSneaking))
             {
                 return 1;
             }

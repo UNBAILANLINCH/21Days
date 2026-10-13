@@ -7,6 +7,11 @@ maturity: seed
 
 # Session 模块指南
 
+## 独立试玩路由开关（2026-10-12）
+
+SessionInstaller.registerTitleRouter默认true；仅ShopPlaytest复制的启动场景设false，避免正式存档标题入口与独立试玩入口争用。
+其余Session服务和broker继续注册，CurrentSlot保持0，试玩不调用NewGame/Continue，不覆盖主线存档槽。正式Boot不改此配置。
+
 > 改 `Assets/_Project/Scripts/Runtime/Session/` 之前读这份。对外怎么调看
 > [`session-external-api.md`](session-external-api.md)，要加东西看 [`session-extension-guide.md`](session-extension-guide.md)。
 > 设计定稿见 [`PRP/save-session/prp.md`](../../../../PRP/save-session/prp.md)；与源码不符时以源码为准。

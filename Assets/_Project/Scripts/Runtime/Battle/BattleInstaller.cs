@@ -43,6 +43,7 @@ namespace Game.Battle
 
         [Tooltip("BOSS 名册（剧情 Battle 阶段的 payload → BOSS 定义）。拖 Data/Battle/BossRosterConfig.asset。")]
         [SerializeField] private BossRosterConfig bossRoster;
+        [SerializeField] private string arenaSceneKey = BattleArena.SceneKey;
 
         public override void Install(IContainerBuilder builder)
         {
@@ -66,7 +67,7 @@ namespace Game.Battle
             builder.Register(resolver => new BattleWorldLock(
                 resolver.Resolve<IWorldPauseService>(), resolver.Resolve<IInputService>(), resolver.Resolve<IUIService>()), Lifetime.Singleton);
             builder.Register(resolver => new BattleArena(
-                resolver.Resolve<ILoadingCurtain>(), resolver.Resolve<IAssetService>(), Scope(resolver)), Lifetime.Singleton);
+                resolver.Resolve<ILoadingCurtain>(), resolver.Resolve<IAssetService>(), Scope(resolver), arenaSceneKey), Lifetime.Singleton);
             builder.Register(resolver => new BattleSetup(
                 settings, SeedSource(resolver), resolver.Resolve<BattleItemInventory>()), Lifetime.Singleton);
             builder.Register<IBattlePresenter>(resolver => new BattleScenePresenter(

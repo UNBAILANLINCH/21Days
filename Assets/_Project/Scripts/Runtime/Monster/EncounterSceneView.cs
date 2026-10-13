@@ -194,6 +194,8 @@ namespace Game.Monster
                 actor.RefreshLabel();
             }
             step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes);
+            for (int i = 0; i < patrolActors.Length; i++)
+                step.Taming.ConfigureActor(actorIds[i], patrolActors[i].Passive, patrolActors[i].AddedForShops);
             playerIdentity.RefreshLabel();
         }
 
@@ -548,7 +550,7 @@ namespace Game.Monster
             if (flipByMoveDirection) ApplyFlip(sprite, previous.x, body.position.x);
             // 感知范围线框跟着纸片走：位置用刚投影出来的场景点，朝向用**逻辑朝向**
             // （纸片本身只做左右翻转、不转身，所以朝向不能从 transform 读）。
-            if (awarenessRanges != null) awarenessRanges.UpdatePose(body.position, model.Facing);
+            if (awarenessRanges != null && body == monsterBody) awarenessRanges.UpdatePose(body.position, model.Facing);
             SpriteRenderer tint = indicator != null ? indicator : sprite;
             tint.color = model.Health <= 0 ? Color.black : isControlled ? Color.cyan : isTamed ? Color.green
                 : model.Mode == MonsterMode.Hostile ? Color.red
@@ -561,6 +563,9 @@ namespace Game.Monster
         /// </summary>
         public Vector2 ToLogicPosition(Vector3 position) =>
             useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
+
+        public Vector3 ToScenePosition(Vector2 position) => ToScenePosition(position,
+            CurrentControlObject != null ? CurrentControlObject.position : playerBody.position);
 
         private Vector2 Interpolate(Vector2 previous, Vector2 current, float alpha)
         {
@@ -680,6 +685,7 @@ namespace Game.Monster
                 for (int i = 0; i < actorIds.Length; i++)
                 {
                     string id = actorIds[i];
+                    if (patrolActors[i].AddedForShops) continue;
                     float row = controlTop + (i + 2) * LineHeight;
                     GUI.Label(new Rect(DebugPanelMargin, row, 240f, LineHeight), encounter.Taming.GetDisplayName(id) + " [" + id + "]");
                     bool enabledBefore = GUI.enabled;

@@ -83,6 +83,38 @@ namespace Game.Rhythm
         private RhythmExternalSession pendingResultConsumer;
         public RhythmRunResult LastRunResult { get; private set; }
         public event Action<RhythmRunResult> OnRunFinished;
+        private bool activityOpen;
+        private bool activityClosing;
+        private string activityProfile;
+        public bool IsActivityOpen => activityOpen;
+        public event Action OnActivityClosed;
+        // 场景内演奏保留调用方场景；音游仍独占输入、暂停、音频与面板生命周期。
+        public async UniTask OpenActivityAsync(RhythmPlayRequest request, RhythmExternalSession consumer, CancellationToken ct)
+        {
+            if (activityOpen || view != null || starting || IsPlaying) throw new InvalidOperationException("已有音游会话");
+            ConfigureExternal(request, consumer);
+            activityOpen = true;
+            try { await EnterAsync(ct); }
+            catch { activityOpen = false; ClearExternal(); throw; }
+        }
+        public async UniTask CloseActivityAsync()
+        {
+            if (!activityOpen || activityClosing) return;
+            activityClosing = true;
+            try { await ExitAsync(CancellationToken.None); }
+            finally
+            {
+                activityOpen = false; activityClosing = false;
+                ClearExternal(); OnActivityClosed?.Invoke();
+            }
+        }
+        public void ConfigureActivityProfile(string name)
+        {
+            if (activityOpen || view != null) throw new InvalidOperationException("先关闭音游");
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new ArgumentException("档案名不合法", nameof(name));
+            activityProfile = name;
+        }
         public void ClearExternal()
         {
             if (IsPlaying || starting || calibrationApplying) throw new InvalidOperationException("请先结束当前演奏再清除外部请求");
@@ -97,8 +129,8 @@ namespace Game.Rhythm
             externalRequest = request; externalSession = consumer;
         }
         // 只有独立测试预设使用测试 key；正式 Player 和编辑器保留原档案契约。
-        private string ProfileName => PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-calibration" : "rhythm-calibration";
-        private string ProgressProfileName => PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-progress" : "rhythm-progress";
+        private string ProfileName => activityProfile != null ? activityProfile + "-calibration" : PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-calibration" : "rhythm-calibration";
+        private string ProgressProfileName => activityProfile != null ? activityProfile + "-progress" : PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-progress" : "rhythm-progress";
         public RhythmRules Rules { get; private set; }
         public string SelectedSongId => selectedSong == null ? config.ChartId : selectedSong.Id;
         public bool IsSongMenu => inSongMenu;
@@ -170,6 +202,7 @@ namespace Game.Rhythm
                 input.DisableMap("Gameplay");
                 pauseToken = pause.Acquire(this);
                 using (telemetry.BeginSpan("view_ready")) view = await ui.OpenAsync<RhythmView>(config, ct);
+                view.SetActivityExit(activityOpen);
                 view.OnStartClicked += StartRound;
                 view.OnLibraryStartClicked += StartFromLibrary;
                 view.OnManualCalibrationClicked += StartManualCalibration;
@@ -950,6 +983,7 @@ namespace Game.Rhythm
         private void Back()
         {
             if (closing) return;
+            if (activityOpen) { CloseActivityAsync().Forget(); return; }
             closing = true;
             StopRound();
             flow.GoToAsync<TitleState>().Forget();

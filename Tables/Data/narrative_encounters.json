@@ -11,5 +11,10 @@
             {"fact": "PlayerAlive", "key": "", "expected": true},
             {"fact": "StoryFlag", "key": "world.sampleboss.defeated", "expected": false}
         ]}]
+    },
+    {
+        "id": "sample_battle_drill", "trigger": "Interact", "targetKind": "SampleBattleDrill",
+        "priority": 10, "story": "sample_battle_drill", "entry": "brief", "repeat": "Reenter",
+        "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
     }
 ]

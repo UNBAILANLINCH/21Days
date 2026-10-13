@@ -118,6 +118,38 @@ namespace Game.Tests.EditMode.Monster
         }
 
         /// <summary>
+        /// 掩体贯通（2026-10-08）：容器装出来的那只怪，**自己的感知也吃遮挡**——不再只是事实键好看。
+        /// <para>
+        /// 这条用例守的是 <c>MonsterInstaller</c> 那条装配链（<c>UseStealth</c> → <c>EncounterStep.ApplyMonsterOcclusion</c>
+        /// → 每一只 <c>MonsterRules.UseOcclusion</c>）。只断言 <c>step.Sight</c> 是内核那只（上面那条）**不够**：
+        /// 那正是「事实层接了、行为层没接」这个缺陷的形状——遮挡体喂进去了、`stealth.hidden` 也真了，
+        /// 而怪物的警戒照样涨、照样追过来。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void BindOcclusion_IsAppliedByTheContainer_MonsterItselfStopsSeeing()
+        {
+            Build();
+            EncounterStep step = container.Resolve<EncounterStep>();
+            StealthKernel kernel = container.Resolve<StealthKernel>();
+            kernel.Sight.SetOccluders(new[]
+            {
+                StealthOccluder.MakeRectangle(new Vector2(1.5f, 0f), new Vector2(0.5f, 2f), 1),
+            });
+            step.Begin(Vector2.zero, new[] { new Vector2(3f, 0f), Vector2.zero });
+
+            // 3 个 tick：没有遮挡时第一个 tick 就会进警戒（MonsterRules.Step 的橙区分支），有遮挡则一直是巡逻。
+            for (int i = 0; i < 3; i++)
+            {
+                Tick(step, 0.1f);
+            }
+
+            Assert.That(step.Facts.IsTrue(StealthFactKeys.Hidden), Is.True, "隔着柱子看不见");
+            Assert.That(container.Resolve<MonsterModel>().Alert, Is.Zero, "警戒不涨");
+            Assert.That(container.Resolve<MonsterModel>().Mode, Is.EqualTo(MonsterMode.PatrolWalk), "也不追过来");
+        }
+
+        /// <summary>
         /// `BindIdentity` 生效（S1 验收点）：身份生效中敌人不攻击，身份失效后恢复攻击。
         /// 借身份走的是容器里那套规则与表，不是测试自己 new 的——「容器装出来的链」正是这条用例要守的东西。
         /// </summary>

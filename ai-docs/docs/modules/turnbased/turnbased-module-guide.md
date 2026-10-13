@@ -14,9 +14,11 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 转写、规则编号与开放问题见 `docs/design/features-spotlight/09_BOSS战.md` §3.9（R40–R48）与 §9（Q17–Q19 → C90–C92）。
 
 > **接线现状**：本模块是纯规则内核，**唯一的调用方是 [`Game.Battle`](../battle/battle-module-guide.md)**
-> （`BattleSetup.cs:102-106` 开仗、`BattleFlow.cs:301,331,337,351` 驱动回合；除 `Game.Battle` 外 `Runtime/` 下没有别的文件引用 `Game.TurnBased`）。
-> `Game.Battle` 已挂进 `Boot.unity`，剧情停在 Battle 阶段即可开战、有界面、有回放；但**只有「正面攻击、玩家先手」一种开战方式在用**，
-> `EncounterStep` 的进战斗判定（偷袭 / 被打）仍没接。逐项状态见本文最后一节「接线清单」。
+> （`BattleSetup.cs` 开仗、`BattleFlow.cs` 驱动回合；除 `Game.Battle` 外 `Runtime/` 下没有别的文件引用 `Game.TurnBased`）。
+> `Game.Battle` 已挂进 `Boot.unity`，剧情停在 Battle 阶段即可开战、有界面、有回放（demo 是 `Npc_SampleBoss` 按 E「挑战」）。
+> **三种开战方式都已接通**（2026-10-09）：遭遇局势快照经 `BattleSetup.IsEncounterEngaged` 筛过才生效——
+> **遭遇说不上话时（平静巡逻、只是玩家碰巧在潜行）退回缺省「正面攻击、玩家先手」**，否则会把剧情 NPC 触发的
+> boss 战整个拒掉（实测踩过，见 `HANDOVER.md` §1.12）。逐项状态见本文最后一节「接线清单」。
 
 ## 职责边界
 
@@ -100,9 +102,9 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 - 本模块**不写任何事实键**：`ai-docs/docs/story-facts.md` §4.5 把 `combat.phase.<n>` / `combat.tooth.weakened` /
   `combat.masks.ready` 的写入方登记为 **Monster / Inventory**，§6.1 是「一个键一个写入方」。
 - 战斗结果只经 `BattleSession.ExitKey`（`Victory` / `Downed`）交给**唯一一条路**：`NarrativeService.CompleteBattleAsync` → `NarrativeRules.CompleteBattle`
-  （`PRP/battle-to-narrative/prp.md` §2.1）。回合制这条路径现在由 `Game.Battle` 走通：`BattleFlow` 取 `session.ExitKey`（`BattleFlow.cs:321`）、
-  收场时经 `NarrativeBattlePort` 回写（`BattleFlow.cs:243`、`NarrativeBattlePort.cs:27-33`）。`EncounterStep.PendingResult` 那条路径
-  （潜行 / 遭遇的结果）**仍没有人消费**。**不要自创结果键**，也不要在这里改剧情状态。
+  （`PRP/battle-to-narrative/prp.md` §2.1）。回合制这条路径现在由 `Game.Battle` 走通：`BattleFlow` 取 `session.ExitKey`（`BattleFlow.cs`）、
+  收场时经 `NarrativeBattlePort` 回写（`BattleFlow.cs:243`、`NarrativeBattlePort.cs:27-33`）；**实时遭遇那条路径 2026-10-09 起由
+  `Game.Monster.EncounterBattleBridge` 走通**（空 payload 的 Battle 阶段，见本文件「接线清单」最后一行）。**不要自创结果键**，也不要在这里改剧情状态。
 
 ## 配置与占位值
 
@@ -118,7 +120,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 ## 已知约束（读代码前先知道这些）
 
 - **`BattleSession` 只被接线侧驱动**：它不会自己往前跑，也没有协程 / 计时器；表现层要按 `Phase` 收输入、
-  按 `Events` 播表现（每次动作前事件列表会清空，只反映最近一次动作）。现在的驱动者是 `BattleFlow.FightAsync`（`BattleFlow.cs:291-322`），它在每次动作后立刻拷贝事件交给表现层。
+  按 `Events` 播表现（每次动作前事件列表会清空，只反映最近一次动作）。现在的驱动者是 `BattleFlow.FightAsync`（`BattleFlow.cs`），它在每次动作后立刻拷贝事件交给表现层。
 - **玩家血量由外部注入**（`PlayerBattleSnapshot`）：原文没写玩家血量，本模块不设占位血量。`Game.Battle` 注入的是 `BossDefinition.PlayerHealth`
   （占位 10，满血开打，战后不回写），**不读 `PlayerModel`、不是探索血量**（`BattleSetup.cs:95-105`、`BossDefinition.cs:20,35`）。
 - **百分比一律向下取整**（整数运算，`BossBattleRules.cs:85/100`）；原文没写取整口径，见交付报告「待拍板」。
@@ -145,14 +147,14 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 
 | 环节 | 状态 | 说明 / 出处 |
 | --- | --- | --- |
-| 开仗装配 | **已接** | `BattleSetup.TryCreate` 拼快照并调 `TurnBasedKernel.TryStartBattle`（`BattleSetup.cs:82-114`） |
-| 进战斗判定 | **只接了一种** | 固定拼「正面攻击、玩家先手」的请求（`BattleSetup.cs:104`）；偷袭 / 被打两条路径没有调用方——**`EncounterStep` 的进战斗判定（潜行 / 偷袭是否命中、是否在警戒·敌对区域、怪物警觉档位、谁先动手）仍没接**，需要 Monster 侧的警觉档位与区域查询 |
+| 开仗装配 | **已接** | `BattleSetup.TryCreate` 拼快照并调 `TurnBasedKernel.TryStartBattle`（`BattleSetup.cs`） |
+| 进战斗判定 | **三种方式全通（2026-10-08）** | `BattleSetup.TryCreate(boss, context, ...)` 收 `Game.Monster.IBattleEntryContext`（由 `EncounterStep` 实现、`BattleInstaller` 的构建回调经 `BattleFlow.BindEntryContext` 交进去），把五个快照量翻成 `BattleEntryRequest`。<br>**`context == null` 时退回原样那句硬编码请求**（正面攻击、玩家先手），独立原型场景与纯 Battle 测试作用域行为不变（`BattleSetupTests` 有两条负对照）。<br>⚠️ 两个已知缺口：**「谁先动手」是从怪物状态反推的推断**（本工程没有「玩家物理挥刀」这条路），**偷袭那一支现状几乎到不了**（判据 `stealth.assassinated` 由处决写入，而处决会让目标当场死亡）。逐条见 battle guide「已知约束」 |
 | 玩家血量快照 | **已接，口径与原计划不同** | 读 `BossDefinition.PlayerHealth`（占位 10），不取 `PlayerConfig.maxHealth`、不读玩家状态（`BattleSetup.cs:95-105`） |
 | BOSS 血量与战斗外醉酒值 | **已接，出处是占位** | 读 `BossDefinition.MaxHealth`（`BossDefinition.cs:64`）与 `BossDefinition.OutOfBattleDrunk`（`BossDefinition.cs:67`），经 `BattleSetup.cs:105-106` 喂给内核，资产 `BossRosterConfig.asset:18-19` 为 12 / 50。**战斗外醉酒值仍没有「唯一真实出处」**（02:109 写 BOSS 100，口径未明，`BossDefinition` 文件头注释写明），等 C91 / 00 §8.1 #1；`MonsterConfig.ResolveMaxHealth` 没接 |
 | 背包口 | **已接** | `LootBattleBackpack` / `BattleItemInventory` 实现 `IBattleItemInventory`（`BattleItemInventory.cs:15`），扣减走 `LootService.TryConsume`（`LootBattleBackpack.cs:38`） |
 | 道具效果 | **占位** | 只有治疗药水回复百分比（`BattleItemSettings`），等 C91 |
 | 结果回写（回合制路径） | **已接** | `BattleSession.ExitKey` → `NarrativeService.CompleteBattleAsync`（`BattleFlow.cs:243`），在黑幕下、揭幕之前（`BattleFlow.cs:201-202`） |
-| 结果回写（潜行 / 遭遇路径） | **仍缺** | `EncounterStep.PendingResult` 没有消费方；roadmap C5 只覆盖了回合制这一条 |
+| 结果回写（潜行 / 遭遇路径） | **已接（2026-10-09，roadmap C5 剩下的那一半）** | 空 payload 的 Battle 阶段 = 活遭遇档 → `Game.Monster.EncounterBattleBridge`：订阅 `BattleStageEnteredEvent`（只认空 payload）、`EncounterStep.StartBattle` 登记这一仗、结算那一刻取走 `BattleSettlement`、用事件里的三项身份 `NarrativeService.CompleteBattleAsync` 回写。语义由用户 2026-10-09 拍板：**打赢或被击倒都算这一关结束**（`Victory` / `Downed`）。⚠️ 桥**不调** `TryBeginBattle`（不改存档边界）、阶段没声明结果码时按正常拒绝处理；两条路径按 payload 分工、不重叠，见 `monster-module-guide.md` 的同名附录 |
 | 界面 | **白盒已接** | `BattleView`，细节等 **C92 / Q19** |
 | Boot 接线 | **已接** | `Boot.unity` 的 `GameBootstrap` 挂了 `BattleInstaller`（`BattleInstaller.cs:37`；`Boot.unity` 里能反查到它的 GUID） |
 | 适用范围 | 只给 `sample_boss` | 等 C90 |

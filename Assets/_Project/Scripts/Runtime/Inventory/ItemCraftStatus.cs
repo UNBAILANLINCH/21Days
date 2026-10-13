@@ -21,5 +21,12 @@ namespace Game.Inventory
 
         /// <summary>原料不够：背包里没有这件原料，或件数少于配方要的（缺哪件见 <see cref="ItemCraftResult.MissingItemId"/>）。</summary>
         MissingIngredient = 4,
+
+        /// <summary>
+        /// 背包里已经有这件产物了。专属 <see cref="ItemCraftService"/>（纯规则不知道「能不能重复持有」，
+        /// 那要看背包）：本工程还没有堆叠上限与堆叠 UI（inventory-module-guide.md「已知约束」），
+        /// 白盒阶段不让合成凭空造出第二件同名物。**这是本波次的取舍，等堆叠规则拍板后要去掉。**
+        /// </summary>
+        AlreadyOwned = 5,
     }
 }

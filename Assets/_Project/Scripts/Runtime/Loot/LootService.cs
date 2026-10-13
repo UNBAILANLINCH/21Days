@@ -1,4 +1,5 @@
-// 职责：物资箱模块对外门面（根作用域单例）——开箱时写存档分区、推进任务计数、弹奖励通知、发布事件与埋点；重置时清空分区。
+// 职责：物资箱模块对外门面（根作用域单例）——开箱时写存档分区、推进任务计数、弹奖励通知、发布事件与埋点；重置时清空分区；
+//   另外是背包的**唯一写入口**：按种类结算怪物掉落（SettleMonsterDrop）、扣件数（TryConsume）、加物品（GrantItems）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：LootRules 是纯规则，不认识存档服务、任务、通知与 MessagePipe。
 //   2. 扩展不行：塞进 QuestService 会让任务认识物品表与箱子，依赖方向是 Loot → Quest。
@@ -34,12 +35,11 @@ namespace Game.Loot
         private readonly IPublisher<CrateCollectedEvent> collectedPublisher;
         private readonly IPublisher<MonsterDroppedEvent> monsterDroppedPublisher;
         private readonly IPublisher<LootResetEvent> resetPublisher;
+        private readonly IPublisher<BackpackChangedEvent> backpackChangedPublisher;
         private readonly ITelemetryScope telemetry;
 
         public LootService(LootConfig config, ISaveService saves, IConfigService configService, QuestService quest,
-            INotificationService notifications, IPublisher<CrateCollectedEvent> collected,
-            IPublisher<MonsterDroppedEvent> monsterDropped, IPublisher<LootResetEvent> reset,
-            ITelemetryScope telemetry)
+            INotificationService notifications, LootEventPublishers events, ITelemetryScope telemetry)
         {
             // LootConfig 是 ScriptableObject，判空只用 == null。
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -48,9 +48,11 @@ namespace Game.Loot
             this.configService = configService ?? throw new ArgumentNullException(nameof(configService));
             this.quest = quest ?? throw new ArgumentNullException(nameof(quest));
             this.notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
-            collectedPublisher = collected ?? throw new ArgumentNullException(nameof(collected));
-            monsterDroppedPublisher = monsterDropped ?? throw new ArgumentNullException(nameof(monsterDropped));
-            resetPublisher = reset ?? throw new ArgumentNullException(nameof(reset));
+            if (events == null) throw new ArgumentNullException(nameof(events));
+            collectedPublisher = events.CrateCollected;
+            monsterDroppedPublisher = events.MonsterDropped;
+            resetPublisher = events.LootReset;
+            backpackChangedPublisher = events.BackpackChanged;
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
         }
 
@@ -103,6 +105,35 @@ namespace Game.Loot
             notifications.Show(config.RewardTitle, ComposeBody(config.RewardBodyFormat, ItemName(itemId), count));
             collectedPublisher.Publish(new CrateCollectedEvent(key, itemId, count));
             telemetry.Track("crate_collected", ("key", key), ("item", itemId), ("count", count));
+            return true;
+        }
+
+        /// <summary>
+        /// 往背包里加 <paramref name="count"/> 件 <paramref name="itemId"/>（合成产物这类「非开箱、非掉落」的入包走这条）。
+        /// <para>
+        /// 命名理由：同类里已有的两个写入口都按「这件事是什么」命名——<see cref="TryCollect"/>（开箱子）、
+        /// <see cref="SettleMonsterDrop"/>（结算怪物掉落）。这条既不是箱子也不是怪物，是调用方明确要加一件东西，
+        /// 所以叫 <c>GrantItems</c>（发放物品），与 <c>MonsterLootRules.Grant</c> / <c>LootRules.Grant</c> 同一族词。
+        /// <b>不叫 AddItem</b>：那会与「按 id 加」的实现细节绑在一起，将来要发一批（套装奖励）时签名就得改。
+        /// </para>
+        /// <para>
+        /// 语义边界：不做幂等、不认箱子键、不推任务计数、**不弹通知**（通知由发起方自己按它知道的上下文拼——
+        /// 合成成功该说「合成了什么」，而不是 Loot 口径的「获得物资」）。成功顺序：写分区 → 发布
+        /// <see cref="BackpackChangedEvent"/> → 埋点。
+        /// </para>
+        /// </summary>
+        /// <returns>真的写进去了返回 true；<paramref name="itemId"/> 或 <paramref name="count"/> 非正返回 false 且不改分区。</returns>
+        public bool GrantItems(int itemId, int count)
+        {
+            if (!LootRules.Grant(Data, itemId, count))
+            {
+                telemetry.TrackWarn("grant_rejected", TelemetryProps.Of(("item", itemId), ("count", count)));
+                return false;
+            }
+
+            // 背包面板订阅它刷新（开着的面板才知道背包变了）；不发事件的话面板要等下一次开箱才看得到新产物。
+            backpackChangedPublisher.Publish(new BackpackChangedEvent(itemId, count));
+            telemetry.Track("item_granted", ("item", itemId), ("count", count));
             return true;
         }
 

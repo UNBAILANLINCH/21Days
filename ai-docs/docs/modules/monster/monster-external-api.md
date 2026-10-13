@@ -14,6 +14,12 @@ maturity: stable
 | `MonsterRules.ApplyDamage(in DamageIntent, in PlayerSnapshot)` | 受伤并记录攻击者位置；生命零则死亡；**返回 false = 这次伤害被拒**（种类 `killable = false`，见 `06_怪物分层.md:121` R9） | 正伤害；`MonsterRules.cs` |
 | `MonsterRules.Model` | 只读引用供视图取状态 | 不能从外部写内部字段；`MonsterRules.cs` |
 | `MonsterRules.Kind` / `IsKillable` / `DropItemIds` | 本只怪的按种类数值与掉落 id（`Kind` 为 null = 没接种类表，走全局默认）；`DropItemIds` 只交 id，入背包走 `Game.Loot` | `MonsterRules.cs` / `MonsterKind.cs` |
+| `MonsterRules.UseOcclusion(StealthSight)` | 注入视线遮挡：**视锥那两档**（红区 / 橙区）从此要看通视，**贴身那一档不看**。传 null = 断开（行为与接线前逐位一致）；多只怪可共用同一个 `StealthSight` | `MonsterRules.cs` |
+| `MonsterRules.Detects(in PlayerSnapshot)` | **行为层**口径：含遮挡（警戒 / 敌对 / 追击走它） | `MonsterRules.cs` |
+| `MonsterRules.PerceivedBySenses(in PlayerSnapshot)` | **不含遮挡**的同一套档位（0/1/2）；事实层算 `stealth.cover` 要的那一半用它，别用 `Detects` | `MonsterRules.cs` |
+| `EncounterStep.BindOcclusion(StealthSight)` | 把遮挡分发给每一只巡逻怪（`UseStealth` / `ConfigureTaming` 内部已自动调一次，场景就绪喂完遮挡体后由 `MonsterEncounterState` 再调一次） | `EncounterStep.cs` |
+| `EncounterStep.BindDropSink(IMonsterDropSink)` | 接入击杀掉落口；**不接 = 什么都不掉** | `EncounterStep.cs` / `IMonsterDropSink.cs` |
+| `EncounterStep`（实现 `IBattleEntryContext`） | 进战斗的局势快照：潜行 / 偷袭是否命中 / 是否在警戒·敌对区域 / 怪物警觉档位 / 谁先动手，供 `BattleSetup.TryCreate` 拼 `BattleEntryRequest` | `EncounterStep.cs` / `IBattleEntryContext.cs` |
 | `MonsterKindCatalog.Get(int)` / `TryGet(int, out MonsterKind)` | 按种类 id 取数值；`Get` 查不到抛 `KeyNotFoundException` | 配置表已就绪；`MonsterKindCatalog.cs` |
 | `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs` |
 | `EncounterStep.FactSink` | 同一个事实集的**写侧契约**（`IStealthFactSink`），交给背后处决写 `stealth.assassinated`；与读侧 `Facts` 是同一个对象 | `EncounterStep.cs` |

@@ -26,7 +26,7 @@ maturity: seed
 | 回合规则、数值、醉酒 / 怒气 / 道具判定 | `Game.TurnBased`（本模块只调 `BattleSession`，不改规则） |
 | 剧情推进、阶段迁移、结果身份校验 | `Game.Narrative`（本模块只发起 `TryBeginBattle` / `ReleaseBattle` / `CompleteBattleAsync`） |
 | 背包数据写入 | `Game.Loot`（本模块经 `LootService.TryConsume` 扣 1，`LootBattleBackpack.cs:38`） |
-| 巡逻怪的实时遭遇、潜行、偷袭、处决 | `Game.Monster` / `Game.Stealth`；本模块**只会以「正面攻击、玩家先手」开战**（`BattleSetup.cs:104`） |
+| 巡逻怪的实时遭遇、潜行、偷袭、处决 | `Game.Monster` / `Game.Stealth`；本模块**按遭遇侧给的局势快照开战**（`BattleSetup.TryCreate(boss, context, ...)`），拿不到快照时退回「正面攻击、玩家先手」（`BattleSetup.cs` 的 `BuildEntryRequest`） |
 | 出招动画的正式美术 | 美术（现为位移 + 闪白 + 震屏 + 飘字，见下「占位与待拍板」） |
 
 ## 为什么新建模块（D1）
@@ -42,8 +42,13 @@ maturity: seed
 
 ```text
 Game.Battle（Runtime/Battle/，走 Game.Runtime）
-  ├─► Game.TurnBased      BattleSession / TurnBasedKernel / BattleSettings（BattleSetup.cs:102-106）
-  ├─► Game.Narrative      BattleStageEnteredEvent 订阅（BattleFlow.cs:29,92）+ NarrativeService 三方法（NarrativeBattlePort.cs:21-33）
+  ├─► Game.TurnBased      BattleSession / TurnBasedKernel / BattleSettings（BattleSetup.cs 的 TryCreate）
+  ├─► Game.Monster        IBattleEntryContext（**只读契约**，`EncounterStep` 实现）+ BattleInstaller 的
+  │                       `TryResolve<EncounterStep>` 构建回调 → `BattleFlow.BindEntryContext`——
+  │                       加它是为了让 07 的偷袭 / 被打两条分支有生产入口（2026-10-08）。
+  │                       ⚠️ 反向不许：Monster 不认识 `Game.Battle`（契约声明在 Monster 侧，
+  │                       依赖边只有 Battle → Monster 一条）
+  ├─► Game.Narrative      BattleStageEnteredEvent 订阅（`BattleFlow.Start`）+ NarrativeService 三方法（NarrativeBattlePort.cs:21-33）
   ├─► Game.Loot           LootService.Items / TryConsume（LootBattleBackpack.cs:24,38）
   ├─► Game.CharacterPuppet  BattleActor 挂载纸片小人（BattleActor.cs 顶部 using，行为在 BattleActor.cs:271-273）——新增的横向依赖
   ├─► Game.Core.UI        IUIService 开 BattleView、藏 HUD 层（BattleWorldLock.cs:43-44、BattleScenePresenter.cs:96）
@@ -58,14 +63,14 @@ Game.Battle（Runtime/Battle/，走 Game.Runtime）
   `:276-278` 写 `SetMoving`、`:134` 写 `SetFacing`）。原因见 `BattleActor.cs:7-8`：`ChibiPuppetMotion` 在 `timeScale = 0` 时每帧把小人写回待机。
   CharacterPuppet guide 的「同一小人只允许一个驱动者」约束在战斗舞台上是由本组件接手的。
 - 两个同名 `BattleOutcome`（`Game.TurnBased` / `Game.Narrative`）：同一文件不要同时 `using` 两个命名空间，
-  结果只走 `BattleExitKeys` 字符串；`BattleFlow.cs:29` 与 `BattleInstaller.cs:27-28` 用别名取剧情侧类型。
+  结果只走 `BattleExitKeys` 字符串；`BattleFlow.cs` 与 `BattleInstaller.cs:27-28` 用别名取剧情侧类型。
 
 ## 运行时类分工
 
 | 类 | 是什么 | 出处 |
 | --- | --- | --- |
-| `BattleFlow` | **流程**（根作用域入口点，`AsSelf`）：订阅通知 → 查 BOSS → 登记在途 → 等门闸 → 按住世界 → 开仗 → 回合循环 → 收场回写 | `BattleFlow.cs:36`；`IsBattleRunning` `:83`、`IsBattleEngaged` `:86` |
-| `BattleSetup` | 开仗装配：本场玩家 / BOSS 快照 + 本地随机流 + 背包口，以「正面攻击」进 `TurnBasedKernel`；含回放测试口 | `BattleSetup.cs:82`（`TryCreate`）、`:68`（`OverrideSettings`） |
+| `BattleFlow` | **流程**（根作用域入口点，`AsSelf`）：订阅通知 → 查 BOSS → 登记在途 → 等门闸 → 按住世界 → 开仗 → 回合循环 → 收场回写 | `BattleFlow.cs`；`IsBattleRunning` `:93`、`IsBattleEngaged` `:96` |
+| `BattleSetup` | 开仗装配：本场玩家 / BOSS 快照 + 本地随机流 + 背包口，按**局势快照**（`IBattleEntryContext`，可空）进 `TurnBasedKernel`；含回放测试口 | `BattleSetup.cs`（`TryCreate` 两个重载）、`OverrideSettings` |
 | `BattleArena` | 战斗场景宿主：黑幕落 → 叠加加载 `BattleArena` → 表现开场 → 揭；收场对称 | `BattleArena.cs:49`（`EnterAsync`）、`:82`（`ExitAsync`） |
 | `BattleWorldLock` | 战斗期间按住世界：暂停令牌 + 关 Gameplay 图 + 藏 HUD 层；Dispose 只恢复进来前的状态 | `BattleWorldLock.cs:34` |
 | `SceneWorldGate`（`IBattleWorldGate`） | 开战门闸：当前是 `SceneGameState` 且黑幕没盖才算就绪 | `SceneWorldGate.cs:22` |
@@ -88,10 +93,12 @@ Game.Battle（Runtime/Battle/，走 Game.Runtime）
 SampleScene 的 Npc_SampleBoss（NarrativeTrigger + DialogueInteractable）── 按 E
   → NarrativeService.TryEncounterAsync → 故事 sample_boss_battle：taunt（对白）→ fight（Battle，payload = sample_boss）
   → DriveAsync 停在 Battle 阶段，同步发布 BattleStageEnteredEvent（NarrativeService.cs:286-290）
-BattleFlow.HandleStage → Begin（BattleFlow.cs:106,119）
-  1 roster.TryGet(payload)                    找不到：Error + 埋点 boss_not_found，不开仗（:144-150）
-  2 narrative.TryBeginBattle(stage)           登记「战斗在途」，之后 CanSave = false（:160）
-  3 RunAsync（:171）：gate.WaitUntilReadyAsync → worldLock.Engage → setup.TryCreate → arena.EnterAsync
+BattleFlow.HandleStage（`BattleFlow.cs:181`）→ Begin（`BattleFlow.cs:194`）
+  0 payload 为空 → **安静跳过**（活遭遇档，归 Monster 的 EncounterBattleBridge）：一条 Info + 埋点 stage_live_encounter（`BattleFlow.cs:205`），
+                  不再记 boss_not_found 的 Error（接线前每次进活遭遇档都会刷一条）
+  1 roster.TryGet(payload)                    找不到：Error + 埋点 boss_not_found，不开仗（`BattleFlow.cs:215-221`）
+  2 narrative.TryBeginBattle(stage)           登记「战斗在途」，之后 CanSave = false（`BattleFlow.cs:247`）
+  3 RunAsync（`BattleFlow.cs:258`）：gate.WaitUntilReadyAsync → worldLock.Engage → ResolveEntryContext → setup.TryCreate → arena.EnterAsync
     （黑幕落 → 叠加加载 → presenter.OpenAsync → 黑幕揭）
   4 FightAsync（:291）：BOSS 回合 session.RunBossTurn；玩家回合 presenter.WaitCommandAsync → Apply；每次动作后 presenter.PlayAsync
   5 arena.ExitAsync（:201）：黑幕落 → presenter.CloseAsync → 卸场景 → 恢复世界 → 剧情回写 → 黑幕揭
@@ -110,18 +117,18 @@ Narrative：Victory → cleared（写 world.sampleboss.defeated，NarrativeFlagV
 | --- | --- | --- |
 | 1 | 落幕；落幕失败只记日志、照样收场 | `BattleArena.cs:91-98` |
 | 2 | `presenter.CloseAsync`（容错）→ 卸载战斗场景 | `BattleArena.cs:100-106` |
-| 3 | `whileCovered`（= 世界锁的 Dispose：恢复 HUD / 输入图 / 暂停令牌） | `BattleArena.cs:109`、`BattleFlow.cs:201` |
-| 4 | `beforeReveal`（= `WriteBackUnderCurtainAsync`）：发起 `CompleteBattleAsync`；胜利时 `NarrativeFlagVisibility` 在幕下就把 BOSS 藏好 | `BattleArena.cs:110`、`BattleFlow.cs:240-243` |
+| 3 | `whileCovered`（= 世界锁的 Dispose：恢复 HUD / 输入图 / 暂停令牌） | `BattleArena.cs:109`、`BattleFlow.cs`（`RunAsync` 的 finally） |
+| 4 | `beforeReveal`（= `WriteBackUnderCurtainAsync`）：发起 `CompleteBattleAsync`；胜利时 `NarrativeFlagVisibility` 在幕下就把 BOSS 藏好 | `BattleArena.cs:110`、`BattleFlow.cs:352` |
 | 5 | 揭幕（出错也揭，只留痕） | `BattleArena.cs:112-115` |
 
-- **1 秒兜底**：幕下最多等回写 `DefaultWriteBackCoverSeconds = 1.0` 秒（真实时间，`BattleFlow.cs:45`）。常态下结局是 End 阶段，回写同步走完一帧不等；
+- **1 秒兜底**：幕下最多等回写 `DefaultWriteBackCoverSeconds = 1.0` 秒（真实时间，`BattleFlow.cs:49`）。常态下结局是 End 阶段，回写同步走完一帧不等；
   剧情忙（`NarrativeBattlePort` 要等 `IsBusy` 为假，`NarrativeBattlePort.cs:31`）或战后接了对白时才会等满。
-- **超时的处理**：先揭幕、回写在幕后继续，打 Warn 并埋 W 级 **`battle/write_back_outlived_curtain`**（`BattleFlow.cs:256-258`）；
-  此时 BOSS 退场可能落在揭幕之后。揭幕后 `RunAsync` 再 `await run.WriteBack`（`BattleFlow.cs:211`），异常在那里抛出并记日志。
-- **回写被拒或抛异常**：照样揭幕；被拒埋 `result_rejected`（`BattleFlow.cs:216`），finally 里 `ReleaseBattle`（`:230`），阶段原地不动、可重打。
-  没打完（异常 / 取消，`exitKey` 为空）不回写（`BattleFlow.cs:202`）。
+- **超时的处理**：先揭幕、回写在幕后继续，打 Warn 并埋 W 级 **`battle/write_back_outlived_curtain`**（`BattleFlow.cs`）；
+  此时 BOSS 退场可能落在揭幕之后。揭幕后 `RunAsync` 再 `await run.WriteBack`（`BattleFlow.cs:323`），异常在那里抛出并记日志。
+- **回写被拒或抛异常**：照样揭幕；被拒埋 `result_rejected`（`BattleFlow.cs`），finally 里 `ReleaseBattle`，阶段原地不动、可重打。
+  没打完（异常 / 取消，`exitKey` 为空）不回写（`BattleFlow.cs`）。
 - **开战失败也是同一顺序**：`EnterAsync` 的 catch 在黑幕下先恢复世界、再揭幕，不会露出一小段被暂停的世界画面（`BattleArena.cs:62-72`）。
-  `BattleFlow.cs:207` 的 `engagement.Dispose()` 是幂等兜底。
+  `BattleFlow.cs:319` 的 `engagement.Dispose()` 是幂等兜底。
 - 为什么回写要在幕下：原先揭幕后才回写，玩家会看到 BOSS 凭空消失（`BattleFlow.cs:5-7`）。
 
 ## 随机流与「回放不覆盖回合制战斗」（D8）
@@ -139,9 +146,9 @@ Narrative：Victory → cleared（写 world.sampleboss.defeated，NarrativeFlagV
   （`NarrativeService.cs:71`、`IsStable` 在 `:345-347`）→ Session 的 `NarrativeStable` 闸门（`SessionStateAdapter.cs:72`、`GameSession.cs:251,275`）
   挡住自动保存与离场保存。**Session 本身没改**（`BattleWorldLock.cs:7-8` 同样说明）。
 - 战斗会话状态不进快照（不升 `ReplayFormat`）。**读档时若剧情停在 Battle 阶段，`ReloadFromSave` 先清掉存档里残留的在途标记，再重发 `BattleStageEnteredEvent`，战斗从头开始**
-  （`NarrativeService.cs:116-122`）。读档恢复时世界可能还在标题 → 靠 `SceneWorldGate` 等「场景状态且黑幕没盖」才开战（`SceneWorldGate.cs:22`、`BattleFlow.cs:177`）。
+  （`NarrativeService.cs:116-122`）。读档恢复时世界可能还在标题 → 靠 `SceneWorldGate` 等「场景状态且黑幕没盖」才开战（`SceneWorldGate.cs:22`、`BattleFlow.cs` 的 `gate.WaitUntilReadyAsync`）。
 - 还在等世界就绪时换了身份的新通知会顶掉旧请求；同身份重复通知忽略并埋 `stage_duplicate`；已经按住世界后来的新通知忽略并埋 `stage_ignored_busy`
-  （`BattleFlow.cs:122-141`）。
+  （`BattleFlow.cs:181-199`）。
 
 ## 相机接管规则
 
@@ -172,7 +179,7 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 | 闪白 / 顿帧 / 提示停留 | `UniTask.Delay(..., ignoreTimeScale: true, ...)` | `BattleActor.cs:177`、`BattleStage.cs:127`、`BattleView.cs:252` |
 | 血条动画 | `UpdateIgnoreTimeScale` | `BattleBarWidget.cs:51` |
 | 开战门闸 | 按帧等、不按时间等 | `SceneWorldGate.cs:28-30` |
-| 剧情回写的 1 秒兜底 | `UniTask.Delay(..., true, ...)` 真实时间 | `BattleFlow.cs:250` |
+| 剧情回写的 1 秒兜底 | `UniTask.Delay(..., true, ...)` 真实时间 | `BattleFlow.cs`（`WriteBackUnderCurtainAsync`） |
 | 小人 Animator | 必须 `UnscaledTime`（CharacterPuppet 约定；本模块不改） | `characterpuppet-external-api.md` 禁止事项 |
 
 新加任何战斗表现，**不许用 `Time.deltaTime` / `WaitForSeconds` / 默认调度的 `LMotion`**——世界暂停时它们不走。
@@ -186,7 +193,7 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 ## 测试口 `BattleSetup.OverrideSettings`
 
 - **只在 `Debug.isDebugBuild` 下可用**：正式包一调就抛 `InvalidOperationException`（`BattleSetup.cs:70-71`）；同一时刻只容一份，上一份没 Dispose 又换会抛（`:72`）。
-- **开打时会记埋点**：每场开打若处于替换状态，`BattleFlow` 埋 W 级 **`battle/settings_overridden`**（`BattleFlow.cs:187-188`），日志里一眼能看出「这一仗用的不是配置资产的数值」。
+- **开打时会记埋点**：每场开打若处于替换状态，`BattleFlow` 埋 W 级 **`battle/settings_overridden`**（`BattleFlow.cs:300`），日志里一眼能看出「这一仗用的不是配置资产的数值」。
 - 它必须是 `public`：调用方是 `Game.Tests.Showcase`，而 `Game.Runtime` 不对测试程序集开 `InternalsVisibleTo`（`BattleSetup.cs:61-67`）。**玩法代码不得调用。**
 - 返回句柄 Dispose 即恢复；只影响之后开打的仗（`BattleSetup.cs:57-60`）。不改任何配置资产。
 - 表现层（`BattleScenePresenter`）仍拿装配时那份数值画招式说明（`BattleSetup.cs:18-19`）；只换 BOSS 招式时两边不矛盾，换玩家招式数值会不一致。
@@ -229,7 +236,7 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 
 ## 埋点（模块名 `battle`，`BattleInstaller.cs:39`）
 
-流程：`stage_received` / `stage_duplicate` / `stage_stale` / `stage_ignored_busy` / `boss_not_found` / `presenter_missing` / `battle_started` / `battle_finished` /
+流程：`stage_received` / `stage_duplicate` / `stage_stale` / `stage_ignored_busy` / `stage_live_encounter` / `boss_not_found` / `presenter_missing` / `battle_started` / `battle_finished` /
 `battle_cancelled` / `battle_failed` / `result_rejected` / `write_back_outlived_curtain` / `settings_overridden` / `command_rejected` / `item_consume_failed`（均在 `BattleFlow.cs`）；
 场景：`arena_loaded` / `arena_load_failed` / `restore_failed` / `presenter_close_failed`（`BattleArena.cs`）；表现：`presenter_opened` / `presenter_closed` / `command_chosen`（`BattleScenePresenter.cs`）。
 剧情侧另有 `battle_begun` / `battle_released` / `battle_stage_entered`（`NarrativeService.cs:238,251,365`）。
@@ -237,14 +244,47 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 ## 已知约束
 
 - **一次只跑一场**：`BattleArena.EnterAsync` 在场景已在时抛（`BattleArena.cs:53`）；`BattleFlow` 一次一个 `Run`（`BattleFlow.cs:60`）。
-- **表现层连续 100 次给被拒指令即放弃这一场**（`BattleFlow.cs:39,317-318`），防同步死循环。
-- **表现层坏了也不卡剧情**：没有 `IBattlePresenter` 时开战报错放弃、不登记在途，剧情停在 Battle 阶段，可再交互重试（`BattleFlow.cs:152-158`、`NarrativeService.cs:161-170`）。
-- **未接的路径**：EncounterStep 的进战斗判定（偷袭 / 被打）没接，战斗外醉酒值没有真实出处，潜行 / 遭遇的结果回写没接——详见 turnbased guide「接线清单」。
+- **表现层连续 100 次给被拒指令即放弃这一场**（`BattleFlow.cs:43`、`BattleFlow.cs:429-430`），防同步死循环。
+- **表现层坏了也不卡剧情**：没有 `IBattlePresenter` 时开战报错放弃、不登记在途，剧情停在 Battle 阶段，可再交互重试（`BattleFlow.cs`、`NarrativeService.cs:161-170`）。
+- **未接的路径**：**战斗外醉酒值**没有真实出处（`BossDefinition.OutOfBattleDrunk` 占位）；
+  **潜行 / 遭遇的结果回写已接**（2026-10-09，空 payload 的活遭遇档走 `Game.Monster.EncounterBattleBridge`，见下一条）——详见 turnbased guide「接线清单」。
+- **三种进入方式（2026-10-08 已全部接通，但有一条推断）**：`BattleSetup.TryCreate(boss, context, ...)`
+  按 `EncounterStep` 给的局势快照拼请求，07 的偷袭（`SneakAttack`，BOSS −20% 生命）与被打（`Ambushed`，BOSS 先手）
+  第一次有了生产入口。**缺省仍是「正面攻击、玩家先手」**（`context == null`，独立原型场景与纯 Battle 测试作用域走这一支，
+  有两条负对照钉住）。
+  - ⚠️ **「谁先动手」是推断不是原文**：开战时机是「剧情停在 Battle 阶段 → 战斗侧订阅通知开打」，
+    **没有「玩家物理挥刀」这一路**（`EncounterStep.StartBattle` 现在唯一的调用方是 2026-10-09 接上的活遭遇桥
+    `Monster.EncounterBattleBridge`，它登记的是「这一场遭遇算一仗」，不是「玩家挥了刀」）。
+    现行口径是「怪物已敌对 + 玩家没潜行 → 判作 BOSS 先动手」，于是玩家在敌对态下主动上前开战也会被判成「被打」。
+    依据与代价见 `EncounterStep.DeriveInitiator` 的注释。
+  - ⚠️ **偷袭那一支现状几乎到不了**：判据是持久事实 `stealth.assassinated`，而写它的是背后处决，
+    处决成功会让目标当场死亡 → BOSS 死了就不会再进战斗阶段。等 `00` §8.1 #5（暗杀交互形式）拍板才有内容可用。
+  - ⚠️ **它不解决剧情身份**：回写仍只用事件里的 generation / activationId / targetId，
+    **`EncounterStep.EncounterId` 不是那一套 id**（见 battle guide 禁止事项与 `IBattleEntryContext` 文件头）。
+  - 埋点：每场开打多一条 `battle/battle_entry`（`kind` = SneakAttack / FrontalAttack / Ambushed、
+    `context` = 是否拿到局势快照、**`source` = 谁报的局势**：`boss` = 这只 BOSS 自己 / `encounter` = 巡逻遭遇 /
+    `none` = 硬编码缺省）——`context=false` 表示这不是现场判定出来的开战方式。
+    真采纳了快照时另有一条 `battle_entry_snapshot`（`sneaking` / `sneak_attack` / `zones` / `aware`），
+    用来分清「没交快照」与「交了但判成缺省」。
+- **局势快照谁说了算（2026-10-10，③ 方案 2「给 boss 自己的局势」）**：
+  - **优先 BOSS 自己**：场景里给 BOSS NPC 挂 `Game.Battle.BossEntryContext`（与 `NarrativeTrigger` 同物体），
+    它按 `MonsterRules.SenseFrom` **与巡逻怪同一套档位**回答「这只 BOSS 察觉到玩家没有、玩家进没进它的红 / 橙区」。
+    读方 `BattleSetup.IsEncounterEngaged` 认新加的 `IBattleEntryContext.MonsterAware`。
+  - **按需解析，不在构建期绑**：BOSS 那份挂在**玩法场景**，而 `BattleInstaller` 的构建回调跑在 **Boot 场景**——
+    那一刻 `FindObjectOfType` 只能看见 Boot（2026-10-10 实测拿到 null，日志 `boss_entry_context_missing`）。
+    所以走 `BattleFlow.BindEntryContextProvider(Func<string, IBattleEntryContext>)`：开仗那一刻按 payload 现找一次。
+  - **没有落回巡逻遭遇**：找到就用 BOSS 那份，找不到 / 不匹配才退回 `EncounterStep`，都没有才算缺省。
+  - 边界（都写在 `BossEntryContext` 文件头）：**没有视线，按距离判**（纸片 NPC 的旋转是朝向相机的，不是视线）；
+    **不做遮挡查询**；**不查种类表**（用 `MonsterConfig` 全局值）；**BOSS 不主动开战**——`Initiator` 恒为
+    `PlayerAttacked`，所以「被打（BOSS 先手）」那条要等 BOSS 有状态机（S7 内容）。
 - **BOSS NPC 的交互转交**依赖 `NarrativeTrigger` 与 `DialogueInteractable` 同物体（`NarrativeTrigger.cs:55-60`）；根作用域销毁后旧绑定的交互被 `IsReady` 守卫挡掉（`NarrativeTrigger.cs:67`）。
 
 ## 禁止事项
 
 - 不要在本模块里改规则数值或判定——走 `TurnBasedConfig` / `Game.TurnBased`；也不要让 `Game.TurnBased` 反过来认识 Battle。
+- **不要把「别处的局势」当成这一仗的理由**（2026-10-10 定）：开战判定只认**跟谁打**那一侧的局势。
+  BOSS 战用 `BossEntryContext`（这只 BOSS 自己），巡逻遭遇用 `EncounterStep`；拿巡逻怪的状态或
+  上一场遭遇的 `stealth.assassinated` 去决定 BOSS 战怎么进，就是把两个不同的对手混成一个。
 - 不要自己拼 `NarrativeIntent` 回写，或自创结果键；只走 `IBattleNarrative.CompleteBattleAsync` + `BattleExitKeys`。身份三项用事件里带的值，不是 `EncounterStep` 的 `EncounterId`。
 - 不要给战斗相机打 `MainCamera` 标签；不要切 `ActiveScene`。
 - 不要在战斗表现里用受时间缩放的计时。

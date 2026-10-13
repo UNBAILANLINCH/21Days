@@ -104,6 +104,24 @@ namespace Game.Tests.EditMode.Battle
             Assert.That(flow.IsBattleRunning, Is.False);
         }
 
+        [Test]
+        public void StageEntered_EmptyPayload_IsLeftToTheEncounterSide()
+        {
+            // 空 payload = 活遭遇档：归 Monster 侧的 EncounterBattleBridge（实时遭遇打赢 / 被击倒 → 回写剧情），
+            // 本流程**安静跳过**——不开仗，也不记 boss_not_found 那条 Error（接线前每进一次活遭遇档就刷一条）。
+            // 负对照是上一条：非空的未知 payload 照样报错。
+            Build(VictorySettings());
+
+            bus.Publish(Stage(string.Empty));
+
+            Assert.That(narrative.BeginCalls, Is.EqualTo(0), "不登记在途");
+            Assert.That(pause.IsPaused, Is.False);
+            Assert.That(assets.LoadedKeys, Is.Empty);
+            Assert.That(presenter.Opens, Is.EqualTo(0));
+            Assert.That(narrative.Completed, Is.Empty);
+            Assert.That(flow.IsBattleRunning, Is.False);
+        }
+
         // ── 胜 / 负的出口键 ──────────────────────────────────────────────────────
 
         [Test]

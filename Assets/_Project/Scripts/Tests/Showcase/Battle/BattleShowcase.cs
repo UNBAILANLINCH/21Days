@@ -64,6 +64,30 @@ namespace Game.Tests.Showcase.Battle
         private const string RetreatOutcome = "Downed";
         private const int HealItemId = 1004;
 
+        /// <summary>
+        /// 实时遭遇演示桩（SampleScene 里 `Npc_BattleDrill`，站在村北 (1.5, 8.8)，与长者 / 旅人都不在一条线上）：
+        /// 按 E 拉起对白 1002 → 剧情走到**空 payload 的战斗档** → 十几米外的巡逻怪那一仗由 `EncounterBattleBridge`
+        /// 认领（roadmap C5 剩下那一半）。
+        /// </summary>
+        private const string DrillObjectName = "Npc_BattleDrill";
+
+        /// <summary>演示桩的交互提示动词（`DialogueInteractable.verb`）。</summary>
+        private const string DrillVerb = "较量";
+
+        /// <summary>演示桩的显示名（`DialogueInteractable.displayName`，提示整句是「较量 · 演练桩」）。</summary>
+        private const string DrillDisplayName = "演练桩";
+
+        /// <summary>
+        /// 演示桩那一局用的剧情（`sample_battle_drill`）：brief → fight（空 payload，声明 Victory + Downed）→
+        /// cleared / downed（见 `Tables/Data/narrative/sample_battle_drill.json`）。
+        /// </summary>
+        private const string DrillStory = "sample_battle_drill";
+        private const string DrillClearedFlag = "world.samplebattle.cleared";
+        private const string DrillDownedFlag = "world.samplebattle.downed";
+
+        /// <summary>走到演示桩西侧 0.9 米（交互半径 2 内；长者 / BOSS / 旅人都在 5 米外，焦点只会落在它身上）。</summary>
+        private static readonly Vector2 DrillStandPoint = new Vector2(0.6f, 8.8f);
+
         /// <summary>给物借道「怪物掉落」入包口时填的妖物 id（只进埋点与事件载荷，没有订阅方）。</summary>
         private const int GiftYaoId = 1;
 
@@ -94,6 +118,9 @@ namespace Game.Tests.Showcase.Battle
         private GameObject bossObject;
         private Camera worldCamera;
         private IDisposable settingsOverride;
+
+        /// <summary>剧情服务（实时遭遇那两条用例要读当前阶段 / 故事标记）。</summary>
+        private NarrativeService stageReader;
 
         protected override string Module => "Battle";
 
@@ -241,6 +268,93 @@ namespace Game.Tests.Showcase.Battle
                 () => narrative.Capture().Outcome == RetreatOutcome && bossObject.activeSelf && !narrative.HasStoryFlag(DefeatedFlag), 5f);
         }
 
+        // ───────────────────────── ③ 实时遭遇演示桩：第一次交互要有回应 ─────────────────────────
+
+        /// <summary>
+        /// demo 场景村北的「较量」演示桩（`Npc_BattleDrill`）：走过去按一下 E，**必须看得见回应**——
+        /// 交互提示写着动词、对白 1002 拉起来、剧情从 `brief` 走到空 payload 的 `fight`。
+        /// <para>
+        /// 为什么单开一条：上面两条只覆盖 BOSS 那条路（剧情 NPC → 黑幕 → 回合制战场）。实时遭遇那条完全是另一条
+        /// 时间线（不换场景、没有战斗界面），而它的入口此前**一条回放都没有**——「按了 E 什么都没有」这种
+        /// 现象只会在回放里现形，EditMode 测不出来。
+        /// </para>
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Drill_InteractStartsTheBriefAndEntersTheLiveEncounter()
+        {
+            yield return EnterWorld();
+            yield return WalkToDrillAndCheckPrompt("走到演示桩跟前·交互提示");
+
+            yield return Step("按交互键（E）", null, 0f);
+            yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return Check("按 E 有回应：拉起演示对白（1002）", () => ui.Get<DialogueView>() != null, 5f);
+            yield return Check("剧情停在这一局的入口阶段 brief（demo 内容 sample_battle_drill）",
+                () => StageId() == "brief", 3f);
+            yield return Snapshot("较量·对白");
+
+            yield return Step("按推进键（空格）读完演示对白", null, 0f);
+            float deadline = Time.realtimeSinceStartup + 15f;
+            while ((dialogue.IsRunning || ui.Get<DialogueView>() != null) && Time.realtimeSinceStartup < deadline)
+            {
+                if (dialogueRules.Phase == DialogueSaveData.Phase.AwaitAdvance)
+                {
+                    yield return Input.Press(input.Actions.Dialogue.Advance);
+                }
+                else
+                {
+                    yield return null;
+                }
+            }
+
+            yield return Check("对白收起：不卡在对白上（剧情阶段因此才推进得动）",
+                () => !dialogue.IsRunning && ui.Get<DialogueView>() == null, 5f);
+            yield return Check("剧情走到空 payload 的实时遭遇档 fight：这一仗已交给遭遇桥（不是回合制战场，没有 BattleView）",
+                () => StageId() == "fight" && ui.Get<BattleView>() == null && !flow.IsBattleRunning, 5f);
+            yield return Snapshot("较量·实时遭遇档");
+        }
+
+        // ───────────────────────── ④ 实时遭遇演示桩：被击倒 → 这一关结束 ─────────────────────────
+
+        /// <summary>
+        /// 演示桩那一局的**失败出口**：走进巡逻线被击倒 → 遭遇桥用 `Downed` 回写剧情 → 剧情走到 `downed`
+        /// （End，写 `world.samplebattle.downed`），而不是像 2026-10-10 00:52 那一局那样卡在战斗阶段
+        /// （那份内容当时只声明了 `Victory`，遥测里留下的是 `battle_result_rejected {result: Downed}`）。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Drill_DownedEndsTheStageInsteadOfSticking()
+        {
+            yield return EnterWorld();
+            yield return WalkToDrillAndCheckPrompt(null);
+            yield return Step("按交互键（E）拉起演示对白", null, 0f);
+            yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return Check("对白起来（剧情停在 brief）", () => ui.Get<DialogueView>() != null && StageId() == "brief", 5f);
+
+            yield return Step("按推进键（空格）读完对白，让剧情走到实时遭遇档", null, 0f);
+            float deadline = Time.realtimeSinceStartup + 15f;
+            while (StageId() != "fight" && Time.realtimeSinceStartup < deadline)
+            {
+                if (dialogueRules.Phase == DialogueSaveData.Phase.AwaitAdvance)
+                {
+                    yield return Input.Press(input.Actions.Dialogue.Advance);
+                }
+                else
+                {
+                    yield return null;
+                }
+            }
+
+            yield return Check("停在实时遭遇档 fight（内容是 `sample_battle_drill`）", () => StageId() == "fight", 5f);
+
+            yield return Step("走巡逻线那条老路：切跑 → 北侧绕行 → 观察点 → 再往南踏进巡逻线（潜行档），等被打倒", null, 0f);
+            yield return GoToPatrolLookout();
+            yield return Walk(new Vector2(0f, -1f), 3.5f);
+            yield return Check("玩家被打倒（探索生命归零）", () => player.Health <= 0, 60f);
+
+            yield return Check("剧情没有卡在战斗阶段：走到 downed 出口、写 world.samplebattle.downed，这一关结束",
+                () => StageId() == null && stageReader.HasStoryFlag(DrillDownedFlag), 20f);
+            yield return Snapshot("较量·被击倒后这一关结束");
+        }
+
         // ───────────────────────── 进场 / 走位 / 对白 ─────────────────────────
 
         private IEnumerator EnterWorld()
@@ -258,6 +372,7 @@ namespace Game.Tests.Showcase.Battle
             input = ResolveService<IInputService>();
             player = ResolveService<PlayerModel>();
             narrative = ResolveService<NarrativeService>();
+            stageReader = narrative;
             dialogue = ResolveService<DialogueService>();
             dialogueRules = ResolveService<DialogueRules>();
             focus = ResolveService<IInteractionFocus>();
@@ -283,6 +398,31 @@ namespace Game.Tests.Showcase.Battle
                 () => ReferenceEquals(focus.Current, bossEntry) && HudShowsChallenge(), 3f);
             yield return Check("提示整句完整显示：胶囊随文字加宽（超过最小宽 320），文字没有被截成省略号", HudPromptFitsText, 3f);
             if (!string.IsNullOrEmpty(snapshot)) yield return Snapshot(snapshot);
+        }
+
+        private IEnumerator WalkToDrillAndCheckPrompt(string snapshot)
+        {
+            yield return Step("走到村北的「较量」演示桩跟前（(0.6, 8.8)：长者 / BOSS / 旅人都在 5 米外，焦点只会落在它身上）", null, 0f);
+            yield return WalkTo(DrillStandPoint, 0.3f, 15f);
+            yield return Check($"焦点落在演示桩上，底部交互提示写着「{DrillVerb} · {DrillDisplayName}」",
+                () => ReferenceEquals(focus.Current, DrillEntry()) && HudShowsDrill(), 3f);
+            if (!string.IsNullOrEmpty(snapshot)) yield return Snapshot(snapshot);
+        }
+
+        private DialogueInteractable DrillEntry() => FindRequired<DialogueInteractable>(DrillObjectName);
+
+        private bool HudShowsDrill()
+        {
+            InteractPromptHudView hud = ui.Get<InteractPromptHudView>();
+            return hud != null && hud.IsShown
+                   && hud.LabelText == InteractPromptHudView.FormatLabel(DrillVerb, DrillDisplayName);
+        }
+
+        /// <summary>剧情当前阶段 id；没有在跑的剧情（整段走完 / 还没开始）返回 null。用 `stageReader` 读，避免和 `narrative` 混。</summary>
+        private string StageId()
+        {
+            NarrativeSaveData.Frame frame = stageReader == null ? null : stageReader.Capture().Current;
+            return frame == null ? null : frame.StageId;
         }
 
         /// <summary>开战对白：出现 → 打完字按推进键 → 对白收起。</summary>

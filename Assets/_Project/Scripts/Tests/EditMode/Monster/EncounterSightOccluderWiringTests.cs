@@ -76,8 +76,10 @@ namespace Game.Tests.EditMode.Monster
         }
 
         /// <summary>
-        /// 接线正向：柱子在玩家与怪物之间时，把清单喂进 Sight 之后这一 tick 就是「看不见 + 处于掩体遮挡下」。
-        /// 喂的这一步就是 `MonsterEncounterState.OnSceneReadyAsync` 里新加的那一行。
+        /// 接线正向：柱子在玩家与怪物之间时，把清单喂进 Sight **并按正式流程分发给怪物**之后，
+        /// 这一 tick 就是「看不见 + 处于掩体遮挡下」。
+        /// 两步就是 `MonsterEncounterState.OnSceneReadyAsync` 里那两行
+        /// （`SetOccluders(view.CollectSightOccluders())` + `BindOcclusion(step.Sight)`）。
         /// </summary>
         [Test]
         public void OccludersFromView_WhenFedIntoStepSight_MakePlayerHidden()
@@ -85,13 +87,44 @@ namespace Game.Tests.EditMode.Monster
             Transform pillar = NewMarker("Pillar", new Vector2(1.5f, 0f));
             SetOccluderEntries(new[] { pillar }, new[] { false }, new[] { new Vector2(0.5f, 2f) });
             Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
-            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.True, "距离与夹角上都够得着");
+            Assert.That(rig.MonsterRules.PerceivedBySenses(rig.PlayerModel.Snapshot), Is.GreaterThan(0),
+                "距离与夹角上都够得着（不含遮挡的那把尺子）");
 
             rig.Step.Sight.SetOccluders(view.CollectSightOccluders());
+            rig.Step.BindOcclusion(rig.Step.Sight);
             Tick(rig, 0f);
 
+            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.False, "行为层也看不见（怪不追）");
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.True, "视线被挡 = 未被察觉");
             Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Cover), Is.True, "处于掩体遮挡下");
+        }
+
+        /// <summary>
+        /// 负对照：**只喂 `step.Sight`、忘了 `BindOcclusion`**（接线漏一步）时，行为层仍是纯视锥 → 看得见，
+        /// 事实层**跟着说「看得见」**。
+        /// <para>
+        /// 这条钉的是 2026-10-08 定下的新不变量：`stealth.hidden` 不再对遮挡独立作答，它抄的就是行为层的答案
+        /// （`EncounterStep.SettleStealth` 里 <c>perceives = MonsterRules.Detects</c>），所以**两层永远同向**，
+        /// 不会再出现「事实说藏得好好的、怪照样追」那类自相矛盾。
+        /// </para>
+        /// <para>
+        /// 代价（有意接受）：遮挡现在只有一个装配点（`BindOcclusion`），漏了它不再被事实层兜住。
+        /// 那个装配点由 `EncounterKernelWiringTests` 在容器级别、`MonsterEncounterState` 在场景级别各守一道。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void OccludersInSightButNotBoundToMonster_FactsAndBehaviourAgreeThatPlayerIsSeen()
+        {
+            Transform pillar = NewMarker("Pillar", new Vector2(1.5f, 0f));
+            SetOccluderEntries(new[] { pillar }, new[] { false }, new[] { new Vector2(0.5f, 2f) });
+            Rig rig = NewRig(Vector2.zero, new Vector2(3f, 0f), new Vector2(0f, 0f));
+
+            rig.Step.Sight.SetOccluders(view.CollectSightOccluders());
+            // 故意不调 rig.Step.BindOcclusion(...)：模拟接线漏一步
+            Tick(rig, 0f);
+
+            Assert.That(rig.MonsterRules.Detects(rig.PlayerModel.Snapshot), Is.True, "行为层没接遮挡 = 纯视锥");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.Hidden), Is.False, "事实层与行为层同向：它也说得见");
         }
 
         /// <summary>负对照：同一份场景、同一个位置，只是清单为空（柱子没登记）——照样被看见。</summary>

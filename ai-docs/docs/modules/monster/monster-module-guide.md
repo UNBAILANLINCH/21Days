@@ -27,7 +27,8 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
 | 场景表现 | `EncounterSceneView` | 巡逻点引用、占位图与状态界面、两 tick 间渲染插值、XZ 贴地投影、玩家白盒遮挡碰撞、状态色染色、按移动方向翻转纸片 |
 | 白盒碰撞 | `EncounterCollision` | 静态：玩家场景位移先 X 后 Z 胶囊扫掠（贴墙滑动），表现层用，不进确定性内核 |
 | 独立场景入口 | `StandaloneEncounterController` | 直接播放原型场景时读取输入并推进同一套遭遇规则 |
-| 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线；按种类数值在此接入（种类 Id / 表读不到时的全局兜底） |
+| 根注册 | `MonsterInstaller` | 玩法逻辑步骤和回放状态接线；按种类数值在此接入（种类 Id / 表读不到时的全局兜底）；2026-10-08 起另接两块：潜行内核那只 `StealthSight` → 每一只怪的视锥遮挡（`UseStealth` 内部完成）、`IMonsterDropSink` → 击杀掉落（`TryResolve` + `step.BindDropSink`，取不到就不掉）；2026-10-09 起再接 `EncounterBattleBridge`（实时遭遇结果 → 剧情，见文末附录） |
+| 结果回写桥 | `EncounterBattleBridge` | 订阅 `BattleStageEnteredEvent`，只认 **payload 为空**的 Battle 阶段（活遭遇档）：`StartBattle` 把这一场标成「一仗」→ 结算就取走 `BattleSettlement` → 用事件里的三项身份 `CompleteBattleAsync` 回写剧情。既是 `ISimulationStep`（紧跟 `EncounterStep`，取走结果）又是 `VContainer` 的 `ITickable`（回写，副作用出内核），见文末附录 |
 
 ## 按种类配数值（2026-10-07，聚光灯「怪物种类数据化」）
 
@@ -50,6 +51,14 @@ Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退�
   暗杀 / 特殊条件 / 需收服各自的路由归后续波次（S3），不要复用 `ApplyDamage`。
 - 掉落只交 id：`MonsterRules.DropItemIds`（= `YaoCatalog.DropItemsOf(yao_id)`），入背包走 `Game.Loot` 的
   `LootService.SettleMonsterDrop(yaoId, dropItemIds)`。规则层不写背包、不发事件（确定性内核里不放副作用）。
+  <br>**调用侧（2026-10-08）**：`EncounterStep.SettleKillDropOnce` 在**死亡那一处**（`Step` 推进完双方规则之后）
+  结一次，走 `IMonsterDropSink`（契约在 `Runtime/Monster/IMonsterDropSink.cs`、实现在 `Game.Loot`），
+  由 `MonsterInstaller` 的构建回调 `TryResolve` 后 `step.BindDropSink(...)` 接上。
+  - **不接 = 什么都不掉**（独立原型场景与纯 Monster 测试作用域没有 Loot），行为与接线前逐字一致；
+  - **一只怪只结一次**由 `EncounterStep` 的 `killDropSettled` 闸门把关（`Begin` 清零），重复结算会让掉落翻倍；
+  - **`MonsterKind` 为 null（表没就绪）时跳过**，不猜 `yaoId`；
+  - **已知边界**：只结**主怪**（`Taming.TargetIds[0]`），`Taming` 管着的其它巡逻者这一轮不结；
+    掉落是写背包的副作用，**不进快照**——回放重放「死亡那一 tick」会再掉一次（与「回合制战斗不进回放」同类）。
 - 接线：`Boot` 场景 `GameBootstrap` 的 `MonsterInstaller` 上，`Kind Id` 填 `monster_species` 的主键，
   **0 = 取表里第一条**；`MonsterConfig` 资产照旧拖在原字段上，作为全局值与兜底。
 
@@ -78,7 +87,25 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 - 背后 1.5 单位内可近距察觉；潜行阻止该近距判定。
 - 橙区连续暴露 4 秒令警戒升满；脱离后按平方时间衰减，满值 6 秒清零。
 - 敌对丢失目标 2 秒后转为满值警戒，再按上述规则消退。
-- 感知是位置和朝向的数学判定，没有 Physics 查询或遮挡物判断。
+- 感知是位置和朝向的数学判定，**没有 Physics 查询**。
+- **视线遮挡（2026-10-08「掩体贯通到怪物察觉」）**：视锥那两档（红区 / 橙区）**要过一道通视判定**，
+  遮挡体由场景一次性喂成纯数据几何、tick 里只做几何求交（零分配，见下）。
+  **贴身那一档（`ResolveNearSenseRadius`）有意不查遮挡**——`docs/design/spotlight/06_怪物状态与交互设计文档.md:71-73`
+  写的是「不分朝向的近距察觉区、玩家需要进入潜行状态才不会被察觉」，免它的办法是潜行，不是掩体。
+  <br>两个查询口（只差「视锥那一支要不要过视线」）：
+  | 口 | 含遮挡 | 谁用 |
+  | --- | --- | --- |
+  | `MonsterRules.Detects` | **是** | **行为层**（警戒推进、敌对转换、追击、攻击许可）**与事实层的「察觉」答案** |
+  | `MonsterRules.PerceivedBySenses` | 否 | **事实层**：`EncounterStep.SettleStealth` 算「视线本来够得着」那一半（`stealth.cover` 的被减数） |
+  <br>⚠️ **两层取同一个答案**（2026-10-08 主窗口复跑抓到过一次分叉）：`SettleStealth` 的 `perceives` 直接抄
+  `Detects`，**不再**走 `StealthDecisionGate.PerceivesThroughCover`——那个门会拿「对视线的遮挡」去掐掉一个
+  **按设计不受遮挡**的档位（贴身察觉），于是「怪已经贴到你身上进了警戒」与 `stealth.hidden` 为真同时成立。
+  `stealth.cover` 仍是 `PerceivedBySenses ∧ ¬Detects` 这个布尔相减：**被减数必须不含遮挡、减数必须含**，
+  两个都含或都不含会让它恒定不亮或恒亮（「躲进掩体」那条摆脱条件 `04_追逐.md:104` R23 的判据落点）。
+  <br>装配：`EncounterStep.UseStealth` / `ConfigureTaming` / `BindOcclusion` 三处把同一个 `StealthSight`
+  分发给**每一只**巡逻怪（多只怪共享一个实例是安全的：查询是位置的纯函数、不持状态、零分配）。
+  遮挡现在只有这一个装配点：漏了它行为层就是纯视锥、事实层会**跟着**说「看得见」（两层依然同向），
+  由 `EncounterKernelWiringTests` 在容器级别、`EncounterSightOccluderWiringTests` 用负对照各守一道。
 - 扇区本身不在游戏画面显示，状态颜色与警戒条可见。
 
 `MonsterRules.Sense` 在规则类内部完成上述优先级；表现层不能额外判定一次。
@@ -234,7 +261,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 | 字段 | 默认值 | 作用 |
 | --- | --- | --- |
-| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 勾 `Ground` + `Obstacle`（1280）：灰盒在 `Ground`（8），挡人的道具（物资箱 `Crate_A/B/C` 的根节点，BoxCollider 0.8×0.6×0.8）在 `Obstacle`（10）——语义是「挡人、但不是地面也不是遮挡物的道具」。道具不放 `Ground`（会被 `OccluderFadePresenter` 当遮挡物淡出换材质、被贴地射线打到顶面把人抬上去），也不勾 `Default`（玩家、巡逻怪、NPC 都在 Default）。**NPC 不挡人**（用户 2026-09-30 定）：可对话角色根节点留在 Default，玩家可以穿过；两张纸片前后分明靠玩家材质的深度偏移（`M_SpriteDepthClip_Player`，见 `isometricexploration-module-guide.md`「表现层」），不靠碰撞隔开；旧验证场景已删 |
+| `obstacleMask` | 空（不碰撞，旧场景行为不变） | 挡人的层；SampleScene 勾 `Ground` + `Obstacle`（1280）：灰盒在 `Ground`（8），挡人的道具（物资箱 `Crate_A`–`Crate_E` 的根节点，BoxCollider 0.8×0.6×0.8）在 `Obstacle`（10）——语义是「挡人、但不是地面也不是遮挡物的道具」。道具不放 `Ground`（会被 `OccluderFadePresenter` 当遮挡物淡出换材质、被贴地射线打到顶面把人抬上去），也不勾 `Default`（玩家、巡逻怪、NPC 都在 Default）。**NPC 不挡人**（用户 2026-09-30 定）：可对话角色根节点留在 Default，玩家可以穿过；两张纸片前后分明靠玩家材质的深度偏移（`M_SpriteDepthClip_Player`，见 `isometricexploration-module-guide.md`「表现层」），不靠碰撞隔开；旧验证场景已删 |
 | `obstacleBottomOffset` | 0.35 | 胶囊下沿离脚底高度；须高于单级台阶 |
 | `obstacleTopOffset` | 1.5 | 胶囊上沿离脚底高度；更高的悬空几何不挡人 |
 | `obstacleRadius` | 0.3 | 胶囊半径，与 player 的 CapsuleCollider 一致 |
@@ -275,6 +302,49 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 `maxStepHeight` 裁决贴地高度，不会把角色“抬升”到远高于当前值的高台，只有逐帧连续行走、
 每步抬升不超过阈值才会一路爬升（对应 Showcase 用例 `WalkOntoStairs_RaisesBody`）。
 
+## 附录·实时遭遇结果回写剧情（2026-10-09，roadmap C5 剩下的那一半）
+
+> 本节只记这次改动的增量；上面「已知限制」与类的分工里没提到这条链的地方以本节为准。
+> 语义真源：**用户 2026-10-09 拍板「一场实时遭遇打赢或被击倒，等于这一关结束」**；机制真源 `PRP/battle-to-narrative/prp.md`。
+
+**谁认领哪个战斗阶段（按 `payload` 一分为二，两个写入方不重叠）**：
+
+| 阶段 | 归属 | 行为 |
+| --- | --- | --- |
+| `payload` **非空**（BOSS 战） | `Game.Battle` 的 `BattleFlow` | 查 `BossRosterConfig` 开回合制战斗、收场回写。**`BattleFlow` 现在对空 payload 安静跳过**（一条 Info + `battle/stage_live_encounter` 埋点），不再记 `boss_not_found` 的 Error |
+| `payload` **为空**（活遭遇档） | `Game.Monster` 的 `EncounterBattleBridge` | 本附录这一条 |
+
+**链路**：`BattleStageEnteredEvent`（空 payload）→ 桥记下三项身份（`Generation` / `ActivationId` / `TargetId`）→ 下一个 tick 里
+`EncounterStep.StartBattle(activationId, activationId)` 把这一场标成「一仗」（**两个参数用同一个 `activationId`**：遭遇侧那两个编号只服务于
+`ConsumeResult` 的对账，剧情身份在桥自己身上，不往 `EncounterStep` 里塞 targetId——那会动快照字节布局）→ 遭遇结算出
+`BattleSettlement` 后，桥**在同一个 tick 里**把它抄进自己的字段并 `ConsumeResult` → 渲染帧 `Tick` 里
+`NarrativeService.CompleteBattleAsync(generation, activationId, targetId, settlement.ExitKey)`。
+
+**胜负两侧都结算**（`EncounterStep.Step` 的结算分支，2026-10-09 起）：小怪清空 / 处决 → `Victory`；**玩家生命归零 → `Downed`（被击倒）**。
+`SettleBattle` 的两道闸门不变（本场只结一次、`default` 结果不收）；`Aborted`（收服收尾）仍然不是战斗结果、不承载 `BattleSettlement`。
+
+**为什么既是 `ISimulationStep` 又是 `ITickable`**（别删掉其中一个）：结算与「结束本场遭遇」在玩家死亡那条路上挨得极近——
+`MirrorCrackPresenter` 是渲染帧入口点，`HitCracks` 直接由 `PlayerModel.Health` 推出，所以它**同一帧**就会 `step.End()`；
+真正会抹掉结果的是下一场遭遇的 `Begin()`。取走放在 tick 内（紧跟 `EncounterStep` 之后注册）就不依赖任何帧序假设；
+而回写（剧情分区深拷贝、可能拉起对白、请求存档）是副作用，**不放进确定性内核**，留给渲染帧的 `Tick`。
+
+**已知边界（刻意，不是漏了）**：
+
+- **不调 `TryBeginBattle`**：那会给阶段帧打上「战斗在途」并压住自动保存。活遭遇是实时玩法，存档边界由 Session 既有闸门管，
+  本波不替它改口径（后果：战中的 `BattleResultPending` 存档闸门只剩 tick 内的瞬间窗口，与接线前一样挡不住——镜碎时 `End()` 仍是
+  「不把 Health=0 写进存档」的实际保护）。
+- **被拒就是被拒**：阶段没声明该结果码时 `CompleteBattleAsync` 返回 false 并自己埋 `battle_result_rejected`（例如阶段只声明 `Victory`
+  而玩家被击倒）。桥不预判、不重试、不抛；阶段原地不动，可按既有方式再触发。
+- **`Aborted` 不回写**：桥只消费掉它（解开冻结），剧情一个字都收不到。
+- **内容侧建议**：活遭遇档的 `battleResults` 应当声明这一场可能产出的**全部**结果码（`Victory` / `Downed`）；
+  只声明一半时另一半会被正常拒绝，且拒绝后同一场遭遇不会再结算第二次（`PendingResult` 已经是终局）。
+- **回放边界（沿用既有口径，不是本波新增的）**：`PendingResult` / `ResultConsumed` 都进快照，而**「谁去消费」由剧情事件驱动**
+  （叙事不参与回放）。所以回放起点若带着 `EncounterId != 0` 的遭遇、且这一场在重放中结算，会写下结果却没人消费——
+  那一段会与录制时不同（录制里有桥，桥在同一 tick 就消费掉了）。同类边界见「击杀掉落不进快照」与「回放不覆盖回合制战斗」。
+
+**验证**：EditMode `Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterBattleBridgeTests.cs`（行为 + 容器级接线，含负对照）、
+`EncounterBattleSettlementTests.cs`（战斗侧承载与 `End`/`Begin` 的清理口径）。**实际结果以主窗口复跑为准**（本波未在编辑器里跑）。
+
 ## 修改时检查
 
 - 改感知优先级：保留红区先于伪装与潜行，并在 EditMode 用例加反例。
@@ -300,4 +370,9 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
   ⑤ 回放的走位要绕开它（`WalkTo` 是真走，会被挡），开箱站位离箱子中心 ≥ 半宽 + 胶囊半径 0.3。
 - NPC 不挡人：可对话角色（`DialogueInteractable`）的碰撞体留在 Default 层、不进 `obstacleMask`（同一测试有反向用例守着）；
   玩家与 NPC 同排重叠时的前后关系靠纸片深度偏移，改角色材质前读 `isometricexploration-module-guide.md`「表现层」。
+- 改遭遇的结算口径（`PendingResult` / `BattleSettlement`）：先读文末「实时遭遇结果回写剧情」那一节——
+  `SettleBattle` 的两道闸门、`End()` 不清结果 / `Begin()` 清结果、以及「取走必须在结算的同一个 tick 里」都是那条链的约束；
+  跑 `EncounterBattleSettlementTests` 与 `EncounterBattleBridgeTests`。
+- 改 `MonsterInstaller` 的构建回调顺序：`runner.AddStep(step)` 与 `runner.AddStep(bridge)` **必须相邻且桥在后**——
+  中间插一步不会立刻出错，但「结算与取走落在同一个 tick」这条保证就没了（`EncounterBattleBridgeTests` 的容器用例会红）。
 - 完成场景接线后：跑 Monster Showcase、资产体检、lint、文档检查并让开发者看画面。

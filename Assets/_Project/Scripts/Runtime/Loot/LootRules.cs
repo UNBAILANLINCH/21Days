@@ -26,6 +26,28 @@ namespace Game.Loot
             return true;
         }
 
+        /// <summary>
+        /// 把一次「入包」加进 <see cref="LootSaveData.Items"/>：同一件道具要加 <paramref name="itemId"/> 共 <paramref name="count"/> 件。
+        /// 与 <see cref="Collect"/> 的区别：<b>不认箱子键、不做幂等</b>——它是一次明确的加物品请求，不是「开一次箱子」。
+        /// <para>
+        /// data 为 null、<paramref name="itemId"/> 非正、<paramref name="count"/> 非正时返回 false 且不改数据；
+        /// 背包里没有这一项时按 0 起算（不是「不拥有就不能加」）。
+        /// </para>
+        /// <para>
+        /// 参数刻意是 <c>(int, int)</c> 而不是 <c>ItemStack</c>：<see cref="ItemStack"/> 是 Game.Inventory 的类型，
+        /// Loot 不许认识 Inventory（依赖方向是 Inventory → Loot，见 loot-module-guide.md「依赖方向」）；
+        /// 上游（Inventory 的合成服务）自己把 <c>ItemStack</c> 拆成这两个 int 再喂进来。
+        /// </para>
+        /// </summary>
+        public static bool Grant(LootSaveData data, int itemId, int count)
+        {
+            if (data == null || itemId <= 0 || count <= 0) return false;
+            data.Items ??= new Dictionary<int, int>();
+            data.Items.TryGetValue(itemId, out int owned);
+            data.Items[itemId] = owned + count;
+            return true;
+        }
+
         /// <summary>该键是否已开过；data 为 null 或 key 为空返回 false。</summary>
         public static bool IsCollected(LootSaveData data, string key)
         {

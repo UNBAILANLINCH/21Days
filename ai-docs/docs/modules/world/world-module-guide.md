@@ -66,6 +66,36 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | `ISpawnPlacement` / `UnwiredSpawnPlacement` | 出生点放置策略的契约 / **未接线的默认实现**（一定返回 false 并说清缺什么，绝不假装成功） |
 | `WorldInstaller` | 本模块的根作用域注册器（**接线波已挂到 Boot 的 `GameBootstrap`，组件列表末尾**）。注册：`WorldCatalog` / `WorldSceneBinder` / `IWorldTransition` / `ISpawnPlacement`（真实现）/ `CameraConstraintPolicy` / `WorldSceneState` / `WorldSceneDriver` |
 | `CameraConstraintPolicy`（在 `Game.IsometricExploration`） | 镜头约束的共享策略：**没有边界 = 不约束**；`WorldSceneState` 进场景时把它推给 `SmoothCameraFollow` |
+| `SceneMapController` | 共用探索小地图 HUD 入口；`WorldInstaller` 注册，随统一玩家锚点和探索状态更新，复用同一界面实例，不暂停世界或接管输入 |
+| `SceneMapView` / `SceneMapGraphic` | 当前场景的俯视轮廓、玩家位置、可加载出口及楼梯标记；绘图不写玩法状态 |
+
+## 共用探索小地图（2026-10-13）
+
+范围与验收记录见 [`PRP/scene-map/prp.md`](../../../../PRP/scene-map/prp.md)。
+
+- **形态**：主界面左上角常驻 HUD，放在任务栏上方；进入探索自动显示，不需要按键，不暂停世界。
+  默认跟随 `IHudVisibility` 的沉浸显隐；标题或没有玩家锚点时隐藏内容。
+  同一控件服务所有通过 Boot 根作用域进入的探索场景，不按场景名筛选。
+- **数据源**：`IInteractionRegistry.Actor` 所在场景。玩家锚点／场景变化时扫描该场景的活跃 `MeshRenderer`，
+  排除玩家子树，按世界 XZ 包围盒绘制等比俯视矩形轮廓；不使用额外相机、不每帧扫描。
+  世界 +Z 朝上（北）、+X 朝右；玩家标记使用当前锚点位置。
+- **出口**：只标活跃、尚未触发且 `WorldCatalog.CanLoadScene` 为真的 `PortalAnchor`。
+  这只表示目标场景可加载，不承诺剧情权限或路线可达。
+- **楼梯**：最小版按 `Stair` / `楼梯` 名称识别几何，合并连续命名的父子节点。
+  当前两张世界灰盒没有楼梯几何；有楼梯的 SampleScene 使用同一规则。
+- **切场景**：统一玩家锚点变化时清除旧内容，场景就绪后在同一个 HUD 实例中重新构图；世界标题从当前 `WorldSceneState.Spawn.SceneKey`
+  查询显示名；非世界状态显示「探索地图」，不把场景资产文件名暴露给玩家。
+- **接线**：`Prefabs/UI/SceneMapView.prefab` 在 Addressables 的 UI 组，地址 `SceneMapView`；
+  Boot 已有的 `WorldInstaller` 注册入口，不新增场景组件。
+  编辑器菜单 `21Days/世界/生成最小场景地图`（`Scripts/Editor/World/SceneMapBuilder.cs`）生成小地图预制体，
+  同时把 `QuestHudView.prefab` 的任务栏放到其下方；地图为参考画布下 264×294 的左上角控件，任务栏顶部偏移为 -332。
+  重建会覆盖小地图布局和任务栏位置，正式美术接管后停用生成器；不修改或保存场景。
+- **限制**：轮廓是轴对齐矩形示意，重叠楼层叠画；没有楼层筛选、正式底图、寻路、迷雾或敌人扫描。
+  新场景要有统一玩家锚点才会显示数据；没摆好的地点不会虚构标记。
+- **验证**：`SceneMapTests` 验投影、旧图替换与显示条件；`SceneMapControllerTests` 验失败／销毁不改变输入；
+  `WorldShowcase.MapHud_ShowsCurrentPositionAndFollowsSceneChanges` 验自动显示、实时定位和两界换图复用同一实例。
+  `WorldShowcase.MapInDemo_ShowsExistingStairs` 从标题进入 SampleScene，验两组楼梯、任务栏上下布局与沉浸显隐；两条地图回放都有实际绘制像素检查。
+  自动结果与截图不替代开发者视觉验收。
 
 ## 三张表
 
@@ -94,8 +124,8 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 
 ## 依赖方向
 
-只依赖 `Game.Core`（存档 / 流程 / 配置 / 埋点 / 确定性内核 / 输入）。
-`PortalAnchor` / `SpawnAnchor` 依赖 `UnityEngine`（MonoBehaviour），其余为纯逻辑。
+框架依赖为 `Game.Core`（存档 / 流程 / 配置 / 埋点 / 确定性内核 / 输入 / UI / 世界暂停）。
+场景锚点依赖 `UnityEngine`；地图显示依赖 Unity UI 与 TMP，控制器只读取场景与世界目录。
 不依赖 Quest / Narrative / Session / Monster；**反向**由它们调本模块。
 
 **接线波新增的两条边**（都在 `Game.Runtime` 这同一个程序集里，asmdef 层面不需要改动）：

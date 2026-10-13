@@ -72,6 +72,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5c8d1a58deb981e42914a17ba0ca0fa8
+    m_Address: SceneMapView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 78ccf4aa9d7c71c46b51fd6c9aacfe3e
     m_Address: Dialogue/Portrait_traveler_default
     m_ReadOnly: 0

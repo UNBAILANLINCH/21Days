@@ -8,6 +8,10 @@
 //   开战失败（场景缺失 / 表现开场失败 / 取消）也是同一顺序：BattleArena.EnterAsync 在黑幕下先恢复世界，再揭幕，
 //   不会揭开一小段被暂停的世界画面。
 //
+// 分工（2026-10-09）：本流程只认 **payload 非空**的 Battle 阶段（roster 里查得到 BOSS 定义）；
+//   **payload 为空的活遭遇档归 Monster 侧的 `EncounterBattleBridge`**（实时遭遇打赢 / 被击倒 → 回写剧情），
+//   本类对它是安静跳过（一条 Info + 一条 stage_live_encounter 埋点），不再记 boss_not_found 的 Error。
+//
 // 为什么新建（project-root「加能力的顺序」）：
 //   1. 复用不行：工程里没有任何「一场回合制战斗怎么开、怎么推、怎么收」的流程；EncounterStep 管的是巡逻怪的实时遭遇
 //      （确定性 tick），不是回合；InventoryPanelController / DialogueService 只示范了「按住世界再还原」这一小段。
@@ -60,6 +64,16 @@ namespace Game.Battle
         private Run active;
         private bool disposed;
 
+        // 进战斗的局势快照来源（遭遇侧实现）。null = 没有遭遇侧（独立原型场景 / 纯 Battle 测试作用域），
+        // 那时 BattleSetup 退回「正面攻击、玩家先手」的硬编码请求，与接线前逐字一致。
+        // 走 BindEntryContext 后置装配：本类的依赖都经 RegisterEntryPoint 的工厂显式给出，
+        // 加构造参数会动到那处注册与全部流程测试，而后置装配是本工程既有的写法（MonsterInstaller 的 TryResolve 那一批）。
+        private Game.Monster.IBattleEntryContext entryContext;
+
+        // 按需解析的来源（见 BindEntryContextProvider）：非 null 时每次开仗现取一次，取到的结果盖过 entryContext。
+        // 为什么要有这一层：BOSS 自己的快照在玩法场景里，而绑定发生在 Boot 场景（同上面的注释）。
+        private Func<string, Game.Monster.IBattleEntryContext> entryContextProvider;
+
         /// <param name="presenter">战斗表现；W2 之前没有实现，传 null 时开战会报错并放弃（不卡住剧情）。</param>
         /// <param name="writeBackCoverLimit">剧情回写在黑幕下最多等多久；null = 默认 1 秒，≤ 0 = 回写没当场落定就直接揭幕（测试用）。</param>
         public BattleFlow(ISubscriber<StageEvent> stages, BossRoster roster, IBattleNarrative narrative, IBattleWorldGate gate,
@@ -84,6 +98,67 @@ namespace Game.Battle
 
         /// <summary>战斗已经越过门闸、世界被按住（舞台 / 界面在场或正在进出）。</summary>
         public bool IsBattleEngaged => active != null && active.Engaged;
+
+        /// <summary>
+        /// 接入进战斗的局势快照（`Game.Monster.IBattleEntryContext`，实现方是遭遇侧的 `EncounterStep`）。
+        /// <para>
+        /// 由 `BattleInstaller` 的构建回调在 `TryResolve&lt;EncounterStep&gt;` 之后调用；
+        /// **不接（或传 null）= 开战方式与接线前逐字一致**（正面攻击、玩家先手），
+        /// 独立原型场景与纯 Battle 测试作用域走的正是那一支。
+        /// </para>
+        /// <para>
+        /// 接线后 07 的偷袭（BOSS −20% 生命）与被打（BOSS 先手）两条分支才第一次有生产入口；
+        /// 三个量的来源与其中的推断成分见 `IBattleEntryContext` 与 `EncounterStep` 的实现区注释。
+        /// </para>
+        /// </summary>
+        public void BindEntryContext(Game.Monster.IBattleEntryContext context) => entryContext = context;
+
+        /// <summary>
+        /// 接入局势快照的**来源**（2026-10-10，③ 方案 2）：每次要开仗时才调一次，取到谁就用谁。
+        /// <para>
+        /// <b>为什么不是「绑一次就定」</b>：BOSS 自己的那份快照挂在**玩法场景**的 NPC 上
+        /// （`Game.Battle.BossEntryContext`），而容器构建回调跑在 **Boot 场景**里——那一刻
+        /// `FindObjectOfType` 只能看见 Boot 里的东西，实测拿到的是 null（日志：
+        /// 「BossEntryContext 查找结果 = null」）。所以解析必须发生在「已经站在要打的那个人面前」的时刻，
+        /// 也就是收到战斗阶段通知的时候；这里存的是那个解析动作，不是解析结果。
+        /// </para>
+        /// <para>
+        /// 解析动作每次开仗调一次（不是每帧），实现方自己保证廉价与幂等；参数是这一仗的 BOSS payload，
+        /// 多只 BOSS 时实现方据此挑「这一份局势属于谁」。
+        /// </para>
+        /// </summary>
+        public void BindEntryContextProvider(Func<string, Game.Monster.IBattleEntryContext> provider) =>
+            entryContextProvider = provider;
+
+        /// <summary>
+        /// 开仗那一刻的局势快照：先问按需来源（BOSS 自己那份在玩法场景里，绑定时刻它还不在），
+        /// 取不到再退回构建期绑定的那一份（巡逻遭遇），两份都够不上发言权时返回 null = 硬编码缺省。
+        /// </summary>
+        /// <param name="bossId">这一仗的 BOSS payload；按需来源据此确认「这一份局势属于这只 BOSS」。</param>
+        private Game.Monster.IBattleEntryContext ResolveEntryContext(string bossId)
+        {
+            Game.Monster.IBattleEntryContext candidate = null;
+            if (entryContextProvider != null)
+            {
+                try
+                {
+                    candidate = entryContextProvider(bossId);
+                }
+                catch (Exception e)
+                {
+                    // 解析失败不该把开仗一起炸掉：退回构建期那一份，并留痕。
+                    Log.Error($"BattleFlow：局势快照来源解析失败，这一仗按缺省口径开：{e}");
+                    telemetry.TrackError("battle_entry_provider_failed", e);
+                }
+            }
+
+            if (candidate == null)
+            {
+                candidate = entryContext;
+            }
+
+            return BattleSetup.IsEncounterEngaged(candidate) ? candidate : null;
+        }
 
         public void Start()
         {
@@ -119,6 +194,18 @@ namespace Game.Battle
         private void Begin(StageEvent stage)
         {
             if (disposed) return;
+
+            // payload 为空的 Battle 阶段是**活遭遇档**（没有 BOSS 可查）：归遭遇侧的 EncounterBattleBridge
+            // （实时遭遇打赢 / 被击倒 → 回写剧情），本流程一个字都不碰。
+            // 位置在 active 判断之前：正在等世界就绪的 BOSS 战不该被一个活遭遇阶段顶掉。
+            // 接线前这里会一路走到 roster.TryGet("") 并记一条 Error（boss_not_found），每进一次活遭遇档刷一条。
+            if (string.IsNullOrEmpty(stage.Payload))
+            {
+                Log.Info($"BattleFlow：战斗阶段 {stage.StageId} 的 payload 为空，这是活遭遇档，交给遭遇侧处理（本流程只管 BOSS 战）。");
+                telemetry.Track("stage_live_encounter", ("stage", stage.StageId), ("activation", stage.ActivationId));
+                return;
+            }
+
             if (active != null)
             {
                 if (SameIdentity(active.Stage, stage))
@@ -180,8 +267,33 @@ namespace Game.Battle
                 IDisposable engagement = worldLock.Engage(this);
                 try
                 {
-                    if (!setup.TryCreate(run.Boss, out BattleSession session, out string error))
+                    // 局势快照只在**遭遇真的有话说**的时候才交出去（判定见 BattleSetup.IsEncounterEngaged 的文档）：
+                    // 正式流程里唯一的开战触发是剧情 Battle 阶段（demo 的 `Npc_SampleBoss`「挑战」），跟巡逻遭遇是两回事；
+                    // 把十几米外巡逻怪的平静快照交出去，规则会判「不在警戒 / 敌对区域」而把这一仗拒掉（实测 BattleShowcase 全红）。
+                    Game.Monster.IBattleEntryContext situation = ResolveEntryContext(run.Boss.Id);
+                    if (!setup.TryCreate(run.Boss, situation, out BattleSession session, out string error))
                         throw new InvalidOperationException($"「{run.Boss.DisplayName}」开不了仗：{error}");
+                    // 记下这一仗是按哪种方式进的（07 的偷袭 / 正面攻击 / 被打）。没有遭遇侧快照时记 context=false +
+                    // 「正面攻击」——那是硬编码缺省，不是「现场判定出正面攻击」，两者在日志里必须分得开。
+                    // `source` 是**谁报的局势**：boss = 这只 BOSS 自己（③ 方案 2）、encounter = 巡逻遭遇、none = 缺省。
+                    // 三者混在一个 context=false 里就没法回答「开战方式到底是谁说了算」。
+                    telemetry.Track("battle_entry", ("boss", run.Boss.Id), ("context", situation != null),
+                        ("kind", session.Entry.Kind.ToString()),
+                        ("source", situation == null ? "none"
+                            : situation is Game.Battle.BossEntryContext ? "boss" : "encounter"));
+                    // 现场五量另起一条，别把语义混进上面那条（TelemetryProps 定长 4 槽，一条事件超 4 个属性就该拆）。
+                    // 「遭遇快照被采纳了吗」与「快照说现场是什么样」是两个问题：前者读 battle_entry 的 context，
+                    // 后者读这里——**没有这一条，日志里只看得见硬编码缺省，分不清「没交快照」与「交了但落进缺省分支」**。
+                    // 只有真采纳了才记：被 `IsEncounterEngaged` 挡回去的那份快照不是这一仗的理由，记了会误导。
+                    if (situation != null)
+                    {
+                        telemetry.Track("battle_entry_snapshot",
+                            ("sneaking", situation.PlayerSneaking),
+                            ("sneak_attack", situation.SneakAttackLanded),
+                            ("zones", (situation.PlayerInAlertZone ? "alert" : "-")
+                                      + (situation.PlayerInHostileZone ? "+hostile" : string.Empty)),
+                            ("aware", situation.MonsterAware));
+                    }
                     telemetry.Track("battle_started", ("boss", run.Boss.Id), ("activation", run.Stage.ActivationId));
                     // 回放测试口换过数值（BattleSetup.OverrideSettings）：这一仗用的不是配置资产的数值，留 W 级痕迹（只会出现在编辑器 / 开发版）。
                     if (setup.IsOverridden)

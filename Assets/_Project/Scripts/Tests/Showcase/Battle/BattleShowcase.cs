@@ -97,8 +97,8 @@ namespace Game.Tests.Showcase.Battle
         /// <summary>被击倒那条 BOSS 招式 1 的伤害：等于本场玩家生命（BossRosterConfig 的 playerHealth 占位 10）。</summary>
         private const int DownedBossDamage = 10;
 
-        /// <summary>站位点：BOSS 正南 1.4 米（交互半径 2 内；离长者 / 旅人 5 米以上，焦点只会落在 BOSS 上）。</summary>
-        private static readonly Vector2 BossStandPoint = new Vector2(-4.2f, 7.0f);
+        /// <summary>站位点：BOSS北侧0.6米，避开南侧新增戏班操作点，仍走真实交互。</summary>
+        private static readonly Vector2 BossStandPoint = new Vector2(-4.2f, 9.0f);
 
         private IInputService input;
         private PlayerModel player;
@@ -457,6 +457,12 @@ namespace Game.Tests.Showcase.Battle
         private IEnumerator CheckEnteredBattle(string expect)
         {
             yield return Check(expect, InBattle, 20f);
+            yield return Check("原BOSS目标保持配置醉酒50，不读取酒肆的0", () =>
+            {
+                if (presenter.View == null) return false;
+                var bar = FindDeep<BattleBarWidget>(presenter.View.transform, "DrunkBar");
+                return bar != null && bar.GetComponentInChildren<TMP_Text>(true).text.StartsWith("醉酒 50");
+            }, 5f);
             yield return WaitCurtainRevealed();
         }
 

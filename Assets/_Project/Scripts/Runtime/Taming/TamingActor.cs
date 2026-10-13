@@ -18,6 +18,7 @@ namespace Game.Taming
         [SerializeField] private Transform[] patrolPoints;
         [SerializeField] private bool passive;
         [SerializeField] private bool addedForShops;
+        [SerializeField] private bool observationOnly;
 
         public string StableId => stableId;
         public string DisplayName => displayName;
@@ -25,6 +26,7 @@ namespace Game.Taming
         public SpriteRenderer StateIndicator => stateIndicator;
         public bool Passive => passive;
         public bool AddedForShops => addedForShops;
+        public bool ObservationOnly => observationOnly;
         public event Action<TamingActor, bool> OnAvailabilityChanged;
 
         // Reset 由编辑器添加组件时调用，保存后沿用；运行时和复制时都不偷偷重造标识。
@@ -35,7 +37,7 @@ namespace Game.Taming
 
         public void RefreshLabel()
         {
-            if (nameLabel != null) nameLabel.text = displayName + " [" + stableId + "]";
+            if (nameLabel != null) nameLabel.text = addedForShops ? displayName : displayName + " [" + stableId + "]";
         }
 
         public Vector2[] PatrolPositions(EncounterSceneView view)

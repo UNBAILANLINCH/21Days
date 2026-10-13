@@ -73,7 +73,7 @@ BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记�
 ## 场外醉酒与隔离舞台
 
 `BattleSetup.BindDrunkSource(Func<string,int?>)`绑定调用方拥有的醉酒来源，参数为BOSS id；null使用配置默认值，0会覆盖占位值，负值拒绝开战。卸载时绑定null，不能缓存上一场值或运行时修改SO。
-`BattleArena`构造函数新增可选sceneKey，默认BattleArena；`BattleInstaller.arenaSceneKey`提供编辑期引用。独立Cube舞台使用ShopPlaytestBattleScene，正式Boot默认不变。
+`BattleArena`构造函数有可选sceneKey，默认BattleArena；`BattleInstaller.arenaSceneKey`提供编辑期引用。五店主场景使用正常Boot的BattleArena。旧ShopPlaytestBattleScene入口已加Legacy前缀归档，不能再作为当前五店接线或验收舞台。
 
 ## 禁止事项
 

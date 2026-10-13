@@ -195,7 +195,7 @@ namespace Game.Monster
             }
             step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes);
             for (int i = 0; i < patrolActors.Length; i++)
-                step.Taming.ConfigureActor(actorIds[i], patrolActors[i].Passive, patrolActors[i].AddedForShops);
+                step.Taming.ConfigureActor(actorIds[i], patrolActors[i].Passive, patrolActors[i].AddedForShops, patrolActors[i].ObservationOnly);
             playerIdentity.RefreshLabel();
         }
 
@@ -546,7 +546,22 @@ namespace Game.Monster
         {
             if (body == null || sprite == null) return;
             Vector3 previous = body.position;
-            body.position = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
+            Vector3 desired = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
+            Vector3 final = desired;
+            if (isControlled && useXZPlane && obstacleMask.value != 0 &&
+                (desired - previous).sqrMagnitude <= obstacleTeleportDistance * obstacleTeleportDistance)
+            {
+                // 受控小人沿用玩家的同一白盒碰撞，不再穿过店铺建筑；AI巡逻仍由既有规则推进。
+                Vector3 slid = EncounterCollision.Slide(previous, desired, obstacleRadius, obstacleBottomOffset, obstacleTopOffset, obstacleMask);
+                float x = EncounterProjection.ResolveBlockedAxis(model.Position.x, desired.x, slid.x, BlockedAxisTolerance);
+                float y = EncounterProjection.ResolveBlockedAxis(model.Position.y, desired.z, slid.z, BlockedAxisTolerance);
+                model.PreviousPosition = new Vector2(
+                    EncounterProjection.CorrectPreviousAxis(model.PreviousPosition.x, model.Position.x, x),
+                    EncounterProjection.CorrectPreviousAxis(model.PreviousPosition.y, model.Position.y, y));
+                model.Position = new Vector2(x, y);
+                final = ToScenePosition(new Vector2(slid.x, slid.z), previous);
+            }
+            body.position = final;
             if (flipByMoveDirection) ApplyFlip(sprite, previous.x, body.position.x);
             // 感知范围线框跟着纸片走：位置用刚投影出来的场景点，朝向用**逻辑朝向**
             // （纸片本身只做左右翻转、不转身，所以朝向不能从 transform 读）。

@@ -237,6 +237,46 @@ namespace Game.Tests.EditMode.Session
             Assert.That(File.Exists(Path.Combine(saveRoot, "slot1.json")), Is.False);
         });
 
+        [UnityTest]
+        public IEnumerator SwitchingSlots_RejectsOldSceneCaptureAndConcurrentSessionChanges() => UniTask.ToCoroutine(async () =>
+        {
+            await session.NewGameAsync(1);
+            Assert.That(await session.SaveNowAsync("initial"), Is.True);
+            state.CapturedTicks.Clear();
+            flow.DuringTransition = async () =>
+            {
+                Assert.That(await session.SaveNowAsync("leave"), Is.False);
+                Assert.That(await session.NewGameAsync(3), Is.False);
+                Assert.That(await session.ContinueAsync(1), Is.False);
+                session.RequestSave("scene_entered");
+                session.Tick();
+                Assert.That(state.CapturedTicks, Is.Empty, "旧现场不能捕获进刚切换的分区");
+            };
+
+            Assert.That(await session.NewGameAsync(2), Is.True);
+            Assert.That(saves.Get<SessionSaveData>().SavedAtUtcTicks, Is.Zero);
+            Assert.That(session.HasPendingSave, Is.True, "新场景落定请求留给切换后处理");
+            Assert.That(await session.ContinueAsync(1), Is.True);
+            Assert.That(saves.Get<SessionSaveData>().ProgressText, Is.EqualTo(Progress));
+            Assert.That(state.CapturedTicks, Is.Empty);
+            flow.DuringTransition = null;
+            Assert.That(await session.SaveNowAsync("after_transition"), Is.True);
+            Assert.That(state.CapturedTicks.Count, Is.EqualTo(1), "切换后普通保存仍可用");
+        });
+
+        [UnityTest]
+        public IEnumerator CancelledTransition_ReleasesSessionGuard() => UniTask.ToCoroutine(async () =>
+        {
+            flow.DuringTransition = () => throw new OperationCanceledException();
+            bool cancelled = false;
+            try { await session.NewGameAsync(1); }
+            catch (OperationCanceledException) { cancelled = true; }
+            Assert.That(cancelled, Is.True);
+            flow.DuringTransition = null;
+            Assert.That(await session.NewGameAsync(2), Is.True);
+            Assert.That(await session.SaveNowAsync("after_cancel"), Is.True);
+        });
+
         private GameSession CreateSession(ISaveService saveService)
         {
             return new GameSession(
@@ -319,11 +359,12 @@ namespace Game.Tests.EditMode.Session
         {
             public List<Type> GoToCalls { get; } = new List<Type>();
             public GameState Current => null;
+            public Func<UniTask> DuringTransition { get; set; }
 
             public UniTask GoToAsync<TState>(CancellationToken ct = default) where TState : GameState
             {
                 GoToCalls.Add(typeof(TState));
-                return UniTask.CompletedTask;
+                return DuringTransition == null ? UniTask.CompletedTask : DuringTransition();
             }
         }
 

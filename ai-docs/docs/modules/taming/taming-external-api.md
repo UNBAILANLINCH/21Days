@@ -32,6 +32,8 @@ maturity: seed
 | `EncounterSceneView.CurrentControlObject` | 与该 ID 对应的 Transform；场景卸载后不应继续持有视图 |
 | `EncounterSceneView.RequestControl(id, tame = false)` | UI 共用入口；校验后排队，下一逻辑 tick 生效；普通请求不能绕过驯服 |
 | `TamingRules.OnControlChanged` | 控制变更时传新 ID；重复选择不重复发；订阅方负责退订 |
+| `ConfigureActor(id, passive, allowMissingFromOldSave, observesWithoutCombat = false)` | 作者静态分类；友善不察觉/伤害，观测者有感知但不结算探索伤害。默认观测false保留旧调用行为 |
+| `IsObservationOnly(id)` | 观测NPC查询；EncounterStep也用它拒绝玩家的探索伤害，不影响回合制 |
 
 ```csharp
 string id = step.CurrentControlId;

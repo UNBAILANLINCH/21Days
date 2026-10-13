@@ -1,0 +1,106 @@
+// 通过 MCP 在 Unity 中导入拆件并保存预制体；专用工具不能批量设置自定义 pivot 和序列化 parts 数组。
+// 现有整帧生成器要求 idle/walk 帧，静态 PSD 无此内容；复用 ChibiPuppet 的翻面、染色与交互回弹。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("先退出 Play");
+UnityEditor.AssetDatabase.Refresh();
+string prefix = "Assets/_Project/";
+var config = UnityEditor.AssetDatabase.LoadAssetAtPath<Game.CharacterPuppet.ChibiPuppetConfig>(prefix + "Data/CharacterPuppet/ChibiPuppetConfig.asset");
+var material = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Material>(prefix + "Art/Materials/Character/M_SpriteDepthClip.mat");
+if (config == null || material == null) throw new System.InvalidOperationException("角色依赖缺失");
+string[] ids = { "customers", "drunk_customer" };
+int[] counts = { 17, 14 };
+for (int c = 0; c < ids.Length; c++)
+{
+    string directory = prefix + "Art/Sprites/Characters/" + ids[c] + "/parts";
+    string[] files = System.IO.Directory.GetFiles(directory, "*.png");
+    System.Array.Sort(files, System.StringComparer.Ordinal);
+    if (files.Length != counts[c]) throw new System.InvalidOperationException("拆件数量不符：" + ids[c]);
+    var sprites = new UnityEngine.Sprite[files.Length];
+    for (int i = 0; i < files.Length; i++)
+    {
+        string path = files[i].Replace('\\', '/');
+        var importer = UnityEditor.AssetImporter.GetAtPath(path) as UnityEditor.TextureImporter;
+        if (importer == null) throw new System.InvalidOperationException("导入器缺失：" + path);
+        importer.textureType = UnityEditor.TextureImporterType.Sprite;
+        importer.spriteImportMode = UnityEditor.SpriteImportMode.Single;
+        importer.spritePixelsPerUnit = 320f;
+        importer.spritePivot = new UnityEngine.Vector2(.5f, 0f);
+        var settings = new UnityEditor.TextureImporterSettings(); importer.ReadTextureSettings(settings);
+        settings.spriteAlignment = (int)UnityEngine.SpriteAlignment.Custom;
+        settings.spriteMeshType = UnityEngine.SpriteMeshType.FullRect; importer.SetTextureSettings(settings);
+        importer.alphaIsTransparency = true;
+        importer.textureCompression = UnityEditor.TextureImporterCompression.Uncompressed;
+        importer.SaveAndReimport();
+        sprites[i] = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(path);
+        if (sprites[i] == null || sprites[i].rect.height != 512 || sprites[i].pivot.y != 0)
+            throw new System.InvalidOperationException("画布或脚底锚点不符：" + path);
+    }
+    string prefabPath = prefix + "Prefabs/Characters/Chibi_" + ids[c] + ".prefab";
+    if (UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(prefabPath) != null)
+        throw new System.InvalidOperationException("目标预制体已存在，拒绝覆盖：" + prefabPath);
+    var preview = UnityEditor.SceneManagement.EditorSceneManager.NewPreviewScene();
+    try
+    {
+        var root = new UnityEngine.GameObject("Chibi_" + ids[c]);
+        UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, preview);
+        root.AddComponent<UnityEngine.Rendering.SortingGroup>();
+        var puppet = root.AddComponent<Game.CharacterPuppet.ChibiPuppet>();
+        var motion = root.AddComponent<Game.CharacterPuppet.ChibiPuppetMotion>();
+        var container = new UnityEngine.GameObject("Sprite"); container.transform.SetParent(root.transform, false);
+        var renderers = new UnityEngine.SpriteRenderer[files.Length];
+        for (int i = 0; i < files.Length; i++)
+        {
+            var part = i == 0 ? container : new UnityEngine.GameObject(System.IO.Path.GetFileNameWithoutExtension(files[i]));
+            if (i > 0) part.transform.SetParent(container.transform, false);
+            var renderer = part.AddComponent<UnityEngine.SpriteRenderer>();
+            renderer.sprite = sprites[i]; renderer.sharedMaterial = material; renderer.sortingOrder = files.Length - 1 - i;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
+            renderers[i] = renderer;
+        }
+        var data = new UnityEditor.SerializedObject(puppet);
+        data.FindProperty("config").objectReferenceValue = config;
+        var parts = data.FindProperty("parts"); parts.arraySize = renderers.Length;
+        for (int i = 0; i < renderers.Length; i++) parts.GetArrayElementAtIndex(i).objectReferenceValue = renderers[i];
+        data.ApplyModifiedPropertiesWithoutUndo();
+        data = new UnityEditor.SerializedObject(motion);
+        data.FindProperty("puppet").objectReferenceValue = puppet; data.FindProperty("config").objectReferenceValue = config;
+        data.ApplyModifiedPropertiesWithoutUndo();
+        bool saved; UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, prefabPath, out saved);
+        if (!saved) throw new System.InvalidOperationException("保存失败：" + prefabPath);
+    }
+    finally { UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(preview); }
+}
+string[] shops = { "Main_1", "Main_4" };
+string[][] actors = { new[] { "shop_customer0", "shop_customer1", "shop_customer2" }, new[] { "shop_guest", "shop_customer_a", "shop_customer_b" } };
+for (int s = 0; s < shops.Length; s++)
+{
+    string path = prefix + "Prefabs/ShopPlaytest/" + shops[s] + ".prefab";
+    var root = UnityEditor.PrefabUtility.LoadPrefabContents(path);
+    try
+    {
+        for (int i = 0; i < actors[s].Length; i++)
+        {
+            var actor = root.transform.Find("Actors/" + actors[s][i]);
+            if (actor == null) throw new System.InvalidOperationException("角色缺失：" + actors[s][i]);
+            var old = actor.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>(true);
+            if (old == null) throw new System.InvalidOperationException("原外观缺失");
+            string id = s == 1 && i > 0 ? "drunk_customer" : "customers";
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(prefix + "Prefabs/Characters/Chibi_" + id + ".prefab");
+            var model = (UnityEngine.GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(asset, root.scene);
+            model.transform.SetParent(actor, false); model.transform.localPosition = old.transform.localPosition;
+            model.transform.localRotation = old.transform.localRotation; model.transform.localScale = old.transform.localScale;
+            var motion = model.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>();
+            var data = new UnityEditor.SerializedObject(motion);
+            data.FindProperty("trackedRoot").objectReferenceValue = actor;
+            data.FindProperty("facingSource").objectReferenceValue = actor.GetComponent<UnityEngine.SpriteRenderer>();
+            data.ApplyModifiedPropertiesWithoutUndo();
+            UnityEngine.Object.DestroyImmediate(old.gameObject);
+            if (actor.GetComponentsInChildren<Game.CharacterPuppet.ChibiPuppet>(true).Length != 1)
+                throw new System.InvalidOperationException("外观数量不符");
+        }
+        bool saved; UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, path, out saved);
+        if (!saved) throw new System.InvalidOperationException("店铺保存失败");
+    }
+    finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }
+}
+UnityEditor.AssetDatabase.SaveAssets();
+return "已导入 31 拆件，创建两套静态小人；衣肆三顾客、酒肆酒客与两顾客共六个角色已替换外观。";

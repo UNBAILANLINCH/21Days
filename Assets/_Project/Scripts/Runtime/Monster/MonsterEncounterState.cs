@@ -140,7 +140,9 @@ namespace Game.Monster
             catch (System.Exception e)
             {
                 Log.Error($"MonsterEncounter 接线失败：{e}");
-                step.End();
+                try { if (shops != null) await shops.UnbindAsync(); }
+                catch (System.Exception cleanup) { Log.Warn("五店失败收尾：" + cleanup.Message); }
+                finally { StopSceneBinding(); }
                 throw;
             }
 
@@ -190,7 +192,13 @@ namespace Game.Monster
 
         protected override async UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
-            if (shops != null) { await shops.UnbindAsync(); shops = null; }
+            try { if (shops != null) await shops.UnbindAsync(); }
+            finally { StopSceneBinding(); }
+        }
+
+        private void StopSceneBinding()
+        {
+            shops = null;
             // 清排队的入口在 LiveInputSource 上（远端 taming 波的通路）；IInputService 只借动作资产，不持有队列。
             if (input != null) input.ClearQueuedSelection();
             step.End();
@@ -201,7 +209,6 @@ namespace Game.Monster
                 view.Unbind();
                 view = null;
             }
-
         }
 
         private void RequestControl(int slot, bool tame)

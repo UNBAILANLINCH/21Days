@@ -20,6 +20,7 @@ namespace Game.Taming
         private readonly HashSet<string> tamed = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> unavailable = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> passive = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> observationOnly = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> optionalInOldSave = new HashSet<string>(StringComparer.Ordinal);
         private Func<string, bool> selectable;
         private Func<string, float> awarenessScale, movementScale;
@@ -54,6 +55,7 @@ namespace Game.Taming
             unavailable.Clear();
             PlayerId = playerId;
             passive.Clear();
+            observationOnly.Clear();
             optionalInOldSave.Clear();
             selectable = null;
             awarenessScale = movementScale = null;
@@ -78,10 +80,12 @@ namespace Game.Taming
         public bool IsAvailable(string id) => id != null && !unavailable.Contains(id) && GetTarget(id) != null;
         public bool CanControl(string id) => id == PlayerId || (IsAvailable(id) && IsTargetTamed(id) && GetTarget(id).Model.Health > 0 && player.Model.Health > 0);
         public bool IsPassive(string id) => passive.Contains(id);
-        public void ConfigureActor(string id, bool isPassive, bool allowMissingFromOldSave)
+        public bool IsObservationOnly(string id) => observationOnly.Contains(id);
+        public void ConfigureActor(string id, bool isPassive, bool allowMissingFromOldSave, bool observesWithoutCombat = false)
         {
             if (GetTarget(id) == null) throw new ArgumentException("未知角色：" + id);
             if (isPassive) passive.Add(id); else passive.Remove(id);
+            if (observesWithoutCombat) observationOnly.Add(id); else observationOnly.Remove(id);
             if (allowMissingFromOldSave) optionalInOldSave.Add(id); else optionalInOldSave.Remove(id);
         }
         public void BindSelection(Func<string, bool> permission) => selectable = permission;
@@ -228,7 +232,7 @@ namespace Game.Taming
                     if (IsPassive(id)) snapshot = new PlayerSnapshot(snapshot.Position, snapshot.Facing, false, false, 0);
                     var intent = new MonsterIntent(snapshot, deltaTime, isIdentityInEffect,
                         awarenessScale == null ? 1f : awarenessScale(id), speed);
-                    if (target.Step(in intent))
+                    if (target.Step(in intent) && !IsObservationOnly(id))
                     {
                         if (id == targetIds[0]) primaryAttacked = true;
                         player.ApplyDamage(new DamageIntent(target.AttackDamage));

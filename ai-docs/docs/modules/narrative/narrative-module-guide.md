@@ -7,6 +7,10 @@ maturity: seed
 
 # Narrative 模块指南
 
+## 五店占位战斗内容（2026-10-13）
+
+新增shop_boss_battle只复用1004对白、sample_boss战斗配置与既有胜负出口；cleared不写world.sampleboss.defeated，本店完成由ShopProgressSaveData持有。原sample_boss_battle与其原标记保持不变，避免酒肆胜利让原示例NPC一并退场。配置源JSON经scripts/gen-tables.ps1生成到既有故事表bytes；未新增章节或剧情框架。
+
 > 改 `Assets/_Project/Scripts/Runtime/Narrative/` 之前读这份。对外怎么调看
 > [`narrative-external-api.md`](narrative-external-api.md)，要加东西看 [`narrative-extension-guide.md`](narrative-extension-guide.md)。
 > 设计定稿见 [`PRP/narrative-dialogue/prp.md`](../../../../PRP/narrative-dialogue/prp.md)；

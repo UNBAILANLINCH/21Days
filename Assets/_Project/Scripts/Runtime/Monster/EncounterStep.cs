@@ -103,7 +103,8 @@ namespace Game.Monster
         private readonly PlayerRules player;
         private readonly MonsterRules monster;
         private Vector2[][] authoredRoutes;
-        private Func<float> playerSpeed;
+        private Func<float> playerSpeed; // 店铺只提供倍率，角色仍由本步骤推进。
+        public event Action<float> OnAdvanced;
         private Func<bool> playerCanSneak;
         public void BindPlayerModifiers(Func<float> speed, Func<bool> canSneak)
         { playerSpeed = speed; playerCanSneak = canSneak; }
@@ -466,7 +467,7 @@ namespace Game.Monster
             {
                 MonsterRules rules = Taming.GetTarget(id);
                 MonsterModel enemy = rules.Model;
-                if (!attacked || Taming.IsPassive(id) || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
+                if (!attacked || Taming.IsPassive(id) || Taming.IsObservationOnly(id) || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
                     || GameMath.Distance(target.Position, enemy.Position) > player.AttackRange) continue;
                 Vector2 difference = enemy.Position - target.Position;
                 if (GameMath.SqrMagnitude(difference) == 0f
@@ -501,8 +502,9 @@ namespace Game.Monster
                     // 这里不预判内容：战斗侧只负责如实报出「玩家被击倒了」。
                     SettleBattle(new BattleResult(BattleOutcome.Downed));
                 }
-                // Result.Aborted 不在这里：它由 AbortBattle 单独写（收服收尾，不是战斗结果，不承载 BattleSettlement）。
+                // Result.Aborted 由 AbortBattle 单独写，不承载 BattleSettlement。
             }
+            OnAdvanced?.Invoke(context.DeltaTime);
         }
 
         /// <summary>

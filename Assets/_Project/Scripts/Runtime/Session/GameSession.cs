@@ -48,6 +48,7 @@ namespace Game.Session
 
         private SaveGateRules.PendingSave pending;
         private int savesInFlight;
+        private bool sessionTransitioning;
         private float playtimeSeconds;
 
         /// <remarks>
@@ -105,6 +106,7 @@ namespace Game.Session
         /// </summary>
         public async UniTask<bool> NewGameAsync(int slot, CancellationToken ct = default)
         {
+            if (sessionTransitioning || savesInFlight > 0) return false;
             if (state.DialogueRunning)
             {
                 telemetry.TrackWarn("new_game_rejected", TelemetryProps.Of(("slot", slot), ("reason", "dialogue_running")));
@@ -117,21 +119,29 @@ namespace Game.Session
                 return false;
             }
 
-            saves.ResetAll();
-            CurrentSlot = slot;
-            pending = default;
-            playtimeSeconds = 0f;
+            sessionTransitioning = true;
+            try
+            {
+                saves.ResetAll();
+                CurrentSlot = slot;
+                pending = default;
+                playtimeSeconds = 0f;
 
-            SessionSaveData meta = saves.Get<SessionSaveData>();
-            meta.SavedAtUtcTicks = 0;
-            meta.PlaytimeSeconds = 0f;
-            meta.ProgressText = config.ProgressPlaceholder;
-            meta.SceneKey = saves.Get<EncounterSaveData>().SceneKey;
+                SessionSaveData meta = saves.Get<SessionSaveData>();
+                meta.SavedAtUtcTicks = 0;
+                meta.PlaytimeSeconds = 0f;
+                meta.ProgressText = config.ProgressPlaceholder;
+                meta.SceneKey = saves.Get<EncounterSaveData>().SceneKey;
 
-            state.PrepareRestore(false);
-            started.Publish(new SessionStartedEvent(slot, true));
-            telemetry.Track("new_game", ("slot", slot));
-            return await EnterGameplayAsync(ct);
+                state.PrepareRestore(false);
+                started.Publish(new SessionStartedEvent(slot, true));
+                telemetry.Track("new_game", ("slot", slot));
+                return await EnterGameplayAsync(ct);
+            }
+            finally
+            {
+                sessionTransitioning = false;
+            }
         }
 
         /// <summary>
@@ -140,6 +150,7 @@ namespace Game.Session
         /// </summary>
         public async UniTask<bool> ContinueAsync(int slot, CancellationToken ct = default)
         {
+            if (sessionTransitioning || savesInFlight > 0) return false;
             if (state.DialogueRunning)
             {
                 telemetry.TrackWarn("continue_rejected", TelemetryProps.Of(("slot", slot), ("reason", "dialogue_running")));
@@ -153,53 +164,61 @@ namespace Game.Session
                 return false;
             }
 
-            bool loaded = false;
-            bool loadThrew = false;
+            sessionTransitioning = true;
             try
             {
-                // 先读候选：LoadAsync 会整体替换内存分区，缺元数据的文件读进来就回不去了。
-                SaveSnapshot candidate = saves.Exists(slot) ? await saves.ReadCandidateAsync(slot, ct) : null;
-                if (candidate != null && candidate.Contains<SessionSaveData>())
+                bool loaded = false;
+                bool loadThrew = false;
+                try
                 {
-                    state.ValidateCandidate(candidate);
-                    ct.ThrowIfCancellationRequested();
-                    // 提交刚校验过的同一候选，不能再次读盘换成另一份内容。
-                    saves.Commit(candidate);
-                    loaded = true;
+                    // 先读候选：LoadAsync 会整体替换内存分区，缺元数据的文件读进来就回不去了。
+                    SaveSnapshot candidate = saves.Exists(slot) ? await saves.ReadCandidateAsync(slot, ct) : null;
+                    if (candidate != null && candidate.Contains<SessionSaveData>())
+                    {
+                        state.ValidateCandidate(candidate);
+                        ct.ThrowIfCancellationRequested();
+                        // 提交刚校验过的同一候选，不能再次读盘换成另一份内容。
+                        saves.Commit(candidate);
+                        loaded = true;
+                    }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception e)
-            {
-                Log.Error($"读存档槽 {slot} 时出错，保持当前状态：{e}");
-                telemetry.TrackError("continue_failed", e, TelemetryProps.Of(("slot", slot)));
-                loaded = false;
-                loadThrew = true;
-            }
-
-            if (!loaded)
-            {
-                // 异常路径已经在上面的 catch 里记过 continue_failed，这里只补「候选缺元数据」这一种拒绝原因，避免同一次失败埋两条。
-                if (!loadThrew)
+                catch (OperationCanceledException)
                 {
-                    telemetry.TrackWarn("continue_rejected", TelemetryProps.Of(("slot", slot), ("reason", "missing_metadata")));
+                    throw;
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"读存档槽 {slot} 时出错，保持当前状态：{e}");
+                    telemetry.TrackError("continue_failed", e, TelemetryProps.Of(("slot", slot)));
+                    loaded = false;
+                    loadThrew = true;
                 }
 
-                NotifyLoadFailed();
-                return false;
+                if (!loaded)
+                {
+                    // 异常路径已经在上面的 catch 里记过 continue_failed，这里只补「候选缺元数据」这一种拒绝原因，避免同一次失败埋两条。
+                    if (!loadThrew)
+                    {
+                        telemetry.TrackWarn("continue_rejected", TelemetryProps.Of(("slot", slot), ("reason", "missing_metadata")));
+                    }
+
+                    NotifyLoadFailed();
+                    return false;
+                }
+
+                CurrentSlot = slot;
+                pending = default;
+                playtimeSeconds = saves.Get<SessionSaveData>().PlaytimeSeconds;
+
+                state.PrepareRestore(true);
+                started.Publish(new SessionStartedEvent(slot, false));
+                telemetry.Track("continue", ("slot", slot));
+                return await EnterGameplayAsync(ct);
             }
-
-            CurrentSlot = slot;
-            pending = default;
-            playtimeSeconds = saves.Get<SessionSaveData>().PlaytimeSeconds;
-
-            state.PrepareRestore(true);
-            started.Publish(new SessionStartedEvent(slot, false));
-            telemetry.Track("continue", ("slot", slot));
-            return await EnterGameplayAsync(ct);
+            finally
+            {
+                sessionTransitioning = false;
+            }
         }
 
         /// <summary>读全部槽的摘要（槽 1..SlotCount），只读候选，不碰内存分区。</summary>
@@ -241,7 +260,7 @@ namespace Game.Session
         /// </summary>
         public void Tick()
         {
-            if (CurrentSlot == 0) return;
+            if (CurrentSlot == 0 || sessionTransitioning) return;
 
             bool gameplay = state.IsGameplayState;
             if (gameplay) playtimeSeconds += clock.UnscaledDeltaTime;
@@ -263,7 +282,8 @@ namespace Game.Session
         /// </summary>
         public async UniTask<bool> SaveNowAsync(string reason, CancellationToken ct = default)
         {
-            if (CurrentSlot == 0) return false;
+            // 切槽已替换分区，旧现场的离场捕获不能写入目标槽。
+            if (CurrentSlot == 0 || sessionTransitioning) return false;
             if (string.IsNullOrEmpty(reason)) reason = "unknown";
 
             if (!state.IsGameplayState)

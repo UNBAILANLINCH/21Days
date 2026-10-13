@@ -77,6 +77,17 @@ namespace Game.Tests.EditMode.Taming
             Assert.That(rules.IsControllingEnemy, Is.False);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ObservationOnly_KeepsDetectionWithoutExplorationDamage(bool observesOnly)
+        {
+            enemy.Reset(new[] { Vector2.right * .5f, Vector2.zero });
+            rules.ConfigureActor("enemy", false, false, observesOnly);
+            bool attacked = rules.AdvanceTargets(Vector2.zero, 0f);
+            Assert.That(enemy.Model.Mode, Is.EqualTo(MonsterMode.Hostile), "观测者仍有真实感知与追近状态");
+            Assert.That(attacked, Is.EqualTo(!observesOnly));
+            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - (observesOnly ? 0 : enemyConfig.AttackDamage)));
+        }
         private MonsterRules ConfigureTwo()
         {
             MonsterRules second = enemy.CreateForActor("patrol-b");

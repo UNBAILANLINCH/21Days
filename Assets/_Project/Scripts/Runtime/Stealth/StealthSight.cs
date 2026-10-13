@@ -6,6 +6,11 @@
 // 「感知是位置和朝向的数学判定，没有 Physics 查询或遮挡物判断」）。遮挡体是场景几何，
 // 塞进 `MonsterRules` 会让规则类认识关卡数据，也让并行任务改 `MonsterConfig` 时冲突。
 //
+// 2026-10-08「掩体贯通到怪物察觉」：`MonsterRules.Sense` 的**视锥那两档**（红区 / 橙区）现在会回来问本类
+// 「这两点通不通视」（`MonsterRules.UseOcclusion` 注入本类实例，查询仍是本类的纯函数）。
+// **贴身那一档（`ResolveNearSenseRadius`）有意不查**——`docs/design/spotlight/06_怪物状态与交互设计文档.md:71-73`
+// 写的是「不分朝向的近距察觉区、要潜行才免」，那是近身感知不是视觉，遮挡不该改掉它的语义。
+//
 // 出处：`docs/design/features-spotlight/03_潜行与暗杀.md:129-136`（R24–R28）、
 // `04_追逐.md:104`（R23 摆脱条件之一「躲进掩体」的判定基础）。
 using System;
@@ -127,6 +132,29 @@ namespace Game.Stealth
             }
 
             return blockers.Count == 0;
+        }
+
+        /// <summary>
+        /// 零分配版本：只回答「通不通视」，不收集是哪些遮挡体挡的，**命中第一个就返回**。
+        /// <para>
+        /// 为什么另开一个（2026-10-08 掩体贯通）：怪物感知每 tick 每只怪都要问一次
+        /// （<c>MonsterRules.Sense</c> 的红橙区），而 <see cref="TrySight"/> 在存在遮挡体时会
+        /// <c>new int[count]</c>、<see cref="TrySightNonAlloc"/> 要求调用方自备一个 <c>List&lt;int&gt;</c> 缓冲。
+        /// 前者违反「每帧路径零分配」，后者会给每只怪各挂一份可变的复用缓冲（多只怪共享实例时互相踩）。
+        /// 只判有无就不需要这两样：本方法不分配任何对象。
+        /// </para>
+        /// </summary>
+        public bool HasSightNonAlloc(Vector2 from, Vector2 to)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (StealthGeometry.SegmentIntersectsOccluder(from, to, occluders[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>是否被任一遮挡体挡住（<see cref="TrySight"/> 的简写）。</summary>

@@ -106,7 +106,10 @@ namespace Game.Session
                     resolver.Resolve<ISubscriber<TitleContinueClickedEvent>>(),
                     resolver.Resolve<ISubscriber<TitleLoadClickedEvent>>(),
                     resolver.Resolve<ISubscriber<GameStateChangedEvent>>(),
-                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule),
+                    resolver.Resolve<ISaveService>(),
+                    resolver.Resolve<SessionConfig>(),
+                    resolver.TryResolve(out ISubscriber<NarrativeChangedEvent> titleNarrativeChanged) ? titleNarrativeChanged : null), Lifetime.Singleton);
         }
 
         // 忘了拖配置时不让启动直接崩：记 Error 指明该拖哪个字段，再用代码建的默认值顶上（同 QuestInstaller）。

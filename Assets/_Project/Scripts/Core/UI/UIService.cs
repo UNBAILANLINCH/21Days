@@ -82,6 +82,8 @@ namespace Game.Core.UI
         /// 没初始化（EditMode 测试）时为 null，选中逻辑整体跳过。
         /// </summary>
         private EventSystem eventSystem;
+        private InputAction navigationAction;
+        private InputAction submitAction;
 
         private readonly ITelemetryScope telemetry;
         private readonly ITelemetryClock clock;
@@ -355,13 +357,13 @@ namespace Game.Core.UI
         public UIView TopView => stack.Top() as UIView;
 
         /// <summary>
-        /// 栈顶面板该让 EventSystem 选中谁：有 <see cref="UIView.DefaultSelected"/> 就是它的 GameObject，
-        /// 否则 null（清空选中，避免焦点留在已经关掉 / 被盖住的控件上）。纯函数，EditMode 可测。
+        /// 自动选中遵守面板的 SelectDefaultOnOpen；导航输入可按 DefaultSelected 建立焦点。
+        /// 返回 null 时清空旧焦点，避免选中留在已经关掉 / 被盖住的控件上。纯函数，EditMode 可测。
         /// </summary>
-        public static GameObject ResolveDefaultSelection(UIView top)
+        public static GameObject ResolveDefaultSelection(UIView top, bool forNavigation = false)
         {
             // UIView / Selectable 都是 UnityEngine.Object，判空只用 == null。
-            if (top == null || top.DefaultSelected == null)
+            if (top == null || top.DefaultSelected == null || (!forNavigation && !top.SelectDefaultOnOpen))
             {
                 return null;
             }
@@ -463,6 +465,8 @@ namespace Game.Core.UI
 
             disposed = true;
             Application.quitting -= ReleaseAllViews;
+            if (navigationAction != null) navigationAction.performed -= SeedNavigationSelection;
+            if (submitAction != null) submitAction.performed -= SeedNavigationSelection;
 
             ReleaseAllViews();
             layerRoots.Clear();
@@ -609,6 +613,10 @@ namespace Game.Core.UI
             }
 
             eventSystemObject.SetActive(true);
+            navigationAction = module.move != null ? module.move.action : null;
+            submitAction = module.submit != null ? module.submit.action : null;
+            if (navigationAction != null) navigationAction.performed += SeedNavigationSelection;
+            if (submitAction != null) submitAction.performed += SeedNavigationSelection;
         }
 
         /// <summary>
@@ -708,6 +716,17 @@ namespace Game.Core.UI
             }
 
             eventSystem.SetSelectedGameObject(ResolveDefaultSelection(top));
+        }
+
+        private void SeedNavigationSelection(InputAction.CallbackContext context)
+        {
+            if (disposed || eventSystem == null || eventSystem.currentSelectedGameObject != null) return;
+            if (context.action == navigationAction && context.ReadValue<Vector2>() == Vector2.zero) return;
+            UIView top = TopView;
+            if (top == null || top.SelectDefaultOnOpen) return;
+            Selectable target = top.DefaultSelected;
+            if (target == null || !target.IsActive() || !target.IsInteractable()) return;
+            eventSystem.SetSelectedGameObject(ResolveDefaultSelection(top, true));
         }
 
         /// <summary>把 UIStack 返回的条目集合落到实际的显隐上。</summary>

@@ -62,6 +62,9 @@ namespace Game.Core.UI
         /// </summary>
         public Selectable DefaultSelected => defaultSelected;
 
+        /// <summary>打开时是否立即选中默认项；为 false 时等导航或确认输入才选中。</summary>
+        public virtual bool SelectDefaultOnOpen => true;
+
         /// <summary>
         /// 按 UI/Cancel（Esc / 手柄 B）时能不能被 <see cref="UICancelRouter"/> 关掉。
         /// 默认 Panel / Popup 层可关；标题、对白这类「关了就卡住流程」的面板重写为 false。

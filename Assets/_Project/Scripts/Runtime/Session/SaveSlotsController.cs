@@ -211,13 +211,20 @@ namespace Game.Session
             }
 
             telemetry.Track("slot_new_game", ("slot", slot), ("overwrite", info.State != SlotState.Empty));
-            // 与标题「开始」同一条展示路径：先看操作说明再进游戏（面板开不出来时 ShowAsync 自己吞掉错误）。
-            await tutorial.ShowAsync();
-            bool started = await session.NewGameAsync(slot);
-            if (!started)
+            // 选槽是全屏面板；确认开局后先关掉它，标题镜子才能在转场中实际可见。
+            await CloseAsync();
+            TitleView title = ui.Get<TitleView>();
+            try
             {
-                notifications.Show(NewGameFailedTitle);
-                await RefreshAsync(default);
+                using (telemetry.BeginSpan("title_start_transition"))
+                    if (title != null) await title.PlayStartTransitionAsync(title.GetCancellationTokenOnDestroy());
+                await tutorial.ShowAsync();
+                bool started = await session.NewGameAsync(slot);
+                if (!started) notifications.Show(NewGameFailedTitle);
+            }
+            finally
+            {
+                if (title != null) title.ResetStartTransition();
             }
         }
 

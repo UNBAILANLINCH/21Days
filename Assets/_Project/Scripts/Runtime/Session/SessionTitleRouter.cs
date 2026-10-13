@@ -216,9 +216,19 @@ namespace Game.Session
                 return;
             }
 
-            // 先看操作说明再进游戏；面板开不出来时 ShowAsync 自己吞掉错误，不会把开局挡在这里。
-            await tutorial.ShowAsync(ct);
-            await session.NewGameAsync(slot, ct);
+            TitleView title = ui.Get<TitleView>();
+            try
+            {
+                using (telemetry.BeginSpan("title_start_transition"))
+                    if (title != null) await title.PlayStartTransitionAsync(ct);
+                // 暗幕由操作说明和原场景加载流程接住；不绕过教程或存档初始化。
+                await tutorial.ShowAsync(ct);
+                await session.NewGameAsync(slot, ct);
+            }
+            finally
+            {
+                if (title != null) title.ResetStartTransition();
+            }
         }
 
         // 「继续」：读最近槽；没有可用存档（按钮本应隐藏，键盘 / 旧状态绕过时）按「开始」处理。

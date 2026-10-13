@@ -2,6 +2,7 @@
 //   五个按钮 + 右下角版本号；只报告「哪个按钮被点了」，不注入服务，去向由 TitleState 决定。
 // 美术：正式阳 / 阴切图在 Art/Sprites/UI/Title/Yang 与 Yin；背景已带标题，旧 Logo 与按钮文字在预制体隐藏。
 //   阳版与选中图由 Image / Button.spriteState 持有，阴版引用配在本面板；切换不新增 UI 对象或 Canvas。
+// 入场：可选 TitleEntranceMotion 播阳版拆件；同步准备、不阻塞主题刷新，阴版保留完整正式图。
 // 为什么改（不是新建）：原本是跑通 UI 链路的占位面板（标题文字 + 开始按钮），职责一直是「标题界面」，
 //   这次把它做成正式页，扩展原文件；Addressables 地址、回放场景点 StartButton 的路径都保持不变。
 // 存档会话（PRP save-session D5）：预制体 Buttons 布局组追加「继续」「选择存档」两个按钮（顺序 开始 / 继续 / 选择存档 / 设置 / 退出），
@@ -55,6 +56,12 @@ namespace Game.Core.UI.Views
         [SerializeField] private Image backgroundImage;
         [SerializeField] private Sprite alternateBackground;
         [SerializeField] private ButtonAppearance[] alternateButtons = Array.Empty<ButtonAppearance>();
+
+        [Tooltip("阳版拆件入场；可空，旧预制体保持整面板淡入。")]
+        [SerializeField] private TitleEntranceMotion entranceMotion;
+
+        [Tooltip("点击开始后的镜转与水波转场；可空，旧预制体保持原开局流程。")]
+        [SerializeField] private TitleStartTransition startTransition;
 
         [Serializable]
         private sealed class ButtonAppearance
@@ -122,6 +129,9 @@ namespace Game.Core.UI.Views
         /// <summary>标题是流程起点，Esc 关掉它玩家就卡在空屏上，所以不让 UICancelRouter 关。</summary>
         public override bool CloseOnCancel => false;
 
+        // 静止标题显示普通图；保留 DefaultSelected，玩家开始键盘 / 手柄操作后才给它焦点。
+        public override bool SelectDefaultOnOpen => false;
+
         public override UniTask OnOpenAsync(object arg, CancellationToken ct)
         {
             CaptureAppearance();
@@ -132,6 +142,8 @@ namespace Game.Core.UI.Views
             Hook(quitButton, HandleQuitClicked);
 
             OnRefresh();
+            // 先准备隐藏部件，再让 UIView 淡入；入场异步播放，不阻塞存档主题刷新。
+            if (entranceMotion != null) entranceMotion.Begin();
             return UniTask.CompletedTask;
         }
 
@@ -164,7 +176,18 @@ namespace Game.Core.UI.Views
             SetAppearanceTint(Color.white);
             backgroundImage.sprite = alternate ? alternateBackground : originalBackground;
             for (int i = 0; i < alternateButtons.Length; i++) alternateButtons[i].Apply(alternate);
+            if (entranceMotion != null) entranceMotion.SetAlternate(alternate);
             return true;
+        }
+
+        /// <summary>由开局路由等待演出；本视图不选择存档或加载场景。</summary>
+        public UniTask PlayStartTransitionAsync(CancellationToken ct) => startTransition != null
+            ? startTransition.PlayAsync(ct) : UniTask.CompletedTask;
+
+        /// <summary>开局中断时复位，避免截图或交互锁残留。</summary>
+        public void ResetStartTransition()
+        {
+            if (startTransition != null) startTransition.ResetVisuals();
         }
 
         private void CaptureAppearance()

@@ -1,6 +1,7 @@
 // 职责：验证标题乘色不累积、能够恢复原色，且包含隐藏按钮而不改变文字。
 // 为什么新建：现有 UI 测试没有标题表现用例，扩展无关面板测试会混淆被测职责。
 using Game.Core.UI.Views;
+using Game.Core.UI;
 using System;
 using System.Reflection;
 using NUnit.Framework;
@@ -48,6 +49,17 @@ namespace Game.Tests.EditMode.Core
             Object.DestroyImmediate(normalSprite);
             Object.DestroyImmediate(alternateSprite);
             Object.DestroyImmediate(texture);
+        }
+
+        [Test]
+        public void DefaultSelection_OnlyNavigationFocusesStart()
+        {
+            var host = new GameObject("Start", typeof(RectTransform), typeof(Button));
+            host.transform.SetParent(root.transform, false);
+            typeof(UIView).GetField("defaultSelected", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(view, host.GetComponent<Button>());
+            Assert.That(UIService.ResolveDefaultSelection(view), Is.Null, "未操作的标题不能自动显示选中高亮");
+            Assert.That(UIService.ResolveDefaultSelection(view, true), Is.SameAs(host), "键盘 / 手柄仍有导航起点");
         }
 
         [Test]

@@ -114,12 +114,13 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 
 ### 正式素材映射（2026-10-13）
 
-`Yang/` 与 `Yin/` 各含以下 10 张图片，名称一致；只有目录区分版本。
+`Yang/` 与 `Yin/` 各含以下 11 张图片，名称一致；只有目录区分版本。
 
 | 文件名 | 用途 |
 | --- | --- |
 | `ui_title_bg.png` | 无按钮背景，已经包含游戏标题 |
 | `ui_title_start.png` | 开始按钮，两版各一张；保留既有按压缩放反馈 |
+| `ui_title_start_selected.png` | 开始按钮的悬停 / 选中 / 按压高亮，两版分别使用原始素材 |
 | `ui_title_settings_normal.png`、`ui_title_settings_selected.png` | 设置的普通 / 选中图 |
 | `ui_title_load_normal.png`、`ui_title_load_selected.png` | 选择存档的普通 / 选中图 |
 | `ui_title_continue_normal.png`、`ui_title_continue_selected.png` | 继续的普通 / 选中图 |
@@ -132,6 +133,80 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 本批实测：标题 EditMode 16/16、正式素材回放 1/1 通过；回放验证阴版替换、阳版恢复和菜单选中图，控制台无错误。
 报告在 `Logs/verify/title/20261013-000115/report.md`，包含阳版、阴版、恢复与选中图四张截图；最终视觉验收仍由开发者确认。
 回放临时显示完整四个菜单用于构图检查；正常游玩仍按有无存档控制「继续」，触屏平台仍隐藏「退出游戏」。
+
+### 阳版拆件入场（2026-10-13）
+
+正式 `TitleView.prefab` 已接 `Core/UI/TitleEntranceMotion`，复用 LitMotion 2.0.2，不引入新的 Tween 库或 Canvas。
+50 张运行时 PNG 在 `Art/Sprites/UI/Title/Yang/Entrance/`，`parts.json` 保留原画坐标；
+45 条轨道的时间、偏移、旋转、缩放、运动曲线、淡入时长与呼吸幅度在 `Data/UI/TitleEntranceConfig.asset` 调整。
+
+| 节拍（从入场开始计秒） | 表现 |
+| --- | --- |
+| 0～2.8 | 天空迅速显露，水面慢升，铜镜旋转下落并轻微落定 |
+| 0.98～2.93 | 标题晚半拍紧随铜镜下落 |
+| 1.25～3.8 | 莲花纹围绕铜镜中心展开；云雾与石头从镜后的小尺寸状态向左右、略向下错峰展开，远山保持原节奏 |
+| 2.5～4.09 | 丝带用两个 RectMask2D 从左右外缘向内揭露，不拉伸图像 |
+| 3.65～5.47 | 卷轴依次加速落下、短促回弹，再显示花纹与文字 |
+| 5.05～6.3 | 开始按钮最后缓缓浮现；落定后保留细微的云、水面、铜镜与按钮呼吸 |
+
+运动与淡入分开驱动；入场采用 unscaled 时间。`OnOpenAsync` 同步准备起始态后立即返回，
+不等完整 6.3 秒，避免阻塞 `SessionTitleRouter` 的存档主题刷新。入场期间根 CanvasGroup 禁止交互，
+落定后恢复。设置面板覆盖、主题切换与销毁均取消时间轴并复位；返回被覆盖的标题不重复入场。
+普通菜单入场结束后交还原完整图片的 Sprite Swap；开始按钮入场时使用拆件，落定后隐藏六个拆件子图，
+由同一呼吸节点上的完整 Image 接管 Sprite Swap。阳版与阴版高亮跟随主题切换，按压缩放仍留在原按钮父节点。
+没有存档时继续隐藏，触屏退出隐藏的原规则不变，不由动画重新激活按钮。
+
+当前只有阳版拆件。阴版使用已有完整正式图，切阴版时隐藏阳版拆件并恢复背景与按钮；恢复阳版不重播入场。
+天空与水面的 Photoshop 渐变依赖原画布尺寸，已在原 1920×1080 画布上烘焙。
+水纹 SoftLight 已合入水面，不能再叠一次原始水纹 PNG。`TitleEntranceBuilder` 只用于首次接线，已接线时拒绝覆盖；
+后续直接调配置与预制体。点击开始后的转场见下节。
+
+验证入口：`TitleEntranceMotionTests` 的 EditMode 配置/切主题检查与 PlayMode 覆盖/暂停检查；
+`TitleShowcase.Entrance_RevealsPartsInRhythmAndRestoresMenuInteraction` 记录五个入场阶段并检查交互恢复，
+原主题切换回放继续保留。实测：18 条标题 EditMode、3 条 PlayMode 和 2 条视觉回放通过，控制台无错误；
+最终报告 `Logs/verify/title/20261013-025352/report.md`。50 张 PNG 的尺寸与配套 meta 全部通过检查。
+镜后展开调整只改变 8 条云雾与石头轨道的起始偏移和缩放，其他 37 条轨道与全部终点保持不变；
+右中景、右前景石头移到铜镜后层。调整后 18 条 EditMode 与 2 条视觉回放通过，控制台无错误，
+报告 `Logs/verify/title/20261013-084020/report.md`。
+全局 gc 扫描仍有工作区原有的 Dynamic 字体缓存膨胀告警，未清除其他改动。最终视觉表现由开发者确认。
+
+开始高亮素材原样复制到两版 `ui_title_start_selected.png`，字节校验与源文件一致；Unity 导入与 meta 配套完成。
+高亮修补后 18 条 EditMode、3 条视觉回放通过，无运行时异常，报告 `Logs/verify/title/20261013-092437/report.md`。
+高亮回放覆盖两版悬停、移出还原、键盘/手柄选中与恢复阳版；同时回归原标题入场与点击开始进入场景。
+默认态修正：TitleView 的 SelectDefaultOnOpen 为 false，打开或从上层面板返回时不自动选中开始，两版保持各自普通图。
+DefaultSelected 仍保留开始按钮；UIService 在真实导航/确认输入到来且没有选中项时建立焦点，不影响键盘/手柄操作。
+普通图与高亮图引用已核实，没有互换。38 条相关 EditMode、2 条视觉回放通过，无运行时异常，
+报告 `Logs/verify/title/20261013-094256/report.md`，包括两版未操作普通态与真实手柄导航、确认键开局。
+
+### 点击开始转场（2026-10-13）
+
+正式 `TitleView.prefab` 已接 `Core/UI/TitleStartTransition` 和 `Data/UI/TitleStartConfig.asset`。
+空槽开局时，SessionTitleRouter 先等待转场，再沿用操作说明与 NewGameAsync；无空槽先打开选槽面板。
+满槽选择并确认覆盖后，SaveSlotsController 先关闭全屏选槽面板，再播放同一段标题转场、显示操作说明并开局。
+取消覆盖不播放、不初始化会话；开局失败或取消后复位标题演出。
+继续、选择存档不播放这段转场；缺少组件或 Shader 不受支持时保留原开局路径。
+
+| 节拍 | 表现 |
+| --- | --- |
+| 0～1.15 秒 | 停止呼吸并从落定姿态缓转铜镜 32 度，轻微放大，锁住标题操作 |
+| 1.15～3.35 秒 | 帧末截取一次完整标题；同心水波、扭转与模糊渐强，速度线晚半拍显现，最后收成黑幕 |
+| 转场结束 | 立即释放 RenderTexture 和临时材质，只留静态黑底；操作说明和原加载黑幕接住后续流程 |
+
+效果使用 `Art/Shaders/TitleWaterTransition.shader` 与预制体引用的材质，不新增 URP Renderer Feature。
+配置控制镜转时长/角度、水波时长以及水波/模糊/速度线强度；运行时不写 SO 或共享材质。
+暂停时仍用真实时间播放；取消、标题停用或开局失败会复位镜子与交互并释放截图。
+截图按图形后端的 UV 方向采样，避免 Windows RenderTexture 上下颠倒。
+埋点 `session/title_start_transition` 记录等待演出的耗时。
+
+验证：21 条标题/操作说明 EditMode、6 条标题 PlayMode 通过；原入场与主题回放仍通过。
+最终开始转场回放五步全部通过、无运行时异常，报告 `Logs/verify/title/20261013-090844/report.md`。
+回放实际点击开始、观察镜转与水波、确认截图释放、按键关闭说明并等待场景加载黑幕揭开。
+未做手机 GPU/显存性能测量，最终视觉节奏仍由开发者确认。
+满槽转场补接验证：48 条 Session EditMode 通过；真实鼠标满槽选档、覆盖确认、标题转场与进入场景五步通过，
+报告 `Logs/verify/title/20261013-102142/report.md` 的 MouseStart_FullSlots_ConfirmedOverwritePlaysTransition 段无异常。
+该批空槽回放未触发转场，不能将整批报告视为通过；模拟按压改为至少 50ms 后，单独复验被手动 Play 状态阻断，尚不能确认失败原因。
+回放存档只写临时覆盖目录，未改正式槽文件。另通过 Unity 原生 API 补回 Noto 字体当前缺失图集页，保留 475 个字符及已有图集；
+修复前副本在 `Tools/Font_NotoSansSC_before_missing_atlas.asset.backup`，没有清除字形缓存或字体样式。
 
 ### 本批待审清单（未提交）
 

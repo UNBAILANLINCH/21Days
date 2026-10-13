@@ -60,6 +60,9 @@ maturity: seed
 
 ## 依赖方向约束
 
+标题开始转场的时长与强度在 `Data/UI/TitleStartConfig.asset`；引用通过 Unity 编辑器接入 TitleView 与 TitleStartTransition。
+只调整表现时不改 Session 的槽位选择/操作说明规则。扩展开局路径仍需保留教程，并在 finally 中复位标题转场。
+
 `Game.Session → Game.Core`（Save / Flow / UI / Events / Boot / Timing / Simulation / Telemetry）、
 `Game.Session → Game.Quest / Game.Dialogue / Game.Monster / Game.Loot / Game.Narrative`（只经它们的公开 API、保存 DTO 与事件）。
 反过来任何玩法模块都不得引用 `Game.Session`——需要感知会话生命周期一律走 `SessionStartedEvent` /

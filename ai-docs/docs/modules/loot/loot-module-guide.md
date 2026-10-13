@@ -27,11 +27,14 @@ maturity: stable
 | 类 | 是什么 | 谁持有 / 谁调 |
 | --- | --- | --- |
 | `LootConfig` | SO：交互半径、任务上报键、提示 / 通知文案、标记抬高 | `Data/Loot/LootConfig.asset` |
-| `LootRules` | **纯 C#** 规则：按键幂等记录、物品累加、整体清空、**扣减**（`Consume`，`LootRules.cs:56`）（`LootRules.cs:9`） | `LootService` 调；EditMode 直接测 |
+| `LootRules` | **纯 C#** 规则：按键幂等记录、物品累加、整体清空、**扣减**（`Consume`，`LootRules.cs:78`）、**入包**（`Grant`，`LootRules.cs:42`）（`LootRules.cs:9`） | `LootService` 调；EditMode 直接测 |
 | `MonsterLootRules` | **纯 C#** 规则：怪物按种类掉落——把一批 item id 累加进 `Items`、不写箱子键、不管幂等（同一只种类会死多次）（`MonsterLootRules.cs`） | `LootService.SettleMonsterDrop` 调；EditMode 直接测 |
+| `LootMonsterDropSink` | **击杀掉落结算口的实现侧**：实现 `Game.Monster.IMonsterDropSink`，一行转发给 `LootService.SettleMonsterDrop`（`LootMonsterDropSink.cs`） | `LootInstaller` 注册为 `As<IMonsterDropSink>()`；装配由 `MonsterInstaller` 的构建回调 `TryResolve` 完成 |
 | `MonsterDroppedEvent` | 怪物掉落已入背包的事实事件：`YaoId` + `ItemIds`（只交 id，不写剧情事实键）（`MonsterDroppedEvent.cs`） | `LootInstaller.InstallEvents` 注册 broker |
+| `BackpackChangedEvent` | 背包新增物品的事实事件：`ItemId` + `Count`（合成产物入包时发；`BackpackChangedEvent.cs`） | `LootInstaller.InstallEvents` 注册 broker；`InventoryPanelController` 订阅刷新 |
+| `LootEventPublishers` | `LootService` 要发布的四个事件收成一个组合参数（`LootEventPublishers.cs`） | `LootInstaller` 构造；测试构造点也用它（加事件时测试点不用改） |
 | `LootSaveData` | 存档分区：`CollectedCrates`（已开箱子键列表）+ `Items`（tbitem id → 数量）（`LootSaveData.cs:9`） | `ISaveService.Get<LootSaveData>()` 产出 |
-| `LootService` | **对外门面**：`TryCollect` 按幂等开箱、`SettleMonsterDrop` 按种类结算怪物掉落，两者都串起存档 / 通知 / 事件 / 埋点；`Reset` 清空分区；`TryConsume` 扣减背包物品（`LootService.cs:25,122`） | 根作用域单例 + `IGameService` |
+| `LootService` | **对外门面**：`TryCollect` 按幂等开箱、`SettleMonsterDrop` 按种类结算怪物掉落，两者都串起存档 / 通知 / 事件 / 埋点；`Reset` 清空分区；`TryConsume` 扣减背包物品（`LootService.cs:153`）；**`GrantItems` 加物品**（`LootService.cs:126`，合成产物等非开箱非掉落的入包走它） | 根作用域单例 + `IGameService` |
 | `SupplyCrate` | 场景组件：箱子键 + 奖励（itemId × count）+ 开合外观切换，发 `OnOpenedChanged`；实现 `Game.Interaction.IInteractable`（半径 / 提示 / 开箱回调由 `BindInteraction` 下发，未开且已下发才可交互）（`SupplyCrate.cs:19`） | 场景物体；由 `LootSceneBinder` / `LootService` 调 `SetOpened` |
 | `SupplyCrateMarker` | 场景组件：箱子头顶标记，未开且非沉浸时显示（`SupplyCrateMarker.cs:15`） | 与 `SupplyCrate` 同物体；沉浸状态由 `LootSceneBinder` 逐个推 |
 | `LootSceneBinder` | 入口点：`sceneLoaded` 扫场景登记箱子 / 标记（含未激活）、下发交互参数并 `Register` 进统一交互登记表（`LootSceneBinder.cs:127`–`:128`）、按存档恢复开合、重置时全部合上、沉浸切换时刷标记（`LootSceneBinder.cs:24`） | 根作用域入口点（`AsSelf`） |
@@ -63,23 +66,31 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 ```
 
 扣减（2026-10-07，回合制战斗用道具，`PRP/turnbased-battle` D10）：
-`Game.Battle` 的 `LootBattleBackpack.TryConsumeOne` → `LootService.TryConsume(itemId, count = 1)`（`LootService.cs:122`）
-  → `LootRules.Consume(分区, itemId, count)`（`LootRules.cs:56`）：数量不够 / 不拥有 / `data` 为 null / `count ≤ 0` 返回 false 且不改数据；
+`Game.Battle` 的 `LootBattleBackpack.TryConsumeOne` → `LootService.TryConsume(itemId, count = 1)`（`LootService.cs:153`）
+  → `LootRules.Consume(分区, itemId, count)`（`LootRules.cs:78`）：数量不够 / 不拥有 / `data` 为 null / `count ≤ 0` 返回 false 且不改数据；
     扣到 0 时把这一项从背包里**删掉**（背包面板不显示 0 件）；不碰 `CollectedCrates`（扣的是物品，不是「箱子没开过」）
   → 成功埋 `item_consumed`，失败埋 W 级 `consume_rejected`。
-  **扣减不发事件、不弹通知**（以源码为准：`LootService.cs:117-121` 注释写明原因——调用方是战斗流程，那时背包面板关着；
+  **扣减不发事件、不弹通知**（以源码为准：`LootService.cs:149-152` 注释写明原因——调用方是战斗流程，那时背包面板关着；
   落盘由战斗结束后剧情回写触发的保存请求带上，分区每次现取）。所以背包面板若恰好开着，不会收到刷新事件。
 
 **怪物掉落不写箱子键、不推任务计数、不管幂等**：箱子键与幂等是物资箱的性质；怪物按种类掉、同一只种类会死很多次、
-每次都要掉，所以「一只怪只结算一次」由调用方（死亡那一处）保证。当前波次只提供这条入口，**还没有人调它**——
-死亡掉落的接线归后续波次（S3 / S5）。
+每次都要掉，所以「一只怪只结算一次」由调用方（死亡那一处）保证。**实现侧已落地**（2026-10-07）：
+`LootMonsterDropSink` 实现 `Game.Monster.IMonsterDropSink`（签名 `SettleKillDrop(int yaoId, IReadOnlyList<int> dropItemIds)`），
+在 `LootInstaller` 注册为 `As<IMonsterDropSink>()`；**调用侧（`EncounterStep` 的死亡分支）由另一路并行接线**，
+没接上时怪物什么都不掉、行为与接线前逐字一致。
+
+**入包（`GrantItems`，2026-10-07）**：合成产物这类「非开箱、非掉落」的加物品走它。语义边界——
+不认箱子键、不做幂等、不推任务计数、**不弹通知**（通知由发起方按它知道的上下文拼）；
+成功顺序为 写分区 → 发布 `BackpackChangedEvent` → 埋点。参数刻意是 `(int itemId, int count)` 而不是 `ItemStack`：
+后者是 `Game.Inventory` 的类型，Loot 不许认识 Inventory（依赖方向是 Inventory → Loot）。
+**它是背包唯一的加物品口**：Inventory 侧合成/使用都只走它，不新增第二条写入路径。
 
 **让位规则**归统一焦点（`InteractionFocus.ShouldYield`）：没有玩家标记、Gameplay 图关着（对白 / 演出 / 面板中）、沉浸、世界暂停任一成立时
 没有焦点、交互键无效；焦点刚变化的那一帧不响应（避免关对白的那一下顺手开箱）。**旧规则「对白有焦点箱子就让位」已废**（D2）：
 箱子离得比 NPC 近就是箱子得焦点。
 
 **存档分区**：`LootService` 不缓存 `LootSaveData` 实例，每次操作重新 `saves.Get<LootSaveData>()`
-（`LootService.cs:57`）——读档 `Commit` 会整体替换分区实例，缓存旧引用会把进度写进一份没人读的对象
+（`LootService.cs`）——读档 `Commit` 会整体替换分区实例，缓存旧引用会把进度写进一份没人读的对象
 （同 `QuestService.Flush` 的注释）。
 
 ## 依赖方向
@@ -87,6 +98,9 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 `Game.Loot → Game.Core`（Save / Config / Logging / Telemetry / UI / Boot）、
 `Game.Loot → Game.Quest`（只用 `QuestService.IsReady` / `Report`）。
 `Game.Loot → Game.Interaction`（`SupplyCrate` 实现契约、`LootSceneBinder` 登记与取玩家标记）。
+**`Game.Loot → Game.Monster`（只认识 `IMonsterDropSink` 这个接口，`LootMonsterDropSink` 实现它）**——
+这是本项目既有的接法（对照 `Game.Monster` 实现 `Game.Stealth` 的 `IStealthFactSink`）：接口声明在调用方那一侧，
+实现方反向认识它；**反向（Loot 引用 `EncounterStep` / `MonsterRules` 等具体类型）仍然禁止**。
 `Game.IsometricExploration → Game.Loot`（`LootService.Items` / `Reset`、`LootConfig` 文案），反向禁止；
 `Game.Quest` / `Game.Dialogue` / `Game.Core` 不认识 `Game.Loot`。
 
@@ -103,7 +117,10 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 | 入口 | 从 Boot → 标题「开始」进场景才有 `LootService` | 直接 Play 玩法场景：任务上报会跳过并记 Warn（`quest.IsReady == false`） |
 
 示例接线：`Assets/Scenes/SampleScene.unity` 的 `Crates` 根节点下 `Crate_A`（营地，itemId 1005 破旧信笺 ×1，线索；B1 背包白盒由 1001 改来）、
-`Crate_B`（瞭望点，itemId 1002 精钢长剑 ×1）、`Crate_C`（灰盒另一角，itemId 1004 治疗药水 ×2）；支线 `Tables/Data/quest/2002.json`
+`Crate_B`（瞭望点，itemId 1002 精钢长剑 ×1）、`Crate_C`（灰盒另一角，itemId 1004 治疗药水 ×2）、
+`Crate_D`（(12, -8)，itemId 1401 水痕 ×1）与 `Crate_E`（(13.5, -8)，itemId 1102 湿皮 ×1）——**后两只是 2026-10-09 为「背包 · 合成」这条 demo 示例加的**：
+占位配方（`ItemRecipeEntry.PlaceholderOfficeKey`，出处 `05_皮面具与道具.md:106 R7`）要水痕 + 湿皮 → 进入废弃官署的钥匙，
+而原先三只箱子一件原料都不给，玩家在 demo 里**合不出东西**；支线 `Tables/Data/quest/2002.json`
 （Counter key `crate` × 3）用同一个 `CrateQuestKey` 上报。
 
 探索 HUD 侧 PC 优先：触屏控件（摇杆 / 三键 / 走跑按钮）默认仅 `IsTouchPrimary` 显示，`ShowStickOnDesktop` 为开发开关；
@@ -114,9 +131,10 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 
 | 类型 | 位置 | 覆盖 |
 | --- | --- | --- |
-| EditMode | `Tests/EditMode/Loot/LootRulesTests.cs`（13 个 `[Test]` / `[TestCase]`） | 幂等记录 / 累加 / 非法参数 / 清空 / 扣减（够扣、扣到 0 删项、不够或非法不改数据） |
-| EditMode | `.../LootServiceTests.cs`（11 个） | 开箱串起存档 / 任务 / 通知 / 事件、二次开箱无效、物品名查不到时的兜底、通知格式写坏不抛、`TryConsume` 扣 1 且不发事件不弹通知 / 没有该物品时返回 false |
+| EditMode | `Tests/EditMode/Loot/LootRulesTests.cs`（17 个 `[Test]` / `[TestCase]`） | 幂等记录 / 累加 / 非法参数 / 清空 / 扣减（够扣、扣到 0 删项、不够或非法不改数据）/ **入包 `Grant`（加件数、不动箱子键、不拥有过的 id 按 0 起算、累加、非法参数不建 key）** |
+| EditMode | `.../LootServiceTests.cs`（16 个） | 开箱串起存档 / 任务 / 通知 / 事件、二次开箱无效、物品名查不到时的兜底、通知格式写坏不抛、`TryConsume` 扣 1 且不发事件不弹通知 / 没有该物品时返回 false、**`GrantItems` 入包发 `BackpackChangedEvent` 且不弹通知不推计数 / 非法参数不发事件**、**`LootMonsterDropSink` 转发到 `SettleMonsterDrop` / 三种退化参数不抛** |
 | EditMode | `.../SupplyCrateTests.cs`（6，由原物资箱焦点测试 git mv 迁来） | 经 `InteractionSelector` 最近选择 / 半径外无焦点 / 跳过已开与未激活；未下发交互参数不可交互；提示「打开 · 物资箱」；Interact 调开箱回调、已开不再调 |
+| EditMode | `.../MonsterDropSinkWiringTests.cs`（2，2026-10-09 补） | **容器级**：按 Boot 的接法把 `MonsterInstaller` 装进容器，注册了 `IMonsterDropSink` 时主怪一死就结算一次（带真表那行的 `yaoId` 与 `drop_items`）；**负对照**：不注册时死亡不掉也不抛。<br>为什么单独一条：`EncounterDropTests` 测调用侧、`LootServiceTests` 测实现侧，而两端之间的**注册与绑定**（`LootInstaller` 注册成接口 + `MonsterInstaller` 构建回调 `TryResolve` 后 `BindDropSink`）此前一条用例都没有——那一层坏掉的表现是**编译不报、单测不报、回放也看不出，只是怪死了什么都不掉** |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/Exploration/ExplorationShowcase.cs` | 靠近 → 焦点与「[E] 打开 · 物资箱」→ **按交互键开箱**（玩家小人转向并播交互动作）→ 通知 → 支线计数 → 重置（重进后玩家标记重找、新箱子照常成焦点）的端到端回放，覆盖 V4 / V5 |
 
 跑 `/unity-test EditMode Loot`；端到端视觉验收跑 `/verify-module Exploration`（编辑器须打开）。

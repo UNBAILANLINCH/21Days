@@ -440,6 +440,31 @@ Post Processing 开，Background 颜色等于雾色。改构图（FOV / 旋转 /
 验证：`DarkFogRegionTests` 的内外边界与过渡 EditMode 测试通过；实际相机像素对比中远方绿色探针在关闭雾与剔除时可见，
 开启剔除后变成背景，关闭剔除但开启雾后变暗，Collider 保留。截图位于 `Logs/verify/dark-fog/`。
 
+### 整片远景模糊（2026-10-15）
+
+SampleScene 的 `GlobalVolume` 使用 `Assets/Settings/ExplorationVolumeProfile.asset`，已启用原生
+`Depth Of Field` 的 `Gaussian` 模式（仅远景模糊）。直接选中该配置资产，在 Inspector 调节：
+
+| Inspector 参数 | 初始值 | 用途 |
+| --- | ---: | --- |
+| `Start` | 25 m | 沿相机观察方向的深度从这里开始模糊；更近的物体保持清晰 |
+| `End` | 40 m | 从这里起达到最大模糊；过渡距离 = End − Start，初始为 15 m |
+| `Max Radius` | 1 | 最大模糊强度；原生范围 0.5–1.5，超过 1 可能出现欠采样瑕疵 |
+| `High Quality Sampling` | true | 减少采样闪烁，增加 GPU 开销 |
+
+调整过渡距离时设置 `End = Start + 过渡距离`，保持 `End > Start`。
+取消勾选整个 `Depth Of Field` 可关闭效果；各参数左侧的 override 勾选应保留。
+它与下述 `CameraLayerCulling` 独立，不按 Layer 区分，也不修改剔除距离；距离是相机观察深度，
+不是离玩家的距离。Start 应在角色活动区深度之外，避免远处角色一起虚化。
+透明物件若没有写入深度，模糊可能沿用其背后物体的深度；不据此宣称透明材质已兼容。
+两档 URP 复用这份 Volume 配置；相机需开启 Post Processing 并使用 3D Renderer。
+`mo` 暗雾原型未引用这份配置，不自动启用景深。模糊不能保证遮住距离剔除时的突然消失。
+
+验证：配置资产保存后读回、Volume 栈读取均确认 Gaussian / 25 / 40 / 1；
+隔离预览场景使用 20 m / 45 m 棋盘进行实际相机渲染对比，20 m 区域开关景深的像素差为 0，
+45 m 区域平均红通道差约 0.489，确认远景虚化且近景保持清晰。
+`RenderPipelineTiersTests` 4 项通过；尚未完成 SampleScene 试玩调优及目标设备 GPU 性能测量。
+
 ### 相机距离剔除
 
 `CameraDistanceCulling`（`Assets/_Project/Scripts/Runtime/IsometricExploration/CameraDistanceCulling.cs`）

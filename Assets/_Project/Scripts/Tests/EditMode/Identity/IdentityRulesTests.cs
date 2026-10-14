@@ -286,7 +286,7 @@ namespace Game.Tests.EditMode.Identity
             Assert.That(state.Dead, Is.False);
         }
 
-        /// <summary>没有注入策略时不得替策划选一种后果——`00_功能总览.md:286` §5 C1 是原文矛盾。</summary>
+        /// <summary>没有注入策略时不得替策划选一种后果——`00_功能总览.md:317` §5 C1 是原文矛盾。</summary>
         [Test]
         public void ResolveExposure_WithoutPolicy_ReportsNoOutcomeButStillLosesIdentity()
         {

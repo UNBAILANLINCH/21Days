@@ -4,7 +4,7 @@
 // 这样回放对不上时能一眼看出是第几次选招开始分叉（同 XorShiftRandomStream.Range 的取舍说明）。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:84`「技能施放比例为 招式1：招式2：招式3 = 6：3：1」；
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:198`（R47）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:231`（R47）。
 
 using Game.Core.Simulation;
 

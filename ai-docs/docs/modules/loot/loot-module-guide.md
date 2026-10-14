@@ -119,7 +119,7 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 示例接线：`Assets/Scenes/SampleScene.unity` 的 `Crates` 根节点下 `Crate_A`（营地，itemId 1005 破旧信笺 ×1，线索；B1 背包白盒由 1001 改来）、
 `Crate_B`（瞭望点，itemId 1002 精钢长剑 ×1）、`Crate_C`（灰盒另一角，itemId 1004 治疗药水 ×2）、
 `Crate_D`（(12, -8)，itemId 1401 水痕 ×1）与 `Crate_E`（(13.5, -8)，itemId 1102 湿皮 ×1）——**后两只是 2026-10-09 为「背包 · 合成」这条 demo 示例加的**：
-占位配方（`ItemRecipeEntry.PlaceholderOfficeKey`，出处 `05_皮面具与道具.md:106 R7`）要水痕 + 湿皮 → 进入废弃官署的钥匙，
+占位配方（`ItemRecipeEntry.PlaceholderOfficeKey`，出处 `05_皮面具与道具.md:113 R7`）要水痕 + 湿皮 → 进入废弃官署的钥匙，
 而原先三只箱子一件原料都不给，玩家在 demo 里**合不出东西**；支线 `Tables/Data/quest/2002.json`
 （Counter key `crate` × 3）用同一个 `CrateQuestKey` 上报。
 

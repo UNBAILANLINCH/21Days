@@ -1,6 +1,6 @@
 // 职责：进入战斗的三种方式（07 一、进入战斗）。
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:13-28`；转写见
-// `docs/design/features-spotlight/09_BOSS战.md:178-184`（R40）。
+// `docs/design/features-spotlight/09_BOSS战.md:211-217`（R40）。
 
 namespace Game.TurnBased
 {

@@ -48,7 +48,7 @@ HUD 按钮或别的入口要开背包，一行 `controller.OpenAsync().Forget()`
 | `ItemUseRules.TryUse` | `ItemUseResult TryUse(IReadOnlyDictionary<int,int> items, int itemId, IReadOnlyList<ItemUseSpec> specs)` | 判定能不能用：`Ok` / `UnknownItem` / `InvalidSpec` / `NotEnough`；`Ok` 时 `EffectId` 是效果标识 |
 | `ItemUseService.TryUse` | `ItemUseOutcome TryUse(int itemId, IItemEffectTarget target)` | **完整的使用通路**（判定 → 找执行者 → 执行 → 扣件数）。`NoExecutor` / `EffectRejected` 是新增的两个失败码；`ConsumedCount` 是实际扣掉的件数 |
 | `ItemCraftService.TryCraft` | `ItemCraftResult TryCraft(int productId)` | **完整的合成通路**（找配方 → 判定原料 → 可选扣料 → 产物入包）。新增失败码 `AlreadyOwned` |
-| `ItemCraftService.FindRecipeUsingIngredient` | `ItemRecipe FindRecipeUsingIngredient(int itemId)` | 找一条**把这件东西当原料**的配方（取第一条命中；找不到返回 null）。**给「选中原料 → 合成产物」那条路用**：面板列表只列已持有的东西，而 `TryCraft` 拒绝重复持有，不给这条路就选不中也合不了。同一原料出现在多条配方时只取第一条，属占位口径（`05:107 R8` 待拍板） |
+| `ItemCraftService.FindRecipeUsingIngredient` | `ItemRecipe FindRecipeUsingIngredient(int itemId)` | 找一条**把这件东西当原料**的配方（取第一条命中；找不到返回 null）。**给「选中原料 → 合成产物」那条路用**：面板列表只列已持有的东西，而 `TryCraft` 拒绝重复持有，不给这条路就选不中也合不了。同一原料出现在多条配方时只取第一条，属占位口径（`05:114 R8` 待拍板） |
 | `ItemEffectRegistry` | `void Register(IItemEffect)` / `ItemEffectOutcome Execute(string effectId, ItemEffectContext)` | 效果执行口：按 `effectId` 分发；查不到回 `ItemEffectStatus.NoExecutor` + 中文原因 |
 | `IItemEffect` | `string EffectId { get; }` / `ItemEffectOutcome Apply(ItemEffectContext)` | 一个效果的执行者；**皮 / 面具类归 S1「换皮与附身」**，本波次只有占位治疗 `HealPlayerEffect` |
 | `IItemEffectTarget` | `int CurrentHealth { get; }` / `int TryHeal(int amount)` | 效果目标口（玩家生命）。契约声明在本模块，实现方是 `PlayerItemEffectTarget`（也在本模块，持 `PlayerRules` 转发）；**Player 侧不认识 Inventory** |

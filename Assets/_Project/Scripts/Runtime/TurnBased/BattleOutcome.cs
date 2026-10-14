@@ -1,8 +1,8 @@
 // 职责：一场战斗怎么结束。
 //
-// 出处：BOSS「生命归零结束」（`docs/design/features-spotlight/09_BOSS战.md:208` 阶段一 BOSS 行、
+// 出处：BOSS「生命归零结束」（`docs/design/features-spotlight/09_BOSS战.md:254` 阶段一 BOSS 行、
 // sp03「血量归零时转换阶段」的同一套血量口径）；玩家怎么输、到回合上限算赢算输原文没写
-// （09:192 R44、09:218），等 C91。
+// （09:225 R44、09:265），等 C91。
 
 namespace Game.TurnBased
 {

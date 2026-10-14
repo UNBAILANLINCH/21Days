@@ -1,7 +1,7 @@
 // 职责：回合制作战内核的统一入口——把配置与随机源装配起来，按「进入战斗判定」开一场仗。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
-// - 复用：工程里没有回合制相关的既有类型（`09_BOSS战.md:278`「工程侧一行代码都没有，要做等于新开一个战斗模块」）。
+// - 复用：工程里没有回合制相关的既有类型（`09_BOSS战.md` 2026-10-07 版 §7「工程侧一行代码都没有，要做等于新开一个战斗模块」）。
 // - 扩展：`Runtime/Monster/EncounterStep`（遭遇流程）与 `Runtime/Player/PlayerRules` 都不该长出
 //   「怒气 / 招式 / 醉酒四档」这条职责；本次任务也明令不动这两个模块。
 // - 新建：以上两条都不成立，故新建本文件，作为接线侧唯一的入口。
@@ -18,7 +18,7 @@
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md` 全篇；
 // `docs/design/features-spotlight/09_BOSS战.md` §3.9；
-// `docs/design/features-spotlight/00_功能总览.md:414` §8.1 #7。
+// `docs/design/features-spotlight/00_功能总览.md:445` §8.1 #7。
 
 using Game.Core.Simulation;
 

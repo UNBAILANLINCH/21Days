@@ -1,13 +1,13 @@
 // 职责：玩家侧的回合状态机——怒气、生命、晕眩、「本回合已出招」、招式 3 的额外伤害次数。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
-// - 复用：`Player` 模块没有怒气、招式、道具这一层（`docs/design/features-spotlight/09_BOSS战.md:272`
+// - 复用：`Player` 模块没有怒气、招式、道具这一层（`docs/design/features-spotlight/09_BOSS战.md:329`
 //   明确写「缺口：没有回合制（无怒气、招式、道具使用）」），能直接拿来的类型不存在。
 // - 扩展：`Runtime/Player/` 是并行任务目录，本次明令不动，也不许把回合制塞进 `PlayerSnapshot`。
 // - 新建：以上两条都不成立，故新建本类；它只管玩家在**战斗内**的状态，战斗外的玩家状态不归它管。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:48-56`（招式只能在自己回合用、施放后进敌方回合）、
-// :82（薄醉的 BOSS 招式 3 晕眩玩家 1 回合）；晕眩期间怎么过回合原文没写（09:198），等 C91。
+// :82（薄醉的 BOSS 招式 3 晕眩玩家 1 回合）；晕眩期间怎么过回合原文没写（09:231），等 C91。
 
 using Game.Core.Simulation;
 
@@ -38,7 +38,7 @@ namespace Game.TurnBased
         /// <summary>当前生命。</summary>
         public int Health => health;
 
-        /// <summary>是否已被打倒（生命归零，07 没有写玩家怎么输，按 09:192 R44 / C91 待定，本模块只如实标记）。</summary>
+        /// <summary>是否已被打倒（生命归零，07 没有写玩家怎么输，按 09:225 R44 / C91 待定，本模块只如实标记）。</summary>
         public bool IsDefeated => health <= 0;
 
         /// <summary>当前怒气。</summary>

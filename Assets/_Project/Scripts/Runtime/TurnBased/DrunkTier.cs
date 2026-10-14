@@ -5,7 +5,7 @@
 //   状态2 微醺 50-79（怪物回合 20% 概率跳过回合）
 //   状态3 薄醉 80-99（怪物回合 40% 概率跳过回合）
 //   状态4 酩酊 100（100% 跳过回合，醉酒值下降 50，持续 2 回合）
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:197`（R46）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:230`（R46）。
 
 namespace Game.TurnBased
 {

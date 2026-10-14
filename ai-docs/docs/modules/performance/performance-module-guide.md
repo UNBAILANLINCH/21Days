@@ -104,7 +104,7 @@ PerformanceService.PlayAsync(id, ct)：
 
 挂载点 3（对白节点前插播）：DialogueController.PrepareAsync 前，Visit 变化时先调 PerformBeforeNodeAsync（DialogueController.cs:183、367）
   → node.PerformanceId 非空 且 Phase == Preparing 且非跳过快进 → Performing = true（HandleKey 与主循环全部让位）
-  → performance.PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)（DialogueController.cs:388；IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
+  → performance.PlayAsync(id, PerformancePlacement.FromTransform(锚点), ct)（DialogueController.cs:389；IPerformanceService 经 DialogueInstaller.TryResolve 注入，可为 null）
      锚点来自 DialogueService.PlayAsync(dialogueId, performanceAnchor, ct)：NPC 交互（DialogueInteractable）传 NPC 自身 Transform，
      代码拉起可自己传说话的 NPC；不传 / 传 null = None，不摆放（世界舞台演出会落在世界原点、地面以下）
   → 场景角色的隐藏 / 恢复由 PerformanceService.PlayAsync 自己统一处理（见上，本挂载点不重复藏），不含舞台替身

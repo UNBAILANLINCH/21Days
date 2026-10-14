@@ -242,7 +242,8 @@ namespace Game.Dialogue
                         if (policy.TickAuto(delta, rules.Phase))
                             Submit(new DialogueIntent(DialogueIntent.Action.Advance, generation, visit));
                     }
-                    view.SetVisible(rules.VisibleCharacters);
+                    // 选项节点可带问题正文，进入即显示全文；台词节点继续逐字。
+                    view.SetVisible(rules.Phase == DialogueSaveData.Phase.AwaitChoice ? int.MaxValue : rules.VisibleCharacters);
                     view.SetControls(policy.AutoPlay, policy.Speed, policy.Skipping);
                     // 历史面板 / 跳过确认弹窗盖着时主面板输入已关，不显示「▼ 点击或按空格继续」，免得误导。
                     view.SetAdvancePrompt(rules.Phase == DialogueSaveData.Phase.AwaitAdvance && !Overlaid);

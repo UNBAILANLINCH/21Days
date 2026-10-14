@@ -4,11 +4,14 @@ using Game.Core.Flow;
 using Game.Core.Input;
 using Game.Core.UI;
 using Game.Interaction;
+using Game.Dialogue;
+using TMPro;
 using Game.Monster;
 using Game.ShopPlaytest;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 namespace Game.Tests.Showcase.ShopPlaytest
 {
     public abstract class ShopPlaytestShowcase : ShowcaseScenario
@@ -16,12 +19,12 @@ namespace Game.Tests.Showcase.ShopPlaytest
         protected override string ScenePath => null;
         protected override bool LoadBootScene => true;
         protected ShopPlaytestState State { get; private set; }
-        protected ShopPlaytestView View { get; private set; }
+        protected bool DialogueRunning => ResolveService<DialogueService>().IsRunning;
         private int originalActors;
         protected IEnumerator Ready(int shop)
         {
-            yield return EnterWorldFromTitle();
-            State = ResolveService<ShopPlaytestState>(); View = ResolveService<IUIService>().Get<ShopPlaytestView>();
+            yield return EnterWorldFromTitle(enterTimeout: 60f);
+            State = ResolveService<ShopPlaytestState>();
             Assert.That(State.World, Is.Not.Null);
             Assert.That(ResolveService<IGameFlow>().Current, Is.TypeOf<MonsterEncounterState>());
             yield return GoToShop(shop);
@@ -50,8 +53,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return Check("走入店前范围显示对应人物", () => State.ActiveShop == shop, 3);
             yield return Check("当前店前操作点或本店NPC成为统一交互焦点", () =>
                 ResolveService<IInteractionFocus>().Current is ShopPlaytestActor actor && actor.Shop == shop && actor.Role.Length == 0, 3);
-            yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
-            yield return Check("现场交互打开操作面板", () => View.gameObject.activeSelf, 4);
+            yield return Check("五店不加载操作面板", () => ResolveService<IUIService>().Get<ShopPlaytestView>() == null);
         }
         private static Vector2 MapPoint(Transform map, float x, float z)
         {
@@ -68,6 +70,27 @@ namespace Game.Tests.Showcase.ShopPlaytest
             float deadline = Time.realtimeSinceStartup + 30;
             while (Vector2.Distance(State.ControlledPosition, target) > .25f && Time.realtimeSinceStartup < deadline)
             {
+                var performance = ResolveService<Game.Performance.IPerformanceService>();
+                if (performance.IsRunning || DialogueRunning)
+                {
+                    Input.ReleaseStick();
+                    float pausedAt = Time.realtimeSinceStartup;
+                    float talkDeadline = pausedAt + 25;
+                    while ((performance.IsRunning || DialogueRunning) && Time.realtimeSinceStartup < talkDeadline)
+                    {
+                        // 五店回放不验沿途演出，复用已有回放跳过入口，仍等待正常清理。
+                        if (performance.IsRunning) { performance.Skip(); yield return null; }
+                        else if (DialogueRunning)
+                        {
+                            var rules = ResolveService<DialogueRules>();
+                            if (rules.Phase == DialogueSaveData.Phase.AwaitChoice) yield return Choose(rules.Current.Choices[0].Id);
+                            else yield return Input.Press(ResolveService<IInputService>().Actions.Dialogue.Advance);
+                        }
+                        else yield return null;
+                    }
+                    Assert.That(performance.IsRunning || DialogueRunning, Is.False, "途中对白或演出未收尾");
+                    deadline += Time.realtimeSinceStartup - pausedAt;
+                }
                 Vector2 delta = target - State.ControlledPosition;
                 yield return Walk(delta.normalized, Mathf.Min(.15f, delta.magnitude / 4));
             }
@@ -84,11 +107,77 @@ namespace Game.Tests.Showcase.ShopPlaytest
             Assert.That(target, Is.Not.Null);
             Vector2 position = State.Taming.GetTarget(target.StableId).Model.Position;
             yield return MoveTo(position);
-            yield return Step("借 " + target.DisplayName, () => Click("Role" + roleIndex), 0);
+            yield return OpenConversation(target);
+            yield return Choose("borrow");
             yield return Check("原控制系统与职业同步", () => State.Taming.CurrentControlId == target.StableId && State.CurrentRole == target.Role, 3);
             yield return MoveTo(Object.FindObjectOfType<EncounterSceneView>().ToLogicPosition(State.World.Station(State.ActiveShop).position));
         }
         protected IEnumerator CheckPreplacedObjects() => Check("各操作没有新生成占位角色", () => Object.FindObjectsOfType<ShopPlaytestActor>(true).Length == originalActors);
-        protected void Click(string name) => FindDeep<Button>(View.transform, name).onClick.Invoke();
+        protected IEnumerator OpenConversation(ShopPlaytestActor actor)
+        {
+            yield return FinishReplies();
+            yield return MoveTo(Object.FindObjectOfType<EncounterSceneView>().ToLogicPosition(actor.Position));
+            if (ResolveService<IInteractionFocus>().Current == actor)
+                yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
+            else
+            {
+                yield return Check("点击对应人物：" + actor.StableId + "，可交互=" + actor.CanInteract,
+                    () => actor.CanInteract, 3);
+                ExecuteEvents.Execute(actor.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+                    ExecuteEvents.pointerClickHandler);
+            }
+            yield return Check("现场人物打开正式对白", () => DialogueRunning, 4);
+        }
+        protected IEnumerator ShowChoices()
+        {
+            var rules = ResolveService<DialogueRules>();
+            var input = ResolveService<IInputService>();
+            float deadline = Time.realtimeSinceStartup + 12;
+            while (rules.Phase != DialogueSaveData.Phase.AwaitChoice && Time.realtimeSinceStartup < deadline)
+                yield return Input.Press(input.Actions.Dialogue.Advance);
+            yield return WaitUntil("对白选项可操作", () => ResolveService<DialogueController>().IsStable &&
+                ResolveService<IUIService>().Get<DialogueView>() != null &&
+                ResolveService<IUIService>().Get<DialogueView>().GetComponent<CanvasGroup>().interactable, 5);
+        }
+        protected IEnumerator Choose(string id)
+        {
+            yield return ShowChoices();
+            var rules = ResolveService<DialogueRules>();
+            var choice = System.Array.Find(rules.Current.Choices, item => item.Id == id);
+            Assert.That(choice, Is.Not.Null, "当前人物没有选项：" + id);
+            Button button = null;
+            foreach (var row in ResolveService<IUIService>().Get<DialogueView>().GetComponentsInChildren<Button>())
+            {
+                var label = row.GetComponentInChildren<TMP_Text>();
+                if (label != null && label.text.EndsWith(". " + choice.Text)) { button = row; break; }
+            }
+            Assert.That(button, Is.Not.Null);
+            long generation = rules.Generation;
+            button.onClick.Invoke();
+            yield return WaitUntil("人物对白收尾", () => !DialogueRunning || rules.Generation != generation, 5);
+            yield return null;
+        }
+        protected IEnumerator Command(int index, bool finishReply = true)
+        {
+            ShopPlaytestActor target = null;
+            string id = State.ActiveShop == 4 && index != 0 ? index == 1 || index == 3 ? "shop_boss" :
+                index == 4 ? "shop_customer_b" : "shop_customer_a" : "shop_station_" + State.ActiveShop;
+            foreach (var actor in State.World.Actors) if (actor.StableId == id) target = actor;
+            Assert.That(target, Is.Not.Null);
+            yield return OpenConversation(target);
+            yield return Choose("command" + index);
+            if (finishReply) yield return FinishReplies();
+        }
+        protected IEnumerator FinishReplies()
+        {
+            float deadline = Time.realtimeSinceStartup + 15;
+            yield return null;
+            while ((DialogueRunning || State.HasPendingReply) && Time.realtimeSinceStartup < deadline)
+            {
+                if (DialogueRunning) yield return Choose("close");
+                else yield return null;
+            }
+            Assert.That(DialogueRunning || State.HasPendingReply, Is.False, "结果对白未收尾");
+        }
     }
 }

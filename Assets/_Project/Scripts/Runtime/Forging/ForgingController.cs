@@ -13,8 +13,9 @@ namespace Game.Forging
         {
             var intent = new ForgingIntent(action, value, role == "officer", role == "smith");
             bool ok = Rules.Apply(in intent, out string reason);
-            telemetry.Track("intent_resolved", ("action", (int)action), ("ok", ok), ("available", Rules.Available), ("reason", reason));
-            return !ok ? reason : Rules.Submitted ? "首饰已交付，金钥匙保留；本玩法完成" : "操作完成";
+            if (!ok) telemetry.TrackWarn("intent_rejected", TelemetryProps.Of(("action", (int)action), ("value", value), ("available", Rules.Available), ("reason", reason)));
+            else telemetry.Track("intent_resolved", ("action", (int)action), ("value", value), ("ok", true), ("available", Rules.Available));
+            return !ok ? reason : Rules.Submitted ? "A/B/C已提交；本玩法完成" : "操作完成";
         }
         public void Reset() { Rules.Reset(); telemetry.Track("reset"); }
     }

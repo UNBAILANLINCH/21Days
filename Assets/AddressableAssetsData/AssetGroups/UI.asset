@@ -117,6 +117,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9175aa14c01db9d4b8654f88644322ca
+    m_Address: ForgingView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 934c4115c93ea8d409a7318383a10026
     m_Address: PerformanceView
     m_ReadOnly: 0

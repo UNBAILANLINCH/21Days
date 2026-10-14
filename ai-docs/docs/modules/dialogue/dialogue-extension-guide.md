@@ -19,6 +19,7 @@ maturity: stable
 | 新角色 / 新表情 | `Tables/Data/dialogue_character.json` + Addressables + 立绘 PNG | 否 |
 | 真实条件来源 | 实现 `IDialogueConditionSource`，在 `DialogueInstaller` 替换注册 | 是 |
 | 新的触发方式 | 调 `DialogueService.PlayAsync` 或 `DialogueInteractable.Interact` | 调用方侧 |
+| 按人物/玩法状态生成现场选项 | 调 `DialogueService.PlayAsync(DialogueContent, anchor, targetId, ct)`，仍共用正式表现与会话清理 | 调用方侧 |
 | 调表现手感 | `DialogueConfig.asset` 字段 | 否 |
 | NPC（带树 / 无树）、选项图标、HUD / 气泡 / 弹窗美术 | 场景组件、气泡预制体实例、表里 `icon`、预制体 Sprite | 否 |
 

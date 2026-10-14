@@ -25,7 +25,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return Check("按店显隐确实减少启用的渲染对象", () => all > local && CorrectMask());
             Debug.Log("[VERIFY] 五店人物/操作物启用Renderer：全显=" + all + "，客栈分组=" + local + "；此计数不等同CPU/GPU耗时。");
             yield return Snapshot("客栈人物分组");
-            yield return Step("现场客栈对白", () => Click("Command0"), 0);
+            yield return Command(0, false);
             var dialogue = ResolveService<DialogueService>(); var rules = ResolveService<DialogueRules>();
             var input = ResolveService<IInputService>();
             yield return Check("已有对白暂停和输入通路生效", () => dialogue.IsRunning, 5);
@@ -48,7 +48,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
         public IEnumerator SavedProgress_NewSlotDoesNotReceiveOldSceneAndContinueRestoresOwnResult()
         {
             yield return Ready(1); yield return Borrow(1);
-            yield return Step("调查并领取衣物", () => { Click("Command1"); Click("Command4"); });
+            yield return Command(1); yield return Command(4);
             yield return Check("旧槽成果成立", () => State.Clothing.Received);
             var session = ResolveService<GameSession>(); bool saved = false;
             yield return session.SaveNowAsync("shop_showcase").ContinueWith(ok => saved = ok).ToCoroutine();
@@ -56,27 +56,28 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return Step("在旧现场开启隔离槽2", null, 0);
             yield return session.NewGameAsync(2).ToCoroutine();
             yield return Check("新槽没有旧领衣进度或旧店铺身份", () => !State.Clothing.Received &&
-                State.Forging.Quota == 2 && State.CurrentRole == "" && !ResolveService<IdentityState>().IsInEffect, 8);
+                State.Forging.Quota == 20 && State.CurrentRole == "" && !ResolveService<IdentityState>().IsInEffect, 8);
             yield return Step("从槽2读回隔离槽1", null, 0);
             yield return session.ContinueAsync(1).ToCoroutine();
             yield return Check("旧槽成果和原控制人物恢复，未被槽2卸载覆盖", () => State.Clothing.Received &&
                 State.Taming.CurrentControlId == "shop_customer1" && State.CurrentRole == "customer1", 8);
             yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
-            yield return Check("读档后现场面板可重新打开", () => ResolveService<Game.Core.UI.IUIService>().Get<Game.ShopPlaytest.ShopPlaytestView>().gameObject.activeSelf, 4);
+            yield return Check("读档后正式人物对白可重新打开", () => DialogueRunning, 4);
+            yield return Choose("leave");
             yield return Snapshot("跨槽恢复衣物成果");
         }
         [UnityTest]
         public IEnumerator Retry_CurrentShopKeepsOtherShopsControlAndPosition()
         {
             yield return Ready(1); yield return Borrow(1);
-            yield return Step("衣肆成果作为保留对照", () => { Click("Command1"); Click("Command4"); });
+            yield return Command(1); yield return Command(4);
             yield return Check("领衣成果已成立", () => State.Clothing.Received);
             yield return GoToShop(2); yield return Borrow(0);
-            yield return Step("增加金银行拨料", () => Click("Command0"));
-            yield return Check("额度已增加", () => State.Forging.Quota == 8);
+            yield return Command(0);
+            yield return Check("库存已补满", () => State.Forging.Quota == 24);
             Vector2 position = State.ControlledPosition; string control = State.Taming.CurrentControlId;
-            yield return Step("现场重试本店", () => Click("重试本店"));
-            yield return Check("只重置金银行，不清衣肆、不切人、不传送", () => State.Forging.Quota == 2 &&
+            yield return Step("仅调试接口重试本店", State.Retry); yield return FinishReplies();
+            yield return Check("只重置金银行，不清衣肆、不切人、不传送", () => State.Forging.Quota == 20 &&
                 State.Clothing.Received && State.Taming.CurrentControlId == control &&
                 Vector2.Distance(State.ControlledPosition, position) < .25f);
             yield return Snapshot("局部重试保留其它店成果");

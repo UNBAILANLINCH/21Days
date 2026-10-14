@@ -234,6 +234,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2676264745535041141}
   - component: {fileID: 2408621315450335880}
+  - component: {fileID: 1394748203316966411}
   m_Layer: 0
   m_Name: InteractionPoint
   m_TagString: Untagged
@@ -275,6 +276,28 @@ MonoBehaviour:
   displayName: "\u5BA2\u6808\u638C\u67DC / \u7EBF\u7D22"
   shop: 3
   borrowRadius: 2
+  clickCollider: {fileID: 1394748203316966411}
+--- !u!65 &1394748203316966411
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1175291857120294528}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &3817940810601741276
 GameObject:
   m_ObjectHideFlags: 0
@@ -874,6 +897,7 @@ GameObject:
   - component: {fileID: 1792159953684441379}
   - component: {fileID: 640268055070906372}
   - component: {fileID: 4541929504231315874}
+  - component: {fileID: 8958782411247321973}
   m_Layer: 0
   m_Name: shop_innkeeper
   m_TagString: Untagged
@@ -915,6 +939,7 @@ MonoBehaviour:
   displayName: "\u5BA2\u6808\u638C\u67DC"
   shop: 3
   borrowRadius: 2
+  clickCollider: {fileID: 8958782411247321973}
 --- !u!212 &4541929504231315874
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -967,6 +992,27 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!65 &8958782411247321973
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7750110160812432507}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &9103090819065044111
 GameObject:
   m_ObjectHideFlags: 0

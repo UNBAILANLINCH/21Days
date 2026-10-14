@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6608376161688940347}
   - component: {fileID: 9203911968627388552}
   - component: {fileID: 4331327733230345775}
+  - component: {fileID: 9084713978393781095}
   m_Layer: 0
   m_Name: shop_patrol
   m_TagString: Untagged
@@ -54,6 +55,7 @@ MonoBehaviour:
   displayName: "\u5DE1\u903B\u5B66\u5F92"
   shop: 0
   borrowRadius: 2
+  clickCollider: {fileID: 9084713978393781095}
 --- !u!212 &9203911968627388552
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -129,6 +131,27 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+--- !u!65 &9084713978393781095
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 25245570044418668}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &741287893018141521
 GameObject:
   m_ObjectHideFlags: 0
@@ -139,6 +162,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2611818883601443879}
   - component: {fileID: 44063222223232621}
+  - component: {fileID: 8433802103534355316}
   m_Layer: 0
   m_Name: InteractionPoint
   m_TagString: Untagged
@@ -180,6 +204,28 @@ MonoBehaviour:
   displayName: "\u9A8C\u8EAB\u5904 / \u620F\u53F0"
   shop: 0
   borrowRadius: 2
+  clickCollider: {fileID: 8433802103534355316}
+--- !u!65 &8433802103534355316
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741287893018141521}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &777374684512375602
 GameObject:
   m_ObjectHideFlags: 0
@@ -1288,6 +1334,7 @@ GameObject:
   - component: {fileID: 7627363630192357609}
   - component: {fileID: 5018454010461590271}
   - component: {fileID: 4682159733443502518}
+  - component: {fileID: 7448309876216579523}
   m_Layer: 0
   m_Name: shop_director
   m_TagString: Untagged
@@ -1330,6 +1377,7 @@ MonoBehaviour:
   displayName: "\u90FD\u77E5"
   shop: 0
   borrowRadius: 2
+  clickCollider: {fileID: 7448309876216579523}
 --- !u!212 &5018454010461590271
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1404,6 +1452,27 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+--- !u!65 &7448309876216579523
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4507868023732759609}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &5038889163876319010
 GameObject:
   m_ObjectHideFlags: 0
@@ -1653,6 +1722,7 @@ GameObject:
   - component: {fileID: 4071261152107319024}
   - component: {fileID: 6566253242707950400}
   - component: {fileID: 6689536768153257115}
+  - component: {fileID: 3322365045328237757}
   m_Layer: 0
   m_Name: shop_musician
   m_TagString: Untagged
@@ -1695,6 +1765,7 @@ MonoBehaviour:
   displayName: "\u4E50\u6B63"
   shop: 0
   borrowRadius: 2
+  clickCollider: {fileID: 3322365045328237757}
 --- !u!212 &6566253242707950400
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1769,6 +1840,27 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+--- !u!65 &3322365045328237757
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6384781711337186374}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &7104126317566581641
 GameObject:
   m_ObjectHideFlags: 0
@@ -2071,6 +2163,7 @@ GameObject:
   - component: {fileID: 1419141131724517722}
   - component: {fileID: 9018286323076145472}
   - component: {fileID: 6661113384737649313}
+  - component: {fileID: 3302232279539986182}
   m_Layer: 0
   m_Name: shop_apprentice
   m_TagString: Untagged
@@ -2113,6 +2206,7 @@ MonoBehaviour:
   displayName: "\u5B66\u5F92"
   shop: 0
   borrowRadius: 2
+  clickCollider: {fileID: 3302232279539986182}
 --- !u!212 &9018286323076145472
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -2187,6 +2281,27 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+--- !u!65 &3302232279539986182
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7694962401884224448}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &7782410654735860979
 GameObject:
   m_ObjectHideFlags: 0

@@ -6,10 +6,11 @@ using Cysharp.Threading.Tasks;
 using Game.Battle;
 using Game.Clothing;
 using Game.Core.Flow;
+using Game.Core.Input;
+using Game.Core.UI;
 using Game.Core.Save;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
-using Game.Core.UI;
 using Game.Dialogue;
 using Game.Forging;
 using Game.Identity;
@@ -33,17 +34,18 @@ namespace Game.ShopPlaytest
         private static readonly string[][] Commands = {
             new[] { "学徒验身", "都知调开巡逻", "乐正演奏" },
             new[] { "查看甲的线索", "查看乙的线索", "查看丙的线索", "以甲领衣", "以乙领衣", "以丙领衣" },
-            new[] { "官证增加拨料", "打造金钥匙", "打造首饰", "点位1", "点位2", "点位3", "点位4", "取消工件", "提交首饰" },
-            new[] { "听取客栈线索（占位对白）" },
+            new[] { "补足金属库存" },
+            new[] { "打听客栈的消息" },
             new[] { "自己饮酒", "给BOSS灌酒", "给客人甲灌酒", "挑战BOSS", "给客人乙灌酒" }
         };
-        private readonly IUIService ui;
         private readonly ISaveService saves;
         private readonly ISubscriber<SessionStartedEvent> sessionStarted;
         private IDisposable sessionSubscription;
         private long sessionGeneration, boundGeneration;
         private readonly IGameFlow flow;
         private readonly IWorldPauseService pause;
+        private readonly IUIService ui;
+        private readonly IInputService input;
         private readonly IInteractionRegistry interaction;
         private readonly PlayerModel player;
         private readonly EncounterStep step;
@@ -61,10 +63,13 @@ namespace Game.ShopPlaytest
         private readonly IdentityState identity;
         private readonly IdentityLedger ledger;
         private readonly ITelemetryScope telemetry;
-        private readonly List<ShopPlaytestActor> roles = new List<ShopPlaytestActor>();
         private ShopPlaytestWorld world;
         private EncounterSceneView encounterView;
-        private ShopPlaytestView view;
+        private readonly Queue<string> replies = new Queue<string>();
+        private ShopPlaytestActor conversationActor;
+        private ForgingView forgingView;
+        // 卸载等结束信号；活动本身由Forget观察，不能再并发await同一个UniTask。
+        private UniTaskCompletionSource forgingClosed;
         private string role = "";
         private bool openingActivity, awaitingBattle, tavernCompleted, awaitingOutcome;
         private int closeRhythmAfterFrame = -1;
@@ -79,16 +84,18 @@ namespace Game.ShopPlaytest
         public TheaterController Theater => theater;
         public TamingRules Taming => step.Taming;
         public ShopPlaytestWorld World => world;
+        public bool HasPendingReply => replies.Count > 0;
         public Vector2 ControlledPosition => Taming.IsControllingEnemy ? Taming.GetTarget(Taming.CurrentControlId).Model.Position : player.Position;
         private Vector3 ControlledScenePosition => encounterView.ToScenePosition(ControlledPosition);
         private bool Busy => openingActivity || rhythm.IsActivityOpen || battle.IsBattleRunning || narrative.IsBusy || dialogue.IsRunning || awaitingBattle || pause.IsPaused;
-        public ShopPlaytestState(IUIService ui, ISaveService saves, ISubscriber<SessionStartedEvent> sessionStarted, IGameFlow flow, IWorldPauseService pause, IInteractionRegistry interaction,
+        public ShopPlaytestState(ISaveService saves, ISubscriber<SessionStartedEvent> sessionStarted, IGameFlow flow, IWorldPauseService pause, IUIService ui, IInputService input, IInteractionRegistry interaction,
             PlayerModel player, EncounterStep step, RhythmState rhythm, BattleFlow battle, BattleSetup battleSetup,
             NarrativeService narrative, DialogueService dialogue, TheaterConfig theaterConfig, ClothingController clothing,
             ForgingController forging, TavernController tavern, TheaterController theater, IdentityRules identityRules,
             IdentityState identity, IdentityLedger ledger, ITelemetryService telemetry)
         {
-            this.ui = ui; this.saves = saves; this.sessionStarted = sessionStarted; this.flow = flow; this.pause = pause; this.interaction = interaction;
+            this.saves = saves; this.sessionStarted = sessionStarted; this.flow = flow; this.pause = pause; this.interaction = interaction;
+            this.ui = ui; this.input = input;
             this.player = player; this.step = step; this.rhythm = rhythm; this.battle = battle;
             this.battleSetup = battleSetup; this.narrative = narrative; this.dialogue = dialogue;
             this.theaterConfig = theaterConfig; this.clothing = clothing; this.forging = forging;
@@ -97,7 +104,7 @@ namespace Game.ShopPlaytest
         }
         public void Start() => sessionSubscription = sessionStarted.Subscribe(_ => sessionGeneration++);
         public void Dispose() { sessionSubscription?.Dispose(); sessionSubscription = null; }
-        public async UniTask BindAsync(ShopPlaytestWorld scene, EncounterSceneView existingView, CancellationToken ct)
+        public UniTask BindAsync(ShopPlaytestWorld scene, EncounterSceneView existingView, CancellationToken ct)
         {
             world = scene; encounterView = existingView;
             boundGeneration = sessionGeneration;
@@ -111,13 +118,10 @@ namespace Game.ShopPlaytest
             Taming.BindSelection(CanSelect);
             Taming.BindModifiers(AwarenessMultiplier, ActorSpeed);
             step.BindPlayerModifiers(() => tavern.Rules.SpeedMultiplier, () => tavern.Rules.CanSneak);
-            rhythm.OnActivityClosed += ActivityClosed;
             battleSetup.BindDrunkSource(BossDrunk);
             narrative.OnChanged += NarrativeChanged;
-            using (telemetry.BeginSpan("view_ready")) view = await ui.OpenAsync<ShopPlaytestView>(null, ct);
-            view.OnRole += BorrowRole; view.OnCommand += ExecuteCommand; view.OnBody += ReturnBody; view.OnRetry += Retry;
             ControlChanged(Taming.CurrentControlId);
-            view.gameObject.SetActive(false);
+            return UniTask.CompletedTask;
         }
         private ShopPlaytestActor FindActor(string id)
         {
@@ -125,7 +129,7 @@ namespace Game.ShopPlaytest
             foreach (ShopPlaytestActor actor in world.Actors) if (actor != null && actor.StableId == id) return actor;
             return null;
         }
-        private bool CanInteract(ShopPlaytestActor actor) => world != null && !Busy && actor.Shop == ActiveShop &&
+        private bool CanInteract(ShopPlaytestActor actor) => world != null && !Busy && !HasPendingReply && actor.Shop == ActiveShop &&
             actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId)));
         private bool CanSelect(string id)
         {
@@ -136,11 +140,8 @@ namespace Game.ShopPlaytest
         private void Interact(ShopPlaytestActor actor)
         {
             if (!CanInteract(actor) || Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
-            if (actor.Role.Length == 0) { OpenLocalPanel(); return; }
-            if (!encounterView.RequestControl(actor.StableId, true)) Show("当前不能借用这个人物");
+            ConverseAsync(actor).Forget();
         }
-        public void BorrowRole(int index)
-        { if (index >= 0 && index < roles.Count) Interact(roles[index]); }
         public void ReturnBody()
         { if (world != null && !Busy) encounterView.RequestControl(Taming.PlayerId); }
         private void ControlChanged(string id)
@@ -159,7 +160,6 @@ namespace Game.ShopPlaytest
             int next = world.ShopAt(ControlledScenePosition);
             if (ActiveShop == 4 && next != 4) { tavern.Apply(TavernAction.Leave, CurrentRole); Persist(); }
             world.Display(next, id);
-            SetupPanel();
         }
         private int? BossDrunk(string id)
         {
@@ -184,29 +184,106 @@ namespace Game.ShopPlaytest
         private float ActorSpeed(string id) => id == Taming.CurrentControlId ? tavern.Rules.SpeedMultiplier :
             id == "shop_boss" ? tavern.Rules.BossSpeedMultiplier :
             id == "shop_customer_a" || id == "shop_customer_b" ? tavern.Rules.CustomerSpeed(id) : 1f;
-        private void SetupPanel()
+        public static int[] CommandsFor(string id, string currentRole, bool isForging, int nextPoint)
         {
-            if (view == null) return;
-            roles.Clear();
-            foreach (ShopPlaytestActor actor in world.Actors)
-                if (actor.Shop == ActiveShop && actor.Role.Length > 0) roles.Add(actor);
-            if (ActiveShop < 0) { view.gameObject.SetActive(false); return; }
-            var names = new string[roles.Count];
-            for (int i = 0; i < names.Length; i++) names[i] = roles[i].DisplayName;
-            view.Setup(Titles[ActiveShop] + " · 街面操作", names, Commands[ActiveShop]);
-            Refresh();
+            switch (id)
+            {
+                case "shop_customer0": return new[] { 0 };
+                case "shop_customer1": return new[] { 1 };
+                case "shop_customer2": return new[] { 2 };
+                case "shop_tailor": case "shop_station_1":
+                    if (currentRole == "customer0") return new[] { 0, 3 };
+                    if (currentRole == "customer1") return new[] { 1, 4 };
+                    if (currentRole == "customer2") return new[] { 2, 5 };
+                    return Array.Empty<int>();
+                case "shop_apprentice": case "shop_patrol": return new[] { 0 };
+                case "shop_director": return new[] { 1 };
+                case "shop_musician": return new[] { 2 };
+                case "shop_station_0": return new[] { 0, 1, 2 };
+                case "shop_officer": return new[] { 0 };
+                case "shop_smith": case "shop_station_2":
+                    if (currentRole == "officer") return new[] { 0 };
+                    return Array.Empty<int>();
+                case "shop_innkeeper": case "shop_station_3": return new[] { 0 };
+                case "shop_boss": return new[] { 1, 3 };
+                case "shop_customer_a": return new[] { 2 };
+                case "shop_customer_b": return new[] { 4 };
+                case "shop_guest": case "shop_station_4": return new[] { 0 };
+                default: return Array.Empty<int>();
+            }
         }
-        public void OpenLocalPanel()
+
+        private static DialogueContent Conversation(string id, string speaker, string text, DialogueContent.Choice[] choices)
         {
-            if (ActiveShop < 0 || Busy || !world.NearStation(ActiveShop, ControlledScenePosition)) return;
-            SetupPanel(); view.gameObject.SetActive(true);
-            telemetry.Track("local_panel_opened", ("shop", ActiveShop));
-            Show("在现场借身份，再操作；WASD移动，离开店前范围收起此面板。");
+            // shortcut: 五店占位台词仍在接线代码中，正式文案定稿后迁到已有对白内容表。
+            return new DialogueContent("shop:" + id, "line", new[] {
+                new DialogueContent.Node { Id = "line", SpeakerName = speaker, Text = text, Next = "choices" },
+                new DialogueContent.Node { Id = "choices", Kind = DialogueContent.NodeKind.Choice,
+                    SpeakerName = speaker, Text = text, Choices = choices }
+            });
         }
-        public void ExecuteCommand(int index)
+
+        private async UniTask ConverseAsync(ShopPlaytestActor actor)
+        {
+            var scene = world;
+            CancellationToken token = lifetime.Token;
+            var choices = new List<DialogueContent.Choice>();
+            foreach (int command in CommandsFor(actor.StableId, CurrentRole, forging.Rules.IsForging, forging.Rules.NextPoint))
+                choices.Add(new DialogueContent.Choice { Id = "command" + command,
+                    Text = actor.Shop == 1 && command >= 3 ? "领取衣服" : actor.Shop == 4 && (command == 1 || command == 2 || command == 4)
+                        ? "请你喝一杯" : Commands[actor.Shop][command], Outcome = "command" + command });
+            if (actor.StableId == "shop_smith" || actor.StableId == "shop_station_2")
+                choices.Add(new DialogueContent.Choice { Id = "forge", Text = "使用打造台", Outcome = "forge" });
+            if (actor.Role.Length > 0)
+                choices.Add(new DialogueContent.Choice { Id = "borrow", Text = "借用" + actor.DisplayName + "的身份", Outcome = "borrow" });
+            if (Taming.IsControllingEnemy)
+                choices.Add(new DialogueContent.Choice { Id = "body", Text = "回到本体", Outcome = "body" });
+            choices.Add(new DialogueContent.Choice { Id = "leave", Text = "告辞", Outcome = "leave" });
+            string greeting = actor.Shop == 1 && actor.Role.Length == 0 && CurrentRole.Length == 0
+                ? "你来取衣吗？先确认取衣人的身份，再来问我。" : Greeting(actor);
+            try
+            {
+                DialogueResult result = await dialogue.PlayAsync(Conversation(actor.StableId, actor.DisplayName, greeting, choices.ToArray()), actor.transform, actor.StableId, token);
+                if (token.IsCancellationRequested || world != scene || !CanInteract(actor) ||
+                    Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
+                conversationActor = actor;
+                if (result.Outcome == "borrow")
+                { if (!encounterView.RequestControl(actor.StableId, true)) Show("当前不能借用这个人物"); }
+                else if (result.Outcome == "body") ReturnBody();
+                else if (result.Outcome == "forge")
+                    OpenForgeAsync(actor).Forget();
+                else if (result.Outcome.StartsWith("command", StringComparison.Ordinal) && int.TryParse(result.Outcome.Substring(7), out int command))
+                    ExecuteCommand(command, actor);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error) { telemetry.TrackError("conversation_failed", error); }
+        }
+        private static string Greeting(ShopPlaytestActor actor)
+        {
+            switch (actor.StableId)
+            {
+                case "shop_apprentice": return "来验身吗？";
+                case "shop_director": return "巡逻的事，要我帮忙安排吗？";
+                case "shop_musician": return "你想听演奏吗？";
+                case "shop_patrol": return "我还要巡逻，你有什么事？";
+                case "shop_customer0": return "你想问我取衣的事？";
+                case "shop_customer1": return "衣服的事，你想问什么？";
+                case "shop_customer2": return "你找我有什么事？";
+                case "shop_tailor": return "是来问衣服的事，还是来取衣？";
+                case "shop_officer": return "你是来核对拨料的吗？";
+                case "shop_smith": return "想打造什么？手头有工件就先做完。";
+                case "shop_innkeeper": return "你想打听什么消息？";
+                case "shop_guest": return "来喝一杯？";
+                case "shop_boss": return "找我喝酒，还是来较量？";
+                case "shop_customer_a": case "shop_customer_b": return "找我喝酒吗？";
+                default: return Titles[actor.Shop] + "的事，你想问什么？";
+            }
+        }
+        private void ExecuteCommand(int index, ShopPlaytestActor actor)
         {
             if (world == null || ActiveShop < 0 || Busy || index < 0 || index >= Commands[ActiveShop].Length ||
-                !world.NearStation(ActiveShop, ControlledScenePosition))
+                actor == null || actor.Shop != ActiveShop || !actor.IsVisible ||
+                Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius)
             { telemetry.TrackWarn("command_rejected", TelemetryProps.Of(("reason", "unavailable_or_distance"), ("command", index))); return; }
             string message = "";
             switch (ActiveShop)
@@ -221,11 +298,9 @@ namespace Game.ShopPlaytest
                     break;
                 case 1: message = clothing.Apply(index % 3, index >= 3, CurrentRole); break;
                 case 2:
-                    ForgingAction action = index == 0 ? ForgingAction.SetQuota : index == 1 ? ForgingAction.StartKey :
-                        index == 2 ? ForgingAction.StartOrnament : index <= 6 ? ForgingAction.Strike :
-                        index == 7 ? ForgingAction.Cancel : ForgingAction.Submit;
-                    message = forging.Apply(action, index == 0 ? forging.MaximumQuota : index - 3, CurrentRole); break;
-                case 3: InnDialogueAsync().Forget(); return;
+                    if (index != 0) return;
+                    message = forging.Apply(ForgingAction.SetQuota, forging.MaximumQuota, CurrentRole); break;
+                case 3: message = "客栈的正式线索还未配置。"; break;
                 case 4:
                     string targetId = index == 1 || index == 3 ? "shop_boss" : index == 4 ? "shop_customer_b" : "shop_customer_a";
                     if (index != 0 && !NearDrinkTarget(targetId)) { Show("走近对应酒客或BOSS再操作"); return; }
@@ -233,7 +308,7 @@ namespace Game.ShopPlaytest
                     message = tavern.Apply(index == 0 ? TavernAction.DrinkPlayer : index == 1 ? TavernAction.DrinkBoss :
                         TavernAction.DrinkCustomer, CurrentRole, index == 4 ? "shop_customer_b" : "shop_customer_a"); break;
             }
-            Persist(); Show(message); Refresh();
+            Persist(); Show(message);
         }
         public void Retry()
         {
@@ -258,7 +333,7 @@ namespace Game.ShopPlaytest
                     break;
             }
             world.Display(ActiveShop, Taming.CurrentControlId);
-            Persist(); Refresh(); Show("已重试本店；其它店成果保留。调试重试不回退剧情标记或战斗掉落。");
+            Persist(); Show("已重试本店；其它店成果保留。调试重试不回退剧情标记或战斗掉落。");
             telemetry.Track("local_retry", ("shop", ActiveShop));
         }
         private bool NearDrinkTarget(string id)
@@ -269,11 +344,53 @@ namespace Game.ShopPlaytest
             if (!allowed) telemetry.TrackWarn("drink_target_rejected", TelemetryProps.Of(("id", id), ("reason", "unavailable_or_distance")));
             return allowed;
         }
-        private async UniTask InnDialogueAsync()
+        private async UniTask OpenForgeAsync(ShopPlaytestActor actor)
         {
-            try { await dialogue.PlayAsync(1001, world.Station(3), lifetime.Token); Show("占位对白结束；客栈正式线索待文策替换。"); }
+            if (CurrentRole != "smith")
+            { telemetry.TrackWarn("forging_entry_rejected", TelemetryProps.Of(("role", CurrentRole), ("reason", "not_smith"))); Show("先借用金银匠身份，再使用打造台"); return; }
+            openingActivity = true;
+            var closed = new UniTaskCompletionSource();
+            forgingClosed = closed;
+            var scene = world;
+            CancellationToken token = lifetime.Token;
+            bool gameplayEnabled = input.Actions.Gameplay.enabled; // lint-ok: 只保存动作图启用状态，退出时恢复，不采样玩法按键。
+            IDisposable paused = pause.Acquire(this);
+            input.DisableMap("Gameplay");
+            try
+            {
+                string Apply(ForgingAction action, int value)
+                {
+                    if (token.IsCancellationRequested || world != scene || boundGeneration != sessionGeneration ||
+                        ActiveShop != 2 || actor == null || !actor.IsVisible || CurrentRole != "smith" ||
+                        Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius)
+                    {
+                        telemetry.TrackWarn("forging_command_rejected", TelemetryProps.Of(("action", (int)action), ("role", CurrentRole), ("reason", "session_or_actor_unavailable")));
+                        return "当前不能使用打造台，请返回后重新交互";
+                    }
+                    string message = forging.Apply(action, value, CurrentRole);
+                    Persist();
+                    return message;
+                }
+                forgingView = await ui.OpenAsync<ForgingView>((forging, (Func<ForgingAction, int, string>)Apply), token);
+                await forgingView.WaitAsync(token);
+            }
             catch (OperationCanceledException) { }
-            catch (Exception error) { telemetry.TrackError("inn_dialogue_failed", error); Show("对白未打开：" + error.Message); }
+            catch (Exception error) { telemetry.TrackError("forging_view_failed", error); Show("打造界面未打开，请重试"); }
+            finally
+            {
+                // 外部Esc关闭会在OnClose内唤醒等待者，先让UIService完成出栈，避免重入关闭。
+                await UniTask.Yield();
+                try { if (forgingView != null && ui.Get<ForgingView>() == forgingView) await ui.CloseAsync(forgingView, CancellationToken.None); }
+                finally
+                {
+                    try
+                    {
+                        forgingView = null; paused.Dispose();
+                        if (gameplayEnabled) input.EnableMap("Gameplay");
+                    }
+                    finally { openingActivity = false; forgingClosed = null; closed.TrySetResult(); }
+                }
+            }
         }
         private async UniTask PerformAsync()
         {
@@ -291,7 +408,6 @@ namespace Game.ShopPlaytest
             try
             {
                 using (telemetry.BeginSpan("performance_open")) await rhythm.OpenActivityAsync(request, consumer, lifetime.Token);
-                view.gameObject.SetActive(false);
             }
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("performance_failed", error); Show("演奏未打开：" + error.Message); }
@@ -300,10 +416,9 @@ namespace Game.ShopPlaytest
         private void PerformanceResult(bool success)
         {
             var intent = new TheaterIntent(success ? TheaterAction.FinishSuccess : TheaterAction.FinishFailure, CurrentRole);
-            Show(theater.Apply(in intent)); Persist(); closeRhythmAfterFrame = Time.frameCount + 1; Refresh();
+            Show(theater.Apply(in intent)); Persist(); closeRhythmAfterFrame = Time.frameCount + 1;
         }
         private void PerformanceInterrupted(string text) { Show(text); closeRhythmAfterFrame = Time.frameCount + 1; }
-        private void ActivityClosed() { if (view != null && world != null) { view.gameObject.SetActive(ActiveShop >= 0); Refresh(); } }
         private async UniTask StartBattleAsync()
         {
             if (tavernCompleted) { Show("BOSS已击败"); return; }
@@ -319,7 +434,7 @@ namespace Game.ShopPlaytest
             }
             catch (OperationCanceledException) { awaitingOutcome = false; }
             catch (Exception error) { awaitingOutcome = false; telemetry.TrackError("battle_failed", error); Show(error.Message); }
-            finally { awaitingBattle = false; Refresh(); }
+            finally { awaitingBattle = false; }
         }
         private void NarrativeChanged()
         {
@@ -330,20 +445,20 @@ namespace Game.ShopPlaytest
             if (snapshot.Outcome == "Success")
             { tavernCompleted = true; FindActor("shop_boss").gameObject.SetActive(false); Show("BOSS已击败，挑战完成"); }
             else if (snapshot.Outcome == "Downed") Show("挑战失败，饮酒进度保留，可再挑战");
-            Persist(); Refresh();
+            Persist();
         }
         public void Tick()
         {
-            if (world == null || view == null || boundGeneration != sessionGeneration || !(flow.Current is MonsterEncounterState)) return;
+            if (world == null || boundGeneration != sessionGeneration || !(flow.Current is MonsterEncounterState)) return;
             if (closeRhythmAfterFrame >= 0 && Time.frameCount >= closeRhythmAfterFrame)
             { closeRhythmAfterFrame = -1; rhythm.CloseActivityAsync().Forget(); }
             if (Busy) return;
+            if (replies.Count > 0) { ReplyAsync(replies.Dequeue()).Forget(); return; }
             int next = world.ShopAt(ControlledScenePosition);
             if (next != ActiveShop)
             {
                 if (ActiveShop == 4) { tavern.Apply(TavernAction.Leave, CurrentRole); Persist(); }
                 world.Display(next, Taming.CurrentControlId);
-                SetupPanel(); view.gameObject.SetActive(false);
                 telemetry.Track("shop_area_changed", ("shop", next));
             }
         }
@@ -355,7 +470,7 @@ namespace Game.ShopPlaytest
             if (saved.Initialized)
             {
                 clothing.Rules.Restore(saved.Investigated, saved.ClothesReceived);
-                forging.Rules.Restore(saved.Forging);
+                if (saved.Forging != null) forging.Rules.Restore(saved.Forging);
                 tavern.Rules.Restore(saved.PlayerDrunk, saved.BossDrunk, saved.Customers);
                 theater.Restore(saved.TheaterEntered, saved.PatrolRedirected, saved.TheaterCompleted);
                 tavernCompleted = saved.TavernCompleted;
@@ -374,41 +489,37 @@ namespace Game.ShopPlaytest
             saved.Forging = forging.Rules.Capture(); saved.PlayerDrunk = tavern.Rules.PlayerDrunk; saved.BossDrunk = tavern.Rules.BossDrunk;
             saved.Customers = tavern.Rules.CaptureCustomers(); saved.TavernCompleted = tavernCompleted;
         }
-        private void Refresh()
+        private void Show(string text)
+        { if (lifetime != null && !lifetime.IsCancellationRequested && !string.IsNullOrEmpty(text)) replies.Enqueue(text); }
+        private async UniTask ReplyAsync(string text)
         {
-            if (view == null || world == null || ActiveShop < 0) return;
-            string text = "当前控制：" + Taming.GetDisplayName(Taming.CurrentControlId) + "\n";
-            switch (ActiveShop)
+            var actor = conversationActor;
+            string speaker = actor != null ? actor.DisplayName : ActiveShop >= 0 ? Titles[ActiveShop] : "";
+            string id = actor != null ? actor.StableId : "result";
+            try
             {
-                case 0: text += (theater.Entered ? "已验身" : "尚未验身") + " / " +
-                    (theater.PatrolRedirected ? "巡逻已调开" : "巡逻未调开") + " / " + (theater.Completed ? "演奏完成" : "未完成"); break;
-                case 1: text += clothing.Rules.Received ? "蓝长衫已领取（本地成果）" : "收集证词，推断取衣人"; break;
-                case 2: text += "拨料 " + forging.Rules.Quota + " / 可用 " + forging.Rules.Available + " / 已用 " + forging.Rules.Spent +
-                    "\n金钥匙 " + forging.Rules.Keys + " / 首饰 " + forging.Rules.Ornaments +
-                    (forging.Rules.IsForging ? " / 下一点位 " + (forging.Rules.NextPoint + 1) : "") +
-                    (forging.Rules.Submitted ? " / 已提交" : ""); break;
-                case 3: text += "客栈对白入口；正式线索待替换"; break;
-                case 4: text += "自己 " + tavern.Rules.PlayerDrunk + " / BOSS " + tavern.Rules.BossDrunk +
-                    " / 客人甲 " + tavern.Rules.CustomerDrunkFor("shop_customer_a") +
-                    " / 客人乙 " + tavern.Rules.CustomerDrunkFor("shop_customer_b") +
-                    "\n移动倍率 " + tavern.Rules.SpeedMultiplier + " / 静步" + (tavern.Rules.CanSneak ? "可用" : "禁止"); break;
+                await dialogue.PlayAsync(Conversation(id + ":reply", speaker, text,
+                    new[] { new DialogueContent.Choice { Id = "close", Text = "知道了", Outcome = "close" } }),
+                    actor != null ? actor.transform : null, id, lifetime.Token);
             }
-            view.Status(text); view.HighlightCommand(ActiveShop == 2 && forging.Rules.IsForging ? forging.Rules.NextPoint + 3 : -1);
+            catch (OperationCanceledException) { }
+            catch (Exception error) { telemetry.TrackError("reply_failed", error); }
         }
-        private void Show(string text) { if (view != null) view.Message(text); }
         public async UniTask UnbindAsync()
         {
             if (lifetime == null) return;
             using var unloading = telemetry.BeginSpan("scene_unloading");
             try
             {
+                var closed = forgingClosed;
                 Persist(); lifetime.Cancel();
+                if (closed != null) await closed.Task;
                 await rhythm.CloseActivityAsync();
             }
             finally
             {
                 progressReady = false;
-                rhythm.OnActivityClosed -= ActivityClosed; narrative.OnChanged -= NarrativeChanged;
+                narrative.OnChanged -= NarrativeChanged;
                 battleSetup.BindDrunkSource(null);
                 Taming.OnControlChanged -= ControlChanged; Taming.BindSelection(null); Taming.BindModifiers(null, null);
                 step.OnAdvanced -= AdvanceIdentity; step.BindPlayerModifiers(null, null);
@@ -417,11 +528,8 @@ namespace Game.ShopPlaytest
                 if (interaction.Actor != null) interaction.Actor.SetAnchor(null);
                 if (world != null) foreach (ShopPlaytestActor actor in world.Actors)
                     if (actor != null) { actor.Bind(null, null); interaction.Unregister(actor); }
-                ShopPlaytestView closing = view;
-                if (closing != null) { closing.OnRole -= BorrowRole; closing.OnCommand -= ExecuteCommand; closing.OnBody -= ReturnBody; closing.OnRetry -= Retry; }
-                view = null; roles.Clear(); world = null; encounterView = null; role = "";
+                replies.Clear(); conversationActor = null; world = null; encounterView = null; role = "";
                 lifetime.Dispose(); lifetime = null; closeRhythmAfterFrame = -1; awaitingBattle = awaitingOutcome = false;
-                if (closing != null) await ui.CloseAsync(closing);
             }
         }
     }

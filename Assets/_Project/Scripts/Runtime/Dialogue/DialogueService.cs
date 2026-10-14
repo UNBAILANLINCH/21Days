@@ -117,6 +117,20 @@ namespace Game.Dialogue
                 throw new ArgumentException($"对白表里没有 id {dialogueId}", nameof(dialogueId));
             }
             DialoguePlaybackPolicy playback = EnsurePolicy(dialogueId);
+            return await PresentAsync(content, dialogueId, performanceAnchor, targetId, playback, ct);
+        }
+
+        /// <summary>播放现场玩法对白；事件编号为 0，不冒充表内剧情对白。</summary>
+        public async UniTask<DialogueResult> PlayAsync(DialogueContent content, Transform anchor, string targetId, CancellationToken ct = default)
+        {
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            if (string.IsNullOrWhiteSpace(targetId)) throw new ArgumentException("对白目标身份不可为空", nameof(targetId));
+            if (running) throw new InvalidOperationException("已有对白正在进行");
+            return await PresentAsync(content, 0, anchor, targetId, EnsurePolicy(0), ct);
+        }
+
+        private async UniTask<DialogueResult> PresentAsync(DialogueContent content, int dialogueId, Transform performanceAnchor, string targetId, DialoguePlaybackPolicy playback, CancellationToken ct)
+        {
             ct.ThrowIfCancellationRequested();
 
             running = true;

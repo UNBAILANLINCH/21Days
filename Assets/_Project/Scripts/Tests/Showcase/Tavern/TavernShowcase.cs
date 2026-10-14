@@ -23,7 +23,7 @@ namespace Game.Tests.Showcase.Tavern
         {
             yield return Ready(4);
             yield return Borrow(0);
-            yield return Step("自己喝一杯", () => Click("Command0"));
+            yield return Command(0);
             yield return Check("出现减速与禁潜行状态", () => State.Tavern.PlayerDrunk == 10 && !State.Tavern.CanSneak);
             Vector2 before = State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position;
             yield return Step("实际移动借来的酒客", null, 0);
@@ -31,13 +31,13 @@ namespace Game.Tests.Showcase.Tavern
             yield return Check("移动角色已减速，实际位移小于正常一秒速度", () =>
             { float distance = Vector2.Distance(before, State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position); return distance > .1f && distance < 1f; });
             yield return ApproachTarget("shop_boss");
-            yield return Step("走近BOSS灌到100", () => { for (int i = 0; i < 10; i++) Click("Command1"); });
+            for (int i = 0; i < 10; i++) yield return Command(1);
             yield return ApproachTarget("shop_customer_a");
-            yield return Step("走近客人甲灌到20", () => { for (int i = 0; i < 3; i++) Click("Command2"); });
+            for (int i = 0; i < 3; i++) yield return Command(2);
             yield return Check("场外上限与两客人互不串值", () => State.Tavern.BossDrunk == 100 && State.Tavern.CustomerDrunkFor("shop_customer_a") == 20 && State.Tavern.CustomerDrunkFor("shop_customer_b") == 0 && State.Tavern.BossAwarenessMultiplier == .5f);
             yield return Snapshot("场外醉酒与范围");
             yield return ApproachTarget("shop_boss");
-            yield return Step("近距离挑战BOSS，推进开战对白", () => Click("Command3"), 0);
+            yield return Command(3, false);
             var dialogue = ResolveService<DialogueService>(); var rules = ResolveService<DialogueRules>(); var input = ResolveService<IInputService>();
             float deadline = Time.realtimeSinceStartup + 20;
             while (dialogue.IsRunning && Time.realtimeSinceStartup < deadline)
@@ -60,6 +60,8 @@ namespace Game.Tests.Showcase.Tavern
                     yield return Input.Press(presenter.View.IsSkillLit(2) ? input.Actions.Dialogue.Choice3 : input.Actions.Dialogue.Choice1);
                 else yield return null;
             }
+            yield return WaitUntil("战斗结案完成", () => !battle.IsBattleEngaged && !ResolveService<NarrativeService>().IsBusy, 15);
+            yield return FinishReplies();
             yield return Check("收场交还原主场景、输入与暂停", () => !battle.IsBattleEngaged && ResolveService<IGameFlow>().Current is Game.Monster.MonsterEncounterState && !ResolveService<IWorldPauseService>().IsPaused, 10);
             var bossActor = System.Array.Find(Object.FindObjectsOfType<ShopPlaytestActor>(true), actor => actor.StableId == "shop_boss");
             string outcome = ResolveService<NarrativeService>().Capture().Outcome;

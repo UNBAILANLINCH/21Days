@@ -382,6 +382,7 @@ GameObject:
   - component: {fileID: 892237798522095921}
   - component: {fileID: 8483137276528002328}
   - component: {fileID: 5646595443537181656}
+  - component: {fileID: 4284174532927869494}
   m_Layer: 0
   m_Name: shop_customer_a
   m_TagString: Untagged
@@ -424,6 +425,7 @@ MonoBehaviour:
   displayName: "\u666E\u901A\u5BA2\u4EBA\u7532"
   shop: 4
   borrowRadius: 2
+  clickCollider: {fileID: 4284174532927869494}
 --- !u!212 &8483137276528002328
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -498,6 +500,27 @@ MonoBehaviour:
   passive: 0
   addedForShops: 1
   observationOnly: 1
+--- !u!65 &4284174532927869494
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2687456086448982755}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &2830840971035886099
 GameObject:
   m_ObjectHideFlags: 0
@@ -787,6 +810,7 @@ GameObject:
   - component: {fileID: 3819147278594052394}
   - component: {fileID: 6654969548457080240}
   - component: {fileID: 4743738134406761314}
+  - component: {fileID: 6938014623199886924}
   m_Layer: 0
   m_Name: shop_guest
   m_TagString: Untagged
@@ -829,6 +853,7 @@ MonoBehaviour:
   displayName: "\u9152\u5BA2"
   shop: 4
   borrowRadius: 2
+  clickCollider: {fileID: 6938014623199886924}
 --- !u!212 &6654969548457080240
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -903,6 +928,27 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+--- !u!65 &6938014623199886924
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3143120224512546483}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &3655798397849502888
 GameObject:
   m_ObjectHideFlags: 0
@@ -916,6 +962,7 @@ GameObject:
   - component: {fileID: 7083394771176877514}
   - component: {fileID: 1507870780532249777}
   - component: {fileID: 7504681391831412229}
+  - component: {fileID: 5458723751609139875}
   m_Layer: 0
   m_Name: shop_boss
   m_TagString: Untagged
@@ -958,6 +1005,7 @@ MonoBehaviour:
   displayName: "\u9152\u8086BOSS"
   shop: 4
   borrowRadius: 2
+  clickCollider: {fileID: 5458723751609139875}
 --- !u!212 &7083394771176877514
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1047,6 +1095,27 @@ MonoBehaviour:
   targetId: shop_boss
   targetKind: ShopMainBoss
   radius: 2
+--- !u!65 &5458723751609139875
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3655798397849502888}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &3843373687534368402
 GameObject:
   m_ObjectHideFlags: 0
@@ -1705,6 +1774,7 @@ GameObject:
   - component: {fileID: 1956111565059854262}
   - component: {fileID: 7628367396521851555}
   - component: {fileID: 4774194197437218578}
+  - component: {fileID: 5130366699952445579}
   m_Layer: 0
   m_Name: shop_customer_b
   m_TagString: Untagged
@@ -1747,6 +1817,7 @@ MonoBehaviour:
   displayName: "\u666E\u901A\u5BA2\u4EBA\u4E59"
   shop: 4
   borrowRadius: 2
+  clickCollider: {fileID: 5130366699952445579}
 --- !u!212 &7628367396521851555
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1821,6 +1892,27 @@ MonoBehaviour:
   passive: 0
   addedForShops: 1
   observationOnly: 1
+--- !u!65 &5130366699952445579
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7049644477981507142}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &7070214258326712659
 GameObject:
   m_ObjectHideFlags: 0
@@ -2107,6 +2199,7 @@ GameObject:
   m_Component:
   - component: {fileID: 253519340340213029}
   - component: {fileID: 2314335146407349208}
+  - component: {fileID: 8526514104023994104}
   m_Layer: 0
   m_Name: InteractionPoint
   m_TagString: Untagged
@@ -2148,6 +2241,28 @@ MonoBehaviour:
   displayName: "\u9152\u684C / \u6311\u6218"
   shop: 4
   borrowRadius: 2
+  clickCollider: {fileID: 8526514104023994104}
+--- !u!65 &8526514104023994104
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8020907913419286919}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.75, y: 1.65, z: 0.75}
+  m_Center: {x: 0, y: 0.825, z: 0}
 --- !u!1 &8401975862558542094
 GameObject:
   m_ObjectHideFlags: 0

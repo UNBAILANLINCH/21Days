@@ -13,7 +13,7 @@ maturity: seed
 
 ## 责任与数据流
 
-借顾客甲/乙/丙 → 查看各自证词 → 用乙的身份领衣 → 显示蓝长衫 → 重试。默认正确答案为乙；甲初次到店，丙陪同。
+借顾客甲/乙/丙 → 在对应对白中查看证词 → 用乙的身份向裁衣匠领衣 → 显示蓝长衫。重复领取只提示已领取；重试仅保留调试接口。默认正确答案为乙；甲初次到店，丙陪同。
 
 类型：ClothingConfig / ClothingRules / ClothingIntent / ClothingController。规则与意图在Game.Runtime中；规则纯C#，UI通过共用状态接线，Core不引用玩法。Controller记录意图结果，Reset只重置本玩法。
 
@@ -21,7 +21,7 @@ maturity: seed
 
 配置资产位于Assets/_Project/Data/ShopPlaytest/。
 
-Clothing.asset：names、clues、tailorClue、collectorIndex。三顾客按钮与场景角色是本期固定内容，不可只增加数组长度就宣称支持更多顾客。
+Clothing.asset：names、clues、tailorClue、collectorIndex。三顾客对白选项与场景角色是本期固定内容，不可只增加数组长度就宣称支持更多顾客。
 
 ## 接线与生命周期
 

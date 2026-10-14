@@ -41,6 +41,84 @@ namespace Game.Editor.ShopPlaytest
         };
         private static TMP_FontAsset font;
         private static Material buildingMaterial;
+        [MenuItem("21Days/五店/创建金银行打造界面")]
+        public static void BuildForgingView()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("先退出播放");
+            const string path = "Assets/_Project/Prefabs/UI/ForgingView.prefab";
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null) throw new InvalidOperationException("打造界面已存在，请直接编辑预制体，禁止覆盖美术调整");
+            font = Require<TMP_FontAsset>("Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset");
+            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            var group = settings == null ? null : settings.FindGroup("UI");
+            if (group == null) throw new InvalidOperationException("缺少UI资源组");
+            var root = new GameObject("ForgingView", typeof(RectTransform), typeof(CanvasGroup));
+            try
+            {
+                var rect = root.GetComponent<RectTransform>();
+                rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.sizeDelta = Vector2.zero;
+                ForgingView view = root.AddComponent<ForgingView>();
+                var shade = ForgingBox("Backdrop", root.transform, Vector2.zero, Vector2.zero, new Color(.025f, .04f, .055f, .94f));
+                shade.rectTransform.anchorMin = Vector2.zero; shade.rectTransform.anchorMax = Vector2.one;
+                var panel = ForgingBox("WorkbenchPanel", root.transform, Vector2.zero, new Vector2(1460, 840), new Color(.13f, .18f, .21f));
+                ForgingLabel("Title", panel.transform, new Vector2(0, 350), new Vector2(1000, 70), "金银行 · 打造台", 42);
+                Ref(view, "quotaLabel", ForgingLabel("Quota", panel.transform, new Vector2(-560, 245), new Vector2(260, 100), "金属份额\n20/24", 34));
+                Ref(view, "materialLabel", ForgingLabel("Materials", panel.transform, new Vector2(-180, 270), new Vector2(660, 55), "库存 / 累计消耗 / 预留", 25));
+                ForgingBox("Divider", panel.transform, new Vector2(360, -15), new Vector2(2, 640), new Color(.5f, .58f, .61f));
+                var disk = ForgingBox("FourPointDisk", panel.transform, new Vector2(-150, 30), new Vector2(460, 460), new Color(.22f, .3f, .34f));
+                Sprite circle = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+                disk.sprite = circle;
+                var points = new List<Object>();
+                Vector2[] positions = { new Vector2(0, 155), new Vector2(-155, -15), new Vector2(155, 35), new Vector2(65, -150) };
+                for (int i = 0; i < 4; i++)
+                {
+                    Button point = ForgingButton("Point" + i, disk.transform, positions[i], new Vector2(78, 78), (i + 1).ToString());
+                    point.image.sprite = circle; points.Add(point);
+                }
+                var products = new List<Object>(); var labels = new List<Object>();
+                for (int i = 0; i < 3; i++)
+                {
+                    Button product = ForgingButton("Product" + i, panel.transform, new Vector2(535, 190 - i * 185), new Vector2(280, 140),
+                        "物品" + (char)('A' + i) + "\n0/" + (i + 1));
+                    products.Add(product); labels.Add(product.GetComponentInChildren<TMP_Text>());
+                }
+                var data = new SerializedObject(view);
+                Array(data, "pointButtons", points); Array(data, "productButtons", products); Array(data, "productLabels", labels);
+                data.ApplyModifiedPropertiesWithoutUndo();
+                Ref(view, "progressLabel", ForgingLabel("Progress", panel.transform, new Vector2(-150, -230), new Vector2(700, 55), "选择工件后开始打造", 28));
+                Button craft = ForgingButton("CraftButton", panel.transform, new Vector2(-530, -320), new Vector2(200, 65), "打造");
+                Ref(view, "craftButton", craft); Ref(view, "defaultSelected", craft);
+                Ref(view, "costLabel", ForgingLabel("Cost", panel.transform, new Vector2(-530, -375), new Vector2(200, 35), "5 金属", 24));
+                Ref(view, "cancelButton", ForgingButton("CancelWorkpieceButton", panel.transform, new Vector2(-280, -320), new Vector2(220, 65), "取消工件"));
+                Ref(view, "submitButton", ForgingButton("SubmitButton", panel.transform, new Vector2(-20, -320), new Vector2(200, 65), "提交"));
+                Ref(view, "backButton", ForgingButton("BackButton", panel.transform, new Vector2(535, -355), new Vector2(280, 65), "返回街面"));
+                Ref(view, "messageLabel", ForgingLabel("Message", root.transform, new Vector2(0, -470), new Vector2(1420, 60), "选择右侧工件，按高亮顺序点击圆盘点位。", 27));
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+                var entry = settings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(path), group);
+                entry.address = nameof(ForgingView); Save(group); Save(settings);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+        private static Image ForgingBox(string name, Transform parent, Vector2 position, Vector2 size, Color color)
+        {
+            var image = new GameObject(name, typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            image.transform.SetParent(parent, false); image.rectTransform.sizeDelta = size;
+            image.rectTransform.anchoredPosition = position; image.color = color; return image;
+        }
+        private static TMP_Text ForgingLabel(string name, Transform parent, Vector2 position, Vector2 size, string text, float fontSize)
+        {
+            var label = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TMP_Text>();
+            label.transform.SetParent(parent, false); label.rectTransform.anchoredPosition = position;
+            label.rectTransform.sizeDelta = size; label.font = font; label.fontSize = fontSize;
+            label.alignment = TextAlignmentOptions.Center; label.color = new Color(.94f, .9f, .8f);
+            label.text = text; label.raycastTarget = false; return label;
+        }
+        private static Button ForgingButton(string name, Transform parent, Vector2 position, Vector2 size, string text)
+        {
+            Image image = ForgingBox(name, parent, position, size, new Color(.4f, .49f, .53f));
+            Button button = image.gameObject.AddComponent<Button>(); button.targetGraphic = image;
+            ForgingLabel("Label", image.transform, Vector2.zero, size - new Vector2(12, 8), text, 30);
+            return button;
+        }
         [MenuItem("21Days/五店/接入现有3D主场景")]
         public static void Build()
         {

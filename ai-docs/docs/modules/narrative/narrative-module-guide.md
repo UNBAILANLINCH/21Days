@@ -105,7 +105,7 @@ DialogueService、Quest 公开事件/保存 DTO、SessionStartedEvent、PlayerMo
 | `DialogueInstaller` | `IDialogueConditionSource` | 尝试解析 NarrativeConditionSource；未装 Narrative 时使用原占位实现 |
 | `DialogueCatalog.cs:200`–`226` | `NarrativeCondition` | 内容表的 `anyOf[].all[]` 翻译为 `NarrativeCondition[][]`；`ConditionFact` 按名字映射到 `EncounterContext.Fact` |
 | `DialogueContent.cs:32`、`84` | `NarrativeCondition[][]` | 选项 `Conditions` 字段的类型；构造期用占位上下文校验一次 |
-| `DialogueController.cs:538` | `NarrativeCondition.Matches` | 每 0.25 s 刷新选项可用性 |
+| `DialogueController.cs:539` | `NarrativeCondition.Matches` | 每 0.25 s 刷新选项可用性 |
 | `DialogueRules.cs:90` | `NarrativeCondition.Matches` | 提交选项时复验一次 |
 
 NarrativeService 在对白前固定 Generation/ActivationId/TargetId/RequestId，await 返回后构造 NarrativeIntent。

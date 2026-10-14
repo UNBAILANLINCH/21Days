@@ -28,7 +28,7 @@ namespace Game.Clothing
             if (intent.Customer < 0 || intent.Customer >= investigated.Length) reason = "没有这位顾客";
             else if (!intent.HasIdentity) reason = "请先借用这位顾客的身份";
             else if (!intent.Claim) { investigated[intent.Customer] = true; return true; }
-            else if (Received) reason = "衣服已领取，请重试本玩法后再领取";
+            else if (Received) reason = "衣服已经领取过了，不能重复领取";
             else if (!HasInvestigated(intent.Customer)) reason = "先以该顾客身份询问证词";
             else if (intent.Customer != collector) reason = "这不是来取衣服的人，可以继续调查";
             else { Received = true; return true; }

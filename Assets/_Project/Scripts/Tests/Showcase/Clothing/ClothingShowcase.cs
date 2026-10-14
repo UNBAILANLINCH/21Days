@@ -10,20 +10,39 @@ namespace Game.Tests.Showcase.Clothing
     {
         protected override string Module => "Clothing";
         [UnityTest]
+        public IEnumerator Customers_ShowOnlyOwnDialogueAndChoices()
+        {
+            yield return Ready(1);
+            for (int i = 0; i < 3; i++)
+            {
+                Game.ShopPlaytest.ShopPlaytestActor target = null;
+                foreach (var actor in State.World.Actors) if (actor.StableId == "shop_customer" + i) target = actor;
+                yield return OpenConversation(target);
+                yield return ShowChoices();
+                var rules = ResolveService<Game.Dialogue.DialogueRules>();
+                Assert.That(rules.Current.SpeakerName, Is.EqualTo(target.DisplayName));
+                Assert.That(rules.Current.Choices.Length, Is.EqualTo(3));
+                foreach (var choice in rules.Current.Choices)
+                    if (choice.Id.StartsWith("command")) Assert.That(choice.Id, Is.EqualTo("command" + i));
+                yield return Snapshot(target.DisplayName + "对应对白与选项");
+                yield return Choose("leave");
+            }
+        }
+        [UnityTest]
         public IEnumerator Investigate_WrongClaimThenCorrectClaimAndRetry()
         {
             yield return Ready(1);
             yield return Borrow(0);
-            yield return Step("查看甲证词后尝试领衣", () => { Click("Command0"); Click("Command3"); });
+            yield return Command(0); yield return Command(3);
             yield return Check("甲不符合掌柜线索，没有发放衣物", () => State.Clothing.HasInvestigated(0) && !State.Clothing.Received);
             yield return Snapshot("错误答案拒绝");
             yield return Borrow(2);
-            yield return Step("查看丙证词", () => Click("Command2"));
+            yield return Command(2);
             yield return Borrow(1);
-            yield return Step("查看订金线索并领衣", () => { Click("Command1"); Click("Command4"); });
+            yield return Command(1); yield return Command(4);
             yield return Check("衣物领取完成，场景成果出现", () => State.Clothing.Received);
             yield return Snapshot("领衣完成");
-            yield return Step("重看已调查证词并重复领衣", () => { Click("Command0"); Click("Command4"); });
+            yield return Command(1); yield return Command(4);
             yield return Check("调查和成果保留，重复领取拒绝", () => State.Clothing.Received && State.Clothing.HasInvestigated(0));
             yield return CheckPreplacedObjects();
         }

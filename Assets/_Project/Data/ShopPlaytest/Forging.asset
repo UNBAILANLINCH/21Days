@@ -12,9 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a5c80b46fcc013c4a93917effa89946e, type: 3}
   m_Name: Forging
   m_EditorClassIdentifier: 
-  initialQuota: 2
-  maximumQuota: 8
-  keyCost: 4
-  ornamentCost: 2
-  requiredOrnaments: 1
+  initialQuota: 20
+  maximumQuota: 24
+  productCost: 5
+  requiredProducts: 010000000200000003000000
   pointOrder: 00000000010000000200000003000000

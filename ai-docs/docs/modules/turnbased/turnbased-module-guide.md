@@ -10,8 +10,10 @@ maturity: seed
 S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进战斗方式与先手权、一个回合的推进顺序、
 玩家三招式的怒气收支、道具一场一次、BOSS 醉酒四档的跳过回合、BOSS 三招式的 6:3:1 权重。
 
-真源是策划 2026-10-07 补交的 `docs/design/spotlight/07_回合制作战文档.md`（86 行，全篇都对着写）；
-转写、规则编号与开放问题见 `docs/design/features-spotlight/09_BOSS战.md` §3.9（R40–R48）与 §9（Q17–Q19 → C90–C92）。
+真源是策划 2026-10-07 补交的 `docs/design/spotlight/07_回合制作战文档.md`，本模块对着写的是**第 1–85 行**（战斗通用 + 阶段1BOSS）；
+第 86–119 行「1. 阶段9BOSS」是 2026-10-14 策划更新版新增的，**本模块没有实现**（双形态、护心鳞、金锁 / 自我禁锢、按 BOSS 覆盖开战效果都没有，
+逐条带源码出处见 `09_BOSS战.md` §7「回合制战斗的现状」）。转写、规则编号与开放问题见 `docs/design/features-spotlight/09_BOSS战.md`
+§3.9（R40–R48；阶段九 R49–R58）与 §9（Q17–Q19 → C90–C92；阶段九 Q20–Q27 → C93–C96）。
 
 > **接线现状**：本模块是纯规则内核，**唯一的调用方是 [`Game.Battle`](../battle/battle-module-guide.md)**
 > （`BattleSetup.cs` 开仗、`BattleFlow.cs` 驱动回合；除 `Game.Battle` 外 `Runtime/` 下没有别的文件引用 `Game.TurnBased`）。
@@ -43,7 +45,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 ## 为什么不复用既有模块的能力
 
 1. **复用不成立**：`Runtime/Player/` 没有怒气 / 招式 / 道具这一层，`Runtime/Monster/` 只有「有生命值、会攻击」，
-   两份配置谁都不管「三招式、道具一场一次、醉酒四档、6:3:1 权重」。`09_BOSS战.md:271-278` 已把这两个缺口写死
+   两份配置谁都不管「三招式、道具一场一次、醉酒四档、6:3:1 权重」。`09_BOSS战.md:375-376` 已把这两个缺口写死
    （Monster 行「缺口：没有 BOSS 种类……没有削弱、跳过阶段」；Player 行「缺口：没有回合制（无怒气、招式、道具使用）」）。
 2. **扩展不成立**：这两个模块的目录正被并行波次（接线 / 怪物种类数据化）独占，本次任务明令不改；
    而且「一场战斗怎么推回合」既不属于某只怪，也不属于玩家本体。
@@ -57,7 +59,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 - **不依赖** Monster / Player / Inventory / Narrative / Stealth / Identity；反向由接线侧调用本模块的公开接口。
   接线侧就是 `Game.Battle`：它依赖本模块，另外还依赖 Narrative / Loot / CharacterPuppet / Core.UI / Core.Flow（见 battle guide「依赖方向」），本模块一概不知。
 
-## 规则落点（对着 07 全文逐条）
+## 规则落点（对着 07 第 1–85 行逐条；第 86–119 行阶段9BOSS 未实现）
 
 | 07 原文 | 落点 |
 | --- | --- |
@@ -79,7 +81,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 | BOSS 招式 2 饮酒：+30 醉酒、回 10% 生命、下次招式 1 +30%（07:80） | `BattleSession.cs:298-301`、`BossBattleRules.cs:53/100` |
 | BOSS 招式 3：正常 / 微醺 高额伤害；薄醉 高额伤害 + 晕眩玩家 1 回合（07:81-82） | `BossSkillRules.cs:56`、`BattleSession.cs:311`、`PlayerBattleRules.cs:85` |
 | 施放比例 6:3:1（07:84） | `BossSkillRules.cs:20`、`TurnBasedConfig.cs:145-151` |
-| 玩家状态右下角显示剩余回合（07:43）→ 有回合上限 | `BattleFlowSettings.cs`、`BattleSession.cs:324`（上限口径可配，数值等 C91） |
+| 玩家状态右下角显示剩余回合（07:43）→ 有回合上限 | `BattleFlowSettings.cs`、`BattleSession.cs:324`（上限口径可配，数值等 C91）。2026-10-14：这句另有一种读法——指每个玩家状态还剩几回合（`09_BOSS战.md` R58、Q18） |
 
 ## 随机数与回放（本模块的取舍）
 
@@ -157,4 +159,4 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 | 结果回写（潜行 / 遭遇路径） | **已接（2026-10-09，roadmap C5 剩下的那一半）** | 空 payload 的 Battle 阶段 = 活遭遇档 → `Game.Monster.EncounterBattleBridge`：订阅 `BattleStageEnteredEvent`（只认空 payload）、`EncounterStep.StartBattle` 登记这一仗、结算那一刻取走 `BattleSettlement`、用事件里的三项身份 `NarrativeService.CompleteBattleAsync` 回写。语义由用户 2026-10-09 拍板：**打赢或被击倒都算这一关结束**（`Victory` / `Downed`）。⚠️ 桥**不调** `TryBeginBattle`（不改存档边界）、阶段没声明结果码时按正常拒绝处理；两条路径按 payload 分工、不重叠，见 `monster-module-guide.md` 的同名附录 |
 | 界面 | **白盒已接** | `BattleView`，细节等 **C92 / Q19** |
 | Boot 接线 | **已接** | `Boot.unity` 的 `GameBootstrap` 挂了 `BattleInstaller`（`BattleInstaller.cs:37`；`Boot.unity` 里能反查到它的 GUID） |
-| 适用范围 | 只给 `sample_boss` | 等 C90 |
+| 适用范围 | 只给 `sample_boss`（阶段1BOSS 规则） | 等 C90；阶段9BOSS（07:86-119，2026-10-14 新增）未实现，疑点等 C93–C96 |

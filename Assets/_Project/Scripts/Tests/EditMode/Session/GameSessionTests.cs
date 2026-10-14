@@ -277,6 +277,35 @@ namespace Game.Tests.EditMode.Session
             Assert.That(await session.SaveNowAsync("after_cancel"), Is.True);
         });
 
+        [UnityTest]
+        public IEnumerator AddedSlots_SaveContinueDelete_KeepOriginalSlot() => UniTask.ToCoroutine(async () =>
+        {
+            Assert.That(config.SlotCount, Is.EqualTo(5));
+            await session.NewGameAsync(1);
+            await session.SaveNowAsync("original");
+            string original = File.ReadAllText(Path.Combine(saveRoot, "slot1.json"));
+            for (int slot = 4; slot <= 5; slot++)
+            {
+                clock.UtcNow = clock.UtcNow.AddSeconds(1);
+                Assert.That(await session.NewGameAsync(slot), Is.True);
+                Assert.That(await session.SaveNowAsync("added_slot"), Is.True);
+                var fresh = CreateSession(new JsonSaveService(platform, null, null));
+                try
+                {
+                    await fresh.InitializeAsync(CancellationToken.None);
+                    Assert.That(fresh.LatestSlot, Is.EqualTo(slot));
+                    Assert.That(await fresh.ContinueAsync(slot), Is.True);
+                    Assert.That(fresh.CurrentSlot, Is.EqualTo(slot));
+                    var infos = await fresh.ReadSlotInfosAsync();
+                    Assert.That(infos[slot - 1].State, Is.EqualTo(SlotState.Available));
+                    await fresh.DeleteSlotAsync(slot);
+                    Assert.That(File.Exists(Path.Combine(saveRoot, "slot" + slot + ".json")), Is.False);
+                }
+                finally { fresh.Dispose(); }
+            }
+            Assert.That(File.ReadAllText(Path.Combine(saveRoot, "slot1.json")), Is.EqualTo(original));
+        });
+
         private GameSession CreateSession(ISaveService saveService)
         {
             return new GameSession(

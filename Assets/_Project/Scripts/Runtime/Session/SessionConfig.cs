@@ -10,7 +10,7 @@ namespace Game.Session
     public sealed class SessionConfig : ScriptableObject
     {
         [Tooltip("存档槽数量，槽号从 1 起。")]
-        [SerializeField, Min(1)] private int slotCount = 3;
+        [SerializeField, Min(1)] private int slotCount = 5;
 
         [Tooltip("自动保存落盘成功后右下角小字的文案（不进通知队列）。")]
         [SerializeField] private string saveNoticeTitle = "已保存";

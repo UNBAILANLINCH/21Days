@@ -7,6 +7,16 @@ maturity: seed
 
 # Session 模块指南
 
+## 五槽存档卷轴界面（2026-10-14）
+
+SessionConfig 的默认值和正式配置均为五槽，原槽 1～3 的文件编号与数据格式保留，新增槽 4、5 复用同一读写、覆盖与删除流程。
+SaveSlotsView 使用 1920×1080 参考坐标，五条卷轴从左至右按槽号排列；普通、高亮、空槽与不可用图片位于 `Assets/_Project/Art/Sprites/UI/SaveSlots/`。
+原始 PNG 保留透明通道与尺寸，Single Sprite、Bilinear、无 mipmap、无压缩；布局与字体参考图位于 `docs/design/references/save-slots/`。
+进度使用思源宋体 CN Bold 44.81，日期与时长为 19.33；普通态白色，高亮态 `#27A0BF`，日期与游玩时长分两行显示。
+空槽保留原新游戏/读档判定并隐藏进度文字；不可用槽使用较长卷轴，禁止直接读档；删除仍走既有二次确认。
+Session EditMode 实测 51/51 通过，新增测试覆盖槽 4、5 保存、重启读取、删除以及原槽文件不变；编辑器渲染检查覆盖五槽绑定、第五槽点击与高亮文字颜色。
+预览在 `outputs/save-ui/preview.png`。未进行手机真机验证或整局回放，正式存档文件未用于测试。
+
 ## 五店接线与切槽捕获边界（2026-10-13）
 
 SessionInstaller.registerTitleRouter默认true，正常Boot保持标题路由。旧ShopPlaytest启动场景已归档为Legacy入口，五店现在走正常开始/继续和当前槽。
@@ -42,7 +52,7 @@ NewGame/Continue从重置/读取候选到场景切换结束持有sessionTransiti
 | `SessionTitleRules` | 纯静态：`PickNewGameSlot`、`ShouldShowContinue` | `SessionTitleRouter` 调（`SessionTitleRules.cs:10`） |
 | `SaveSlotsController` | 选槽面板的会话控制：开面板、点击分派、覆盖 / 删除二次确认、离开标题时收掉面板 | 根作用域单例，被 `SessionTitleRouter` 按具体类型注入（`SaveSlotsController.cs:24`） |
 | `NewGameTutorial` | 开局操作说明的展示闸门：开 `TutorialView` → 等满 `UIConfig.TutorialSeconds` → 等任意键 → 收面板 | 根作用域单例，被 `SessionTitleRouter` 与 `SaveSlotsController` 按具体类型注入（`NewGameTutorial.cs:28`） |
-| `SaveSlotsView` | `UIView`（Panel）：三行槽位 + 删除 + 返回，只显示与抛事件 | `IUIService` 实例化（`SaveSlotsView.cs:26`） |
+| `SaveSlotsView` | `UIView`（Panel）：五条悬挂卷轴 + 删除 + 返回，只显示与抛事件 | `IUIService` 实例化（`SaveSlotsView.cs:26`） |
 | `SessionConfig` | SO：槽数、保存提示文案与秒数、读档失败文案、进度占位文案、退出钩子超时 | `Data/Session/SessionConfig.asset`（`SessionConfig.cs:10`） |
 | `SessionSaveData` | 槽位元数据分区（纯 DTO，Version 1） | `GameSession.SaveNowAsync` 落盘前更新（`SessionSaveData.cs:15`） |
 | `SlotInfo` / `SlotState` / `SlotsMode` | 只读摘要 / 三态枚举 / 面板两种打开模式 | `GameSession.ReadSlotInfosAsync` 产出；`SaveSlotsView` / `SaveSlotsController` 按值消费 |

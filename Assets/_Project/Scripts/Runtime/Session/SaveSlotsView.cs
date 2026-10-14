@@ -36,8 +36,8 @@ namespace Game.Session
         private const string EmptyText = "新游戏";
         private const string UnavailableText = "不可用";
         private const string UnknownProgressText = "进度未知";
-        private const string SecondarySeparator = " · 游玩时长 ";
-        private const string SavedAtFormat = "yyyy-MM-dd HH:mm";
+        private const string SecondarySeparator = "\n游玩时长：";
+        private const string SavedAtFormat = "yyyy-MM-dd";
 
         [Tooltip("面板标题（按模式显示「选择存档」/「新游戏」）。")]
         [SerializeField] private TMP_Text titleLabel;
@@ -47,6 +47,16 @@ namespace Game.Session
         [SerializeField] private GameObject rowTemplate;
         [Tooltip("底部「返回」；同时应拖到基类的 Default Selected 上。")]
         [SerializeField] private Button backButton;
+
+        [Header("悬挂卷轴（按槽号排序）")]
+        [SerializeField] private Sprite[] normalSprites;
+        [SerializeField] private Sprite[] selectedSprites;
+        [SerializeField] private Sprite[] unavailableSprites;
+        [SerializeField] private Sprite emptySprite;
+        [SerializeField] private Vector2 firstSlotPosition;
+        [SerializeField] private float slotSpacing;
+        [SerializeField] private float unavailableTextOffset;
+        [SerializeField] private Color selectedTextColor = new Color32(39, 160, 191, 255);
 
         private readonly List<RowEntry> rows = new List<RowEntry>();
 
@@ -106,8 +116,10 @@ namespace Game.Session
 
                 SlotInfo info = infos[i];
                 row.Slot = info.Slot;
+                ApplyAppearance(row, info);
                 row.SlotLabel.text = FormatSlotLabel(info.Slot);
                 row.Primary.text = FormatPrimary(info);
+                SetActive(row.Primary.gameObject, info.State != SlotState.Empty || normalSprites == null || normalSprites.Length == 0);
                 row.Secondary.text = FormatSecondary(info);
                 SetActive(row.Secondary.gameObject, info.State == SlotState.Available);
                 row.Button.interactable = IsRowSelectable(info.State, mode);
@@ -138,7 +150,7 @@ namespace Game.Session
             }
         }
 
-        /// <summary>行第二行文字：可读槽「保存时间（本地时区） · 游玩时长 mm:ss」，其它两态为空串。</summary>
+        /// <summary>可读槽分两行显示本地保存日期和游玩时长，其它两态为空串。</summary>
         public static string FormatSecondary(SlotInfo info)
         {
             if (info.State != SlotState.Available) return string.Empty;
@@ -182,7 +194,45 @@ namespace Game.Session
             // 只在建池行时绑一次；之后换内容只改 row.Slot，回调读字段。
             row.Button.onClick.AddListener(() => OnSlotClicked?.Invoke(row.Slot));
             row.Delete.onClick.AddListener(() => OnDeleteClicked?.Invoke(row.Slot));
+            row.Image = go.GetComponent<Image>();
+            row.PrimaryPosition = row.Primary.rectTransform.anchoredPosition;
+            if (row.Image != null)
+                row.Image.RegisterDirtyVerticesCallback(() => RefreshTextColor(row));
             return row;
+        }
+
+        private void ApplyAppearance(RowEntry row, SlotInfo info)
+        {
+            int index = info.Slot - 1;
+            if (normalSprites == null || index < 0 || index >= normalSprites.Length) return;
+            Image image = row.Root.GetComponent<Image>();
+            if (image == null) return;
+            Sprite normal = info.State == SlotState.Empty ? emptySprite :
+                info.State == SlotState.Unavailable ? unavailableSprites[index] : normalSprites[index];
+            image.sprite = normal;
+            image.overrideSprite = null;
+            image.SetNativeSize();
+            var rect = (RectTransform)row.Root.transform;
+            rect.anchoredPosition = firstSlotPosition + new Vector2(index * slotSpacing, 0f);
+            Sprite selected = info.State == SlotState.Available ? selectedSprites[index] : normal;
+            row.SelectedSprite = info.State == SlotState.Available ? selected : null;
+            row.Button.transition = Selectable.Transition.SpriteSwap;
+            row.Button.spriteState = new SpriteState
+            {
+                highlightedSprite = selected, pressedSprite = selected,
+                selectedSprite = selected, disabledSprite = normal,
+            };
+            row.Primary.rectTransform.anchoredPosition = row.PrimaryPosition +
+                new Vector2(0f, info.State == SlotState.Unavailable ? -unavailableTextOffset : 0f);
+            RefreshTextColor(row);
+        }
+
+        private void RefreshTextColor(RowEntry row)
+        {
+            bool selected = row.SelectedSprite != null && row.Image != null && row.Image.overrideSprite == row.SelectedSprite;
+            Color color = selected ? selectedTextColor : Color.white;
+            row.Primary.color = color;
+            row.Secondary.color = color;
         }
 
         // 逐个点名缺失字段与模板子物体，预制体按名字接线时一眼看出漏了哪个。
@@ -203,6 +253,10 @@ namespace Game.Session
             }
 
             if (backButton == null) missing.Add(nameof(backButton));
+            if (normalSprites != null && normalSprites.Length > 0 &&
+                (selectedSprites == null || selectedSprites.Length != normalSprites.Length ||
+                 unavailableSprites == null || unavailableSprites.Length != normalSprites.Length || emptySprite == null))
+                missing.Add("卷轴三态图片数量或空槽图片");
             if (missing.Count > 0)
                 throw new InvalidOperationException("SaveSlotsView 引用未接线：" + string.Join("、", missing));
         }
@@ -229,6 +283,9 @@ namespace Game.Session
             public TMP_Text Primary;
             public TMP_Text Secondary;
             public Button Delete;
+            public Image Image;
+            public Sprite SelectedSprite;
+            public Vector2 PrimaryPosition;
         }
     }
 }

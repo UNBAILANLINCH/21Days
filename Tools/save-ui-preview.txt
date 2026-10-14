@@ -1,0 +1,75 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("请退出运行模式");
+var canvasGo = new UnityEngine.GameObject("SaveSlotsPreview", typeof(UnityEngine.RectTransform), typeof(UnityEngine.Canvas));
+var cameraGo = new UnityEngine.GameObject("SaveSlotsPreviewCamera", typeof(UnityEngine.Camera));
+var target = new UnityEngine.RenderTexture(1920, 1080, 24);
+UnityEngine.GameObject instance = null;
+try
+{
+    var camera = cameraGo.GetComponent<UnityEngine.Camera>();
+    camera.clearFlags = UnityEngine.CameraClearFlags.SolidColor;
+    camera.backgroundColor = UnityEngine.Color.black; camera.cullingMask = 1 << 31;
+    camera.orthographic = true; camera.orthographicSize = 540f;
+    camera.transform.position = new UnityEngine.Vector3(0, 0, -1000);
+    camera.targetTexture = target;
+    var canvas = canvasGo.GetComponent<UnityEngine.Canvas>();
+    canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 100f;
+    var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/SaveSlotsView.prefab");
+    instance = UnityEngine.Object.Instantiate(prefab, canvasGo.transform);
+    foreach (var t in canvasGo.GetComponentsInChildren<UnityEngine.Transform>(true)) t.gameObject.layer = 31;
+    var view = instance.GetComponent<Game.Session.SaveSlotsView>();
+    view.OnOpenAsync(null, System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    var infos = new Game.Session.SlotInfo[] {
+        new Game.Session.SlotInfo(1, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"旅途开始"),
+        new Game.Session.SlotInfo(2, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"寻找线索"),
+        Game.Session.SlotInfo.Empty(3), Game.Session.SlotInfo.Unavailable(4),
+        new Game.Session.SlotInfo(5, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"旅途开始") };
+    view.Bind(infos, Game.Session.SlotsMode.Load);
+    var so = new UnityEditor.SerializedObject(view);
+    var list = (UnityEngine.RectTransform)so.FindProperty("listRoot").objectReferenceValue;
+    var rows = new System.Collections.Generic.List<UnityEngine.GameObject>();
+    foreach (UnityEngine.Transform t in list) if (t.gameObject.activeSelf) rows.Add(t.gameObject);
+    if (rows.Count != 5) throw new System.InvalidOperationException("显示槽数不等于5");
+    if (rows[2].GetComponent<UnityEngine.UI.Button>().interactable || rows[3].GetComponent<UnityEngine.UI.Button>().interactable)
+        throw new System.InvalidOperationException("空槽或坏槽在读档模式可选");
+    int clicked = 0; view.OnSlotClicked += slot => clicked = slot;
+    rows[4].GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+    if (clicked != 5) throw new System.InvalidOperationException("第五槽点击路由错误");
+    int deleted = 0; view.OnDeleteClicked += slot => deleted = slot;
+    rows[4].transform.Find("Delete").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+    if (deleted != 5) throw new System.InvalidOperationException("第五槽删除路由错误");
+    bool wentBack = false; view.OnBack += () => wentBack = true;
+    ((UnityEngine.UI.Button)so.FindProperty("backButton").objectReferenceValue).onClick.Invoke();
+    if (!wentBack) throw new System.InvalidOperationException("返回路由错误");
+    view.Bind(infos, Game.Session.SlotsMode.NewGame);
+    foreach (var row in rows) if (!row.GetComponent<UnityEngine.UI.Button>().interactable) throw new System.InvalidOperationException("新游戏模式不能选槽");
+    view.Bind(infos, Game.Session.SlotsMode.Load);
+    if (rows[2].transform.Find("Primary").gameObject.activeSelf) throw new System.InvalidOperationException("空槽文字未隐藏");
+    var eventSystem = cameraGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+    rows[0].GetComponent<UnityEngine.UI.Button>().OnPointerEnter(new UnityEngine.EventSystems.PointerEventData(eventSystem));
+    foreach (var row in rows)
+    {
+        var primary = row.transform.Find("Primary").GetComponent<TMPro.TMP_Text>();
+        if (!primary.gameObject.activeSelf) continue;
+        primary.ForceMeshUpdate();
+        if (primary.textInfo.characterCount == 0) throw new System.InvalidOperationException("进度文字未生成");
+    }
+    if (rows[0].transform.Find("Primary").GetComponent<TMPro.TMP_Text>().color != new UnityEngine.Color32(39,160,191,255))
+        throw new System.InvalidOperationException("高亮文字色错误");
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    camera.Render();
+    var previous = UnityEngine.RenderTexture.active;
+    UnityEngine.RenderTexture.active = target;
+    var pixels = new UnityEngine.Texture2D(1920,1080,UnityEngine.TextureFormat.RGBA32,false);
+    pixels.ReadPixels(new UnityEngine.Rect(0,0,1920,1080),0,0); pixels.Apply();
+    System.IO.Directory.CreateDirectory("outputs/save-ui");
+    System.IO.File.WriteAllBytes("outputs/save-ui/preview.png", pixels.EncodeToPNG());
+    UnityEngine.RenderTexture.active = previous;
+    UnityEngine.Object.DestroyImmediate(pixels);
+    view.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    return "五槽绑定、读档限制、第五槽点击通过；预览已保存";
+}
+finally
+{
+    UnityEngine.Object.DestroyImmediate(canvasGo); UnityEngine.Object.DestroyImmediate(cameraGo);
+    target.Release(); UnityEngine.Object.DestroyImmediate(target);
+}

@@ -21,9 +21,9 @@ namespace Game.Identity
     /// 再把身份状态接上——不会出现「接身份的那一次提交顺手改了伪装语义」。
     /// </para>
     /// <para>
-    /// 口径依据：`docs/design/features-spotlight/01_换皮与附身.md:160` R24（借着身份时按 mai 的「伪装」处理）
+    /// 口径依据：`docs/design/features-spotlight/01_换皮与附身.md:163` R24（借着身份时按 mai 的「伪装」处理）
     /// 与 `PRP/monster-ai/prd.md`「验收 4」（伪装免于橙区警戒、不免红区敌对）。
-    /// 「附身 / 用皮 / 用面具在怪物感知上是否就等于现有伪装」原文待定，见 `01_换皮与附身.md:263` Q16。
+    /// 「附身 / 用皮 / 用面具在怪物感知上是否就等于现有伪装」原文待定，见 `01_换皮与附身.md:267` Q16。
     /// </para>
     /// </summary>
     public static class IdentityAttackRules

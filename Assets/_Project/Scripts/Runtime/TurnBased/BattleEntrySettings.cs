@@ -1,7 +1,7 @@
 // 职责：进入战斗判定用得上的那几个数（从 TurnBasedConfig 拆出来，纯值，测试不必创建资产）。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:18`「BOSS生命值减少20%」；
-// 基数原文没写（`docs/design/features-spotlight/09_BOSS战.md:239`），等 C91。
+// 基数原文没写（`docs/design/features-spotlight/09_BOSS战.md:294`），等 C91。
 
 namespace Game.TurnBased
 {

@@ -13,7 +13,7 @@
 //     `:23`（正面攻击：玩家先手）、`:28`（被打：BOSS 先手）；值取自 `BattleSession.Entry`。
 //   · 玩家怒气 —— `:50`（招式 1 使用后 +1 怒气）、`:52`（招式 2 消耗 1）、`:54`（招式 3 消耗 3）；
 //     怒气上限原文没给，是配置项 `PlayerSkillSettings.RageMax`（占位 3，等 C91），所以面板写「怒气 x/上限」。
-//   · 玩家生命 —— 原文没写玩家血量（`09_BOSS战.md:239`），由接线侧注入 `PlayerBattleSnapshot`，面板如实显示。
+//   · 玩家生命 —— 原文没写玩家血量（`09_BOSS战.md:294`），由接线侧注入 `PlayerBattleSnapshot`，面板如实显示。
 //   · 招式可用性 —— `:40`「在招式有足够怒气可以施放时，招式格显示高亮，否则置暗」的**白盒版**：
 //     正式界面用高亮 / 置暗，这里用「✓ 可施放 / ✗ 原因」表达同一件事，判定取 `PlayerBattleRules.CanCast` 与
 //     `PlayerSkillRules.RageCost`。

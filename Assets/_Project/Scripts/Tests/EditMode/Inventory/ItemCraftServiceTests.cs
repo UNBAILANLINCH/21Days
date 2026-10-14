@@ -24,7 +24,7 @@ namespace Game.Tests.EditMode.Inventory
     /// <summary><see cref="ItemCraftService"/> 的 EditMode 测试。</summary>
     public sealed class ItemCraftServiceTests
     {
-        // 与真实 tbitem 对齐的三个 id：水痕 / 湿皮 / 进入废弃官署的钥匙（05_皮面具与道具.md:106 R7）。
+        // 与真实 tbitem 对齐的三个 id：水痕 / 湿皮 / 进入废弃官署的钥匙（05_皮面具与道具.md:113 R7）。
         private const int WaterMark = 1401;
         private const int WetSkin = 1102;
         private const int OfficeKey = 1701;
@@ -82,7 +82,7 @@ namespace Game.Tests.EditMode.Inventory
             Assert.That(result.Product.ItemId, Is.EqualTo(OfficeKey));
             Assert.That(result.Product.Count, Is.EqualTo(1));
             Assert.That(loot.Items[OfficeKey], Is.EqualTo(1), "产物进了背包");
-            Assert.That(loot.Items[WaterMark], Is.EqualTo(1), "占位口径：原料不消失（05:107 R8 未定）");
+            Assert.That(loot.Items[WaterMark], Is.EqualTo(1), "占位口径：原料不消失（05:114 R8 未定）");
             Assert.That(loot.Items[WetSkin], Is.EqualTo(1));
         }
 
@@ -183,7 +183,7 @@ namespace Game.Tests.EditMode.Inventory
             Assert.That(specs[0].ItemId, Is.EqualTo(1004), "占位治疗药水");
             Assert.That(specs[0].EffectId, Is.EqualTo(HealPlayerEffect.PlaceholderEffectId));
 
-            Assert.That(config.ConsumeIngredients, Is.False, "占位默认不扣原料（05:107 R8 未定）");
+            Assert.That(config.ConsumeIngredients, Is.False, "占位默认不扣原料（05:114 R8 未定）");
         }
 
         private ItemCraftService NewService(bool consumeIngredients)

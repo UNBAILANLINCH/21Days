@@ -3,7 +3,7 @@
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:79-84`：
 //   招式 1 普通攻击（伤害原文没给，占位）；招式 2 饮酒 +30 醉酒 / 回 10% 生命 / 下次招式 1 +30%；
 //   招式 3 单次高额伤害（数值原文没给，占位），薄醉时加晕眩 1 回合；权重 6:3:1。
-// 伤害数值与百分比基数等 C91（`docs/design/features-spotlight/09_BOSS战.md:239`）。
+// 伤害数值与百分比基数等 C91（`docs/design/features-spotlight/09_BOSS战.md:294`）。
 
 namespace Game.TurnBased
 {

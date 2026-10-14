@@ -2,7 +2,7 @@
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:48`（招式只能在自己回合使用）、
 // :50/:52/:54（三个招式各自的怒气消耗）、
-// `docs/design/features-spotlight/09_BOSS战.md:198`（晕眩期间不能行动的原文没写 → 等 C91）。
+// `docs/design/features-spotlight/09_BOSS战.md:231`（晕眩期间不能行动的原文没写 → 等 C91）。
 
 namespace Game.TurnBased
 {

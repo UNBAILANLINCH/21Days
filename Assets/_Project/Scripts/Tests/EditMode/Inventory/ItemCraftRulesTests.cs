@@ -13,7 +13,7 @@ namespace Game.Tests.EditMode.Inventory
 {
     public sealed class ItemCraftRulesTests
     {
-        // 与 xlsx 里新增的示例行对齐：1401 水痕、1102 湿皮 → 1701 进入废弃官署的钥匙（05_皮面具与道具.md:106 R7）。
+        // 与 xlsx 里新增的示例行对齐：1401 水痕、1102 湿皮 → 1701 进入废弃官署的钥匙（05_皮面具与道具.md:113 R7）。
         private const int WaterMark = 1401;
         private const int WetSkin = 1102;
         private const int BlankSkin = 1103;

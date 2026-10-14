@@ -51,11 +51,9 @@ namespace Game.Session
         [Header("悬挂卷轴（按槽号排序）")]
         [SerializeField] private Sprite[] normalSprites;
         [SerializeField] private Sprite[] selectedSprites;
-        [SerializeField] private Sprite[] unavailableSprites;
         [SerializeField] private Sprite emptySprite;
         [SerializeField] private Vector2 firstSlotPosition;
         [SerializeField] private float slotSpacing;
-        [SerializeField] private float unavailableTextOffset;
         [SerializeField] private Color selectedTextColor = new Color32(39, 160, 191, 255);
 
         private readonly List<RowEntry> rows = new List<RowEntry>();
@@ -124,6 +122,7 @@ namespace Game.Session
                 SetActive(row.Secondary.gameObject, info.State == SlotState.Available);
                 row.Button.interactable = IsRowSelectable(info.State, mode);
                 SetActive(row.Delete.gameObject, IsDeleteVisible(info.State));
+                if (row.Drag != null) row.Drag.SetAvailable(IsDeleteVisible(info.State));
                 SetActive(row.Root, true);
             }
         }
@@ -192,9 +191,16 @@ namespace Game.Session
                 Delete = t.Find(RowDeleteName).GetComponent<Button>(),
             };
             // 只在建池行时绑一次；之后换内容只改 row.Slot，回调读字段。
-            row.Button.onClick.AddListener(() => OnSlotClicked?.Invoke(row.Slot));
+            row.Button.onClick.AddListener(() =>
+            {
+                if (row.Drag != null && row.Drag.IsHeld) return;
+                if (row.Drag != null && row.Drag.IsRevealed) OnDeleteClicked?.Invoke(row.Slot);
+                else OnSlotClicked?.Invoke(row.Slot);
+            });
             row.Delete.onClick.AddListener(() => OnDeleteClicked?.Invoke(row.Slot));
-            row.Image = go.GetComponent<Image>();
+            row.Image = row.Button.targetGraphic as Image;
+            row.Drag = go.GetComponentInChildren<UIDragReveal>(true);
+            if (row.Drag != null) row.Drag.OnRevealed += () => OnDeleteClicked?.Invoke(row.Slot);
             row.PrimaryPosition = row.Primary.rectTransform.anchoredPosition;
             if (row.Image != null)
                 row.Image.RegisterDirtyVerticesCallback(() => RefreshTextColor(row));
@@ -205,14 +211,14 @@ namespace Game.Session
         {
             int index = info.Slot - 1;
             if (normalSprites == null || index < 0 || index >= normalSprites.Length) return;
-            Image image = row.Root.GetComponent<Image>();
+            Image image = row.Image;
             if (image == null) return;
-            Sprite normal = info.State == SlotState.Empty ? emptySprite :
-                info.State == SlotState.Unavailable ? unavailableSprites[index] : normalSprites[index];
+            Sprite normal = info.State == SlotState.Empty ? emptySprite : normalSprites[index];
             image.sprite = normal;
             image.overrideSprite = null;
             image.SetNativeSize();
             var rect = (RectTransform)row.Root.transform;
+            rect.sizeDelta = image.rectTransform.sizeDelta;
             rect.anchoredPosition = firstSlotPosition + new Vector2(index * slotSpacing, 0f);
             Sprite selected = info.State == SlotState.Available ? selectedSprites[index] : normal;
             row.SelectedSprite = info.State == SlotState.Available ? selected : null;
@@ -222,8 +228,7 @@ namespace Game.Session
                 highlightedSprite = selected, pressedSprite = selected,
                 selectedSprite = selected, disabledSprite = normal,
             };
-            row.Primary.rectTransform.anchoredPosition = row.PrimaryPosition +
-                new Vector2(0f, info.State == SlotState.Unavailable ? -unavailableTextOffset : 0f);
+            row.Primary.rectTransform.anchoredPosition = row.PrimaryPosition;
             RefreshTextColor(row);
         }
 
@@ -254,8 +259,7 @@ namespace Game.Session
 
             if (backButton == null) missing.Add(nameof(backButton));
             if (normalSprites != null && normalSprites.Length > 0 &&
-                (selectedSprites == null || selectedSprites.Length != normalSprites.Length ||
-                 unavailableSprites == null || unavailableSprites.Length != normalSprites.Length || emptySprite == null))
+                (selectedSprites == null || selectedSprites.Length != normalSprites.Length || emptySprite == null))
                 missing.Add("卷轴三态图片数量或空槽图片");
             if (missing.Count > 0)
                 throw new InvalidOperationException("SaveSlotsView 引用未接线：" + string.Join("、", missing));
@@ -264,6 +268,7 @@ namespace Game.Session
         private static TMP_Text FindText(Transform parent, string childName)
         {
             Transform child = parent.Find(childName);
+            if (child == null) child = parent.Find("Paper/" + childName);
             return child == null ? null : child.GetComponent<TMP_Text>();
         }
 
@@ -286,6 +291,7 @@ namespace Game.Session
             public Image Image;
             public Sprite SelectedSprite;
             public Vector2 PrimaryPosition;
+            public UIDragReveal Drag;
         }
     }
 }

@@ -79,6 +79,45 @@ namespace Game.Tests.Showcase.Title
             yield return Check("选中图已应用", () => load.image.overrideSprite == load.spriteState.selectedSprite
                 && load.spriteState.selectedSprite != null);
             yield return Snapshot("选中选择存档");
+
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            var pointer = new UnityEngine.EventSystems.PointerEventData(events);
+            string[] menus = { "SettingsButton", "LoadButton", "ContinueButton", "QuitButton" };
+            foreach (string menu in menus)
+            {
+                Button button = RequireTitleButton(menu);
+                GameObject overlay = button.transform.Find("底部渐变").gameObject;
+                events.SetSelectedGameObject(null);
+                yield return Check(menu + " 普通态保留文字渐变", () => overlay.activeInHierarchy);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(button.gameObject, pointer,
+                    UnityEngine.EventSystems.ExecuteEvents.pointerEnterHandler);
+                yield return Check(menu + " 悬停用原高亮色，不叠白雾", () => !overlay.activeSelf
+                    && button.image.overrideSprite == button.spriteState.highlightedSprite);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(button.gameObject, pointer,
+                    UnityEngine.EventSystems.ExecuteEvents.pointerDownHandler);
+                yield return Check(menu + " 按下也不叠白雾", () => !overlay.activeSelf
+                    && button.image.overrideSprite == button.spriteState.pressedSprite);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(button.gameObject, pointer,
+                    UnityEngine.EventSystems.ExecuteEvents.pointerUpHandler);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(button.gameObject, pointer,
+                    UnityEngine.EventSystems.ExecuteEvents.pointerExitHandler);
+                yield return Check(menu + " 移出但仍被选中时保留原高亮色", () => !overlay.activeSelf
+                    && button.image.overrideSprite == button.spriteState.selectedSprite);
+                title.SetAlternateAppearance(true);
+                title.SetAlternateAppearance(false);
+                yield return Check(menu + " 切换主题后选中状态仍不叠白雾", () => !overlay.activeSelf);
+                yield return new WaitForEndOfFrame();
+                Color selectedUpper = ReadPaperColor(button.image.rectTransform, button.image.rectTransform.rect.height, 0.65f);
+                Color selectedLower = ReadPaperColor(button.image.rectTransform, button.image.rectTransform.rect.height, 0.12f);
+                yield return Check(menu + " 选中纸面保留上青蓝、下黄绿的渐变（"
+                    + ColorUtility.ToHtmlStringRGB(selectedUpper) + " → " + ColorUtility.ToHtmlStringRGB(selectedLower) + "）",
+                    () => selectedUpper.b - selectedLower.b > 0.1f && selectedLower.r - selectedUpper.r > 0.04f);
+                if (menu == "QuitButton") yield return Snapshot("退出选中原始配色");
+                events.SetSelectedGameObject(null);
+                yield return Check(menu + " 取消选中恢复普通态渐变", () => overlay.activeInHierarchy
+                    && button.image.overrideSprite == button.image.sprite);
+            }
+            yield return Snapshot("取消选中恢复文字渐变");
         }
 
         [UnityTest]
@@ -329,6 +368,20 @@ namespace Game.Tests.Showcase.Title
             var left = FindDeep<RectMask2D>(title.transform, "丝带_左_揭露遮罩");
             var right = FindDeep<RectMask2D>(title.transform, "丝带_右_揭露遮罩");
             var start = title.transform.Find("Buttons/StartButton/EntranceArtwork").GetComponent<CanvasGroup>();
+            var loadPaper = (RectTransform)title.transform.Find("Buttons/LoadButton/EntranceArtwork/卷轴底");
+            var continuePaper = (RectTransform)title.transform.Find("Buttons/ContinueButton/EntranceArtwork/卷轴底");
+            var settingsPaper = (RectTransform)title.transform.Find("Buttons/SettingsButton/EntranceArtwork/卷轴底");
+            var quitPaper = (RectTransform)title.transform.Find("Buttons/QuitButton/EntranceArtwork/卷轴底");
+            Vector2 loadTop = loadPaper.anchoredPosition;
+            float loadHeight = loadPaper.GetComponent<Image>().sprite.rect.height;
+            float visibleHeightForLoad = RequireTitleButton("LoadButton").image.sprite.rect.height;
+            var loadText = loadPaper.Find("文字").GetComponent<CanvasGroup>();
+            var leftStone = FindDeep<Image>(title.transform, "石头_左中景").rectTransform;
+            var rightStone = FindDeep<Image>(title.transform, "石头_右中景").rectTransform;
+            var leftOuter = FindDeep<Image>(title.transform, "石头_左远景").rectTransform;
+            var rightOuter = FindDeep<Image>(title.transform, "石头_右前景").rectTransform;
+            var leftFog = FindDeep<Image>(title.transform, "雾气_左").GetComponent<CanvasGroup>();
+            var whiteCloud = FindDeep<Image>(title.transform, "云_右").GetComponent<CanvasGroup>();
 
             yield return Step("水面先升，镜子带旋转缓缓落下", hold: 0f);
             yield return WaitUntil("天空已经显露且铜镜可见", () => title.GetComponent<CanvasGroup>().alpha > 0.95f
@@ -336,29 +389,151 @@ namespace Game.Tests.Showcase.Title
             yield return Check("入场中按钮不可操作，镜子尚在下落且开始按钮未出现", () => motion.IsRunning
                 && !RequireTitleButton("StartButton").IsInteractable()
                 && mirror.rectTransform.anchoredPosition.y > 50f && start.alpha < 0.01f, 1f);
+            yield return Check("四块石头保持原尺寸，中景从外侧向镜子靠近", () =>
+                FindDeep<Image>(title.transform, "石头_左中景").rectTransform.localScale == Vector3.one
+                && FindDeep<Image>(title.transform, "石头_右中景").rectTransform.localScale == Vector3.one
+                && FindDeep<Image>(title.transform, "石头_左远景").rectTransform.localScale == Vector3.one
+                && FindDeep<Image>(title.transform, "石头_右前景").rectTransform.localScale == Vector3.one
+                && leftStone.anchoredPosition.x < -254f && rightStone.anchoredPosition.x > 257f);
             yield return Snapshot("水升镜落");
+
+            yield return Step("中景石头向内收拢，云雾沿整段动作淡入", hold: 0f);
+            yield return WaitUntil("石头尚在靠近镜子，雾气没有提前变为不透明", () =>
+                leftStone.anchoredPosition.x < -254f && rightStone.anchoredPosition.x > 257f
+                && leftFog.alpha > 0.1f && leftFog.alpha < 0.85f, 2f);
+            yield return Snapshot("石头收拢与云雾淡入");
 
             yield return Step("标题紧随其后，莲花纹从镜后舒展开", hold: 0f);
             yield return WaitUntil("标题可见，莲花纹已经展开", () => logo.GetComponent<CanvasGroup>().alpha > 0.9f
                 && lotus.rectTransform.localScale.x > 0.6f, 5f);
+            yield return Check("外围石头从左右画面外滑入，尚在移动与淡入", () =>
+                leftOuter.anchoredPosition.x < -849.5f && rightOuter.anchoredPosition.x > 1049f
+                && Mathf.Abs(leftOuter.anchoredPosition.y + 151f) < 0.1f
+                && Mathf.Abs(rightOuter.anchoredPosition.y + 202.5f) < 0.1f
+                && leftOuter.GetComponent<CanvasGroup>().alpha > 0.1f
+                && leftOuter.GetComponent<CanvasGroup>().alpha < 0.95f
+                && rightOuter.GetComponent<CanvasGroup>().alpha > 0.1f
+                && rightOuter.GetComponent<CanvasGroup>().alpha < 0.95f);
             yield return Snapshot("标题与云石展开");
 
             yield return Step("左右丝带按相反方向揭露", hold: 0f);
             yield return WaitUntil("左右遮罩均揭露一部分但未全部揭开", () =>
                 left.padding.z > 1f && left.padding.z < left.rectTransform.rect.width * 0.45f
                 && right.padding.x > 1f && right.padding.x < right.rectTransform.rect.width * 0.45f, 4f);
+            yield return Check("镜旁白色云纹仍在缓慢淡入，没有随移动结束直接变实", () => whiteCloud.alpha > 0.2f
+                && whiteCloud.alpha < 0.6f);
             yield return Snapshot("丝带揭露");
 
-            yield return Step("卷轴砸下回弹，随后显示选项花纹与文字", hold: 0f);
-            var text = title.transform.Find("Buttons/SettingsButton/EntranceArtwork/文字").GetComponent<CanvasGroup>();
+            // 临时存档为空时正式继续按钮隐藏；回放完整四卷轴，仍使用真实时间轴。
+            title.SetContinueVisible(true);
+            yield return Step("中间两张卷轴先向下展开，外侧随后跟上", hold: 0f);
+            yield return WaitUntil("中间已经展开，外侧纸面尚未出现", () =>
+                loadPaper.GetComponent<CanvasGroup>().alpha > 0.8f
+                && continuePaper.GetComponent<CanvasGroup>().alpha > 0.15f
+                && settingsPaper.GetComponent<CanvasGroup>().alpha < 0.01f
+                && quitPaper.GetComponent<CanvasGroup>().alpha < 0.01f, 2f);
+            yield return Check("纸面顶部和宽度固定，填充同步展开，文字还未出现", () => loadPaper.anchoredPosition == loadTop
+                && loadPaper.localScale == Vector3.one && loadText.alpha < 0.01f
+                && loadPaper.GetComponent<Image>().type == Image.Type.Sliced);
+            yield return Snapshot("中间卷轴先开");
+            // 顶部回放提示条高 78 像素，采样区必须先移到提示条以下。
+            yield return WaitUntil("文字出现前，纸面渐变已展开到提示条下方", () =>
+                loadPaper.sizeDelta.y > loadHeight - visibleHeightForLoad + 210f && loadText.alpha < 0.01f, 1f);
+            yield return new WaitForEndOfFrame();
+            Color earlyBottom = ReadPaperColor(loadPaper, 1f, 35f);
+            Color earlyUpper = ReadPaperColor(loadPaper, 1f, 105f);
+            yield return Check("横轴上方的白色渐变在文字出现前已跟随展开（底部 "
+                + ColorUtility.ToHtmlStringRGB(earlyBottom) + "，上方 " + ColorUtility.ToHtmlStringRGB(earlyUpper) + "）",
+                () => earlyBottom.r - earlyUpper.r > 0.05f);
+            yield return Snapshot("纸面内部渐变随卷轴展开");
+            yield return Step("卷轴下沿展开稍过，再被轻轻扯回", hold: 0f);
+            yield return WaitUntil("纸面下沿略过最终长度", () => loadPaper.sizeDelta.y > loadHeight * 1.02f, 2f);
+            yield return Snapshot("卷轴展开过冲");
+            yield return WaitUntil("纸面发生一次回拉，顶部仍固定", () =>
+                loadPaper.sizeDelta.y < loadHeight * 0.965f && loadPaper.anchoredPosition == loadTop, 1f);
+            yield return Snapshot("卷轴轻轻回拉");
+            yield return Step("纸面展开后半段，花纹和文字依次显现", hold: 0f);
+            var text = settingsPaper.Find("文字").GetComponent<CanvasGroup>();
             yield return WaitUntil("设置文字已经出现，开始按钮仍在等末拍", () => text.alpha > 0.7f && start.alpha < 0.5f, 4f);
             yield return Snapshot("卷轴文字落定");
+            // 参数跟随不能证明最终填充已出现，直接比结束切图前后的画面颜色。
+            float visiblePaperHeight = RequireTitleButton("ContinueButton").image.sprite.rect.height;
+            yield return new WaitForEndOfFrame();
+            Color fillBefore = ReadPaperColor(continuePaper, visiblePaperHeight);
+            Color bottomBefore = ReadPaperColor(continuePaper, visiblePaperHeight, 0.09f);
 
             yield return Step("开始按钮最后浮现，交还菜单操作", hold: 0f);
             yield return WaitUntil("全部入场完成，开始按钮可操作", () => !motion.IsRunning
                 && start.alpha > 0.99f && RequireTitleButton("StartButton").IsInteractable(), 5f);
             yield return Snapshot("入场完成");
+            yield return Check("外围石头回到原位置、原尺寸与完整透明度", () =>
+                Mathf.Abs(leftOuter.anchoredPosition.x + 849.5f) < 0.1f
+                && Mathf.Abs(rightOuter.anchoredPosition.x - 1049f) < 0.1f
+                && leftOuter.localScale == Vector3.one && rightOuter.localScale == Vector3.one
+                && leftOuter.GetComponent<CanvasGroup>().alpha == 1f
+                && rightOuter.GetComponent<CanvasGroup>().alpha == 1f);
+            yield return new WaitForEndOfFrame();
+            Color fillAfter = ReadPaperColor(continuePaper, visiblePaperHeight);
+            Color bottomAfter = ReadPaperColor(continuePaper, visiblePaperHeight, 0.09f);
+            yield return Check("整张浅色填充提前出现，结束换图不跳色（" + ColorUtility.ToHtmlStringRGB(fillBefore)
+                + " → " + ColorUtility.ToHtmlStringRGB(fillAfter) + "）", () => fillBefore.r > 0.4f
+                && Mathf.Abs(fillBefore.r - fillAfter.r) < 0.04f
+                && Mathf.Abs(fillBefore.g - fillAfter.g) < 0.04f
+                && Mathf.Abs(fillBefore.b - fillAfter.b) < 0.04f);
+            yield return Check("底部白色渐变保留，结束换图也不跳色（" + ColorUtility.ToHtmlStringRGB(bottomBefore)
+                + " → " + ColorUtility.ToHtmlStringRGB(bottomAfter) + "）", () => bottomBefore.r > fillBefore.r
+                && Mathf.Abs(bottomBefore.r - bottomAfter.r) < 0.04f
+                && Mathf.Abs(bottomBefore.g - bottomAfter.g) < 0.04f
+                && Mathf.Abs(bottomBefore.b - bottomAfter.b) < 0.04f);
             yield return Check("原按钮的选中图继续有效", () => RequireTitleButton("LoadButton").spriteState.selectedSprite != null);
+            string[] menuNames = { "SettingsButton", "LoadButton", "ContinueButton", "QuitButton" };
+            yield return new WaitForEndOfFrame();
+            Texture2D covered = ScreenCapture.CaptureScreenshotAsTexture();
+            foreach (string menu in menuNames) title.transform.Find("Buttons/" + menu + "/底部渐变").gameObject.SetActive(false);
+            yield return new WaitForEndOfFrame();
+            Texture2D uncovered = ScreenCapture.CaptureScreenshotAsTexture();
+            foreach (string menu in menuNames) title.transform.Find("Buttons/" + menu + "/底部渐变").gameObject.SetActive(true);
+            try
+            {
+                foreach (string menu in menuNames)
+                {
+                    var textRect = (RectTransform)title.transform.Find("Buttons/" + menu + "/EntranceArtwork/卷轴底/文字");
+                    int changed = CountBrightenedShadows(textRect, covered, uncovered);
+                    yield return Check(menu + " 的渐变确实盖在文字阴影上（" + changed + " 像素）", () => changed > 10);
+                }
+            }
+            finally { Object.Destroy(covered); Object.Destroy(uncovered); }
+            yield return Snapshot("四卷轴渐变覆盖文字");
+        }
+
+        private static int CountBrightenedShadows(RectTransform text, Texture2D covered, Texture2D uncovered)
+        {
+            Canvas canvas = text.GetComponentInParent<Canvas>();
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            var corners = new Vector3[4];
+            text.GetWorldCorners(corners);
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+            Vector2 max = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            int changed = 0;
+            for (int y = Mathf.Max(0, Mathf.CeilToInt(min.y)); y < Mathf.Min(uncovered.height, max.y); y++)
+                for (int x = Mathf.Max(0, Mathf.CeilToInt(min.x)); x < Mathf.Min(uncovered.width, max.x); x++)
+                {
+                    Color before = uncovered.GetPixel(x, y);
+                    if (before.r < 0.4f && covered.GetPixel(x, y).r - before.r > 0.03f) changed++;
+                }
+            return changed;
+        }
+
+        private static Color ReadPaperColor(RectTransform paper, float visibleHeight, float heightFraction = 0.7f)
+        {
+            Canvas canvas = paper.GetComponentInParent<Canvas>();
+            Vector3 point = paper.TransformPoint(new Vector3(paper.rect.xMin + paper.rect.width * 0.2f,
+                paper.rect.yMin + visibleHeight * heightFraction, 0f));
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(canvas.renderMode == RenderMode.ScreenSpaceOverlay
+                ? null : canvas.worldCamera, point);
+            Texture2D frame = ScreenCapture.CaptureScreenshotAsTexture();
+            try { return frame.GetPixel(Mathf.RoundToInt(screen.x), Mathf.RoundToInt(screen.y)); }
+            finally { Object.Destroy(frame); }
         }
     }
 }

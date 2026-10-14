@@ -1,0 +1,4 @@
+Game.Editor.TitleEntranceBuilder.Build();
+var config = UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var root = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+return new { tracks = config.Tracks.Length, images = root.GetComponentsInChildren<UnityEngine.UI.Image>(true).Length, masks = root.GetComponentsInChildren<UnityEngine.UI.RectMask2D>(true).Length, scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path };

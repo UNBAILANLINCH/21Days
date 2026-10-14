@@ -1,0 +1,11 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("仍在播放");
+var root=UnityEditor.PrefabUtility.LoadPrefabContents("Assets/_Project/Prefabs/UI/TitleView.prefab");
+try {
+ var parent=(UnityEngine.RectTransform)root.transform.Find("EntranceScene/Artwork1920");
+ if(parent.Find("PaperBackdrop")!=null)throw new System.InvalidOperationException("白底已经存在");
+ var go=new UnityEngine.GameObject("PaperBackdrop",typeof(UnityEngine.RectTransform),typeof(UnityEngine.UI.Image));
+ go.layer=parent.gameObject.layer;var rect=(UnityEngine.RectTransform)go.transform;rect.SetParent(parent,false);rect.SetAsFirstSibling();
+ rect.anchorMin=rect.anchorMax=rect.pivot=UnityEngine.Vector2.one*0.5f;rect.anchoredPosition=UnityEngine.Vector2.zero;rect.sizeDelta=parent.sizeDelta;
+ var image=go.GetComponent<UnityEngine.UI.Image>();image.color=UnityEngine.Color.white;image.raycastTarget=false;
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,"Assets/_Project/Prefabs/UI/TitleView.prefab");return "原画白色底板已还原";
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

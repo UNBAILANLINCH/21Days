@@ -1,0 +1,15 @@
+var gameType = System.Type.GetType("UnityEditor.GameView,UnityEditor");
+var game = UnityEditor.EditorWindow.GetWindow(gameType);
+var property = gameType.GetProperty("selectedSizeIndex", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+var sizesType = System.Type.GetType("UnityEditor.GameViewSizes,UnityEditor");
+var sizes = sizesType.BaseType.GetProperty("instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).GetValue(null, null);
+var groupType = System.Type.GetType("UnityEditor.GameViewSizeGroupType,UnityEditor");
+var group = sizesType.GetMethod("GetGroup").Invoke(sizes, new object[] { System.Enum.Parse(groupType, "Standalone") });
+var count = (int)group.GetType().GetMethod("GetBuiltinCount").Invoke(group, null) + (int)group.GetType().GetMethod("GetCustomCount").Invoke(group, null);
+var items = new System.Collections.Generic.List<object>();
+for (int i = 0; i < count; i++) {
+    var size = group.GetType().GetMethod("GetGameViewSize").Invoke(group, new object[] { i });
+    var t = size.GetType();
+    items.Add(new { index = i, width = t.GetProperty("width").GetValue(size,null), height = t.GetProperty("height").GetValue(size,null), text = t.GetProperty("baseText").GetValue(size,null) });
+}
+return new { selected = property.GetValue(game,null), sizes = items, playing = UnityEditor.EditorApplication.isPlaying };

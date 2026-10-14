@@ -1,0 +1,12 @@
+var rows = new System.Collections.Generic.List<object>();
+foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:TMP_FontAsset", new string[] { "Assets/_Project/Art/Fonts" }))
+{
+    string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+    var font = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(path);
+    if (font == null) continue;
+    var atlases = new System.Collections.Generic.List<object>();
+    for (int i = 0; i < font.atlasTextures.Length; i++)
+        atlases.Add(new { index = i, missing = font.atlasTextures[i] == null, width = font.atlasTextures[i] == null ? 0 : font.atlasTextures[i].width });
+    rows.Add(new { path = path, glyphs = font.glyphTable.Count, characters = font.characterTable.Count, atlasIndex = font.atlasTextureCount, atlases = atlases });
+}
+return rows;

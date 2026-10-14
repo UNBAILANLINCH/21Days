@@ -1,0 +1,12 @@
+if(UnityEditor.EditorApplication.isPlaying) return new { playing=true };
+bool rejected=false;
+try { Game.Editor.TitleEntranceBuilder.Build(); } catch(System.InvalidOperationException) { rejected=true; }
+if(!rejected) throw new System.Exception("重复构建没有被阻止");
+var root=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+int missing=0;
+foreach(var transform in root.GetComponentsInChildren<UnityEngine.Transform>(true)) missing+=UnityEditor.GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(transform.gameObject);
+var motion=root.GetComponent<Game.Core.UI.TitleEntranceMotion>();var data=new UnityEditor.SerializedObject(motion);
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+int references=data.FindProperty("targets").arraySize;
+if(missing!=0||references!=config.Tracks.Length) throw new System.Exception("脚本或轨道引用校验失败");
+return new { playing=false,missingScripts=missing,tracks=references,rebuildRejected=rejected,scene=UnityEngine.SceneManagement.SceneManager.GetActiveScene().path,sceneDirty=UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty };

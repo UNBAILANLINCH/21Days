@@ -232,7 +232,12 @@ namespace Game.Session
         {
             if (FindInfo(slot).State != SlotState.Available) return;
             bool confirmed = await ConfirmAsync("删除存档 " + slot + "？此操作无法撤销。", DeleteConfirmText);
-            if (!confirmed || !IsOpen) return;
+            if (!IsOpen) return;
+            if (!confirmed)
+            {
+                if (view != null) view.Bind(infos, mode);
+                return;
+            }
 
             await session.DeleteSlotAsync(slot);
             telemetry.Track("slot_deleted", ("slot", slot));

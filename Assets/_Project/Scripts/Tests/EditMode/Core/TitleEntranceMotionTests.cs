@@ -5,6 +5,7 @@ using System.Reflection;
 using Game.Core.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Tests.EditMode.Core
 {
@@ -49,6 +50,25 @@ namespace Game.Tests.EditMode.Core
             Assert.That(root.GetComponent<CanvasGroup>().interactable, Is.False);
             motion.SetAlternate(true);
             AssertRestored();
+        }
+
+        [Test]
+        public void VerticalUnroll_KeepsWidthAndTopFixedAndRestoresHeightWhenCanceled()
+        {
+            part.pivot = new Vector2(0.5f, 1f);
+            part.sizeDelta = new Vector2(200f, 400f);
+            part.gameObject.AddComponent<RectMask2D>();
+            var track = config.Tracks[0];
+            Set(track, "unrollVertical", true);
+            Set(track, "scale", 0.06f); Set(track, "offset", Vector2.zero); Set(track, "rotation", 0f);
+            motion.Begin();
+            Assert.That(part.sizeDelta.x, Is.EqualTo(200f));
+            Assert.That(part.sizeDelta.y, Is.EqualTo(24f).Within(0.01f));
+            Assert.That(part.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(part.anchoredPosition, Is.EqualTo(rest), "顶部不得跟随整幅下落");
+            Assert.That(part.GetComponent<RectMask2D>().padding, Is.EqualTo(Vector4.zero), "纸面遮罩不应按丝带横向揭露");
+            motion.SetAlternate(true);
+            Assert.That(part.sizeDelta, Is.EqualTo(new Vector2(200f, 400f)));
         }
 
         [Test]

@@ -14,7 +14,7 @@ namespace Game.Identity
     /// 接线时挂到组合根（与 <c>SessionInstaller</c> 的做法一致，见 docs/developer-guide.md）。
     /// <para>
     /// <b>默认资产里所有数值都是占位</b>：聚光灯 01 / 02 只写了规则形状，数值与阈值整批待策划拍板
-    /// （<c>docs/design/features-spotlight/00_功能总览.md:373-390</c> §8.1）。
+    /// （<c>docs/design/features-spotlight/00_功能总览.md:404-421</c> §8.1）。
     /// 每个字段的出处与待拍板编号写在 <see cref="IdentitySettings"/> 的字段注释里。
     /// </para>
     /// </summary>

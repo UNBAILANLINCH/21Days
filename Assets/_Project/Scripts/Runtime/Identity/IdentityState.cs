@@ -15,7 +15,7 @@ namespace Game.Identity
     /// 身份状态。逻辑上只有两种身份位：<b>本体</b>（<see cref="Current"/> 为 <see cref="IdentityId.None"/>）
     /// 与<b>借来的身份</b>。
     /// <para>
-    /// <b>「生效中」是这里的核心口径</b>：写法照 <c>docs/design/features-spotlight/00_功能总览.md:225</c>
+    /// <b>「生效中」是这里的核心口径</b>：写法照 <c>docs/design/features-spotlight/00_功能总览.md:253</c>
     /// 术语表（本系列不使用「穿皮」，用皮 / 面具时照原文写「使用」「持有」「生效中」）
     /// 与 <c>01_换皮与附身.md:21</c>。本类严格区分两件事：
     /// <list type="bullet">
@@ -136,9 +136,9 @@ namespace Game.Identity
         /// <b>不清</b>：
         /// <list type="bullet">
         /// <item><see cref="Exposed"/>——字典 §4.1 只写「露馅判定命中时写」，没给清理时机，固按不清处理；</item>
-        /// <item>账簿——`01_换皮与附身.md:192`（身份要跨阶段保留，所以「持有过哪些身份」需要进存档）；</item>
+        /// <item>账簿——`01_换皮与附身.md:195`（身份要跨阶段保留，所以「持有过哪些身份」需要进存档）；</item>
         /// <item>怀疑度——`02_身份暴露与怀疑.md:127` R26（换场景是否保留原文没写，暂按不清 [推断]）；</item>
-        /// <item>记忆——字典 §4.1 写明「不清（跨阶段）」，与 `01_换皮与附身.md:134` R14 的「继承记忆」一致。</item>
+        /// <item>记忆——字典 §4.1 写明「不清（跨阶段）」，与 `01_换皮与附身.md:137` R14 的「继承记忆」一致。</item>
         /// </list>
         /// </summary>
         public void ResetForNewStage()

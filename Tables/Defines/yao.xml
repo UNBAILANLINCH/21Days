@@ -17,16 +17,16 @@
                            features-spotlight/05_皮面具与道具.md（R2 击杀 / 暗杀掉落，道具总表 3.5）。
        皮面具（未做）    mask
                          → 聚光灯的皮 / 面具靠附身、击杀暗杀掉落或剥脸取得，不再要求先收押
-                           （features-spotlight/00_功能总览.md:356、05_皮面具与道具.md R1 / R2）；本列当前无读者。
+                           （features-spotlight/00_功能总览.md:387、05_皮面具与道具.md R1 / R2）；本列当前无读者。
        旧版遗留列（聚光灯不做，当前无读者，保留备查）
                          flaw / obsession：旧版 docs/design/features/13_妖的化形与破绽.md 的破绽与执念；
-                           features-spotlight/00_功能总览.md:354 一带判聚光灯无对应物（聚光灯的调查与线索
+                           features-spotlight/00_功能总览.md:385 一带判聚光灯无对应物（聚光灯的调查与线索
                            走文书「对不上」，见 features-spotlight/12_调查与线索.md）。将来真接调查面板时再定谁读。
                          clan：旧版 docs/design/features/07_两界之账.md 的族属记账；聚光灯无对应——
-                           features-spotlight/00_功能总览.md:357 写明聚光灯阶段3 的「账簿」记的是玩家用过的身份，
+                           features-spotlight/00_功能总览.md:388 写明聚光灯阶段3 的「账簿」记的是玩家用过的身份，
                            同名不同物。
                          sealable：旧版 docs/design/features/04_收押.md 的收押前提；聚光灯无对应——
-                           features-spotlight/00_功能总览.md:354 写明聚光灯的「收押」只是剧情结局，不是玩法机制。
+                           features-spotlight/00_功能总览.md:385 写明聚光灯的「收押」只是剧情结局，不是玩法机制。
      本次只把列读通（YaoCatalog 只读查询），不实现收押 / 画皮 / 账簿 / 调查界面的任何业务逻辑。 -->
 <module name="yao">
     <bean name="Yao" comment="一只妖，也是这只妖在怪物分层里的种类">

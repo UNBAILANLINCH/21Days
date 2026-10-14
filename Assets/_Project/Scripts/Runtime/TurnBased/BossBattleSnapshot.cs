@@ -4,7 +4,7 @@
 // 而战斗外的醉酒（酒肆里灌酒）属于关卡 / 怪物模块；本模块只接收这个数，不去读它们的实现。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:66`；生命数值原文没写
-// （`docs/design/features-spotlight/09_BOSS战.md:239`），由外部注入。
+// （`docs/design/features-spotlight/09_BOSS战.md:294`），由外部注入。
 
 namespace Game.TurnBased
 {

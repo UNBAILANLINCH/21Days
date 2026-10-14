@@ -3,7 +3,7 @@
 // 为什么用快照：本模块是纯规则内核，不引用 `Runtime/Player/`（并行任务目录）。
 // 玩家生命上限与当前生命由接线侧从 PlayerConfig / 玩家状态翻译进来。
 //
-// 出处：玩家血量原文没写（`docs/design/features-spotlight/09_BOSS战.md:239`「血量、伤害数值……原文都没写」），
+// 出处：玩家血量原文没写（`docs/design/features-spotlight/09_BOSS战.md:294`「血量、伤害数值……原文都没写」），
 // 等 C91；本模块不设占位血量，一律由外部注入。
 
 namespace Game.TurnBased

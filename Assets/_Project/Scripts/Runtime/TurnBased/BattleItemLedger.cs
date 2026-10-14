@@ -4,7 +4,7 @@
 // 把它放在会话里会让会话同时管账本与回合，测试也得先跑半个回合才能验一条道具规则。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:42`（用过了则置暗；在之前战斗时用过了则不显示）、
-// :58（施放招式之前用道具）；转写：`docs/design/features-spotlight/09_BOSS战.md:193`（R45）。
+// :58（施放招式之前用道具）；转写：`docs/design/features-spotlight/09_BOSS战.md:226`（R45）。
 
 using System.Collections.Generic;
 

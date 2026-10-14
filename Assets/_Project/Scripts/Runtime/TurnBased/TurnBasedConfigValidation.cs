@@ -3,7 +3,7 @@
 // 好处是配置校验的测试不必碰 ScriptableObject；另外配置文件本身只该管「字段 + 取值」。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:70-84`（四档区间与 6:3:1 权重是硬约束）、
-// `docs/design/features-spotlight/待策划拍板问题.md:1256` C91（数值待拍板，但内部一致性必须成立）。
+// `docs/design/features-spotlight/待策划拍板问题.md:1293` C91（数值待拍板，但内部一致性必须成立）。
 
 namespace Game.TurnBased
 {

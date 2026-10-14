@@ -1,7 +1,7 @@
 // 职责：TurnBasedConfig 的校验逻辑测试——默认占位配置必须自洽，坏配置必须逐条点名拒绝。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:70-84`（四档区间与 6:3:1 是硬约束）；
-// 数值本身等 `待策划拍板问题.md:1256` C91，但内部一致性现在就得成立。
+// 数值本身等 `待策划拍板问题.md:1293` C91，但内部一致性现在就得成立。
 
 using Game.TurnBased;
 using NUnit.Framework;

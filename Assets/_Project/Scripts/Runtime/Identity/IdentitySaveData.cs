@@ -18,7 +18,7 @@ namespace Game.Identity
     /// （见 <see cref="IdentityFactSnapshot"/>），每次查询现算，不进存档——否则「档位键」会出现
     /// 三档同时为真这类没法自证的状态。
     /// <para>
-    /// 跨阶段保留的依据：`docs/design/features-spotlight/01_换皮与附身.md:192`（身份要跨阶段保留（R18），
+    /// 跨阶段保留的依据：`docs/design/features-spotlight/01_换皮与附身.md:195`（身份要跨阶段保留（R18），
     /// 所以「持有过哪些身份」需要进存档）；记忆不清的依据见
     /// `ai-docs/docs/story-facts.md` §4.1 的 <c>identity.memory</c> 行与 §6 第 3 条。
     /// </para>

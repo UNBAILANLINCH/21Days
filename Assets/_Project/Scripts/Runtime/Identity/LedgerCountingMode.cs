@@ -8,7 +8,7 @@ namespace Game.Identity
     /// 账簿超量判定的计量口径。原文两说、待策划拍板：
     /// <c>docs/design/features-spotlight/02_身份暴露与怀疑.md:114-115</c>（R16/R17：
     /// 「一定数量」是多少、数的是不同身份个数还是行动次数，原文都没写），
-    /// 阻塞项见 <c>docs/design/features-spotlight/00_功能总览.md:387</c>（§8.1 #9）。
+    /// 阻塞项见 <c>docs/design/features-spotlight/00_功能总览.md:418</c>（§8.1 #9）。
     /// </summary>
     public enum LedgerCountingMode
     {

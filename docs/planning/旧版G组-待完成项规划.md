@@ -86,7 +86,7 @@
 | B9 | 「怎么杀」列：聚光灯表头是「可否击杀 / **怎么杀**」（`06_怪物分层.md:130`），现表只有 `killable` 一个 bool，**「用什么手段杀」没有落点** | Tables + `Runtime/Mirror/` | S–M | 无（真源已够） | **完成（Q0）**：加 `defeat_method` 列，白名单五值 `可击杀（方式没写）/ 暗杀 / 特殊条件 / 需收服 / 不可杀`，**每值附真源行号**（`06:132/154/156/169/180/183/184`、`03:36/38/39/43/46/47`、`06:159/185/187` 等）；`killable` 与本列分工写死在 `yao.xml:45-46`；`YaoCatalog` 加 `DefeatMethodOf` + `ValidateDefeatMethod`；`YaoTableTests` 16→24 条。**主窗口亲取 job `3a8706b30b6c4734830c06715e1efba0` 核对：`total 158 / passed 158 / failed 0 / skipped 0`（2.31s，succeeded）** |
 | B13 | ~~`YaoCatalog.Invalidate()` 与构造后 `IsReady` 会遍历全表校验 tier~~ | 与 B9 合并 | — | — | **已并入 B9 完成**：tier 与 defeat_method 两张白名单的校验收成「只做一次」 |
 | B13 | ~~重复行占位（2026-10-07 清理，B13 实体见上一条）~~ | — | — | — | — |
-| B11 | **`mask` 列的语义在换目标后已经变了，却没有新定义**：它按旧版语义是「收押后才能制面具」（`04_收押.md`），而聚光灯不再要求先收押（`features-spotlight/00:356`）。现在这一列**既没有新读者、也没有新定义**，属「保留备查」；真正落地 S5 时要**要么改语义、要么删列** | Tables（S5 的 PRP 内） | S | S5 PRP | 未开始 |
+| B11 | **`mask` 列的语义在换目标后已经变了，却没有新定义**：它按旧版语义是「收押后才能制面具」（`04_收押.md`），而聚光灯不再要求先收押（`features-spotlight/00:387`）。现在这一列**既没有新读者、也没有新定义**，属「保留备查」；真正落地 S5 时要**要么改语义、要么删列** | Tables（S5 的 PRP 内） | S | S5 PRP | 未开始 |
 | B12 | **按种类配数值**：步 1 的最后一段。`MonsterConfig` 是 17 字段的 SO、全体共用（`MonsterConfig.cs:9-25`），要拆成「种类 → 数值」需先定「哪些字段按种类、哪些全局」 | Monster + Tables | M–L | 聚光灯 §8.1 #1 | 未开始 |
 | B10 | **模块文档行号系统性漂移**：原以为只有两处（`dialogue-module-guide.md:192` 的 `DialogueController.cs:31`、`performance-module-guide.md:135` 的 `PerformanceService.cs:42`），**全量扫完实际是 32 处** —— dialogue guide 54 处引用里 **27 处错**、dialogue external-api 6 处里 **2 处错**、performance guide 13 处里 **3 处错** | ai-docs 模块文档 | M | 无 | **完成（Q2）**：`2053971f` 全量扫 73 处引用（去重 66 个锚点）并逐处修正，**每处都附「新行号处的代码原文」作为证据**。**主窗口抽验 4 处为真**（`DialogueController.cs:42` = `ChoiceRefreshInterval`、`DialogueService.cs:130` = `playback.ResetForDialogue();`、`PerformanceService.cs:59` = `InputMap = "Dialogue"`、旧引用无残留） |
 | B15 | **文档与代码同步的机制缺口**：B10 那 32 处漂移「不像单点笔误，像文档写完后代码又被改过一轮且文档没同步」。现在没有任何机制在代码行号变动时提示文档引用失效 | `.claude/skills/evolution/invariants.py` 第 10 条，由 `/gc` 触发 | M | 无 | **完成（Q2）**：`06cf5919` 加 `check_doc_code_refs`（+251 行）+ 同层 SKILL.md 加一行说明。**主窗口复核载体三要素齐全**（执行载体 `/gc`、状态锚点带具体复现步骤、退场条件含「连续两次误报就删掉那条、不加白名单」）。**误报率诚实**：已对齐的三份文档 74 处 **0 命中**；弃掉的两个信号各 17 / 20 处**全误报**，如实报告。**覆盖率如实交代**：364 处引用里只有 55 处（15%）受「成员断言」那条信号管。耗时 0.216 s（占 `/gc` 的 0.7%）。主窗口另补 `gc_scan.py:19` 的枚举（原缺这项） |
@@ -110,19 +110,19 @@
 | S8 小游戏 | 步 4；§8.1 #1 #8 | 同上 | `roadmap.md:285` |
 | S7 BOSS 战 | 步 5 / 步 8；§8.1 #1 #7 | 同上 | `roadmap.md:284` |
 
-**总前置**：策划先拍 `features-spotlight/00 §8.1` 第 1–6 条，首要是「阶段一用 sp02 五个附身场景 / sp03 坊市暗杀场景 / 拼」（`features-spotlight/00:394`、`roadmap.md:336`）。
+**总前置**：策划先拍 `features-spotlight/00 §8.1` 第 1–6 条，首要是「阶段一用 sp02 五个附身场景 / sp03 坊市暗杀场景 / 拼」（`features-spotlight/00:425`、`roadmap.md:336`）。
 
 ### 1.3 已作废项（只留档，不再派单）
 
 | 项 | 作废理由 | 留档位置 |
 | --- | --- | --- |
-| [04] 收押玩法 | 聚光灯「收押」只是剧情结局；户绝民「收服」、老吏「制服」都不是收押 | `features-spotlight/00:354`、`:98` |
-| [05] 归还与扣押 | 聚光灯未提及 | `features-spotlight/00:355` |
-| [07] 两界之账 | 同名不同物：聚光灯阶段 3「账簿」记的是用过的身份 | `features-spotlight/00:357` |
-| [09] 镜中窥探 | 聚光灯的镜中妖界是可走动战斗的地图 | `features-spotlight/00:359` |
-| [11] 三结局硬分支 | 聚光灯只有一个结局「结案」 | `features-spotlight/00:361` |
-| [12] 断其去处 | 「轮回」只在剧情出现 | `features-spotlight/00:362` |
-| [01] 通灵视、[02] 照镜辨形、[03] 镜之耐久与镜碎 | 聚光灯镜不是核心交互，只在阶段九出现一次 | `features-spotlight/00:351-353`；`roadmap.md:168` |
+| [04] 收押玩法 | 聚光灯「收押」只是剧情结局；户绝民「收服」、老吏「制服」都不是收押 | `features-spotlight/00:385`、`:104` |
+| [05] 归还与扣押 | 聚光灯未提及 | `features-spotlight/00:386` |
+| [07] 两界之账 | 同名不同物：聚光灯阶段 3「账簿」记的是用过的身份 | `features-spotlight/00:388` |
+| [09] 镜中窥探 | 聚光灯的镜中妖界是可走动战斗的地图 | `features-spotlight/00:390` |
+| [11] 三结局硬分支 | 聚光灯只有一个结局「结案」 | `features-spotlight/00:392` |
+| [12] 断其去处 | 「轮回」只在剧情出现 | `features-spotlight/00:393` |
+| [01] 通灵视、[02] 照镜辨形、[03] 镜之耐久与镜碎 | 聚光灯镜不是核心交互，只在阶段九出现一次 | `features-spotlight/00:382-384`；`roadmap.md:168` |
 
 ---
 
@@ -258,13 +258,13 @@
 | 2026-10-07 | — | 用户拍板「冲突时以新目标为准」；本文按新目标重写；12 项判据表落地 | 本文件第 0.1 / 2 节 | 主窗口 |
 | 2026-10-07 | Q0 | 派单三路（在飞）：B2 映射判据 `edf99f1b`、B1 妖表底座 `26031b6b`、B0 位掩码扩位 `363a026e`。**共同边界**：不改 `Boot.unity`、不改 `GameInput.inputactions`、不跑全量 / PlayMode / 回放，测试限 `Game.Tests.EditMode` 对应 group；不 commit | 待回收后逐单核验 | 主窗口 |
 | 2026-10-07 | Q0 | 主窗口独立复核 B1 中间产物：`tier / killable / drop_items` 三列方向成立（依据 `features-spotlight/06_怪物分层.md:113` R1、`:121` R9、`:260` 模块缺口「没有怪物种类表」）；`gc_scan` 抓出缺 `.meta`；表头把旧版已冻结文档写成列归属，已推回纠正；另立 B7（子层 `A·下/B·下` 未建模）与 B8（道具类别缺皮/面具/钥匙） | `gc_scan.py` 输出；`Generated/yao/Yao.cs:90,94,98`；`Generated/EItemCategory.cs:17-34` | 主窗口 |
-| 2026-10-07 | Q0 | B2 判据完成并验收：`旧G组-新目标映射与遗留资产.md`（348 行）；主窗口抽验四处引用全部为真（`06_怪物分层.md:130` 表头「可否击杀 / 掉落」、`:272` 三层奖励梯度、`09_BOSS战.md:142` R34 牙削弱、`02_身份暴露与怀疑.md:131` R27 龙族揭露）；128 条归类 93 / 11 / 24，算术自洽 | 该文件第 1、3、4、5 节；`pwsh` 逐行比对 | 主窗口 |
+| 2026-10-07 | Q0 | B2 判据完成并验收：`旧G组-新目标映射与遗留资产.md`（348 行）；主窗口抽验四处引用全部为真（`06_怪物分层.md:130` 表头「可否击杀 / 掉落」、`:272` 三层奖励梯度、`09_BOSS战.md:173` R34 牙削弱、`02_身份暴露与怀疑.md:131` R27 龙族揭露）；128 条归类 93 / 11 / 24，算术自洽 | 该文件第 1、3、4、5 节；`pwsh` 逐行比对 | 主窗口 |
 | 2026-10-07 | Q2 | 派单两路（在飞）：B5 阶段结构规范 `1f8d1aec`、B6 叙事呈现缺口清单 `6bc0d0c7`。边界：只写 `docs/planning/` 下一份文档，不碰 `Assets/` `Tables/` `Boot.unity` `GameInput.inputactions`，不 commit | 待回收 | 主窗口 |
 | 2026-10-07 | Q0 | 主窗口独立复核 B0 中间产物：补 bit7/8/9（Tame/Interact/Inventory）方向成立；**「不升回放格式版本」逐字比对判据后裁定成立**（`ReplayFormat.cs:39-47` 五条全属字节布局变化，本次未动 `SerializedSize` 与偏移；旁证 `InputCommandTests.cs:40` 对 `ButtonRun` 的注释「老录像的位含义不变」）；同时指出测试钉死表 `InputCommandTests.cs:47-52` 必须同步加新位，否则新位不受单一位/重叠校验覆盖——已推回该单 | `git diff InputCommand.cs`；`ReplayFormat.cs:39-54`；`InputCommandTests.cs:34-52` | 主窗口 |
 | 2026-10-07 | Q0 | B0 测试同步已落地（`InputCommandTests.cs` 加三位的位置断言 + 进 `ButtonConstants_AreSingleBitsThatNeverOverlap` 数组 + 新增 `NewActionBits_SetAndClearIndependently`）；**.meta 已由 Unity 生成**（`YaoCatalog.cs.meta` guid `9c40f25e…`，Unity 进程在跑）；B0 额外加了 `LiveInputSource.FindUnmappedGameplayActions` 守卫 + `ExemptActionNames` 豁免表，把「动作图加动作而内核没接」从静默丢输入变成点名 Warn；**其守卫用例尚未落地，仍在本轮内** | `git diff InputCommandTests.cs`；`YaoCatalog.cs.meta`；`Get-Process Unity`；`git diff LiveInputSource.cs` | 主窗口 |
 | 2026-10-07 | Q0 | 复核 B1 表头归属纠正：已改为「冲突以聚光灯为准」并逐列写明新目标依据，不再把已冻结的旧版稿子写成读者；`tier` 列注释自行解决了子层问题（引 `06_怪物分层.md:126`）——**主窗口验该行原文确为「A·下＝原文写在 A 条目的下一级」，B7 据此销项**；残留缺口另立 B9（「怎么杀」无落点） | `Tables/Defines/yao.xml:1-25,39`；`06_怪物分层.md:126` | 主窗口 |
 | 2026-10-07 | Q0 | 验收 B0 守卫用例质量：`LiveInputSourceTests.cs` 用**真 `GameInput` + 真设备事件**（`InputSystem.QueueStateEvent` + `Update`）验「动作名 → 内核位」，并带负对照 `FindUnmappedGameplayActions_WithActionNobodyWired_NamesEveryOneOfThem`（喂合成动作图必须点名报出漏接项）——有负对照，「返回空列表」才不可能是空转 | `git diff LiveInputSourceTests.cs` | 主窗口 |
-| 2026-10-07 | Q2 | 验收 B5：文档落盘并抽验六行引用为真（`11_剧情流程与章节结构.md:99` 两界分布原文、`:104` 「### 3.1 阶段总表」、`:124` 3.2 表标题、`:143` R7 战斗关四个、`spotlight/01_剧情大纲.md:5` 阶段一标题、`NarrativeContent.cs:9` 五种 StageKind）；13 段列全并自做分布 / 战斗关核对 | 该文件第 2 节；`pwsh` 逐行比对 | 主窗口 |
+| 2026-10-07 | Q2 | 验收 B5：文档落盘并抽验六行引用为真（`11_剧情流程与章节结构.md:113` 两界分布原文、`:118` 「### 3.1 阶段总表」、`:138` 3.2 表标题、`:157` R7 战斗关四个、`spotlight/01_剧情大纲.md:5` 阶段一标题、`NarrativeContent.cs:9` 五种 StageKind）；13 段列全并自做分布 / 战斗关核对 | 该文件第 2 节；`pwsh` 逐行比对 | 主窗口 |
 | 2026-10-07 | Q2 | **高价值发现入账**：B5 读源码（非转述模块文档）发现 `NarrativeCatalog.cs:79-80` 的 `Validate` 对 `Battle` / `IssueRequest` / `RequiredParts` **一律抛异常**——聚光灯四个战斗关阶段现在进不了表；主窗口验 `:69` 注释与 `:79-80` 断言逐字吻合，已写入 0.2 节「发现 4」，并给「[14]/[15] 不需新模块」这句加了限定 | `NarrativeCatalog.cs:69,79-80`；`NarrativeContent.cs:9` | 主窗口 |
 | 2026-10-07 | Q2 | 验收 B6：文档落盘并抽验为真——字幕开关**确缺**（`SettingsView.cs` 只有 `vsyncToggle`；`SettingsSaveData.cs:31-55` 无任何字幕字段）；**N4 冲突确有原文**（`performance-module-guide.md:28`「全屏立绘叠加舞台（含上下黑边）…2026-09-28 用户定：整条路线下架」vs 聚光灯 UI 表要「底部黑边字幕条」）；同一「不做」表独立证实其另三条不做项（`:29` 相机运镜、`:30` 配音、`:32` 演出中途存档） | `SettingsView.cs` grep；`SettingsSaveData.cs:31-55`；`performance-module-guide.md:26-33` | 主窗口 |
 | 2026-10-07 | Q0 | **主窗口代修编译阻塞**：`YaoCatalog.cs` 的 `DropItemsOf` 用 `List<int> ?? int[]`（`??` 两向都不能隐式转换，外层 `(IReadOnlyList<int>)` 发生在 `??` 求值之后、救不了），`Editor.log` 实测 `CS0019` + `Tundra build failed`、`Game.Runtime.dll` 卡在 02:14:36。连发三条消息后该文件仍未再动（当时最后写入 02:57:13），遂由主窗口改为显式判空并在代码里留「主窗口代修（2026-10-07）」注释；同步确认本文件其余 `??`（`:51` throw 表达式、`:152` `string ?? string`）均安全 | `Editor.log` 末尾原文；`YaoCatalog.cs:124-137`（03:01:45 复核仍在案） | 主窗口 |

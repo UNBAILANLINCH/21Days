@@ -6,7 +6,7 @@
 //   1. 偷袭（07:15-18）：玩家潜行并偷袭成功、玩家攻击 → 玩家先手，BOSS 生命 -20%
 //   2. 正面攻击（07:20-23）：玩家在警戒 / 敌对区域内，或怪物处于警戒 / 敌对态，玩家攻击 → 玩家先手
 //   3. 被打（07:25-28）：同上前提，玩家被 BOSS 攻击 → BOSS 先手
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:178-184`（R40）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:211-217`（R40）。
 
 namespace Game.TurnBased
 {

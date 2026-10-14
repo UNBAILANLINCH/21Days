@@ -1,7 +1,7 @@
 // 职责：一次道具使用请求的判定结果（能不能用 + 不能用是为什么）。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:42、:58`；
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:193`（R45）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:226`（R45）。
 
 namespace Game.TurnBased
 {

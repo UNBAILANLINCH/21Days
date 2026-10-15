@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: SessionConfig
   m_EditorClassIdentifier: 
   slotCount: 5
+  loadRollSeconds: 0.45
   saveNoticeTitle: "\u5DF2\u4FDD\u5B58"
   saveNoticeSeconds: 1
   loadFailedTitle: "\u5B58\u6863\u4E0D\u53EF\u7528"

@@ -38,7 +38,7 @@ namespace Game.Core.UI
         public bool HasCapture => capture != null;
         public bool IsCovered => screenEffect != null && screenEffect.gameObject.activeSelf && Progress >= 1f;
 
-        public async UniTask PlayAsync(CancellationToken ct)
+        public async UniTask PlayAsync(CancellationToken ct, bool loading = false)
         {
             if (IsRunning || (screenEffect != null && screenEffect.gameObject.activeSelf)) return;
             if (config == null || screenEffect == null || effectMaterial == null || !effectMaterial.shader.isSupported)
@@ -60,7 +60,7 @@ namespace Game.Core.UI
             CancellationToken token = playback.Token;
             try
             {
-                motion = LMotion.Create(0f, 1f, config.MirrorSeconds).WithEase(Ease.InOutSine)
+                motion = LMotion.Create(0f, 1f, loading ? config.LoadMirrorSeconds : config.MirrorSeconds).WithEase(Ease.InOutSine)
                     .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).Bind(value =>
                     {
                         if (mirror == null || !mirror.gameObject.activeInHierarchy) return;
@@ -89,7 +89,7 @@ namespace Game.Core.UI
                 screenEffect.material = material;
                 screenEffect.gameObject.SetActive(true);
                 ApplyProgress(0f);
-                motion = LMotion.Create(0f, 1f, config.WaveSeconds).WithEase(Ease.Linear)
+                motion = LMotion.Create(0f, 1f, loading ? config.LoadWaveSeconds : config.WaveSeconds).WithEase(Ease.Linear)
                     .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).Bind(ApplyProgress);
                 await motion.ToUniTask(CancelBehavior.Cancel, false, token);
                 token.ThrowIfCancellationRequested();

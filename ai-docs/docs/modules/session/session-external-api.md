@@ -70,7 +70,9 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 标题空槽开局先等待 `TitleView.PlayStartTransitionAsync(ct)`，再显示原操作说明并开启会话。
 表现接口只播放镜转/水波；`ResetStartTransition()` 供取消或失败收尾，不初始化存档、不加载场景。
-转场缺少接线时直接完成，旧预制体继续兼容。新游戏选择槽位并完成覆盖确认后，先关闭选槽面板再播放同一转场；继续读档不播放。
+转场缺少接线时直接完成，旧预制体继续兼容。新游戏选择槽位并完成覆盖确认后，先关闭选槽面板再播放同一转场。
+读档使用 `TitleView.PlayLoadTransitionAsync(ct)` 的短镜转/水波；选槽路径先等待 `SaveSlotsView.PlayLoadTransitionAsync(slot, seconds, ct)` 收卷，关闭面板后播放短版，再调用原 `GameSession.ContinueAsync`。
+`SaveSlotsView.ResetLoadTransition()` 恢复裁切和交互；标题短版与完整版都通过 `ResetStartTransition()` 收尾。读档失败会复位并重新显示选档面板，不显示新游戏操作说明。
 
 ```csharp
 public readonly struct SlotInfo { int Slot; SlotState State; DateTime SavedAtUtc; float PlaytimeSeconds; string ProgressText; }

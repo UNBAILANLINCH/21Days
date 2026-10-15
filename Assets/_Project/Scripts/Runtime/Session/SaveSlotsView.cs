@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using LitMotion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -55,14 +56,83 @@ namespace Game.Session
         [SerializeField] private Vector2 firstSlotPosition;
         [SerializeField] private float slotSpacing;
         [SerializeField] private Color selectedTextColor = new Color32(39, 160, 191, 255);
+        [SerializeField] private float rollFooterHeight = 218f;
 
         private readonly List<RowEntry> rows = new List<RowEntry>();
+        private MotionHandle rollMotion;
+        private RowEntry rollingRow;
+        private Vector2 originalMaskSize;
+        private bool previousInteractable;
+        private bool previousBlocksRaycasts;
+        private SpriteState previousSpriteState;
 
         public override UILayer Layer => UILayer.Panel;
 
         public override bool IsFullScreen => true;
 
         public override bool CloseOnCancel => true;
+
+        public async UniTask PlayLoadTransitionAsync(int slot, float seconds, CancellationToken ct)
+        {
+            if (rollingRow != null) return;
+            RowEntry row = rows.Find(entry => entry.Slot == slot);
+            if (row == null || row.RollMask == null || row.RollFooter == null || row.Image == null) return;
+            Sprite sprite = row.Image.overrideSprite;
+            if (sprite == null) return;
+            rollingRow = row;
+            originalMaskSize = row.RollMask.rectTransform.sizeDelta;
+            previousInteractable = Group.interactable;
+            previousBlocksRaycasts = Group.blocksRaycasts;
+            previousSpriteState = row.Button.spriteState;
+            SpriteState rollingState = previousSpriteState;
+            rollingState.disabledSprite = sprite;
+            row.Button.spriteState = rollingState;
+            Group.interactable = false;
+            Group.blocksRaycasts = false;
+            float footerHeight = Mathf.Min(rollFooterHeight, originalMaskSize.y); // lint-ok: UI 裁切像素，不参与玩法或回放状态
+            float bodyHeight = originalMaskSize.y - footerHeight;
+            row.RollFooter.texture = sprite.texture;
+            Rect source = sprite.rect;
+            row.RollFooter.uvRect = new Rect(source.x / sprite.texture.width, source.y / sprite.texture.height,
+                source.width / sprite.texture.width, source.height * (footerHeight / originalMaskSize.y) / sprite.texture.height);
+            row.RollFooter.rectTransform.sizeDelta = new Vector2(source.width * originalMaskSize.y / source.height, footerHeight);
+            row.RollFooter.gameObject.SetActive(true);
+            row.RollMask.enabled = true;
+            try
+            {
+                rollMotion = LMotion.Create(bodyHeight, 0f, seconds).WithEase(Ease.InOutSine)
+                    .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).Bind(height =>
+                    {
+                        row.RollMask.rectTransform.sizeDelta = new Vector2(originalMaskSize.x, height);
+                        row.RollFooter.rectTransform.anchoredPosition = new Vector2(0f, -height);
+                    });
+                await rollMotion.ToUniTask(CancelBehavior.Cancel, true, ct);
+                ct.ThrowIfCancellationRequested();
+            }
+            catch
+            {
+                ResetLoadTransition();
+                throw;
+            }
+        }
+
+        public void ResetLoadTransition()
+        {
+            if (rollMotion.IsActive()) rollMotion.Cancel();
+            if (rollingRow == null) return;
+            if (rollingRow.RollMask != null)
+            {
+                rollingRow.RollMask.rectTransform.sizeDelta = originalMaskSize;
+                rollingRow.RollMask.enabled = false;
+            }
+            if (rollingRow.RollFooter != null) rollingRow.RollFooter.gameObject.SetActive(false);
+            if (rollingRow.Button != null) rollingRow.Button.spriteState = previousSpriteState;
+            Group.interactable = previousInteractable;
+            Group.blocksRaycasts = previousBlocksRaycasts;
+            rollingRow = null;
+        }
+
+        private void OnDisable() => ResetLoadTransition();
 
         /// <summary>某一行被点，携带槽号。</summary>
         public event Action<int> OnSlotClicked;
@@ -200,6 +270,10 @@ namespace Game.Session
             row.Delete.onClick.AddListener(() => OnDeleteClicked?.Invoke(row.Slot));
             row.Image = row.Button.targetGraphic as Image;
             row.Drag = go.GetComponentInChildren<UIDragReveal>(true);
+            Transform mask = t.Find("RollMask");
+            if (mask != null) row.RollMask = mask.GetComponent<RectMask2D>();
+            Transform footer = t.Find("RollFooter");
+            if (footer != null) row.RollFooter = footer.GetComponent<RawImage>();
             if (row.Drag != null) row.Drag.OnRevealed += () => OnDeleteClicked?.Invoke(row.Slot);
             row.PrimaryPosition = row.Primary.rectTransform.anchoredPosition;
             if (row.Image != null)
@@ -219,6 +293,7 @@ namespace Game.Session
             image.SetNativeSize();
             var rect = (RectTransform)row.Root.transform;
             rect.sizeDelta = image.rectTransform.sizeDelta;
+            if (row.RollMask != null) row.RollMask.rectTransform.sizeDelta = rect.sizeDelta;
             rect.anchoredPosition = firstSlotPosition + new Vector2(index * slotSpacing, 0f);
             Sprite selected = info.State == SlotState.Available ? selectedSprites[index] : normal;
             row.SelectedSprite = info.State == SlotState.Available ? selected : null;
@@ -269,6 +344,7 @@ namespace Game.Session
         {
             Transform child = parent.Find(childName);
             if (child == null) child = parent.Find("Paper/" + childName);
+            if (child == null) child = parent.Find("RollMask/Paper/" + childName);
             return child == null ? null : child.GetComponent<TMP_Text>();
         }
 
@@ -292,6 +368,8 @@ namespace Game.Session
             public Sprite SelectedSprite;
             public Vector2 PrimaryPosition;
             public UIDragReveal Drag;
+            public RectMask2D RollMask;
+            public RawImage RollFooter;
         }
     }
 }

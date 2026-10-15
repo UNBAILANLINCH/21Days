@@ -184,6 +184,9 @@ namespace Game.Core.UI.Views
         public UniTask PlayStartTransitionAsync(CancellationToken ct) => startTransition != null
             ? startTransition.PlayAsync(ct) : UniTask.CompletedTask;
 
+        public UniTask PlayLoadTransitionAsync(CancellationToken ct) => startTransition != null
+            ? startTransition.PlayAsync(ct, true) : UniTask.CompletedTask;
+
         /// <summary>开局中断时复位，避免截图或交互锁残留。</summary>
         public void ResetStartTransition()
         {

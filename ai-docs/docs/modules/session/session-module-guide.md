@@ -110,7 +110,7 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
   `SlotsMode.NewGame`；「继续」读 `LatestSlot`，没有可用存档（`LatestSlot == 0`）时「继续」**隐藏**（不是置灰，
   `TitleView.SetContinueVisible(SessionTitleRules.ShouldShowContinue(...))`；回标题与选槽面板删掉最后一个存档后走同一判定）；「选择存档」开面板 `SlotsMode.Load`。`SaveSlotsController`
   负责面板会话（覆盖 / 删除走 `ConfirmView.WaitAsync`）；流程一旦离开标题（继续 / 新游戏成功），控制器订阅的
-  `GameStateChangingEvent(From == TitleState)` 会自己把面板收掉，不会残留盖在玩法画面上（`SaveSlotsController.cs:150`）。
+  `GameStateChangingEvent(From == TitleState)` 会自己把面板收掉，不会残留盖在玩法画面上（`SaveSlotsController.cs` 的 `HandleStateChanging`）。
 - **面板行的可选 / 可删规则**（`SaveSlotsView.IsRowSelectable` / `IsDeleteVisible`）：读档模式下只有
   `SlotState.Available` 的行能点，空槽 / 坏槽点不动；新游戏模式三态都能点（非空槽由控制器先弹确认覆盖）；
   「删除」按钮只在可读槽（`Available`）上显示，空槽没东西可删、坏槽走新游戏覆盖流程处理。
@@ -250,7 +250,7 @@ DefaultSelected 仍保留开始按钮；UIService 在真实导航/确认输入�
 空槽开局时，SessionTitleRouter 先等待转场，再沿用操作说明与 NewGameAsync；无空槽先打开选槽面板。
 满槽选择并确认覆盖后，SaveSlotsController 先关闭全屏选槽面板，再播放同一段标题转场、显示操作说明并开局。
 取消覆盖不播放、不初始化会话；开局失败或取消后复位标题演出。
-继续、选择存档不播放这段转场；缺少组件或 Shader 不受支持时保留原开局路径。
+新游戏保留这段完整转场；读档使用下节的短版。缺少组件或 Shader 不受支持时保留原流程。
 
 | 节拍 | 表现 |
 | --- | --- |
@@ -273,6 +273,19 @@ DefaultSelected 仍保留开始按钮；UIService 在真实导航/确认输入�
 该批空槽回放未触发转场，不能将整批报告视为通过；模拟按压改为至少 50ms 后，单独复验被手动 Play 状态阻断，尚不能确认失败原因。
 回放存档只写临时覆盖目录，未改正式槽文件。另通过 Unity 原生 API 补回 Noto 字体当前缺失图集页，保留 475 个字符及已有图集；
 修复前副本在 `Tools/Font_NotoSansSC_before_missing_atlas.asset.backup`，没有清除字形缓存或字体样式。
+
+### 读档收卷与短转场（2026-10-15）
+
+仅 `SlotsMode.Load` 的选槽点击播放收卷：纸面由顶部固定的 RectMask2D 从下向上裁切，原图底轴与挂穗用 RawImage 的 UV 区域保持原尺寸移动，整条不缩放。
+收卷时长在 `SessionConfig.LoadRollSeconds`（0.45 秒），轴与挂穗高度在存档预制体 `rollFooterHeight`（218 参考像素）。遮罩在普通显示和下拉删除时停用，不改变删除拖拽。
+收卷后关闭选档面板，显示原标题并调用 `TitleView.PlayLoadTransitionAsync`：镜转 0.35 秒、水波 1.2 秒，分别由 `TitleStartConfig.LoadMirrorSeconds/LoadWaveSeconds` 控制。
+标题「继续」复用同一短版；新游戏、满槽覆盖开局仍走 `PlayStartTransitionAsync` 的完整节拍与操作说明。
+转场结束后调用原 `GameSession.ContinueAsync`，不改变存档格式或候选校验。失败时复位镜子与黑幕并重开选档，取消收卷则恢复裁切、底轴、Sprite Swap 和交互。
+验证入口：`SaveSlotsLoadTransitionTests`（暂停完成、取消复原）、`TitleStartTransitionTests`（短版独立时长与原转场回归），以及 `TitleShowcase.MouseLoad_RollsScrollThenShortWaterWarpEntersWorld/MouseLoad_MissingFileRestoresSelection` 的真实鼠标回放。
+实测：相关 EditMode 63/63、首轮 PlayMode 7/7 通过；最终真实鼠标回放 2/2 通过，0 检查点失败、0 运行时异常，报告 `Logs/verify/title/20261015-013247/report.md`。最后一次 PlayMode 复测连接未返回结果，不计为通过。回放只使用临时存档目录，未做真机性能测量；全局 gc 仍报两份已有 Dynamic 字体缓存膨胀。
+
+选档加载寿命修正（2026-10-15）：短转场和 `ContinueAsync` 使用 `SaveSlotsController` 的寿命令牌，控制器释放时取消；标题正常关闭不再取消入场。标题阶段只需 Boot，进入玩法后 Boot 常驻、SampleScene 由 `SceneGameState` 叠加加载。根因与验证陷阱见 [经验记录](../../../pitfalls.md#标题关闭取消了选档加载画面只剩-boot)。
+本次 Session EditMode 51/51、Session PlayMode 4/4（含标题先销毁的回归测试）、真实鼠标读档回放 2/2 通过，0 检查点失败、0 运行时异常；报告 `Logs/verify/title/20261015-032054/report.md` 明确检查玩法状态与两个场景均已加载。使用隔离临时存档，最终视觉由开发者确认。未新增 lint 规则或改通用规范，因此不运行规则行为 eval。
 
 ### 本批待审清单（未提交）
 

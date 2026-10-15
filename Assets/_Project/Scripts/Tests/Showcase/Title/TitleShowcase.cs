@@ -9,10 +9,12 @@ using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Session;
 using Game.Player;
+using Game.Monster;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 namespace Game.Tests.Showcase.Title
 {
@@ -201,6 +203,81 @@ namespace Game.Tests.Showcase.Title
         public IEnumerator MouseStart_EmptySlots_PlaysTransition() => MouseStart(false);
 
         [UnityTest]
+        public IEnumerator MouseLoad_RollsScrollThenShortWaterWarpEntersWorld() => MouseLoad(false);
+
+        [UnityTest]
+        public IEnumerator MouseLoad_MissingFileRestoresSelection() => MouseLoad(true);
+
+        private IEnumerator MouseLoad(bool removeFile)
+        {
+            var mouse = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Mouse>("LoadClickPointer");
+            try
+            {
+                Input.Prime();
+                IUIService ui = null;
+                yield return WaitUntil("Boot 标题就绪", () => { ui = ResolveService<IUIService>(); return ui != null && ui.Get<TitleView>() != null; },20f);
+                Assert.That(PlatformServiceBase.SaveRootOverride,Is.Not.Null.And.Not.Empty);
+                var session = ResolveService<GameSession>();
+                var saves = ResolveService<ISaveService>();
+                // 在隔离目录生成完整真实存档，保留槽1作为失败后不改变当前局的对照。
+                yield return session.NewGameAsync(1).ToCoroutine();
+                yield return WaitCurtainRevealed();
+                yield return session.SaveNowAsync("load_transition_showcase").ToCoroutine();
+                yield return saves.SaveAsync(2).ToCoroutine();
+                Assert.That(saves.Exists(2),Is.True);
+                yield return ResolveService<IGameFlow>().GoToAsync<TitleState>().ToCoroutine();
+                TitleView title = null;
+                yield return WaitUntil("返回标题入场完成", () => {
+                    title = ui.Get<TitleView>();
+                    return title != null && !title.GetComponent<TitleEntranceMotion>().IsRunning;
+                },20f);
+                var transition = title.GetComponent<TitleStartTransition>();
+                yield return ResolveService<SaveSlotsController>().OpenAsync(SlotsMode.Load).ToCoroutine();
+                yield return WaitUntil("选档面板显示完成", () => ui.Get<SaveSlotsView>() != null && ui.Get<SaveSlotsView>().GetComponent<CanvasGroup>().alpha > 0.99f,5f);
+                Button row = null;
+                foreach (var candidate in ui.Get<SaveSlotsView>().GetComponentsInChildren<Button>())
+                {
+                    var label = FindDeep<TMPro.TMP_Text>(candidate.transform,"Slot");
+                    if (label != null && label.text == SaveSlotsView.FormatSlotLabel(2)) { row = candidate; break; }
+                }
+                Assert.That(row,Is.Not.Null);
+                var mask = (RectTransform)row.transform.Find("RollMask");
+                var footer = (RectTransform)row.transform.Find("RollFooter");
+                float originalHeight = mask.sizeDelta.y;
+                if (removeFile) saves.Delete(2);
+                yield return Step("鼠标点击第二槽，纸面向上收起",hold:0f);
+                yield return MouseClick(row,mouse);
+                yield return WaitUntil("收卷裁切开始", () => mask != null && mask.sizeDelta.y < originalHeight * 0.9f,2f);
+                yield return Check("底轴与挂穗保留原尺寸，整条没有按钮缩放", () => footer != null && footer.sizeDelta.y == 218f && row.transform.localScale == Vector3.one);
+                yield return Snapshot("读档卷轴收起中");
+                yield return WaitUntil("存档面板让位给短镜转", () => transition.IsRunning && ui.Get<SaveSlotsView>() == null,3f);
+                yield return Check("读档转场中不提前进入目标槽", () => title.gameObject.activeInHierarchy && session.CurrentSlot == 1);
+                yield return WaitUntil("短水波正在播放", () => transition.HasCapture && transition.Progress > 0.35f,3f);
+                yield return Snapshot("读档短水波");
+                if (removeFile)
+                {
+                    yield return Step("读取失败后恢复选档界面",hold:0f);
+                    yield return WaitUntil("选档重新打开", () => ui.Get<SaveSlotsView>() != null && ResolveService<SaveSlotsController>().IsOpen,8f);
+                    yield return Check("原槽保持，镜转黑幕和交互锁已解除", () => session.CurrentSlot == 1 && !transition.IsCovered && !transition.HasCapture);
+                    yield return Snapshot("读档失败恢复选档");
+                }
+                else
+                {
+                    yield return Step("读档直接进入存档场景",hold:0f);
+                    yield return WaitUntil("目标槽与玩法状态已就绪", () => session.CurrentSlot == 2 && ui.Get<TitleView>() == null
+                        && ResolveService<IGameFlow>().Current is MonsterEncounterState && ResolveService<PlayerModel>() != null,20f);
+                    yield return WaitCurtainRevealed();
+                    yield return Check("Boot 常驻，SampleScene 叠加加载完成", () =>
+                        SceneManager.GetSceneByPath("Assets/_Project/Scenes/Boot.unity").isLoaded
+                        && SceneManager.GetSceneByPath(ShowcaseOptions.DemoScenePath).isLoaded);
+                    yield return Check("读档不显示新游戏操作说明", () => ui.Get<TutorialView>() == null);
+                    yield return Snapshot("读档转场进入场景");
+                }
+            }
+            finally { UnityEngine.InputSystem.InputSystem.RemoveDevice(mouse); }
+        }
+
+        [UnityTest]
         public IEnumerator MouseStart_FullSlots_ConfirmedOverwritePlaysTransition() => MouseStart(true);
 
         private IEnumerator MouseStart(bool fullSlots)
@@ -238,7 +315,7 @@ namespace Game.Tests.Showcase.Title
                         && ResolveService<SaveSlotsController>().IsOpen, 5f);
                     Button row = null;
                     foreach (Button button in ui.Get<SaveSlotsView>().GetComponentsInChildren<Button>())
-                        if (button.transform.Find("Slot") != null) { row = button; break; }
+                        if (FindDeep<TMPro.TMP_Text>(button.transform,"Slot") != null) { row = button; break; }
                     Assert.That(row, Is.Not.Null);
                     yield return Step("鼠标选择一个临时存档，先弹覆盖确认", hold: 0f);
                     yield return MouseClick(row, mouse);

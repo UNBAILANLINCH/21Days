@@ -12,6 +12,9 @@ namespace Game.Session
         [Tooltip("存档槽数量，槽号从 1 起。")]
         [SerializeField, Min(1)] private int slotCount = 5;
 
+        [Tooltip("选中存档卷轴向上收起的秒数；仅用于读档。")]
+        [SerializeField, Min(0.01f)] private float loadRollSeconds = 0.45f;
+
         [Tooltip("自动保存落盘成功后右下角小字的文案（不进通知队列）。")]
         [SerializeField] private string saveNoticeTitle = "已保存";
 
@@ -35,6 +38,7 @@ namespace Game.Session
         [SerializeField] private Color titleYinTint = new Color(0.45f, 0.35f, 0.6f, 1f);
 
         public int SlotCount => slotCount;
+        public float LoadRollSeconds => loadRollSeconds;
         public string SaveNoticeTitle => saveNoticeTitle;
         public float SaveNoticeSeconds => saveNoticeSeconds;
         public string LoadFailedTitle => loadFailedTitle;

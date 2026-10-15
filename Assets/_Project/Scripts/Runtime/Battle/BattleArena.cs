@@ -28,10 +28,13 @@ namespace Game.Battle
         private readonly ILoadingCurtain curtain;
         private readonly IAssetService assets;
         private readonly ITelemetryScope telemetry;
+        private readonly string sceneKey;
         private SceneHandle scene;
 
-        public BattleArena(ILoadingCurtain curtain, IAssetService assets, ITelemetryScope telemetry)
+        public BattleArena(ILoadingCurtain curtain, IAssetService assets, ITelemetryScope telemetry, string sceneKey = SceneKey)
         {
+            if (string.IsNullOrWhiteSpace(sceneKey)) throw new ArgumentException("战斗场景地址不能为空", nameof(sceneKey));
+            this.sceneKey = sceneKey;
             this.curtain = curtain ?? throw new ArgumentNullException(nameof(curtain));
             this.assets = assets ?? throw new ArgumentNullException(nameof(assets));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
@@ -120,8 +123,8 @@ namespace Game.Battle
         {
             try
             {
-                SceneHandle handle = await assets.LoadSceneAsync(SceneKey, LoadSceneMode.Additive, ct);
-                telemetry.Track("arena_loaded", ("key", SceneKey));
+                SceneHandle handle = await assets.LoadSceneAsync(sceneKey, LoadSceneMode.Additive, ct);
+                telemetry.Track("arena_loaded", ("key", sceneKey));
                 return handle;
             }
             catch (OperationCanceledException)
@@ -130,9 +133,9 @@ namespace Game.Battle
             }
             catch (Exception e)
             {
-                telemetry.TrackError("arena_load_failed", e, TelemetryProps.Of(("key", SceneKey)));
+                telemetry.TrackError("arena_load_failed", e, TelemetryProps.Of(("key", sceneKey)));
                 throw new InvalidOperationException(
-                    $"战斗场景「{SceneKey}」叠加加载失败：Addressables 里没有这个地址，或场景还没建。" +
+                    $"战斗场景「{sceneKey}」叠加加载失败：Addressables 里没有这个地址，或场景还没建。" +
                     "修法：建 Assets/_Project/Scenes/BattleArena.unity，并登记进 AssetGroups/Scenes.asset（地址 = BattleArena，照 c72e3a0）。" +
                     "原始错误：" + e.Message, e);
             }

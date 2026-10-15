@@ -1,0 +1,47 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("请先退出播放");
+string path="Assets/_Project/Prefabs/UI/TitleView.prefab";
+var root=UnityEditor.PrefabUtility.LoadPrefabContents(path);
+try{
+ var motionData=new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.TitleEntranceMotion>());
+ var targets=motionData.FindProperty("targets");
+ var overlays=motionData.FindProperty("buttonOverlays");overlays.arraySize=4;
+ var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+ var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");
+ var manifest=Newtonsoft.Json.Linq.JObject.Parse(System.IO.File.ReadAllText("Assets/_Project/Art/Sprites/UI/Title/Yang/Entrance/parts.json"));
+ string[] buttons={"SettingsButton","LoadButton","ContinueButton","QuitButton"};
+ string[] names={"设置","选择存档","继续","退出游戏"};int[] indices={26,31,36,41};
+ for(int b=0;b<4;b++){
+  var button=(UnityEngine.RectTransform)root.transform.Find("Buttons/"+buttons[b]);
+  var paper=(UnityEngine.RectTransform)button.Find("EntranceArtwork/卷轴底");
+  var existing=button.Find("底部渐变");
+  var gradient=(existing==null?paper.Find("底部渐变"):existing).GetComponent<UnityEngine.UI.Image>();
+  Newtonsoft.Json.Linq.JToken source=null;Newtonsoft.Json.Linq.JToken paperSource=null;
+  string prefix="05_卷轴按钮/"+names[b]+"/未选中/";
+  foreach(var a in manifest["assets"]){if((string)a["file"]==prefix+"底部渐变.png")source=a;if((string)a["file"]==prefix+"卷轴底.png")paperSource=a;}
+  if(source==null||paperSource==null)throw new System.InvalidOperationException("渐变原始坐标缺失");
+  var rect=gradient.rectTransform;rect.SetParent(paper,false);rect.SetAsFirstSibling();
+  rect.anchorMin=rect.anchorMax=new UnityEngine.Vector2(0.5f,0f);rect.pivot=new UnityEngine.Vector2(0.5f,0.5f);
+  rect.sizeDelta=new UnityEngine.Vector2((float)source["width"],(float)source["height"]);
+  rect.anchoredPosition=new UnityEngine.Vector2((float)source["centerX"]-(float)paperSource["centerX"],(float)paperSource["y"]+(float)paperSource["height"]-(float)source["centerY"]);
+  rect.localScale=UnityEngine.Vector3.one;rect.localRotation=UnityEngine.Quaternion.identity;
+  gradient.enabled=true;gradient.maskable=true;gradient.raycastTarget=false;gradient.color=UnityEngine.Color.white;
+  rect.SetParent(button,true);rect.SetAsLastSibling();
+  string paperPath="Assets/_Project/Art/Sprites/UI/Title/Yang/Entrance/"+prefix+"卷轴底.png";
+  var importer=(UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(paperPath);
+  float preservedBottom=(float)paperSource["y"]+(float)paperSource["height"]-(float)source["y"];
+  importer.spriteBorder=new UnityEngine.Vector4(18f,preservedBottom,18f,18f);importer.SaveAndReimport();
+  rect.GetComponent<UnityEngine.CanvasGroup>().alpha=1f;
+  targets.GetArrayElementAtIndex(indices[b]).objectReferenceValue=rect;
+  var track=tracks.GetArrayElementAtIndex(indices[b]);var paperTrack=tracks.GetArrayElementAtIndex(indices[b]-2);
+  track.FindPropertyRelative("delay").floatValue=paperTrack.FindPropertyRelative("delay").floatValue;
+  track.FindPropertyRelative("duration").floatValue=paperTrack.FindPropertyRelative("duration").floatValue;
+  track.FindPropertyRelative("fadeSeconds").floatValue=paperTrack.FindPropertyRelative("fadeSeconds").floatValue;
+  track.FindPropertyRelative("offset").vector2Value=new UnityEngine.Vector2(0f,paper.sizeDelta.y*(1f-paperTrack.FindPropertyRelative("scale").floatValue));
+  track.FindPropertyRelative("scale").floatValue=1f;
+  track.FindPropertyRelative("curve").animationCurveValue=paperTrack.FindPropertyRelative("curve").animationCurveValue;
+  overlays.GetArrayElementAtIndex(b).objectReferenceValue=rect.gameObject;
+ }
+ motionData.ApplyModifiedPropertiesWithoutUndo();data.ApplyModifiedPropertiesWithoutUndo();
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,path);UnityEditor.AssetDatabase.SaveAssets();
+ return new {textOverlays=4};
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

@@ -6,9 +6,18 @@ maturity: stable
 ---
 # Rhythm 模块指南
 
+## 独立戏班外部演奏（2026-10-12）
+
+ShopPlaytest已把真实Taming控制归属和戏班前置接到外部权限；这是独立试玩接线，正式Boot主线仍未接。
+OpenActivityAsync(request, consumer, ct)保留调用方世界场景，Rhythm独占UI、输入、暂停与音频生命周期；CloseActivityAsync停止、收面板、释放后发OnActivityClosed。活动返回按钮显示退出演奏，关闭活动而非回标题。
+ConfigureActivityProfile(name)只能在关闭时设置，使用合法文件名；独立戏班用shop-playtest前缀隔离校准档案。默认独立音游档案规则不变。
+RhythmInstaller.autoEnterDemo默认true，独立四店启动设false，避免自动入口与四店路由争用。固定谱面Completed Combat只判是否达标，不施加伤害或计个人通关。
+回放必须等调用方隐藏原HUD、完成Rhythm.Enter后再点击开始；仅UIService.Get返回实例不代表事件已接齐。使用ClickWhenReady确认开始真实生效。
+真实回放、编译与限制见[四店实施记录](../../../../PRP/independent-shop-mechanics/implementation-report.md)，尚需开发者视觉确认。
+
 ## 范围与状态
 
-PC 四轨下落音游独立试玩。用户要求新场景，入口为 `Assets/_Project/Scenes/RhythmDemo.unity`，不借用 SampleScene。当前场景用于隔离开发；正式 Boot 接线和 UI 预制体制作/迁移后置，尚未接入驯服控制玩法。
+PC 四轨下落音游独立试玩。用户要求新场景，入口为 `Assets/_Project/Scenes/RhythmDemo.unity`，不借用 SampleScene。该音游场景本身不绑定驯服；另一个ShopPlaytest独立入口已接真实控制资格，正式Boot主线接线与正式UI迁移仍后置。
 使用用户提供的《虫儿飞（伴奏）》MP3，已复制到 `Assets/_Project/Audio/Rhythm/ChongErFei.mp3`。
 截取原音频 16～56 秒，至少 3 秒预滚。2026-10-04 按明确授权接入上传调试谱：58 枚（56 Tap + 2 Hold），旧 56Tap 资产保留在 `PRP/rhythm-chart-import-20261004/` 供回退；规则支持 Tap 与按住到尾的 Hold。
 原谱来自音频能量起音候选，本轮保留上传的精确 ID、轨道、时间和时长，6 移动、1 删除、3 新增；空审核字段不推断声部意图，不自动加解码补偿，也不据此宣称音乐贴合度验收。来源、授权及验证见 [接入记录](../../../../PRP/rhythm-chart-import-20261004/README.md)。

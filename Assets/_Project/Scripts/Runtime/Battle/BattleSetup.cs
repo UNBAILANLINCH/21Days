@@ -44,6 +44,10 @@ namespace Game.Battle
         private readonly IBattleItemInventory inventory;
         private ulong battleOrdinal;
         private SettingsOverride activeOverride;
+        private Func<string, int?> drunkSource;
+
+        /// <summary>场外醉酒快照来源；卸载调用方时传 null 恢复配置默认值，不修改配置资产。</summary>
+        public void BindDrunkSource(Func<string, int?> source) => drunkSource = source;
 
         /// <param name="settings">回合制数值（TurnBasedConfig.Settings）。</param>
         /// <param name="seedSource">会话主种子（RandomService.MasterSeed）；每场开打时现读。</param>
@@ -132,10 +136,12 @@ namespace Game.Battle
                 return false;
             }
 
+            int drunk = drunkSource?.Invoke(boss.Id) ?? boss.OutOfBattleDrunk;
+            if (drunk < 0) { error = "场外醉酒值不可为负"; return false; }
             var kernel = new TurnBasedKernel(current, NextStream(), inventory);
             BattleEntryRequest request = BuildEntryRequest(context);
             if (!kernel.TryStartBattle(request, new PlayerBattleSnapshot(playerHealth, playerHealth),
-                    new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, boss.OutOfBattleDrunk), out session, out BattleEntryReject reject))
+                    new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, drunk), out session, out BattleEntryReject reject))
             {
                 error = "进战斗判定被拒：" + BattleEntryRules.Describe(reject);
                 return false;

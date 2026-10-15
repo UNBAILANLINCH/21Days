@@ -96,32 +96,37 @@ namespace Game.Tests.EditMode.Stealth
         }
 
         /// <summary>
-        /// 共享点纪律：**本波只新增、不改既有绑定**。守门用一条「Interact 的三条绑定原样还在」的断言——
-        /// F 与 Interact 共用同一个键是**有意保留**的（两个动作各自有目标门槛，见 ExecutionInteractor 的文件头），
-        /// 若有人为了「消掉重复」把 F 从 Interact 上摘掉，这条会亮。
+        /// E / South 普通交互与 F / East 特殊动作必须分开，避免一次按键同时触发对话和借身份。
         /// </summary>
         [Test]
-        public void InteractBindings_AreLeftAlone()
+        public void InteractBindings_AreSeparateFromSpecialAction()
         {
             ReadAsset(asset =>
             {
                 InputAction interact = asset.FindActionMap("Gameplay", false).FindAction("Interact", false);
                 Assert.That(interact, Is.Not.Null);
 
-                bool e = false;
-                bool f = false;
-                bool south = false;
-                for (int i = 0; i < interact.bindings.Count; i++)
-                {
-                    string path = interact.bindings[i].path;
-                    if (path == "<Keyboard>/e") e = true;
-                    else if (path == "<Keyboard>/f") f = true;
-                    else if (path == "<Gamepad>/buttonSouth") south = true;
-                }
-
-                Assert.That(e && f && south, Is.True,
-                    "Interact 的 E / F / South 是既有约定，本波只允许新增 Execute，不许动它");
+                AssertSeparateBindings(asset);
             });
+        }
+
+        [Test]
+        public void GeneratedWrapper_UsesTheSameSeparatedBindings()
+        {
+            var wrapper = new GameInput();
+            try { AssertSeparateBindings(wrapper.asset); }
+            finally { Object.DestroyImmediate(wrapper.asset); }
+        }
+
+        private static void AssertSeparateBindings(InputActionAsset asset)
+        {
+            InputAction interact = asset.FindAction("Gameplay/Interact", true);
+            InputAction special = asset.FindAction("Gameplay/Execute", true);
+            Assert.That(interact.bindings.Count, Is.EqualTo(2));
+            Assert.That(interact.bindings[0].path, Is.EqualTo("<Keyboard>/e"));
+            Assert.That(interact.bindings[1].path, Is.EqualTo("<Gamepad>/buttonSouth"));
+            Assert.That(special.bindings[0].path, Is.EqualTo("<Keyboard>/f"));
+            Assert.That(special.bindings[1].path, Is.EqualTo("<Gamepad>/buttonEast"));
         }
 
         private static void ReadAsset(System.Action<InputActionAsset> assert)

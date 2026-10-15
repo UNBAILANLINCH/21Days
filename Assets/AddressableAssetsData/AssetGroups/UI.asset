@@ -72,6 +72,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5c8d1a58deb981e42914a17ba0ca0fa8
+    m_Address: SceneMapView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 78ccf4aa9d7c71c46b51fd6c9aacfe3e
     m_Address: Dialogue/Portrait_traveler_default
     m_ReadOnly: 0
@@ -109,6 +114,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9144c1b9afef4c54c8b343b67346af5e
     m_Address: SaveSlotsView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9175aa14c01db9d4b8654f88644322ca
+    m_Address: ForgingView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -154,6 +164,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e7cebd64d51a1aa4ab0cb65b50fd09c3
     m_Address: TutorialView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ec54c9158930bd745bdddd791e37c3c6
+    m_Address: ShopPlaytestView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

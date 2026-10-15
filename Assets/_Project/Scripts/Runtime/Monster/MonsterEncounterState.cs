@@ -41,6 +41,7 @@ namespace Game.Monster
         private readonly IObjectResolver container;
         private EncounterSceneView view;
         private EncounterSaveData restore;
+        private Game.ShopPlaytest.ShopPlaytestState shops;
         public bool NavigationBlocked { get; set; }
 
         public void PrepareRestore(EncounterSaveData saved)
@@ -78,7 +79,7 @@ namespace Game.Monster
         // 正式内容落地后改 Addressables 条目指向 Assets/_Project/Scenes/ 下的正式场景，代码不用动。
         protected override string SceneKey => "IsometricEncounter";
 
-        protected override UniTask OnSceneReadyAsync(CancellationToken ct)
+        protected override async UniTask OnSceneReadyAsync(CancellationToken ct)
         {
             GameObject[] roots = Scene.GetRootGameObjects();
             for (int i = 0; i < roots.Length && view == null; i++)
@@ -124,15 +125,27 @@ namespace Game.Monster
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
                 BindExecution(execution);
+                Game.ShopPlaytest.ShopPlaytestWorld shopWorld = null;
+                foreach (GameObject root in roots)
+                {
+                    shopWorld = root.GetComponentInChildren<Game.ShopPlaytest.ShopPlaytestWorld>(true);
+                    if (shopWorld != null) break;
+                }
+                if (shopWorld != null)
+                {
+                    if (!container.TryResolve(out shops)) throw new System.InvalidOperationException("Boot缺少五店注册器");
+                    await shops.BindAsync(shopWorld, view, ct);
+                }
             }
             catch (System.Exception e)
             {
                 Log.Error($"MonsterEncounter 接线失败：{e}");
-                step.End();
+                try { if (shops != null) await shops.UnbindAsync(); }
+                catch (System.Exception cleanup) { Log.Warn("五店失败收尾：" + cleanup.Message); }
+                finally { StopSceneBinding(); }
                 throw;
             }
 
-            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -177,8 +190,15 @@ namespace Game.Monster
                 actions == null ? null : actions.asset, interactionFocus);
         }
 
-        protected override UniTask OnSceneUnloadingAsync(CancellationToken ct)
+        protected override async UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
+            try { if (shops != null) await shops.UnbindAsync(); }
+            finally { StopSceneBinding(); }
+        }
+
+        private void StopSceneBinding()
+        {
+            shops = null;
             // 清排队的入口在 LiveInputSource 上（远端 taming 波的通路）；IInputService 只借动作资产，不持有队列。
             if (input != null) input.ClearQueuedSelection();
             step.End();
@@ -189,8 +209,6 @@ namespace Game.Monster
                 view.Unbind();
                 view = null;
             }
-
-            return UniTask.CompletedTask;
         }
 
         private void RequestControl(int slot, bool tame)

@@ -7,6 +7,37 @@ maturity: seed
 
 # Session 模块指南
 
+## 五槽存档卷轴界面（2026-10-14）
+
+SessionConfig 的默认值和正式配置均为五槽，原槽 1～3 的文件编号与数据格式保留，新增槽 4、5 复用同一读写、覆盖与删除流程。
+SaveSlotsView 使用 1920×1080 参考坐标，五条卷轴从左至右按槽号排列；普通、高亮、空槽与不可用图片位于 `Assets/_Project/Art/Sprites/UI/SaveSlots/`。
+原始 PNG 保留透明通道与尺寸，Single Sprite、Bilinear、无 mipmap、无压缩；布局与字体参考图位于 `docs/design/references/save-slots/`。
+进度使用思源宋体 CN Bold 44.81，日期与时长为 19.33；普通态白色，高亮态 `#27A0BF`，日期与游玩时长分两行显示。
+空槽保留原新游戏/读档判定并隐藏进度文字；不可用槽使用普通卷轴与「不可用」文字，禁止直接读档；删除仍走既有二次确认。
+Session EditMode 实测 51/51 通过，新增测试覆盖槽 4、5 保存、重启读取、删除以及原槽文件不变；编辑器渲染检查覆盖五槽绑定、第五槽点击与高亮文字颜色。
+预览在 `outputs/save-ui/preview.png`。未进行手机真机验证或整局回放，正式存档文件未用于测试。
+
+### 卷轴下拉删除（2026-10-14）
+
+存档条下部（参考坐标 y=650～981）接 `UIDragReveal`：鼠标悬停显示 `ui_cursor_grab.png`，按住左键显示 `ui_cursor_held.png`。
+两张光标分别原样复制美术提供的「抓手.png」「抓手2.png」，保留 70×80、61×68 尺寸与透明通道，Cursor 类型、可读、无压缩及 mipmap。
+下部按压由手柄消费，不能触发父按钮读档；下拉距离按 Canvas 坐标计算，最多 110 单位，松手达到一半时落到展开位，否则恢复。
+默认删除渐变与叉号的 CanvasGroup 为零透明且不接射线；下拉到位并松手时直接进入既有删除二次确认，不再要求点击叉号。取消确认后卷轴恢复原位，确认后才删除存档。
+上推手柄可收起，重新绑定、停用或失去窗口焦点会取消抓取、隐藏删除区并恢复系统光标；空槽和不可用槽不提供删除拖拽。
+参考素材中带叉号的整条图片不再用作未下拉状态，防止默认出现删除标记。
+EditMode 55/55、停用复位 PlayMode 1/1 通过；编辑器射线检查验证下部命中手柄、下拉不读档、第五槽删除回调，前后预览在 `outputs/save-ui/before-pull.png` 与 `after-pull.png`。
+
+点击路由修正：Input System 会独立查找 `IPointerClickHandler`，手柄必须接收并消费点击，避免上抛给父级读档按钮。
+卷轴展开后整条按钮点击进入删除确认，抓取中忽略按钮回调；收起后恢复正常读档。
+此前直接调用删除按钮回调的验证未覆盖真实叉号落点，不能作为鼠标删除操作通过的证据。
+修正后 EditMode 56/56 通过，预览检查从叉号位置做 GraphicRaycaster 命中与 PointerClick，确认命中删除按钮；展开后点击卷轴只发删除事件，读档事件计数不增加。
+
+## 五店接线与切槽捕获边界（2026-10-13）
+
+SessionInstaller.registerTitleRouter默认true，正常Boot保持标题路由。旧ShopPlaytest启动场景已归档为Legacy入口，五店现在走正常开始/继续和当前槽。
+
+NewGame/Continue从重置/读取候选到场景切换结束持有sessionTransitioning守卫。期间SaveNow不捕获旧场景，Tick不自动写盘；切换完成事件的RequestSave保留到新现场稳定后处理。这样旧MonsterEncounterState离场不会覆盖刚载入的目标槽EncounterSaveData。切槽重入或写盘在途拒绝新局/继续；finally在失败/取消后释放守卫。普通离场保存规则保持不变。
+
 > 改 `Assets/_Project/Scripts/Runtime/Session/` 之前读这份。对外怎么调看
 > [`session-external-api.md`](session-external-api.md)，要加东西看 [`session-extension-guide.md`](session-extension-guide.md)。
 > 设计定稿见 [`PRP/save-session/prp.md`](../../../../PRP/save-session/prp.md)；与源码不符时以源码为准。
@@ -36,7 +67,7 @@ maturity: seed
 | `SessionTitleRules` | 纯静态：`PickNewGameSlot`、`ShouldShowContinue` | `SessionTitleRouter` 调（`SessionTitleRules.cs:10`） |
 | `SaveSlotsController` | 选槽面板的会话控制：开面板、点击分派、覆盖 / 删除二次确认、离开标题时收掉面板 | 根作用域单例，被 `SessionTitleRouter` 按具体类型注入（`SaveSlotsController.cs:24`） |
 | `NewGameTutorial` | 开局操作说明的展示闸门：开 `TutorialView` → 等满 `UIConfig.TutorialSeconds` → 等任意键 → 收面板 | 根作用域单例，被 `SessionTitleRouter` 与 `SaveSlotsController` 按具体类型注入（`NewGameTutorial.cs:28`） |
-| `SaveSlotsView` | `UIView`（Panel）：三行槽位 + 删除 + 返回，只显示与抛事件 | `IUIService` 实例化（`SaveSlotsView.cs:26`） |
+| `SaveSlotsView` | `UIView`（Panel）：五条悬挂卷轴 + 删除 + 返回，只显示与抛事件 | `IUIService` 实例化（`SaveSlotsView.cs:26`） |
 | `SessionConfig` | SO：槽数、保存提示文案与秒数、读档失败文案、进度占位文案、退出钩子超时 | `Data/Session/SessionConfig.asset`（`SessionConfig.cs:10`） |
 | `SessionSaveData` | 槽位元数据分区（纯 DTO，Version 1） | `GameSession.SaveNowAsync` 落盘前更新（`SessionSaveData.cs:15`） |
 | `SlotInfo` / `SlotState` / `SlotsMode` | 只读摘要 / 三态枚举 / 面板两种打开模式 | `GameSession.ReadSlotInfosAsync` 产出；`SaveSlotsView` / `SaveSlotsController` 按值消费 |
@@ -79,7 +110,7 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
   `SlotsMode.NewGame`；「继续」读 `LatestSlot`，没有可用存档（`LatestSlot == 0`）时「继续」**隐藏**（不是置灰，
   `TitleView.SetContinueVisible(SessionTitleRules.ShouldShowContinue(...))`；回标题与选槽面板删掉最后一个存档后走同一判定）；「选择存档」开面板 `SlotsMode.Load`。`SaveSlotsController`
   负责面板会话（覆盖 / 删除走 `ConfirmView.WaitAsync`）；流程一旦离开标题（继续 / 新游戏成功），控制器订阅的
-  `GameStateChangingEvent(From == TitleState)` 会自己把面板收掉，不会残留盖在玩法画面上（`SaveSlotsController.cs:150`）。
+  `GameStateChangingEvent(From == TitleState)` 会自己把面板收掉，不会残留盖在玩法画面上（`SaveSlotsController.cs` 的 `HandleStateChanging`）。
 - **面板行的可选 / 可删规则**（`SaveSlotsView.IsRowSelectable` / `IsDeleteVisible`）：读档模式下只有
   `SlotState.Available` 的行能点，空槽 / 坏槽点不动；新游戏模式三态都能点（非空槽由控制器先弹确认覆盖）；
   「删除」按钮只在可读槽（`Available`）上显示，空槽没东西可删、坏槽走新游戏覆盖流程处理。
@@ -94,7 +125,7 @@ Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退
 
 - `SessionConfig.TitleYinStoryFlag` 是**未绑定的占位入口**，默认空值；文策确定节点后，在正式阶段 `SetFlags` 设置该键并赋到配置。
   当前未新增真实剧情节点，也不把妖界或场景编号自动等同于阴版。
-- `TitleYinTint` 只作为未接正式素材时的兼容预览色。正式素材已收到并原样复制，20 张 PNG 的字节与原文件一致。
+- `TitleYinTint` 只作为未接正式素材时的兼容预览色。正式素材初次接入时原样复制；阳版四张卷轴选中图在 2026-10-14 调整了原有渐变的可见范围，见下文。
   背景自带铜镜、云纹和标题；按钮自带文字。旧 Logo 与文字叠层由预制体关闭，保留既有点击路由。
 - 回标题优先取当前会话的剧情分区；冷启动只读最近可用槽的候选，不 Commit、不改变当前内存进度。
   无档、旧档缺 Narrative 分区、未绑定或无标记时用阳版。剧情变化和选槽面板删除存档后刷新；迟到读盘不覆盖较新的刷新。
@@ -128,6 +159,7 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 
 导入为 Single Sprite，保留原尺寸与透明通道，Bilinear、无 mipmap、无压缩；Unity 生成并维护 `.meta`。
 菜单使用原生 Sprite Swap：悬停、键盘 / 手柄选中与按压共用对应选中图。
+阳版四张卷轴选中图使用 PSB 原有浅青蓝到黄绿色标，将渐变范围对齐到屏幕内可见纸面：原卷轴的上半截在画面外，较短的设置/退出原 PNG 顶部已偏绿。2026-10-14 在 PSB 副本中调整渐变缩放与偏移后原生导出，未改色标、源 PSB、文字、尺寸或透明轮廓；沿用原文件名和 GUID。
 放置位置参考图与 PSB 源文件不进入运行时资产目录。
 正式素材已通过 Unity MCP 接入 `TitleView.prefab`；Vector2 与内部按钮引用由编辑器 API 接线，未手改 YAML。
 本批实测：标题 EditMode 16/16、正式素材回放 1/1 通过；回放验证阴版替换、阳版恢复和菜单选中图，控制台无错误。
@@ -144,17 +176,31 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 | --- | --- |
 | 0～2.8 | 天空迅速显露，水面慢升，铜镜旋转下落并轻微落定 |
 | 0.98～2.93 | 标题晚半拍紧随铜镜下落 |
-| 1.25～3.8 | 莲花纹围绕铜镜中心展开；云雾与石头从镜后的小尺寸状态向左右、略向下错峰展开，远山保持原节奏 |
+| 0.52～2.87 | 中景石头保持原尺寸，从左右外侧向镜子收拢；外围两块晚一拍从画面左右外侧滑入，均持续 1.25 秒并淡入、减速落定 |
+| 1.2～5.65 | 云雾保留镜后展开；镜旁白色云纹从 1.55/1.72 秒起线性淡入，到 5.65 秒才完全显现；底部雾气仍随自身运动淡入 |
 | 2.5～4.09 | 丝带用两个 RectMask2D 从左右外缘向内揭露，不拉伸图像 |
-| 3.65～5.47 | 卷轴依次加速落下、短促回弹，再显示花纹与文字 |
-| 5.05～6.3 | 开始按钮最后缓缓浮现；落定后保留细微的云、水面、铜镜与按钮呼吸 |
+| 3.5～4.65 | 中间的选择存档/继续先展开（3.5/3.57），外侧设置/退出随后展开（3.78/3.85）；0.8 秒展开中轻轻回拉一次，再落定 |
+| 4.65～5.65 | 开始按钮最后缓缓浮现；落定后保留细微的云、水面、铜镜与按钮呼吸 |
 
 运动与淡入分开驱动；入场采用 unscaled 时间。`OnOpenAsync` 同步准备起始态后立即返回，
-不等完整 6.3 秒，避免阻塞 `SessionTitleRouter` 的存档主题刷新。入场期间根 CanvasGroup 禁止交互，
+不等完整 5.65 秒，避免阻塞 `SessionTitleRouter` 的存档主题刷新。入场期间根 CanvasGroup 禁止交互，
 落定后恢复。设置面板覆盖、主题切换与销毁均取消时间轴并复位；返回被覆盖的标题不重复入场。
 普通菜单入场结束后交还原完整图片的 Sprite Swap；开始按钮入场时使用拆件，落定后隐藏六个拆件子图，
 由同一呼吸节点上的完整 Image 接管 Sprite Swap。阳版与阴版高亮跟随主题切换，按压缩放仍留在原按钮父节点。
 没有存档时继续隐藏，触屏退出隐藏的原规则不变，不由动画重新激活按钮。
+
+卷轴底轨道的 `UnrollVertical` 改变 RectTransform 高度，顶部 pivot 固定，九宫格保留上下横轴与边线厚度。
+源图上半段在画面外，初始长度包含该隐藏段，只有可见纸面从约 6% 展开；曲线在可见长度略过后回拉约 7%，再落定。
+白色底部渐变位于纸面内部、横轴上方，随下沿移动和回拉。卷轴底按 PSB 合成纸面与渐变，九宫格的下边界保留整段渐变高度（按 parts.json 中纸面下沿减渐变上沿计算），展开只拉伸上方纸面。
+渐变从展开时就显现，花纹和文字按原时间出现；完成后完整按钮图接管。不能把九宫格下边界只设为横轴的 18 像素，否则渐变随中段拉伸，在展开前段会变弱。
+文字上层还需一层淡白覆盖：原 `底部渐变.png` 放在各 Button 的最后一个子节点，位于文字、花纹及完整按钮图之上，使用原尺寸和 PNG 透明度。它跟随纸面相同的展开曲线、位移与淡入，落定后保留在阳版普通态；阴版及阳版悬停、选中、按下时隐藏，避免冲淡原始高亮配色。`TitleEntranceMotion` 监听按钮 Image 的脏顶点回调，以实际 Sprite Swap 图片判断覆盖层显隐，启停时配对订阅/注销，无逐帧轮询。此前误加到横轴外的 `ScrollFooter` 已移除。
+卷轴底必须用 Photoshop 在原画布烘焙图层样式，保留整张浅色渐变。直接导出的纯深蓝填充与完整按钮不同，会在入场结束交还完整图时跳色。
+四张 `卷轴底.png` 已按原 PSB 烘焙纸面与内部渐变；保持原宽高与 GUID，画面外上半段用透明占位保留坐标，源 PSB 不写回。
+花纹/文字留在纸面内并受 RectMask2D 裁切；花纹在展开后 0.34 秒开始、用 0.28 秒淡入，文字在 0.48 秒开始、用 0.32 秒淡入。
+中景石头左/右在 0.52/0.6 秒开始，从外侧以小幅斜向位移靠近下落的镜子；运动与线性淡入均持续 1.25 秒，末段减速而不反弹。
+外围左/右石头在 1.5/1.62 秒开始，以横向偏移 -280/+220 从画面外向内滑入，运动与淡入均为 1.25 秒，沿用中景的减速曲线；保持原高度、大小及落定位置。
+`LinearFade` 用于四块石头及四条云雾轨道；白色 `云_左/右` 淡入持续 4.1/3.93 秒，移动停止后继续淡入；`雾气_左/右` 保留 2.3/2.4 秒，其他淡入保留原曲线。
+主题切换和停用时同时恢复高度，防止返回菜单留下缩短的纸面。最终尺寸/位置保持不变。
 
 当前只有阳版拆件。阴版使用已有完整正式图，切阴版时隐藏阳版拆件并恢复背景与按钮；恢复阳版不重播入场。
 天空与水面的 Photoshop 渐变依赖原画布尺寸，已在原 1920×1080 画布上烘焙。
@@ -162,13 +208,33 @@ Unity 资产体检四项通过，新 C# 与目录 `.meta` 已由 Unity 刷新生
 后续直接调配置与预制体。点击开始后的转场见下节。
 
 验证入口：`TitleEntranceMotionTests` 的 EditMode 配置/切主题检查与 PlayMode 覆盖/暂停检查；
-`TitleShowcase.Entrance_RevealsPartsInRhythmAndRestoresMenuInteraction` 记录五个入场阶段并检查交互恢复，
+`TitleShowcase.Entrance_RevealsPartsInRhythmAndRestoresMenuInteraction` 记录八步入场，检查向内收拢、持续淡入、中间先开、一次回拉、填充/底部渐变和交互恢复，
 原主题切换回放继续保留。实测：18 条标题 EditMode、3 条 PlayMode 和 2 条视觉回放通过，控制台无错误；
 最终报告 `Logs/verify/title/20261013-025352/report.md`。50 张 PNG 的尺寸与配套 meta 全部通过检查。
 镜后展开调整只改变 8 条云雾与石头轨道的起始偏移和缩放，其他 37 条轨道与全部终点保持不变；
 右中景、右前景石头移到铜镜后层。调整后 18 条 EditMode 与 2 条视觉回放通过，控制台无错误，
 报告 `Logs/verify/title/20261013-084020/report.md`。
 全局 gc 扫描仍有工作区原有的 Dynamic 字体缓存膨胀告警，未清除其他改动。最终视觉表现由开发者确认。
+
+卷轴展开/石头淡入调整实测（2026-10-13）：20 条标题 EditMode、2 条入场 PlayMode 通过；
+最终七步回放通过、0 检查点失败、0 运行时异常，控制台无错误，报告 `Logs/verify/title/20261013-164901/report.md`。
+四张卷轴底 Sprite 的九宫格边界由 Unity 原生导入器设置；45 个部件最终中心、21 条其他场景/开始轨道保留。
+本批未重新跑点击开始进场景的回放或手机性能测量；全局 gc 扫描仍报现有字体缓存，视觉观感尚待开发者确认。
+
+填充/透明度/节奏再调整实测：20 条标题 EditMode、3 条入场 PlayMode 与七步回放通过，控制台无错误。
+报告 `Logs/verify/title/20261013-183824/report.md` 仅验证底部渐变同步伸展，未覆盖整张卷轴填充，不能据此判定结束跳色已修复。全段从 6.3 秒收紧到 5.65 秒，45 个部件最终中心与 20 条其他场景轨道保留。
+整张填充修正实测：原 PSB 原生烘焙四张底图，新增结束前后实际屏幕像素比较；
+报告 `Logs/verify/title/20261013-191811/report.md` 通过，继续卷轴抽样色 `88DDE3 → 88DDE3`，0 检查点失败、0 运行时异常，控制台无错误。
+渐变合并/内收/全程淡入调整实测：20 条标题 EditMode、4 条入场 PlayMode 和八步回放通过，控制台无错误。
+报告 `Logs/verify/title/20261013-201510/report.md` 同时验证上部填充 `88DDE3 → 88DDE3` 和纸面内部白色渐变 `A0D8E4 → A0D8E4`；未覆盖横轴外下方的渐变，也未验证镜旁白色云纹在运动停止后继续淡入。
+镜旁云纹调整实测：20 条标题 EditMode、6 条入场 PlayMode 通过；阳阴主题切换回放通过。
+报告 `Logs/verify/title/20261013-215207/report.md` 的白色云纹淡入检查有效，但外部渐变检查验证了错误的位置，不能作为用户所需纸面内部渐变的验收依据；对应外部渐变测试已移除。
+纸面内部渐变修正（2026-10-13）：四张卷轴底的九宫格下边界改为 180/182/187 像素，固定保留原渐变范围；未改文字时点、云纹淡入或石头运动。
+20 条标题 EditMode、5 条入场 PlayMode、主题切换回放通过；纸面底色报告 `Logs/verify/title/20261013-232536/report.md` 为 PASS、0 检查点失败、0 运行时异常，控制台无错误。该报告只验证了文字后面的纸面渐变，未覆盖用户随后明确的“叠在字上面”要求。
+新增文字出现前的实际像素检查：底部 `A0D8E4`、上方 `8AD2DF`；结束切图前后底部均为 `A0D8E4`。采样须避开顶部 78 像素的回放提示条。最终视觉由开发者确认，未复测点击开始转场或真机性能。
+文字前景覆盖修正：20 条标题 EditMode、6 条入场 PlayMode、2 条标题回放通过；报告 `Logs/verify/title/20261013-234936/report.md`，无检查点失败或运行时异常。
+四个卷轴在落定后开关覆盖层进行实际像素比较，文字阴影区域分别有 3227/4975/3650/4686 个像素被提亮，证明渐变位于文字上层；结束前后纸面底部均为 `D5ECF1`，没有换图跳色。截图 `15-四卷轴渐变覆盖文字.png` 供开发者确认覆盖强度。
+选中渐变可见范围与外围石头调整（2026-10-14）：6 条入场 PlayMode、2 条标题回放通过，报告 `Logs/verify/title/20261014-135748/report.md`；四张选中 PNG 尺寸及逐像素透明通道保持不变。回放检查四按钮高亮的上下色差、普通态文字渐变，以及外围石头横向滑入、淡入、终点复位；仅修改两条外围石头轨道，另外 43 条轨道原样保留。本批未复测点击开始转场或手机性能。
 
 开始高亮素材原样复制到两版 `ui_title_start_selected.png`，字节校验与源文件一致；Unity 导入与 meta 配套完成。
 高亮修补后 18 条 EditMode、3 条视觉回放通过，无运行时异常，报告 `Logs/verify/title/20261013-092437/report.md`。
@@ -184,7 +250,7 @@ DefaultSelected 仍保留开始按钮；UIService 在真实导航/确认输入�
 空槽开局时，SessionTitleRouter 先等待转场，再沿用操作说明与 NewGameAsync；无空槽先打开选槽面板。
 满槽选择并确认覆盖后，SaveSlotsController 先关闭全屏选槽面板，再播放同一段标题转场、显示操作说明并开局。
 取消覆盖不播放、不初始化会话；开局失败或取消后复位标题演出。
-继续、选择存档不播放这段转场；缺少组件或 Shader 不受支持时保留原开局路径。
+新游戏保留这段完整转场；读档使用下节的短版。缺少组件或 Shader 不受支持时保留原流程。
 
 | 节拍 | 表现 |
 | --- | --- |
@@ -207,6 +273,19 @@ DefaultSelected 仍保留开始按钮；UIService 在真实导航/确认输入�
 该批空槽回放未触发转场，不能将整批报告视为通过；模拟按压改为至少 50ms 后，单独复验被手动 Play 状态阻断，尚不能确认失败原因。
 回放存档只写临时覆盖目录，未改正式槽文件。另通过 Unity 原生 API 补回 Noto 字体当前缺失图集页，保留 475 个字符及已有图集；
 修复前副本在 `Tools/Font_NotoSansSC_before_missing_atlas.asset.backup`，没有清除字形缓存或字体样式。
+
+### 读档收卷与短转场（2026-10-15）
+
+仅 `SlotsMode.Load` 的选槽点击播放收卷：纸面由顶部固定的 RectMask2D 从下向上裁切，原图底轴与挂穗用 RawImage 的 UV 区域保持原尺寸移动，整条不缩放。
+收卷时长在 `SessionConfig.LoadRollSeconds`（0.45 秒），轴与挂穗高度在存档预制体 `rollFooterHeight`（218 参考像素）。遮罩在普通显示和下拉删除时停用，不改变删除拖拽。
+收卷后关闭选档面板，显示原标题并调用 `TitleView.PlayLoadTransitionAsync`：镜转 0.35 秒、水波 1.2 秒，分别由 `TitleStartConfig.LoadMirrorSeconds/LoadWaveSeconds` 控制。
+标题「继续」复用同一短版；新游戏、满槽覆盖开局仍走 `PlayStartTransitionAsync` 的完整节拍与操作说明。
+转场结束后调用原 `GameSession.ContinueAsync`，不改变存档格式或候选校验。失败时复位镜子与黑幕并重开选档，取消收卷则恢复裁切、底轴、Sprite Swap 和交互。
+验证入口：`SaveSlotsLoadTransitionTests`（暂停完成、取消复原）、`TitleStartTransitionTests`（短版独立时长与原转场回归），以及 `TitleShowcase.MouseLoad_RollsScrollThenShortWaterWarpEntersWorld/MouseLoad_MissingFileRestoresSelection` 的真实鼠标回放。
+实测：相关 EditMode 63/63、首轮 PlayMode 7/7 通过；最终真实鼠标回放 2/2 通过，0 检查点失败、0 运行时异常，报告 `Logs/verify/title/20261015-013247/report.md`。最后一次 PlayMode 复测连接未返回结果，不计为通过。回放只使用临时存档目录，未做真机性能测量；全局 gc 仍报两份已有 Dynamic 字体缓存膨胀。
+
+选档加载寿命修正（2026-10-15）：短转场和 `ContinueAsync` 使用 `SaveSlotsController` 的寿命令牌，控制器释放时取消；标题正常关闭不再取消入场。标题阶段只需 Boot，进入玩法后 Boot 常驻、SampleScene 由 `SceneGameState` 叠加加载。根因与验证陷阱见 [经验记录](../../../pitfalls.md#标题关闭取消了选档加载画面只剩-boot)。
+本次 Session EditMode 51/51、Session PlayMode 4/4（含标题先销毁的回归测试）、真实鼠标读档回放 2/2 通过，0 检查点失败、0 运行时异常；报告 `Logs/verify/title/20261015-032054/report.md` 明确检查玩法状态与两个场景均已加载。使用隔离临时存档，最终视觉由开发者确认。未新增 lint 规则或改通用规范，因此不运行规则行为 eval。
 
 ### 本批待审清单（未提交）
 

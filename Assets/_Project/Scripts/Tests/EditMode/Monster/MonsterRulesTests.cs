@@ -272,6 +272,18 @@ namespace Game.Tests.EditMode.Monster
 
         private MonsterRules NewRules() => new MonsterRules(config, new MonsterModel(),
             new RandomService(123ul), NullTelemetryScope.Instance);
+        [Test]
+        public void DrunkIntent_ShrinksRealSensingAndMovement_DefaultRetainsOriginal()
+        {
+            var target = Target(Vector2.right * 5);
+            var reduced = new MonsterIntent(target, 1, false, .5f, .5f); rules.Step(in reduced);
+            Assert.That(rules.Model.Mode, Is.EqualTo(MonsterMode.PatrolWalk));
+            Assert.That(rules.Model.Position.x, Is.EqualTo(config.PatrolSpeed * .5f).Within(.001f));
+            rules.Reset(new[] { Vector2.zero, Vector2.right * 100 });
+            Step(target, 0); Assert.That(rules.Model.Mode, Is.EqualTo(MonsterMode.Alert));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => new MonsterIntent(target, 0, false, float.NaN));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => new MonsterIntent(target, 0, false, 0));
+        }
 
         private MonsterRules NewRules(MonsterKind kind) => new MonsterRules(config, new MonsterModel(),
             new RandomService(123ul), NullTelemetryScope.Instance, kind);

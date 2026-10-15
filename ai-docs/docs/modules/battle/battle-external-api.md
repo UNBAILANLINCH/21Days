@@ -68,7 +68,12 @@ BOSS 在 `Assets/_Project/Data/Battle/BossRosterConfig.asset` 里按 id 登记�
 - 需要 Boot 的 `GameBootstrap` 挂 `BattleInstaller`，并拖好 `TurnBasedConfig.asset` 与 `BossRosterConfig.asset`；缺了记 Error 并用默认 / 空名册顶上（`BattleInstaller.cs:113-128`）。
 - 依赖 `NarrativeInstaller` / `LootInstaller` 已注册（`BattleInstaller.cs:35`）。
 - 战斗场景地址 `BattleArena`（`BattleArena.cs:26`）须在 `AssetGroups/Scenes.asset`，界面地址 `BattleView`（= 类名）须在 `AssetGroups/UI.asset`。
-- 只有「正面攻击、玩家先手」一种开战方式（`BattleSetup.cs:104`）。
+- 只有「正面攻击、玩家先手」一种开战方式（`BattleSetup.cs`）。
+
+## 场外醉酒与隔离舞台
+
+`BattleSetup.BindDrunkSource(Func<string,int?>)`绑定调用方拥有的醉酒来源，参数为BOSS id；null使用配置默认值，0会覆盖占位值，负值拒绝开战。卸载时绑定null，不能缓存上一场值或运行时修改SO。
+`BattleArena`构造函数有可选sceneKey，默认BattleArena；`BattleInstaller.arenaSceneKey`提供编辑期引用。五店主场景使用正常Boot的BattleArena。旧ShopPlaytestBattleScene入口已加Legacy前缀归档，不能再作为当前五店接线或验收舞台。
 
 ## 禁止事项
 

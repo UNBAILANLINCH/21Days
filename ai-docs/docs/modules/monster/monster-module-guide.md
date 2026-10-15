@@ -7,6 +7,13 @@ maturity: stable
 
 # Monster 模块指南
 
+## 主场景酒肆醉酒意图（2026-10-13）
+
+MonsterIntent新增可选awarenessScale与movementScale，默认均1，旧调用点行为不变。
+范围为有限的(0,1]；Step感知的红区、橙区、贴身范围乘awarenessScale，巡逻/警戒/敌对速度乘movementScale，不缩放计时器或修改配置。
+ShopPlaytest在正常SampleScene绑定时由Tavern场外状态提供倍率，原巡逻者继续默认倍率。酒肆观测NPC用Taming的ObservationOnly标记保留察觉/追近，但双方不结算探索伤害；回合制内仍按既有Battle规则。
+新增EditMode负对照验证5米处感知拒绝、速度减半、默认感知和NaN/0拒绝。原快照和InputCommand布局未改；独立试玩不是新增正式Replay支持。
+
 ## 职责与边界
 
 Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退警戒值，追击、攻击、受伤和死亡。

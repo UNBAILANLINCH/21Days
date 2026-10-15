@@ -1,0 +1,22 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("仍在播放，不能保存资产");
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");
+var preserved=new System.Collections.Generic.Dictionary<int,string>();int changed=0;
+for(int i=0;i<tracks.arraySize;i++){
+ var t=tracks.GetArrayElementAtIndex(i);string name=t.FindPropertyRelative("part").stringValue;
+ if(name!="石头_左远景"&&name!="石头_右前景"){preserved.Add(i,UnityEngine.JsonUtility.ToJson(config.Tracks[i]));continue;}
+ bool left=name=="石头_左远景";
+ t.FindPropertyRelative("offset").vector2Value=new UnityEngine.Vector2(left?-280f:220f,0f);
+ t.FindPropertyRelative("delay").floatValue=left?1.5f:1.62f;
+ t.FindPropertyRelative("duration").floatValue=1.25f;t.FindPropertyRelative("fadeSeconds").floatValue=1.25f;
+ t.FindPropertyRelative("scale").floatValue=1f;
+ t.FindPropertyRelative("linearFade").boolValue=true;t.FindPropertyRelative("subtleFade").boolValue=false;
+ t.FindPropertyRelative("curve").animationCurveValue=new UnityEngine.AnimationCurve(
+  new UnityEngine.Keyframe(0f,0f,0.7f,0.7f),new UnityEngine.Keyframe(0.55f,0.78f,1f,1f),new UnityEngine.Keyframe(1f,1f,0f,0f));
+ changed++;
+}
+if(changed!=2)throw new System.InvalidOperationException("外围石头轨道数量不符");
+data.ApplyModifiedPropertiesWithoutUndo();
+foreach(var p in preserved)if(p.Value!=UnityEngine.JsonUtility.ToJson(config.Tracks[p.Key]))throw new System.InvalidOperationException("其他轨道被修改");
+UnityEditor.AssetDatabase.SaveAssets();
+return new {outerStones=changed,preservedTracks=preserved.Count};

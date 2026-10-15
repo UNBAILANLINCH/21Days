@@ -243,8 +243,17 @@ namespace Game.Session
                 return;
             }
 
-            bool ok = await session.ContinueAsync(latest, ct);
-            telemetry.Track("title_continue", ("slot", latest), ("success", ok));
+            TitleView title = ui.Get<TitleView>();
+            try
+            {
+                if (title != null) await title.PlayLoadTransitionAsync(ct);
+                bool ok = await session.ContinueAsync(latest, ct);
+                telemetry.Track("title_continue", ("slot", latest), ("success", ok));
+            }
+            finally
+            {
+                if (title != null) title.ResetStartTransition();
+            }
         }
 
         private enum TitleAction

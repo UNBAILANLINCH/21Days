@@ -1,0 +1,37 @@
+// 使用 Unity 的真实剪辑和渲染器导出预览，不重写一套绘图/动画公式。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("先退出 Play");
+string output = "Tools/customer-animation-preview"; System.IO.Directory.CreateDirectory(output);
+foreach (string id in new[] { "customers", "drunk_customer" })
+{
+    var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/Characters/Chibi_" + id + ".prefab");
+    var preview = new UnityEditor.PreviewRenderUtility();
+    var previewMaterial = new UnityEngine.Material(UnityEngine.Shader.Find("Sprites/Default"));
+    try
+    {
+        var instance = UnityEngine.Object.Instantiate(asset); preview.AddSingleGO(instance);
+        foreach (var renderer in instance.GetComponentsInChildren<UnityEngine.SpriteRenderer>(true)) renderer.sharedMaterial = previewMaterial;
+        instance.transform.position = UnityEngine.Vector3.zero;
+        instance.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>().enabled = false;
+        var camera = preview.camera; camera.orthographic = true; camera.orthographicSize = .88f;
+        camera.transform.position = new UnityEngine.Vector3(0, .8f, -10); camera.transform.rotation = UnityEngine.Quaternion.identity;
+        camera.nearClipPlane = .01f; camera.farClipPlane = 30; camera.clearFlags = UnityEngine.CameraClearFlags.SolidColor;
+        camera.backgroundColor = new UnityEngine.Color(.86f, .82f, .72f, 1); preview.ambientColor = UnityEngine.Color.white;
+        string[] states = id == "drunk_customer" ? new[] { "idle", "walk", "run", "drink" } : new[] { "idle", "walk", "run" };
+        foreach (string state in states)
+        {
+            var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>("Assets/_Project/Art/Animations/Characters/" + id + "/chr_" + id + "_" + state + ".anim");
+            if (clip == null || (state != "drink" && !UnityEditor.AnimationUtility.GetAnimationClipSettings(clip).loopTime)) throw new System.InvalidOperationException("动画缺失");
+            for (int frame = 0; frame < 16; frame++)
+            {
+                clip.SampleAnimation(instance, clip.length * frame / 16f);
+                preview.BeginStaticPreview(new UnityEngine.Rect(0, 0, 400, 440));
+                preview.Render(true); var image = preview.EndStaticPreview();
+                if (image == null) throw new System.InvalidOperationException("预览渲染失败");
+                System.IO.File.WriteAllBytes(output + "/" + id + "_" + state + "_" + frame.ToString("00") + ".png", image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
+            }
+        }
+    }
+    finally { preview.Cleanup(); UnityEngine.Object.DestroyImmediate(previewMaterial); }
+}
+return "PASS: 112 preview frames rendered from saved Unity animations.";

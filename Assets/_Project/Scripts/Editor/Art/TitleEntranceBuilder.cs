@@ -26,6 +26,9 @@ namespace Game.Editor
             internal Vector2 Offset, Breath;
             internal AnimationCurve Curve;
             internal int Reveal;
+            internal bool Unroll;
+            internal bool SubtleFade;
+            internal bool LinearFade;
         }
 
         [MenuItem("21Days/Art/Build Title Entrance")]
@@ -50,6 +53,13 @@ namespace Game.Editor
                 importer.alphaIsTransparency = true;
                 importer.filterMode = FilterMode.Bilinear;
                 importer.maxTextureSize = 4096;
+                if (Path.GetFileName(file) == "卷轴底.png")
+                {
+                    JObject paper = assets[file];
+                    JObject gradient = assets[file.Replace("卷轴底.png", "底部渐变.png")];
+                    float bottom = (float)paper["y"] + (float)paper["height"] - (float)gradient["y"];
+                    importer.spriteBorder = new Vector4(18f, bottom, 18f, 18f);
+                }
                 importer.SaveAndReimport();
             }
             var root = PrefabUtility.LoadPrefabContents(PrefabPath);
@@ -71,8 +81,10 @@ namespace Game.Editor
                 lotus.Target.pivot = lotusPivot;
                 lotus.BreathScale = 0.012f; lotus.BreathSeconds = 4.8f;
                 Part leftCloud = Add(parts, assets, content, "01_场景/云_左.png", 1.55f, 1.8f, new Vector2(262.5f, 116f), 0.42f);
+                leftCloud.Fade = 5.65f - leftCloud.Delay; leftCloud.LinearFade = true;
                 leftCloud.Breath = new Vector2(8f, 3f); leftCloud.BreathSeconds = 4.5f;
                 Part rightCloud = Add(parts, assets, content, "01_场景/云_右.png", 1.72f, 1.9f, new Vector2(-301.5f, 142.5f), 0.42f);
+                rightCloud.Fade = 5.65f - rightCloud.Delay; rightCloud.LinearFade = true;
                 rightCloud.Breath = new Vector2(-7f, 4f); rightCloud.BreathSeconds = 5.2f;
                 Add(parts, assets, content, "01_场景/头顶圆光.png", 0.6f, 2.1f, new Vector2(0f, 35f), 0.9f);
                 string[] mountains = { "远山_右内", "远山_右外", "远山_左内", "远山_左外" };
@@ -81,30 +93,38 @@ namespace Game.Editor
                         new Vector2(i < 2 ? 100f : -100f, -24f), 0.93f);
                 Ribbon(parts, assets, content, "丝带_左", 2.5f, 1);
                 Ribbon(parts, assets, content, "丝带_右", 2.64f, -1);
-                Add(parts, assets, content, "02_石头/石头_左远景.png", 1.5f, 1.8f, new Vector2(649.5f, 101f), 0.32f);
-                Add(parts, assets, content, "04_水面与倒影/雾气_左.png", 1.2f, 2.3f, new Vector2(206.5f, 142.5f), 0.52f);
-                Add(parts, assets, content, "04_水面与倒影/雾气_右.png", 1.4f, 2.4f, new Vector2(-727.5f, 194f), 0.52f);
+                Part leftFar = Add(parts, assets, content, "02_石头/石头_左远景.png", 1.5f, 1.25f, new Vector2(-280f, 0f));
+                leftFar.Fade = leftFar.Duration; leftFar.LinearFade = true; leftFar.Curve = StoneCurve();
+                Part leftMist = Add(parts, assets, content, "04_水面与倒影/雾气_左.png", 1.2f, 2.3f, new Vector2(206.5f, 142.5f), 0.52f);
+                leftMist.Fade = leftMist.Duration; leftMist.LinearFade = true;
+                Part rightMist = Add(parts, assets, content, "04_水面与倒影/雾气_右.png", 1.4f, 2.4f, new Vector2(-727.5f, 194f), 0.52f);
+                rightMist.Fade = rightMist.Duration; rightMist.LinearFade = true;
                 Part water = Add(parts, assets, content, "04_水面与倒影/水面.png", 0.08f, 2.5f, new Vector2(0f, -165f));
                 water.Fade = 1.1f; water.Breath = new Vector2(0f, -2.5f); water.BreathSeconds = 5.8f;
                 // 水纹的 SoftLight 已在原画布上烘焙进水面，普通 UI 透明叠加会把它变成亮白条。
                 string[] reflections = { "铜镜倒影_水影", "铜镜倒影_蓝", "铜镜倒影_深" };
                 for (int i = 0; i < reflections.Length; i++)
                     Add(parts, assets, content, "04_水面与倒影/" + reflections[i] + ".png", 0.85f + i * 0.08f, 2.1f, new Vector2(0f, -110f));
-                Add(parts, assets, content, "02_石头/石头_左中景.png", 1.85f, 1.7f, new Vector2(144f, 169f), 0.38f);
+                Part leftStone = Add(parts, assets, content, "02_石头/石头_左中景.png", 0.52f, 1.25f, new Vector2(-180f, 40f));
+                leftStone.Fade = leftStone.Duration; leftStone.LinearFade = true; leftStone.Curve = StoneCurve();
                 Part mirror = Add(parts, assets, content, "03_镜子与标题/铜镜_本体.png", 0.32f, 2.4f, new Vector2(0f, 420f), 0.88f);
                 mirror.Rotation = -32f; mirror.Curve = SettleCurve(); mirror.Breath = new Vector2(0f, 2f); mirror.BreathSeconds = 5.4f;
-                Part rightStone = Add(parts, assets, content, "02_石头/石头_右中景.png", 2.03f, 1.75f, new Vector2(-147f, 206f), 0.38f);
+                Part rightStone = Add(parts, assets, content, "02_石头/石头_右中景.png", 0.6f, 1.25f, new Vector2(180f, 35f));
+                rightStone.Fade = rightStone.Duration; rightStone.LinearFade = true; rightStone.Curve = StoneCurve();
                 rightStone.Target.SetSiblingIndex(mirror.Target.GetSiblingIndex());
                 Add(parts, assets, content, "03_镜子与标题/鸟.png", 2.05f, 1.45f, new Vector2(55f, 35f), 0.85f);
-                Part rightForeground = Add(parts, assets, content, "02_石头/石头_右前景.png", 1.72f, 1.9f, new Vector2(-829f, 157.5f), 0.32f);
+                Part rightForeground = Add(parts, assets, content, "02_石头/石头_右前景.png", 1.62f, 1.25f, new Vector2(220f, 0f));
+                rightForeground.Fade = rightForeground.Duration; rightForeground.LinearFade = true; rightForeground.Curve = StoneCurve();
                 rightForeground.Target.SetSiblingIndex(mirror.Target.GetSiblingIndex());
                 Part title = Add(parts, assets, content, "03_镜子与标题/标题_镜非台.png", 0.98f, 1.95f, new Vector2(0f, 255f), 0.97f);
                 title.Rotation = 3f; title.Curve = SettleCurve();
 
                 string[] names = { "设置", "选择存档", "继续", "退出游戏" };
                 string[] buttons = { "SettingsButton", "LoadButton", "ContinueButton", "QuitButton" };
+                float[] beats = { 3.78f, 3.5f, 3.57f, 3.85f };
                 var buttonRoots = new List<GameObject>();
                 var images = new List<Image>();
+                var overlays = new List<GameObject>();
                 for (int i = 0; i < names.Length; i++)
                 {
                     var button = (RectTransform)root.transform.Find("Buttons/" + buttons[i]);
@@ -112,21 +132,34 @@ namespace Game.Editor
                     var art = Rect("EntranceArtwork", button, Vector2.zero, button.sizeDelta);
                     buttonRoots.Add(art.gameObject); images.Add(button.GetComponent<Image>());
                     string prefix = "05_卷轴按钮/" + names[i] + "/未选中/";
-                    float beat = 3.65f + i * 0.14f;
-                    Part scroll = Add(parts, assets, art, prefix + "卷轴底.png", beat, 0.84f, new Vector2(0f, 480f), 1f, center);
-                    scroll.Curve = DropCurve(); scroll.Fade = 0.16f;
-                    Part cord = Add(parts, assets, art, prefix + "吊线与菱形.png", beat, 0.84f, new Vector2(0f, 480f), 1f, center);
-                    cord.Curve = DropCurve(); cord.Fade = 0.16f;
-                    Part gradient = Add(parts, assets, art, prefix + "底部渐变.png", beat, 0.84f, new Vector2(0f, 480f), 1f, center);
-                    gradient.Curve = DropCurve(); gradient.Fade = 0.16f;
-                    Add(parts, assets, art, prefix + "花纹.png", beat + 0.68f, 0.55f, new Vector2(0f, 18f), 0.88f, center);
-                    Add(parts, assets, art, prefix + "文字.png", beat + 0.8f, 0.6f, new Vector2(0f, 12f), 0.97f, center);
+                    float beat = beats[i];
+                    Part scroll = Add(parts, assets, art, prefix + "卷轴底.png", beat, 0.8f, Vector2.zero, 0.06f, center);
+                    // 源图上半截在屏幕外；只展开可见纸面，避免前半拍空等。
+                    float hidden = Mathf.Max(0f, -(float)assets[prefix + "卷轴底.png"]["y"]);
+                    scroll.Scale = Mathf.Lerp(hidden / scroll.Target.sizeDelta.y, 1f, 0.06f);
+                    scroll.Curve = UnrollCurve(); scroll.Fade = 0.1f; scroll.Unroll = true;
+                    scroll.Target.anchoredPosition += new Vector2(0f, scroll.Target.sizeDelta.y * 0.5f);
+                    scroll.Target.pivot = new Vector2(0.5f, 1f);
+                    scroll.Target.GetComponent<Image>().type = Image.Type.Sliced;
+                    scroll.Target.gameObject.AddComponent<RectMask2D>();
+                    Add(parts, assets, art, prefix + "吊线与菱形.png", beat - 0.1f, 0.24f, Vector2.zero, 1f, center);
+                    Part gradient = Add(parts, assets, art, prefix + "底部渐变.png", beat, scroll.Duration, Vector2.zero, 1f, center);
+                    Part flower = Add(parts, assets, art, prefix + "花纹.png", beat + 0.34f, 0.28f, new Vector2(0f, 8f), 1f, center);
+                    Part text = Add(parts, assets, art, prefix + "文字.png", beat + 0.48f, 0.32f, new Vector2(0f, 8f), 1f, center);
+                    // 覆盖层留在拆件之外，落定切回完整按钮后仍盖在文字和花纹上。
+                    gradient.Target.SetParent(button, true);
+                    gradient.Target.SetAsLastSibling();
+                    gradient.Offset = new Vector2(0f, scroll.Target.sizeDelta.y * (1f - scroll.Scale));
+                    gradient.Curve = scroll.Curve; gradient.Fade = scroll.Fade;
+                    overlays.Add(gradient.Target.gameObject);
+                    AttachToPaper(flower.Target, scroll.Target, 1f);
+                    AttachToPaper(text.Target, scroll.Target, 1f);
                 }
                 var start = (RectTransform)root.transform.Find("Buttons/StartButton");
                 Vector2 startCenter = ButtonCenter(start);
                 var startArt = Rect("EntranceArtwork", start, Vector2.zero, start.sizeDelta);
-                Part startPart = Track(startArt, "开始游戏按钮", 5.05f, 1.25f, new Vector2(0f, -18f), 0.96f);
-                startPart.Fade = 1.15f; startPart.BreathScale = 0.012f; startPart.BreathSeconds = 2.8f; parts.Add(startPart);
+                Part startPart = Track(startArt, "开始游戏按钮", 4.65f, 1f, new Vector2(0f, -18f), 0.96f);
+                startPart.Fade = 0.92f; startPart.BreathScale = 0.012f; startPart.BreathSeconds = 2.8f; parts.Add(startPart);
                 string[] startFiles = { "按键底_含山纹", "花纹_左长线", "花纹_左菱形", "花纹_右长线", "花纹_右菱形", "文字_开始游戏" };
                 for (int i = 0; i < startFiles.Length; i++)
                     ImageAt(assets, startArt, "06_开始游戏按钮/" + startFiles[i] + ".png", startCenter);
@@ -148,6 +181,7 @@ namespace Game.Editor
                 SetObjects(data.FindProperty("targets"), parts.ConvertAll<UnityEngine.Object>(part => part.Target));
                 SetObjects(data.FindProperty("buttonArtwork"), buttonRoots.ConvertAll<UnityEngine.Object>(item => item));
                 SetObjects(data.FindProperty("buttonImages"), images.ConvertAll<UnityEngine.Object>(item => item));
+                SetObjects(data.FindProperty("buttonOverlays"), overlays.ConvertAll<UnityEngine.Object>(item => item));
                 data.FindProperty("sceneArtwork").objectReferenceValue = frame.gameObject;
                 data.FindProperty("sceneFrame").objectReferenceValue = frame;
                 data.FindProperty("sceneContent").objectReferenceValue = content;
@@ -160,7 +194,7 @@ namespace Game.Editor
                 viewData.FindProperty("entranceMotion").objectReferenceValue = motion; viewData.ApplyModifiedPropertiesWithoutUndo();
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
                 AssetDatabase.SaveAssets();
-                Debug.Log("标题入场已接线：" + parts.Count + " 个轨道，末拍 6.3 秒；原按钮路由与主题素材保留");
+                Debug.Log("标题入场已接线：" + parts.Count + " 个轨道，末拍 5.65 秒；原按钮路由与主题素材保留");
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
         }
@@ -214,16 +248,31 @@ namespace Game.Editor
         private static AnimationCurve SettleCurve() => new AnimationCurve(new Keyframe(0f, 0f, 0f, 0.15f),
             new Keyframe(0.62f, 0.91f, 1f, 1f), new Keyframe(0.86f, 1.012f, 0f, 0f), new Keyframe(1f, 1f, 0f, 0f));
 
-        private static AnimationCurve DropCurve() => new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f),
-            new Keyframe(0.42f, 0.24f, 1.6f, 1.6f), new Keyframe(0.66f, 1.035f, 0f, 0f),
-            new Keyframe(0.84f, 0.992f, 0f, 0f), new Keyframe(1f, 1f, 0f, 0f));
+        private static AnimationCurve UnrollCurve() => new AnimationCurve(new Keyframe(0f, 0f, 0f, 0.1f),
+            new Keyframe(0.32f, 0.4f, 2f, 2f), new Keyframe(0.64f, 1.065f, 0f, 0f),
+            new Keyframe(0.82f, 0.93f, 0f, 0f), new Keyframe(1f, 1f, 0f, 0f));
+
+        private static AnimationCurve StoneCurve() => new AnimationCurve(new Keyframe(0f, 0f, 0.7f, 0.7f),
+            new Keyframe(0.55f, 0.78f, 1f, 1f),
+            new Keyframe(1f, 1f, 0f, 0f));
+
+        private static void AttachToPaper(RectTransform rect, RectTransform paper, float anchorY)
+        {
+            Vector3 position = rect.position;
+            rect.SetParent(paper, true);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, anchorY);
+            rect.position = position;
+        }
 
         private static void Configure(SerializedProperty p, Part value)
         {
             p.FindPropertyRelative("part").stringValue = value.Name;
             p.FindPropertyRelative("delay").floatValue = value.Delay; p.FindPropertyRelative("duration").floatValue = value.Duration;
             p.FindPropertyRelative("fadeSeconds").floatValue = value.Fade; p.FindPropertyRelative("offset").vector2Value = value.Offset;
+            p.FindPropertyRelative("subtleFade").boolValue = value.SubtleFade;
+            p.FindPropertyRelative("linearFade").boolValue = value.LinearFade;
             p.FindPropertyRelative("scale").floatValue = value.Scale; p.FindPropertyRelative("rotation").floatValue = value.Rotation;
+            p.FindPropertyRelative("unrollVertical").boolValue = value.Unroll;
             p.FindPropertyRelative("curve").animationCurveValue = value.Curve; p.FindPropertyRelative("revealDirection").intValue = value.Reveal;
             p.FindPropertyRelative("breathOffset").vector2Value = value.Breath; p.FindPropertyRelative("breathScale").floatValue = value.BreathScale;
             p.FindPropertyRelative("breathSeconds").floatValue = value.BreathSeconds;

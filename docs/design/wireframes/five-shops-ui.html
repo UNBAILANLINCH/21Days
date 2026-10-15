@@ -1,0 +1,156 @@
+<!-- 复用现有低保真布局；功能按聚光灯目标设计与当前 Player/Stealth/Battle/Identity 配置盘点，仅作方案预览。 -->
+<div id="shops-ui">
+  <div class="caption">探索主界面 · 潜行与暗杀</div>
+  <section class="screen" id="hud-screen" aria-label="圆形控件探索主界面"></section>
+  <div class="caption">右侧功能收纳 · 全游戏入口</div>
+  <section class="screen expanded" id="drawer-screen" aria-label="展开的右侧功能面板"></section>
+</div>
+<style>
+#shops-ui{--paper:#f6f5f2;--panel:#fbfaf7;--ink:#383838;--line:#888;font:20px/1.45 "Microsoft YaHei",sans-serif;color:var(--ink)}
+#shops-ui *{box-sizing:border-box} #shops-ui .caption{padding:20px 0 12px;font-weight:500}
+#shops-ui .screen{position:relative;width:100%;aspect-ratio:16/9;min-height:720px;overflow:hidden;background:var(--paper);border:2px solid var(--line)}
+#shops-ui button{font:inherit;color:inherit;background:var(--panel);border:2px solid var(--line)}
+#shops-ui button:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+#shops-ui .world{position:absolute;inset:0;overflow:hidden}
+#shops-ui .road{position:absolute;top:55%;left:-10%;right:-10%;height:28%;border-top:2px solid #cdccc6;border-bottom:2px solid #cdccc6;transform:rotate(-5deg);background:#ecebe6}
+#shops-ui .shops{position:absolute;top:26%;left:24%;right:9%;display:flex;gap:3%;align-items:flex-end}
+#shops-ui .building{position:relative;flex:1;height:126px;background:#e8e7e1;border:2px solid #b4b3ae;border-radius:20px 20px 2px 2px;text-align:center;padding-top:15px;color:#85847e}
+#shops-ui .building:after{content:"";position:absolute;width:26%;height:40%;left:37%;bottom:0;border:2px solid #b4b3ae;border-bottom:0;border-radius:16px 16px 0 0}
+#shops-ui .building:nth-child(2n){height:108px}
+#shops-ui .person{position:absolute;top:52%;left:38%;width:46px;height:76px;border:2px solid #aaa9a4;border-radius:35px 35px 15px 15px;background:#e2e1dc}
+#shops-ui .person:before{content:"";position:absolute;width:36px;height:36px;top:-27px;left:3px;border-radius:50%;border:2px solid #aaa9a4;background:var(--paper)}
+#shops-ui .person.other{left:61%}
+#shops-ui .person.player{top:59%;left:49%;width:56px;height:90px;border:3px solid #6c6b67;background:#cac9c3}
+#shops-ui .person.player:before{top:-37px;left:6px;width:38px;height:38px;border:3px solid #6c6b67;background:#d5d4ce}
+#shops-ui .world-label{position:absolute;left:44%;top:73%;font-size:17px;color:#93928c}
+#shops-ui .minimap{position:absolute;top:4%;left:3%;width:160px;height:160px;border:2px solid var(--line);border-radius:50%;background:var(--panel);overflow:hidden}
+#shops-ui .map-road{position:absolute;left:15px;right:15px;top:82px;border-top:12px solid #e0dfd9;transform:rotate(-12deg)}
+#shops-ui .map-block{position:absolute;top:49px;width:17px;height:19px;border:1px solid #aaa;background:#e7e6e1}
+#shops-ui .map-block:nth-child(2){left:24px} #shops-ui .map-block:nth-child(3){left:48px} #shops-ui .map-block:nth-child(4){left:72px} #shops-ui .map-block:nth-child(5){left:96px} #shops-ui .map-block:nth-child(6){left:120px}
+#shops-ui .dot{position:absolute;left:41px;top:79px;width:13px;height:13px;background:#666;border-radius:50%}
+#shops-ui .north{position:absolute;top:8px;left:46%;font-size:16px}
+#shops-ui .map-name{position:absolute;bottom:17px;left:0;right:0;text-align:center;font-size:17px}
+#shops-ui .task{position:absolute;top:calc(4% + 183px);left:3%;width:260px;padding-left:14px;border-left:3px solid var(--line)}
+#shops-ui .task small{display:block;font-size:17px;color:#777;margin-bottom:8px}
+#shops-ui .task strong{display:block;font-weight:500;margin-bottom:6px}
+#shops-ui .task p{font-size:18px;margin:0}
+#shops-ui .menu{position:absolute;right:3%;top:5%;width:72px;height:72px;border-radius:50%}
+#shops-ui .identity{position:absolute;left:3%;bottom:5%;display:flex;align-items:center;gap:15px}
+#shops-ui .portrait{width:76px;height:76px;border:2px solid var(--line);border-radius:50%;background:var(--panel);display:flex;align-items:center;justify-content:center}
+#shops-ui .identity small{display:block;font-size:17px;color:#777;margin-top:4px}
+#shops-ui .body{margin-left:10px;width:72px;height:72px;border-radius:50%;font-size:16px;padding:0}
+#shops-ui .interaction{position:absolute;left:36%;bottom:17%;display:flex;align-items:center;gap:12px}
+#shops-ui .key{border:2px solid var(--line);border-radius:50%;width:44px;height:44px;display:flex;justify-content:center;align-items:center;background:var(--panel)}
+#shops-ui .health{position:absolute;bottom:5.6%;left:38%;width:25%;font-size:16px;text-align:center}
+#shops-ui .track{height:8px;margin-top:8px;border-radius:5px;background:#dddcd7}
+#shops-ui .track span{display:block;width:80%;height:100%;border-radius:5px;background:#777}
+#shops-ui .actions{position:absolute;right:3%;bottom:4.5%;width:260px;height:195px}
+#shops-ui .action{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:50%}
+#shops-ui .action small{font-size:15px;color:#777}
+#shops-ui .ability{right:0;bottom:0;width:105px;height:105px;border-width:3px;font-size:20px}
+#shops-ui .borrow{left:34px;top:0;width:78px;height:78px;font-size:18px}
+#shops-ui .sneak{left:0;bottom:6px;width:74px;height:74px;font-size:18px}
+#shops-ui .ability-label{position:absolute;bottom:116px;right:0;font-size:15px;color:#777}
+#shops-ui .location{position:absolute;top:5%;left:44%;font-size:18px;color:#777}
+#shops-ui .notice{position:absolute;right:3%;top:22%;max-width:250px;padding:12px 16px;background:var(--panel);border:1px dashed #aaa;border-radius:14px;font-size:17px}
+#shops-ui .drawer{display:none;position:absolute;z-index:5;right:0;top:0;bottom:0;width:43%;padding:25px 26px;background:var(--panel);border-left:2px solid var(--line);border-radius:28px 0 0 28px}
+#shops-ui .expanded .drawer{display:flex;flex-direction:column}
+#shops-ui .veil{display:none;position:absolute;z-index:4;inset:0;background:rgba(245,244,239,.65)}
+#shops-ui .expanded .veil{display:block}
+#shops-ui .drawer-header{display:flex;gap:15px;align-items:center;margin-bottom:17px}
+#shops-ui .drawer-avatar{width:58px;height:58px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center}
+#shops-ui .drawer-header strong{font-weight:500}
+#shops-ui .drawer-header small{display:block;color:#777;font-size:16px}
+#shops-ui .close{margin-left:auto;border-radius:50%;width:45px;height:45px;font-size:24px}
+#shops-ui .drawer-title{font-size:18px;padding-top:12px;border-top:1px solid #d0cfc9}
+#shops-ui .features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 9px;padding:22px 0 17px}
+#shops-ui .feature{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;padding:0;background:transparent;font-size:17px}
+#shops-ui .bubble{width:57px;height:57px;border:2px solid var(--line);border-radius:50%;background:var(--paper);display:flex;justify-content:center;align-items:center;font-size:23px}
+#shops-ui .drawer-foot{border-top:1px solid #d0cfc9;padding-top:13px;font-size:16px;color:#777}
+#shops-ui .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+#shops-ui .tags span{border:1px solid #aaa;border-radius:20px;padding:3px 10px;font-size:15px}
+#shops-ui .detail{font-size:16px;margin:10px 0 0;color:#555;min-height:43px}
+#shops-ui .plan-note{font-size:14px;color:#888;margin-top:auto;padding-top:8px}
+@media(min-width:1400px){#shops-ui{font-size:25px}#shops-ui .minimap{width:190px;height:190px}#shops-ui .task{top:calc(4% + 218px);width:330px}#shops-ui .features{gap:25px 12px;padding-top:27px}#shops-ui .feature{font-size:21px}#shops-ui .bubble{width:73px;height:73px;font-size:29px}#shops-ui .drawer{padding:34px 38px}#shops-ui .drawer-header{margin-bottom:24px}#shops-ui .drawer-title{font-size:23px}#shops-ui .drawer-foot,#shops-ui .detail,#shops-ui .drawer-header small{font-size:20px}#shops-ui .tags span{font-size:19px}#shops-ui .plan-note{font-size:17px}}
+@media(max-width:700px){#shops-ui{font-size:16px}#shops-ui .screen{min-height:640px;aspect-ratio:auto}#shops-ui .world{opacity:.45}#shops-ui .shops{left:5%;right:5%;top:47%;gap:7px}#shops-ui .building,#shops-ui .building:nth-child(2n){height:85px;font-size:13px}#shops-ui .person:not(.player){display:none}#shops-ui .person.player{top:66%}#shops-ui .world-label{display:none}#shops-ui .minimap{width:120px;height:120px;top:20px;left:18px}#shops-ui .map-name{bottom:8px;font-size:13px}#shops-ui .task{left:18px;top:165px;width:245px}#shops-ui .task small,#shops-ui .task p{font-size:14px}#shops-ui .menu{right:18px;top:25px;width:58px;height:58px}#shops-ui .location{top:100px;left:auto;right:18px;font-size:13px}#shops-ui .notice{left:18px;right:auto;top:264px;font-size:13px}#shops-ui .identity{bottom:150px;left:18px;gap:9px}#shops-ui .portrait{width:50px;height:50px}#shops-ui .identity small{font-size:12px}#shops-ui .body{width:52px;height:52px;margin-left:0;font-size:13px}#shops-ui .interaction{left:18px;bottom:217px;font-size:14px;gap:8px}#shops-ui .key{width:32px;height:32px}#shops-ui .actions{width:230px;height:126px;bottom:15px;right:15px}#shops-ui .ability{width:80px;height:80px;font-size:14px}#shops-ui .borrow{width:62px;height:62px;left:52px;font-size:14px}#shops-ui .sneak{width:58px;height:58px;font-size:14px}#shops-ui .action small{font-size:11px}#shops-ui .ability-label{bottom:89px;font-size:11px}#shops-ui .health{left:18px;bottom:139px;width:150px;font-size:12px;text-align:left}#shops-ui .drawer{width:100%;border-left:0;border-radius:0;padding:20px 16px}#shops-ui .features{gap:17px 7px;padding-top:18px}#shops-ui .feature{font-size:14px}#shops-ui .bubble{width:50px;height:50px;font-size:20px}#shops-ui .detail,#shops-ui .drawer-foot{font-size:14px}#shops-ui .plan-note{font-size:12px}}
+</style>
+<style>
+@media(min-width:701px) and (max-width:1399px){#shops-ui .screen{min-height:800px}}
+@media(min-width:1400px){#shops-ui .features{gap:16px 12px;padding-top:22px}#shops-ui .bubble{width:64px;height:64px}}
+@media(max-width:700px){#shops-ui .screen.expanded{min-height:820px}}
+</style>
+<style>
+#shops-ui .health{left:39%;width:20%;font-size:18px;bottom:5%}
+#shops-ui .life-pips{display:flex;justify-content:center;gap:13px;margin-top:9px}
+#shops-ui .life-pips span{width:18px;height:18px;border-radius:50%;background:#666}
+#shops-ui .actions{width:330px;height:255px;bottom:4%;right:3%}
+#shops-ui .execute{right:0;bottom:0;width:110px;height:110px;border:3px solid #555;font-size:23px}
+#shops-ui .borrow{left:65px;top:40px;width:80px;height:80px}
+#shops-ui .sneak{left:0;bottom:14px;width:76px;height:76px;border:3px solid #666}
+#shops-ui .skill{right:6px;top:0;width:78px;height:78px;font-size:17px}
+#shops-ui .item{left:120px;bottom:0;width:72px;height:72px;font-size:17px}
+#shops-ui .unavailable{border-style:dashed;color:#999}
+#shops-ui .interaction{left:37%;bottom:17%;gap:14px;align-items:flex-start}
+#shops-ui .interaction small{display:block;font-size:16px;color:#777;margin-top:5px}
+#shops-ui .key{border-color:#666}
+#shops-ui .notice{top:20%;max-width:280px}
+#shops-ui .notice small{display:block;margin-top:4px;font-size:15px;color:#777}
+#shops-ui .region-slot{position:absolute;top:33%;right:3%;width:200px;padding:12px 15px;border:1px dashed #aaa;border-radius:16px;font-size:16px;color:#777;background:var(--panel)}
+#shops-ui .region-slot small{display:block;font-size:14px;margin-top:5px}
+#shops-ui .person.enemy{left:60%;top:52%}
+#shops-ui .person.player{left:53%;top:58%}
+#shops-ui .target{position:absolute;left:58%;top:41%;display:flex;align-items:center;gap:10px;font-size:17px;color:#666}
+#shops-ui .alert-ring{display:flex;align-items:center;justify-content:center;width:45px;height:45px;border:2px solid #aaa;border-radius:50%;background:var(--paper);font-size:16px}
+#shops-ui .facing{position:absolute;left:calc(60% + 57px);top:53%;color:#777;font-size:28px}
+#shops-ui .cover{position:absolute;left:29%;top:63%;width:180px;height:48px;border:2px solid #b8b7b1;border-radius:12px;background:#e0dfd9;color:#96958f;display:flex;align-items:center;justify-content:center;font-size:17px}
+#shops-ui .drawer-foot{padding-top:10px}
+#shops-ui .tags{margin-top:8px;gap:7px}
+#shops-ui .detail{border-radius:14px;background:#eeede8;padding:12px 14px;margin-top:15px;min-height:77px}
+#shops-ui .feature.selected .bubble{border:3px solid #555;background:#e1e0da}
+#shops-ui .feature.selected{font-weight:500}
+#shops-ui .feature small{font-size:13px;color:#777}
+#shops-ui .drawer-title{display:flex;justify-content:space-between;align-items:center}
+#shops-ui .drawer-title small{font-size:15px;color:#777}
+#shops-ui .plan-note{font-size:14px}
+#shops-ui .action{padding:0}
+@media(min-width:701px) and (max-width:1399px){#shops-ui .screen{min-height:850px}#shops-ui .features{gap:14px 9px}#shops-ui .feature{font-size:16px}#shops-ui .bubble{width:52px;height:52px}#shops-ui .drawer-avatar{flex-shrink:0}#shops-ui .drawer-header small{font-size:14px}}
+@media(min-width:1400px){#shops-ui .features{gap:18px 12px}#shops-ui .detail{font-size:19px}#shops-ui .drawer-foot{font-size:18px}#shops-ui .tags span{font-size:17px}#shops-ui .plan-note{font-size:15px}}
+@media(max-width:700px){#shops-ui .screen{min-height:770px}#shops-ui .screen.expanded{min-height:970px}#shops-ui .actions{height:210px;width:275px;right:18px;bottom:20px}#shops-ui .execute{width:86px;height:86px;font-size:18px}#shops-ui .borrow{left:52px;top:34px;width:66px;height:66px;font-size:14px}#shops-ui .sneak{width:62px;height:62px;font-size:14px}#shops-ui .skill{width:64px;height:64px;font-size:13px;right:0}#shops-ui .item{width:58px;height:58px;font-size:13px;left:110px}#shops-ui .actions small{font-size:11px}#shops-ui .identity{left:18px;bottom:300px}#shops-ui .health{left:18px;bottom:243px;width:155px;font-size:14px;text-align:left}#shops-ui .life-pips{justify-content:flex-start;gap:10px}#shops-ui .life-pips span{width:14px;height:14px}#shops-ui .interaction{left:18px;bottom:365px;font-size:14px}#shops-ui .interaction small{font-size:12px}#shops-ui .notice{top:245px;left:18px;right:auto;width:250px;font-size:14px}#shops-ui .notice small{font-size:12px}#shops-ui .region-slot{top:330px;left:18px;right:auto;width:250px;font-size:13px}#shops-ui .region-slot small{font-size:12px}#shops-ui .shops{top:44%;opacity:.35}#shops-ui .world .person.player{left:65%;top:62%}#shops-ui .target,#shops-ui .facing,#shops-ui .cover{display:none}#shops-ui .drawer-title small{font-size:12px}#shops-ui .feature small{font-size:11px}#shops-ui .plan-note{font-size:12px}#shops-ui .detail{font-size:14px}}
+@media(min-width:701px) and (max-width:1399px){#shops-ui .screen{min-height:950px}}
+@media(min-width:1400px){#shops-ui .drawer{padding:28px 38px}#shops-ui .features{grid-template-columns:repeat(4,1fr);gap:12px;padding:18px 0 10px}#shops-ui .bubble{width:56px;height:56px}#shops-ui .drawer-header{margin-bottom:20px}}
+</style>
+<script>
+(() => {
+ const root=document.getElementById('shops-ui');
+ const names=['戏班','衣肆','金银行','客栈','酒肆'];
+ const features=[
+  ['面','身份面具','身份 / 权限','活体附身与皮面具换身份分别管理：身份能力、通行权限、回本体、一次性或永久。具体消耗时点待定。'],
+  ['包','背包道具','使用 / 合成','药物、材料、关键道具、皮面具与钥匙；使用、治疗、合成、任务交付。合成原料消耗已有约定。'],
+  ['卷','线索卷宗','证词 / 文书 / 推理','收纳证词回看、物证、文书账册、线索关联与推理结论，避免分成多个重复入口。'],
+  ['任','任务追踪','章节 / 当前目标','序章与十二阶段、主支线目标、任务追踪；显示当前世界与下一步调查方向。'],
+  ['图','场景地图','两界 / 楼层 / 出口','当前世界、所在地点、玩家位置、已知通路、楼梯与出口；两界切换通过场景入口触发。'],
+  ['关','关卡记录','五店 / 阶段机制','戏班调度演奏、衣肆推理领衣、金银行拨料打造、客栈线索、酒肆灌酒；后续水位、队列、镜面迷宫与幻象。'],
+  ['招','战斗招式','三招 / 怒气 / 道具','回合制三招式、怒气、战斗道具、状态持续回合与BOSS阶段；偷袭开战为先手并削敌血20%，不等于处决。'],
+  ['规','规则说明','潜行 / 暗杀 / 风险','潜行、暗杀门槛、警戒与追逐、击倒、身份核验与暴露、区域机制。背后处决只对允许的目标开放。'],
+  ['言','对话记录','已读 / 回看','回看已发生对白；证词与文书统一收进线索卷宗。'],
+  ['设','游戏设置','声音 / 显示 / 操作','声音与显示设置、操作提示、沉浸模式及暂停；具体设置沿用现有系统。'],
+  ['档','存档管理','继续 / 选槽 / 恢复','存档槽、继续与读档、自动保存反馈、失败后恢复入口；恢复位置和失败惩罚仍需定稿。'],
+  ['退','返回标题','暂停 / 保存 / 退出','进入暂停流程，先完成已有保存流程，再返回标题或退出游戏。']
+ ];
+ const world='<div class="world"><div class="road"></div><div class="shops">'+names.map(n=>'<div class="building">'+n+'</div>').join('')+'</div><div class="cover">掩体</div><div class="target"><span class="alert-ring">察</span><span>市令 · 未察觉</span></div><div class="person enemy"></div><span class="facing" aria-label="目标朝向右侧">→</span><div class="person player"></div></div>';
+ const hud='<div class="minimap" aria-label="圆形小地图"><div class="map-road"></div>'+Array(5).fill('<span class="map-block"></span>').join('')+'<span class="dot"></span><span class="north">N</span><span class="map-name">妖界 · 坊市</span></div><div class="task"><small>入镜 / 当前目标</small><strong>取得通行身份</strong><p>观察巡逻，寻找背后下手机会</p></div><div class="location">镜中妖界 · 坊市</div><button type="button" class="menu cursor-interaction" aria-label="展开功能面板">功能</button><div class="notice" aria-live="polite">潜行中 · 目标未察觉<small>按提示执行当前可用动作</small></div><div class="region-slot">区域状态位<small>醉酒 / 水位 / 账簿 / 怀疑 / 揭露<br>对应关卡才显示</small></div><div class="identity"><div class="portrait">本体</div><div>当前身份 · 本体<small>换身份后显示职业与权限</small></div></div><div class="interaction"><span class="key">F</span><div>暗杀 · 市令<small>可处决目标 / 背后 / 近距 / 未察觉</small></div></div><div class="health" aria-label="本体生命三点，当前三点">本体生命 3 / 3<div class="life-pips"><span></span><span></span><span></span></div></div><div class="actions"><button type="button" class="action execute cursor-interaction" data-action="execute">暗杀<small>F · 处决</small></button><button type="button" class="action borrow cursor-interaction" data-action="borrow">附身<small>活体目标</small></button><button type="button" class="action sneak cursor-interaction" data-action="sneak">潜行<small>Shift</small></button><button type="button" class="action skill unavailable cursor-interaction" data-action="skill">身份能力<small>需借身份</small></button><button type="button" class="action item cursor-interaction" data-action="item">道具<small>快捷使用</small></button></div>';
+ const drawer='<div class="veil"></div><aside class="drawer"><div class="drawer-header"><div class="drawer-avatar">本体</div><div><strong>功能收纳</strong><small>本体生命 3 / 3 · 身份：本体</small></div><button type="button" class="close cursor-interaction" aria-label="收起功能面板">×</button></div><div class="drawer-title">身份 · 调查 · 关卡 · 系统<small>12 个入口</small></div><div class="features">'+features.map((f,i)=>'<button type="button" class="feature cursor-interaction'+(i===0?' selected':'')+'" data-feature="'+i+'" aria-pressed="'+(i===0)+'"><span class="bubble">'+f[0]+'</span><span>'+f[1]+'</span><small>'+f[2]+'</small></button>').join('')+'</div><div class="drawer-foot">现场行动在主界面，资料与管理在这里<div class="tags">'+['暗杀与追逐','身份风险','五店玩法','水位与队列','镜面与幻象'].map(n=>'<span>'+n+'</span>').join('')+'</div></div><div class="detail" aria-live="polite">'+features[0][3]+'</div><div class="plan-note">低保真方案 · 数值为当前原型，待定规则未视为定稿</div></aside>';
+ root.querySelectorAll('.screen').forEach(screen=>{
+  screen.innerHTML=world+hud+drawer;
+  screen.querySelector('.menu').addEventListener('click',()=>screen.classList.add('expanded'));
+  screen.querySelector('.close').addEventListener('click',()=>screen.classList.remove('expanded'));
+  screen.querySelector('.veil').addEventListener('click',()=>screen.classList.remove('expanded'));
+  screen.querySelectorAll('[data-feature]').forEach(button=>button.addEventListener('click',()=>{
+   screen.querySelector('.detail').textContent=features[Number(button.dataset.feature)][3];
+   screen.querySelectorAll('[data-feature]').forEach(other=>{const active=button===other;other.classList.toggle('selected',active);other.setAttribute('aria-pressed',String(active))});
+  }));
+  const actionDetails={execute:'暗杀：可处决种类、背后、近距、未察觉；BOSS偷袭另走开战。',borrow:'附身：选择可借用活角色；与暗杀和使用面具分开。',sneak:'潜行：降低近距察觉风险；醉酒会限制静步。',skill:'身份能力：借到对应身份后显示调度、演奏、拨料、打造等。',item:'快捷道具：按当前用途使用药物、钥匙或特殊物件。'};
+  screen.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{screen.querySelector('.notice').textContent=actionDetails[button.dataset.action]}));
+ });
+})();
+</script>

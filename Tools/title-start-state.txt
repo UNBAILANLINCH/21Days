@@ -1,0 +1,13 @@
+var root = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+var view = root.GetComponent<Game.Core.UI.Views.TitleView>();
+var serial = new UnityEditor.SerializedObject(view);
+var button = root.transform.Find("Buttons/StartButton").GetComponent<UnityEngine.UI.Button>();
+var rows = serial.FindProperty("alternateButtons");
+var images = new System.Collections.Generic.List<object>();
+for (int i = 0; i < rows.arraySize; i++)
+{
+    var row = rows.GetArrayElementAtIndex(i);
+    if (row.FindPropertyRelative("button").objectReferenceValue != button) continue;
+    images.Add(new { normal = UnityEditor.AssetDatabase.GetAssetPath(row.FindPropertyRelative("alternateNormal").objectReferenceValue), selected = UnityEditor.AssetDatabase.GetAssetPath(row.FindPropertyRelative("alternateSelected").objectReferenceValue) });
+}
+return new { defaultSelection = view.DefaultSelected == null ? null : view.DefaultSelected.name, yangNormal = UnityEditor.AssetDatabase.GetAssetPath(button.image.sprite), yangHighlighted = UnityEditor.AssetDatabase.GetAssetPath(button.spriteState.highlightedSprite), yangSelected = UnityEditor.AssetDatabase.GetAssetPath(button.spriteState.selectedSprite), yin = images };

@@ -12,9 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4d1138a5fad004bbe246b7db672523, type: 3}
   m_Name: SessionConfig
   m_EditorClassIdentifier: 
-  slotCount: 3
+  slotCount: 5
+  loadRollSeconds: 0.45
   saveNoticeTitle: "\u5DF2\u4FDD\u5B58"
   saveNoticeSeconds: 1
   loadFailedTitle: "\u5B58\u6863\u4E0D\u53EF\u7528"
   progressPlaceholder: "\u65C5\u7A0B\u5F00\u59CB"
   quitHookTimeoutSeconds: 2
+  titleYinStoryFlag: 
+  titleYinTint: {r: 0.45, g: 0.35, b: 0.6, a: 1}

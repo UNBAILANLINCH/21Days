@@ -2,6 +2,8 @@
 
 本清单依据当前 HEAD、暂存区、工作树及未跟踪文件整理。覆盖登记的 22 个模块的项目状态入口，以及本轮实际差异；没有宣称全仓代码逐行审计。提交和推送均未执行。
 
+01–09 为首次整理时的批次记录。后续剩余文件处理及手动提交见文末；“不放进这些提交”不代表文件无用，不能据此整批删除。
+
 ## 使用方式
 
 在 PowerShell 中先执行：
@@ -310,3 +312,117 @@ git log -9 --oneline
 ```
 
 余下应主要是上表保留材料、未选择的视觉配置或未恢复的独立构建设置。逐项核对，不为了工作区显示干净而执行整仓清理。
+
+## 剩余文件整理
+
+历史图册、旧代码 / 测试快照、一次性补丁与构建 / 拓扑导入缓存由精确 `.gitignore` 规则排除；文件继续留在原路径，可迁出或复核。未删除、移动图片、改变字体或玩家草稿。已跟踪报告不受忽略规则影响。
+
+仍保留为待提交内容的 27 个文件：长按编辑 / 草稿版本备份工具 17 个、旧候选夹具及说明 3 个、实际校验工具 / 夹具 7 个。它们有独立用途或被已提交的文档、脚本引用。早期进度离线候选不作为共享重跑入口，改用正式 EditMode 测试。
+
+工具正文未在本轮修改；README 去掉会话环境记录和个人绝对路径。后续提交按以下范围逐批手动执行，字体继续单独按 07 处理。本次未动玩法模块，本次无新结论。
+
+### 历史材料与入口整理
+
+```powershell
+$batchPaths = @(
+    '.gitignore'
+    'PRP/rhythm-song-progression-20261004/README.md'
+    'PRP/commit-batches-2026-10-07.md'
+)
+git add -- $batchPaths
+git diff --cached --stat -- $batchPaths
+git commit -m 'chore(repo): 收起历史过程材料并明确当前校验入口' -- $batchPaths
+```
+
+### 长按谱面编辑与草稿备份
+
+目录内 `.draft-store/` 已有专用忽略规则，不加入用户草稿。候选 JSON 是既有自动测试所用的未批准旧版本夹具，不代表正式谱面变更。
+
+```powershell
+$batchPaths = @(
+    'PRP/rhythm-audio-review-20261003/locator/v2/playback-fix/add-delete/hold-edit/'
+    'PRP/rhythm-score-review-20261004/candidate-diff.csv'
+    'PRP/rhythm-score-review-20261004/melody-local-candidate.json'
+    'PRP/rhythm-score-review-20261004/report.md'
+)
+git add -- $batchPaths
+git diff --cached --stat -- $batchPaths
+git commit -m 'feat(rhythm-tools): 增加长按谱面编辑与草稿版本备份' -- $batchPaths
+```
+
+### 补齐既有校验的工具与基线
+
+```powershell
+$batchPaths = @(
+    'PRP/rhythm-calibration-review-20261004/evaluate.ps1'
+    'PRP/rhythm-library-increment-review-20261005/ReviewHarness.cs'
+    'PRP/rhythm-library-increment-review-20261005/profile-review-corrupt.json'
+    'PRP/rhythm-library-increment-review-20261005/verify.ps1'
+    'PRP/rhythm-song-progression-20261004/ChongErFei58.before.asset.txt'
+    'PRP/rhythm-song-progression-20261004/analyze-audio.mjs'
+    'PRP/rhythm-song-progression-20261004/make-charts.mjs'
+)
+git add -- $batchPaths
+git diff --cached --stat -- $batchPaths
+git commit -m 'test(rhythm): 补齐校验工具与原谱比较基线' -- $batchPaths
+```
+
+## 可迁出到博客的图像
+
+| 原目录 | 可用素材 / 说明 |
+| --- | --- |
+| `PRP/rhythm-architecture-20261004/` | 13 张 SVG、2 份 PDF、10 张 QA PNG；整包包含图源与离线 index.html，适合整体迁出。内容是 2026-10-04 历史快照，不能标为最新架构 |
+| `Logs/verify/rhythm-ui-20261006/` | 曲库、设置、暂停、结算的多尺寸截图；图片使用测试曲名，发布时注明回放测试页面 |
+| `Logs/verify/rhythm/20261007-153636/` | 校准返回曲库后的修复效果图 |
+| `Logs/verify/taming/20261003-180632/` | 双巡逻者切换及失效目标回退；画面有测试标签和日志浮窗 |
+| `PRP/laila-recognition-20261003/` | result-ui、realtime-current、realtime-unknown 三图；已跟踪且供项目证据使用，博客另复制，迁走会产生删除差异 |
+
+图册目前未跟踪且已忽略，可由用户直接迁出；Logs 原已忽略。图像留在原路径，本次没有代用户移动或发布。
+
+## Laila 唯一场景与一次性工具清理
+
+唯一入口为 `LailaRecognitionPlaytest.unity`。旧 `laila.unity` 与 `LailaFaceSetupMenu` 已通过 Unity 资产 API 连同 meta 删除；保留场景内容未改变。移除 RecognitionTools 的一次性安装 UI 与 PlaytestTools 的复制 / 升级 / 配置生成代码，菜单只打开既有场景并在退出后恢复此前场景。采集、FBX 排序与部署配对检查保留。
+
+| 范围 | 改动 |
+| --- | --- |
+| 旧场景 / SetupMenu 及 meta | 删除重复场景与旧 8 区搭建菜单 |
+| PlaytestTools / RecognitionTools | 保留试玩打开与样本采集，删除一次性创建 / 升级方法 |
+| FacePointerFeedback / MuralFaceController | 场景范围收敛到唯一试玩，移除旧场景专用的阴影下限；保留新场景现有效果 |
+| LailaFaceShowcase | 使用识别器的当前脸部，检查31形态、17控制区、抓点、重置和四版实际推理 |
+| 三份 Python 工具 | 场景保护路径改为保留场景，避免训练备份尝试读取已删副本 |
+| HANDOVER / 模块指南 / ML入口 / spec / roadmap | 同步当前唯一入口；历史报告不改写为当前状态 |
+
+验证：五份 C# lint exit 0，三份 Python AST 通过，反馈修复现有测试18/18通过。Unity 编译成功；EditMode job `4f2c6e76b99b4ed9a1f1d478d601417b` succeeded、37项完成、失败记录0，完整计数未返回，不补推跳过数。Showcase job `e7294edc484543b1aeb3723afe1830ce` **1/1 Passed，失败 / 跳过0**，`Logs/verify/lailaface/20261007-175309/report.md` PASS、检查点失败 / 运行时异常0；已查看重置截图。未做物理鼠标或Player验收。域重载期间曾短暂失联，恢复后取得上述结果；编译日志中的 ScriptableSingleton 错误定位到 Rider 包 CallbackData，不认作项目 C# 编译错误。健康扫描仍仅报告既有三处命名空间与字体体积问题。
+
+本次删除和场景路径收敛无新增关键业务埋点；本次无新结论。未操作 Git 索引、提交或推送。下面只加入本批22个路径，不混入字体、忽略规则、音游工具或其他未跟踪材料。提交清单本身仍属于前面的整理批。
+
+```powershell
+$batchPaths = @(
+    'Assets/_Project/Scenes/laila.unity'
+    'Assets/_Project/Scenes/laila.unity.meta'
+    'Assets/_Project/Scripts/Editor/Tools/LailaFaceSetupMenu.cs'
+    'Assets/_Project/Scripts/Editor/Tools/LailaFaceSetupMenu.cs.meta'
+    'Assets/_Project/Scripts/Editor/Tools/LailaPlaytestTools.cs'
+    'Assets/_Project/Scripts/Editor/Tools/LailaRecognitionTools.cs'
+    'Assets/_Project/Scripts/Runtime/Gameplay/FacePointerFeedback.cs'
+    'Assets/_Project/Scripts/Runtime/Gameplay/MuralFaceController.cs'
+    'Assets/_Project/Scripts/Tests/Showcase/LailaFace/LailaFaceShowcase.cs'
+    'ML/expression-recognition/analysis/laila_v2_candidate/unity_round.py'
+    'ML/expression-recognition/analysis/laila_v2_candidate/lifecycle_eye_check.py'
+    'ML/expression-recognition/analysis/laila_v2_candidate/feedback_repair.py'
+    'HANDOVER.md'
+    'ai-docs/docs/modules/lailaface/lailaface-module-guide.md'
+    'ai-docs/docs/modules/lailafacerecognition/lailafacerecognition-module-guide.md'
+    'ai-docs/docs/modules/lailaface/lailaface-extension-guide.md'
+    'PRP/laila-expression-recognition/spec.md'
+    'PRP/laila-expression-recognition/asset-disposition.md'
+    'ML/expression-recognition/README.md'
+    'ML/expression-recognition/configs/rigs/laila-v2-candidate-review.md'
+    'ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md'
+    'docs/roadmap.md'
+)
+git add -- $batchPaths
+git diff --cached --stat -- $batchPaths
+git diff --cached -- $batchPaths
+git commit -m 'refactor(laila): 统一试玩入口并移除一次性搭建工具' -- $batchPaths
+```

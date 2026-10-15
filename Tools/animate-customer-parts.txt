@@ -1,0 +1,148 @@
+// 本次拆件动作通过 MCP 调用 Unity 动画/预制体 API，专用工具不能组装关节并批量烘焙曲线。
+// FramePuppetGenerator 只接整帧；复用它的控制器和运行时驱动，新增仅为本交付的关节与动作数据。
+// shortcut: 关节位置按两份当前 PSD 标定，换绘图或图层顺序时先重新核对坐标与分件映射。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("先退出 Play");
+System.Action<string> ensureFolder = null;
+ensureFolder = path => { if (UnityEditor.AssetDatabase.IsValidFolder(path)) return; string parent = System.IO.Path.GetDirectoryName(path).Replace('\\', '/'); ensureFolder(parent); UnityEditor.AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(path)); };
+string prefix = "Assets/_Project/";
+foreach (string id in new[] { "customers", "drunk_customer" })
+{
+    bool drunk = id == "drunk_customer";
+    string prefabPath = prefix + "Prefabs/Characters/Chibi_" + id + ".prefab";
+    var root = UnityEditor.PrefabUtility.LoadPrefabContents(prefabPath);
+    try
+    {
+        var visual = root.transform.Find("Sprite");
+        if (visual == null || visual.Find("Rig") != null) throw new System.InvalidOperationException("原拆件结构不符或已制作动画：" + id);
+        var renderers = root.GetComponentsInChildren<UnityEngine.SpriteRenderer>(true);
+        System.Array.Sort(renderers, (a, b) => b.sortingOrder.CompareTo(a.sortingOrder));
+        if (renderers.Length != (drunk ? 14 : 17)) throw new System.InvalidOperationException("拆件数量不符");
+        // 第一件原挂在整体 Sprite 上，移到独立图件；Sprite 留给现有交互回弹。
+        var first = new UnityEngine.GameObject("Part_01"); first.transform.SetParent(visual, false);
+        var firstRenderer = first.AddComponent<UnityEngine.SpriteRenderer>();
+        UnityEditor.EditorUtility.CopySerialized(renderers[0], firstRenderer);
+        UnityEngine.Object.DestroyImmediate(renderers[0]); renderers[0] = firstRenderer;
+        var rig = new UnityEngine.GameObject("Rig").transform; rig.SetParent(visual, false);
+        float shift = drunk ? 31 : 0;
+        System.Func<string, UnityEngine.Transform, float, float, UnityEngine.Transform> joint = (name, parent, x, y) =>
+        {
+            var node = new UnityEngine.GameObject(name).transform; node.SetParent(parent, false);
+            node.position = root.transform.TransformPoint(new UnityEngine.Vector3((x + shift - 256) / 320f, (512 - y) / 320f, 0));
+            return node;
+        };
+        var body = joint("Body", rig, 256, 310);
+        var head = joint("Head", body, 250, 196);
+        var leftArm = joint("LeftArm", body, 208, 218);
+        var leftForearm = joint("Forearm", leftArm, 174, 282);
+        var rightArm = joint("RightArm", body, 292, 218);
+        var rightForearm = joint("Forearm", rightArm, 322, 278);
+        var pendant = joint("Pendant", body, 281, 308);
+        var leftFoot = joint("LeftFoot", rig, 216, 443);
+        var rightFoot = joint("RightFoot", rig, 288, 443);
+        var gourd = drunk ? joint("Gourd", leftForearm, 164, 333) : null;
+        UnityEngine.Transform[] parents = drunk
+            ? new[] { head, head, head, pendant, body, leftFoot, body, body, leftForearm, leftArm, gourd, rightForearm, rightArm, rightForearm }
+            : new[] { head, head, head, head, pendant, body, body, leftFoot, rightFoot, body, body, leftForearm, leftForearm, leftArm, rightForearm, rightArm, rightForearm };
+        for (int i = 0; i < renderers.Length; i++) renderers[i].transform.SetParent(parents[i], true);
+        var parts = new System.Collections.Generic.List<UnityEngine.SpriteRenderer>(renderers);
+        if (drunk)
+        {
+            // 原脚层中间有透明间隙，用同一贴图的两个 Sprite 矩形取出双脚，不改源 PNG。
+            var originalFoot = renderers[5];
+            var texture = originalFoot.sprite.texture;
+            string spriteFolder = prefix + "Art/Sprites/Characters/" + id + "/rig"; ensureFolder(spriteFolder);
+            var rectangles = new[] { new UnityEngine.Rect(190, 0, 90, 80), new UnityEngine.Rect(280, 0, 85, 80) };
+            var feet = new[] { leftFoot, rightFoot };
+            for (int f = 0; f < 2; f++)
+            {
+                string path = spriteFolder + "/foot_" + (f == 0 ? "left" : "right") + ".asset";
+                var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(path);
+                if (sprite == null)
+                {
+                    sprite = UnityEngine.Sprite.Create(texture, rectangles[f], new UnityEngine.Vector2(.5f, 0), 320f, 0, UnityEngine.SpriteMeshType.FullRect);
+                    sprite.name = "drunk_foot_" + f; UnityEditor.AssetDatabase.CreateAsset(sprite, path);
+                }
+                var part = new UnityEngine.GameObject("FootImage"); part.transform.SetParent(feet[f], false);
+                part.transform.position = root.transform.TransformPoint(new UnityEngine.Vector3((rectangles[f].center.x - 256) / 320f, 0, 0));
+                var renderer = part.AddComponent<UnityEngine.SpriteRenderer>(); UnityEditor.EditorUtility.CopySerialized(originalFoot, renderer);
+                renderer.sprite = sprite;
+                if (f == 0) parts[5] = renderer; else parts.Add(renderer);
+            }
+            UnityEngine.Object.DestroyImmediate(originalFoot.gameObject);
+        }
+        string directory = prefix + "Art/Animations/Characters/" + id; ensureFolder(directory);
+        var clips = new System.Collections.Generic.SortedDictionary<string, UnityEngine.AnimationClip>(System.StringComparer.Ordinal);
+        var joints = new[] { body, head, leftArm, leftForearm, rightArm, rightForearm, pendant, leftFoot, rightFoot };
+        foreach (string state in new[] { "idle", "walk", "run" })
+        {
+            bool moving = state != "idle", running = state == "run";
+            float duration = moving ? (running ? .56f : .84f) : 2.4f;
+            if (drunk) duration *= 1.2f;
+            string path = directory + "/chr_" + id + "_" + state + ".anim";
+            var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>(path);
+            if (clip == null) { clip = new UnityEngine.AnimationClip(); UnityEditor.AssetDatabase.CreateAsset(clip, path); }
+            clip.ClearCurves(); clip.frameRate = 60;
+            System.Action<UnityEngine.Transform, string, System.Func<float, float>> curve = (node, property, value) =>
+            {
+                var keys = new UnityEngine.Keyframe[49];
+                for (int k = 0; k < keys.Length; k++) { float t = k / 48f; keys[k] = new UnityEngine.Keyframe(t * duration, value(t)); }
+                // 循环最后一键精确落在第一键，避免浮点三角函数产生接缝。
+                keys[48].value = keys[0].value;
+                var animationCurve = new UnityEngine.AnimationCurve(keys);
+                for (int k = 0; k < keys.Length; k++) animationCurve.SmoothTangents(k, 0);
+                string binding = UnityEditor.AnimationUtility.CalculateTransformPath(node, root.transform);
+                UnityEditor.AnimationUtility.SetEditorCurve(clip, UnityEditor.EditorCurveBinding.FloatCurve(binding, typeof(UnityEngine.Transform), property), animationCurve);
+            };
+            System.Func<float, float> sine = t => UnityEngine.Mathf.Sin(t * UnityEngine.Mathf.PI * 2);
+            float armAngle = moving ? (running ? 14 : 7) : 1.2f;
+            float bodySway = drunk ? (moving ? 3.2f : 2) : (moving ? .8f : .2f);
+            foreach (var node in joints)
+            {
+                float angle = node == body ? bodySway : node == head ? -bodySway * .6f :
+                    node == leftArm ? armAngle : node == rightArm ? -armAngle : node == pendant ? (moving ? 5 : 1) :
+                    node == leftFoot ? (moving ? 5 : 0) : node == rightFoot ? (moving ? -5 : 0) : moving ? 2.5f : .5f;
+                curve(node, "localEulerAnglesRaw.z", t => angle * sine(t));
+                float baseY = node.localPosition.y, baseX = node.localPosition.x;
+                bool foot = node == leftFoot || node == rightFoot;
+                float sign = node == rightFoot ? -1 : 1;
+                float lift = moving ? (running ? 14 : 8) / 320f : 0;
+                curve(node, "m_LocalPosition.y", t => baseY + (foot ? lift * UnityEngine.Mathf.Pow(UnityEngine.Mathf.Max(0, sign * sine(t)), 2) :
+                    node == body ? (moving ? (running ? 6 : 3) : 1.6f) / 320f * (1 - UnityEngine.Mathf.Cos(t * UnityEngine.Mathf.PI * (moving ? 4 : 2))) * .5f :
+                    node == head ? .002f * sine(t) : 0));
+                curve(node, "m_LocalPosition.x", t => baseX + (foot && moving ? sign * (running ? 9 : 5) / 320f * sine(t) : 0));
+            }
+            if (gourd != null) curve(gourd, "localEulerAnglesRaw.z", t => (moving ? 8 : 2) * sine(t));
+            var settings = UnityEditor.AnimationUtility.GetAnimationClipSettings(clip); settings.loopTime = true;
+            UnityEditor.AnimationUtility.SetAnimationClipSettings(clip, settings); UnityEditor.EditorUtility.SetDirty(clip);
+            clips.Add(state, clip);
+        }
+        // 复用既有控制器的三状态、三个参数与完整过渡，不复制一份状态机构建逻辑。
+        var writer = typeof(Game.Editor.CharacterPuppet.FramePuppetGenerator).GetMethod("WriteController", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var controller = (UnityEditor.Animations.AnimatorController)writer.Invoke(null, new object[] { directory + "/chr_" + id + ".controller", clips });
+        foreach (var child in controller.layers[0].stateMachine.states)
+            foreach (var transition in child.state.transitions) { transition.duration = .08f; UnityEditor.EditorUtility.SetDirty(transition); }
+        var animator = root.GetComponent<UnityEngine.Animator>(); if (animator == null) animator = root.AddComponent<UnityEngine.Animator>();
+        animator.runtimeAnimatorController = controller; animator.updateMode = UnityEngine.AnimatorUpdateMode.UnscaledTime;
+        animator.cullingMode = UnityEngine.AnimatorCullingMode.AlwaysAnimate; animator.applyRootMotion = false;
+        var data = new UnityEditor.SerializedObject(root.GetComponent<Game.CharacterPuppet.ChibiPuppet>());
+        data.FindProperty("animator").objectReferenceValue = animator;
+        data.FindProperty("hasRunClip").boolValue = true; data.FindProperty("walkClipSpeed").floatValue = 3; data.FindProperty("runClipSpeed").floatValue = 5;
+        var array = data.FindProperty("parts"); array.arraySize = parts.Count;
+        for (int i = 0; i < parts.Count; i++) array.GetArrayElementAtIndex(i).objectReferenceValue = parts[i];
+        data.ApplyModifiedPropertiesWithoutUndo();
+        foreach (var clip in clips.Values)
+        {
+            foreach (var binding in UnityEditor.AnimationUtility.GetCurveBindings(clip))
+            {
+                if (!binding.path.StartsWith("Sprite/Rig/") || root.transform.Find(binding.path) == null) throw new System.InvalidOperationException("动画绑定错误");
+                var c = UnityEditor.AnimationUtility.GetEditorCurve(clip, binding);
+                if (UnityEngine.Mathf.Abs(c.Evaluate(0) - c.Evaluate(clip.length)) > .0001f) throw new System.InvalidOperationException("循环接缝");
+            }
+        }
+        bool saved; UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, prefabPath, out saved);
+        if (!saved) throw new System.InvalidOperationException("保存失败");
+    }
+    finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }
+}
+UnityEditor.AssetDatabase.SaveAssets();
+return "PASS: two articulated puppets, 6 looping clips, native Idle/Walk/Run controllers; root/pulse transforms untouched by clips.";

@@ -2,7 +2,7 @@
 
 ## 当前结果
 
-最新实际验证、回放报告、已修复问题与交还状态以 [验收记录](stage-report.md) 为准。
+本阶段验证及回放结果见 [验收记录](stage-report.md)；当前实现及后续验证见 [模块指南](../../ai-docs/docs/modules/rhythm/rhythm-module-guide.md)。
 
 2026-10-04：本目录候选已在用户授权结束试玩后整合进 Assets；RhythmDemo 的场景改动仅新增曲库引用，虫儿飞资产与整合前备份 hash 一致。没有改 Packages、提交、打包或发布；Unity 回归使用隔离测试档案，不写用户真实进度。本目录的 `.cs.txt` 是整合候选快照，正式实现以 Assets 当前代码为准，不可盲覆盖。
 
@@ -16,13 +16,11 @@
 
 初始曲库开放虫儿飞，完整结算达到 60%（34800 分）后解锁两首进阶曲；通过百分比可逐曲配置。界面已接入选曲、门槛、最高分、通关状态及返回选曲。自动起音/网格制谱尚未经过人工听感校准，不把 BPM、四拍单元或 Hold 当作人工验证的音乐结构。
 
-## 重跑纯逻辑
+## 当前校验入口
 
-```powershell
-& PRP/rhythm-song-progression-20261004/verify-pure.ps1
-```
+进度纯逻辑使用正式 `Assets/_Project/Scripts/Tests/EditMode/Rhythm/RhythmProgressTests.cs`，按项目 Unity 测试流程运行。早期离线测试与 `.cs.txt` 候选仅是实施快照，不作为共享重跑入口。
 
-脚本清空 NuGet 包来源，直接编译这里的源文本，使用已安装 SDK；生成物进入系统临时目录，结束恢复进程环境变量。测试只进行内存 JSON 往返，不写玩家档案，不载入 Unity API；首次受限运行若 SDK 无权读取默认 NuGet 配置，须通过已授权的执行环境运行，不能据此声称测试已通过。
+实际谱面及资产检查仍使用本目录 `verify-charts.mjs`、`verify-installed.mjs` 和 `verify-runtime-charts.ps1`。`ChongErFei58.before.asset.txt` 是 `verify-installed.mjs` 的原谱字节比较基线，需与校验脚本配套保留。
 
 ## 验证范围
 
@@ -47,7 +45,7 @@
 | RhythmSelectionRules | 选曲请求代次和结算资格纯逻辑 |
 | RhythmSongData / RhythmCatalogConfig | 正式只读曲目描述与曲库 SO；本目录文本留作实施快照 |
 | RhythmState / RhythmView / RhythmInstaller | 既有模块扩展的整合快照；后续修复以 Assets 正式代码为准 |
-| tests/ / verify-pure.ps1 | 32 项可执行离线测试，引用实际 ISaveData 契约 |
+| Assets 正式 RhythmProgressTests | 当前进度回归；初始离线 32 项仅作为历史验证证据 |
 | analyze-audio.mjs / make-charts.mjs | 已运行的解码/起音候选分析与网格制谱；生成 audio-analysis.json 和两份测试谱 JSON |
 | verify-charts.mjs / verify-runtime-charts.ps1 | 文件 hash、谱面边界与真实既有判定程序集只读校验 |
 | RhythmProgressTests / RhythmShowcase | 首次整合的测试快照；正式测试包含 32 项进度 NUnit 和分段补验，原回归保留 |

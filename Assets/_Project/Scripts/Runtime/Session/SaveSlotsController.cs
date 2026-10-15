@@ -36,6 +36,7 @@ namespace Game.Session
         private readonly INotificationService notifications;
         private readonly ISubscriber<GameStateChangingEvent> stateChanging;
         private readonly ITelemetryScope telemetry;
+        private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         private SaveSlotsView view;
         private IReadOnlyList<SlotInfo> infos = Array.Empty<SlotInfo>();
@@ -133,6 +134,7 @@ namespace Game.Session
         {
             if (disposed) return;
             disposed = true;
+            lifetime.Cancel();
             SaveSlotsView target = view;
             bool wasOpen = IsOpen;
             ReleaseSession();
@@ -141,6 +143,7 @@ namespace Game.Session
                 Detach(target);
                 if (wasOpen) CloseViewAsync(target).Forget();
             }
+            lifetime.Dispose();
         }
 
         private void HandleSlotClicked(int slot) => RunGuardedAsync(slot, false).Forget();
@@ -197,9 +200,28 @@ namespace Game.Session
                 // 行在读档模式下只有可读槽可点；这里再挡一次，防止摘要过期或键盘绕过 interactable。
                 if (info.State != SlotState.Available) return;
                 telemetry.Track("slot_continue", ("slot", slot));
-                bool ok = await session.ContinueAsync(slot);
-                // 成功时流程已离开标题、面板已随 GameStateChangingEvent 收掉；失败（「存档不可用」通知由 GameSession 发）刷新留在面板。
-                if (!ok) await RefreshAsync(default);
+                TitleView loadTitle = ui.Get<TitleView>();
+                CancellationToken ct = lifetime.Token;
+                SaveSlotsView selection = view;
+                bool closedForLoad = false;
+                bool loaded = false;
+                try
+                {
+                    await selection.PlayLoadTransitionAsync(slot, config.LoadRollSeconds, selection.GetCancellationTokenOnDestroy());
+                    if (!IsOpen || disposed) return;
+                    await CloseAsync();
+                    closedForLoad = true;
+                    // 读档会正常关闭标题；场景加载的取消必须跟随控制器寿命。
+                    if (loadTitle != null) await loadTitle.PlayLoadTransitionAsync(ct);
+                    loaded = await session.ContinueAsync(slot, ct);
+                }
+                finally
+                {
+                    if (selection != null) selection.ResetLoadTransition();
+                    if (loadTitle != null) loadTitle.ResetStartTransition();
+                    if (!loaded && closedForLoad && !disposed && loadTitle != null && ui.Get<TitleView>() == loadTitle)
+                        await OpenAsync(SlotsMode.Load);
+                }
                 return;
             }
 
@@ -232,7 +254,12 @@ namespace Game.Session
         {
             if (FindInfo(slot).State != SlotState.Available) return;
             bool confirmed = await ConfirmAsync("删除存档 " + slot + "？此操作无法撤销。", DeleteConfirmText);
-            if (!confirmed || !IsOpen) return;
+            if (!IsOpen) return;
+            if (!confirmed)
+            {
+                if (view != null) view.Bind(infos, mode);
+                return;
+            }
 
             await session.DeleteSlotAsync(slot);
             telemetry.Track("slot_deleted", ("slot", slot));

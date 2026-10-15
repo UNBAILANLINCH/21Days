@@ -598,3 +598,9 @@
 - 根因：Unity 的文件监视与刷新请求有竞态，第一次刷新可能读到写盘前的旧文本。**DLL 时间戳新 + 日志里是旧错误**就是这一种，不是「改错了」。
 - 正确做法：判「编译过没过」看三样对齐——DLL 时间戳、日志末尾的 `## Script Compilation Error`、以及**直接跑一次测试**；三者不一致时再 touch 一下文件重刷一次。别照着日志里那条已经修掉的报错去改代码（会白改一轮）。
 - 关联：`HANDOVER.md` §5 工具速查「强制 Unity 重编」；2026-10-10 BOSS 局势接线。
+
+## 标题关闭取消了选档加载，画面只剩 Boot
+- 现象：点击可读槽后标题和选档面板关闭，但玩法未出现；运行时只加载 `Boot`，`IGameFlow.Current` 仍为 `TitleState`，其 View 已销毁。根作用域仍存在，不能只因 Boot 根节点没有 Bootstrap 就判断它丢失（它已移到 `DontDestroyOnLoad`）。
+- 根因：`SaveSlotsController` 把 `TitleView.GetCancellationTokenOnDestroy()` 传给 `GameSession.ContinueAsync`。`TitleState.ExitAsync` 正常销毁标题时，取消令牌随之取消，打断尚未完成的玩法场景加载；`OperationCanceledException` 被当成正常退出处理，空画面没有业务错误提示。
+- 正确做法：跨 UI 关闭的流程使用控制器寿命令牌，在控制器 `Dispose` 时取消；局部 UI 动画仍可跟随对应 View 寿命。正常玩法继续由 `SceneGameState` Additive 加载 `SampleScene`，保留 Boot。验证必须检查目标流程状态和实际加载场景；标题消失、根容器可解析 PlayerModel 都不能证明入场完成。至少一条生命周期测试要让标题先销毁、异步加载后完成，避免已缓存场景掩盖时序问题。
+- 关联：`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的 `SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad`、`Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` 的 `MouseLoad_RollsScrollThenShortWaterWarpEntersWorld`。日期：2026-10-15。

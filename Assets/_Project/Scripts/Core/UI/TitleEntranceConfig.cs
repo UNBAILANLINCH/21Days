@@ -18,8 +18,11 @@ namespace Game.Core.UI
             [SerializeField, Min(0f)] private float delay;
             [SerializeField, Min(0.01f)] private float duration = 1f;
             [SerializeField, Min(0.01f)] private float fadeSeconds = 0.6f;
+            [SerializeField] private bool subtleFade;
             [SerializeField] private Vector2 offset;
+            [SerializeField] private bool linearFade;
             [SerializeField, Min(0.01f)] private float scale = 1f;
+            [SerializeField] private bool unrollVertical;
             [SerializeField] private float rotation;
             [SerializeField] private AnimationCurve curve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
             [SerializeField] private int revealDirection;
@@ -31,8 +34,11 @@ namespace Game.Core.UI
             public float Delay => delay;
             public float Duration => duration;
             public float FadeSeconds => fadeSeconds;
+            public bool SubtleFade => subtleFade;
             public Vector2 Offset => offset;
+            public bool LinearFade => linearFade;
             public float Scale => scale;
+            public bool UnrollVertical => unrollVertical;
             public float Rotation => rotation;
             public AnimationCurve Curve => curve;
             public int RevealDirection => revealDirection;

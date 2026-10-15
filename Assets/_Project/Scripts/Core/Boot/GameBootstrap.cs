@@ -12,6 +12,7 @@ using Game.Core.Logging;
 using Game.Core.Telemetry;
 using MessagePipe;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
 
@@ -33,9 +34,11 @@ namespace Game.Core.Boot
 
         private LifetimeScope scope;
         private CancellationTokenSource cts;
+        private Scene bootScene;
 
         private void Awake()
         {
+            bootScene = gameObject.scene;
             DontDestroyOnLoad(gameObject);
             scope = GetComponent<LifetimeScope>();
             cts = new CancellationTokenSource();
@@ -94,6 +97,7 @@ namespace Game.Core.Boot
 
                 var flow = resolver.Resolve<IGameFlow>();
                 await flow.GoToAsync<BootState>(ct);
+                await UnloadStartupScenesAsync(bootScene, ct);
 
                 var services = resolver.Resolve<IReadOnlyList<IGameService>>();
                 bootStartMs = NowMs(telemetryClock);
@@ -168,6 +172,19 @@ namespace Game.Core.Boot
                     TelemetryProps.Of(
                         (TelemetryKeys.Props.Name, currentServiceName),
                         (TelemetryKeys.Props.Ms, NowMs(telemetryClock) - bootStartMs)));
+            }
+        }
+
+        private static async UniTask UnloadStartupScenesAsync(Scene bootScene, CancellationToken ct)
+        {
+            // 编辑器可同时打开 Boot 与玩法场景；先卸载额外场景，避免流程 Additive 加载出第二份。
+            for (int i = SceneManager.sceneCount - 1; i >= 0; i--)
+            {
+                ct.ThrowIfCancellationRequested();
+                Scene scene = SceneManager.GetSceneAt(i);
+                if (scene == bootScene || !scene.isLoaded) continue;
+                Log.Info($"启动时卸载预先打开的场景：{scene.name}");
+                await SceneManager.UnloadSceneAsync(scene).ToUniTask(cancellationToken: ct);
             }
         }
 

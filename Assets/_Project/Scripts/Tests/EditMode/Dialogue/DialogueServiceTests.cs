@@ -161,6 +161,31 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         // 换成带真实动作集的输入服务（InputService 同步初始化、启用 Gameplay 图），并重建 Service 使用它。
+        [Test]
+        public void RuntimeContent_CancelRestoresInputHudAndRejectsReentry()
+        {
+            UseRealInput();
+            ui.Mode = FakeUIService.OpenMode.Pending;
+            var content = new DialogueContent("shop:customer", "choice", new[] {
+                new DialogueContent.Node { Id = "choice", Kind = DialogueContent.NodeKind.Choice,
+                    SpeakerName = "顾客甲", Text = "有什么事？", Choices = new[] {
+                        new DialogueContent.Choice { Id = "leave", Text = "告辞", Outcome = "leave" } } }
+            });
+            using var cts = new CancellationTokenSource();
+            var play = service.PlayAsync(content, null, "shop_customer0", cts.Token);
+            Assert.That(service.IsRunning, Is.True);
+            Assert.That(realInput.Actions.Gameplay.enabled, Is.False);
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.False);
+            Assert.That(Capture(service.PlayAsync(content, null, "shop_customer0")), Is.TypeOf<InvalidOperationException>());
+            cts.Cancel();
+            Assert.That(Capture(play), Is.InstanceOf<OperationCanceledException>());
+            Assert.That(pause.Holders, Is.Zero);
+            Assert.That(realInput.Actions.Gameplay.enabled, Is.True);
+            Assert.That(realInput.Actions.Dialogue.enabled, Is.False);
+            Assert.That(ui.IsLayerVisible(UILayer.Hud), Is.True);
+            Assert.That(rules.Phase, Is.EqualTo(DialogueSaveData.Phase.Closed));
+        }
+
         private RecordingInput UseRealInput()
         {
             realInput = new InputService();

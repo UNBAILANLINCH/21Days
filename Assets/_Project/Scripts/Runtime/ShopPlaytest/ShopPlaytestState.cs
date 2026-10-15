@@ -32,11 +32,11 @@ namespace Game.ShopPlaytest
     {
         private static readonly string[] Titles = { "戏班", "衣肆", "金银行", "客栈", "酒肆" };
         private static readonly string[][] Commands = {
-            new[] { "学徒验身", "都知调开巡逻", "乐正演奏" },
-            new[] { "查看甲的线索", "查看乙的线索", "查看丙的线索", "以甲领衣", "以乙领衣", "以丙领衣" },
-            new[] { "补足金属库存" },
-            new[] { "打听客栈的消息" },
-            new[] { "自己饮酒", "给BOSS灌酒", "给客人甲灌酒", "挑战BOSS", "给客人乙灌酒" }
+            new[] { "劳烦核对一下名册。", "这边由我照看，你到别处看看。", "我来奏上一曲。" },
+            new[] { "", "", "", "那就劳烦您拿给我。", "那就劳烦您拿给我。", "那就劳烦您拿给我。" },
+            new[] { "请按文书把金属补足。" },
+            new[] { "想向您打听点事。" },
+            new[] { "给我来一杯。", "请你喝一杯。", "请你喝一杯。", "我们来较量一下。", "请你喝一杯。" }
         };
         private readonly ISaveService saves;
         private readonly ISubscriber<SessionStartedEvent> sessionStarted;
@@ -47,6 +47,7 @@ namespace Game.ShopPlaytest
         private readonly IUIService ui;
         private readonly IInputService input;
         private readonly IInteractionRegistry interaction;
+        private readonly InteractionFocus interactionFocus;
         private readonly PlayerModel player;
         private readonly EncounterStep step;
         private readonly RhythmState rhythm;
@@ -77,7 +78,7 @@ namespace Game.ShopPlaytest
         private CancellationTokenSource lifetime;
         private bool progressReady;
         public int ActiveShop => world == null ? -1 : world.ActiveShop;
-        public string CurrentRole => identity.IsInEffect ? role : "";
+        public string CurrentRole => identity.IsInEffect && identity.Current.Value == role ? role : "";
         public ClothingRules Clothing => clothing.Rules;
         public ForgingRules Forging => forging.Rules;
         public TavernDrunkRules Tavern => tavern.Rules;
@@ -88,7 +89,7 @@ namespace Game.ShopPlaytest
         public Vector2 ControlledPosition => Taming.IsControllingEnemy ? Taming.GetTarget(Taming.CurrentControlId).Model.Position : player.Position;
         private Vector3 ControlledScenePosition => encounterView.ToScenePosition(ControlledPosition);
         private bool Busy => openingActivity || rhythm.IsActivityOpen || battle.IsBattleRunning || narrative.IsBusy || dialogue.IsRunning || awaitingBattle || pause.IsPaused;
-        public ShopPlaytestState(ISaveService saves, ISubscriber<SessionStartedEvent> sessionStarted, IGameFlow flow, IWorldPauseService pause, IUIService ui, IInputService input, IInteractionRegistry interaction,
+        public ShopPlaytestState(ISaveService saves, ISubscriber<SessionStartedEvent> sessionStarted, IGameFlow flow, IWorldPauseService pause, IUIService ui, IInputService input, IInteractionRegistry interaction, InteractionFocus interactionFocus,
             PlayerModel player, EncounterStep step, RhythmState rhythm, BattleFlow battle, BattleSetup battleSetup,
             NarrativeService narrative, DialogueService dialogue, TheaterConfig theaterConfig, ClothingController clothing,
             ForgingController forging, TavernController tavern, TheaterController theater, IdentityRules identityRules,
@@ -96,6 +97,7 @@ namespace Game.ShopPlaytest
         {
             this.saves = saves; this.sessionStarted = sessionStarted; this.flow = flow; this.pause = pause; this.interaction = interaction;
             this.ui = ui; this.input = input;
+            this.interactionFocus = interactionFocus;
             this.player = player; this.step = step; this.rhythm = rhythm; this.battle = battle;
             this.battleSetup = battleSetup; this.narrative = narrative; this.dialogue = dialogue;
             this.theaterConfig = theaterConfig; this.clothing = clothing; this.forging = forging;
@@ -112,7 +114,7 @@ namespace Game.ShopPlaytest
             RestoreProgress();
             FindActor("shop_boss").gameObject.SetActive(!tavernCompleted);
             foreach (ShopPlaytestActor actor in world.Actors)
-            { actor.Bind(Interact, CanInteract); interaction.Register(actor); }
+            { actor.Bind(Interact, CanInteract, BorrowIdentity, selected => interactionFocus.RequestFocus(selected)); interaction.Register(actor); }
             Taming.OnControlChanged += ControlChanged;
             step.OnAdvanced += AdvanceIdentity;
             Taming.BindSelection(CanSelect);
@@ -129,7 +131,8 @@ namespace Game.ShopPlaytest
             foreach (ShopPlaytestActor actor in world.Actors) if (actor != null && actor.StableId == id) return actor;
             return null;
         }
-        private bool CanInteract(ShopPlaytestActor actor) => world != null && !Busy && !HasPendingReply && actor.Shop == ActiveShop &&
+        // 旧场景仍引用衣肆柜台锚点，交谈统一由现场裁衣匠承接。
+        private bool CanInteract(ShopPlaytestActor actor) => world != null && actor.StableId != "shop_station_1" && !Busy && !HasPendingReply && actor.Shop == ActiveShop &&
             actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId)));
         private bool CanSelect(string id)
         {
@@ -144,6 +147,12 @@ namespace Game.ShopPlaytest
         }
         public void ReturnBody()
         { if (world != null && !Busy) encounterView.RequestControl(Taming.PlayerId); }
+        private void BorrowIdentity(ShopPlaytestActor actor)
+        {
+            if (!actor.CanInteractSecondary || !CanInteract(actor) ||
+                Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
+            if (!encounterView.RequestControl(actor.StableId, true)) Show("当前不能借用这个人物");
+        }
         private void ControlChanged(string id)
         {
             ShopPlaytestActor actor = FindActor(id);
@@ -188,27 +197,27 @@ namespace Game.ShopPlaytest
         {
             switch (id)
             {
-                case "shop_customer0": return new[] { 0 };
-                case "shop_customer1": return new[] { 1 };
-                case "shop_customer2": return new[] { 2 };
-                case "shop_tailor": case "shop_station_1":
-                    if (currentRole == "customer0") return new[] { 0, 3 };
-                    if (currentRole == "customer1") return new[] { 1, 4 };
-                    if (currentRole == "customer2") return new[] { 2, 5 };
+                case "shop_customer0": case "shop_customer1": case "shop_customer2": return Array.Empty<int>();
+                case "shop_tailor":
+                    if (currentRole == "customer0") return new[] { 3 };
+                    if (currentRole == "customer1") return new[] { 4 };
+                    if (currentRole == "customer2") return new[] { 5 };
                     return Array.Empty<int>();
-                case "shop_apprentice": case "shop_patrol": return new[] { 0 };
-                case "shop_director": return new[] { 1 };
-                case "shop_musician": return new[] { 2 };
-                case "shop_station_0": return new[] { 0, 1, 2 };
-                case "shop_officer": return new[] { 0 };
+                case "shop_apprentice": case "shop_musician": return Array.Empty<int>();
+                case "shop_director": return currentRole == "musician" ? new[] { 2 } : Array.Empty<int>();
+                case "shop_patrol": return currentRole == "apprentice" ? new[] { 0 } : currentRole == "director" ? new[] { 1 } : Array.Empty<int>();
+                case "shop_station_0":
+                    return currentRole == "apprentice" ? new[] { 0 } : currentRole == "director" ? new[] { 1 }
+                        : currentRole == "musician" ? new[] { 2 } : Array.Empty<int>();
+                case "shop_officer": return currentRole == "officer" ? new[] { 0 } : Array.Empty<int>();
                 case "shop_smith": case "shop_station_2":
                     if (currentRole == "officer") return new[] { 0 };
                     return Array.Empty<int>();
                 case "shop_innkeeper": case "shop_station_3": return new[] { 0 };
-                case "shop_boss": return new[] { 1, 3 };
-                case "shop_customer_a": return new[] { 2 };
-                case "shop_customer_b": return new[] { 4 };
-                case "shop_guest": case "shop_station_4": return new[] { 0 };
+                case "shop_boss": return currentRole == "guest" ? new[] { 1, 3 } : Array.Empty<int>();
+                case "shop_customer_a": return currentRole == "guest" ? new[] { 2 } : Array.Empty<int>();
+                case "shop_customer_b": return currentRole == "guest" ? new[] { 4 } : Array.Empty<int>();
+                case "shop_guest": case "shop_station_4": return currentRole == "guest" ? new[] { 0 } : Array.Empty<int>();
                 default: return Array.Empty<int>();
             }
         }
@@ -227,29 +236,32 @@ namespace Game.ShopPlaytest
         {
             var scene = world;
             CancellationToken token = lifetime.Token;
+            string recognizedRole = CurrentRole;
             var choices = new List<DialogueContent.Choice>();
             foreach (int command in CommandsFor(actor.StableId, CurrentRole, forging.Rules.IsForging, forging.Rules.NextPoint))
+            {
+                if (actor.Shop == 1 && !clothing.OffersClothes(CurrentRole)) continue;
                 choices.Add(new DialogueContent.Choice { Id = "command" + command,
-                    Text = actor.Shop == 1 && command >= 3 ? "领取衣服" : actor.Shop == 4 && (command == 1 || command == 2 || command == 4)
-                        ? "请你喝一杯" : Commands[actor.Shop][command], Outcome = "command" + command });
-            if (actor.StableId == "shop_smith" || actor.StableId == "shop_station_2")
-                choices.Add(new DialogueContent.Choice { Id = "forge", Text = "使用打造台", Outcome = "forge" });
-            if (actor.Role.Length > 0)
-                choices.Add(new DialogueContent.Choice { Id = "borrow", Text = "借用" + actor.DisplayName + "的身份", Outcome = "borrow" });
+                    Text = Commands[actor.Shop][command], Outcome = "command" + command });
+            }
+            if (CurrentRole == "smith" && (actor.StableId == "shop_smith" || actor.StableId == "shop_station_2"))
+                choices.Add(new DialogueContent.Choice { Id = "forge", Text = "开始打造。", Outcome = "forge" });
             if (Taming.IsControllingEnemy)
                 choices.Add(new DialogueContent.Choice { Id = "body", Text = "回到本体", Outcome = "body" });
             choices.Add(new DialogueContent.Choice { Id = "leave", Text = "告辞", Outcome = "leave" });
-            string greeting = actor.Shop == 1 && actor.Role.Length == 0 && CurrentRole.Length == 0
-                ? "你来取衣吗？先确认取衣人的身份，再来问我。" : Greeting(actor);
+            string greeting = Greeting(actor);
             try
             {
                 DialogueResult result = await dialogue.PlayAsync(Conversation(actor.StableId, actor.DisplayName, greeting, choices.ToArray()), actor.transform, actor.StableId, token);
-                if (token.IsCancellationRequested || world != scene || !CanInteract(actor) ||
+                if (token.IsCancellationRequested || string.IsNullOrEmpty(result.Outcome) || world != scene || CurrentRole != recognizedRole || !CanInteract(actor) ||
                     Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
                 conversationActor = actor;
-                if (result.Outcome == "borrow")
-                { if (!encounterView.RequestControl(actor.StableId, true)) Show("当前不能借用这个人物"); }
-                else if (result.Outcome == "body") ReturnBody();
+                if (actor.StableId == "shop_tailor")
+                {
+                    int customer = clothing.CustomerFor(recognizedRole);
+                    if (customer >= 0) { clothing.Apply(customer, false, recognizedRole); Persist(); }
+                }
+                if (result.Outcome == "body") ReturnBody();
                 else if (result.Outcome == "forge")
                     OpenForgeAsync(actor).Forget();
                 else if (result.Outcome.StartsWith("command", StringComparison.Ordinal) && int.TryParse(result.Outcome.Substring(7), out int command))
@@ -258,25 +270,34 @@ namespace Game.ShopPlaytest
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("conversation_failed", error); }
         }
-        private static string Greeting(ShopPlaytestActor actor)
+        private string Greeting(ShopPlaytestActor actor)
         {
-            switch (actor.StableId)
+            if (actor.StableId == "shop_tailor") return clothing.TailorReply(CurrentRole);
+            string line = actor.StableId == "shop_customer0" ? clothing.CustomerGreeting(0)
+                : actor.StableId == "shop_customer1" ? clothing.CustomerGreeting(1)
+                : actor.StableId == "shop_customer2" ? clothing.CustomerGreeting(2) : GreetingFor(actor.StableId, CurrentRole);
+            return CurrentRole.Length == 0 || actor.StableId.StartsWith("shop_station_", StringComparison.Ordinal)
+                ? line : Taming.GetDisplayName(Taming.CurrentControlId) + "，" + line;
+        }
+        public static string GreetingFor(string id, string currentRole)
+        {
+            switch (id)
             {
-                case "shop_apprentice": return "来验身吗？";
-                case "shop_director": return "巡逻的事，要我帮忙安排吗？";
-                case "shop_musician": return "你想听演奏吗？";
-                case "shop_patrol": return "我还要巡逻，你有什么事？";
-                case "shop_customer0": return "你想问我取衣的事？";
-                case "shop_customer1": return "衣服的事，你想问什么？";
-                case "shop_customer2": return "你找我有什么事？";
-                case "shop_tailor": return "是来问衣服的事，还是来取衣？";
-                case "shop_officer": return "你是来核对拨料的吗？";
-                case "shop_smith": return "想打造什么？手头有工件就先做完。";
-                case "shop_innkeeper": return "你想打听什么消息？";
+                case "shop_apprentice": case "shop_patrol": case "shop_director": case "shop_musician": case "shop_station_0":
+                    return currentRole == "apprentice" ? "来核对入场名册吧？" : currentRole == "director" ? "巡逻的事，听您安排。"
+                        : currentRole == "musician" ? "戏台备好了，请奏一曲吧。"
+                        : id == "shop_apprentice" ? "我还得去验身，您有什么事？" : id == "shop_patrol" ? "我正在巡逻，您有什么事？"
+                        : id == "shop_director" ? "戏班的事由我安排，您有什么事？" : id == "shop_musician" ? "我还在练曲，您有什么事？"
+                        : "戏班今日还在排练，您有什么事？";
+                case "shop_officer": return currentRole == "smith" ? "金属若不足，需按文书核准后再领。" : "拨料的文书都在这里。";
+                case "shop_smith": case "shop_station_2": return currentRole == "officer" ? "文书上的金属份额，需要补足吗？"
+                    : currentRole == "smith" ? "打造台已经备好，可以开工了。" : "来看看金银行的工件吗？";
+                case "shop_innkeeper": case "shop_station_3": return "客官，请进，有什么想问的？";
                 case "shop_guest": return "来喝一杯？";
-                case "shop_boss": return "找我喝酒，还是来较量？";
-                case "shop_customer_a": case "shop_customer_b": return "找我喝酒吗？";
-                default: return Titles[actor.Shop] + "的事，你想问什么？";
+                case "shop_boss": return currentRole == "guest" ? "又来了？一起喝一杯，还是较量一下？" : "找我有什么事？";
+                case "shop_customer_a": case "shop_customer_b": return currentRole == "guest" ? "你也来喝酒了？一起坐吧。" : "我在这里歇歇脚。";
+                case "shop_station_4": return currentRole == "guest" ? "酒已备好，来一杯吧。" : "客官，想喝点什么？";
+                default: return "找我有什么事？";
             }
         }
         private void ExecuteCommand(int index, ShopPlaytestActor actor)

@@ -22,6 +22,7 @@ namespace Game.Clothing
             Array.Copy(seen, investigated, seen.Length); Received = received;
         }
         public bool HasInvestigated(int index) => index >= 0 && index < investigated.Length && investigated[index];
+        public bool IsCollector(int index) => index == collector;
         public bool Apply(in ClothingIntent intent, out string reason)
         {
             reason = null;

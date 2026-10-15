@@ -185,16 +185,19 @@ namespace Game.Editor.ShopPlaytest
                         shop == 2 ? "拨料文书 / 打造台" : shop == 3 ? "客栈掌柜 / 线索" : "酒桌 / 挑战";
                     var station = new GameObject("InteractionPoint");
                     station.transform.SetParent(template.transform, false); station.transform.localPosition = new Vector3(0, 0, -.2f);
-                    ShopPlaytestActor stationActor = station.AddComponent<ShopPlaytestActor>();
-                    ConfigureActor(stationActor, "shop_station_" + shop, "", stationName, shop);
+                    if (shop != 1)
+                    {
+                        ShopPlaytestActor stationActor = station.AddComponent<ShopPlaytestActor>();
+                        ConfigureActor(stationActor, "shop_station_" + shop, "", stationName, shop);
+                    }
                     Cube("LocalProp_Cube", station.transform, new Vector3(1.25f, .175f, .4f), new Vector3(1.6f, .35f, .4f), buildingMaterial);
-                    Label(stationName, station.transform, new Vector3(0, 1.5f, .4f), 3.4f);
+                    if (shop != 1) Label(stationName, station.transform, new Vector3(0, 1.5f, .4f), 3.4f);
                     if (shop == 1 || shop == 3)
-                        Actor(actorsRoot, shop == 1 ? "shop_tailor" : "shop_innkeeper", "", shop == 1 ? "裁衣匠" : "客栈掌柜",
-                            shop, new Vector3(2.6f, 0, .8f), false, true, 4);
+                        Actor(actorsRoot, shop == 1 ? "shop_tailor" : "shop_innkeeper", shop == 1 ? "tailor" : "innkeeper", shop == 1 ? "裁衣匠" : "客栈掌柜",
+                            shop, new Vector3(2.6f, 0, .8f), true, true, 4);
                     if (shop == 0)
                     {
-                        Actor(actorsRoot, "shop_patrol", "", "巡逻学徒", shop, new Vector3(-2, 0, 1.8f), true, true, 2);
+                        Actor(actorsRoot, "shop_patrol", "patrol", "巡逻学徒", shop, new Vector3(-2, 0, 1.8f), true, true, 2);
                         Transform routes = new GameObject("AuthoredRoutes").transform; routes.SetParent(template.transform, false);
                         original = Points(routes, "原巡逻", new[] { new Vector3(-2, 0, 1.8f), new Vector3(2, 0, 1.8f) });
                         redirected = Points(routes, "调开后巡逻", new[] { new Vector3(-2, 0, -2.5f), new Vector3(2, 0, -2.5f) });
@@ -203,9 +206,9 @@ namespace Game.Editor.ShopPlaytest
                     }
                     if (shop == 4)
                     {
-                        Actor(actorsRoot, "shop_boss", "", "酒肆BOSS", shop, new Vector3(-1.6f, 0, .8f), true, false, 3);
-                        Actor(actorsRoot, "shop_customer_a", "", "普通客人甲", shop, new Vector3(-.2f, 0, .6f), true, false, 1);
-                        Actor(actorsRoot, "shop_customer_b", "", "普通客人乙", shop, new Vector3(-.2f, 0, 1.5f), true, false, 4);
+                        Actor(actorsRoot, "shop_boss", "boss", "酒肆BOSS", shop, new Vector3(-1.6f, 0, .8f), true, false, 3);
+                        Actor(actorsRoot, "shop_customer_a", "customer_a", "普通客人甲", shop, new Vector3(-.2f, 0, .6f), true, false, 1);
+                        Actor(actorsRoot, "shop_customer_b", "customer_b", "普通客人乙", shop, new Vector3(-.2f, 0, 1.5f), true, false, 4);
                         TamingActor boss = FindById(template, "shop_boss");
                         var trigger = boss.gameObject.AddComponent<NarrativeTrigger>();
                         Text(trigger, "targetId", "shop_boss"); Text(trigger, "targetKind", "ShopMainBoss");
@@ -283,7 +286,7 @@ namespace Game.Editor.ShopPlaytest
                             if (actor.StableId == "shop_customer_b") actor.transform.localPosition = new Vector3(-.2f, 0, 1.5f);
                             TamingActor tame = actor.GetComponent<TamingActor>();
                             if (tame == null) continue;
-                            Bool(tame, "observationOnly", actor.Shop == 4 && actor.Role.Length == 0);
+                            Bool(tame, "observationOnly", actor.Shop == 4 && actor.Role != "guest");
                             if (actor.Shop == 4)
                             {
                                 var data = new SerializedObject(tame);
@@ -346,16 +349,19 @@ namespace Game.Editor.ShopPlaytest
         {
             var config = Require<IdentityConfig>("Assets/_Project/Data/Identity/IdentityConfig.asset");
             var data = new SerializedObject(config); SerializedProperty rows = data.FindProperty("definitions");
-            for (int shop = 0; shop < Roles.Length; shop++) for (int i = 0; i < Roles[shop].Length; i++)
+            for (int shop = 0; shop < Roles.Length; shop++)
+            foreach (ShopPlaytestActor actor in Require<GameObject>("Assets/_Project/Prefabs/ShopPlaytest/Main_" + shop + ".prefab").GetComponentsInChildren<ShopPlaytestActor>(true))
             {
-                string id = Roles[shop][i]; bool found = false;
+                string id = actor.Role;
+                if (string.IsNullOrEmpty(id)) continue;
+                bool found = false;
                 for (int n = 0; n < rows.arraySize; n++) if (rows.GetArrayElementAtIndex(n).FindPropertyRelative("id").stringValue == id) found = true;
                 if (found) continue;
                 rows.InsertArrayElementAtIndex(rows.arraySize);
                 var row = rows.GetArrayElementAtIndex(rows.arraySize - 1);
                 row.FindPropertyRelative("id").stringValue = id;
-                row.FindPropertyRelative("displayName").stringValue = People[shop][i];
-                row.FindPropertyRelative("sourceCharacterId").stringValue = "shop_" + id;
+                row.FindPropertyRelative("displayName").stringValue = actor.DisplayName;
+                row.FindPropertyRelative("sourceCharacterId").stringValue = actor.StableId;
                 row.FindPropertyRelative("origin").enumValueIndex = 1;
                 row.FindPropertyRelative("abilities").arraySize = 0;
                 row.FindPropertyRelative("accessRights").arraySize = 0;
@@ -399,7 +405,7 @@ namespace Game.Editor.ShopPlaytest
             {
                 var tame = root.AddComponent<TamingActor>(); Text(tame, "stableId", id); Text(tame, "displayName", name);
                 Ref(tame, "visual", proxy); Ref(tame, "nameLabel", label); Bool(tame, "passive", passive); Bool(tame, "addedForShops", true);
-                Bool(tame, "observationOnly", shop == 4 && role.Length == 0);
+                Bool(tame, "observationOnly", shop == 4 && role != "guest");
                 Transform point = new GameObject("初始待机点").transform; point.SetParent(parent.parent, false); point.localPosition = position;
                 Refs(tame, "patrolPoints", new[] { point });
             }

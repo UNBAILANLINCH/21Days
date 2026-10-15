@@ -6,18 +6,20 @@ namespace Game.Tests.EditMode.ShopPlaytest
 {
     public sealed class ShopPlaytestStateTests
     {
-        [TestCase("shop_customer0", 0)]
-        [TestCase("shop_customer1", 1)]
-        [TestCase("shop_customer2", 2)]
         [TestCase("shop_customer_a", 2)]
         [TestCase("shop_customer_b", 4)]
         public void Customer_OnlyOwnCommand(string id, int command)
-            => Assert.That(ShopPlaytestState.CommandsFor(id, "", false, 0), Is.EqualTo(new[] { command }));
+            => Assert.That(ShopPlaytestState.CommandsFor(id, "guest", false, 0), Is.EqualTo(new[] { command }));
+        [TestCase("shop_customer0")]
+        [TestCase("shop_customer1")]
+        [TestCase("shop_customer2")]
+        public void ClothingCustomer_NoMechanicalClueButtons(string id)
+            => Assert.That(ShopPlaytestState.CommandsFor(id, "", false, 0), Is.Empty);
         [Test]
         public void Tailor_UsesBorrowedIdentityAndDoesNotOfferOtherCustomers()
         {
             Assert.That(ShopPlaytestState.CommandsFor("shop_tailor", "", false, 0), Is.Empty);
-            Assert.That(ShopPlaytestState.CommandsFor("shop_tailor", "customer1", false, 0), Is.EqualTo(new[] { 1, 4 }));
+            Assert.That(ShopPlaytestState.CommandsFor("shop_tailor", "customer1", false, 0), Is.EqualTo(new[] { 4 }));
         }
         [Test]
         public void Forge_DialogueOnlyOffersOfficerQuotaAndNoWorkbenchOperations()
@@ -32,6 +34,17 @@ namespace Game.Tests.EditMode.ShopPlaytest
         [Test]
         public void UnknownActor_DoesNotAcquireStoreCommands()
             => Assert.That(ShopPlaytestState.CommandsFor("unknown", "smith", true, 1), Is.Empty);
+        [Test]
+        public void ClothingStation_DoesNotDuplicateTailorCommands()
+            => Assert.That(ShopPlaytestState.CommandsFor("shop_station_1", "customer1", false, 0), Is.Empty);
+        [Test]
+        public void Greetings_RecognizeCurrentIdentity()
+        {
+            Assert.That(ShopPlaytestState.GreetingFor("shop_patrol", "apprentice"), Does.Contain("名册"));
+            Assert.That(ShopPlaytestState.GreetingFor("shop_patrol", "director"), Does.Contain("听您安排"));
+            Assert.That(ShopPlaytestState.GreetingFor("shop_boss", "guest"), Does.Contain("又来了"));
+            Assert.That(ShopPlaytestState.GreetingFor("shop_boss", ""), Is.Not.EqualTo(ShopPlaytestState.GreetingFor("shop_boss", "guest")));
+        }
         [Test]
         public void PointerClick_OnlyLeftClickOnVisibleBoundActorInteracts()
         {

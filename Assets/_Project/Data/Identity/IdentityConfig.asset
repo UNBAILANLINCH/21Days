@@ -98,3 +98,39 @@ MonoBehaviour:
     origin: 1
     abilities: []
     accessRights: []
+  - id: patrol
+    displayName: "\u5DE1\u903B\u5B66\u5F92"
+    sourceCharacterId: shop_patrol
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: tailor
+    displayName: "\u88C1\u8863\u5320"
+    sourceCharacterId: shop_tailor
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: innkeeper
+    displayName: "\u5BA2\u6808\u638C\u67DC"
+    sourceCharacterId: shop_innkeeper
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: boss
+    displayName: "\u9152\u8086BOSS"
+    sourceCharacterId: shop_boss
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: customer_a
+    displayName: "\u666E\u901A\u5BA2\u4EBA\u7532"
+    sourceCharacterId: shop_customer_a
+    origin: 1
+    abilities: []
+    accessRights: []
+  - id: customer_b
+    displayName: "\u666E\u901A\u5BA2\u4EBA\u4E59"
+    sourceCharacterId: shop_customer_b
+    origin: 1
+    abilities: []
+    accessRights: []

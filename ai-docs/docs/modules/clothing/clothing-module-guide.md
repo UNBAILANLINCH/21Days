@@ -7,13 +7,13 @@ maturity: seed
 
 # 衣肆独立玩法
 
-三顾客证词形成唯一取衣解；调查需对应顾客身份，已调查证词可回看，正确身份只领一次。
+三顾客各有身份与订衣情况；借对应身份向裁衣匠交谈，得到被认作该顾客时的回应，正确身份只领一次。
 
 2026-10-13按用户纠正迁到同一3D主场景，玩法仍独立，不连接十二阶段主线。建筑Cube、现成小人和按店显隐的实际入口见[五店接线指南](../shopplaytest/shopplaytest-module-guide.md)。
 
 ## 责任与数据流
 
-借顾客甲/乙/丙 → 在对应对白中查看证词 → 用乙的身份向裁衣匠领衣 → 显示蓝长衫。重复领取只提示已领取；重试仅保留调试接口。默认正确答案为乙；甲初次到店，丙陪同。
+与顾客交谈直接听到其自身的订衣情况。借用身份是独立按钮，无需先交谈。借甲/乙/丙 → 向裁衣匠交谈，裁衣匠按当前身份回应 → 完成该对白记录调查 → 乙选择「那就劳烦您拿给我。」领衣。甲、丙和本体没有取衣选项；领取后再谈显示已领取。默认订衣人为乙；甲初次到店，丙陪同。
 
 类型：ClothingConfig / ClothingRules / ClothingIntent / ClothingController。规则与意图在Game.Runtime中；规则纯C#，UI通过共用状态接线，Core不引用玩法。Controller记录意图结果，Reset只重置本玩法。
 
@@ -21,7 +21,7 @@ maturity: seed
 
 配置资产位于Assets/_Project/Data/ShopPlaytest/。
 
-Clothing.asset：names、clues、tailorClue、collectorIndex。三顾客对白选项与场景角色是本期固定内容，不可只增加数组长度就宣称支持更多顾客。
+Clothing.asset：names、clues（顾客自己的话）、collectorIndex、visitorReply、tailorReplies（按顾客索引的裁衣匠回应）、receivedReply、handoverReply；旧tailorClue保留兼容。回复数组必须与姓名数量一致。三顾客映射与场景角色是本期固定内容，不可只增加数组长度就宣称支持更多顾客。
 
 ## 接线与生命周期
 

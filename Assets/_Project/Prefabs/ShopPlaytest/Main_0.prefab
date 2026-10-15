@@ -51,7 +51,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_patrol
-  role: 
+  role: patrol
   displayName: "\u5DE1\u903B\u5B66\u5F92"
   shop: 0
   borrowRadius: 2

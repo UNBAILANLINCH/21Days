@@ -321,6 +321,7 @@ GameObject:
   - component: {fileID: 1233680989536346079}
   - component: {fileID: 5969449744156730646}
   - component: {fileID: 5130469560824535223}
+  - component: {fileID: 7574342388933606669}
   m_Layer: 0
   m_Name: shop_tailor
   m_TagString: Untagged
@@ -358,7 +359,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_tailor
-  role: 
+  role: tailor
   displayName: "\u88C1\u8863\u5320"
   shop: 1
   borrowRadius: 2
@@ -436,6 +437,28 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.75, y: 1.65, z: 0.75}
   m_Center: {x: 0, y: 0.825, z: 0}
+--- !u!114 &7574342388933606669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1797890689095357482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b3f8807fd1174949b913d97277a61e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stableId: shop_tailor
+  displayName: "\u88C1\u8863\u5320"
+  visual: {fileID: 5969449744156730646}
+  stateIndicator: {fileID: 0}
+  nameLabel: {fileID: 5857482960136789469}
+  patrolPoints:
+  - {fileID: 5117548484127688835}
+  passive: 1
+  addedForShops: 1
+  observationOnly: 0
 --- !u!1 &2249022858913988280
 GameObject:
   m_ObjectHideFlags: 0
@@ -557,7 +580,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -763,7 +786,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -955,6 +978,7 @@ Transform:
   - {fileID: 3655739428230816403}
   - {fileID: 2657935913573162580}
   - {fileID: 7690498132253883123}
+  - {fileID: 5117548484127688835}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4783418679028600889
@@ -1078,7 +1102,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -1249,7 +1273,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -1791,7 +1815,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -1942,7 +1966,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &4149627557067414727
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2046,7 +2070,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -2247,6 +2271,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.75, y: 1.65, z: 0.75}
   m_Center: {x: 0, y: 0.825, z: 0}
+--- !u!1 &8688700503608572037
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5117548484127688835}
+  m_Layer: 0
+  m_Name: "\u8EAB\u4EFD\u5F85\u673A\u70B9_tailor"
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5117548484127688835
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8688700503608572037}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.6, y: 0, z: 0.8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 706688047829914825}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8770679653763436532
 GameObject:
   m_ObjectHideFlags: 0

@@ -18,7 +18,13 @@ namespace Game.Tests.Showcase.Theater
         public IEnumerator Roles_FourLanePerformanceReturnsAndRetries()
         {
             yield return Ready(0);
-            yield return Command(2);
+            Game.ShopPlaytest.ShopPlaytestActor station = null;
+            foreach (var actor in State.World.Actors) if (actor.StableId == "shop_station_0") station = actor;
+            yield return OpenConversation(station);
+            yield return ShowChoices();
+            Assert.That(System.Array.Exists(ResolveService<Game.Dialogue.DialogueRules>().Current.Choices,
+                choice => choice.Id == "command2"), Is.False, "本体不出现乐正演奏选项");
+            yield return Choose("leave");
             yield return Check("前置不足，音游未打开", () => !ResolveService<RhythmState>().IsActivityOpen);
             yield return Borrow(0);
             yield return Command(0);

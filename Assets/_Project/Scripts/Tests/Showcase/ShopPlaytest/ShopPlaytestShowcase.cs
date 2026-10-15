@@ -52,7 +52,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return MoveTo(target);
             yield return Check("走入店前范围显示对应人物", () => State.ActiveShop == shop, 3);
             yield return Check("当前店前操作点或本店NPC成为统一交互焦点", () =>
-                ResolveService<IInteractionFocus>().Current is ShopPlaytestActor actor && actor.Shop == shop && actor.Role.Length == 0, 3);
+                ResolveService<IInteractionFocus>().Current is ShopPlaytestActor actor && actor.Shop == shop && actor.CanInteract, 3);
             yield return Check("五店不加载操作面板", () => ResolveService<IUIService>().Get<ShopPlaytestView>() == null);
         }
         private static Vector2 MapPoint(Transform map, float x, float z)
@@ -107,9 +107,15 @@ namespace Game.Tests.Showcase.ShopPlaytest
             Assert.That(target, Is.Not.Null);
             Vector2 position = State.Taming.GetTarget(target.StableId).Model.Position;
             yield return MoveTo(position);
-            yield return OpenConversation(target);
-            yield return Choose("borrow");
+            yield return SelectActor(target);
+            yield return Check("借用按钮对应目标NPC", () => ResolveService<IInteractionFocus>().Current == target, 3);
+            var hud = ResolveService<IUIService>().Get<InteractPromptHudView>();
+            Assert.That(hud.IsSecondaryShown, Is.True);
+            Assert.That(DialogueRunning, Is.False, "无需先对话即可借身份");
+            yield return Snapshot("F键借用身份_" + target.Role);
+            yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Execute);
             yield return Check("原控制系统与职业同步", () => State.Taming.CurrentControlId == target.StableId && State.CurrentRole == target.Role, 3);
+            yield return Check("F借身份不会同时打开对白", () => !DialogueRunning);
             yield return MoveTo(Object.FindObjectOfType<EncounterSceneView>().ToLogicPosition(State.World.Station(State.ActiveShop).position));
         }
         protected IEnumerator CheckPreplacedObjects() => Check("各操作没有新生成占位角色", () => Object.FindObjectsOfType<ShopPlaytestActor>(true).Length == originalActors);
@@ -123,10 +129,17 @@ namespace Game.Tests.Showcase.ShopPlaytest
             {
                 yield return Check("点击对应人物：" + actor.StableId + "，可交互=" + actor.CanInteract,
                     () => actor.CanInteract, 3);
-                ExecuteEvents.Execute(actor.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
-                    ExecuteEvents.pointerClickHandler);
+                yield return SelectActor(actor);
+                yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
             }
             yield return Check("现场人物打开正式对白", () => DialogueRunning, 4);
+        }
+        private IEnumerator SelectActor(ShopPlaytestActor actor)
+        {
+            ExecuteEvents.Execute(actor.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+                ExecuteEvents.pointerClickHandler);
+            yield return null;
+            yield return Check("点选对应人物成为统一焦点", () => ResolveService<IInteractionFocus>().Current == actor, 3);
         }
         protected IEnumerator ShowChoices()
         {
@@ -161,7 +174,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
         {
             ShopPlaytestActor target = null;
             string id = State.ActiveShop == 4 && index != 0 ? index == 1 || index == 3 ? "shop_boss" :
-                index == 4 ? "shop_customer_b" : "shop_customer_a" : "shop_station_" + State.ActiveShop;
+                index == 4 ? "shop_customer_b" : "shop_customer_a" : State.ActiveShop == 1 ? "shop_tailor" : "shop_station_" + State.ActiveShop;
             foreach (var actor in State.World.Actors) if (actor.StableId == id) target = actor;
             Assert.That(target, Is.Not.Null);
             yield return OpenConversation(target);

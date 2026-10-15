@@ -97,9 +97,17 @@ namespace Game.Tests.Showcase.Forging
         {
             Game.ShopPlaytest.ShopPlaytestActor station = null;
             foreach (var actor in State.World.Actors) if (actor.StableId == "shop_station_2") station = actor;
-            yield return OpenConversation(station); yield return Choose("forge");
-            if (allowed) yield return WaitUntil("打造界面可操作", () => View != null && View.GetComponent<CanvasGroup>().interactable && View.GetComponent<CanvasGroup>().alpha >= .99f, 5);
-            else yield return FinishReplies();
+            yield return OpenConversation(station);
+            if (!allowed)
+            {
+                yield return ShowChoices();
+                Assert.That(System.Array.Exists(ResolveService<Game.Dialogue.DialogueRules>().Current.Choices,
+                    choice => choice.Id == "forge"), Is.False, "本体没有匠人打造选项");
+                yield return Choose("leave");
+                yield break;
+            }
+            yield return Choose("forge");
+            yield return WaitUntil("打造界面可操作", () => View != null && View.GetComponent<CanvasGroup>().interactable && View.GetComponent<CanvasGroup>().alpha >= .99f, 5);
         }
         private IEnumerator Click(string name)
         {

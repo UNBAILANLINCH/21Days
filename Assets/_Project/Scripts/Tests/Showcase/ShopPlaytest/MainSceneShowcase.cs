@@ -48,7 +48,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
         public IEnumerator SavedProgress_NewSlotDoesNotReceiveOldSceneAndContinueRestoresOwnResult()
         {
             yield return Ready(1); yield return Borrow(1);
-            yield return Command(1); yield return Command(4);
+            yield return Command(4);
             yield return Check("旧槽成果成立", () => State.Clothing.Received);
             var session = ResolveService<GameSession>(); bool saved = false;
             yield return session.SaveNowAsync("shop_showcase").ContinueWith(ok => saved = ok).ToCoroutine();
@@ -70,7 +70,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
         public IEnumerator Retry_CurrentShopKeepsOtherShopsControlAndPosition()
         {
             yield return Ready(1); yield return Borrow(1);
-            yield return Command(1); yield return Command(4);
+            yield return Command(4);
             yield return Check("领衣成果已成立", () => State.Clothing.Received);
             yield return GoToShop(2); yield return Borrow(0);
             yield return Command(0);

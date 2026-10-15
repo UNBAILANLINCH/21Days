@@ -926,6 +926,17 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 3107622692733975614, guid: f2f1d585e48402e4cb6ae46386472b58, type: 3}
   m_PrefabInstance: {fileID: 1042642368}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &87929656 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7574342388933606669, guid: d99f3ad6586c53c4fb89c59b3e98c10b, type: 3}
+  m_PrefabInstance: {fileID: 2010783671}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b3f8807fd1174949b913d97277a61e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &100687907
 GameObject:
   m_ObjectHideFlags: 0
@@ -8409,6 +8420,14 @@ PrefabInstance:
     - target: {fileID: 2676264745535041141, guid: b5fbf9f8f626f544dabe41ce9d5eb70d, type: 3}
       propertyPath: m_LocalRotation.z
       value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3699131434047687637, guid: b5fbf9f8f626f544dabe41ce9d5eb70d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.6000004
+      objectReference: {fileID: 0}
+    - target: {fileID: 3699131434047687637, guid: b5fbf9f8f626f544dabe41ce9d5eb70d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.79999924
       objectReference: {fileID: 0}
     - target: {fileID: 3817940810601741276, guid: b5fbf9f8f626f544dabe41ce9d5eb70d, type: 3}
       propertyPath: m_IsActive
@@ -21763,6 +21782,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Main_1
       objectReference: {fileID: 0}
+    - target: {fileID: 5117548484127688835, guid: d99f3ad6586c53c4fb89c59b3e98c10b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.6000004
+      objectReference: {fileID: 0}
+    - target: {fileID: 5117548484127688835, guid: d99f3ad6586c53c4fb89c59b3e98c10b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.7999973
+      objectReference: {fileID: 0}
     - target: {fileID: 5857482960136789469, guid: d99f3ad6586c53c4fb89c59b3e98c10b, type: 3}
       propertyPath: m_TextStyleHashCode
       value: -1183493901
@@ -22333,6 +22360,8 @@ MonoBehaviour:
   - {fileID: 323188278}
   - {fileID: 323188277}
   - {fileID: 323188276}
+  - {fileID: 87929656}
+  - {fileID: 2057000095}
   groundMask:
     serializedVersion: 2
     m_Bits: 256
@@ -22601,6 +22630,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fadedMaterial: {fileID: 2100000, guid: 1c299c936a7af5c45883c19bab4c5857, type: 2}
   fadeSeconds: 0.15
+--- !u!114 &2057000095 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8027982655681154139, guid: b5fbf9f8f626f544dabe41ce9d5eb70d, type: 3}
+  m_PrefabInstance: {fileID: 936001683}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b3f8807fd1174949b913d97277a61e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2062094309
 GameObject:
   m_ObjectHideFlags: 0

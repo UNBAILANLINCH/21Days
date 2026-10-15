@@ -11,13 +11,21 @@ namespace Game.Clothing
         { this.config = config; this.telemetry = telemetry; Rules = config.CreateRules(); }
         public string Apply(int customer, bool claim, string role)
         {
-            if (!claim && customer >= 0 && customer < config.Count && Rules.HasInvestigated(customer))
-                return config.NameAt(customer) + "（已调查）：" + config.ClueAt(customer) + "\n掌柜：" + config.TailorClue;
             var intent = new ClothingIntent(customer, claim, role == "customer" + customer);
             bool ok = Rules.Apply(in intent, out string reason);
             telemetry.Track("intent_resolved", ("customer", customer), ("claim", claim), ("ok", ok), ("reason", reason));
-            return !ok ? reason : claim ? "已领取衣物，本玩法完成" : config.NameAt(customer) + "：" + config.ClueAt(customer) + "\n掌柜：" + config.TailorClue;
+            return !ok ? reason : claim ? config.HandoverReply : TailorReply(role);
         }
+        public int CustomerFor(string role)
+        { for (int i = 0; i < config.Count; i++) if (role == "customer" + i) return i; return -1; }
+        public string CustomerGreeting(int index) => config.ClueAt(index);
+        public string TailorReply(string role)
+        {
+            int customer = CustomerFor(role);
+            return customer < 0 ? config.VisitorReply : Rules.Received && Rules.IsCollector(customer)
+                ? config.ReceivedReply : config.TailorReplyAt(customer);
+        }
+        public bool OffersClothes(string role) => !Rules.Received && Rules.IsCollector(CustomerFor(role));
         public void Reset() { Rules.Reset(); telemetry.Track("reset"); }
     }
 }

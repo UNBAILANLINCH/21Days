@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 namespace Game.ShopPlaytest
 {
-    public sealed class ShopPlaytestActor : MonoBehaviour, IInteractable, IPointerClickHandler
+    public sealed class ShopPlaytestActor : MonoBehaviour, IInteractable, ISecondaryInteractable, IPointerClickHandler
     {
         [SerializeField] private string stableId;
         [SerializeField] private string role;
@@ -15,6 +15,8 @@ namespace Game.ShopPlaytest
         [SerializeField] private BoxCollider clickCollider;
         private Renderer[] renderers;
         private bool[] originalVisibility;
+        private Action<ShopPlaytestActor> talk;
+        private Action<ShopPlaytestActor> select;
         private Action<ShopPlaytestActor> borrow;
         private Func<ShopPlaytestActor, bool> allowed;
         public string StableId => stableId;
@@ -25,8 +27,10 @@ namespace Game.ShopPlaytest
         public Vector3 Position => transform.position;
         public float InteractionRadius => borrowRadius;
         public int InteractionPriority => 0;
-        public bool CanInteract => borrow != null && IsVisible && allowed != null && allowed(this);
+        public bool CanInteract => talk != null && IsVisible && allowed != null && allowed(this);
         public InteractionPrompt Prompt => new InteractionPrompt("对话", displayName);
+        public bool CanInteractSecondary => CanInteract && !string.IsNullOrEmpty(role) && borrow != null;
+        public InteractionPrompt SecondaryPrompt => new InteractionPrompt("借用身份", displayName);
         public void SetVisible(bool visible)
         {
             if (renderers == null)
@@ -40,10 +44,17 @@ namespace Game.ShopPlaytest
             for (int i = 0; i < renderers.Length; i++)
                 if (renderers[i] != null) renderers[i].enabled = visible && originalVisibility[i];
         }
-        public void Bind(Action<ShopPlaytestActor> handler, Func<ShopPlaytestActor, bool> canBorrow) { borrow = handler; allowed = canBorrow; }
-        public void Interact() { if (CanInteract) borrow(this); }
+        public void Bind(Action<ShopPlaytestActor> handler, Func<ShopPlaytestActor, bool> canInteract,
+            Action<ShopPlaytestActor> borrowIdentity = null, Action<ShopPlaytestActor> selectActor = null)
+        { talk = handler; allowed = canInteract; borrow = borrowIdentity; select = selectActor; }
+        public void Interact() { if (CanInteract) talk(this); }
+        public void InteractSecondary() { if (CanInteractSecondary) borrow(this); }
         public void OnPointerClick(PointerEventData eventData)
-        { if (eventData.button == PointerEventData.InputButton.Left) Interact(); }
+        {
+            if (eventData.button != PointerEventData.InputButton.Left || !CanInteract) return;
+            if (select != null) select(this);
+            else Interact();
+        }
         public void OnFocusChanged(bool focused) { }
     }
 }

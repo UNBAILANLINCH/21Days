@@ -421,7 +421,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_customer_a
-  role: 
+  role: customer_a
   displayName: "\u666E\u901A\u5BA2\u4EBA\u7532"
   shop: 4
   borrowRadius: 2
@@ -1001,7 +1001,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_boss
-  role: 
+  role: boss
   displayName: "\u9152\u8086BOSS"
   shop: 4
   borrowRadius: 2
@@ -1813,7 +1813,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_customer_b
-  role: 
+  role: customer_b
   displayName: "\u666E\u901A\u5BA2\u4EBA\u4E59"
   shop: 4
   borrowRadius: 2

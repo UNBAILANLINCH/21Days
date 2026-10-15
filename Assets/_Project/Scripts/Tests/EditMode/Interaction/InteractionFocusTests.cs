@@ -245,6 +245,130 @@ namespace Game.Tests.EditMode.Interaction
 
         private FakeInteractable AddInRange() => AddInRange(new Vector3(1f, 0f, 0f));
 
+        [Test]
+        public void SecondaryButton_IsIndependent_AndRechecksFocusPauseDistanceAndAvailability()
+        {
+            input.EnableGameplay();
+            var target = new SecondaryTarget();
+            registry.Register(target);
+            focus.Advance(true, false);
+            focus.RequestSecondaryInteract();
+            Assert.That(target.Borrows, Is.Zero, "焦点本帧刚变化");
+            frame++;
+            focus.RequestSecondaryInteract();
+            Assert.That(target.Borrows, Is.EqualTo(1));
+            Assert.That(target.Talks, Is.Zero, "借用不要求先交谈");
+            pause.IsPaused = true;
+            frame++;
+            focus.RequestSecondaryInteract();
+            pause.IsPaused = false;
+            target.CanInteractSecondary = false;
+            frame++;
+            focus.RequestSecondaryInteract();
+            target.CanInteractSecondary = true;
+            player.transform.position = new Vector3(10, 0, 0);
+            frame++;
+            focus.RequestSecondaryInteract();
+            Assert.That(target.Borrows, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Advance_SecondaryKey_OnlyRunsSpecialActionOnTheSameFocus()
+        {
+            var target = new SecondaryTarget();
+            registry.Register(target);
+            focus.Advance(true, false, true);
+            Assert.That(target.Borrows, Is.Zero, "焦点刚变时 F 也不响应");
+
+            frame++;
+            focus.Advance(true, false, true);
+
+            Assert.That(target.Borrows, Is.EqualTo(1));
+            Assert.That(target.Talks, Is.Zero);
+        }
+
+        [Test]
+        public void Advance_BothKeysAndHudInOneFrame_OnlyRunsPrimaryAction()
+        {
+            input.EnableGameplay();
+            var target = new SecondaryTarget();
+            registry.Register(target);
+            Settle();
+            frame++;
+
+            focus.Advance(true, true, true);
+            focus.RequestSecondaryInteract();
+            focus.RequestInteract();
+
+            Assert.That(target.Talks, Is.EqualTo(1));
+            Assert.That(target.Borrows, Is.Zero);
+        }
+
+        [Test]
+        public void Advance_SecondaryUnavailable_DoesNotFallBackToTalk()
+        {
+            var target = new SecondaryTarget { CanInteractSecondary = false };
+            registry.Register(target);
+            Settle();
+            frame++;
+
+            focus.Advance(true, false, true);
+
+            Assert.That(target.Talks + target.Borrows, Is.Zero);
+        }
+
+        [Test]
+        public void Advance_SecondaryKeyWhilePaused_DoesNotRun()
+        {
+            var target = new SecondaryTarget();
+            registry.Register(target);
+            Settle();
+            pause.IsPaused = true;
+            frame++;
+
+            focus.Advance(true, false, true);
+
+            Assert.That(focus.Current, Is.Null);
+            Assert.That(target.Borrows, Is.Zero);
+        }
+
+        private sealed class SecondaryTarget : IInteractable, ISecondaryInteractable
+        {
+            public int Talks, Borrows;
+            public Vector3 Position => Vector3.right;
+            public float InteractionRadius => 2;
+            public bool CanInteract => true;
+            public int InteractionPriority => 0;
+            public InteractionPrompt Prompt => new InteractionPrompt("对话", "NPC");
+            public bool CanInteractSecondary { get; set; } = true;
+            public InteractionPrompt SecondaryPrompt => new InteractionPrompt("借用身份", "NPC");
+            public void Interact() => Talks++;
+            public void InteractSecondary() => Borrows++;
+            public void OnFocusChanged(bool focused) { }
+        }
+
+        [Test]
+        public void ClickSelection_PreservesChosenNpcOverCloserOne_AndClearsOnUnregister()
+        {
+            input.EnableGameplay();
+            FakeInteractable near = AddInRange(new Vector3(.1f, 0, 0));
+            var chosen = new SecondaryTarget();
+            registry.Register(chosen);
+            Settle();
+            Assert.That(focus.Current, Is.SameAs(near));
+            focus.RequestFocus(chosen);
+            Assert.That(focus.Current, Is.SameAs(chosen));
+            AdvanceNextFrame(true, false);
+            focus.RequestSecondaryInteract();
+            Assert.That(chosen.Borrows, Is.EqualTo(1));
+            Assert.That(chosen.Talks, Is.Zero);
+            registry.Unregister(chosen);
+            AdvanceNextFrame(true, false);
+            Assert.That(focus.Current, Is.SameAs(near));
+            focus.RequestFocus(chosen);
+            Assert.That(focus.Current, Is.SameAs(near), "已注销对象不能再次点选");
+        }
+
         private FakeInteractable AddInRange(Vector3 position)
         {
             var target = new FakeInteractable(position, 2f);

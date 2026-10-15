@@ -607,6 +607,7 @@ Transform:
   - {fileID: 864578788809712775}
   - {fileID: 3243303442967725247}
   - {fileID: 2676264745535041141}
+  - {fileID: 3699131434047687637}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4946258414564789218
@@ -898,6 +899,7 @@ GameObject:
   - component: {fileID: 640268055070906372}
   - component: {fileID: 4541929504231315874}
   - component: {fileID: 8958782411247321973}
+  - component: {fileID: 8027982655681154139}
   m_Layer: 0
   m_Name: shop_innkeeper
   m_TagString: Untagged
@@ -935,7 +937,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stableId: shop_innkeeper
-  role: 
+  role: innkeeper
   displayName: "\u5BA2\u6808\u638C\u67DC"
   shop: 3
   borrowRadius: 2
@@ -1013,6 +1015,59 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.75, y: 1.65, z: 0.75}
   m_Center: {x: 0, y: 0.825, z: 0}
+--- !u!114 &8027982655681154139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7750110160812432507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b3f8807fd1174949b913d97277a61e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stableId: shop_innkeeper
+  displayName: "\u5BA2\u6808\u638C\u67DC"
+  visual: {fileID: 4541929504231315874}
+  stateIndicator: {fileID: 0}
+  nameLabel: {fileID: 465593281491820015}
+  patrolPoints:
+  - {fileID: 3699131434047687637}
+  passive: 1
+  addedForShops: 1
+  observationOnly: 0
+--- !u!1 &8486610267749678547
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3699131434047687637}
+  m_Layer: 0
+  m_Name: "\u8EAB\u4EFD\u5F85\u673A\u70B9_innkeeper"
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3699131434047687637
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8486610267749678547}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.6, y: 0, z: 0.8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7823368175125312619}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &9103090819065044111
 GameObject:
   m_ObjectHideFlags: 0

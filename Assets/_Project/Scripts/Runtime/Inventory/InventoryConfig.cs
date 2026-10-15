@@ -26,7 +26,7 @@ namespace Game.Inventory
         [SerializeField] private ItemRecipeEntry[] recipes = System.Array.Empty<ItemRecipeEntry>();
 
         [Tooltip("合成成功后是否扣掉原料。**用户 2026-10-10 拍板 R8：扣**（资产里 consumeIngredients 已勾上），"
-                 + "05_皮面具与道具.md:107 R8 原先未定，按「原料就是消耗品」落定；湿皮 / 空白皮 / 泾龙丹一物两用"
+                 + "05_皮面具与道具.md:114 R8 原先未定，按「原料就是消耗品」落定；湿皮 / 空白皮 / 泾龙丹一物两用"
                  + "（:143）的取用顺序由玩法侧决定，不在这一步兜。")]
         [SerializeField] private bool consumeIngredients;
 

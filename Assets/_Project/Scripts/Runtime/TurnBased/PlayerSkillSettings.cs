@@ -1,7 +1,7 @@
 // 职责：玩家三招式的数值参数（纯值，测试不必创建 ScriptableObject）。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:50`（招式 1）、:52（招式 2）、:54（招式 3）；
-// 伤害、怒气上限、额外伤害值原文都没写（`docs/design/features-spotlight/09_BOSS战.md:237-239`），
+// 伤害、怒气上限、额外伤害值原文都没写（`docs/design/features-spotlight/09_BOSS战.md:292-294`），
 // 一律占位，等 C91。
 
 namespace Game.TurnBased

@@ -1,7 +1,7 @@
 // 职责：内核装配层（TurnBasedKernel）的测试——进入战斗的拒绝路径、脏输入、以及默认配置资产的自检。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:13-28`（拒绝路径）；
-// `docs/design/features-spotlight/09_BOSS战.md:239`（数值待拍板，但配置必须自洽）。
+// `docs/design/features-spotlight/09_BOSS战.md:294`（数值待拍板，但配置必须自洽）。
 
 using Game.Core.Simulation;
 using Game.TurnBased;

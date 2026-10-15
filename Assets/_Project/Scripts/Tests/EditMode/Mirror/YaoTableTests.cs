@@ -101,7 +101,7 @@ namespace Game.Tests.EditMode.Mirror
 
         /// <summary>
         /// A 层怪的占位掉落：`06_怪物分层.md:115` R2「A 层的共同点：…击杀后掉这一阶段的『皮』」，
-        /// 坊市那一行是 `:135` 表 3.2「妖民 → 普通皮」；道具侧定义见 `05_皮面具与道具.md:151`。
+        /// 坊市那一行是 `:135` 表 3.2「妖民 → 普通皮」；道具侧定义见 `05_皮面具与道具.md:158`。
         /// 具体 id 由 `Tables/Data/yao/1.json` / `2.json` 的 `drop_items` 给出，此处跟着数据钉住。
         /// </summary>
         private const int CommonSkinItemId = 1101;

@@ -12,7 +12,7 @@ namespace Game.Inventory
 {
     /// <summary>
     /// 一条合成配方。构造时把原料复制进内部数组，之后本对象不可变（外部改传入的列表不影响它）。
-    /// 出处：docs/design/features-spotlight/05_皮面具与道具.md:106 R7（水痕 + 收服户绝民的湿皮 → 钥匙；泾龙丹 + 空白皮 → 泾龙面具）。
+    /// 出处：docs/design/features-spotlight/05_皮面具与道具.md:113 R7（水痕 + 收服户绝民的湿皮 → 钥匙；泾龙丹 + 空白皮 → 泾龙面具）。
     /// </summary>
     public sealed class ItemRecipe
     {

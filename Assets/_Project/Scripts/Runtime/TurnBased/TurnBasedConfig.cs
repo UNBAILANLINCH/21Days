@@ -11,8 +11,8 @@
 // 出处（真源，逐行对着写）：
 // - `docs/design/spotlight/07_回合制作战文档.md`（全篇 86 行；本文件的每个数值都标了行号）
 // - `docs/design/features-spotlight/09_BOSS战.md` §3.9（R40–R48）、§4「数值」段（哪些数原文没写）
-// - `docs/design/features-spotlight/待策划拍板问题.md:1256` C91（回合制的数值与胜负条件）
-// - `docs/design/features-spotlight/00_功能总览.md:414` §8.1 #7（BOSS 战形式与「本体打不过任何怪」并存）
+// - `docs/design/features-spotlight/待策划拍板问题.md:1293` C91（回合制的数值与胜负条件）
+// - `docs/design/features-spotlight/00_功能总览.md:445` §8.1 #7（BOSS 战形式与「本体打不过任何怪」并存）
 using UnityEngine;
 
 namespace Game.TurnBased
@@ -33,7 +33,7 @@ namespace Game.TurnBased
         [SerializeField] private int sneakBossHealthLossPercent = 20;
 
         [Tooltip("上面这 20% 的基数（上限还是当前生命）。原文没写百分比作用在什么基数上，" +
-                 "出处 09_BOSS战.md:239；占位 MaxHealth，等 C91。")]
+                 "出处 09_BOSS战.md:294；占位 MaxHealth，等 C91。")]
         [SerializeField] private HealthPercentBase sneakLossBase = HealthPercentBase.MaxHealth;
 
         [Header("玩家招式（出处 07_回合制作战文档.md:48-54）")]
@@ -47,28 +47,28 @@ namespace Game.TurnBased
         [Tooltip("招式 1 使用后获得的怒气。出处 07:50「使用后增加1点怒气」。")]
         [SerializeField] private int playerSkill1RageGain = 1;
 
-        [Tooltip("招式 1 伤害。原文只说「造成伤害」没给数（07:50；09:239），等 C91；占位 1（最小可跑值）。")]
+        [Tooltip("招式 1 伤害。原文只说「造成伤害」没给数（07:50；09:294），等 C91；占位 1（最小可跑值）。")]
         [SerializeField] private int playerSkill1Damage = 1;
 
         [Tooltip("招式 2 的怒气消耗。出处 07:52「消耗1点怒气」。")]
         [SerializeField] private int playerSkill2RageCost = 1;
 
-        [Tooltip("招式 2 伤害。原文只说「造成伤害」没给数（07:52；09:239），等 C91；占位 2。")]
+        [Tooltip("招式 2 伤害。原文只说「造成伤害」没给数（07:52；09:294），等 C91；占位 2。")]
         [SerializeField] private int playerSkill2Damage = 2;
 
         [Tooltip("招式 2 减少对方治疗效果的百分比。出处 07:52「减少对方50%治疗效果」。")]
         [SerializeField] private int playerSkill2HealReductionPercent = 50;
 
-        [Tooltip("减疗持续几个怪物回合；0 = 到战斗结束。原文没写持续多久（07:52；09:239），等 C91；占位 0。")]
+        [Tooltip("减疗持续几个怪物回合；0 = 到战斗结束。原文没写持续多久（07:52；09:294），等 C91；占位 0。")]
         [SerializeField] private int playerSkill2HealReductionRounds;
 
         [Tooltip("招式 3 的怒气消耗。出处 07:54「消耗3点怒气」。")]
         [SerializeField] private int playerSkill3RageCost = 3;
 
-        [Tooltip("招式 3 伤害。原文只说「重击」没给数（07:54；09:239），等 C91；占位 3。")]
+        [Tooltip("招式 3 伤害。原文只说「重击」没给数（07:54；09:294），等 C91；占位 3。")]
         [SerializeField] private int playerSkill3Damage = 3;
 
-        [Tooltip("招式 3 之后每次攻击附带的额外伤害值。原文只说「额外伤害」没给数（07:54；09:239），" +
+        [Tooltip("招式 3 之后每次攻击附带的额外伤害值。原文只说「额外伤害」没给数（07:54；09:294），" +
                  "等 C91；占位 1。")]
         [SerializeField] private int playerSkill3ExtraDamage = 1;
 
@@ -80,7 +80,7 @@ namespace Game.TurnBased
         [SerializeField] private bool playerSkill3ExtraDamageStacks = true;
 
         [Header("道具（出处 07_回合制作战文档.md:42、:58）")]
-        [Tooltip("一件道具在同一场战斗里只能用一次（07:42「用过了则置暗」，09:193 R45）。" +
+        [Tooltip("一件道具在同一场战斗里只能用一次（07:42「用过了则置暗」，09:226 R45）。" +
                  "持有与否由注入的 IBattleItemInventory 回答，本模块不读背包。")]
         [SerializeField] private bool itemOncePerBattle = true;
 
@@ -120,7 +120,7 @@ namespace Game.TurnBased
         [SerializeField] private bool deadDrunkLowersOncePerEntry = true;
 
         [Header("BOSS 招式（出处 07_回合制作战文档.md:79-84）")]
-        [Tooltip("BOSS 招式 1 伤害。原文只说「造成一定伤害」没给数（07:79；09:239），等 C91；占位 1。")]
+        [Tooltip("BOSS 招式 1 伤害。原文只说「造成一定伤害」没给数（07:79；09:294），等 C91；占位 1。")]
         [SerializeField] private int bossSkill1Damage = 1;
 
         [Tooltip("BOSS 招式 2 饮酒增加的醉酒值。出处 07:80「增加30醉酒值」。")]
@@ -129,13 +129,13 @@ namespace Game.TurnBased
         [Tooltip("BOSS 招式 2 回复生命的百分比。出处 07:80「回复10%生命值」。")]
         [SerializeField] private int bossSkill2HealPercent = 10;
 
-        [Tooltip("上面这 10% 的基数（上限还是当前生命）。原文没写（09:239），等 C91；占位 MaxHealth。")]
+        [Tooltip("上面这 10% 的基数（上限还是当前生命）。原文没写（09:294），等 C91；占位 MaxHealth。")]
         [SerializeField] private HealthPercentBase bossSkill2HealBase = HealthPercentBase.MaxHealth;
 
         [Tooltip("BOSS 招式 2 之后，下次招式 1 的伤害加成百分比。出处 07:80「下次招式1攻击伤害+30%」。")]
         [SerializeField] private int bossSkill2NextSkill1DamageBonusPercent = 30;
 
-        [Tooltip("BOSS 招式 3 伤害。原文只说「单次高额伤害」没给数（07:81；09:239），等 C91；占位 3。")]
+        [Tooltip("BOSS 招式 3 伤害。原文只说「单次高额伤害」没给数（07:81；09:294），等 C91；占位 3。")]
         [SerializeField] private int bossSkill3Damage = 3;
 
         [Tooltip("BOSS 招式 3 在薄醉态晕眩玩家的回合数。出处 07:82「晕眩玩家1回合」。")]
@@ -152,13 +152,13 @@ namespace Game.TurnBased
 
         [Header("回合与胜负（出处 07_回合制作战文档.md:43、:56；数等 C91）")]
         [Tooltip("回合上限（玩家回合 + BOSS 回合算一个回合）；0 = 不限。原文没写上限是多少" +
-                 "（07:43 界面写「显示剩余回合」说明有上限；09:192 R44 / Q18），等 C91；占位 0。")]
+                 "（07:43 界面写「显示剩余回合」说明有上限；09:225 R44 / Q18），等 C91；占位 0。")]
         [SerializeField] private int roundLimit;
 
-        [Tooltip("打到回合上限时算赢还是算输。原文没写（09:192 R44），等 C91；占位 CompareHealth。")]
+        [Tooltip("打到回合上限时算赢还是算输。原文没写（09:225 R44），等 C91；占位 CompareHealth。")]
         [SerializeField] private RoundLimitOutcome roundLimitOutcome = RoundLimitOutcome.CompareHealth;
 
-        [Tooltip("玩家被晕眩时这一回合怎么过。原文没写（09:198 R47 / Q18），等 C91；" +
+        [Tooltip("玩家被晕眩时这一回合怎么过。原文没写（09:231 R47 / Q18），等 C91；" +
                  "占位 SkipTurn（整个玩家回合跳过）。")]
         [SerializeField] private StunTurnPolicy stunTurnPolicy = StunTurnPolicy.SkipTurn;
 

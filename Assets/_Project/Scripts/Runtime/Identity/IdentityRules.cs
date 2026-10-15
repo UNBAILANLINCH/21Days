@@ -20,7 +20,7 @@ namespace Game.Identity
     /// <list type="bullet">
     /// <item>露馅后果（死亡 vs 追逐）由 <see cref="IExposureOutcomePolicy"/> 注入；不注入时
     /// <see cref="ResolveExposure"/> 给出 <see cref="ExposureOutcome.None"/>，即「判定发生了、后果还没接线」
-    /// ——原文矛盾见 <c>docs/design/features-spotlight/00_功能总览.md:286</c>（§5 C1）；</item>
+    /// ——原文矛盾见 <c>docs/design/features-spotlight/00_功能总览.md:317</c>（§5 C1）；</item>
     /// <item>全部数值（时限、冷却、上限、阈值、惩罚）来自 <see cref="IdentitySettings"/>，默认值都是占位。</item>
     /// </list>
     /// </para>
@@ -59,13 +59,13 @@ namespace Game.Identity
         /// 借一个身份。<b>无效 id 的明确行为</b>：格式不合法 → <see cref="IdentityEnterResult.InvalidId"/>；
         /// 格式合法但表里没有 → <see cref="IdentityEnterResult.UnknownIdentity"/>；两者都<b>不改任何状态</b>。
         /// <para>
-        /// 同一场景可以先后借多个身份（`01_换皮与附身.md:118` R4 的链式附身），所以已在借别的身份时
+        /// 同一场景可以先后借多个身份（`01_换皮与附身.md:121` R4 的链式附身），所以已在借别的身份时
         /// 直接替换（旧身份按 <see cref="IdentityExitReason.Replaced"/> 结束，<b>不进冷却</b>）；
         /// 已在借同一个身份则返回 <see cref="IdentityEnterResult.AlreadyBorrowing"/>，<b>不刷新时限</b>
         /// （刷新时限原文没写，不替策划决定）。
         /// </para>
         /// <para>
-        /// 借用成功会同时记一笔账簿：`01_换皮与附身.md:192` 说明用过的身份要跨阶段保留。
+        /// 借用成功会同时记一笔账簿：`01_换皮与附身.md:195` 说明用过的身份要跨阶段保留。
         /// 「以身份行动」的后续记录由接线方按 <see cref="IdentityLedger.Record"/> 补。
         /// </para>
         /// </summary>
@@ -119,7 +119,7 @@ namespace Game.Identity
 
         /// <summary>
         /// 主动退出，回到本体并按 <see cref="IdentitySettings.CooldownSeconds"/> 起冷却。
-        /// 原文没写主动退出的操作（`01_换皮与附身.md:165` R26），本波按「可退出、进冷却」处理 [推断]。
+        /// 原文没写主动退出的操作（`01_换皮与附身.md:168` R26），本波按「可退出、进冷却」处理 [推断]。
         /// 本体时返回 <see cref="IdentityExitReason.None"/>，不改状态。
         /// </summary>
         public IdentityExitReason TryExit(IdentityState state)
@@ -141,7 +141,7 @@ namespace Game.Identity
         }
 
         /// <summary>
-        /// 推进时限与冷却，并在时限归零时结算退出（`01_换皮与附身.md:166` R27：皮有「生效中」时段）。
+        /// 推进时限与冷却，并在时限归零时结算退出（`01_换皮与附身.md:169` R27：皮有「生效中」时段）。
         /// 返回 <see cref="IdentityExitReason.None"/> 表示这一 tick 什么都没发生。
         /// </summary>
         public IdentityExitReason AdvanceIdentity(IdentityState state, float deltaTime)

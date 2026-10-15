@@ -7,7 +7,7 @@ namespace Game.Identity
     /// <summary>
     /// 身份借用的来源。取值口径照 <c>docs/design/features-spotlight/01_换皮与附身.md:22</c>
     /// （术语表「伪装」行：不论来源是附身、皮、面具还是丹）与
-    /// <c>docs/design/features-spotlight/00_功能总览.md:225</c>（「穿皮」禁用，来源要分开记）。
+    /// <c>docs/design/features-spotlight/00_功能总览.md:253</c>（「穿皮」禁用，来源要分开记）。
     /// <para>
     /// 来源决定写哪个剧情事实键：<see cref="Pelt"/> → <c>identity.skin</c>、<see cref="Mask"/> → <c>identity.mask</c>
     /// （<c>ai-docs/docs/story-facts.md</c> §4.1）。<see cref="Elixir"/>（如泾龙丹）与
@@ -22,7 +22,7 @@ namespace Game.Identity
         /// <summary>附身：对一个活着的角色发起，不经过道具（`01_换皮与附身.md:15`）。</summary>
         Possession = 1,
 
-        /// <summary>皮：击杀 / 暗杀掉落、使用后生效（`01_换皮与附身.md:19`、`:166` 的执事皮「生效中」）。</summary>
+        /// <summary>皮：击杀 / 暗杀掉落、使用后生效（`01_换皮与附身.md:19`、`:169` 的执事皮「生效中」）。</summary>
         Pelt = 2,
 
         /// <summary>面具：剥脸 / 击杀所得（`01_换皮与附身.md:20`）。</summary>

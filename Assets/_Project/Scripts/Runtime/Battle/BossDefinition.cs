@@ -4,7 +4,7 @@
 //      巡逻 / 感知 / 攻击，而且 Runtime/Monster 本波禁改。
 //   2. 扩展不行：PRP/turnbased-battle D3 定「本期不进 Luban 表」（另一会话有未提交的表数据，加 schema 要全表重生成），
 //      所以既有表的 bean 也扩不了。等 C90 / C91 拍板后迁表时，这个类按字段一一对应搬走即可。
-// 数值出处：生命原文没写（09_BOSS战.md:239），战斗外醉酒值的口径未明（02:109 写 BOSS 100），一律占位、等 C91。
+// 数值出处：生命原文没写（09_BOSS战.md:294），战斗外醉酒值的口径未明（02:109 写 BOSS 100），一律占位、等 C91。
 // 本场玩家生命（W2a 主窗口定）：战斗血量与探索血量分开——探索里玩家只有 3 血，BOSS 重击 3、药水 30% 取整为 0，演示不出东西。
 //   07 没写玩家血量，也没说与探索血量挂钩，所以按 BOSS 配一份「这一场玩家多少血」，占位 10，等 C91。
 using System;
@@ -25,7 +25,7 @@ namespace Game.Battle
         [Tooltip("界面上显示的名字（BOSS 血条上方）。")]
         [SerializeField] private string displayName = string.Empty;
 
-        [Tooltip("生命上限，每次开战都是满血。原文没写（09_BOSS战.md:239），占位，等 C91。")]
+        [Tooltip("生命上限，每次开战都是满血。原文没写（09_BOSS战.md:294），占位，等 C91。")]
         [SerializeField, Min(1)] private int maxHealth = 1;
 
         [Tooltip("战斗外醉酒值，开战时继承（07_回合制作战文档.md:66）。口径未明（02:109 写 BOSS 100），占位，等 C91。")]

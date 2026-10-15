@@ -9,14 +9,14 @@ namespace Game.Inventory
 {
     /// <summary>
     /// 一条「使用」定义。效果标识是冻结字面量，本类型不解释它、也不查白名单。
-    /// 出处：docs/design/features-spotlight/05_皮面具与道具.md:211（「使用」这一行动词的原文例子：
+    /// 出处：docs/design/features-spotlight/05_皮面具与道具.md:225（「使用」这一行动词的原文例子：
     /// 普通皮「使用后可以进入坊市店铺」、籍中吏处「使用泾龙丹进行伪装」）。
     /// </summary>
     public readonly struct ItemUseSpec
     {
         /// <param name="itemId">道具 tbitem 主键。</param>
         /// <param name="effectId">效果标识，约定写成「域.动作」（如 <c>shop.enter_with_skin</c>）；空串视为写坏。</param>
-        /// <param name="consumeCount">使用一次消耗几件，默认 1（一次性道具就是靠它表达，[05]:111 R9）。</param>
+        /// <param name="consumeCount">使用一次消耗几件，默认 1（一次性道具就是靠它表达，[05]:118 R9）。</param>
         public ItemUseSpec(int itemId, string effectId, int consumeCount = 1)
         {
             ItemId = itemId;

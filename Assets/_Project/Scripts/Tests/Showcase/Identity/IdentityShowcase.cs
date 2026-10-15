@@ -6,7 +6,7 @@
 //   （MonsterInstaller.cs 的 builder.RegisterBuildCallback），所以这里借身份就是正式流程里借身份，
 //   不是回放自己 new 一套规则再手工 BindIdentity。取不到就直接 Assert.Fail，不静默退到手工线路。
 // 走哪条失效路径：**主动退出**（IdentityRules.TryExit）。理由有两条：
-//   1. 原文只写了「触发规则 → 被发现 → 变回原主」（`01_换皮与附身.md:164` R25），主动退出的操作原文没写
+//   1. 原文只写了「触发规则 → 被发现 → 变回原主」（`01_换皮与附身.md:167` R25），主动退出的操作原文没写
 //      （`:165` R26 [待定]），IdentityRules.TryExit 按「可退出、进冷却」处理 [推断]——它在真实容器里可用；
 //   2. **时限到期这条路本波走不通**：`IdentityRules.AdvanceIdentity` 在 Runtime 下一个调用方都没有
 //      （2026-10-07 全工程检索：只有 EditMode 测试调它），身份时限永远不会自己走完。
@@ -86,7 +86,7 @@ namespace Game.Tests.Showcase.Identity
 
             // ── 第 5 步：借身份（hold 0：挨打之后立刻借，别让中间那 1.5 秒停顿再挨一下）──
             IdentityEnterResult enterResult = IdentityEnterResult.InvalidId;
-            yield return Step("借入身份：都统面具（占位内容，出处 01_换皮与附身.md:85 / :152）",
+            yield return Step("借入身份：都统面具（占位内容，出处 01_换皮与附身.md:85 / :155）",
                 () => enterResult = identityRules.TryEnter(identityState, identityLedger, demoIdentity), 0f);
             yield return Check($"身份生效中（TryEnter 返回 {enterResult}，来源应为面具）",
                 () => enterResult == IdentityEnterResult.Entered
@@ -118,7 +118,7 @@ namespace Game.Tests.Showcase.Identity
             // 2026-10-07 第一轮就是这么红的（报告 Logs/verify/identity/20261007-060415），改成退出前取。
             int healthBeforeExit = player.Health;
             IdentityExitReason exitReason = IdentityExitReason.None;
-            yield return Step("摘下面具：主动退出身份（01_换皮与附身.md:165 R26 原文没写主动退出，占位口径）",
+            yield return Step("摘下面具：主动退出身份（01_换皮与附身.md:168 R26 原文没写主动退出，占位口径）",
                 () => exitReason = identityRules.TryExit(identityState), 0f);
             yield return Check($"身份已退出（TryExit 返回 {exitReason}，回到本体）",
                 () => exitReason == IdentityExitReason.Voluntary && !identityState.IsInEffect && !identityState.IsBorrowing);

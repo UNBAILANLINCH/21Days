@@ -43,7 +43,7 @@ namespace Game.Tests.Showcase.Inventory
         /// <summary>站到箱子南侧 0.9 m（与 ExplorationShowcase 的 NearCrateA 同一算法：在 1.5 m 交互半径内）。</summary>
         private static readonly Vector2 CrateStandOffset = new Vector2(0f, -0.9f);
 
-        // 占位配方（ItemRecipeEntry.PlaceholderOfficeKey，出处 05_皮面具与道具.md:106 R7）与它用到的三个 id。
+        // 占位配方（ItemRecipeEntry.PlaceholderOfficeKey，出处 05_皮面具与道具.md:113 R7）与它用到的三个 id。
         private const int Potion = 1004;
         private const int WetSkin = 1102;
         private const int WaterMark = 1401;

@@ -18,13 +18,13 @@ namespace Game.Inventory
         public static ItemUseEntry PlaceholderHealPotion()
             => new ItemUseEntry(1004, HealPlayerEffect.PlaceholderEffectId, 1);
 
-        [Tooltip("道具 tbitem 主键（占位默认 1004 治疗药水，见 05_皮面具与道具.md:171-173 的道具总表）。")]
+        [Tooltip("道具 tbitem 主键（占位默认 1004 治疗药水，见 05_皮面具与道具.md:178-180 的道具总表）。")]
         [SerializeField] private int itemId;
 
         [Tooltip("效果标识，写成「域.动作」。占位默认 heal.player_hp（占位，等 05_皮面具与道具.md 拍板）。")]
         [SerializeField] private string effectId = string.Empty;
 
-        [Tooltip("使用一次消耗几件。一次性道具靠它表达（05_皮面具与道具.md:111 R9）。")]
+        [Tooltip("使用一次消耗几件。一次性道具靠它表达（05_皮面具与道具.md:118 R9）。")]
         [SerializeField, Min(1)] private int consumeCount = 1;
 
         /// <summary>序列化用。</summary>

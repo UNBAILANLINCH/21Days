@@ -276,7 +276,11 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(rig.Step.IsEscalating, Is.False);
         }
 
-        /// <summary>玩家在操控被驯服的附加怪：主怪打中玩家本体照旧扣血，不升级。</summary>
+        /// <summary>
+        /// 玩家在操控被驯服的附加怪：别处的怪此刻感知到的是<b>被操控的那只</b>，不是玩家本体
+        /// （`TamingRules.AdvanceTargets` 取快照时按 <c>CurrentControlId</c> 换位置），
+        /// 所以主怪够不着玩家 —— 既不升级，玩家也不挨打。
+        /// </summary>
         [Test]
         public void ControllingTamedMonster_StruckDoesNotEscalate()
         {
@@ -287,9 +291,9 @@ namespace Game.Tests.EditMode.Monster
 
             Tick(rig.Step);
 
-            Assert.That(rig.Primary.AttackedThisStep, Is.True, "前提：主怪出手了");
+            Assert.That(rig.Primary.AttackedThisStep, Is.False, "主怪追的是被操控的那只（在 30 米外），这一 tick 打不到人");
             Assert.That(rig.Port.Requests, Is.Empty);
-            Assert.That(rig.Player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - 1), "照旧扣血");
+            Assert.That(rig.Player.Model.Health, Is.EqualTo(playerConfig.MaxHealth), "够不着，照旧不扣血");
         }
 
         /// <summary>被驯服的目标不升级：玩家打中它（未操控时）照旧走原路径。</summary>

@@ -17,14 +17,14 @@ MonoBehaviour:
   rageMax: 3
   playerSkill1RageCost: 0
   playerSkill1RageGain: 1
-  playerSkill1Damage: 1
+  playerSkill1Damage: 18
   playerSkill2RageCost: 1
-  playerSkill2Damage: 2
+  playerSkill2Damage: 23
   playerSkill2HealReductionPercent: 50
-  playerSkill2HealReductionRounds: 0
+  playerSkill2HealReductionRounds: 2
   playerSkill3RageCost: 3
-  playerSkill3Damage: 3
-  playerSkill3ExtraDamage: 1
+  playerSkill3Damage: 32
+  playerSkill3ExtraDamage: 8
   playerSkill3ExtraDamageAttacks: 3
   playerSkill3ExtraDamageStacks: 1
   itemOncePerBattle: 1
@@ -39,12 +39,12 @@ MonoBehaviour:
   deadDrunkDropValue: 50
   deadDrunkDurationRounds: 2
   deadDrunkLowersOncePerEntry: 1
-  bossSkill1Damage: 1
+  bossSkill1Damage: 14
   bossSkill2DrinkAddDrunk: 30
   bossSkill2HealPercent: 10
   bossSkill2HealBase: 0
   bossSkill2NextSkill1DamageBonusPercent: 30
-  bossSkill3Damage: 3
+  bossSkill3Damage: 22
   bossSkill3StunRounds: 1
   bossSkill1Weight: 6
   bossSkill2Weight: 3
@@ -52,6 +52,54 @@ MonoBehaviour:
   roundLimit: 0
   roundLimitOutcome: 0
   stunTurnPolicy: 0
-  healItemId: 1004
-  healItemPercent: 30
-  healItemBase: 0
+  itemEffects:
+  - itemId: 1801
+    kind: 1
+    amount: 50
+    rounds: 0
+    charges: 0
+  - itemId: 1802
+    kind: 2
+    amount: 0
+    rounds: 0
+    charges: 0
+  - itemId: 1803
+    kind: 4
+    amount: 40
+    rounds: 2
+    charges: 0
+  - itemId: 1804
+    kind: 5
+    amount: 7
+    rounds: 0
+    charges: 3
+  - itemId: 1805
+    kind: 6
+    amount: 12
+    rounds: 3
+    charges: 0
+  - itemId: 1806
+    kind: 1
+    amount: 70
+    rounds: 0
+    charges: 0
+  - itemId: 1807
+    kind: 3
+    amount: 2
+    rounds: 0
+    charges: 0
+  - itemId: 1808
+    kind: 7
+    amount: 0
+    rounds: 0
+    charges: 1
+  - itemId: 1809
+    kind: 8
+    amount: 0
+    rounds: 0
+    charges: 0
+  - itemId: 1810
+    kind: 9
+    amount: 25
+    rounds: 3
+    charges: 0

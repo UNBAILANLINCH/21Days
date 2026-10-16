@@ -36,14 +36,15 @@
 //   **没有种子**——剧本流不是伪随机序列，是逐次指定的点数。正式接线时这条流应当是 `IRandomService` 的
 //   `logic.*` 流（guide 明确要求），种子由存档 / 回放系统给，那时回放对不上就要靠种子 + 状态快照复现。
 //
-// ── 演示用的注入值（都不属于模块，原文没写、等 C91）───────────────────────────────────────────
-//   玩家血量 30（`09_BOSS战.md:294`「血量、伤害数值……原文都没写」，模块不设占位血量，一律外部注入）；
-//   BOSS 血量 100（第①条：偷袭 -20% 一眼看得出 100 → 80）/ 40（第②条：让「饮酒被减疗砍半」不被回血封顶吃掉）；
+// ── 演示用的注入值（都不属于模块，一律外部注入）───────────────────────────────────────────────
+//   玩家血量 120（＝ sp07:129-133「最大生命值 120」，2026-10-16 起有出处，与资产里的一致）；
+//   BOSS 血量 100（第①条：偷袭 -20% 一眼看得出 100 → 80）/ 40（第②条：让「饮酒被减疗砍半」不被回血封顶吃掉）
+//   / 41（第④条：招式 1 的 18 + 招式 2 的 23 正好打完）；
 //   BOSS 战斗外醉酒值 0 / 50 / 80 / 100（分别对应 07:70-73 的正常 / 微醺 / 薄醉 / 酩酊）。
 //
 // ── 已知边界（本波不就地改，如实演出来并写进报告）─────────────────────────────────────────────
-//   1. 正面攻击 / 被打的第三条用例里，BOSS 招式 1 的伤害占位值是 1，「饮酒后下次招式 1 +30%」（07:80）
-//      整数向下取整后仍是 1 —— 增伤在占位数值下**看不见**，等 C91 给伤害数值（面板上的「下次招式1 +30%：是」是判据）。
+//   1. **2026-10-16 起伤害有数了**：BOSS 招式 1 是 14 点（sp07:157），「饮酒后下次招式 1 +30%」（07:80）
+//      向下取整后是 18 —— 增伤**看得见**了（原先是占位 1 → 1，看不出来）。
 //   2. 「同一个玩家回合不能出第二招」在占位口径（`StunTurnPolicy.SkipTurn`）下表现为
 //      `SkillCastReject.NotPlayerTurn`（出招后阶段立刻转 BOSS 回合，07:56），不是 `AlreadyCastThisTurn`。
 //   3. 醉酒值降到 50（微醺档）时，若还在「酩酊持续 2 回合」期内，本回合仍按酩酊跳过、提示仍是 07:73 那句
@@ -60,20 +61,23 @@ namespace Game.Tests.Showcase.TurnBased
     [Category("Showcase")]
     public sealed class TurnBasedShowcase : ShowcaseScenario
     {
-        /// <summary>数值真源：与正式接线取的是同一份配置资产（40 项占位值，逐项标了 07 的出处）。</summary>
+        /// <summary>数值真源：与正式接线取的是同一份配置资产（43 项；2026-10-16 起大半已是策划原文值，其余仍标待拍板）。</summary>
         private const string ConfigAssetPath = "Assets/_Project/Data/TurnBased/TurnBasedConfig.asset";
 
         /// <summary>第①条用例的 BOSS 血量：偷袭扣 20% 时 100 → 80，肉眼一眼可判。</summary>
         private const int EntryCaseBossHealth = 100;
 
-        /// <summary>第②条用例的 BOSS 血量：让「饮酒回血被减疗砍半」落在封顶之前（40 的 10% 是 4，砍半 2，不触顶）。</summary>
-        private const int SkillCaseBossHealth = 40;
+        /// <summary>
+        /// 第②条用例的 BOSS 血量：要够厚，走完脚本的全部步骤还活着（招式 1 18 + 招式 2 23 + 招式 1×3 54 + 招式 3 32 + 带加伤的招式 1 26 = 153 点），
+        /// 又要让「饮酒回血被减疗砍半」落在封顶之前（160 的 10% 是 16，砍半 8，不触顶）。2026-10-16 由 40 提到 160（原文给数后总伤害涨了）。
+        /// </summary>
+        private const int SkillCaseBossHealth = 160;
 
-        /// <summary>玩家血量（演示注入值，原文没写玩家血量，等 C91）。</summary>
-        private const int DemoPlayerHealth = 30;
+        /// <summary>玩家血量（演示注入值；出处 sp07:129-133「最大生命值 120」，与资产一致）。</summary>
+        private const int DemoPlayerHealth = 120;
 
-        /// <summary>第④条用例的 BOSS 血量：招式1（1 点）+ 招式2（2 点）正好打死，用来演「打完 → 出口键」。</summary>
-        private const int FinishCaseBossHealth = 3;
+        /// <summary>第④条用例的 BOSS 血量：招式 1（18 点）+ 招式 2（23 点）正好打死，用来演「打完 → 出口键」。</summary>
+        private const int FinishCaseBossHealth = 41;
 
         // 07:71 / :72 / :73 的原文，逐字照抄（用来钉「屏幕上出现的字 = 策划原文」，不用 BattleHintTexts 常量比对，
         // 否则常量改了这条检查点会跟着改，就钉不住原文了）。
@@ -176,7 +180,7 @@ namespace Game.Tests.Showcase.TurnBased
             BattleEntryReject reject = BattleEntryReject.None;
             yield return Step("正面攻击开战（07:20-23）",
                 () => started = StartBattle(FrontalRequest(), SkillCaseBossHealth, 0, "招式与怒气", out reject));
-            yield return Check("开出来了：玩家先手、玩家回合、怒气从 0 起（怒气上限与招式伤害都是占位值，等 C91）",
+            yield return Check("开出来了：玩家先手、玩家回合、怒气从 0 起（怒气上限 3 与三招 18/23/32 都是 sp07:132、:139-141 的原文值）",
                 () => started
                       && session.Phase == BattlePhase.PlayerTurn
                       && session.Player.Rage == 0
@@ -410,7 +414,7 @@ namespace Game.Tests.Showcase.TurnBased
         public IEnumerator Victory_EndsBattle_ExitKeyIsVictory()
         {
             yield return EnterWorld();
-            yield return Step("挂上白盒状态板，开一场 BOSS 只剩 3 点血的仗（演示用注入值：血量原文没给，等 C91）",
+            yield return Step("挂上白盒状态板，开一场 BOSS 只剩 41 点血的仗（演示用注入值：41 = 招式 1 的 18 + 招式 2 的 23）",
                 () => CreatePanel("打完与出口键"));
             yield return CheckPanelRendered();
 
@@ -445,7 +449,7 @@ namespace Game.Tests.Showcase.TurnBased
                       && session.Phase == BattlePhase.PlayerTurn);
             yield return Snapshot("BOSS 还剩一口气");
 
-            // ── 第 5 步：招式 2 补掉最后两点血（怒气：招式 1 攒的 1 点刚好够它耗）──
+            // ── 第 5 步：招式 2 补掉剩下的 23 点血（怒气：招式 1 攒的 1 点刚好够它耗）──
             SkillCastResult second = default;
             yield return Step("放招式 2（耗 1 怒气、伤害 " + settings.PlayerSkills.Skill2Damage + "）：BOSS 生命归零 → 战斗结束",
                 () => second = CastAndPresent(PlayerSkill.Skill2));

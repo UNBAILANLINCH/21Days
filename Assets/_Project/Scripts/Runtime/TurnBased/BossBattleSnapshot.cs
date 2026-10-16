@@ -3,8 +3,9 @@
 // 为什么醉酒值走快照：07:66 写「BOSS在进入战斗时，会继承战斗场景外的醉酒值」，
 // 而战斗外的醉酒（酒肆里灌酒）属于关卡 / 怪物模块；本模块只接收这个数，不去读它们的实现。
 //
-// 出处：`docs/design/spotlight/07_回合制作战文档.md:66`；生命数值原文没写
-// （`docs/design/features-spotlight/09_BOSS战.md:294`），由外部注入。
+// 出处：`docs/design/spotlight/07_回合制作战文档.md:66`；生命数值原文 2026-10-16 已给
+// （阶段一 BOSS 220、阶段九 BOSS 两形态各 260，sp07:149、:167、:183；转写见
+// `docs/design/features-spotlight/09_BOSS战.md:354`）——本快照仍不设占位值，一律由外部注入。
 
 namespace Game.TurnBased
 {

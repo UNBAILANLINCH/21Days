@@ -359,15 +359,16 @@ namespace Game.TurnBased
         }
 
         /// <summary>
-        /// 道具用掉之后的效果。07 没写道具效果（07:42、:58），占位只有一条：配置里的治疗道具回复玩家生命百分比
-        /// （`BattleItemSettings`，`PRP/turnbased-battle` D10，等 C91）。其余道具只记账、无效果。
+        /// 道具用掉之后的效果——查 `BattleItemSettings` 的效果表（sp07:199-211 的 10 件，2026-10-16 落地），
+        /// 命中就交给 `PlayerBattleRules.ApplyItemEffect`；查不到 = 这件道具只记账、只置暗。
         /// 放在类尾是有意的：不挪动上面那些被模块 guide 按行号引用的方法。
         /// </summary>
-        /// <returns>实际回复的生命（没有效果时为 0）。</returns>
+        /// <returns>即时可报的数值（回复的生命 / 加的怒气；持续类效果为 0）。</returns>
         private int ApplyItemEffect(string itemId)
         {
-            BattleItemSettings items = settings.Items;
-            return items.Heals(itemId) ? Player.Heal(items.HealPercent, items.HealBase) : 0;
+            return settings.Items.TryGet(itemId, out BattleItemEffect effect)
+                ? Player.ApplyItemEffect(effect)
+                : 0;
         }
     }
 }

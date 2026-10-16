@@ -2,7 +2,7 @@
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:48`（招式只能在自己回合使用）、
 // :56（玩家在施放招式后进入敌方回合）——也就是「一个回合 = 玩家出一招 + 敌方行动一次」
-// （转写：`docs/design/features-spotlight/09_BOSS战.md:224` R43）。
+// （转写：`docs/design/features-spotlight/09_BOSS战.md:232` R43）。
 
 namespace Game.TurnBased
 {

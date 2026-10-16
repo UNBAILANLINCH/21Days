@@ -1,7 +1,7 @@
 # PRP: 回合制战斗落地（独立战斗场景 + SampleScene BOSS 入口 + 剧情回写）
 
 > 状态：执行中（2026-10-07 建立）。
-> 上游：[`07_回合制作战文档.md`](../../docs/design/spotlight/07_回合制作战文档.md)（真源，86 行）、[`09_BOSS战.md`](../../docs/design/features-spotlight/09_BOSS战.md)、[`PRP/battle-to-narrative/prp.md`](../battle-to-narrative/prp.md)（C5 的结果词汇与唯一回写路径）。
+> 上游：[`07_回合制作战文档.md`](../../docs/design/spotlight/07_回合制作战文档.md)（真源；2026-10-07 入库时为 86 行，2026-10-14 更新版加到 119 行，**2026-10-16 更新版又加了「四、数值相关」「五、道具相关」两节，现 213 行**。本 PRP 落的是最早的**第 1–85 行**；新增的数值须落到 `Data/TurnBased/TurnBasedConfig.asset` 与 `Data/Battle/BossRosterConfig.asset`，对照表见 [`turnbased-module-guide.md`](../../ai-docs/docs/modules/turnbased/turnbased-module-guide.md)「配置与占位值」）、[`09_BOSS战.md`](../../docs/design/features-spotlight/09_BOSS战.md)、[`PRP/battle-to-narrative/prp.md`](../battle-to-narrative/prp.md)（C5 的结果词汇与唯一回写路径）。
 > 规则内核：[`turnbased-module-guide.md`](../../ai-docs/docs/modules/turnbased/turnbased-module-guide.md)，末节「接线清单」就是本 PRP 要还的账。
 > 不涉及：潜行 / 偷袭 / 处决（S3/S4）、巡逻怪遭遇流程（`Runtime/Monster/`）。
 

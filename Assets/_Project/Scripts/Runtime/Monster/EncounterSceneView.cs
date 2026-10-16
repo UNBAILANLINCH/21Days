@@ -184,6 +184,10 @@ namespace Game.Monster
             actorIds = new string[patrolActors.Length];
             var names = new string[patrolActors.Length];
             var routes = new Vector2[patrolActors.Length][];
+            // 一场遭遇多种怪（PRP/combat-iteration D2）：种类覆盖与完整参与者标记按同一顺序读出；
+            // 首位（主怪）的两个值由 EncounterStep.ConfigureTaming 忽略，这里照读不特判。
+            var kindIds = new int[patrolActors.Length];
+            var fullParticipants = new bool[patrolActors.Length];
             for (int i = 0; i < patrolActors.Length; i++)
             {
                 TamingActor actor = patrolActors[i];
@@ -191,9 +195,12 @@ namespace Game.Monster
                 actorIds[i] = actor.StableId;
                 names[i] = actor.DisplayName;
                 routes[i] = actor.PatrolPositions(this);
+                kindIds[i] = actor.KindId;
+                fullParticipants[i] = actor.IsFullParticipant;
                 actor.RefreshLabel();
             }
-            step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes);
+            step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes,
+                kindIds, fullParticipants);
             playerIdentity.RefreshLabel();
         }
 

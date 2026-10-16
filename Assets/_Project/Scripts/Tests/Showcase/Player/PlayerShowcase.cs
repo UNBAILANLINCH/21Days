@@ -8,8 +8,16 @@
 //   2026-09-28 起（PRP/mirror-core）战败由镜模块接管：第三下击中 = 镜碎，MirrorCrackPresenter 结束本场遭遇、打开只有「镜碎」二字的
 //   镜碎页，按确认后重进遭遇（回出生点、生命回满）。本用例断言镜碎页出现，收尾前按 UI/Submit 走完重开，
 //   不再按旧的「死亡后场景不切换」断言；镜碎页本身的细节（按键保护、进度保留）归 MirrorShowcase。
-// 路线：村口演出触发区正挡在出生点与巡逻怪之间，去怪物那边一律走北侧路线到巡逻线北侧观察点（GoToPatrolLookout）；
-//   坐标与理由见 Framework/ShowcaseScenario.DemoScene.cs（RouteToPatrol / PatrolLookout），追怪出手用同文件的 StrikeMonster。
+// 路线：村口演出触发区正挡在出生点与巡逻怪之间，去怪物那边一律走北侧路线（RouteToPatrol）；
+//   坐标与理由见 Framework/ShowcaseScenario.DemoScene.cs，追怪出手用同文件的 StrikeMonster。
+// 2026-10-16（PRP/combat-iteration W7d，对手换人，断言不动；用户 2026-10-16 拍板对手用巡夜人）：打中市令 / 被市令打中都会升级回合制
+//   （世界暂停、叠加战斗场景），「打一下、站着挨打到死」在市令身上演不出来了；原来从观察点追市令又要横穿巡逻者乙的巡逻线，
+//   W7d 基线实测是乙先出手把人打死、一刀都没挥出去（出手 0 次）。改成对手 = 东南角巡夜人（没配回合制战斗数据，打中不升级）：
+//   经缝口绕到它的候场点（GoThroughSouthGap），走进它正前方让它看见（ProvokeXunye），站定抢在它出手之前挥一刀
+//   （StrikeWhenItComes：2026-10-07 起挨一下就击倒、倒地不能攻击），再站着任它打——它打中先击倒（被抓次数 0 → 只击倒），
+//   继续挨打到生命归零才判死，「掉血 → 归零 → 镜碎 → 重开」几条断言照旧成立。
+//   「怪物生命 -1」那条断言照旧、会如实红：场上已没有能被普通攻击打掉血的怪（市令 2026-10-07 起只能暗杀、巡逻者乙沿用市令的种类、
+//   巡夜人本轮改为只能暗杀），按既有问题记录，不在回放里改判据。
 using System.Collections;
 using Game.Core.Input;
 using Game.Core.UI;
@@ -132,13 +140,22 @@ namespace Game.Tests.Showcase.Player
         public IEnumerator AttackThenTakeHits_HealthDropsToDeath()
         {
             yield return EnterWorld();
-            yield return GoToPatrolLookout();
+            MonsterRules xunyeRules = FindPatroller(XunyePatrollerId);
+            if (xunyeRules == null)
+            {
+                Assert.Fail($"前置不成立：场上找不到巡夜人（stableId = {XunyePatrollerId}），没有不升级回合制的对手可打");
+            }
 
-            int monsterMax = monsterConfig.MaxHealth;
-            yield return Step("走向巡逻怪，按攻击键挥出一记普通攻击", null, 0f);
-            yield return StrikeMonster();
-            yield return Check($"怪物生命 {monsterMax} → {monsterMax - 1}，被打后转敌对（状态色变红；出手 {StrikeSwings} 次）",
-                () => monster.Health == monsterMax - 1 && monster.Mode == MonsterMode.Hostile, 2f);
+            MonsterModel xunye = xunyeRules.Model;
+            yield return GoThroughSouthGap(new[] { SoutheastTransit, XunyeStagingPoint });
+            yield return Step("走进巡夜人正前方的视野里，让它看见你", null, 0f);
+            yield return ProvokeXunye(xunye);
+
+            int monsterMax = xunye.Health;
+            yield return Step("面朝巡夜人，等它走到够得着的地方，按攻击键挥出一记普通攻击", null, 0f);
+            yield return StrikeWhenItComes(xunye);
+            yield return Check($"巡夜人生命 {monsterMax} → {monsterMax - 1}，被打后转敌对（状态色变红；出手 {StrikeSwings} 次）",
+                () => xunye.Health == monsterMax - 1 && xunye.Mode == MonsterMode.Hostile, 2f);
             yield return Snapshot("攻击命中");
 
             int playerMax = playerConfig.MaxHealth;

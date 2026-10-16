@@ -214,22 +214,58 @@ namespace Game.Tests.EditMode.Battle
             public void ReleaseInstance(GameObject instance) => throw new NotSupportedException();
         }
 
-        /// <summary>UI 服务：只管层显隐（初始全可见）。</summary>
+        /// <summary>
+        /// UI 服务：只管层显隐（初始全可见），并记下层显隐被调了几次（<see cref="LayerCalls"/>）。
+        /// <see cref="SimulateDisposed"/> 之后同真 UIService 一样，任何调用都抛 ObjectDisposedException（测作用域销毁时的收场）。
+        /// </summary>
         public sealed class UI : IUIService
         {
             private readonly HashSet<UILayer> hidden = new HashSet<UILayer>();
+
+            /// <summary>已模拟销毁（之后一调就抛）。</summary>
+            public bool Disposed { get; private set; }
+
+            /// <summary>IsLayerVisible / SetLayerVisible 被调的总次数（含销毁后抛异常的那几次）。</summary>
+            public int LayerCalls { get; private set; }
+
+            /// <summary>模拟根作用域先一步释放了 UI 服务（真 UIService.Dispose 之后 ThrowIfDisposed 的行为）。</summary>
+            public void SimulateDisposed() => Disposed = true;
+
             public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView => throw new NotSupportedException();
-            public UniTask CloseAsync(UIView view, CancellationToken ct = default) => UniTask.CompletedTask;
-            public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
+
+            public UniTask CloseAsync(UIView view, CancellationToken ct = default)
+            {
+                ThrowIfDisposed();
+                return UniTask.CompletedTask;
+            }
+
+            public UniTask CloseTopAsync(CancellationToken ct = default)
+            {
+                ThrowIfDisposed();
+                return UniTask.CompletedTask;
+            }
+
             public T Get<T>() where T : UIView => null;
 
             public void SetLayerVisible(UILayer layer, bool visible)
             {
+                LayerCalls++;
+                ThrowIfDisposed();
                 if (visible) hidden.Remove(layer);
                 else hidden.Add(layer);
             }
 
-            public bool IsLayerVisible(UILayer layer) => !hidden.Contains(layer);
+            public bool IsLayerVisible(UILayer layer)
+            {
+                LayerCalls++;
+                ThrowIfDisposed();
+                return !hidden.Contains(layer);
+            }
+
+            private void ThrowIfDisposed()
+            {
+                if (Disposed) throw new ObjectDisposedException(nameof(UI), "测试：UI 服务已销毁");
+            }
         }
 
         /// <summary>暂停服务：按持有者计数。</summary>

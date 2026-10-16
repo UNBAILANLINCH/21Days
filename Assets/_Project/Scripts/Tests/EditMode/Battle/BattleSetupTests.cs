@@ -20,7 +20,7 @@ namespace Game.Tests.EditMode.Battle
 
             Assert.That(setup.TryCreate(new BossDefinition("b", "B", 12, 50), out BattleSession session, out string error), Is.True, error);
 
-            Assert.That(session.Player.MaxHealth, Is.EqualTo(BossDefinition.PlaceholderPlayerHealth), "默认占位 10（等 C91）");
+            Assert.That(session.Player.MaxHealth, Is.EqualTo(BossDefinition.DefaultPlayerHealth), "默认 120 血（sp07:129-133）");
             Assert.That(session.Player.Health, Is.EqualTo(session.Player.MaxHealth), "开战满血");
             Assert.That(session.Boss.MaxHealth, Is.EqualTo(12));
             Assert.That(session.Boss.Health, Is.EqualTo(12));
@@ -177,6 +177,125 @@ namespace Game.Tests.EditMode.Battle
             Assert.That(setup.TryCreate(boss, out BattleSession after, out error), Is.True, error);
             Assert.That(after.Boss.DrunkValue, Is.EqualTo(50), "撤销后下一场用回原值（继承醉酒值 50）");
         }
+
+        // ─────────── 实时遭遇升级回合制（PRP/combat-iteration D5）：触发情形 → 开战方式、实时血量 → 战斗血量 ───────────
+
+        /// <summary>翻译表第一行：玩家打中未察觉的怪 → 偷袭（玩家先手，怪物开战前先掉 20%）。</summary>
+        [Test]
+        public void TryCreate_EscalationPlayerHitUnaware_OpensSneakAttack()
+        {
+            var setup = NewSetup();
+
+            Assert.That(setup.TryCreate(new BossDefinition("m", "市令", 10, 0), Escalation(EncounterEscalationTrigger.PlayerHitUnaware, 3, 3),
+                out BattleSession session, out string error), Is.True, error);
+
+            Assert.That(session.Entry.Kind, Is.EqualTo(BattleEntryKind.SneakAttack));
+            Assert.That(session.Entry.Initiative, Is.EqualTo(BattleInitiative.Player));
+            Assert.That(session.Boss.Health, Is.EqualTo(8), "10 × 20% = 2 → 怪物先掉 2");
+            Assert.That(session.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
+        }
+
+        /// <summary>翻译表第二行：玩家打中已警戒 / 敌对的怪 → 正面攻击（玩家先手、不扣血）。</summary>
+        [Test]
+        public void TryCreate_EscalationPlayerHitAware_OpensFrontalAttack()
+        {
+            var setup = NewSetup();
+
+            Assert.That(setup.TryCreate(new BossDefinition("m", "市令", 10, 0), Escalation(EncounterEscalationTrigger.PlayerHitAware, 3, 3),
+                out BattleSession session, out string error), Is.True, error);
+
+            Assert.That(session.Entry.Kind, Is.EqualTo(BattleEntryKind.FrontalAttack));
+            Assert.That(session.Entry.Initiative, Is.EqualTo(BattleInitiative.Player));
+            Assert.That(session.Boss.Health, Is.EqualTo(10));
+        }
+
+        /// <summary>翻译表第三行：怪打中玩家 → 被打（怪物先手）。</summary>
+        [Test]
+        public void TryCreate_EscalationMonsterHitPlayer_OpensAmbushedWithMonsterInitiative()
+        {
+            var setup = NewSetup();
+
+            Assert.That(setup.TryCreate(new BossDefinition("m", "市令", 10, 0), Escalation(EncounterEscalationTrigger.MonsterHitPlayer, 3, 3),
+                out BattleSession session, out string error), Is.True, error);
+
+            Assert.That(session.Entry.Kind, Is.EqualTo(BattleEntryKind.Ambushed));
+            Assert.That(session.Entry.Initiative, Is.EqualTo(BattleInitiative.Boss));
+            Assert.That(session.Phase, Is.EqualTo(BattlePhase.BossTurn));
+            Assert.That(session.Boss.Health, Is.EqualTo(10), "被打不扣血");
+        }
+
+        /// <summary>翻译出来的三份请求逐个过一遍规则：都能进战斗，且字段正是 PRP D5 的翻译表。</summary>
+        [Test]
+        public void TranslateEscalation_ThreeTriggers_MatchTheTranslationTable()
+        {
+            BattleEntryRequest sneak = BattleSetup.TranslateEscalation(EncounterEscalationTrigger.PlayerHitUnaware);
+            BattleEntryRequest frontal = BattleSetup.TranslateEscalation(EncounterEscalationTrigger.PlayerHitAware);
+            BattleEntryRequest struck = BattleSetup.TranslateEscalation(EncounterEscalationTrigger.MonsterHitPlayer);
+
+            Assert.That(sneak.Initiator, Is.EqualTo(BattleInitiator.PlayerAttacked));
+            Assert.That(sneak.SneakStrikeReady, Is.True);
+            Assert.That(frontal.Initiator, Is.EqualTo(BattleInitiator.PlayerAttacked));
+            Assert.That(frontal.SneakStrikeReady, Is.False);
+            Assert.That(frontal.InAlertOrHostileContext, Is.True);
+            Assert.That(struck.Initiator, Is.EqualTo(BattleInitiator.BossAttacked));
+            Assert.That(struck.InAlertOrHostileContext, Is.True);
+            BattleEntrySettings entry = BattleSettings.PlaceholderDefault.Entry;
+            Assert.That(BattleEntryRules.Decide(sneak, entry).Kind, Is.EqualTo(BattleEntryKind.SneakAttack));
+            Assert.That(BattleEntryRules.Decide(frontal, entry).Kind, Is.EqualTo(BattleEntryKind.FrontalAttack));
+            Assert.That(BattleEntryRules.Decide(struck, entry).Kind, Is.EqualTo(BattleEntryKind.Ambushed));
+        }
+
+        /// <summary>负对照：「没有触发」不是一种开战方式——翻译直接抛，不静默按正面攻击开。</summary>
+        [Test]
+        public void TranslateEscalation_NoneTrigger_Throws() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() => BattleSetup.TranslateEscalation(EncounterEscalationTrigger.None));
+
+        /// <summary>拒绝：本场玩家生命非正时，升级那一路同样拒绝开仗（端口据此报 rule_rejected）。</summary>
+        [Test]
+        public void TryCreate_EscalationWithNonPositivePlayerHealth_Refuses()
+        {
+            var setup = NewSetup();
+
+            bool ok = setup.TryCreate(new BossDefinition("m", "市令", 10, 0, playerHealth: 0),
+                Escalation(EncounterEscalationTrigger.PlayerHitAware, 3, 3), out BattleSession session, out string error);
+
+            Assert.That(ok, Is.False);
+            Assert.That(session, Is.Null);
+            Assert.That(error, Does.Contain("本场玩家生命"));
+        }
+
+        /// <summary>
+        /// 血量取整边界（用户拍板「按比例互通」：ceil(实时比例 × 战斗上限)，至少 1；战斗上限仍是 BossDefinition.PlayerHealth）。
+        /// </summary>
+        [TestCase(3, 3, 10, 10, TestName = "TryCreate_EscalationHealth_FullHealth_StartsFull")]
+        [TestCase(1, 3, 10, 4, TestName = "TryCreate_EscalationHealth_OneThird_RoundsUp")]
+        [TestCase(1, 3, 3, 1, TestName = "TryCreate_EscalationHealth_OneThirdOfThree_IsExactlyOne")]
+        [TestCase(2, 3, 10, 7, TestName = "TryCreate_EscalationHealth_TwoThirds_RoundsUp")]
+        [TestCase(1, 100, 10, 1, TestName = "TryCreate_EscalationHealth_LowHealth_AtLeastOne")]
+        public void TryCreate_EscalationHealth_ScalesByRatio(int live, int liveMax, int battleMax, int expected)
+        {
+            var setup = NewSetup();
+
+            Assert.That(setup.TryCreate(new BossDefinition("m", "市令", 10, 0, playerHealth: battleMax),
+                Escalation(EncounterEscalationTrigger.PlayerHitAware, live, liveMax), out BattleSession session, out string error), Is.True, error);
+
+            Assert.That(session.Player.MaxHealth, Is.EqualTo(battleMax), "战斗上限仍取 BOSS 定义的本场玩家生命");
+            Assert.That(session.Player.Health, Is.EqualTo(expected));
+        }
+
+        /// <summary>负对照：剧情那两个重载不带实时血量，照旧满血开打（与升级之前逐字一致）。</summary>
+        [Test]
+        public void TryCreate_NarrativeOverloads_StillStartAtFullHealth()
+        {
+            var setup = NewSetup();
+
+            setup.TryCreate(new BossDefinition("b", "B", 12, 0, playerHealth: 7), (IBattleEntryContext)null, out BattleSession session, out _);
+
+            Assert.That(session.Player.Health, Is.EqualTo(7));
+        }
+
+        private static EncounterEscalationRequest Escalation(EncounterEscalationTrigger trigger, int health, int maxHealth) =>
+            new EncounterEscalationRequest("shiling", 1003, trigger, health, maxHealth);
 
         private static BattleSetup NewSetup() =>
             new BattleSetup(BattleSettings.PlaceholderDefault, () => 3UL, new BattleItemInventory(new BattleFakes.Backpack()));

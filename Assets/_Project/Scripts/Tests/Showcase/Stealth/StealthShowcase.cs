@@ -65,14 +65,28 @@
 //   边界：观察点对**主怪**的安全性推导（`ShowcaseScenario.DemoScene.cs` 的 `PatrolLookout`）仍然成立，
 //     它没算第二只巡逻者 —— 那是这张 demo 舞台的内容变化（多巡逻者落地），回放按「现场有什么就绕什么」适配。
 //     断言一条都没放宽：`behindSeen` / `allowedSeen` / `AssassinationAllowed` / 物种门槛全部原样。
+// ⑤ 2026-10-15（PRP/combat-iteration W6a）：场上多了第三只巡逻者「巡夜人」（东南角，种类 1001，完整参与者）。
+//   · 新增 ExecuteKey_OnXunye_DropsWithoutEndingEncounter：真走位绕到巡夜人背后按 F → 它死、按自己的种类掉落一次、
+//     stealth.assassinated 照写，但整场遭遇不结算（胜负只认主怪，ExecutionResolver 只对主怪承载 Victory）。
+//   · PatrollersPausedLongEnough 只等「离绕背路线一个察觉半径以内」的别的巡逻者停稳：巡夜人离观察点那条路十米开外，
+//     不该参与相位对齐；对主怪与巡逻者乙的判据不变（推导见该方法注释）。
+//   · ③ 处决之后退场改退到巡逻线南侧（不再横穿巡逻者乙的巡逻线回观察点），现场与理由见 LeaveStage 的注释。
+// ⑥ 2026-10-15（W6a 补修，主窗口授权改测试代码）：② 的**动身判据**换掉「巡逻者乙必须停稳 ≥2.5 秒」那道闸，
+//   改用 ④ 穿缝那套预判工具（PatrolMaySeePath，抽出了速度 / 步长 / 终点待着 / 潜行探针几个参数，④ 的参数逐字不变）：
+//   主怪剩余停顿够走到它背后再待 1 秒，且场上每一只（含主怪）接下来这几秒都扫不到这一整段，才动身；放行一次就算动身。
+//   现场：10-15 四次 ② 红两次——一次 40 秒里两只怪的停顿没对上、一直没动身（`Logs/verify/stealth/20261015-141430`），
+//   一次被打死（`Logs/telemetry/347a44f7.log`）。理由与推导见 ApproachWindowOpen。
+//   判据断言（closeSeen / calmSeen / behindSeen / allowedSeen）一个没动；巡逻者乙（场景 / 配置）没碰；① ③ ④ 逻辑不变。
 // 不包括：把这一刀做进确定性内核（处决是实时输入触发的交互，PRP §2.4 明确不进 `InputCommand`）。
 using System.Collections;
 using System.Reflection;
 using Game.Core.Input;
 using Game.Interaction;
+using Game.Loot;
 using Game.Monster;
 using Game.Player;
 using Game.Stealth;
+using Game.Taming;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -102,6 +116,8 @@ namespace Game.Tests.Showcase.Stealth
         /// （`behindSeen` / `allowedSeen` / `AssassinationAllowed`）一个都没动，走位也不再靠运气。
         /// 2026-10-09 实测：20 秒那版会以「等到超时也没动身」红（遥测里没有 `player/dead`），
         /// 修前的版本则以「被第二只巡逻者打死」红——两种都是同一个相位问题。
+        /// 2026-10-15：② 的动身判据已换成「预判谁都扫不到这一整段」（<see cref="ApproachWindowOpen"/>），不再要求两只怪停顿对齐；
+        /// 上限值没动，③ 的落位循环也用它。
         /// </summary>
         private const float ApproachTimeoutSeconds = 40f;
 
@@ -114,9 +130,27 @@ namespace Game.Tests.Showcase.Stealth
         /// </summary>
         private const float SafetyLookahead = 0.3f;
 
-        /// <summary>处决后退场（走回观察点）的上限（真实秒）。退不回去不记失败，见 <see cref="LeaveStage"/>。</summary>
-        /// <summary>迈步前要求怪还剩多少秒停顿。<see cref="StepSafelyToward"/> 横穿那条走廊约 1.7 秒，留出余量。</summary>
+        /// <summary>处决后退场（退到巡逻线南侧的空地）的上限（真实秒）。退不过去不记失败，见 <see cref="LeaveStage"/>。</summary>
+        /// <summary>迈步前要求怪还剩多少秒停顿（④ 的 <see cref="PatrollersPausedLongEnough"/> 用）。横穿那条走廊约 1.7 秒，留出余量。</summary>
         private const float CrossingPauseMarginSeconds = 2.5f;
+
+        // ── ② 动身判据（2026-10-15 W6a 补修，见 ApproachWindowOpen）的参数 ─────────────────────────
+        /// <summary>步行速度（米/秒，PlayerConfig.asset 的 moveSpeed）：离所有巡逻怪 2 米开外时玩家这么走。</summary>
+        private const float ApproachWalkSpeed = 3f;
+
+        /// <summary>潜行速度（米/秒，PlayerConfig.asset 的 sneakSpeed）：离任一只 2 米内按住潜行键（<see cref="SyncSneakKey"/>）。</summary>
+        private const float ApproachSneakSpeed = 1.5f;
+
+        /// <summary>
+        /// 到了主怪背后还要在那儿待多久（秒）：<see cref="SneakUpBehind"/> 收工要贴在背后 ≥0.6 秒、且 stealth.behind 写进事实集，留 0.4 秒余量。
+        /// </summary>
+        private const float BehindLingerSeconds = 1f;
+
+        /// <summary>
+        /// ② 前推的步长（秒）= 逻辑 tick（SimulationConfig.tickRate 60）。不用 ④ 的 0.05：巡逻怪走到端点、换路点、计满停顿、起步掉头
+        /// 常落在相邻的两三个 tick 里，粗步长会把它们的先后算错，漏掉「它掉头正对这条路」的那一下（离线照 MonsterRules.Step 复刻时实测漏判过）。
+        /// </summary>
+        private const float ApproachPredictStepSeconds = 1f / 60f;
         /// <summary>离观察点多近算「还没动身」——只有这一档才等「怪都停稳」的窗口，动身后不再等（见 SneakUpBehind 的注释）。</summary>
         private const float LookoutCommitRadius = 1.5f;
 
@@ -135,6 +169,70 @@ namespace Game.Tests.Showcase.Stealth
         /// <summary>按 F 那一轮最多等多久（真实秒）：要按到「按键那一次有结果」为止，见 <see cref="PressExecuteWhileBehind"/>。</summary>
         private const float ExecuteTimeoutSeconds = 6f;
 
+        // ── ④ 背后处决巡夜人（PRP/combat-iteration T6.3）的走位常量 ───────────────────────────────
+        // 巡夜人在东南角（巡逻点 (29,-10) → (32,-10) → (32,-6)，`PRP/combat-iteration/w0-placement.md` 候选 A），
+        // 院子去那边只有一个口子：演出触发区（x 8..11）以东、主怪 / 巡逻者乙巡逻线西端（x 13.86）以西那条 2 米多宽的缝，
+        // 再往南绕过围栏东端（x 10）。坐标一律是玩家逻辑坐标（= 场景 x, z）。
+
+        /// <summary>巡夜人的稳定标识（SampleScene 里 `Patrol_Xunye` 的 TamingActor）。</summary>
+        private const string XunyeStableId = "patrol_xunyeren";
+
+        /// <summary>
+        /// 出生点到「缝口候场点」：沿 <see cref="RouteToPatrol"/> 的前两点，再到 (9.6, 7.4)。
+        /// 候场点离巡逻者乙整条巡逻线 ≥ 4.89 米（它沿用主怪种类，警戒半径 4.5），离主怪巡逻线更远——**任何时候都看不到这里**；
+        /// 北边是塔（z ≥ 7.9）、西南是路障 Cone_3（x 9.3..9.8、z 6..6.5），都留出了胶囊半径。
+        /// </summary>
+        private static readonly Vector2[] XunyeRouteToHold =
+        {
+            new Vector2(3.5f, 5f),
+            new Vector2(8.5f, 7.2f),
+            new Vector2(9.6f, 7.4f),
+        };
+
+        /// <summary>
+        /// 穿缝：(11.6, 4.6) → (11.6, -2.0)。x 11.6 离触发区东沿（11）留 0.6 米（胶囊半径 0.3 之外），
+        /// 离两条巡逻线西端 ≥ 2.26 米——在红区 2 与贴身察觉 1.5 之外，只有被正面视野锥扫到才会察觉，
+        /// 所以动身前用 <see cref="CrossingClear"/> 预判「接下来这几秒谁的锥子都扫不到这段路」。
+        /// </summary>
+        private static readonly Vector2[] XunyeCrossing =
+        {
+            new Vector2(11.6f, 4.6f),
+            new Vector2(11.6f, -2f),
+        };
+
+        /// <summary>
+        /// 穿过缝之后去候场点：(18, -4) → <see cref="XunyeStaging"/>。全程离主怪巡逻线 ≥ 5.9 米（警戒半径 4.5 之外），
+        /// 离宝箱 C/D/E（z ≈ -8）≥ 3.6 米，离坡道南沿（z -1）≥ 3 米。
+        /// </summary>
+        private static readonly Vector2 XunyeTransit = new Vector2(18f, -4f);
+
+        /// <summary>
+        /// 巡夜人巡逻线西北的候场点 (22.5, -7.5)：离它整条巡逻线 ≥ 6.96 米（它的警戒半径 6，种类 1001），
+        /// 离主怪巡逻线东端约 11 米。巡夜人三段路的朝向（东 / 北 / 西南）下，从这里去它背后的直线都在它的视野锥外
+        /// （逐段算过：最小夹角约 61°，锥半角 37.5°）；路上的井口与树桩（z ≥ -6.5）在直线北边 0.6 米以外。
+        /// </summary>
+        private static readonly Vector2 XunyeStaging = new Vector2(22.5f, -7.5f);
+
+        /// <summary>等缝口出现「接下来几秒谁都看不到」窗口的上限（真实秒）：巡逻者乙一圈约 4 秒 + 停 5 秒，主怪约 8 秒 + 停 5 秒。</summary>
+        private const float CrossingWaitTimeoutSeconds = 40f;
+
+        /// <summary>预判穿缝时假设的玩家推进速度区间（米/秒）：奔跑 5（PlayerConfig.asset），下限留给起步与拐弯。</summary>
+        private const float CrossingSpeedLow = 3.5f;
+        private const float CrossingSpeedHigh = 5.5f;
+
+        /// <summary>预判时玩家位置两头各多放的余量（米）与时间步长（秒）。</summary>
+        private const float CrossingSlackMeters = 0.6f;
+        private const float CrossingPredictStepSeconds = 0.05f;
+
+        /// <summary>预判时沿路线取样的间隔（米）。</summary>
+        private const float CrossingSampleMeters = 0.4f;
+
+        /// <summary>
+        /// 到了候场点之后「等巡夜人刚停步 → 绕到它背后 → 按 F」整段的上限（真实秒）：
+        /// 它一圈 12 米 / 2 m/s ≈ 6 秒，走 7~10 秒停 5 秒 ⇒ 约 14 秒一个停顿；45 秒容得下两次没赶上。
+        /// </summary>
+        private const float XunyeApproachTimeoutSeconds = 45f;
+
         private IInputService inputService;
         private PlayerModel player;
         private MonsterModel monster;
@@ -149,6 +247,18 @@ namespace Game.Tests.Showcase.Stealth
         /// 2026-10-09 之前这里只有 `monster` 一只，所以走到了第二只的巡逻线上还不知道。
         /// </summary>
         private MonsterRules[] patrollers = System.Array.Empty<MonsterRules>();
+
+        /// <summary>
+        /// 与 <see cref="patrollers"/> 同序的巡逻路线（每只怪自己正在用的路点，见 <see cref="CollectPatrolRoutes"/>；取不到为 null）。
+        /// 只给 <see cref="CrossingClear"/> 预判「接下来几秒它走到哪、朝哪」用。
+        /// </summary>
+        private Vector2[][] patrolRoutes = System.Array.Empty<Vector2[]>();
+
+        /// <summary>② 动身判据那条路（脚下 → 主怪背后）：逐帧复用，不每帧分配。</summary>
+        private readonly System.Collections.Generic.List<Vector2> approachPath = new System.Collections.Generic.List<Vector2>(2);
+
+        /// <summary>④ 按 F 之前面板那份判定的拒绝原因（允许时为 None），写进检查点文字。</summary>
+        private ExecutionReject executeHintReason;
 
         /// <summary>
         /// 玩家规则。只有一个用途：第 ③ 条用例把玩家**直接放到**主怪背后（<see cref="TakePositionBehindForExecute"/>），
@@ -329,8 +439,8 @@ namespace Game.Tests.Showcase.Stealth
             // 那里离第二只巡逻者的巡逻线只有 1.6 米，它的视锥来回扫，扫到就是警戒 → 敌对 → 击倒 → 三刀死；
             // 玩家一死触发镜碎，`MirrorCrackPresenter.Shatter()` 会调 `EncounterStep.End()`（`facts.Clear()`），
             // `stealth.assassinated` 会被抹掉。移动本身不记报告条目（同 StrikeMonster 口径），判定仍看下面几条。
-            yield return Step("退出巡逻线：这一刀已经结算完，先回到巡逻线北侧的观察点，"
-                              + "别站在这里等第二只巡逻者走过来", null, 0f);
+            yield return Step("退出巡逻线：这一刀已经结算完，先退到巡逻线南侧的空地（离第二只巡逻者的巡逻线 5 米开外），"
+                              + "别站在这里等它走过来", null, 0f);
             yield return LeaveStage();
             yield return ReleaseSneak();
 
@@ -344,13 +454,77 @@ namespace Game.Tests.Showcase.Stealth
             yield return Check("目标被处决：怪生命归零、进入 Dead", () => monster.Health == 0 && monster.Mode == MonsterMode.Dead);
             yield return Check("stealth.assassinated 写进了正式流程那份事实集（命中即写，持久）",
                 () => step.Facts.IsTrue(StealthFactKeys.Assassinated));
-            yield return Snapshot("退回观察点");
+            yield return Snapshot("退到巡逻线南侧");
 
             // 如实记录边界（本波不修）：处决把这一场承载成 Victory，但战斗结果**目前没有消费方**，
             // 所以遭遇不会自己收尾。埋点 stealth_executed 由 EditMode 的 ExecutionSceneWiringTests 断言。
             yield return Check("如实记录：处决承载了这一场的结果（BattleSettlement = Victory），"
                                + "但 ResultConsumed 仍为假——战斗结果目前没有消费方，流程不会自己推进",
                 () => step.BattleSettlement.HasValue && !step.ResultConsumed);
+        }
+
+        // ───────────────────────── ④ 背后处决巡夜人：它死、掉落，但遭遇不结算 ─────────────────────────
+
+        /// <summary>
+        /// ④ PRP/combat-iteration D2 / PRD Q4（2026-10-14 拍板「新怪可被背后处决，与市令同等参与潜行」）：
+        /// 东南角的巡夜人（`patrol_xunyeren`，种类 1001，完整参与者）同样能被潜行绕背按 F 处决——
+        /// 它倒下、按**自己的**种类掉落一次（背包 +1），`stealth.assassinated` 照写，
+        /// 但**整场遭遇不结算**：胜负只认主怪（`ExecutionResolver` 只在目标是主怪时承载 Victory）。
+        /// <para>
+        /// 走位全程真走（不瞬移）：出生点 → 缝口候场点 → 预判出窗口后一口气跑过两条巡逻线西端 → 东南角候场点
+        /// → 等巡夜人**刚**停步 → 潜行绕背（落点与 ①②③ 同一套避让：<see cref="StepSafelyToward"/>）→ 背后近距按 F。
+        /// 巡夜人附近没有 NPC / 物资箱，按 F 那一刻统一交互焦点为空，这一下归处决。
+        /// </para>
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ExecuteKey_OnXunye_DropsWithoutEndingEncounter()
+        {
+            yield return EnterWorld();
+            int xunyeIndex = IndexOfPatroller(XunyeStableId);
+            MonsterRules xunye = xunyeIndex < 0 ? null : patrollers[xunyeIndex];
+            LootService loot = ResolveService<LootService>();
+            if (xunye == null || loot == null || interactor == null || !interactor.IsConfigured)
+            {
+                Assert.Fail("前置不成立：场上找不到巡夜人（patrolActors 里 stableId = patrol_xunyeren 的那只），"
+                            + "或容器里没有 LootService，或 ExecutionInteractor 没接线——这条回放演不了。");
+            }
+
+            yield return Step("切到奔跑，沿北侧绕到演出触发区东北的缝口候场点（两条巡逻线西端都看不到这里）", null, 0f);
+            yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => player.IsRunning);
+            yield return WalkRoute(XunyeRouteToHold, 0.4f, 8f);
+
+            yield return Step("等主怪与巡逻者乙接下来几秒都扫不到缝里那段路，一口气跑过它们巡逻线的西端，绕到东南角", null, 0f);
+            yield return WaitUntil("缝里那段路接下来几秒谁的视野锥都扫不到（按当前位置 / 朝向 / 巡逻路线预判）",
+                () => CrossingClear(XunyeCrossing), CrossingWaitTimeoutSeconds);
+            yield return WalkRoute(XunyeCrossing, 0.3f, 6f);
+            yield return WalkTo(XunyeTransit, 0.4f, 8f);
+            yield return WalkTo(XunyeStaging, 0.3f, 8f);
+            yield return Input.PressUntil(inputService.Actions.Gameplay.Run, () => !player.IsRunning);
+            yield return Check("到了巡夜人巡逻线西北的候场点，一路没惊动任何巡逻者（全场都还在巡逻）",
+                () => (player.Position - XunyeStaging).magnitude <= 0.6f && AllPatrollersCalm());
+
+            int[] dropIds = CopyDropIds(xunye);
+            int[] dropsBefore = CountItems(loot, dropIds);
+            yield return Step("按住潜行键：等巡夜人刚停步，绕到它背后 1 米内按 F（Gameplay/Execute）", null, 0f);
+            yield return ExecuteBehind(xunye, xunyeIndex, XunyeStaging);
+            yield return Snapshot("按 F 处决巡夜人");
+            yield return ReleaseSneak();
+
+            yield return Check("按 F 那一刻屏幕上没有交互提示（统一焦点为空），这一下归处决、不让位",
+                () => executePressed && executeFocusEmpty && executeReason != ExecutionReject.YieldedToInteraction);
+            yield return Check($"背后近距按 F 结算成「允许」（按 F 前面板的判定：{executeHintReason}；"
+                               + $"按键那一次的拒绝原因：{executeReason}；位置条件成立过：{executeBehindHeld}）",
+                () => executePressed && executeAllowed && executeHintShown);
+            yield return Check("巡夜人被处决：生命归零、进入 Dead",
+                () => xunye.Model.Health == 0 && xunye.Model.Mode == MonsterMode.Dead, 2f);
+            yield return Check($"按它自己的种类掉落一次：背包里 [{string.Join(", ", dropIds)}] 各 +1",
+                () => dropIds.Length > 0 && DropsGained(loot, dropIds, dropsBefore), 3f);
+            yield return Check("stealth.assassinated 写进了正式流程那份事实集（命中即写，持久）",
+                () => step.Facts.IsTrue(StealthFactKeys.Assassinated));
+            yield return Check("整场遭遇没结算：主怪还活着、PendingResult 仍为 None、没有承载战斗结果",
+                () => monster.Health > 0 && monster.Mode != MonsterMode.Dead
+                      && step.PendingResult == EncounterStep.Result.None && !step.BattleSettlement.HasValue);
+            yield return Snapshot("巡夜人倒下·遭遇未结算");
         }
 
         // ───────────────────────── 进场与驱动 ─────────────────────────
@@ -387,6 +561,7 @@ namespace Game.Tests.Showcase.Stealth
             // 绕背走位要躲的那一组（主怪 + 别的巡逻者）。放在这里取一次：`Taming` 的注册在场景就绪时完成，
             // 而这条用例的每一步都要用它判「这一步会不会被谁看见」，不能每帧现查。
             patrollers = CollectPatrollers();
+            patrolRoutes = CollectPatrolRoutes();
 
             cover = GameObject.Find(CoverObjectName);
             if (cover == null)
@@ -594,6 +769,19 @@ namespace Game.Tests.Showcase.Stealth
         /// </summary>
         private void StepSafelyToward(Vector2 target, bool requireCalm = true)
         {
+            // 主怪那几条（③ 按 F 那一轮；② 2026-10-15 起只用它的撤退 / 不等停顿那一支，动身改判 ApproachWindowOpen）：
+            // 目标是主怪（下标 0），绕背路线从观察点出发。
+            StepSafelyToward(target, requireCalm, 0, PatrolLookout);
+        }
+
+        /// <summary>
+        /// 同上，但绕背的**目标**与**路线起点**由调用方给（④ 绕巡夜人用）：<see cref="PatrollersPausedLongEnough"/>
+        /// 只等「离这条路线一个察觉半径以内」的别的巡逻者停稳，目标本身不算障碍。
+        /// </summary>
+        /// <param name="targetIndex">绕背目标在 <see cref="patrollers"/> 里的下标（主怪恒为 0）。</param>
+        /// <param name="routeStart">绕背路线的起点（动身前站着等窗口的那一点）。</param>
+        private void StepSafelyToward(Vector2 target, bool requireCalm, int targetIndex, Vector2 routeStart)
+        {
             Vector2 delta = target - player.Position;
             if (delta.magnitude <= ArriveDistance)
             {
@@ -607,7 +795,7 @@ namespace Game.Tests.Showcase.Stealth
             // 落点安全**并且**怪都停稳了才迈步：只看落点挡不住「走到一半它掉头」，见 PatrollersPausedLongEnough。
             // 撤退（requireCalm: false）不吃这一道——已经被看见时该退就退，等停顿只会白挨刀。
             if (!AnyPatrollerSenses(player.Position + direction * lookahead)
-                && (!requireCalm || PatrollersPausedLongEnough(CrossingPauseMarginSeconds)))
+                && (!requireCalm || PatrollersPausedLongEnough(CrossingPauseMarginSeconds, targetIndex, routeStart, target)))
             {
                 Input.SetStick(direction);
                 return;
@@ -630,18 +818,36 @@ namespace Game.Tests.Showcase.Stealth
         /// 主怪那一边本来就要等它**刚**进停顿才动身（<see cref="WaitForFreshPatrolPause"/>），所以这道闸实际加的是
         /// **第二只巡逻者**的条件。
         /// </para>
+        /// <para>
+        /// <b>只等「离绕背路线一个察觉半径以内」的那几只</b>（PRP/combat-iteration T6.7，2026-10-15）：场上多了第三只巡逻者
+        /// 巡夜人（东南角，离「观察点 → 主怪背后」那条路十米开外）。它够不着这条路，却也有自己的 14 秒周期——
+        /// 照旧「每一只都要停稳」就又是一次相位对齐，窗口可能永远凑不齐（W0 摸底的风险 1）。
+        /// 判据：巡逻者此刻的位置到线段「路线起点 → 绕背落点」的距离 ≤ 它自己的警戒半径（种类优先）。
+        /// 巡逻者乙的巡逻线（z=5、x 13.86..17.86）离「观察点 → 主怪背后任一点」那条路最远约 3.4 米，
+        /// 恒在它的警戒半径 4.5（沿用主怪种类 1003）之内——**对主怪与巡逻者乙的判据与改之前逐字相同**，只把够不着的巡夜人排除出去。
+        /// </para>
         /// </summary>
-        private bool PatrollersPausedLongEnough(float seconds)
+        /// <param name="seconds">要求剩余停顿至少这么多秒。</param>
+        /// <param name="targetIndex">绕背目标的下标：它是要贴近的目标、不是要横穿的障碍，不参与这道闸。</param>
+        /// <param name="routeStart">绕背路线的起点。</param>
+        /// <param name="routeEnd">绕背落点（这一步要走向的那一点）。</param>
+        private bool PatrollersPausedLongEnough(float seconds, int targetIndex, Vector2 routeStart, Vector2 routeEnd)
         {
-            // **跳过第 0 只（主怪）**：它是我们要贴近的目标，不是要横穿的障碍——跟在它背后走是安全的，
+            // **跳过绕背目标本身**（主怪那几条就是第 0 只）：它是我们要贴近的目标，不是要横穿的障碍——跟在它背后走是安全的，
             // 它什么时候走由 SneakUpBehind 的退让逻辑管（走远了就退回观察点等下一次停顿）。
             // 闸门管的是**别的**巡逻者：横穿它们的巡逻线时，它们必须停稳（见上面那段推导）。
             // 2026-10-09 实测：把主怪也算进来会让窗口变成「两个独立 14 秒周期相位对齐」，
             // 期望等待 ≈ T₁·T₂/重合 ≈ 78 秒 —— 40 秒超时必然经常撞不上（遥测里没有 player/dead，纯粹没动身）。
-            for (int i = 1; i < patrollers.Length; i++)
+            for (int i = 0; i < patrollers.Length; i++)
             {
                 MonsterRules rules = patrollers[i];
-                if (rules == null)
+                if (i == targetIndex || rules == null)
+                {
+                    continue;
+                }
+
+                // 离这条路超过一个察觉半径：它看不到路上的人，不参与相位对齐。
+                if (DistanceToSegment(rules.Model.Position, routeStart, routeEnd) > rules.Config.ResolveAlertRadius(rules.Kind))
                 {
                     continue;
                 }
@@ -653,6 +859,20 @@ namespace Game.Tests.Showcase.Stealth
             }
 
             return true;
+        }
+
+        /// <summary>点到线段的距离（米）；线段退化成点时就是到那一点的距离。</summary>
+        private static float DistanceToSegment(Vector2 point, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float lengthSquared = ab.sqrMagnitude;
+            if (lengthSquared < 1e-8f)
+            {
+                return (point - a).magnitude;
+            }
+
+            float t = Mathf.Clamp01(Vector2.Dot(point - a, ab) / lengthSquared);
+            return (point - (a + ab * t)).magnitude;
         }
 
         /// <summary>
@@ -711,18 +931,25 @@ namespace Game.Tests.Showcase.Stealth
         }
 
         /// <summary>
-        /// 处决之后退场：走回 <see cref="PatrolLookout"/>（巡逻线北侧的观察点）。
+        /// 处决之后退场：退到主怪巡逻线**南侧**的空地（<see cref="SouthRefuge"/>）。
         /// **不记报告条目**（同 `StrikeMonster` 口径：移动本身不是被测行为，结果由后面的检查点判）。
         /// <para>
         /// 为什么非退不可：处决之后还有 5 条检查点，按 x1 节奏约 12 秒，而玩家一直站在主怪背后 ——
         /// 那里离第二只巡逻者的巡逻线只有 1.6 米，它的视锥来回扫，扫到就是警戒 → 敌对 → 一刀击倒 → 三刀死；
         /// 玩家一死触发镜碎，`MirrorCrackPresenter.Shatter()`（`MirrorCrackPresenter.cs:152`）调
         /// `EncounterStep.End()`，内部 `facts.Clear()` 会把 `stealth.assassinated` 抹掉。
-        /// 观察点对那只怪的视锥是够不到的：它横向差 2.6 米，锥子要 |dx| &gt; 3.39 才够得着，而它的巡逻段只有 4 米。
         /// </para>
         /// <para>
-        /// 退法是同一套避让（<see cref="StepSafelyToward"/>），所以半路被谁挡住也只是等一会儿；
-        /// 超时**不记失败**——这一段不是被测行为，退不回去的后果由后面那些检查点如实反映。
+        /// <b>为什么退到南边、不再退回北侧观察点</b>（2026-10-15 W6a 复跑）：回观察点**必须横穿第二只巡逻者的巡逻线**（z=5），
+        /// 它停着、正好朝这边时，避让会把人「原地等一会儿」——等的那一格就在它的巡逻线上，它一走起来正面撞上：
+        /// 现场 `Logs/verify/stealth/20261015-064534` + `Logs/telemetry/e98f53e0.log`：处决 18.8 s，它 21.75 s 起步、
+        /// 22.79 s 直接转敌对（红区），23.0 / 24.0 / 25.0 s 三刀 → `player/dead` → 镜碎 → `facts.Clear()`，
+        /// 退场循环一直卡到 12 秒超时。南边那块空地（z −0.8）离它整条巡逻线 5.8 米，超过它的警戒半径 4.5，
+        /// 往南走又是**背离**它的方向（越走越出它的视野锥），不用横穿任何一条巡逻线；主怪已经死了，巡夜人在十米开外。
+        /// </para>
+        /// <para>
+        /// 退法仍是同一套避让（<see cref="StepSafelyToward"/>）；超时**不记失败**——这一段不是被测行为，
+        /// 退不过去的后果由后面那些检查点如实反映。
         /// </para>
         /// </summary>
         private IEnumerator LeaveStage()
@@ -733,22 +960,30 @@ namespace Game.Tests.Showcase.Stealth
                 yield break;
             }
 
+            Vector2 refuge = SouthRefuge();
             float deadline = Time.realtimeSinceStartup + LeaveStageTimeoutSeconds;
             while (Time.realtimeSinceStartup < deadline)
             {
                 yield return SyncSneakKey();
-                if ((player.Position - PatrolLookout).magnitude <= LeaveStageArriveDistance)
+                if ((player.Position - refuge).magnitude <= LeaveStageArriveDistance)
                 {
                     break;
                 }
 
                 // 撤退不吃「等怪停稳」那道闸（requireCalm: false）：这一刀已经结算完，先离开巡逻线最要紧。
-                StepSafelyToward(PatrolLookout, requireCalm: false);
+                StepSafelyToward(refuge, requireCalm: false);
                 yield return null;
             }
 
             Input.ReleaseStick();
         }
+
+        /// <summary>
+        /// 处决后退场的落脚点：玩家正南、主怪巡逻线（z 3.4）以南的空地 z −0.8，x 夹在 13..21——
+        /// 西边让开村口演出触发区（x 8..11），东边让开坡道（x ≥ 22），南边离宝箱（z ≈ −8）还远。
+        /// 离巡逻者乙整条巡逻线（z=5）5.8 米，超出它的警戒半径 4.5。
+        /// </summary>
+        private Vector2 SouthRefuge() => new Vector2(Mathf.Clamp(player.Position.x, 13f, 21f), -0.8f);
 
         /// <summary>
         /// 把玩家**直接放到**主怪背后 1 米处，并**先断言那个落点不会被任何一只巡逻怪察觉**。
@@ -894,6 +1129,7 @@ namespace Game.Tests.Showcase.Stealth
             behindSeen = false;
             allowedSeen = false;
             float closeSince = -1f;
+            bool committed = false; // 动身判据放行过一次 = 已动身（见循环末尾的注释）；退回观察点才清掉
             float deadline = Time.realtimeSinceStartup + ApproachTimeoutSeconds;
             while (Time.realtimeSinceStartup < deadline)
             {
@@ -936,18 +1172,35 @@ namespace Game.Tests.Showcase.Stealth
                 // 上限（20 秒）容得下一次完整停顿。
                 if (monster.Mode == MonsterMode.PatrolWalk && toPlayer.magnitude > BehindDistance + 0.6f)
                 {
+                    committed = false;
                     StepSafelyToward(PatrolLookout, requireCalm: false);
                     yield return null;
                     continue;
                 }
 
                 // **下决心前等窗口，一旦动身就别停**（2026-10-09 修偶发红的第二版）：
-                // 只在「还站在观察点」时要求怪都停稳（PatrollersPausedLongEnough）；离开观察点之后就只看落点安全。
+                // 只在「还站在观察点」时判动身；离开观察点之后就只看落点安全。
                 // 为什么不能全程等：从观察点下到主怪背后要横穿第二只巡逻者的巡逻线（z=5），一旦玩家已经走到线上而
                 // 闸门又关上，他就会**停在全场最危险的那一格**，等怪掉头正好撞上——实测第一版就是这么死的
                 // （死亡时刻 23.8s vs 修前 23.9s，签名逐字相同）。停在线上比走过去更糟，所以闸门只设在起点。
+                // 2026-10-15（W6a 补修）：判据从「别的巡逻者都停稳 ≥2.5 秒」换成 ApproachWindowOpen（预判这一整段谁都扫不到、
+                // 主怪剩余停顿够用），并且**放行一次就算动身**（committed），观察点 1.5 米圈里也不再回头判——
+                // 圈的南沿离巡逻者乙的巡逻线只有 1.1 米，在那儿停下等同样危险。退回观察点（上面那支）才重新判。
                 bool atLookout = (player.Position - PatrolLookout).magnitude <= LookoutCommitRadius;
-                StepSafelyToward(monster.Position - monster.Facing * BehindDistance, requireCalm: atLookout);
+                Vector2 behindPoint = monster.Position - monster.Facing * BehindDistance;
+                if (atLookout && !committed)
+                {
+                    if (!ApproachWindowOpen(behindPoint))
+                    {
+                        HoldSafely();
+                        yield return null;
+                        continue;
+                    }
+
+                    committed = true;
+                }
+
+                StepSafelyToward(behindPoint, requireCalm: false);
                 yield return null;
             }
 
@@ -1008,6 +1261,428 @@ namespace Game.Tests.Showcase.Stealth
                     }
                 }
 
+                yield return null;
+            }
+
+            Input.ReleaseStick();
+        }
+
+        // ───────────────────────── ④ 巡夜人：穿缝预判、绕背按 F、掉落核对 ─────────────────────────
+
+        /// <summary>某个稳定标识的巡逻者在 <see cref="patrollers"/> 里的下标（= <c>Taming.TargetIds</c> 的顺序）；找不到为 -1。</summary>
+        private int IndexOfPatroller(string stableId)
+        {
+            if (step == null || step.Taming == null)
+            {
+                return -1;
+            }
+
+            System.Collections.Generic.IReadOnlyList<string> ids = step.Taming.TargetIds;
+            for (int i = 0; i < ids.Count && i < patrollers.Length; i++)
+            {
+                if (string.Equals(ids[i], stableId, System.StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// 与 <see cref="patrollers"/> 同序的巡逻路线：直接取每只怪**自己正在用的**路点（<see cref="MonsterRules.Capture"/> 的
+        /// WaypointX / WaypointY，只读快照，不推进任何状态）。
+        /// <para>
+        /// 2026-10-15（W6a 补修）改：原先按稳定标识对上视图里的 TamingActor、现取 <see cref="TamingActor.PatrolPositions"/>——
+        /// 那是从巡逻点 Transform 的**此刻**世界坐标换算的，产品只在场景就绪那一刻读一次（<c>EncounterSceneView.ConfigureTaming</c>）；
+        /// 回放进场后再读，巡逻者乙与巡夜人拿到的是另一套坐标（实测乙站在 (15.86, 5.00)，取到的路线却是 (36.28, -23.86) → (36.28, -27.86)），
+        /// 预判里的乙就朝一个不存在的路点走，看不出它会掉头扫过这条路。主怪那条碰巧对得上。④ 穿缝的预判吃的也是这份，一并修正。
+        /// </para>
+        /// </summary>
+        private Vector2[][] CollectPatrolRoutes()
+        {
+            var routes = new Vector2[patrollers.Length][];
+            for (int i = 0; i < routes.Length; i++)
+            {
+                MonsterRules rules = patrollers[i];
+                if (rules == null)
+                {
+                    continue;
+                }
+
+                MonsterSaveData saved = rules.Capture();
+                int count = Mathf.Min(saved.WaypointX.Length, saved.WaypointY.Length);
+                var route = new Vector2[count];
+                for (int k = 0; k < count; k++)
+                {
+                    route[k] = new Vector2(saved.WaypointX[k], saved.WaypointY[k]);
+                }
+
+                routes[i] = route;
+            }
+
+            return routes;
+        }
+
+        /// <summary>
+        /// 从脚下出发、沿 <paramref name="path"/> 跑过去的这几秒里，**有没有哪只巡逻怪的视野会扫到玩家当时所在的位置**。
+        /// <para>
+        /// 为什么要预判、而不是像绕背那样逐帧避让：缝里那段路离两条巡逻线西端只有 2.3 米，逐帧避让会把人停在缝中间
+        /// 等它转身——那正是全场最危险的一格（同 ②「停在线上比走过去更糟」）。所以只在出发前判一次：
+        /// 按每只怪当前的位置 / 朝向 / 巡逻进度，照 <c>MonsterRules.Step</c> 的巡逻两态往前推，
+        /// 每一刻用产品自己的档位判定（<see cref="MonsterRules.SenseFrom"/>，不含遮挡 = 更保守）去问
+        /// 「玩家此刻可能在的那一小段路」看不看得见。任何一只已经警觉（不在巡逻两态）也不走。
+        /// </para>
+        /// </summary>
+        private bool CrossingClear(System.Collections.Generic.IReadOnlyList<Vector2> path)
+        {
+            var points = new System.Collections.Generic.List<Vector2>(path.Count + 1) { player.Position };
+            for (int i = 0; i < path.Count; i++)
+            {
+                points.Add(path[i]);
+            }
+
+            float length = 0f;
+            for (int i = 1; i < points.Count; i++)
+            {
+                length += (points[i] - points[i - 1]).magnitude;
+            }
+
+            float horizon = (length + CrossingSlackMeters) / CrossingSpeedLow;
+            for (int i = 0; i < patrollers.Length; i++)
+            {
+                MonsterRules rules = patrollers[i];
+                if (rules == null || rules.Model.Health <= 0)
+                {
+                    continue;
+                }
+
+                if (rules.Model.Mode != MonsterMode.PatrolWalk && rules.Model.Mode != MonsterMode.PatrolPause)
+                {
+                    return false;
+                }
+
+                Vector2[] route = i < patrolRoutes.Length ? patrolRoutes[i] : null;
+                if (PatrolMaySeePath(rules, route, points, length, horizon))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// ② 的动身判据（2026-10-15 W6a 补修，替换「巡逻者乙必须停稳 ≥2.5 秒」那道闸）：站在观察点时，此刻动身直奔
+        /// <paramref name="behindPoint"/>（主怪背后 1 米）、到了再在那儿待 <see cref="BehindLingerSeconds"/> 秒，这一整段会不会出事。两条都成立才走：
+        /// <list type="number">
+        /// <item><b>主怪剩余停顿够用</b>：按「2 米开外步行、2 米内潜行」估的到达时间 + 待的时间。否则走到一半它起步：
+        /// 贴在背后的人可能被掉头的它正面撞上，或只能横穿巡逻者乙的巡逻线退回观察点。10-15 那次被打死
+        /// （`Logs/telemetry/347a44f7.log`）：24.32 s 一只巡逻怪停满 5 秒起步，33 毫秒后就有怪直接转敌对（红区）、三刀死——
+        /// 遥测分不出是哪一只，这两种死法这一条都挡。</item>
+        /// <item><b>场上任何一只巡逻怪（含主怪自己）接下来这几秒都扫不到这段路</b>：与 ④ 穿缝同一个工具
+        /// （<see cref="PatrolMaySeePath(MonsterRules, Vector2[], System.Collections.Generic.List{Vector2}, float, float, float, float, float, bool, float)"/>，
+        /// 照 <c>MonsterRules.Step</c> 的巡逻两态往前推、用产品自己的 <see cref="MonsterRules.SenseFrom"/> 判），
+        /// 只是推进速度取步行 / 潜行、终点要多探一段「待着」、探针离它 2 米内按潜行判（回放在那儿确实按着潜行键）、步长取逻辑 tick。
+        /// 主怪也算进来：它停在巡逻线端点时，起步那一下会掉头，正好对上贴在它背后的人。</item>
+        /// </list>
+        /// 为什么换掉旧闸：「乙必须停着且还剩 ≥2.5 秒」要两只怪的停顿对齐，40 秒里常常一次都对不上（10-15 一次红就是这么红的：
+        /// 一直没动身）；而乙停着也不等于看不见——它停在端点时朝着自己整条巡逻线。新判据问的是「会不会被看见」本身，
+        /// 乙在走、只要接下来这几秒扫不到这段路也放行。断言（closeSeen / calmSeen / behindSeen / allowedSeen）一个没动。
+        /// </summary>
+        private bool ApproachWindowOpen(Vector2 behindPoint)
+        {
+            if (monster.Mode != MonsterMode.PatrolPause)
+            {
+                return false;
+            }
+
+            float length = (behindPoint - player.Position).magnitude;
+            float arrival = Mathf.Max(0f, length - SneakFromDistance) / ApproachWalkSpeed
+                            + Mathf.Min(length, SneakFromDistance) / ApproachSneakSpeed;
+            if (monster.PatrolPauseLeft < arrival + BehindLingerSeconds)
+            {
+                return false;
+            }
+
+            approachPath.Clear();
+            approachPath.Add(player.Position);
+            approachPath.Add(behindPoint);
+            float horizon = length / ApproachSneakSpeed + BehindLingerSeconds;
+            for (int i = 0; i < patrollers.Length; i++)
+            {
+                MonsterRules rules = patrollers[i];
+                if (rules == null || rules.Model.Health <= 0)
+                {
+                    continue;
+                }
+
+                if (rules.Model.Mode != MonsterMode.PatrolWalk && rules.Model.Mode != MonsterMode.PatrolPause)
+                {
+                    return false;
+                }
+
+                Vector2[] route = i < patrolRoutes.Length ? patrolRoutes[i] : null;
+                if (PatrolMaySeePath(rules, route, approachPath, length, horizon, ApproachSneakSpeed, ApproachWalkSpeed,
+                        ApproachPredictStepSeconds, true, SneakFromDistance))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 把一只巡逻怪按巡逻两态往前推 <paramref name="horizon"/> 秒（与 <c>MonsterRules.Step</c> 的 PatrolWalk / PatrolPause 同一口径：
+        /// 朝当前路点走、到点换下一个、走够 NextPauseAfter 停 PatrolPauseSeconds；下一次停顿的随机间隔取下限），
+        /// 每一刻判它能不能看见「玩家这一刻可能在的那段路」（按 <see cref="CrossingSpeedLow"/>..<see cref="CrossingSpeedHigh"/> 推进、两头各放余量）。
+        /// ④ 穿缝用的就是这一组参数（与 2026-10-15 抽出参数之前逐字相同）。
+        /// </summary>
+        private bool PatrolMaySeePath(MonsterRules rules, Vector2[] route, System.Collections.Generic.List<Vector2> points,
+            float length, float horizon) =>
+            PatrolMaySeePath(rules, route, points, length, horizon, CrossingSpeedLow, CrossingSpeedHigh,
+                CrossingPredictStepSeconds, false, 0f);
+
+        /// <summary>
+        /// 同上，推进速度区间、前推步长、到了终点之后算不算「原地等着」、探针按不按潜行判都由调用方给（② 动身判据用，见 <see cref="ApproachWindowOpen"/>）。
+        /// </summary>
+        /// <param name="speedLow">玩家推进速度下限（米/秒）。</param>
+        /// <param name="speedHigh">玩家推进速度上限（米/秒）。</param>
+        /// <param name="stepSeconds">前推步长（秒）。</param>
+        /// <param name="holdAtEnd">为真时，走到终点之后的那几秒也按「玩家站在终点」去探（绕背要在它背后待一会儿）。</param>
+        /// <param name="sneakWithin">探针离这只怪多近时按「在潜行」判（回放离任意一只 2 米内就按住潜行键，见 <see cref="SyncSneakKey"/>）；0 = 一律按没潜行（更保守）。</param>
+        private bool PatrolMaySeePath(MonsterRules rules, Vector2[] route, System.Collections.Generic.List<Vector2> points,
+            float length, float horizon, float speedLow, float speedHigh, float stepSeconds, bool holdAtEnd, float sneakWithin)
+        {
+            MonsterModel model = rules.Model;
+            MonsterConfig config = rules.Config;
+            Vector2 position = model.Position;
+            Vector2 facing = model.Facing;
+            int index = model.WaypointIndex;
+            bool pausing = model.Mode == MonsterMode.PatrolPause;
+            float walked = model.PatrolWalkElapsed;
+            float pauseAfter = model.NextPauseAfter;
+            float pauseLeft = model.PatrolPauseLeft;
+            for (float t = 0f; t <= horizon; t += stepSeconds)
+            {
+                float from = Mathf.Max(0f, speedLow * t - CrossingSlackMeters);
+                float to = Mathf.Min(length, speedHigh * t + CrossingSlackMeters);
+                if (holdAtEnd)
+                {
+                    // 走得最慢的那一种也早该到了：此后玩家就站在终点（绕背落点）上等，终点照样要探。
+                    from = Mathf.Min(from, length);
+                }
+
+                for (float s = from; s <= to; s += CrossingSampleMeters)
+                {
+                    Vector2 point = PointAlong(points, s);
+                    bool sneaking = sneakWithin > 0f && (point - position).magnitude <= sneakWithin;
+                    var probe = new PlayerSnapshot(point, player.Facing, sneaking, player.IsDisguised, player.Health);
+                    if (MonsterRules.SenseFrom(config, rules.Kind, position, facing, in probe) > 0)
+                    {
+                        return true;
+                    }
+                }
+
+                if (pausing)
+                {
+                    pauseLeft -= stepSeconds;
+                    if (pauseLeft <= 0f)
+                    {
+                        pausing = false;
+                        walked = 0f;
+                        pauseAfter = config.PatrolMinSeconds;
+                    }
+                }
+                else if (route != null && route.Length > 0)
+                {
+                    index = Mathf.Clamp(index, 0, route.Length - 1);
+                    Vector2 toWaypoint = route[index] - position;
+                    float distance = toWaypoint.magnitude;
+                    if (distance > 0f)
+                    {
+                        facing = toWaypoint / distance;
+                        position += facing * Mathf.Min(distance, config.PatrolSpeed * stepSeconds);
+                    }
+
+                    if ((route[index] - position).magnitude <= 0.001f)
+                    {
+                        index = (index + 1) % route.Length;
+                    }
+
+                    walked += stepSeconds;
+                    if (walked >= pauseAfter)
+                    {
+                        pausing = true;
+                        pauseLeft = config.PatrolPauseSeconds;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>折线上从起点量 <paramref name="distance"/> 米处的点（超出末端取末端）。</summary>
+        private static Vector2 PointAlong(System.Collections.Generic.List<Vector2> points, float distance)
+        {
+            for (int i = 1; i < points.Count; i++)
+            {
+                float segment = (points[i] - points[i - 1]).magnitude;
+                if (distance <= segment && segment > 0f)
+                {
+                    return Vector2.Lerp(points[i - 1], points[i], distance / segment);
+                }
+
+                distance -= segment;
+            }
+
+            return points[points.Count - 1];
+        }
+
+        /// <summary>场上活着的巡逻怪都还在巡逻两态（没有谁被惊动）。</summary>
+        private bool AllPatrollersCalm()
+        {
+            for (int i = 0; i < patrollers.Length; i++)
+            {
+                MonsterRules rules = patrollers[i];
+                if (rules != null && rules.Model.Health > 0
+                    && rules.Model.Mode != MonsterMode.PatrolWalk && rules.Model.Mode != MonsterMode.PatrolPause)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>这只怪的种类掉落表（<see cref="MonsterRules.DropItemIds"/>）抄一份；没接种类表时为空。</summary>
+        private static int[] CopyDropIds(MonsterRules rules)
+        {
+            System.Collections.Generic.IReadOnlyList<int> ids = rules.DropItemIds;
+            var copy = new int[ids == null ? 0 : ids.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = ids[i];
+            }
+
+            return copy;
+        }
+
+        /// <summary>背包里这些物品各有几个（同一物品出现几次就各查一次，按位置对应）。</summary>
+        private static int[] CountItems(LootService loot, int[] itemIds)
+        {
+            var counts = new int[itemIds.Length];
+            for (int i = 0; i < itemIds.Length; i++)
+            {
+                counts[i] = loot.Items.TryGetValue(itemIds[i], out int count) ? count : 0;
+            }
+
+            return counts;
+        }
+
+        /// <summary>
+        /// 掉落表里每一种物品都按它在表里出现的次数涨了（表里同一物品出现 n 次 = 涨 n 个）：
+        /// 只结一次掉落、且只结这一只怪的那一份。
+        /// </summary>
+        private static bool DropsGained(LootService loot, int[] itemIds, int[] before)
+        {
+            int[] now = CountItems(loot, itemIds);
+            for (int i = 0; i < itemIds.Length; i++)
+            {
+                int expected = 0;
+                for (int j = 0; j < itemIds.Length; j++)
+                {
+                    if (itemIds[j] == itemIds[i])
+                    {
+                        expected++;
+                    }
+                }
+
+                if (now[i] - before[i] != expected)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// ④ 绕到 <paramref name="target"/> 背后并按 F，直到**按键那一次**有了结果或超时（<see cref="XunyeApproachTimeoutSeconds"/>）。
+        /// 与 ② ③ 同一套走法：潜行键跟着「离任意一只巡逻怪的距离」同步（<see cref="SyncSneakKey"/>），
+        /// 每一步都不踩进任何一只的感知（<see cref="StepSafelyToward"/>，目标与路线起点按这只怪给）。
+        /// <list type="bullet">
+        /// <item>只在它**刚**进入停顿时动身（整段 5 秒停顿留给绕背）；它在玩家贴上去之前又走起来，就退回
+        /// <paramref name="staging"/> 等下一次（潜行 1.5 追不上巡逻 2.0，掉头时还会正面撞上）。</item>
+        /// <item>只在产品自己的位置判定（<c>IsBehindAndInRange</c>）成立、玩家在潜行、它没察觉时才按 F——
+        /// 否则按出来的是「不在背后 / 超距 / 已察觉」，测的就不是这一条了。</item>
+        /// </list>
+        /// 按 F 之前先读一次面板的判定（<see cref="ExecutionInteractor.Inspect"/>），与按键结果写进检查点文字。
+        /// </summary>
+        private IEnumerator ExecuteBehind(MonsterRules target, int targetIndex, Vector2 staging)
+        {
+            executePressed = false;
+            executeAllowed = false;
+            executeHintShown = false;
+            executeBehindHeld = false;
+            executeReason = ExecutionReject.None;
+            executeHintReason = ExecutionReject.None;
+            executeFocusEmpty = false;
+            IInteractionFocus focus = ResolveService<IInteractionFocus>();
+            bool seenPausing = target.Model.Mode == MonsterMode.PatrolPause;
+            bool armed = false;
+            float deadline = Time.realtimeSinceStartup + XunyeApproachTimeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline && !executePressed)
+            {
+                yield return SyncSneakKey();
+                MonsterModel model = target.Model;
+                bool pausing = model.Mode == MonsterMode.PatrolPause;
+                if (pausing && !seenPausing)
+                {
+                    armed = true;
+                }
+
+                seenPausing = pausing;
+                bool unaware = model.Mode == MonsterMode.PatrolWalk || pausing;
+                Vector2 behind = model.Position - model.Facing * BehindDistance;
+                if (player.IsSneaking && unaware
+                    && kernel.Assassination.IsBehindAndInRange(player.Position, model.Position, model.Facing))
+                {
+                    Input.ReleaseStick();
+                    executeBehindHeld = true;
+                    ExecutionHint hint = interactor.Inspect();
+                    executeHintShown |= hint.Allowed;
+                    executeHintReason = hint.Reject;
+                    executeFocusEmpty = focus != null && focus.Current == null;
+                    yield return Input.Press(inputService.Actions.Gameplay.Execute);
+                    if (interactor.LastVerdict.HasValue)
+                    {
+                        executePressed = true;
+                        executeAllowed = interactor.LastVerdict.Value.Allowed;
+                        executeReason = interactor.LastVerdict.Value.Reject;
+                        break;
+                    }
+
+                    yield return null;
+                    continue;
+                }
+
+                // 它在玩家贴上去之前走起来了：撤回候场点，等下一次「刚停步」。
+                if (model.Mode == MonsterMode.PatrolWalk && (player.Position - behind).magnitude > BehindDistance + 0.6f)
+                {
+                    armed = false;
+                }
+
+                if (!armed)
+                {
+                    StepSafelyToward(staging, false, targetIndex, staging);
+                    yield return null;
+                    continue;
+                }
+
+                bool atStaging = (player.Position - staging).magnitude <= LookoutCommitRadius;
+                StepSafelyToward(behind, atStaging, targetIndex, staging);
                 yield return null;
             }
 

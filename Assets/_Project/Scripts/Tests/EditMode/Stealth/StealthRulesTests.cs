@@ -733,13 +733,55 @@ namespace Game.Tests.EditMode.Stealth
             Assert.Throws<System.ArgumentOutOfRangeException>(() => ChaseCaughtRules.Resolve(in settings, 0));
         }
 
+        /// <summary>
+        /// 负生命、负被抓次数都拒绝。2026-10-14 判据变更：被抓次数的非法样本从 0 改为 -1——
+        /// 0 现在是合法口径「不按次数判死」（用户拍板「先击倒，没血才判死」），合法性由下一条单独钉住。
+        /// </summary>
         [Test]
         public void ChaseOutcomeSettings_InvalidNumbers_AreRejected()
         {
             Assert.Throws<System.ArgumentOutOfRangeException>(
                 () => new ChaseOutcomeSettings(ChaseCaughtPolicy.Death, -1, 2));
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => new ChaseOutcomeSettings(ChaseCaughtPolicy.Death, 3, 0));
+                () => new ChaseOutcomeSettings(ChaseCaughtPolicy.Death, 3, -1));
+        }
+
+        [Test]
+        public void ChaseOutcomeSettings_ZeroFailCount_IsAcceptedAsNotByCount()
+        {
+            var settings = new ChaseOutcomeSettings(ChaseCaughtPolicy.KnockdownThenDeath, 3, 0);
+
+            Assert.That(settings.FailAfterCaughtCount, Is.Zero);
+            Assert.That(settings.FailsByCaughtCount, Is.False);
+        }
+
+        /// <summary>
+        /// 次数为 0 时被抓多少次都只击倒（用户 2026-10-14 拍板「先击倒，没血才判死」）：
+        /// 第 1、2、10 次被抓、只要还有血 → 击倒、不判死、不写 chase.caught 终局。
+        /// </summary>
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(9)]
+        public void Resolve_KnockdownThenDeath_ZeroFailCount_RepeatedCaughtStaysKnockdown(int caughtSoFar)
+        {
+            var settings = new ChaseOutcomeSettings(ChaseCaughtPolicy.KnockdownThenDeath, 1, 0);
+
+            ChaseOutcome outcome = ChaseCaughtRules.Resolve(in settings, caughtSoFar);
+
+            Assert.That(outcome.IsFailure, Is.False);
+            Assert.That(outcome.EntersKnockdown, Is.True);
+        }
+
+        /// <summary>次数为 0 时只看血量：没血了，第一次被抓也判死。</summary>
+        [Test]
+        public void Resolve_KnockdownThenDeath_ZeroFailCount_NoHealthIsFailure()
+        {
+            var settings = new ChaseOutcomeSettings(ChaseCaughtPolicy.KnockdownThenDeath, 0, 0);
+
+            ChaseOutcome outcome = ChaseCaughtRules.Resolve(in settings, 0);
+
+            Assert.That(outcome.IsFailure, Is.True);
+            Assert.That(outcome.FactKey, Is.EqualTo("chase.caught"));
         }
     }
 
@@ -1302,10 +1344,21 @@ namespace Game.Tests.EditMode.Stealth
             Assert.That(Validate(3.6f, -1, 3, 2), Does.Contain("档位阈值"));
         }
 
+        /// <summary>
+        /// 被抓次数为负才是配置错误。2026-10-14 判据变更：此前 0 也报错；用户拍板「先击倒，没血才判死」后
+        /// 0 = 不按次数判死，是合法口径（见下一条），所以这里的非法样本从 0 改成 -1——负数仍然必须报出来。
+        /// </summary>
         [Test]
-        public void Validate_InvalidFailCount_IsReported()
+        public void Validate_NegativeFailCount_IsReported()
         {
-            Assert.That(Validate(3.6f, 1, 3, 0), Does.Contain("被抓次数"));
+            Assert.That(Validate(3.6f, 1, 3, -1), Does.Contain("被抓次数"));
+        }
+
+        /// <summary>0 = 不按次数判死（用户 2026-10-14 拍板），校验放行。</summary>
+        [Test]
+        public void Validate_ZeroFailCount_MeansNotByCount_Passes()
+        {
+            Assert.That(Validate(3.6f, 1, 3, 0), Is.Null);
         }
 
         private string Validate(float chaseSpeed, int lowMax, int midMax, int failCount) =>
@@ -1354,6 +1407,34 @@ namespace Game.Tests.EditMode.Stealth
         {
             // 负对照：静默用默认值会让策划改的资产不生效。
             Assert.Throws<System.ArgumentNullException>(() => new StealthKernel(null));
+        }
+
+        /// <summary>
+        /// 新建的 <see cref="StealthConfig"/>（= 代码默认值，也是策划新开一份资产时继承到的值）必须是
+        /// 「不按次数判死」：用户 2026-10-14 拍板「先击倒，没血才判死」。
+        /// <para>
+        /// 2026-10-16 代码审查指出的问题：代码默认值一度还是占位 2（第 2 次被抓判死）——资产填了 0 所以现场安全，
+        /// 但任何**新建的配置**都会悄悄继承那个被推翻的口径。这条用例钉住代码默认值本身，
+        /// 与 <c>SampleSceneCombatWiringTests.StealthConfig_CaughtKnocksDownFirst_AndNeverFailsByCount</c>
+        /// （钉资产现值）配成一对：两边任一漂走都会红。
+        /// </para>
+        /// </summary>
+        [Test]
+        public void CodeDefaults_DoNotFailByCaughtCount()
+        {
+            var config = ScriptableObject.CreateInstance<StealthConfig>();
+            try
+            {
+                Assert.That(config.ChaseOutcome.Policy, Is.EqualTo(ChaseCaughtPolicy.KnockdownThenDeath),
+                    "代码默认口径 = 先击倒、血尽才死");
+                Assert.That(config.ChaseOutcome.FailAfterCaughtCount, Is.EqualTo(0),
+                    "代码默认次数 = 0（不按次数判死），与资产现值同口径");
+                Assert.That(config.ChaseOutcome.FailsByCaughtCount, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
         }
 
         [Test]

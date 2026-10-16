@@ -31,6 +31,11 @@ namespace Game.Narrative
 
         public string TargetId => targetId;
         public string TargetKind => targetKind;
+        /// <summary>
+        /// 交互半径：<see cref="InteractAsync"/> 的距离守卫（玩家锚点到本物体超过它就不受理）。
+        /// 只读；Battle 的 BOSS 发难（BossAggro）据它取一个「碰到了」的安全距离，保证自己发起的交互不被这道守卫挡掉。
+        /// </summary>
+        public float Radius => radius;
         /// <summary>交互键 / 交互提示是否已经经同物体的 DialogueInteractable 转交到本组件。</summary>
         public bool HasFocusEntry => focusEntry != null;
         internal CancellationToken LifetimeToken => lifetime == null ? CancellationToken.None : lifetime.Token;

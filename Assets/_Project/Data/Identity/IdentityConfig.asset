@@ -23,6 +23,8 @@ MonoBehaviour:
     exposureLockoutSeconds: 0
     exposureChaseDurationSeconds: 0
     exposureDeathDelaySeconds: 0
+    exposureOutcome: 2
+    identityLossCauses: 63
     suspicionLowThreshold: 1
     suspicionMidThreshold: 34
     suspicionHighThreshold: 67

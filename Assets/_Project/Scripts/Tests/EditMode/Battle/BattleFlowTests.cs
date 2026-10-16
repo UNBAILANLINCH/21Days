@@ -1,5 +1,7 @@
 // 职责：钉住 BattleFlow 的编排——按 payload 查 BOSS（查不到报错不开仗）、胜 / 负各用正确出口键回写、
-//   暂停令牌 / Gameplay 输入图 / HUD 层 / 自动存档抑制在正常结束、异常、取消三条路上都回到进来前、
+//   暂停令牌 / Gameplay 输入图 / HUD 层 / 自动存档抑制在正常结束、异常两条路上都回到进来前；
+//   作用域销毁（BattleFlow.Dispose）那一路只交还暂停与在途登记、不碰 UI / 输入（2026-10-15 W6a 补修：那时它们也在销毁，
+//   可能已先一步释放，再调会抛 ObjectDisposedException）、
 //   场景缺失与表现缺失报错不吞、旧身份不开仗、战斗里用道具扣背包、剧情回写在收场黑幕下（恢复世界之后、揭幕之前）完成，
 //   回写被拒 / 抛异常 / 迟迟不落定都照样揭幕；开战失败时也先恢复世界再揭幕；门闸未开时换了身份的通知顶掉旧请求；
 //   回放测试口换过数值时开打留 W 级埋点。每条都配负对照。
@@ -212,8 +214,14 @@ namespace Game.Tests.EditMode.Battle
             Assert.That(curtain.IsCovered, Is.False, "不留黑屏");
         }
 
+        /// <summary>
+        /// 作用域销毁（退出游戏 / 退出 Play）= 取消：交还暂停令牌、放弃在途登记、表现照样收场、不留黑屏，
+        /// 但**不再去还原 HUD 层与 Gameplay 图**——UI / 输入服务随同一作用域销毁，世界本身也在销毁，没有可还原的对象
+        /// （2026-10-15 规格变更，PRP/combat-iteration W6a 补修，用户同意：原先这一路断言「HUD / 输入回到进来前」，
+        /// 实机上那一刻 UI 服务常已释放，SetLayerVisible 抛 ObjectDisposedException）。正常 / 出错收场仍逐项还原（上两条）。
+        /// </summary>
         [Test]
-        public void Cancelled_WhileWaitingForCommand_RestoresWorldAndReleases()
+        public void Cancelled_ByScopeDisposal_ReleasesPauseAndBattle_LeavesUiAndInputAlone()
         {
             Build(VictorySettings());
             presenter.BlockOnCommand = true;
@@ -222,13 +230,44 @@ namespace Game.Tests.EditMode.Battle
             Assert.That(flow.IsBattleEngaged, Is.True, "前置：停在等玩家出招");
             Assert.That(pause.IsPaused, Is.True);
             Assert.That(narrative.Holding, Is.True);
+            int layerCallsBefore = ui.LayerCalls;
 
-            flow.Dispose(); // 作用域销毁（退出游戏 / 退出 Play）= 取消
+            flow.Dispose();
 
             Assert.That(narrative.Completed, Is.Empty);
             Assert.That(narrative.ReleaseCalls, Is.EqualTo(1));
-            AssertWorldRestored(gameplayEnabled: true, hudVisible: true);
+            Assert.That(narrative.Holding, Is.False, "自动存档不再被压住");
+            Assert.That(pause.IsPaused, Is.False, "暂停令牌已交还");
+            Assert.That(ui.LayerCalls, Is.EqualTo(layerCallsBefore), "销毁那一刻起不再碰 UI 层");
+            Assert.That(input.Actions.Gameplay.enabled, Is.False, "输入图不还原（输入服务随作用域一起销毁）");
             Assert.That(presenter.Closes, Is.EqualTo(1));
+            Assert.That(curtain.IsCovered, Is.False, "不留黑屏");
+            Assert.That(flow.IsBattleRunning, Is.False);
+        }
+
+        /// <summary>
+        /// 实机的那一种释放顺序：UI 服务先一步释放（之后一调就抛 ObjectDisposedException），再销毁 BattleFlow。
+        /// 收场不抛、不记 battle_failed（Error 日志会让本用例失败）、不再调 UI；暂停令牌与在途登记照样交还。
+        /// </summary>
+        [Test]
+        public void Cancelled_AfterUiServiceDisposed_TearsDownWithoutThrowingOrTouchingUi()
+        {
+            ITelemetryScope telemetry = RecordTelemetry();
+            Build(VictorySettings(), telemetry: telemetry);
+            presenter.BlockOnCommand = true;
+            bus.Publish(Stage(BossId));
+            Assert.That(flow.IsBattleEngaged, Is.True, "前置：停在等玩家出招");
+            ui.SimulateDisposed();
+            int layerCallsBefore = ui.LayerCalls;
+
+            Assert.DoesNotThrow(() => flow.Dispose());
+
+            Assert.That(ui.LayerCalls, Is.EqualTo(layerCallsBefore), "UI 服务已销毁：收场一次都没再调它");
+            Assert.That(pause.IsPaused, Is.False, "暂停令牌已交还");
+            Assert.That(narrative.ReleaseCalls, Is.EqualTo(1), "放弃在途登记");
+            Assert.That(narrative.Completed, Is.Empty, "没打完不回写");
+            Assert.That(LinesContaining("battle/battle_failed"), Is.Zero, "收场没出错");
+            Assert.That(LinesContaining("battle/battle_cancelled"), Is.EqualTo(1), "记的是取消");
             Assert.That(flow.IsBattleRunning, Is.False);
         }
 
@@ -617,12 +656,12 @@ namespace Game.Tests.EditMode.Battle
         private static StageEvent NextGeneration(in StageEvent stage) =>
             new StageEvent(stage.Generation + 1, stage.ActivationId, stage.TargetId, stage.StageId, stage.Payload);
 
-        // 胜：BOSS 1 血（招式 1 打 1 就倒）。负：BOSS 100 血，只放招式 1、一下 10 点（本场玩家生命占位 10，一下倒）。醉酒 0 → 不跳过、不抽随机数。
+        // 胜：BOSS 1 血（玩家招式 1 打 18，sp07:139，一下就倒）。负：BOSS 100 血，只放招式 1、一下 120 点（= 本场玩家生命，一下倒）。醉酒 0 → 不跳过、不抽随机数。
         private static int BossHealth(in BattleSettings settings) => settings.BossSkills.Skill1Damage >= 10 ? 100 : 1;
 
         private static BattleSettings VictorySettings() => WithBossSkills(new BossSkillSettings(1, 30, 10, HealthPercentBase.MaxHealth, 30, 3, 1, 1, 0, 0));
 
-        private static BattleSettings DefeatSettings() => WithBossSkills(new BossSkillSettings(10, 30, 10, HealthPercentBase.MaxHealth, 30, 3, 1, 1, 0, 0));
+        private static BattleSettings DefeatSettings() => WithBossSkills(new BossSkillSettings(120, 30, 10, HealthPercentBase.MaxHealth, 30, 3, 1, 1, 0, 0));
 
         private static BattleSettings WithBossSkills(in BossSkillSettings boss)
         {

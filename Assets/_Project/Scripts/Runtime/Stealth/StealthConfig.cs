@@ -104,8 +104,9 @@ namespace Game.Stealth
                  "出处 04:108-112 R26/R27 与 00 §5 C1，等 00 §8.1 #3 / #4；占位 5。")]
         [SerializeField] private ChaseCaughtPolicy chaseCaughtPolicy = ChaseCaughtPolicy.KnockdownThenDeath;
 
-        [Tooltip("同一个追逐里被抓几次算最终失败。原文没写，等 00 §8.1 #4。占位 2。")]
-        [SerializeField] private int chaseCaughtFailCount = 2;
+        [Tooltip("同一个追逐里被抓几次算最终失败。0 = 不按次数判死（只在「先击倒血尽才死」口径下有意义：没血才死，" +
+                 "用户 2026-10-14 拍板）。原文没写，等 00 §8.1 #4。代码默认 0 = 与资产现值同一口径。")]
+        [SerializeField] private int chaseCaughtFailCount = 0;
 
         [Header("编队与召唤（巡逻队）")]
         [Tooltip("召唤半径。出处 04:26/04:30（龙族、都统在玩家周围召唤巡逻队）；半径原文没写，等 04:196 Q10。占位 8。")]

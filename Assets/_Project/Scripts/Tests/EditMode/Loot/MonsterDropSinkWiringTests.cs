@@ -33,8 +33,15 @@ namespace Game.Tests.EditMode.Loot
     /// </summary>
     public sealed class MonsterDropSinkWiringTests
     {
-        /// <summary>真表里 `monster_species` 第一条是 1001（巡夜人）→ `yao_id` 1 → 掉落 `[1101 普通皮]`。</summary>
-        private const int FirstSpeciesYaoId = 1;
+        /// <summary>
+        /// 主怪种类：1002（井边妇人，killable = true）→ `yao_id` 2 → 掉落 `[1101 普通皮]`。
+        /// 原先不设种类（0 = 取真表第一条 1001 巡夜人）；2026-10-15 用户拍板巡夜人改为「只能暗杀」（killable = false，
+        /// 常规伤害拒伤），这里要的是「能被常规击杀打死」的怪，指名换成井边妇人，断言语义不变。
+        /// </summary>
+        private const int KillableKindId = 1002;
+
+        /// <summary><see cref="KillableKindId"/> 指向的妖物 id（`monster_species/1002.json` 的 `yao_id`）。</summary>
+        private const int KillableSpeciesYaoId = 2;
         private const int CommonSkin = 1101;
 
         private GameObject host;
@@ -92,10 +99,10 @@ namespace Game.Tests.EditMode.Loot
             Assert.That(sink.Drops, Has.Count.EqualTo(1),
                 "主怪死亡必须结算一次掉落——`MonsterInstaller` 的构建回调没把 `IMonsterDropSink` 绑进来的话，"
                 + "这条会静默地一条都不掉（编译不报、单测不报、回放也看不出）");
-            Assert.That(sink.Drops[0].Yao, Is.EqualTo(FirstSpeciesYaoId),
-                "种类 id 传 0 时 `MonsterRules.Reset` 取真表第一条（1001 巡夜人）→ yao 1");
+            Assert.That(sink.Drops[0].Yao, Is.EqualTo(KillableSpeciesYaoId),
+                "种类 1002（井边妇人）→ yao 2");
             Assert.That(sink.Drops[0].Items, Is.EqualTo(new[] { CommonSkin }),
-                "掉落内容就是 tbyao 那一行的 `drop_items`（yao 1 = [1101 普通皮]）");
+                "掉落内容就是 tbyao 那一行的 `drop_items`（yao 2 = [1101 普通皮]）");
         }
 
         /// <summary>
@@ -130,6 +137,9 @@ namespace Game.Tests.EditMode.Loot
             host = new GameObject("GameBootstrap(掉落接线测试)");
             MonsterInstaller monster = host.AddComponent<MonsterInstaller>();
             AttachConfig(monster, monsterConfig);
+            var installerFields = new SerializedObject(monster);
+            installerFields.FindProperty("kindId").intValue = KillableKindId;
+            installerFields.ApplyModifiedPropertiesWithoutUndo();
 
             var builder = new ContainerBuilder();
             // 这一行就是本文件的主角：注册成**接口**，MonsterInstaller 才 TryResolve 得到。
@@ -173,7 +183,7 @@ namespace Game.Tests.EditMode.Loot
             var damage = new DamageIntent(monsterConfig.ResolveMaxHealth(monster.Kind));
             var attacker = new PlayerSnapshot(Vector2.zero, Vector2.right, false, false, 3);
             Assert.That(monster.ApplyDamage(in damage, in attacker), Is.True,
-                "前置：真表第一条种类要能被常规击杀打死（种类 1001 的 killable 为 true、生命为正）");
+                "前置：主怪种类要能被常规击杀打死（种类 1002 的 killable 为 true、生命为正）");
         }
 
         private static void Tick(EncounterStep step, float deltaTime)

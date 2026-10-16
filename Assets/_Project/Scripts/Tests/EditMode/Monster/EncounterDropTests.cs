@@ -8,7 +8,9 @@
 //   不自造假种类。原因（2026-10-08 修一处编译错误时定的）：`MonsterKind` 是 `sealed` 的
 //   **构造后不再变的只读视图**（见它的类文档），跨表三列留的口是「`yaoCatalog` 传 null 时降级成空」，
 //   **不是「可以子类化」的口**；为了造几个掉落 id 去摘 `sealed`（或给它加 `virtual`）＝为测试放宽已定契约。
-//   真表现在恰好有带掉落的种类（种类 1001 巡夜人 → 妖 1 → `drop_items`），用它比假种类更能说明问题。
+//   真表现在恰好有带掉落、又能被常规击杀的种类（种类 1002 井边妇人 → 妖 2 → `drop_items`），用它比假种类更能说明问题。
+//   （原用种类 1001 巡夜人；2026-10-15 用户拍板巡夜人改为「只能暗杀」（killable = false，常规伤害拒伤），
+//   这里要的是「能被常规击杀打死」的怪，换成井边妇人，断言语义不变。）
 // 不依赖 Unity 场景与 Addressables。
 using System.Collections.Generic;
 using Game.Core.Config;
@@ -26,14 +28,14 @@ namespace Game.Tests.EditMode.Monster
     /// <summary>击杀掉落的调用侧（`EncounterStep`）。</summary>
     public sealed class EncounterDropTests
     {
-        /// <summary>种类 id 1001「巡夜人」。与 `Tables/Data/monster_species/1001.json` 一致，改表要同步改这里。</summary>
-        private const int NightWatchmanKindId = 1001;
+        /// <summary>种类 id 1002「井边妇人」（killable = true）。与 `Tables/Data/monster_species/1002.json` 一致，改表要同步改这里。</summary>
+        private const int WellWomanKindId = 1002;
 
-        /// <summary>它指向的妖物 id（`Tables/Data/monster_species/1001.json` 的 `yao_id`）。</summary>
-        private const int NightWatchmanYaoId = 1;
+        /// <summary>它指向的妖物 id（`Tables/Data/monster_species/1002.json` 的 `yao_id`）。</summary>
+        private const int WellWomanYaoId = 2;
 
-        /// <summary>`Tables/Data/yao/1.json` 的 `drop_items`；改表要同步改这里（同 `MonsterKindCatalogTests` 的口径）。</summary>
-        private static readonly int[] NightWatchmanDrops = { 1101 };
+        /// <summary>`Tables/Data/yao/2.json` 的 `drop_items`；改表要同步改这里（同 `MonsterKindCatalogTests` 的口径）。</summary>
+        private static readonly int[] WellWomanDrops = { 1101 };
 
         private global::cfg.Tables tables;
         private PlayerConfig playerConfig;
@@ -48,8 +50,8 @@ namespace Game.Tests.EditMode.Monster
             playerConfig = ScriptableObject.CreateInstance<PlayerConfig>();
             monsterConfig = ScriptableObject.CreateInstance<MonsterConfig>();
             catalog = new MonsterKindCatalog(configService, new YaoCatalog(configService), monsterConfig.HostileRadius);
-            Assert.That(catalog.TryGet(NightWatchmanKindId, out _), Is.True,
-                $"真表里应有种类 {NightWatchmanKindId} 且它指向的妖有 drop_items——本文件的用例要它才有东西可掉");
+            Assert.That(catalog.TryGet(WellWomanKindId, out _), Is.True,
+                $"真表里应有种类 {WellWomanKindId} 且它指向的妖有 drop_items——本文件的用例要它才有东西可掉");
         }
 
         [TearDown]
@@ -88,8 +90,8 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(rig.Step.SettleKillDropOnce(), Is.True);
 
             Assert.That(sink.Drops, Has.Count.EqualTo(1), "只结一次");
-            Assert.That(sink.Drops[0].Yao, Is.EqualTo(NightWatchmanYaoId));
-            Assert.That(sink.Drops[0].Items, Is.EqualTo(NightWatchmanDrops));
+            Assert.That(sink.Drops[0].Yao, Is.EqualTo(WellWomanYaoId));
+            Assert.That(sink.Drops[0].Items, Is.EqualTo(WellWomanDrops));
         }
 
         /// <summary>**一只怪只结一次**：重复调用第二次起返回 false，外部口没被再调一次（掉落不会翻倍）。</summary>
@@ -170,7 +172,7 @@ namespace Game.Tests.EditMode.Monster
             Tick(rig, 0.1f);
 
             Assert.That(sink.Drops, Has.Count.EqualTo(1), "死亡分支自己结了一次");
-            Assert.That(sink.Drops[0].Yao, Is.EqualTo(NightWatchmanYaoId));
+            Assert.That(sink.Drops[0].Yao, Is.EqualTo(WellWomanYaoId));
         }
 
         /// <summary>同上但负对照：装了 sink、怪没死 → 走几个 tick 一次都不结。</summary>
@@ -197,7 +199,7 @@ namespace Game.Tests.EditMode.Monster
         public void WithRealTables_PassesYaoIdAndDropItemsFromTheYaoRow()
         {
             var yao = new YaoCatalog(new StubConfigService(tables));
-            global::cfg.yao.Yao row = yao.Get(NightWatchmanYaoId);
+            global::cfg.yao.Yao row = yao.Get(WellWomanYaoId);
 
             Rig rig = NewRig(out RecordingDropSink sink);
             rig.Step.BindDropSink(sink);
@@ -223,13 +225,13 @@ namespace Game.Tests.EditMode.Monster
         /// <summary>
         /// 造一场最小遭遇。
         /// <para>
-        /// <paramref name="withKind"/> 为真（默认）时接**真表目录**，`Reset` 会查到种类 1001；
+        /// <paramref name="withKind"/> 为真（默认）时接**真表目录**，`Reset` 会查到种类 1002；
         /// 为假时**一个目录都不传** → `MonsterRules.kindCatalog == null` → `ResolveKind` 直接返回、
         /// `Kind` 恒为 null（表没就绪那一支，见 <see cref="WithoutKind_SkipsDropInsteadOfGuessing"/>）。
         /// </para>
         /// <para>
         /// ⚠️ 这里**不能**写成 `kindCatalog ?? catalog`（2026-10-08 主窗口复跑抓到过）：那样「传 null」会被
-        /// 悄悄兜回真表目录，`Kind` 照样解析成 1001，于是「没有种类」那条用例的前提根本不成立——
+        /// 悄悄兜回真表目录，`Kind` 照样解析成真表种类，于是「没有种类」那条用例的前提根本不成立——
         /// 而它的全部价值就在「表没就绪时不猜 id」。夹具的开关必须**真的能关掉**那个输入。
         /// </para>
         /// <para>种类是在 <see cref="EncounterStep.Begin"/> 的 `Reset` 里查的，所以断言要放在 `Begin` 之后。</para>
@@ -244,7 +246,7 @@ namespace Game.Tests.EditMode.Monster
             };
             rig.PlayerRules = new PlayerRules(playerConfig, rig.PlayerModel, NullTelemetryScope.Instance);
             rig.Monster = new MonsterRules(monsterConfig, rig.MonsterModel, new RandomService(5ul), NullTelemetryScope.Instance,
-                kind: null, kindCatalog: withKind ? catalog : null, kindId: NightWatchmanKindId);
+                kind: null, kindCatalog: withKind ? catalog : null, kindId: WellWomanKindId);
             rig.Step = new EncounterStep(rig.PlayerRules, rig.Monster);
             rig.Step.Begin(Vector2.zero, new[] { Vector2.zero, new Vector2(10f, 0f) });
             return rig;
@@ -267,7 +269,7 @@ namespace Game.Tests.EditMode.Monster
             var damage = new DamageIntent(monsterConfig.ResolveMaxHealth(rig.Monster.Kind));
             var attacker = new PlayerSnapshot(Vector2.zero, Vector2.right, false, false, 3);
             Assert.That(rig.Monster.ApplyDamage(in damage, in attacker), Is.True,
-                "前置：这只怪要能被常规击杀打死（真表里种类 1001 的 killable 为 true，且生命为正）");
+                "前置：这只怪要能被常规击杀打死（真表里种类 1002 的 killable 为 true，且生命为正）");
         }
 
         private static void Tick(Rig rig, float deltaTime)
@@ -277,8 +279,11 @@ namespace Game.Tests.EditMode.Monster
             rig.Step.Step(in context);
         }
 
-        /// <summary>收集型掉落口：只记调用，不做任何结算（实现方在 Game.Loot，本文件不测它）。</summary>
-        private sealed class RecordingDropSink : IMonsterDropSink
+        /// <summary>
+        /// 收集型掉落口：只记调用，不做任何结算（实现方在 Game.Loot，本文件不测它）。
+        /// <c>internal</c> 而不是 <c>private</c>：`EncounterMultiKindTests`（一场遭遇多种怪的按 id 掉落）复用同一个假对象，不另起一套。
+        /// </summary>
+        internal sealed class RecordingDropSink : IMonsterDropSink
         {
             public List<(int Yao, int[] Items)> Drops { get; } = new List<(int, int[])>();
 

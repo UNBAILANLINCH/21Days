@@ -20,8 +20,20 @@
 //   · **没有视线，按距离判**：纸片 NPC 的旋转是朝向相机的（`CameraBillboard`），不是它的视线，
 //     所以只比半径（理由写在 `SenseLevel` 上）。
 //   · **不查种类表**：用 `MonsterConfig` 的全局值，不按怪物种类解析。boss 的感知数值属于 C90 / C91 的内容范围。
-//   · **BOSS 不主动开战**：本组件只回答「局势是什么样」，不产生任何副作用、不推进状态（契约要求只读）。
-//     「boss 主动攻击玩家」那条（07 的第三种进入方式）需要 boss 自己的状态机，本波不做。
+//   · **只回答局势，不产生副作用**（契约要求只读）：本组件不推进任何状态、不移动 BOSS、不发起交互。
+//
+// 2026-10-14（PRP/combat-iteration D6「BOSS 主动发难」）：
+//   · **开战理由（谁先动手）改为可设置**：默认「玩家先动手」= 原来写死的值；由同物体上的 `BossAggro`
+//     （BOSS 自己的发难状态机）在冲到玩家跟前那一刻置为「BOSS 先动手」、战后 `ResetInitiator` 复位。
+//     本组件仍只回答局势——「谁先动的手」是发难组件告诉它的事实，它照实转述，自己不判断、不推进。
+//   · **逻辑平面投影**（同一波修的既有缺口）：原先直接取 `transform.position` 的 (x, y) 当逻辑位置，
+//     而世界场景是 XZ 平面（`EncounterSceneView.useXZPlane`，SampleScene 里为真）——y 是**高度**。
+//     BOSS 站着不动时只是把距离算歪（当时 `Npc_SampleBoss` 在 z 8.4、高 4.89，正南 1.4 米处被算成 2.11 米），
+//     BOSS 一冲起来高度不变、z 在变，档位就完全对不上了。现在由场景绑定（`BossAggroSceneBinder`）交一份
+//     同场景的 `EncounterSceneView` 来投影（与 `MirrorSceneBinder` 同一口径：全工程只有它一处投影约定）；
+//     没交时退回 (x, y)，与改之前逐字一致。
+//     注：那只 BOSS 2026-10-16 已从 (-4.2, 8.4) 挪到 (-4, -8)（w7-plan.md 的选址），上面那组数字是当时量到的现场值，
+//     留着说明「为什么必须投影」；坐标本身不再是现状。
 using System;
 using Game.Core.Logging;
 using Game.Core.Telemetry;
@@ -47,8 +59,12 @@ namespace Game.Battle
 
         private MonsterConfig monsterConfig;
         private PlayerModel player;
+        private EncounterSceneView projection;
         private ITelemetryScope telemetry = NullTelemetryScope.Instance;
         private bool warned;
+
+        // 谁先动的手（07:18、:28）。运行时状态、不序列化：默认「玩家先动手」= 加这个字段之前写死的值。
+        private BattleInitiator initiator = BattleInitiator.PlayerAttacked;
 
         /// <summary>这一份局势对应的 BOSS id（空 = 通配，见字段 Tooltip）。</summary>
         public string BossId => bossId ?? string.Empty;
@@ -74,6 +90,24 @@ namespace Game.Battle
 
         /// <summary>接入埋点（本类只埋一条「缺配置」的 Warn，后置装配的理由同 `EncounterBattleBridge`）。</summary>
         public void UseTelemetry(ITelemetryScope scope) => telemetry = scope ?? NullTelemetryScope.Instance;
+
+        /// <summary>
+        /// 接入逻辑平面投影（场景坐标 → 逻辑 XY，由 <see cref="EncounterSceneView.ToLogicPosition"/> 决定 XZ / XY）。
+        /// 由 `BossAggroSceneBinder` 在场景加载时交同场景那一份；传 null 或没交 = 按 (x, y) 取（改之前的行为）。
+        /// 只换算、不改任何状态，重复调用幂等。
+        /// </summary>
+        public void UseProjection(EncounterSceneView view) => projection = view;
+
+        /// <summary>BOSS 此刻在逻辑平面上的位置（判档位用的那个点）。</summary>
+        public Vector2 LogicPosition
+        {
+            get
+            {
+                Vector3 world = transform.position;
+                // EncounterSceneView 是 UnityEngine.Object，判空只用 !=（场景卸载后成伪空，自动退回 (x, y)）。
+                return projection != null ? projection.ToLogicPosition(world) : new Vector2(world.x, world.y);
+            }
+        }
 
         /// <summary>本组件此刻是否回答了局势（没配 `MonsterConfig` 或没接玩家时为 false）。</summary>
         public bool IsReady => monsterConfig != null && player != null;
@@ -107,10 +141,19 @@ namespace Game.Battle
         public bool MonsterAware => SenseLevel() > 0;
 
         /// <summary>
-        /// 谁先动的手（07:18、:28）。本组件只认玩家这一侧：
-        /// BOSS 主动攻击玩家那条路（被打）需要 BOSS 自己的状态机，本波不做，所以永远回 <c>PlayerAttacked</c>。
+        /// 谁先动的手（07:18、:28）。默认 <c>PlayerAttacked</c>（按 E 挑战 = 正面攻击，玩家先手）；
+        /// BOSS 主动冲上来碰到玩家时由 `BossAggro` 置为 <c>BossAttacked</c>（被打，BOSS 先手），战后复位。
+        /// 本组件只转述这个事实，不自己判断（见文件头 2026-10-14）。
         /// </summary>
-        public BattleInitiator Initiator => BattleInitiator.PlayerAttacked;
+        public BattleInitiator Initiator => initiator;
+
+        /// <summary>
+        /// 记下「这一次是谁先动的手」（发难组件在接触那一刻调）。只影响**之后**开仗时读到的局势快照，不推进任何状态。
+        /// </summary>
+        public void SetInitiator(BattleInitiator value) => initiator = value;
+
+        /// <summary>开战理由复位为默认的「玩家先动手」（战后 / 发难作废时调）；幂等。</summary>
+        public void ResetInitiator() => initiator = BattleInitiator.PlayerAttacked;
 
         /// <summary>战斗侧判「局势快照」用的档位（`EncounterStep` 用怪物模式反推，这里用感知结果）。</summary>
         public MonsterAlertState MonsterState => SenseLevel() switch
@@ -140,8 +183,7 @@ namespace Game.Battle
             }
 
             PlayerSnapshot target = player.Snapshot;
-            Vector2 from = transform.position;
-            return MonsterRules.SenseFrom(monsterConfig, null, new Vector2(from.x, from.y), Vector2.zero, in target);
+            return MonsterRules.SenseFrom(monsterConfig, null, LogicPosition, Vector2.zero, in target);
         }
 
         private void WarnOnce()

@@ -62,9 +62,10 @@ namespace Game.Stealth
                 return "巡逻队规模必须满足 0 < 下限 <= 上限";
             }
 
-            if (failAfterCaughtCount <= 0)
+            // 0 合法 = 不按次数判死、只看血量（用户 2026-10-14 拍板「先击倒，没血才判死」，PRP/combat-iteration D4）。
+            if (failAfterCaughtCount < 0)
             {
-                return "失败所需被抓次数必须为正数";
+                return "失败所需被抓次数不可为负（0 = 不按次数判死）";
             }
 
             if (chase.LoseSightGraceSeconds <= 0f)

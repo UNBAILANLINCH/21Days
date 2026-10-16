@@ -15,7 +15,25 @@ MonoBehaviour:
   bosses:
   - id: sample_boss
     displayName: "\u9636\u6BB5\u4E00 BOSS\uFF08\u5360\u4F4D\uFF09"
-    maxHealth: 12
+    maxHealth: 220
     outOfBattleDrunk: 50
-    playerHealth: 10
+    playerHealth: 120
     stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    monsterKindId: 0
+    aggroEnabled: 1
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0
+  - id: monster_1003
+    displayName: "\u5E02\u4EE4"
+    maxHealth: 6
+    outOfBattleDrunk: 0
+    playerHealth: 120
+    stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    monsterKindId: 1003
+    aggroEnabled: 0
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0

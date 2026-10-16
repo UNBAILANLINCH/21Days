@@ -78,8 +78,15 @@ namespace Game.Session
         /// <summary>
         /// 终局已出且未被消费。只看 <c>PendingResult != None</c> 不够：消费后结果值会一直留到下一场战斗，
         /// 那样整段战后探索都存不了档；判法与 <c>EncounterStep.Step</c> 的冻结条件一致。
+        /// <para>
+        /// 2026-10-14（PRP/combat-iteration D5）并入「实时遭遇升级回合制在途」（<see cref="EncounterStep.IsEscalating"/>）：
+        /// 用户拍板「战中不可存档」。升级那一路不经剧情的 <c>TryBeginBattle</c>，<c>NarrativeStable</c> 挡不住它，
+        /// 所以经这里进同一道 <c>SaveGateRules</c> 闸门（session-module-guide :139：不另开存档通道）。
+        /// 在途条件与 <c>EncounterStep.Step</c> 的早退条件也是同一个。
+        /// </para>
         /// </summary>
-        public bool BattleResultPending => step.PendingResult != EncounterStep.Result.None && !step.ResultConsumed;
+        public bool BattleResultPending =>
+            (step.PendingResult != EncounterStep.Result.None && !step.ResultConsumed) || step.IsEscalating;
 
         public void CaptureEncounter(long tick)
         {

@@ -132,9 +132,9 @@ namespace Game.Tests.EditMode.Stealth
 
         /// <summary>
         /// PRP §3.2（2026-10-07 扩成两半）：**用当前真表数据**把门槛的两侧各钉一条——
-        /// ① `killable = true` + `defeat_method = 可击杀（方式没写）` 的怪（巡夜人 / 井边妇人）**不能**被处决，
+        /// ① `killable = true` + `defeat_method = 可击杀（方式没写）` 的怪（井边妇人）**不能**被处决，
         ///    否则绕背变成万能解；
-        /// ② `killable = false` + `defeat_method = 暗杀` 的怪（市令）**必须**能被处决——这条是「处决在当前内容里
+        /// ② `killable = false` + `defeat_method = 暗杀` 的怪（市令、巡夜人）**必须**能被处决——这条是「处决在当前内容里
         ///    真的可达」的正面证据：在它入库之前，真表里一只可处决的怪都没有，那一半只能靠手搓数据测。
         /// 走「真表字节 → 配置服务 → 妖物表 / 种类表」这条真链路，不手搓字符串。
         /// </summary>
@@ -149,7 +149,7 @@ namespace Game.Tests.EditMode.Stealth
 
                 Assert.That(kinds.Count, Is.GreaterThanOrEqualTo(3), "当前表里的种类条数（巡夜人 / 井边妇人 / 市令）");
 
-                int executableKinds = 0;
+                var executableKindIds = new System.Collections.Generic.List<int>();
                 for (int i = 0; i < kinds.All.Count; i++)
                 {
                     MonsterKind kind = kinds.All[i];
@@ -171,7 +171,7 @@ namespace Game.Tests.EditMode.Stealth
 
                         if (speciesExecutable)
                         {
-                            executableKinds++;
+                            executableKindIds.Add(kind.KindId);
                         }
                     }
 
@@ -189,8 +189,10 @@ namespace Game.Tests.EditMode.Stealth
                         $"{kind.Name} 的拒绝原因");
                 }
 
-                Assert.That(executableKinds, Is.EqualTo(1),
-                    "真表里恰有一只只能暗杀的怪（市令）——处决在内容上可达；增删这类怪要同步这条断言");
+                // 原为「恰有一只（市令）」；2026-10-15 用户拍板巡夜人改为「只能暗杀」（yao/1.json：killable = false + 暗杀，
+                // PRP/combat-iteration W6a 补修），于是是两只。只在 killable = false 那一支里计数，两只都不能被常规打死。
+                Assert.That(executableKindIds, Is.EquivalentTo(new[] { 1001, 1003 }),
+                    "真表里只能暗杀的怪恰是巡夜人（1001）与市令（1003）——处决在内容上可达；增删这类怪要同步这条断言");
             }
             finally
             {

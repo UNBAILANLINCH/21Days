@@ -172,7 +172,10 @@ namespace Game.Monster
             // lint-ok 的理由：这一行取的是**动作资产引用**（交给输入层组件做按键绑定），不是设备读数——
             // 按键由 ExecutionInteractor 自己读，而处决按 PRP §2.4 明确不进确定性内核、不进回放（已知取舍）。
             GameInput actions = inputService == null ? null : inputService.Actions; // lint-ok: 只取动作资产引用，不读输入设备；处决不进确定性内核
-            interactor.Configure(player, monsterRules, step.FactSink,
+            // 处决目标 = 主怪 + 场景里勾了「完整参与者」的附加怪（PRP/combat-iteration D2，多目标重载）。
+            // 字段为默认值的附加巡逻者（巡逻者乙）不在名单里——与此前单目标重载只喂主怪时逐字一致。
+            // 必须在 view.ConfigureTaming 之后调（OnSceneReadyAsync 的顺序保证了）：附加怪是在那一步才造出来的。
+            interactor.Configure(player, step.CollectFullParticipants(), step.FactSink,
                 kernel == null ? null : kernel.Assassination, step, telemetry.Scope("stealth"),
                 actions == null ? null : actions.asset, interactionFocus);
         }

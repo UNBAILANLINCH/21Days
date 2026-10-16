@@ -182,25 +182,47 @@ namespace Game.Battle
             return text.ToString();
         }
 
-        /// <summary>道具悬停详情：名字、件数、效果（占位效果取 BattleItemSettings）、每场限用与本场是否用过。</summary>
+        /// <summary>道具悬停详情：名字、件数、效果（查 BattleItemSettings 的效果表，sp07:199-211）、每场限用与本场是否用过。</summary>
         public static string ItemTooltip(in BattleItemSlot slot, in BattleItemSettings items, bool oncePerBattle)
         {
             var text = new StringBuilder();
             text.Append("<b>").Append(slot.DisplayName).Append("</b>　×").Append(slot.Count).Append('\n');
-            if (items.Heals(slot.ItemId))
-            {
-                text.Append("回复 ").Append(items.HealBase == HealthPercentBase.CurrentHealth ? "当前生命" : "生命上限")
-                    .Append("的 ").Append(items.HealPercent).Append('%');
-            }
-            else
-            {
-                text.Append("战斗中暂无效果（占位，等 C91）");
-            }
+            text.Append(items.TryGet(slot.ItemId, out BattleItemEffect effect) && effect.HasEffect
+                ? DescribeItemEffect(effect)
+                : "战斗中暂无效果");
 
             text.Append("\n出招前使用，不占回合");
             if (oncePerBattle) text.Append("\n每场战斗限用一次");
             if (slot.UsedThisBattle) text.Append("\n本场已使用");
             return text.ToString();
+        }
+
+        /// <summary>一条道具效果的中文说明（悬停详情用）。措辞照着 sp07:199-211 的原文。</summary>
+        private static string DescribeItemEffect(in BattleItemEffect effect)
+        {
+            switch (effect.Kind)
+            {
+                case BattleItemEffectKind.HealFixed:
+                    return "恢复 " + effect.Amount + " 点生命值";
+                case BattleItemEffectKind.RageToMax:
+                    return "怒气直接补满";
+                case BattleItemEffectKind.RageAdd:
+                    return "立刻获得 " + effect.Amount + " 点怒气";
+                case BattleItemEffectKind.Shield:
+                    return "生成 " + effect.Charges + " 层护盾，抵挡 1 次任意来源伤害";
+                case BattleItemEffectKind.DamageReduction:
+                    return "接下来 " + effect.Rounds + " 回合，受到伤害降低 " + effect.Amount + "%";
+                case BattleItemEffectKind.AttackBonus:
+                    return "接下来 " + effect.Charges + " 次攻击，伤害 +" + effect.Amount;
+                case BattleItemEffectKind.Lifesteal:
+                    return "接下来 " + effect.Rounds + " 回合，命中后回复 " + effect.Amount + " 点生命";
+                case BattleItemEffectKind.Regen:
+                    return "接下来 " + effect.Rounds + " 回合，每回合回复 " + effect.Amount + " 点生命";
+                case BattleItemEffectKind.ExtraAction:
+                    return "本回合可以额外释放一次招式";
+                default:
+                    return "战斗中暂无效果";
+            }
         }
 
         /// <summary>BOSS 状态悬停详情：醉酒值与档位效果（07:70-73）、减疗、下次普攻加成（07:80）。</summary>

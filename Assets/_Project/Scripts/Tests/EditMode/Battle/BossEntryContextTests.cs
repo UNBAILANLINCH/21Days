@@ -4,6 +4,8 @@
 //   ③ 没接配置 / 没接玩家时**不生效也不抛**（退回原口径），且只 Warn 一次。
 // 为什么新建：`BossEntryContext` 是这一波新增的**开战理由来源**，它坏掉的表现是「boss 战又退回用巡逻怪的局势判」
 //   ——编译不报、老用例全绿、只有回放里按 E 不开仗（或开仗方式不对）。所以这里既钉正向三档，也钉负对照。
+// 2026-10-14（PRP/combat-iteration D6）：再钉两件——④ 开战理由可设置、默认「玩家先动手」不变、可复位（BossAggro 置位 / 复位）；
+//   ⑤ 逻辑平面投影：交了 XZ 投影时高度不参与（同波修的既有缺口），没交时仍按 (x, y)（默认值 = 旧行为）。
 // 夹具口径：MonoBehaviour 不手 new（Unity 会报），一律建物体 AddComponent + SerializedObject 写私有配置字段
 //   （与 `EncounterBattleBridgeTests.BuildContainer` / `MonsterDropSinkWiringTests` 一致）。
 using Game.Battle;
@@ -131,7 +133,98 @@ namespace Game.Tests.EditMode.Battle
             Assert.DoesNotThrow(() => Assert.That(context.PlayerInAlertZone, Is.False));
         }
 
+        // ────────────────────── 开战理由（PRP/combat-iteration D6：可设置、默认不变、可复位） ──────────────────────
+
+        /// <summary>默认「玩家先动手」= 加 BossAggro 之前写死的值：按 E 挑战仍是正面攻击（回归）。</summary>
+        [Test]
+        public void Initiator_ByDefault_IsPlayerAttacked()
+        {
+            Bind();
+
+            Assert.That(context.Initiator, Is.EqualTo(BattleInitiator.PlayerAttacked));
+        }
+
+        /// <summary>发难组件置为「BOSS 先动手」后，读方（开仗那一刻的 BattleSetup）读到的就是它。</summary>
+        [Test]
+        public void SetInitiator_BossAttacked_IsReportedToReaders()
+        {
+            Bind();
+
+            context.SetInitiator(BattleInitiator.BossAttacked);
+
+            Assert.That(context.Initiator, Is.EqualTo(BattleInitiator.BossAttacked));
+            Assert.That(((IBattleEntryContext)context).Initiator, Is.EqualTo(BattleInitiator.BossAttacked), "经契约读到的同一个值");
+        }
+
+        /// <summary>复位回到默认；重复复位幂等。</summary>
+        [Test]
+        public void ResetInitiator_AfterBossAttacked_RestoresPlayerAttacked()
+        {
+            Bind();
+            context.SetInitiator(BattleInitiator.BossAttacked);
+
+            context.ResetInitiator();
+            context.ResetInitiator();
+
+            Assert.That(context.Initiator, Is.EqualTo(BattleInitiator.PlayerAttacked));
+        }
+
+        /// <summary>理由只是转述，不改局势：置了「BOSS 先动手」，档位照旧由距离决定（负对照：远处仍是没察觉）。</summary>
+        [Test]
+        public void SetInitiator_DoesNotChangeSensedZones()
+        {
+            Bind();
+            MovePlayer(config.AlertRadius + 5f);
+
+            context.SetInitiator(BattleInitiator.BossAttacked);
+
+            Assert.That(context.MonsterAware, Is.False);
+            Assert.That(context.PlayerInHostileZone, Is.False);
+        }
+
+        // ────────────────────── 逻辑平面投影（同波修的既有缺口：世界场景是 XZ，y 是高度） ──────────────────────
+
+        /// <summary>
+        /// 交了 XZ 投影：BOSS 的逻辑位置取 (x, z)，高度不参与。照 SampleScene 的 Npc_SampleBoss（高 4.89、z 8.4），
+        /// 玩家站它正南 1.4 米（逻辑 (x, 7.0)）应在红区里。
+        /// </summary>
+        [Test]
+        public void WithXZProjection_UsesWorldXZ_IgnoresHeight()
+        {
+            Bind();
+            context.UseProjection(XZProjection());
+            bossObject.transform.position = new Vector3(-4.2f, 4.8884f, 8.4f);
+            player.Restore(new PlayerSaveData { Health = 3, PositionX = -4.2f, PositionY = 7.0f });
+
+            Assert.That(context.LogicPosition.x, Is.EqualTo(-4.2f).Within(1e-4f));
+            Assert.That(context.LogicPosition.y, Is.EqualTo(8.4f).Within(1e-4f), "逻辑 y = 世界 z");
+            Assert.That(context.PlayerInHostileZone, Is.True, "正南 1.4 米 < 敌对半径 2");
+        }
+
+        /// <summary>负对照：没交投影 = 改之前的口径 (x, y)（默认值不改旧行为）。同一站位被算成 2.11 米，落在橙区。</summary>
+        [Test]
+        public void WithoutProjection_UsesWorldXY_AsBefore()
+        {
+            Bind();
+            bossObject.transform.position = new Vector3(-4.2f, 4.8884f, 8.4f);
+            player.Restore(new PlayerSaveData { Health = 3, PositionX = -4.2f, PositionY = 7.0f });
+
+            Assert.That(context.LogicPosition.y, Is.EqualTo(4.8884f).Within(1e-4f), "逻辑 y = 世界 y（旧口径）");
+            Assert.That(context.PlayerInHostileZone, Is.False);
+            Assert.That(context.PlayerInAlertZone, Is.True);
+        }
+
         // ────────────────────── 夹具 ──────────────────────
+
+        /// <summary>一份 XZ 平面的投影（EncounterSceneView 的 useXZPlane 是私有序列化字段，按 Inspector 的接法写）。</summary>
+        private EncounterSceneView XZProjection()
+        {
+            EncounterSceneView view = bossObject.AddComponent<EncounterSceneView>();
+            var serialized = new UnityEditor.SerializedObject(view);
+            serialized.FindProperty("useXZPlane").boolValue = true;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return view;
+        }
 
         private void Bind()
         {

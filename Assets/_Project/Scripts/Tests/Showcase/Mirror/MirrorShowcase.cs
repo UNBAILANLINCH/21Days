@@ -114,10 +114,6 @@ namespace Game.Tests.Showcase.Mirror
         private const float FaceMaxSeconds = 0.4f;
         private const float FaceToleranceDegrees = 6f;
 
-        /// <summary>走向巡逻怪直到它转敌对：推到这个距离内就松杆站住（近身感知 1.5，攻击距离 0.8）。</summary>
-        private const float ProvokeStopDistance = 1.0f;
-        private const float ProvokeTimeoutSeconds = 8f;
-
         /// <summary>等第一次被击中的上限（真实秒）：转敌对后要先追到身边；之后每次间隔一个攻击冷却（1 秒）。</summary>
         private const float FirstHitTimeoutSeconds = 8f;
         private const float NextHitTimeoutSeconds = 4f;
@@ -322,7 +318,10 @@ namespace Game.Tests.Showcase.Mirror
             string crateKey = crate.Key;
             int patrolYaoId = patrol.YaoId;
             string patrolTrueName = TrueNameOf(patrolYaoId);
-            Vector2 spawn = SpawnPoint();
+            // 出生点用固定的 DemoSpawnPoint（2026-10-16 W7d）：EncounterSceneView.PlayerStart 是从 PlayerSpawn 物体的此刻世界坐标换算的，
+            // 场景就绪之后再读已经漂走（实测读到 (34.6, -6.0)，玩家实际出生 / 重开都在 (-4, 3.4)；10-08 起这条检查因此一直红），
+            // 产品只在就绪那一刻读一次。同 ShowcasePatrolForecast.RouteOf 注释里巡逻点的现象，根因未查。
+            Vector2 spawn = DemoSpawnPoint;
             float baseRange = mirrorConfig.BaseRange;
             float lossPerCrack = mirrorConfig.RangeLossPerCrack;
 
@@ -344,11 +343,24 @@ namespace Game.Tests.Showcase.Mirror
             yield return Snapshot("照巡逻怪·真形");
             yield return CloseResultWithConfirm();
 
-            // ② 挨打：不潜行、不伪装，走进近身感知范围让它转敌对，然后站着不动。
-            yield return Step("走近巡逻怪，站着不动任它攻击（不潜行、不伪装）", null, 0f);
-            yield return ApproachUntilHostile();
-            yield return Check("巡逻怪转为敌对；玩家没有潜行、没有伪装",
-                () => monster.Mode == MonsterMode.Hostile && !player.IsSneaking && !player.IsDisguised, 5f);
+            // ② 挨打：不潜行、不伪装，让巡逻怪转敌对，然后站着不动。
+            // 2026-10-16（PRP/combat-iteration W7d，对手换人，断言不动；用户 2026-10-16 拍板对手用巡夜人）：原来走近的是市令（enerme），
+            // 现在被它打中第一下就升级回合制（世界暂停、叠加战斗场景），三道裂痕演不出来；从观察点走近它还要横穿巡逻者乙的巡逻线——
+            // 10-08 与 W7d 基线都是乙先出手、三下在「市令转敌对」那条检查之前就打完了（报告第 24 / 25 / 27 行红）。
+            // 改由东南角巡夜人打三下：它没配回合制战斗数据，打中不升级；第一下按被抓结算只击倒（被抓次数 0），之后每秒一下，
+            // 挨到生命归零（第三下）才判死，三下就是三道裂痕。去那儿经缝口绕过去（GoThroughSouthGap），市令与乙都远。
+            MonsterRules xunyeRules = FindPatroller(XunyePatrollerId);
+            if (xunyeRules == null)
+            {
+                Assert.Fail($"前置不成立：场上找不到巡夜人（stableId = {XunyePatrollerId}），没有不升级回合制的巡逻怪来打这三下");
+            }
+
+            MonsterModel xunye = xunyeRules.Model;
+            yield return GoThroughSouthGap(new[] { SoutheastTransit, XunyeStagingPoint });
+            yield return Step("走进巡夜人正前方的视野里让它看见你，然后站着不动任它攻击（不潜行、不伪装）", null, 0f);
+            yield return ProvokeXunye(xunye);
+            yield return Check("巡夜人转为敌对；玩家没有潜行、没有伪装",
+                () => xunye.Mode == MonsterMode.Hostile && !player.IsSneaking && !player.IsDisguised, 5f);
             string questBefore = QuestSignature();
 
             yield return Check($"第 1 次被击中：镜图标出现第 1 道裂痕、画面四周出现暗角（可见范围 < 1），作用距离 {baseRange:0.#} → {baseRange - lossPerCrack:0.#}",
@@ -380,12 +392,27 @@ namespace Game.Tests.Showcase.Mirror
             yield return WaitUntil("重开本场：场景重进、遭遇逻辑重新开始",
                 () => !crackPresenter.IsRestarting && step.IsActive && mirror.HitCracks == 0, RestartTimeoutSeconds);
 
+            // 诊断（2026-10-16 W7d）：这条红时报告看不出是哪一项，把各项实时取值记下来、红了才随报告输出。判据不动。
+            string restartDiag = "还没取到";
+            bool restartOk = false;
             yield return Check("回到出生点；裂痕清零（镜图标无裂痕、暗角消失）；镜碎页已关",
-                () => step.IsActive && mirror.HitCracks == 0 && Vector2.Distance(player.Position, spawn) < 0.6f
-                      && HudCracks() == 0 && ShownVision() >= 1f
-                      && !crackPresenter.IsShatterShowing && !crackPresenter.IsRestarting
-                      && ui.Get<MirrorShatterView>() == null,
+                () =>
+                {
+                    restartDiag = $"遭遇在跑 {step.IsActive}、击中裂痕 {mirror.HitCracks}、离出生点 {Vector2.Distance(player.Position, spawn):0.00} 米"
+                                  + $"（玩家 ({player.Position.x:0.00}, {player.Position.y:0.00})、出生点 ({spawn.x:0.00}, {spawn.y:0.00})）、"
+                                  + $"镜图标裂痕 {HudCracks()}、可见范围 {ShownVision():0.00}、镜碎页显示中 {crackPresenter.IsShatterShowing}、"
+                                  + $"重开中 {crackPresenter.IsRestarting}、镜碎页还登记着 {ui.Get<MirrorShatterView>() != null}";
+                    restartOk = step.IsActive && mirror.HitCracks == 0 && Vector2.Distance(player.Position, spawn) < 0.6f
+                                && HudCracks() == 0 && ShownVision() >= 1f
+                                && !crackPresenter.IsShatterShowing && !crackPresenter.IsRestarting
+                                && ui.Get<MirrorShatterView>() == null;
+                    return restartOk;
+                },
                 10f);
+            if (!restartOk)
+            {
+                yield return Step($"重开现场快照：{restartDiag}", null, 0f);
+            }
             yield return Check("进度保留：线索箱仍是开的、背包仍有旧信、巡逻怪仍记为已照见、任务进度不变",
                 () =>
                 {
@@ -869,29 +896,6 @@ namespace Game.Tests.Showcase.Mirror
             }
 
             yield return Input.Press(inputService.Actions.Gameplay.Interact);
-        }
-
-        /// <summary>朝巡逻怪推摇杆，进到近身感知范围（它立刻转敌对）或转敌对后松杆站住。</summary>
-        private IEnumerator ApproachUntilHostile()
-        {
-            float deadline = Time.realtimeSinceStartup + ProvokeTimeoutSeconds;
-            while (Time.realtimeSinceStartup < deadline && monster.Mode != MonsterMode.Hostile && player.Health > 0)
-            {
-                Vector2 toMonster = monster.Position - player.Position;
-                if (toMonster.magnitude > ProvokeStopDistance)
-                {
-                    Input.SetStick(toMonster.normalized);
-                }
-                else
-                {
-                    Input.ReleaseStick();
-                }
-
-                yield return null;
-            }
-
-            Input.ReleaseStick();
-            yield return null;
         }
 
         /// <summary>

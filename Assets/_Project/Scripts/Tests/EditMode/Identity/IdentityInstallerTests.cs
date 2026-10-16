@@ -98,6 +98,53 @@ namespace Game.Tests.EditMode.Identity
         }
 
         /// <summary>
+        /// 露馅后果策略<b>真的装进了容器解析出的规则</b>（PRP/combat-iteration D1；pitfalls :225「测试自己把依赖装上了，
+        /// 接线缺口全程不报」）：配置口径为追逐时，从容器拿到的规则结算露馅给出追逐——策略位若仍是 null，这里恒为 None。
+        /// 用内存里建的配置改口径，不动生产资产。
+        /// </summary>
+        [Test]
+        public void Install_InjectsConfiguredExposurePolicy_ResolvedRulesUseConfiguredOutcome()
+        {
+            IdentityConfig config = ScriptableObject.CreateInstance<IdentityConfig>();
+            try
+            {
+                config.Settings.ExposureOutcome = ExposureOutcome.Chase;
+                container = Build(config);
+                IdentityRules rules = container.Resolve<IdentityRules>();
+
+                ExposureResolution result = rules.ResolveExposure(container.Resolve<IdentityState>(),
+                    container.Resolve<IdentityLedger>(), container.Resolve<SuspicionState>(), ExposureSignals.Alert(true, false));
+
+                Assert.That(result.Outcome, Is.EqualTo(ExposureOutcome.Chase), "策略没注入（或没读容器里那份数值块）时这里是 None");
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        /// <summary>负对照：同一条装配、口径留代码默认（None）→ 后果 None，与注入策略之前逐字一致。</summary>
+        [Test]
+        public void Install_WithDefaultOutcome_ResolvedRulesReportNoOutcome()
+        {
+            IdentityConfig config = ScriptableObject.CreateInstance<IdentityConfig>();
+            try
+            {
+                container = Build(config);
+
+                ExposureResolution result = container.Resolve<IdentityRules>().ResolveExposure(container.Resolve<IdentityState>(),
+                    container.Resolve<IdentityLedger>(), container.Resolve<SuspicionState>(), ExposureSignals.Alert(true, false));
+
+                Assert.That(result.Triggered, Is.True, "前提：确实判出了露馅");
+                Assert.That(result.Outcome, Is.EqualTo(ExposureOutcome.None));
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        /// <summary>
         /// 按 Boot 的接法把注册器挂到一个物体上再调 <c>Install</c>：配置字段是私有序列化字段，
         /// 这里用 SerializedObject 赋值（同 SampleSceneObstacleWiringTests 读它的做法），
         /// 不为了测试给生产代码开一个 setter。

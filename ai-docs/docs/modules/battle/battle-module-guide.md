@@ -154,7 +154,7 @@ EncounterStep 打击命中（玩家打中怪 / 怪打中玩家）→ 问 IEncoun
 - 战斗在确定性内核（tick）之外推进，会话状态不进快照；用 `logic.*` 流会让回放在战斗之后哈希对不上，用 `view.*` 又违背「表现流不影响逻辑」的语义
   （`BattleSetup.cs:23-30`）。
 - 所以每场开打 `new XorShiftRandomStream(主种子 ^ 盐 ^ 场次)`（`BattleSetup.cs:262`），**不登记进 `IRandomService`、不进任何快照**。
-  主种子由 `BattleInstaller` 经 `RandomService.MasterSeed` 提供（`BattleInstaller.cs:216`）。
+  主种子由 `BattleInstaller` 经 `RandomService.MasterSeed` 提供（`BattleInstaller.cs:217`）。
 - **代价：回放不覆盖回合制战斗**（`BattleSetup.cs:27-30`）。这条是 D8 留给 turnbased guide「随机数与回放」一节的结论。
   本流没有测试口（种子取会话主种子），回放要让胜负可控只能靠数值，见下「测试口」。
 

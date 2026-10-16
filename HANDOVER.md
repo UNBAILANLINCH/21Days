@@ -8,7 +8,8 @@
 > **S 组历史验证（2026-10-07）**：EditMode 1836/1836；identity / stealth / turnbased 回放 PASS，world 回放 FAIL（13 个失败检查点）。此记录不能替代之后的回归。
 > **2026-10-09 接线波（主窗口独立复跑）**：**全量 EditMode 2417/2417**（0 失败 0 跳过，含三方包用例；锚点 `Game.Tests.EditMode.dll` 新于最新源码）；回放 `Game.Tests.Showcase.Stealth` **3/3 PASS**（连跑两次，39 个检查点、失败 0、异常 0）、`Game.Tests.Showcase.Inventory` **PASS**（2/2，26 检查点）。本波关掉的是「有代码没接上」的六项（见 §1.11）——其中五项当日落地并验证，**第 ④ 项当日判定契约不成立、等策划拍板，同日第二波按用户决定接通**（复跑见下一行）。**这不代表全仓所有 Showcase 回放都已重新跑过**。
 > **2026-10-10 复跑与 demo 收口**：全量 EditMode **2439 / 2439**（0 失败 0 跳过）；`Showcase.Battle` **4 / 4 PASS**、`Showcase.Stealth` **3 / 3 PASS**、`Showcase.Inventory` **2 / 2 PASS**；`gc_scan` 只剩字体资产一项。§1.11 ④ 的复跑因此关闭，「较量」那一局原先卡在战斗阶段的真因是**内容只声明了 `Victory`**（机制没坏），细节与证据见 §1.11 末与 §1.12。
-> **依据**：[S 组规划](docs/planning/S组落地总规划.md)、[状态字典](ai-docs/docs/story-facts.md)、[World PRP](PRP/world-scenes/prp.md)、[处决 PRP](PRP/stealth-execution/prp.md)；报告为 `Logs/verify/` 生成物。
+> **2026-10-16/17 combat-iteration（战斗系统迭代）**：全量 EditMode **2703 / 2703**；`Showcase.Battle` **6 / 6 PASS**、`Showcase.Monster` **8 / 8 PASS**（检查点失败 0、运行时异常 0）。落地的是**实时遭遇升级回合制**（三种触发）、**BOSS 主动发难**（含反应时间与拴绳）、**一场遭遇多种怪**（巡夜人）、**露馅后果与「哪些原因让身份失效」可配**、**被抓次数口径关掉**（没血才判死）、**血量按比例互通**（进场 ceil / 出场四舍五入）。代码审查结论 PASS、无阻断项，警告项已全部落地；文档三件套（identity / stealth / monster / taming / battle / session / player）已 sync。**唯一已知的静态检查项仍是字体资产**（`gc_scan` 只剩它）。细节见 `PRP/combat-iteration/`。
+> **依据**：[S 组规划](docs/planning/S组落地总规划.md)、[状态字典](ai-docs/docs/story-facts.md)、[World PRP](PRP/world-scenes/prp.md)、[处决 PRP](PRP/stealth-execution/prp.md)、[战斗迭代 PRP](PRP/combat-iteration/prp.md)；报告为 `Logs/verify/` 生成物。
 
 ## 0. 现状一句话
 
@@ -58,8 +59,13 @@ C1–C3/B3 的运行接线、真实条件源、最小表/校验器、任务完�
 | 位置 | 问题 |
 | --- | --- |
 | `Assets/_Project/Scripts/Runtime/Gameplay/FaceBlendShapeController.cs:4`、`FaceDragHandle.cs:4`、`MuralFaceController.cs:3` | `Game.LailaFace` 与 `Runtime/Gameplay/` 不符，静态检查持续报告三处；注册表仍按实际目录定位，不把这条记录作为自动迁移指令 |
+| `Assets/_Project/Scripts/Runtime/Monster/EncounterStep.cs`（1572 行起，combat-iteration 之后仍在长） | 遭遇模块已经膨胀到该拆的体量：一个类同时管身份、潜行 / 追逐、露馅、被抓、掉落闸门、升级回合制、存档恢复与回放快照。**建议以后拆分**（按「tick 结算」「存档 / 快照」「升级交涉」切），本轮不动——拆分要连着改构造与快照注册顺序，风险大于收益 |
+| `ai-docs/docs/modules/monster/monster-module-guide.md`（428 行，超过 guide 的 150–400 行上限） | 同上一条的文档面：遭遇模块这一轮长了升级回合制、多怪、回放对齐三块，guide 跟着涨。**建议与代码拆分一起做**——把「实时遭遇升级回合制」与「回放状态」两个附录挪进一份独立的 `monster-encounter-guide.md`（或升 `external-api` 的容量），别在这里删内容凑行数 |
+| 遭遇结算时序（待以后有人在剧情里给遭遇登记战斗时才会触发） | `EncounterStep.SettleEncounterOutcome` 目前只在 `EncounterId != 0`（这一场登记过「一仗」）时判胜负；而「登记」这一步在今天只有 `EncounterBattleBridge` 一个生产调用方。**将来若剧情侧自己给空 payload 的遭遇档登记战斗**（或再出现第二个调用方），「结算与取走必须在同一个 tick 内」这条约束会被第二个写入方踩到——现在的顺序保证写在 `MonsterInstaller` 那两行相邻的 `AddStep` 上。已知、未触发，取用时先读 `EncounterBattleBridge` 文件头的时序一节 |
 
 `ProjectStructureMenu.cs` 的 TODO 位于 `BuildRulesTemplate` 生成字符串中，是新模块骨架提示，不是现有服务缺陷。
+
+**combat-iteration 审查收尾（2026-10-16/17）**：代码审查结论 PASS、无阻断项，警告项已全部落地——被抓口径的代码默认值改成「无后果」（0）、回放期间关掉升级、读回放快照改成「先校验后修改」、血量出场换算改四舍五入（进场仍向上取整，`ScaleHealth` / `ScaleHealthBack` 各管一侧）。文档三件套（identity / stealth / monster / taming / battle / session / player）已 `/generate-doc sync`；`docs/design/features-spotlight/` 02/03/04/06/09 的第 7 节各补了「2026-10-17 更正」；`docs/roadmap.md` 的 C5 / S2 / S3 / S4 / S7 行已回填；`docs/planning/视觉验收清单.md` 第 6 节改成「已接进场景」并新增四条（第 27–30 条：回合制 BOSS 战、遭遇升级、BOSS 发难、被抓击倒）。验证：全量 EditMode **2703 / 2703**、`Showcase.Battle` **6 / 6 PASS**、`Showcase.Monster` **8 / 8 PASS**（后者原先红的那个检查点是血量写回断言跟着口径改的）。顺手清掉 126 个 `InitTestScene*` 残留、修掉 16 处文档行号漂移。**已知偶发（与本轮无关）**：全量跑时 `Game.Tests.EditMode.Core.UIServiceTests.OpenAsync_WhenOnOpenAsyncThrows_LeavesNoUnobservedTaskException` 会因前序用例留下的 `GameInput.Gameplay.Disable()` 未调用告警而红（单跑该组 19/19 通过）——再次出现时按「顺序相关」查前一条用例，不要改断言。
 
 Mirror 句柄释放/相机朝向、CharacterPuppet 重复辅助方法、对白气泡查找和失焦输入经验文档已处理并提交，不再列待办。
 Performance EditMode 曾出现记录面板关闭等待 5 秒超时；单独复跑与随后 150 项全量复跑均通过，原因未定位。再次出现时保留状态与日志，不只增大超时。

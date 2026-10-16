@@ -14,11 +14,28 @@ maturity: seed
 
 | 类型 | 职责 |
 | --- | --- |
+| `TamingActor` | 场景里**一只巡逻者的作者数据**（2026-10-14 扩了两个字段，见下）：稳定 id、显示名、纸片与指示环、巡逻点，外加 `kindId` 与 `fullParticipant` |
 | `TamingIntent` | 移动轴与切换按钮 |
 | `TamingRules` | 驯服归属、按键边缘、控制切换、双方移动路由 |
 | `TamingSceneController` | 独立场景初始化、Action 输入与相机接管 |
 | `MonsterRules.MoveControlled`（复用扩展） | 受控敌人的纯逻辑移动 |
 | `SmoothCameraFollow.SetTarget`（复用扩展） | 保留镜头偏移，更换跟随对象 |
+
+## 一场遭遇多种怪（2026-10-14，PRP/combat-iteration D2）
+
+`TamingActor` 上多了两个序列化字段，**默认值都等于加字段之前的行为**，所以巡逻者乙一个字没改：
+
+| 字段 | 默认 | 含义 |
+| --- | --- | --- |
+| `kindId` | `0` | `0` = 沿用主怪种类（现状）；非 0 = 这一只按 `monster_species` 表里那一行取数值、可否击杀与掉落 |
+| `fullParticipant` | `false` | `false` = 只巡逻 / 感知 / 攻击的附加巡逻者（现状）；`true` = **完整参与者** |
+
+**只有完整参与者**会被背后处决、死亡掉落（掉落闸门按 id 各一次）、产生露馅信号与被露馅惊动、触发被抓口径、参与升级回合制；
+**整场遭遇的胜负仍只认主怪**（`ExecutionResolver` 只在目标是主怪时 `SettleBattle(Victory)`）。
+`EncounterSceneView` 把 `patrolActors` 的两个数组经 `ConfigureTaming` 传进 `EncounterStep`，`MonsterRules.CreateForActor(stableId, kindIdOverride)` 按覆盖的种类造附加怪。
+存档与回放快照按稳定 id 对齐（不再要求数量一致），见 [`monster-module-guide.md`](../monster/monster-module-guide.md)「回放状态」。
+
+SampleScene 现状：主怪（市令，1003）+ 巡逻者乙（两字段默认，**零改动**）+ 巡夜人（`patrol_xunyeren`，`kindId = 1001`、`fullParticipant = true`，东南角独立路线）。
 
 规则依赖 Player/Monster 公开 API 和 Core 遥测接口，不依赖 Disguise。
 切换、死亡返回及拒绝分支记录遥测；移动不记录每帧日志。独立场景使用 NullTelemetryScope。
@@ -40,6 +57,10 @@ TamingSceneController 是唯一推进者，不同时挂 StandaloneEncounterContr
 - EditMode：`Assets/_Project/Scripts/Tests/EditMode/Taming/TamingRulesTests.cs`。
 - Showcase：`Assets/_Project/Scripts/Tests/Showcase/Taming/TamingShowcase.cs`。
 - Showcase 从 Boot 标题实际加载世界；使用框架隔离存档目录。
+- **2026-10-14 改了一处断言**（用户授权只改这一行，因为加了巡夜人）：原「巡逻者恰好 2 只」改成
+  「至少 2 只，且第 0、1 位的 stableId 仍是 `patrol-a` / `patrol-b`」（`TamingShowcase.cs:52`）。其余内容未动。
+  已知欠账（与本次改动无关、归协作者）：按 T 时选中的是离得最近的巡逻者乙而不是主怪——主怪巡逻线 2026-10-07 从 4 米拉到 8 米所致；
+  该回放 2026-09-28 之后没人跑过，本轮只报告不修。
 
 验证覆盖切换及长按、双方位移归属、返回后友善、死亡退出、实际镜头移动。
 多目标选择通过既有视图控制区实现，输入命令与回放状态已接入。已驯服但未控制的角色原地待命，未驯服者继续各自 AI。

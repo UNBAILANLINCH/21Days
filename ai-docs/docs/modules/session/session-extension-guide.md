@@ -34,7 +34,7 @@ maturity: seed
 4. `SessionStartedEvent.IsNewGame` 区分新游戏（分区是刚 `ResetAll()` 的默认值）与读档（分区是 `LoadAsync`
    载入的实际存档），需要区分这两种情况时用它判断，不要另外猜。
 
-遭遇模块的重载走另一条路径（`ISessionStateSource.PrepareRestore`，`SessionStateAdapter.cs:95`）：因为
+遭遇模块的重载走另一条路径（`ISessionStateSource.PrepareRestore`，`SessionStateAdapter.cs:113`）：因为
 遭遇现场要在**进场景之前**准备好（不是进场景后再灌），不是普通「订阅事件后重载」的形状；新模块如果也有
 「进场景前准备」的需要，参照这条而不是硬塞进 `SessionStartedEvent` 回调。
 

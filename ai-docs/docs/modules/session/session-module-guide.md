@@ -56,9 +56,14 @@ maturity: seed
 | 退出游戏 | `GameQuit.RegisterBeforeQuit` 钩子 | `SaveNowAsync`，按 `SessionConfig.QuitHookTimeoutSeconds` 单独限时 |
 
 闸门 `SaveGateRules.CanSave`：必须处于玩法状态，且没有对白（`DialogueService.IsRunning`）、没有面板 / 弹窗
-（`UIService.TopView != null`）、没有待消费的战斗终局（`EncounterStep.PendingResult != None && !ResultConsumed`）。
+（`UIService.TopView != null`）、没有待消费的战斗终局（`SessionStateAdapter.BattleResultPending`）。
 四条件任一不满足就不落盘，请求继续挂着，多次 `RequestSave` 合并成一次（原因取最新一次）。所有触发都只在
 `GameSession.CurrentSlot != 0` 时生效，标题页阶段不存。
+
+**`BattleResultPending` 收两个来源**（`SessionStateAdapter.cs:88-89`）：待消费的遭遇终局
+（`EncounterStep.PendingResult != None && !ResultConsumed`）**与实时遭遇升级回合制的「在途」**（`step.IsEscalating`）。
+后者 2026-10-14 并入（PRP/combat-iteration D5，用户拍板「战中不可存档」）：升级那一路**不经**剧情的 `TryBeginBattle`，
+所以 `NarrativeStable` 挡不住它——两条路各自堵一个口，合起来才是「战斗中不可存档」。
 
 Narrative 已安装时还必须满足 NarrativeStable。SaveNowAsync（包括退出与离场）也不能绕过对白/Narrative 的
 完整恢复边界：不稳定时返回 false 并保留待保存请求，不改旧槽、不发成功通知。允许稳定面板内的退出保存，

@@ -19,6 +19,11 @@ maturity: stable
 | `MonsterRules.PerceivedBySenses(in PlayerSnapshot)` | **不含遮挡**的同一套档位（0/1/2）；事实层算 `stealth.cover` 要的那一半用它，别用 `Detects` | `MonsterRules.cs` |
 | `EncounterStep.BindOcclusion(StealthSight)` | 把遮挡分发给每一只巡逻怪（`UseStealth` / `ConfigureTaming` 内部已自动调一次，场景就绪喂完遮挡体后由 `MonsterEncounterState` 再调一次） | `EncounterStep.cs` |
 | `EncounterStep.BindDropSink(IMonsterDropSink)` | 接入击杀掉落口；**不接 = 什么都不掉** | `EncounterStep.cs` / `IMonsterDropSink.cs` |
+| `EncounterStep.BindExposure(IdentityRules, IdentityLedger, SuspicionState)` | 接入露馅结算三件套；不接 = 露馅不结算（与接线前一致） | `EncounterStep.cs`；三件由 `MonsterInstaller` 的 `TryResolve` 取 |
+| `EncounterStep.BindEscalation(IEncounterEscalationPort)` | 接入实时遭遇升级回合制的端口（实现方 = `Game.Battle.BattleFlow`）；**不接 = 不升级**，两个拦截点逐字走原路径 | `EncounterStep.cs` / `IEncounterEscalationPort.cs` |
+| `EncounterStep.BindReplay(ReplayPlayer)` | 接入回放播放器：**回放期间整条升级功能关掉**（`IsReplaying` = `ReplayPlayer.IsActive`）；不接 = 永远不当自己在回放 | `EncounterStep.cs` |
+| `EncounterStep.CompleteEscalation(胜, 剩余生命, 上限)` / `AbortEscalation()` | 战斗侧在收场幕下交回升级结果；**只接受一次**，不在途时交回被忽略并留痕 | `EncounterStep.cs`；时机见 monster guide 附录 |
+| `EncounterStep.IsEscalating` / `EscalationTargetId` | 升级在途（瞬态、不进快照）；`SessionStateAdapter.BattleResultPending` 把它并进存档闸 | `EncounterStep.cs` |
 | `EncounterStep`（实现 `IBattleEntryContext`） | 进战斗的局势快照：潜行 / 偷袭是否命中 / 是否在警戒·敌对区域 / 怪物警觉档位 / 谁先动手，供 `BattleSetup.TryCreate` 拼 `BattleEntryRequest` | `EncounterStep.cs` / `IBattleEntryContext.cs` |
 | `MonsterKindCatalog.Get(int)` / `TryGet(int, out MonsterKind)` | 按种类 id 取数值；`Get` 查不到抛 `KeyNotFoundException` | 配置表已就绪；`MonsterKindCatalog.cs` |
 | `EncounterStep.Begin/End` | 场景进入/退出时启停整场逻辑 | 根作用域已注册；`EncounterStep.cs` |

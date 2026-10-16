@@ -862,6 +862,10 @@ namespace Game.Monster
             // 而不是在某个中间分支里提前读一次生命。
             SettleKillDropOnce();
             SettleEncounterOutcome();
+            // 每个模拟 tick 末尾推一次（ShopPlaytestState 借它驱动身份推进）；
+            // 刻意留在 Step 里而不是 SettleEncounterOutcome 里：CompleteEscalation 也调那个方法，
+            // 放进去会让非 tick 路径多推一次。
+            OnAdvanced?.Invoke(context.DeltaTime);
         }
 
         /// <summary>
@@ -887,9 +891,8 @@ namespace Game.Monster
                     // 这里不预判内容：战斗侧只负责如实报出「玩家被击倒了」。
                     SettleBattle(new BattleResult(BattleOutcome.Downed));
                 }
-                // Result.Aborted 由 AbortBattle 单独写，不承载 BattleSettlement。
+                // Result.Aborted 不在这里：它由 AbortBattle 单独写（收服收尾，不是战斗结果，不承载 BattleSettlement）。
             }
-            OnAdvanced?.Invoke(context.DeltaTime);
         }
 
         // 主怪与全部巡逻者对齐上一 tick 位置（本 tick 它们没推进时调，免得视图在两点间来回插值）。

@@ -306,6 +306,5 @@ namespace Game.Tests.EditMode.Taming
             Assert.That(rules.CurrentControlId, Is.EqualTo("enemy"));
             Assert.That(enemy.Capture().WaypointX[0], Is.EqualTo(50));
         }
-        }
     }
 }

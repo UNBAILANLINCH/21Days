@@ -97,6 +97,7 @@ namespace Game.World
             // IStartable 把自己挂进确定性内核的步骤表（见 WorldSceneDriver.Start 的注释）。
             // 它注册在最后：本类前面几项都是纯查询 / 纯状态，谁先谁后不影响启动串行（它不注册任何 IGameService）。
             builder.RegisterEntryPoint<WorldSceneDriver>(Lifetime.Singleton).AsSelf();
+            builder.RegisterEntryPoint<SceneMapController>(Lifetime.Singleton).AsSelf();
         }
     }
 }

@@ -1,0 +1,34 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("仍在播放");
+var prefix="Assets/_Project/Art/Sprites/UI/Title/Yang/Entrance/";
+var corrections=Newtonsoft.Json.Linq.JArray.Parse(System.IO.File.ReadAllText(prefix+"native-color.json"));
+foreach(Newtonsoft.Json.Linq.JObject correction in corrections) UnityEditor.AssetDatabase.ImportAsset(prefix+(string)correction["file"],UnityEditor.ImportAssetOptions.ForceUpdate);
+var root=UnityEditor.PrefabUtility.LoadPrefabContents("Assets/_Project/Prefabs/UI/TitleView.prefab");
+try {
+ foreach(Newtonsoft.Json.Linq.JObject correction in corrections) {
+  string name=System.IO.Path.GetFileNameWithoutExtension((string)correction["file"]);
+  foreach(var image in root.GetComponentsInChildren<UnityEngine.UI.Image>(true)) if(image.name==name) {
+   image.sprite=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(prefix+(string)correction["file"]);
+   image.rectTransform.sizeDelta=new UnityEngine.Vector2((float)correction["width"],(float)correction["height"]);
+   image.rectTransform.anchoredPosition=new UnityEngine.Vector2((float)correction["x"]+(float)correction["width"]*0.5f-960f,540f-(float)correction["y"]-(float)correction["height"]*0.5f);
+  }
+ }
+ var lotus=(UnityEngine.RectTransform)root.transform.Find("EntranceScene/Artwork1920/莲花纹");
+ var pivot=new UnityEngine.Vector2(0.5f,0.29f);
+ lotus.anchoredPosition+=UnityEngine.Vector2.Scale(pivot-lotus.pivot,lotus.sizeDelta);lotus.pivot=pivot;
+ var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+ var configData=new UnityEditor.SerializedObject(config);var tracks=configData.FindProperty("tracks");
+ var motion=root.GetComponent<Game.Core.UI.TitleEntranceMotion>();var data=new UnityEditor.SerializedObject(motion);var targets=data.FindProperty("targets");
+ for(int i=tracks.arraySize-1;i>=0;i--) {
+  var track=tracks.GetArrayElementAtIndex(i);string name=track.FindPropertyRelative("part").stringValue;
+  if(name=="水纹") {
+   var target=(UnityEngine.RectTransform)targets.GetArrayElementAtIndex(i).objectReferenceValue;
+   targets.GetArrayElementAtIndex(i).objectReferenceValue=null;targets.DeleteArrayElementAtIndex(i);tracks.DeleteArrayElementAtIndex(i);
+   UnityEngine.Object.DestroyImmediate(target.gameObject);
+  } else if(name=="天空_合成底色") {
+   track.FindPropertyRelative("duration").floatValue=0.25f;track.FindPropertyRelative("fadeSeconds").floatValue=0.25f;
+  }
+ }
+ configData.ApplyModifiedPropertiesWithoutUndo();data.ApplyModifiedPropertiesWithoutUndo();
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,"Assets/_Project/Prefabs/UI/TitleView.prefab");UnityEditor.AssetDatabase.SaveAssets();
+ return new { tracks=tracks.arraySize,lotusPivot=lotus.pivot.ToString(),lotusPosition=lotus.anchoredPosition.ToString() };
+} finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }

@@ -623,3 +623,9 @@
 - 根因：这条用例的判据是「没有未观察的异常 / 没有意外日志」，而 Input System 的「动作图没 Disable」告警来自**前一条用例**创建的 `InputService`（`AddComponent` 出来的组件在测试场景切换时才 OnDisable）。顺序一变，告警就落到这条头上。
 - 正确做法：判据是「单跑绿 + 全量偶发」时按**顺序相关**处理——查前一条用例有没有留下 `InputService` / 静态状态、用例自己起一个 `[SetUp]` 前的清理，而不是把 `LogAssert.Expect` 塞进断言把它压掉（那会让真出问题时也静默）。定位不到就先记进 `HANDOVER.md` 的偶发清单。
 - 关联：`HANDOVER.md` §1.3 偶发清单、`Tests/EditMode/Core/UIServiceTests.cs`；2026-10-17 combat-iteration 收尾时观察到。
+
+## 标题关闭取消了选档加载，画面只剩 Boot
+- 现象：点击可读槽后标题和选档面板关闭，但玩法未出现；运行时只加载 `Boot`，`IGameFlow.Current` 仍为 `TitleState`，其 View 已销毁。根作用域仍存在，不能只因 Boot 根节点没有 Bootstrap 就判断它丢失（它已移到 `DontDestroyOnLoad`）。
+- 根因：`SaveSlotsController` 把 `TitleView.GetCancellationTokenOnDestroy()` 传给 `GameSession.ContinueAsync`。`TitleState.ExitAsync` 正常销毁标题时，取消令牌随之取消，打断尚未完成的玩法场景加载；`OperationCanceledException` 被当成正常退出处理，空画面没有业务错误提示。
+- 正确做法：跨 UI 关闭的流程使用控制器寿命令牌，在控制器 `Dispose` 时取消；局部 UI 动画仍可跟随对应 View 寿命。正常玩法继续由 `SceneGameState` Additive 加载 `SampleScene`，保留 Boot。验证必须检查目标流程状态和实际加载场景；标题消失、根容器可解析 PlayerModel 都不能证明入场完成。至少一条生命周期测试要让标题先销毁、异步加载后完成，避免已缓存场景掩盖时序问题。
+- 关联：`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的 `SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad`、`Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` 的 `MouseLoad_RollsScrollThenShortWaterWarpEntersWorld`。日期：2026-10-15。

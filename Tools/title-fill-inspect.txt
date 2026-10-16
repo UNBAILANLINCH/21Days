@@ -1,0 +1,14 @@
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var root=UnityEditor.PrefabUtility.LoadPrefabContents("Assets/_Project/Prefabs/UI/TitleView.prefab");
+try{
+ var tracks=new UnityEditor.SerializedObject(config).FindProperty("tracks");
+ var rows=new System.Collections.Generic.List<object>();
+ string[] names={"SettingsButton","LoadButton","ContinueButton","QuitButton"};
+ foreach(var name in names){
+  var art=root.transform.Find("Buttons/"+name+"/EntranceArtwork");
+  var paper=art==null?null:art.Find("卷轴底");
+  rows.Add(new{button=name,art=art!=null,paper=paper!=null,fill=paper!=null&&paper.Find("底部渐变")!=null});
+ }
+ return new {playing=UnityEditor.EditorApplication.isPlaying,rows=rows,fadeProperty=tracks.GetArrayElementAtIndex(0).FindPropertyRelative("fadeEase")!=null,
+  reflectedFade=typeof(Game.Core.UI.TitleEntranceConfig.TrackSettings).GetProperty("FadeEase")!=null};
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

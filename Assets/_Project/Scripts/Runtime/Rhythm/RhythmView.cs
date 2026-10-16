@@ -311,6 +311,13 @@ namespace Game.Rhythm
                 Place(songMenuButton.GetComponent<RectTransform>(), new Vector2(0.71f, 0.19f), new Vector2(0.91f, 0.27f));
             }
         }
+        private Button activityPauseExit;
+        public void SetActivityExit(bool activity)
+        {
+            var label = backButton == null ? null : backButton.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = activity ? "退出演奏" : "返回标题";
+            if (activityPauseExit != null) activityPauseExit.GetComponentInChildren<TMP_Text>(true).text = activity ? "退出演奏" : "退出 · 返回曲库";
+        }
         public void ConfigureSong(RhythmConfig chart, string title, string difficulty)
         {
             config = chart; songTitle = title;
@@ -748,7 +755,7 @@ namespace Game.Rhythm
             Place(pauseTitle.rectTransform, new Vector2(0.2f, 0.7f), new Vector2(0.8f, 0.85f));
             PageButton(pausePanel.transform, "PauseContinue", "继续演奏", new Vector2(0.3f, 0.52f), new Vector2(0.7f, 0.63f), () => OnResumeClicked?.Invoke());
             PageButton(pausePanel.transform, "PauseRetry", "重试本曲", new Vector2(0.3f, 0.36f), new Vector2(0.7f, 0.47f), StartClicked);
-            PageButton(pausePanel.transform, "PauseExit", "退出 · 返回曲库", new Vector2(0.3f, 0.2f), new Vector2(0.7f, 0.31f),
+            activityPauseExit = PageButton(pausePanel.transform, "PauseExit", "退出 · 返回曲库", new Vector2(0.3f, 0.2f), new Vector2(0.7f, 0.31f),
                 () => { if (songMenu != null) SongMenuClicked(); else BackClicked(); });
             pausePanel.SetActive(false);
         }

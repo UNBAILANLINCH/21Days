@@ -4,6 +4,7 @@
 // 为什么当初新建：复用——玩家根上现有的移动 / 表现组件属于其他模块，交互不该依赖它们的私有实现；
 //   扩展——塞进可交互物体不对（那是被交互的一侧），塞进移动组件会让探索模块反向依赖交互。只能是独立的空标记。
 using UnityEngine;
+using System;
 
 namespace Game.Interaction
 {
@@ -12,6 +13,14 @@ namespace Game.Interaction
     public sealed class InteractionActor : MonoBehaviour
     {
         /// <summary>测距锚点（即本物体）。</summary>
-        public Transform Anchor => transform;
+        private Transform controlledAnchor;
+        public Transform Anchor => controlledAnchor != null ? controlledAnchor : transform;
+        public event Action OnAnchorChanged;
+        public void SetAnchor(Transform anchor)
+        {
+            if (controlledAnchor == anchor) return;
+            controlledAnchor = anchor;
+            OnAnchorChanged?.Invoke();
+        }
     }
 }

@@ -179,7 +179,7 @@ Mirror Showcase 6 项 PASS（`Logs/verify/mirror/20260929-055540/report.md`）�
 ## 已知限制 / 未做
 
 已验证 V8「全程界面上没有生命数字或血条」（针对玩家）：遭遇场景调试面板已去掉玩家生命数字，只显示潜行 / 伪装
-（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）；怪物生命数字仍保留（该面板是开发调试用，不是玩家可见 HUD）。
+（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs` 的OnGUI）；怪物生命数字仍保留（该面板是开发调试用，不是玩家可见 HUD）。
 
 - 照镜不消耗耐久，只有被妖击中才产生裂痕（PRD 非目标，矛盾 #4 的 demo 默认）。
 - 剧情裂痕只提供接口 `MirrorService.AddStoryCrack()`（`Assets/_Project/Scripts/Runtime/Mirror/MirrorService.cs:144-150`），本波不接任何剧情触发。

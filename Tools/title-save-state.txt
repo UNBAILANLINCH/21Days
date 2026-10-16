@@ -1,0 +1,5 @@
+string path = Game.Core.Platform.PlatformServiceBase.GetPersistentSaveRoot(UnityEngine.Application.persistentDataPath, Game.Core.Platform.PlatformServiceBase.IsIsolatedTestBuild);
+var files = new System.Collections.Generic.List<string>();
+if (System.IO.Directory.Exists(path))
+    foreach (string file in System.IO.Directory.GetFiles(path, "slot*.json")) files.Add(System.IO.Path.GetFileName(file));
+return new { savedSlots = files, count = files.Count, overrideActive = Game.Core.Platform.PlatformServiceBase.SaveRootOverride != null };

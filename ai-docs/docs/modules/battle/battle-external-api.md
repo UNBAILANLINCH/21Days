@@ -92,9 +92,14 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 - 需要 Boot 的 `GameBootstrap` 挂 `BattleInstaller`，并拖好 `TurnBasedConfig.asset` 与 `BossRosterConfig.asset`；缺了记 Error 并用默认 / 空名册顶上（`BattleInstaller.cs:113-128`）。
 - 依赖 `NarrativeInstaller` / `LootInstaller` 已注册（`BattleInstaller.cs:35`）。
 - 战斗场景地址 `BattleArena`（`BattleArena.cs:26`）须在 `AssetGroups/Scenes.asset`，界面地址 `BattleView`（= 类名）须在 `AssetGroups/UI.asset`。
-- 开战方式**三种都有**（07:15-28）：偷袭 / 正面攻击 / 被打。剧情版由 `BossEntryContext` 的局势定，遭遇版由触发情形翻译（`BattleSetup.TranslateEscalation`，`BattleSetup.cs:155`）。
-- 三个 `TryCreate` 重载（`BattleSetup.cs:102,122,135`）：不带局势 / 带 `IBattleEntryContext` / 带 `EncounterEscalationRequest`（后者才传玩家实时血量做比例换算）。
+- 开战方式**三种都有**（07:15-28）：偷袭 / 正面攻击 / 被打。剧情版由 `BossEntryContext` 的局势定，遭遇版由触发情形翻译（`BattleSetup.TranslateEscalation`，`BattleSetup.cs:159`）。
+- 三个 `TryCreate` 重载（`BattleSetup.cs:106,126,139`）：不带局势 / 带 `IBattleEntryContext` / 带 `EncounterEscalationRequest`（后者才传玩家实时血量做比例换算）。
 - 「按 E 挑战」在 BOSS 开了主动发难时要**在反应时间内**完成，否则它先冲上来按「被打」开战（`BossAggro`，见 battle guide）。
+
+## 场外醉酒与隔离舞台
+
+`BattleSetup.BindDrunkSource(Func<string,int?>)` 绑定调用方拥有的醉酒来源，参数为 BOSS id；null 使用配置默认值，0 会覆盖占位值，负值拒绝开战。卸载时绑定 null，不能缓存上一场值或运行时修改 SO。
+`BattleArena` 构造函数有可选 sceneKey，默认 `BattleArena`；`BattleInstaller.arenaSceneKey` 提供编辑期引用。五店主场景使用正常 Boot 的 `BattleArena`。旧 `ShopPlaytestBattleScene` 入口已加 `Legacy` 前缀归档，不能再作为当前五店接线或验收舞台。
 
 ## 禁止事项
 

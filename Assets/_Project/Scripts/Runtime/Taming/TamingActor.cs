@@ -20,6 +20,9 @@ namespace Game.Taming
         [SerializeField] private SpriteRenderer stateIndicator;
         [SerializeField] private TMP_Text nameLabel;
         [SerializeField] private Transform[] patrolPoints;
+        [SerializeField] private bool passive;
+        [SerializeField] private bool addedForShops;
+        [SerializeField] private bool observationOnly;
 
         [Tooltip("这只巡逻者的种类 Id（monster_species 表主键）。0 = 沿用主怪的种类（旧行为，巡逻者乙靠它）。"
             + "首位巡逻者（主怪）忽略本字段，它的种类由 GameBootstrap 上 MonsterInstaller 的 Kind Id 决定")]
@@ -40,6 +43,9 @@ namespace Game.Taming
         public bool IsFullParticipant => fullParticipant;
         public SpriteRenderer Visual => visual;
         public SpriteRenderer StateIndicator => stateIndicator;
+        public bool Passive => passive;
+        public bool AddedForShops => addedForShops;
+        public bool ObservationOnly => observationOnly;
         public event Action<TamingActor, bool> OnAvailabilityChanged;
 
         // Reset 由编辑器添加组件时调用，保存后沿用；运行时和复制时都不偷偷重造标识。
@@ -50,7 +56,7 @@ namespace Game.Taming
 
         public void RefreshLabel()
         {
-            if (nameLabel != null) nameLabel.text = displayName + " [" + stableId + "]";
+            if (nameLabel != null) nameLabel.text = addedForShops ? displayName : displayName + " [" + stableId + "]";
         }
 
         public Vector2[] PatrolPositions(EncounterSceneView view)

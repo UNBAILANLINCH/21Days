@@ -7,6 +7,13 @@ maturity: seed
 
 # Battle 模块指南
 
+## 独立酒肆接线增量（2026-10-12）
+
+ShopPlaytest独立入口仍经Narrative的sample_boss_battle通知开战，没有第二套BattleFlow。
+BattleSetup.BindDrunkSource(Func<string,int?>)在开战时读取实际场外醉酒；null结果回退BossDefinition.OutOfBattleDrunk，0有效，负值拒绝。调用方卸载传null撤销来源，不改SO。
+BattleInstaller.arenaSceneKey默认仍为BattleArena；独立启动场景指定ShopPlaytestBattleScene，预摆两个Cube＋TMP角色且不指定stagePrefab/defaultBossPrefab，因此开场不新建角色。
+正式Boot没有绑定场外醉酒来源，仍读原占位值。增量测试与真实回放证据见[四店实施记录](../../../../PRP/independent-shop-mechanics/implementation-report.md)。
+
 > 改 `Assets/_Project/Scripts/Runtime/Battle/` 之前读这份。对外怎么调看 [`battle-external-api.md`](battle-external-api.md)，
 > 要加 BOSS / 换表现 / 加演出看 [`battle-extension-guide.md`](battle-extension-guide.md)。
 > 设计与进度：[`PRP/turnbased-battle/prp.md`](../../../../PRP/turnbased-battle/prp.md)（§2 决策 D1–D11、§3 数据流、§9 进度回填）。
@@ -53,7 +60,7 @@ Game.Battle（Runtime/Battle/，走 Game.Runtime）
   ├─► Game.CharacterPuppet  BattleActor 挂载纸片小人（BattleActor.cs 顶部 using，行为在 BattleActor.cs:271-273）——新增的横向依赖
   ├─► Game.Core.UI        IUIService 开 BattleView、藏 HUD 层（BattleWorldLock.cs:43-44、BattleScenePresenter.cs:96）
   └─► Game.Core.Flow      ILoadingCurtain 黑幕、IGameFlow 门闸（BattleArena.cs:57、SceneWorldGate.cs:22）
-      另用 Core.Assets（叠加加载，BattleArena.cs:123）、Core.Input（关 Gameplay 图）、Core.Timing（暂停令牌）、Core.Telemetry
+      另用 Core.Assets（叠加加载，BattleArena.cs）、Core.Input（关 Gameplay 图）、Core.Timing（暂停令牌）、Core.Telemetry
 ```
 
 - **反向禁止**：`Game.TurnBased` / `Game.Narrative` / `Game.Loot` / `Game.CharacterPuppet` 不认识 `Game.Battle`。

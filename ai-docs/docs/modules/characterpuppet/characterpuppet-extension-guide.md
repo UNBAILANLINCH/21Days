@@ -18,6 +18,7 @@ maturity: stable
 | 给角色加奔跑动作 | 交 `run` 帧 + `meta.json` 写 `groundSpeed` + 重跑工具 | 任何代码、控制器（Run 态已在） |
 | 加新动作 | 新状态帧 + 重跑工具（孤立状态）+ `chr_<名字>.controller` 过渡 / 参数 + `ChibiPuppet` 一个新方法 | 走 / 停驱动与规则 |
 | 给新角色接小人 | 场景：实例挂 `Visual` 下、隐藏纸片、配 `facingSource` | 任何代码 |
+| 维护当前顾客拆件动作 | 用 Unity API 更新 `customers` / `drunk_customer` 的 `Sprite/Rig` 与剪辑，并重跑专用验证 | 不把拆件目录交给只接整帧的 `FramePuppetGenerator` |
 | 调手感 | `Data/CharacterPuppet/ChibiPuppetConfig.asset`（阈值、速率夹取）；某角色脚步打滑改它 `meta.json` 的 `groundSpeed` 后重跑 | 规则类（阈值不写死在代码里）；不手改预制体的 `walkClipSpeed` / `runClipSpeed`（重跑会被覆盖） |
 | 接 Spine | 新表现组件实现 `SetMoving` / `SetFacing` 语义 | `ChibiPuppetMotion` 判定流程、`ChibiPuppetMotionRules` |
 
@@ -38,6 +39,15 @@ maturity: stable
 3. 之后速度 ≥ `runStartSpeed`（4.0）切 Run，≤ `runStopSpeed`（3.5）切回 Walk；两者播放速率都 = 速度 / 各自地速，夹到 [0.8, 1.6]。
 4. 没有 run 帧时 Run 态仍在但复用 walk 剪辑，`hasRunClip` 为 false、驱动层永不置 `Running`，跑步 = walk 按 5/3 提速夹到 1.6。
 5. Showcase 若换成有 run 帧的小人，奔跑一步的断言改为 Run 态、`Speed` ≈ 1。
+
+## 维护当前顾客拆件动画
+
+`customers` 与 `drunk_customer` 是两份 512×512 PSD 的专用刚性关节标定，不走序列帧生成入口。源拆件保留在各自 `parts/`，预制体关节位于 `Sprite/Rig`，动画只写其后代，避免覆盖角色根的转身和 `Sprite` 容器的交互回弹。
+
+1. 当前坐标、图层到关节的初始映射和 Idle / Walk / Run 曲线在 `Tools/animate-customer-parts.txt`；已组装资产的肘部曲线与醉酒顾客 Drink 状态在 `Tools/refine-customer-animation.txt`。脚底锚点与 PPU 仍为 `(0.5, 0)` / 320；醉酒顾客的原双脚图层运行时裁为左右两个 Sprite 资产，源 PNG 不改。
+2. 初始脚本只接受还没有 `Rig` 的静态预制体，防止误覆盖人工调整；细化脚本要求现有肩、肘与酒葫芦关节。源 PSD 图层、尺寸或顺序变化时，先重新核对映射与关节点，再在 Unity 内更新资产；不要删除保护条件直接重跑。
+3. 控制器继续复用 Moving / Running / Speed 与 Idle / Walk / Run 基础状态。醉酒顾客的 Idle 在一轮后自动进 Drink；Drink 完成回 Idle，Moving / Running 可无退出时间打断到 Walk / Run。拆件剪辑之间允许短过渡；整帧序列仍保持 0 秒过渡。
+4. 修改后运行 `Tools/verify-customer-unity.txt`，再跑 CharacterPuppet EditMode 与 `CustomerPartsAnimationTests` PlayMode。预览可用 `Tools/preview-customer-animation.txt` 采样，但它临时使用标准 Sprite 材质，只验证动作轮廓，不替代游戏镜头下的深度材质验收。
 
 ## 加新动作（例：挥手 / 攻击）
 

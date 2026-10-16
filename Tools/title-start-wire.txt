@@ -1,0 +1,55 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.Exception("先退出 Play");
+var shader = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Shader>("Assets/_Project/Art/Shaders/TitleWaterTransition.shader");
+if (shader == null || UnityEditor.ShaderUtil.ShaderHasError(shader)) throw new System.Exception("转场 Shader 尚未编译通过");
+string configPath = "Assets/_Project/Data/UI/TitleStartConfig.asset";
+var config = UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleStartConfig>(configPath);
+if (config == null)
+{
+    config = UnityEngine.ScriptableObject.CreateInstance<Game.Core.UI.TitleStartConfig>();
+    UnityEditor.AssetDatabase.CreateAsset(config, configPath);
+}
+string materialPath = "Assets/_Project/Art/Materials/TitleWaterTransition.mat";
+var material = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Material>(materialPath);
+if (material == null)
+{
+    material = new UnityEngine.Material(shader);
+    UnityEditor.AssetDatabase.CreateAsset(material, materialPath);
+}
+string path = "Assets/_Project/Prefabs/UI/TitleView.prefab";
+var root = UnityEditor.PrefabUtility.LoadPrefabContents(path);
+try
+{
+    var entrance = root.GetComponent<Game.Core.UI.TitleEntranceMotion>();
+    var transition = root.GetComponent<Game.Core.UI.TitleStartTransition>();
+    if (transition == null) transition = root.AddComponent<Game.Core.UI.TitleStartTransition>();
+    var effectNode = root.transform.Find("StartScreenEffect");
+    if (effectNode == null)
+    {
+        var node = new UnityEngine.GameObject("StartScreenEffect", typeof(UnityEngine.RectTransform), typeof(UnityEngine.UI.RawImage));
+        node.transform.SetParent(root.transform, false);
+        effectNode = node.transform;
+    }
+    effectNode.SetAsLastSibling();
+    var effect = effectNode.GetComponent<UnityEngine.UI.RawImage>();
+    effect.raycastTarget = true;
+    effectNode.gameObject.SetActive(false);
+    var rect = effect.rectTransform;
+    rect.anchorMin = UnityEngine.Vector2.zero; rect.anchorMax = UnityEngine.Vector2.one;
+    rect.offsetMin = UnityEngine.Vector2.zero; rect.offsetMax = UnityEngine.Vector2.zero;
+    var mirror = root.transform.Find("EntranceScene/Artwork1920/铜镜_本体") as UnityEngine.RectTransform;
+    if (mirror == null) throw new System.Exception("未找到铜镜");
+    var serial = new UnityEditor.SerializedObject(transition);
+    serial.FindProperty("config").objectReferenceValue = config;
+    serial.FindProperty("mirror").objectReferenceValue = mirror;
+    serial.FindProperty("entrance").objectReferenceValue = entrance;
+    serial.FindProperty("screenEffect").objectReferenceValue = effect;
+    serial.FindProperty("effectMaterial").objectReferenceValue = material;
+    serial.ApplyModifiedPropertiesWithoutUndo();
+    var view = new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.Views.TitleView>());
+    view.FindProperty("startTransition").objectReferenceValue = transition;
+    view.ApplyModifiedPropertiesWithoutUndo();
+    UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, path);
+    UnityEditor.AssetDatabase.SaveAssets();
+    return new { shaderErrors = UnityEditor.ShaderUtil.ShaderHasError(shader), mirror = mirror.name, overlay = effect.name, config = configPath, material = materialPath };
+}
+finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }

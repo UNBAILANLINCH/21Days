@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using LitMotion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,8 +37,8 @@ namespace Game.Session
         private const string EmptyText = "新游戏";
         private const string UnavailableText = "不可用";
         private const string UnknownProgressText = "进度未知";
-        private const string SecondarySeparator = " · 游玩时长 ";
-        private const string SavedAtFormat = "yyyy-MM-dd HH:mm";
+        private const string SecondarySeparator = "\n游玩时长：";
+        private const string SavedAtFormat = "yyyy-MM-dd";
 
         [Tooltip("面板标题（按模式显示「选择存档」/「新游戏」）。")]
         [SerializeField] private TMP_Text titleLabel;
@@ -48,13 +49,90 @@ namespace Game.Session
         [Tooltip("底部「返回」；同时应拖到基类的 Default Selected 上。")]
         [SerializeField] private Button backButton;
 
+        [Header("悬挂卷轴（按槽号排序）")]
+        [SerializeField] private Sprite[] normalSprites;
+        [SerializeField] private Sprite[] selectedSprites;
+        [SerializeField] private Sprite emptySprite;
+        [SerializeField] private Vector2 firstSlotPosition;
+        [SerializeField] private float slotSpacing;
+        [SerializeField] private Color selectedTextColor = new Color32(39, 160, 191, 255);
+        [SerializeField] private float rollFooterHeight = 218f;
+
         private readonly List<RowEntry> rows = new List<RowEntry>();
+        private MotionHandle rollMotion;
+        private RowEntry rollingRow;
+        private Vector2 originalMaskSize;
+        private bool previousInteractable;
+        private bool previousBlocksRaycasts;
+        private SpriteState previousSpriteState;
 
         public override UILayer Layer => UILayer.Panel;
 
         public override bool IsFullScreen => true;
 
         public override bool CloseOnCancel => true;
+
+        public async UniTask PlayLoadTransitionAsync(int slot, float seconds, CancellationToken ct)
+        {
+            if (rollingRow != null) return;
+            RowEntry row = rows.Find(entry => entry.Slot == slot);
+            if (row == null || row.RollMask == null || row.RollFooter == null || row.Image == null) return;
+            Sprite sprite = row.Image.overrideSprite;
+            if (sprite == null) return;
+            rollingRow = row;
+            originalMaskSize = row.RollMask.rectTransform.sizeDelta;
+            previousInteractable = Group.interactable;
+            previousBlocksRaycasts = Group.blocksRaycasts;
+            previousSpriteState = row.Button.spriteState;
+            SpriteState rollingState = previousSpriteState;
+            rollingState.disabledSprite = sprite;
+            row.Button.spriteState = rollingState;
+            Group.interactable = false;
+            Group.blocksRaycasts = false;
+            float footerHeight = Mathf.Min(rollFooterHeight, originalMaskSize.y); // lint-ok: UI 裁切像素，不参与玩法或回放状态
+            float bodyHeight = originalMaskSize.y - footerHeight;
+            row.RollFooter.texture = sprite.texture;
+            Rect source = sprite.rect;
+            row.RollFooter.uvRect = new Rect(source.x / sprite.texture.width, source.y / sprite.texture.height,
+                source.width / sprite.texture.width, source.height * (footerHeight / originalMaskSize.y) / sprite.texture.height);
+            row.RollFooter.rectTransform.sizeDelta = new Vector2(source.width * originalMaskSize.y / source.height, footerHeight);
+            row.RollFooter.gameObject.SetActive(true);
+            row.RollMask.enabled = true;
+            try
+            {
+                rollMotion = LMotion.Create(bodyHeight, 0f, seconds).WithEase(Ease.InOutSine)
+                    .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).Bind(height =>
+                    {
+                        row.RollMask.rectTransform.sizeDelta = new Vector2(originalMaskSize.x, height);
+                        row.RollFooter.rectTransform.anchoredPosition = new Vector2(0f, -height);
+                    });
+                await rollMotion.ToUniTask(CancelBehavior.Cancel, true, ct);
+                ct.ThrowIfCancellationRequested();
+            }
+            catch
+            {
+                ResetLoadTransition();
+                throw;
+            }
+        }
+
+        public void ResetLoadTransition()
+        {
+            if (rollMotion.IsActive()) rollMotion.Cancel();
+            if (rollingRow == null) return;
+            if (rollingRow.RollMask != null)
+            {
+                rollingRow.RollMask.rectTransform.sizeDelta = originalMaskSize;
+                rollingRow.RollMask.enabled = false;
+            }
+            if (rollingRow.RollFooter != null) rollingRow.RollFooter.gameObject.SetActive(false);
+            if (rollingRow.Button != null) rollingRow.Button.spriteState = previousSpriteState;
+            Group.interactable = previousInteractable;
+            Group.blocksRaycasts = previousBlocksRaycasts;
+            rollingRow = null;
+        }
+
+        private void OnDisable() => ResetLoadTransition();
 
         /// <summary>某一行被点，携带槽号。</summary>
         public event Action<int> OnSlotClicked;
@@ -106,12 +184,15 @@ namespace Game.Session
 
                 SlotInfo info = infos[i];
                 row.Slot = info.Slot;
+                ApplyAppearance(row, info);
                 row.SlotLabel.text = FormatSlotLabel(info.Slot);
                 row.Primary.text = FormatPrimary(info);
+                SetActive(row.Primary.gameObject, info.State != SlotState.Empty || normalSprites == null || normalSprites.Length == 0);
                 row.Secondary.text = FormatSecondary(info);
                 SetActive(row.Secondary.gameObject, info.State == SlotState.Available);
                 row.Button.interactable = IsRowSelectable(info.State, mode);
                 SetActive(row.Delete.gameObject, IsDeleteVisible(info.State));
+                if (row.Drag != null) row.Drag.SetAvailable(IsDeleteVisible(info.State));
                 SetActive(row.Root, true);
             }
         }
@@ -138,7 +219,7 @@ namespace Game.Session
             }
         }
 
-        /// <summary>行第二行文字：可读槽「保存时间（本地时区） · 游玩时长 mm:ss」，其它两态为空串。</summary>
+        /// <summary>可读槽分两行显示本地保存日期和游玩时长，其它两态为空串。</summary>
         public static string FormatSecondary(SlotInfo info)
         {
             if (info.State != SlotState.Available) return string.Empty;
@@ -180,9 +261,58 @@ namespace Game.Session
                 Delete = t.Find(RowDeleteName).GetComponent<Button>(),
             };
             // 只在建池行时绑一次；之后换内容只改 row.Slot，回调读字段。
-            row.Button.onClick.AddListener(() => OnSlotClicked?.Invoke(row.Slot));
+            row.Button.onClick.AddListener(() =>
+            {
+                if (row.Drag != null && row.Drag.IsHeld) return;
+                if (row.Drag != null && row.Drag.IsRevealed) OnDeleteClicked?.Invoke(row.Slot);
+                else OnSlotClicked?.Invoke(row.Slot);
+            });
             row.Delete.onClick.AddListener(() => OnDeleteClicked?.Invoke(row.Slot));
+            row.Image = row.Button.targetGraphic as Image;
+            row.Drag = go.GetComponentInChildren<UIDragReveal>(true);
+            Transform mask = t.Find("RollMask");
+            if (mask != null) row.RollMask = mask.GetComponent<RectMask2D>();
+            Transform footer = t.Find("RollFooter");
+            if (footer != null) row.RollFooter = footer.GetComponent<RawImage>();
+            if (row.Drag != null) row.Drag.OnRevealed += () => OnDeleteClicked?.Invoke(row.Slot);
+            row.PrimaryPosition = row.Primary.rectTransform.anchoredPosition;
+            if (row.Image != null)
+                row.Image.RegisterDirtyVerticesCallback(() => RefreshTextColor(row));
             return row;
+        }
+
+        private void ApplyAppearance(RowEntry row, SlotInfo info)
+        {
+            int index = info.Slot - 1;
+            if (normalSprites == null || index < 0 || index >= normalSprites.Length) return;
+            Image image = row.Image;
+            if (image == null) return;
+            Sprite normal = info.State == SlotState.Empty ? emptySprite : normalSprites[index];
+            image.sprite = normal;
+            image.overrideSprite = null;
+            image.SetNativeSize();
+            var rect = (RectTransform)row.Root.transform;
+            rect.sizeDelta = image.rectTransform.sizeDelta;
+            if (row.RollMask != null) row.RollMask.rectTransform.sizeDelta = rect.sizeDelta;
+            rect.anchoredPosition = firstSlotPosition + new Vector2(index * slotSpacing, 0f);
+            Sprite selected = info.State == SlotState.Available ? selectedSprites[index] : normal;
+            row.SelectedSprite = info.State == SlotState.Available ? selected : null;
+            row.Button.transition = Selectable.Transition.SpriteSwap;
+            row.Button.spriteState = new SpriteState
+            {
+                highlightedSprite = selected, pressedSprite = selected,
+                selectedSprite = selected, disabledSprite = normal,
+            };
+            row.Primary.rectTransform.anchoredPosition = row.PrimaryPosition;
+            RefreshTextColor(row);
+        }
+
+        private void RefreshTextColor(RowEntry row)
+        {
+            bool selected = row.SelectedSprite != null && row.Image != null && row.Image.overrideSprite == row.SelectedSprite;
+            Color color = selected ? selectedTextColor : Color.white;
+            row.Primary.color = color;
+            row.Secondary.color = color;
         }
 
         // 逐个点名缺失字段与模板子物体，预制体按名字接线时一眼看出漏了哪个。
@@ -203,6 +333,9 @@ namespace Game.Session
             }
 
             if (backButton == null) missing.Add(nameof(backButton));
+            if (normalSprites != null && normalSprites.Length > 0 &&
+                (selectedSprites == null || selectedSprites.Length != normalSprites.Length || emptySprite == null))
+                missing.Add("卷轴三态图片数量或空槽图片");
             if (missing.Count > 0)
                 throw new InvalidOperationException("SaveSlotsView 引用未接线：" + string.Join("、", missing));
         }
@@ -210,6 +343,8 @@ namespace Game.Session
         private static TMP_Text FindText(Transform parent, string childName)
         {
             Transform child = parent.Find(childName);
+            if (child == null) child = parent.Find("Paper/" + childName);
+            if (child == null) child = parent.Find("RollMask/Paper/" + childName);
             return child == null ? null : child.GetComponent<TMP_Text>();
         }
 
@@ -229,6 +364,12 @@ namespace Game.Session
             public TMP_Text Primary;
             public TMP_Text Secondary;
             public Button Delete;
+            public Image Image;
+            public Sprite SelectedSprite;
+            public Vector2 PrimaryPosition;
+            public UIDragReveal Drag;
+            public RectMask2D RollMask;
+            public RawImage RollFooter;
         }
     }
 }

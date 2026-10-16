@@ -1,0 +1,25 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("仍在播放，不能修改资产");
+var changes=new System.Collections.Generic.Dictionary<string,float[]> {
+ {"云_左",new float[]{262.5f,116f,0.42f}},{"云_右",new float[]{-301.5f,142.5f,0.42f}},
+ {"雾气_左",new float[]{206.5f,142.5f,0.52f}},{"雾气_右",new float[]{-727.5f,194f,0.52f}},
+ {"石头_左远景",new float[]{649.5f,101f,0.32f}},{"石头_左中景",new float[]{144f,169f,0.38f}},
+ {"石头_右中景",new float[]{-147f,206f,0.38f}},{"石头_右前景",new float[]{-829f,157.5f,0.32f}}
+};
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");int count=0;
+for(int i=0;i<tracks.arraySize;i++){
+ var track=tracks.GetArrayElementAtIndex(i);var name=track.FindPropertyRelative("part").stringValue;
+ if(!changes.ContainsKey(name))continue;var values=changes[name];
+ track.FindPropertyRelative("offset").vector2Value=new UnityEngine.Vector2(values[0],values[1]);
+ track.FindPropertyRelative("scale").floatValue=values[2];count++;
+}
+if(count!=8)throw new System.InvalidOperationException("云雾与石头轨道数量不符");
+data.ApplyModifiedPropertiesWithoutUndo();UnityEditor.AssetDatabase.SaveAssets();
+var root=UnityEditor.PrefabUtility.LoadPrefabContents("Assets/_Project/Prefabs/UI/TitleView.prefab");
+try{
+ var content=root.transform.Find("EntranceScene/Artwork1920");var mirror=content.Find("铜镜_本体");
+ content.Find("石头_右中景").SetSiblingIndex(mirror.GetSiblingIndex());
+ content.Find("石头_右前景").SetSiblingIndex(mirror.GetSiblingIndex());
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,"Assets/_Project/Prefabs/UI/TitleView.prefab");
+ return new {changedTracks=count,mirrorLayer=mirror.GetSiblingIndex(),rightStoneLayer=content.Find("石头_右中景").GetSiblingIndex(),rightForegroundLayer=content.Find("石头_右前景").GetSiblingIndex()};
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

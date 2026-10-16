@@ -64,6 +64,7 @@ namespace Game.Interaction
                 subscribed = false;
             }
             candidates.Clear();
+            if (Actor != null) Actor.OnAnchorChanged -= HandleAnchorChanged;
             Actor = null;
             OnActorChanged = null;
         }
@@ -84,9 +85,13 @@ namespace Game.Interaction
         public void SetActor(InteractionActor actor)
         {
             if (ReferenceEquals(Actor, actor)) return;
+            if (Actor != null) Actor.OnAnchorChanged -= HandleAnchorChanged;
             Actor = actor;
+            if (Actor != null) Actor.OnAnchorChanged += HandleAnchorChanged;
             OnActorChanged?.Invoke(actor);
         }
+
+        private void HandleAnchorChanged() => OnActorChanged?.Invoke(Actor);
 
         /// <summary>
         /// 场景卸载后的收尾（sceneUnloaded 回调调它）：移除已销毁的候选；玩家标记随场景销毁成伪空时，

@@ -1,0 +1,9 @@
+var root=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var motion=new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.TitleEntranceMotion>());
+var targets=motion.FindProperty("targets");var rows=new System.Collections.Generic.List<object>();
+for(int i=0;i<config.Tracks.Length;i++){
+ var track=config.Tracks[i];var rect=(UnityEngine.RectTransform)targets.GetArrayElementAtIndex(i).objectReferenceValue;
+ rows.Add(new {name=track.Part,x=rect.anchoredPosition.x,y=rect.anchoredPosition.y,scale=track.Scale,offsetX=track.Offset.x,offsetY=track.Offset.y,delay=track.Delay,duration=track.Duration,sibling=rect.GetSiblingIndex()});
+}
+return new {playing=UnityEditor.EditorApplication.isPlaying,scene=UnityEngine.SceneManagement.SceneManager.GetActiveScene().path,serialized=UnityEditor.EditorJsonUtility.ToJson(config),tracks=rows};

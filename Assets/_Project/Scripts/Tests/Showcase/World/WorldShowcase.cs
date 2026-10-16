@@ -31,11 +31,14 @@ using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Input;
 using Game.Core.UI;
+using Game.Core.Timing;
 using Game.Interaction;
 using Game.IsometricExploration;
 using Game.Player;
 using Game.World;
+using Game.Quest;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
@@ -82,6 +85,151 @@ namespace Game.Tests.Showcase.World
 
         /// <summary>两张世界场景都由流程加载（Addressables），基类不再叠加载一份。</summary>
         protected override string ScenePath => null;
+
+        [UnityTest]
+        public IEnumerator MapInDemo_ShowsExistingStairs()
+        {
+            yield return EnterDemoWorld("地图入口与玩家锚点已就绪", () =>
+            {
+                ui = ResolveService<IUIService>();
+                inputService = ResolveService<IInputService>();
+                interaction = ResolveService<IInteractionRegistry>();
+                return ui != null && inputService != null && interaction != null
+                    && interaction.Actor != null && ResolveService<SceneMapController>() != null;
+            }, "地图入口未装配");
+            var mapController = ResolveService<SceneMapController>();
+            yield return Step("进入探索后小地图自动显示在左上角，任务栏在下方", null, 0f);
+            yield return Check("示例场景的两组楼梯合并成两个标记，玩家与场景轮廓可见",
+                () => mapController.IsOpen && ui.Get<SceneMapView>() != null
+                    && ui.Get<SceneMapView>().StairCount == 2 && ui.Get<SceneMapView>().FootprintCount > 0, 5f);
+            yield return CheckHudLayout();
+            yield return MapSnapshot("示例场景小地图与任务栏", true);
+            var hud = ResolveService<IHudVisibility>();
+            yield return Step("按沉浸键，小地图随主界面 HUD 隐藏", null, 0f);
+            yield return Input.Press(inputService.Actions.Gameplay.Immersive);
+            yield return Check("沉浸时小地图不可见", () => hud.IsHudHidden
+                && ui.Get<SceneMapView>().GetComponent<CanvasGroup>().alpha <= 0.01f, 5f);
+            yield return MapSnapshot("沉浸隐藏小地图", false);
+            yield return Input.Press(inputService.Actions.Gameplay.Immersive);
+            yield return Check("退出沉浸后同一小地图恢复", () => !hud.IsHudHidden
+                && ui.Get<SceneMapView>().GetComponent<CanvasGroup>().alpha >= 0.99f, 5f);
+        }
+
+        [UnityTest]
+        public IEnumerator MapHud_ShowsCurrentPositionAndFollowsSceneChanges()
+        {
+            yield return EnterWorld();
+            yield return EnterHumanScene();
+            Input.Prime();
+            var mapController = ResolveService<SceneMapController>();
+            var pause = ResolveService<IWorldPauseService>();
+            Assert.That(mapController, Is.Not.Null, "地图入口须在正式容器里");
+
+            yield return Step("进入人间后共用小地图自动显示", null, 0f);
+            yield return Check("人间小地图显示泾阳、当前位置与出口，操作保持可用",
+                () => mapController.IsOpen && ui.Get<SceneMapView>() != null
+                    && ui.Get<SceneMapView>().SceneTitle == catalog.GetScene(HumanScene).DisplayName
+                    && ui.Get<SceneMapView>().FootprintCount > 0 && ui.Get<SceneMapView>().PortalCount > 0
+                    && ui.Get<SceneMapView>().IsShowing && !pause.IsPaused && inputService.Actions.Gameplay.enabled, 5f);
+            SceneMapView shared = ui.Get<SceneMapView>();
+            Vector2 before = ui.Get<SceneMapView>().PlayerMapPosition;
+            yield return MapSnapshot("人间常驻小地图", true);
+
+            yield return Step("保持小地图显示，向东移动一小段", null, 0f);
+            yield return Walk(Vector2.right, 0.6f);
+            yield return Check("玩家移动时小地图标记实时向右更新，世界未被暂停",
+                () => mapController.IsOpen && ui.Get<SceneMapView>() != null
+                    && ui.Get<SceneMapView>().PlayerMapPosition.x > before.x + 1f && !pause.IsPaused, 5f);
+            yield return MapSnapshot("移动中实时定位", true);
+
+            yield return Step("经世界流程换到妖界，共用小地图更新场景内容", () =>
+            {
+                transition.Request(new WorldTransitionRequest(YaoScene, "fangshi_platform"));
+                flow.GoToAsync<WorldSceneState>().Forget();
+            }, 0f);
+            yield return WaitUntil("妖界场景加载完成", () => CurrentSceneKey() == YaoScene && SpawnOf("fangshi_platform") != null, 25f);
+            yield return WaitCurtainRevealed();
+            yield return Check("同一个 HUD 小地图自动换成妖界内容，新场景可继续操作",
+                () => mapController.IsOpen && ui.Get<SceneMapView>() != null
+                    && ReferenceEquals(ui.Get<SceneMapView>(), shared) && ui.Get<SceneMapView>().IsShowing
+                    && ui.Get<SceneMapView>().SceneTitle == catalog.GetScene(YaoScene).DisplayName
+                    && ui.Get<SceneMapView>().FootprintCount > 0 && ui.Get<SceneMapView>().PortalCount > 0
+                    && !pause.IsPaused && inputService.Actions.Gameplay.enabled, 5f);
+            yield return MapSnapshot("换图后共用小地图", true);
+        }
+
+        private IEnumerator MapSnapshot(string name, bool checkPixels)
+        {
+            // 回放信息条位于屏幕最上方，会遮住待验收的小地图；只在取样和截图时临时隐藏。
+            ShowcaseOverlay overlay = UnityEngine.Object.FindObjectOfType<ShowcaseOverlay>();
+            bool wasEnabled = overlay != null && overlay.enabled;
+            if (overlay != null) overlay.enabled = false;
+            try
+            {
+                if (checkPixels) yield return CheckMapPixels();
+                yield return Snapshot(name);
+            }
+            finally { if (overlay != null) overlay.enabled = wasEnabled; }
+        }
+
+        private IEnumerator CheckHudLayout()
+        {
+            yield return WaitUntil("小地图与任务栏 HUD 已就绪", () => ui.Get<SceneMapView>() != null && ui.Get<QuestHudView>() != null, 5f);
+            var mapCorners = new Vector3[4];
+            var questCorners = new Vector3[4];
+            FindDeep<RectTransform>(ui.Get<SceneMapView>().transform, "MapPanel").GetWorldCorners(mapCorners);
+            FindDeep<RectTransform>(ui.Get<QuestHudView>().transform, "Root").GetWorldCorners(questCorners);
+            yield return Check("小地图位于左上角且在任务栏上方，两者没有重叠",
+                () => mapCorners[0].x < Screen.width * 0.2f && mapCorners[1].y > Screen.height * 0.8f
+                    && mapCorners[0].y > questCorners[1].y + 1f);
+        }
+
+        private IEnumerator CheckMapPixels()
+        {
+            // 等淡入结束再验实际像素，避免只凭 FootprintCount 把「有数据但没画出来」误判通过。
+            yield return WaitUntil("地图淡入完成", () => ui.Get<SceneMapView>() != null
+                && ui.Get<SceneMapView>().GetComponent<CanvasGroup>().alpha >= 0.99f, 3f);
+            yield return new WaitForEndOfFrame();
+            SceneMapGraphic graphic = ui.Get<SceneMapView>().GetComponentInChildren<SceneMapGraphic>();
+            var corners = new Vector3[4];
+            graphic.rectTransform.GetWorldCorners(corners);
+            Camera camera = graphic.canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : graphic.canvas.worldCamera;
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+            Vector2 max = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            Texture2D image = ScreenCapture.CaptureScreenshotAsTexture();
+            int visible = 0;
+            int samples = 0;
+            int legendPixels = 0;
+            try
+            {
+                for (int y = Mathf.Max(0, (int)min.y); y < Mathf.Min(image.height, (int)max.y); y += 8)
+                {
+                    for (int x = Mathf.Max(0, (int)min.x); x < Mathf.Min(image.width, (int)max.x); x += 8)
+                    {
+                        Color pixel = image.GetPixel(x, y);
+                        samples++;
+                        if (pixel.r > 0.18f && pixel.g > 0.2f && pixel.b > 0.15f
+                            && pixel.g > pixel.r && pixel.g > pixel.b) visible++;
+                    }
+                }
+                TMP_Text legend = FindDeep<TMP_Text>(ui.Get<SceneMapView>().transform, "Legend");
+                legend.rectTransform.GetWorldCorners(corners);
+                min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+                max = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+                for (int y = Mathf.Max(0, (int)min.y); y < Mathf.Min(image.height, (int)max.y); y += 2)
+                {
+                    for (int x = Mathf.Max(0, (int)min.x); x < Mathf.Min(image.width, (int)max.x); x += 2)
+                    {
+                        Color pixel = image.GetPixel(x, y);
+                        if (Mathf.Max(pixel.r, pixel.g, pixel.b) > 0.5f) legendPixels++;
+                    }
+                }
+            }
+            finally { UnityEngine.Object.Destroy(image); }
+            yield return Check("地图轮廓确实绘制在画面上（不是只显示玩家与出口两个点）",
+                () => samples > 0 && visible > samples / 20);
+            yield return Check("图例文字确实显示在地图下方", () => legendPixels > 30);
+        }
 
         [UnityTest]
         public IEnumerator WalkThroughPortal_SwapsSceneAndLandsOnTheTargetSpawn()

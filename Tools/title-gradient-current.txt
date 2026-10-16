@@ -1,0 +1,14 @@
+var root=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var rows=new System.Collections.Generic.List<object>();
+foreach(string name in new string[]{"SettingsButton","LoadButton","ContinueButton","QuitButton"}){
+ var paper=(UnityEngine.RectTransform)root.transform.Find("Buttons/"+name+"/EntranceArtwork/卷轴底");
+ var fill=(UnityEngine.RectTransform)paper.Find("底部渐变");var image=fill.GetComponent<UnityEngine.UI.Image>();
+ rows.Add(new {button=name,fillEnabled=image.enabled,fillActive=fill.gameObject.activeSelf,colorAlpha=image.color.a,
+  minY=fill.anchorMin.y,maxY=fill.anchorMax.y,x=fill.anchoredPosition.x,y=fill.anchoredPosition.y,w=fill.rect.width,h=fill.rect.height,
+  sprite=image.sprite.name,alpha=fill.GetComponent<UnityEngine.CanvasGroup>().alpha});
+}
+var tracks=new System.Collections.Generic.List<object>();
+foreach(var t in config.Tracks)if(t.Part.StartsWith("云_")||t.Part.StartsWith("雾气_")||t.Part.EndsWith("中景"))
+ tracks.Add(new {name=t.Part,offsetX=t.Offset.x,offsetY=t.Offset.y,delay=t.Delay,duration=t.Duration,fade=t.FadeSeconds,scale=t.Scale,subtle=t.SubtleFade});
+return new {playing=UnityEditor.EditorApplication.isPlaying,rows=rows,tracks=tracks};

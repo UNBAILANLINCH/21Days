@@ -77,6 +77,17 @@ namespace Game.Tests.EditMode.Taming
             Assert.That(rules.IsControllingEnemy, Is.False);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ObservationOnly_KeepsDetectionWithoutExplorationDamage(bool observesOnly)
+        {
+            enemy.Reset(new[] { Vector2.right * .5f, Vector2.zero });
+            rules.ConfigureActor("enemy", false, false, observesOnly);
+            bool attacked = rules.AdvanceTargets(Vector2.zero, 0f);
+            Assert.That(enemy.Model.Mode, Is.EqualTo(MonsterMode.Hostile), "观测者仍有真实感知与追近状态");
+            Assert.That(attacked, Is.EqualTo(!observesOnly));
+            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - (observesOnly ? 0 : enemyConfig.AttackDamage)));
+        }
         private MonsterRules ConfigureTwo()
         {
             MonsterRules second = enemy.CreateForActor("patrol-b");
@@ -248,6 +259,53 @@ namespace Game.Tests.EditMode.Taming
                 new[] { new TamingTargetSaveData { Id = " ", Monster = saved[0].Monster } }));
             Assert.Throws<System.ArgumentException>(() => rules.ValidateRestore(
                 new[] { new TamingTargetSaveData { Id = "patrol-a", Monster = null } }));
+        }
+
+        [Test]
+        public void PassiveActor_NearPlayer_PatrolsWithoutAlertOrDamage()
+        {
+            enemy.Reset(new[] { Vector2.zero, Vector2.right * 3 });
+            rules.ConfigureActor("enemy", true, false);
+            for (int i = 0; i < 10; i++) rules.AdvanceTargets(Vector2.zero, .1f);
+            Assert.That(player.Model.Health, Is.EqualTo(playerConfig.MaxHealth));
+            Assert.That(enemy.Model.Alert, Is.Zero);
+            Assert.That(enemy.Model.Position.x, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void AddedShopActor_OldSaveKeepsOriginalOwnerAndNewActorInitialState()
+        {
+            rules.TryTame("enemy"); rules.TryControl("enemy");
+            var saved = rules.Capture();
+            MonsterRules added = enemy.CreateForActor("shop_smith"); added.Reset(new[] { Vector2.right * 30 });
+            rules.RegisterTarget("shop_smith", "金银匠", added); rules.ConfigureActor("shop_smith", true, true);
+            rules.Restore(saved, "enemy", false);
+            Assert.That(rules.CurrentControlId, Is.EqualTo("enemy"));
+            Assert.That(added.Model.Position, Is.EqualTo(Vector2.right * 30));
+            Assert.That(rules.IsTargetTamed("shop_smith"), Is.False);
+        }
+
+        [Test]
+        public void SelectionPermission_HiddenActorCannotBeBorrowed_ExistingOwnerRemainsControlled()
+        {
+            ConfigureTwo(); rules.TryTame("patrol-a"); rules.TryControl("patrol-a");
+            rules.BindSelection(_ => false);
+            Assert.That(rules.TryTame("patrol-b"), Is.False);
+            rules.ValidateControl();
+            Assert.That(rules.CurrentControlId, Is.EqualTo("patrol-a"));
+        }
+
+        [Test]
+        public void ChangePatrolRoute_PreservesHealthControlAndPosition()
+        {
+            rules.TryTame("enemy"); rules.TryControl("enemy");
+            int hp = enemy.Model.Health; Vector2 position = enemy.Model.Position;
+            enemy.ChangePatrolRoute(new[] { Vector2.one * 50 });
+            Assert.That(enemy.Model.Health, Is.EqualTo(hp));
+            Assert.That(enemy.Model.Position, Is.EqualTo(position));
+            Assert.That(rules.CurrentControlId, Is.EqualTo("enemy"));
+            Assert.That(enemy.Capture().WaypointX[0], Is.EqualTo(50));
+        }
         }
     }
 }

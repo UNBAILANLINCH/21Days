@@ -201,6 +201,8 @@ namespace Game.Monster
             }
             step.ConfigureTaming(playerIdentity.StableId, playerIdentity.DisplayName, actorIds, names, routes,
                 kindIds, fullParticipants);
+            for (int i = 0; i < patrolActors.Length; i++)
+                step.Taming.ConfigureActor(actorIds[i], patrolActors[i].Passive, patrolActors[i].AddedForShops, patrolActors[i].ObservationOnly);
             playerIdentity.RefreshLabel();
         }
 
@@ -551,11 +553,26 @@ namespace Game.Monster
         {
             if (body == null || sprite == null) return;
             Vector3 previous = body.position;
-            body.position = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
+            Vector3 desired = ToScenePosition(Interpolate(model.PreviousPosition, model.Position, alpha), previous);
+            Vector3 final = desired;
+            if (isControlled && useXZPlane && obstacleMask.value != 0 &&
+                (desired - previous).sqrMagnitude <= obstacleTeleportDistance * obstacleTeleportDistance)
+            {
+                // 受控小人沿用玩家的同一白盒碰撞，不再穿过店铺建筑；AI巡逻仍由既有规则推进。
+                Vector3 slid = EncounterCollision.Slide(previous, desired, obstacleRadius, obstacleBottomOffset, obstacleTopOffset, obstacleMask);
+                float x = EncounterProjection.ResolveBlockedAxis(model.Position.x, desired.x, slid.x, BlockedAxisTolerance);
+                float y = EncounterProjection.ResolveBlockedAxis(model.Position.y, desired.z, slid.z, BlockedAxisTolerance);
+                model.PreviousPosition = new Vector2(
+                    EncounterProjection.CorrectPreviousAxis(model.PreviousPosition.x, model.Position.x, x),
+                    EncounterProjection.CorrectPreviousAxis(model.PreviousPosition.y, model.Position.y, y));
+                model.Position = new Vector2(x, y);
+                final = ToScenePosition(new Vector2(slid.x, slid.z), previous);
+            }
+            body.position = final;
             if (flipByMoveDirection) ApplyFlip(sprite, previous.x, body.position.x);
             // 感知范围线框跟着纸片走：位置用刚投影出来的场景点，朝向用**逻辑朝向**
             // （纸片本身只做左右翻转、不转身，所以朝向不能从 transform 读）。
-            if (awarenessRanges != null) awarenessRanges.UpdatePose(body.position, model.Facing);
+            if (awarenessRanges != null && body == monsterBody) awarenessRanges.UpdatePose(body.position, model.Facing);
             SpriteRenderer tint = indicator != null ? indicator : sprite;
             tint.color = model.Health <= 0 ? Color.black : isControlled ? Color.cyan : isTamed ? Color.green
                 : model.Mode == MonsterMode.Hostile ? Color.red
@@ -568,6 +585,9 @@ namespace Game.Monster
         /// </summary>
         public Vector2 ToLogicPosition(Vector3 position) =>
             useXZPlane ? new Vector2(position.x, position.z) : new Vector2(position.x, position.y);
+
+        public Vector3 ToScenePosition(Vector2 position) => ToScenePosition(position,
+            CurrentControlObject != null ? CurrentControlObject.position : playerBody.position);
 
         private Vector2 Interpolate(Vector2 previous, Vector2 current, float alpha)
         {
@@ -687,6 +707,7 @@ namespace Game.Monster
                 for (int i = 0; i < actorIds.Length; i++)
                 {
                     string id = actorIds[i];
+                    if (patrolActors[i].AddedForShops) continue;
                     float row = controlTop + (i + 2) * LineHeight;
                     GUI.Label(new Rect(DebugPanelMargin, row, 240f, LineHeight), encounter.Taming.GetDisplayName(id) + " [" + id + "]");
                     bool enabledBefore = GUI.enabled;

@@ -17,6 +17,7 @@ namespace Game.Core.UI
         [SerializeField] private GameObject[] buttonArtwork = Array.Empty<GameObject>();
         [SerializeField] private Image background;
         [SerializeField] private Image[] buttonImages = Array.Empty<Image>();
+        [SerializeField] private GameObject[] buttonOverlays = Array.Empty<GameObject>();
         [SerializeField] private GameObject startArtwork;
         [SerializeField] private Image startImage;
         [SerializeField] private RectTransform sceneFrame;
@@ -41,14 +42,22 @@ namespace Game.Core.UI
             internal TitleEntranceConfig.TrackSettings Settings;
             internal Vector2 Position;
             internal Vector3 Scale;
+            internal Vector2 Size;
             internal Quaternion Rotation;
 
             internal void Apply(float progress)
             {
                 Rect.anchoredPosition = Position + Settings.Offset * (1f - progress);
-                Rect.localScale = Scale * Mathf.LerpUnclamped(Settings.Scale, 1f, progress);
+                float factor = Mathf.LerpUnclamped(Settings.Scale, 1f, progress);
+                if (Settings.UnrollVertical)
+                {
+                    // 顶端锚定、九宫格保住横轴厚度；改变纸面高度，让下沿展开后回拉。
+                    Rect.localScale = Scale;
+                    Rect.sizeDelta = new Vector2(Size.x, Size.y * Mathf.Max(0.01f, factor));
+                }
+                else Rect.localScale = Scale * factor;
                 Rect.localRotation = Rotation * Quaternion.Euler(0f, 0f, Settings.Rotation * (1f - progress));
-                if (Mask != null)
+                if (Mask != null && Settings.RevealDirection != 0)
                 {
                     float hidden = Rect.rect.width * (1f - Mathf.Clamp01(progress));
                     Mask.padding = Settings.RevealDirection < 0
@@ -80,7 +89,7 @@ namespace Game.Core.UI
                 {
                     Rect = rect, Group = rect.GetComponent<CanvasGroup>(), Mask = rect.GetComponent<RectMask2D>(),
                     Settings = config.Tracks[i], Position = rect.anchoredPosition,
-                    Scale = rect.localScale, Rotation = rect.localRotation
+                    Scale = rect.localScale, Size = rect.sizeDelta, Rotation = rect.localRotation
                 };
             }
         }
@@ -102,7 +111,8 @@ namespace Game.Core.UI
                 sequence.Insert(state.Settings.Delay, LMotion.Create(0f, 1f, state.Settings.Duration)
                     .WithEase(state.Settings.Curve).Bind(state, (value, target) => target.Apply(value)));
                 sequence.Insert(state.Settings.Delay, LMotion.Create(0f, 1f, state.Settings.FadeSeconds)
-                    .WithEase(Ease.InOutSine).BindToAlpha(state.Group));
+                    .WithEase(state.Settings.LinearFade ? Ease.Linear : state.Settings.SubtleFade ? Ease.InCubic : Ease.InOutSine)
+                    .BindToAlpha(state.Group));
             }
             entrance = sequence.Run(motion => motion.WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                 .WithOnComplete(Finish)).AddTo(gameObject);
@@ -161,6 +171,16 @@ namespace Game.Core.UI
                 if (buttonArtwork[i] != null) buttonArtwork[i].SetActive(entering && !useAlternate);
             for (int i = 0; i < buttonImages.Length; i++)
                 if (buttonImages[i] != null) buttonImages[i].enabled = !entering || useAlternate;
+            RefreshButtonOverlays();
+        }
+
+        private void RefreshButtonOverlays()
+        {
+            // 原生 Sprite Swap 已包含高亮配色，普通态的白雾不能再次覆盖它。
+            for (int i = 0; i < buttonOverlays.Length; i++)
+                if (buttonOverlays[i] != null)
+                    buttonOverlays[i].SetActive(!alternate && (running || i >= buttonImages.Length
+                        || buttonImages[i] == null || buttonImages[i].overrideSprite == buttonImages[i].sprite));
         }
 
         private void Restore()
@@ -201,11 +221,16 @@ namespace Game.Core.UI
 
         private void OnEnable()
         {
+            for (int i = 0; i < buttonImages.Length; i++)
+                if (buttonImages[i] != null) buttonImages[i].RegisterDirtyVerticesCallback(RefreshButtonOverlays);
+            RefreshButtonOverlays();
             if (started && !alternate && !running) StartBreathing();
         }
 
         private void OnDisable()
         {
+            for (int i = 0; i < buttonImages.Length; i++)
+                if (buttonImages[i] != null) buttonImages[i].UnregisterDirtyVerticesCallback(RefreshButtonOverlays);
             Stop();
             Restore();
             if (started) SetGraphics(alternate, false);

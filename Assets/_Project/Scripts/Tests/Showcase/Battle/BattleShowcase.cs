@@ -753,6 +753,12 @@ namespace Game.Tests.Showcase.Battle
         private IEnumerator CheckEnteredBattle(string expect)
         {
             yield return Check(expect, InBattle, 20f);
+            yield return Check("原BOSS目标保持配置醉酒50，不读取酒肆的0", () =>
+            {
+                if (presenter.View == null) return false;
+                var bar = FindDeep<BattleBarWidget>(presenter.View.transform, "DrunkBar");
+                return bar != null && bar.GetComponentInChildren<TMP_Text>(true).text.StartsWith("醉酒 50");
+            }, 5f);
             yield return WaitCurtainRevealed();
         }
 

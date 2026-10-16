@@ -19,6 +19,11 @@ namespace Game.Taming
         private readonly Dictionary<string, string> names = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly HashSet<string> tamed = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> unavailable = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> passive = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> observationOnly = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> optionalInOldSave = new HashSet<string>(StringComparer.Ordinal);
+        private Func<string, bool> selectable;
+        private Func<string, float> awarenessScale, movementScale;
         private bool previousToggle;
         private readonly IReadOnlyList<string> readOnlyIds;
 
@@ -49,6 +54,11 @@ namespace Game.Taming
             tamed.Clear();
             unavailable.Clear();
             PlayerId = playerId;
+            passive.Clear();
+            observationOnly.Clear();
+            optionalInOldSave.Clear();
+            selectable = null;
+            awarenessScale = movementScale = null;
             PlayerName = playerName;
             CurrentControlId = playerId;
             previousToggle = false;
@@ -69,6 +79,18 @@ namespace Game.Taming
         public bool IsTargetTamed(string id) => id != null && tamed.Contains(id);
         public bool IsAvailable(string id) => id != null && !unavailable.Contains(id) && GetTarget(id) != null;
         public bool CanControl(string id) => id == PlayerId || (IsAvailable(id) && IsTargetTamed(id) && GetTarget(id).Model.Health > 0 && player.Model.Health > 0);
+        public bool IsPassive(string id) => passive.Contains(id);
+        public bool IsObservationOnly(string id) => observationOnly.Contains(id);
+        public void ConfigureActor(string id, bool isPassive, bool allowMissingFromOldSave, bool observesWithoutCombat = false)
+        {
+            if (GetTarget(id) == null) throw new ArgumentException("未知角色：" + id);
+            if (isPassive) passive.Add(id); else passive.Remove(id);
+            if (observesWithoutCombat) observationOnly.Add(id); else observationOnly.Remove(id);
+            if (allowMissingFromOldSave) optionalInOldSave.Add(id); else optionalInOldSave.Remove(id);
+        }
+        public void BindSelection(Func<string, bool> permission) => selectable = permission;
+        public void BindModifiers(Func<string, float> awareness, Func<string, float> movement)
+        { awarenessScale = awareness; movementScale = movement; }
 
         public void SetAvailable(string id, bool available)
         {
@@ -80,14 +102,14 @@ namespace Game.Taming
         public bool TryTame(string id)
         {
             MonsterRules target = GetTarget(id);
-            if (!IsAvailable(id) || target.Model.Health <= 0 || player.Model.Health <= 0) return false;
+            if (!IsAvailable(id) || target.Model.Health <= 0 || player.Model.Health <= 0 || (selectable != null && !selectable(id))) return false;
             if (tamed.Add(id)) telemetry.Track("tamed", ("id", id));
             return true;
         }
 
         public bool TryControl(string id)
         {
-            if (!CanControl(id)) return false;
+            if (!CanControl(id) || (id != PlayerId && id != CurrentControlId && selectable != null && !selectable(id))) return false;
             if (CurrentControlId == id) return true;
             CurrentControlId = id;
             telemetry.Track("control_changed", ("id", id));
@@ -122,8 +144,9 @@ namespace Game.Taming
             float distance = float.MaxValue;
             foreach (string id in targetIds)
             {
-                if (!IsAvailable(id) || targets[id].Model.Health <= 0) continue;
-                float candidate = GameMath.SqrMagnitude(targets[id].Model.Position - player.Model.Position);
+                if (!IsAvailable(id) || targets[id].Model.Health <= 0 || (selectable != null && !selectable(id))) continue;
+                Vector2 origin = IsControllingEnemy ? GetTarget(CurrentControlId).Model.Position : player.Model.Position;
+                float candidate = GameMath.SqrMagnitude(targets[id].Model.Position - origin);
                 if (candidate < distance) { nearest = id; distance = candidate; }
             }
             return nearest;
@@ -168,6 +191,8 @@ namespace Game.Taming
                 if (entry.Monster == null) throw new ArgumentException("巡逻者快照缺失");
                 entry.Monster.Validate();
             }
+            // 不再校验「存档与场景数量相等」（PRP/combat-iteration D2）：场景加怪读旧档、删怪读新档都合法，
+            // 由 Restore 按稳定 id 对齐。ConfigureActor 的 allowMissingFromOldSave 参数因此只剩 API 兼容作用。
         }
 
         /// <summary>
@@ -230,11 +255,20 @@ namespace Game.Taming
             {
                 MonsterRules target = targets[id];
                 if (!IsAvailable(id)) { target.Model.SyncPreviousPosition(); continue; }
-                if (IsTargetTamed(id)) target.MoveControlled(CurrentControlId == id ? movement : Vector2.zero, deltaTime);
+                float speed = movementScale == null ? 1f : movementScale(id);
+                if (IsTargetTamed(id)) target.MoveControlled(CurrentControlId == id ? movement * speed : Vector2.zero, deltaTime);
                 else
                 {
-                    var intent = new MonsterIntent(player.Model.Snapshot, deltaTime, isIdentityInEffect);
-                    if (target.Step(in intent))
+                    PlayerSnapshot snapshot = player.Model.Snapshot;
+                    if (IsControllingEnemy)
+                    {
+                        MonsterModel owner = GetTarget(CurrentControlId).Model;
+                        snapshot = new PlayerSnapshot(owner.Position, owner.Facing, false, snapshot.IsDisguised, snapshot.Health);
+                    }
+                    if (IsPassive(id)) snapshot = new PlayerSnapshot(snapshot.Position, snapshot.Facing, false, false, 0);
+                    var intent = new MonsterIntent(snapshot, deltaTime, isIdentityInEffect,
+                        awarenessScale == null ? 1f : awarenessScale(id), speed);
+                    if (target.Step(in intent) && !IsObservationOnly(id))
                     {
                         if (takeOverHit != null && takeOverHit(id, target)) continue;
                         if (id == targetIds[0]) primaryAttacked = true;

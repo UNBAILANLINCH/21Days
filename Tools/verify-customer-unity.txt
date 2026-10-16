@@ -1,0 +1,197 @@
+// 应用后的独立复核：重新读取保存资产和实际 SampleScene，不保存或改变场景。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("先退出 Play");
+string prefix = "Assets/_Project/";
+string[] ids = { "customers", "drunk_customer" };
+int[] expected = { 17, 15 };
+for (int c = 0; c < ids.Length; c++)
+{
+    string id = ids[c];
+    bool drunk = id == "drunk_customer";
+    var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(prefix + "Prefabs/Characters/Chibi_" + id + ".prefab");
+    if (asset == null || asset.GetComponent<UnityEngine.Rendering.SortingGroup>() == null)
+        throw new System.InvalidOperationException("预制体或 SortingGroup 缺失：" + id);
+    var container = asset.transform.Find("Sprite");
+    var rig = asset.transform.Find("Sprite/Rig");
+    if (container == null || rig == null || rig.Find("Body/Head") == null || rig.Find("LeftFoot") == null || rig.Find("RightFoot") == null)
+        throw new System.InvalidOperationException("关节层级缺失：" + id);
+    if (drunk && rig.Find("Body/LeftArm/Forearm/Gourd") == null)
+        throw new System.InvalidOperationException("酒葫芦关节缺失");
+    foreach (string footName in new[] { "LeftFoot", "RightFoot" })
+    {
+        var foot = rig.Find(footName);
+        float pivotY = asset.transform.InverseTransformPoint(foot.position).y;
+        if (UnityEngine.Mathf.Abs(pivotY - (512f - 402f) / 320f) > .0001f)
+            throw new System.InvalidOperationException("膝盖转轴位置错误：" + id + " / " + footName + " y=" + pivotY);
+    }
+    var puppet = asset.GetComponent<Game.CharacterPuppet.ChibiPuppet>();
+    var data = new UnityEditor.SerializedObject(puppet);
+    var parts = data.FindProperty("parts");
+    if (parts.arraySize != expected[c] || data.FindProperty("config").objectReferenceValue == null ||
+        !data.FindProperty("hasRunClip").boolValue || data.FindProperty("walkClipSpeed").floatValue != 3 ||
+        data.FindProperty("runClipSpeed").floatValue != 5)
+        throw new System.InvalidOperationException("拆件或运行参数错误：" + id);
+    int croppedFeet = 0;
+    for (int i = 0; i < parts.arraySize; i++)
+    {
+        var renderer = parts.GetArrayElementAtIndex(i).objectReferenceValue as UnityEngine.SpriteRenderer;
+        int expectedOrder = drunk ? (i == 14 ? 8 : 13 - i) : 16 - i;
+        if (renderer == null || renderer.sprite == null || renderer.sharedMaterial == null || renderer.sortingOrder != expectedOrder)
+            throw new System.InvalidOperationException("拆件引用或层序错误：" + id + " #" + i);
+        if (!renderer.transform.IsChildOf(container))
+            throw new System.InvalidOperationException("交互回弹没有覆盖拆件：" + id + " #" + i);
+        var sprite = renderer.sprite;
+        if (sprite.pixelsPerUnit != 320 || UnityEngine.Mathf.Abs(sprite.pivot.x - sprite.rect.width * .5f) > .001f ||
+            UnityEngine.Mathf.Abs(sprite.pivot.y) > .001f)
+            throw new System.InvalidOperationException("sprite metrics " + id + " #" + i + " ppu=" + sprite.pixelsPerUnit +
+                " pivot=" + sprite.pivot + " rect=" + sprite.rect + " path=" + UnityEditor.AssetDatabase.GetAssetPath(sprite));
+        string spritePath = UnityEditor.AssetDatabase.GetAssetPath(sprite);
+        bool cropped = spritePath.EndsWith("foot_left.asset") || spritePath.EndsWith("foot_right.asset");
+        if (cropped) croppedFeet++;
+        else if (sprite.rect.width != 512 || sprite.rect.height != 512)
+            throw new System.InvalidOperationException("原始拆件画布错误：" + spritePath);
+    }
+    if (croppedFeet != (drunk ? 2 : 0)) throw new System.InvalidOperationException("双脚拆分错误：" + id);
+
+    var animator = asset.GetComponent<UnityEngine.Animator>();
+    var controller = animator.runtimeAnimatorController as UnityEditor.Animations.AnimatorController;
+    if (controller == null || animator.updateMode != UnityEngine.AnimatorUpdateMode.UnscaledTime ||
+        animator.cullingMode != UnityEngine.AnimatorCullingMode.AlwaysAnimate || animator.applyRootMotion)
+        throw new System.InvalidOperationException("Animator 设置错误：" + id);
+    var parameterTypes = new System.Collections.Generic.Dictionary<string, UnityEngine.AnimatorControllerParameterType>();
+    foreach (var parameter in controller.parameters) parameterTypes[parameter.name] = parameter.type;
+    if (!parameterTypes.ContainsKey("Moving") || parameterTypes["Moving"] != UnityEngine.AnimatorControllerParameterType.Bool ||
+        !parameterTypes.ContainsKey("Running") || parameterTypes["Running"] != UnityEngine.AnimatorControllerParameterType.Bool ||
+        !parameterTypes.ContainsKey("Speed") || parameterTypes["Speed"] != UnityEngine.AnimatorControllerParameterType.Float)
+        throw new System.InvalidOperationException("控制器参数错误：" + id);
+    var stateMotions = new System.Collections.Generic.Dictionary<string, UnityEngine.Motion>();
+    foreach (var child in controller.layers[0].stateMachine.states) stateMotions[child.state.name] = child.state.motion;
+    foreach (string state in new[] { "idle", "walk", "run" })
+    {
+        string clipPath = prefix + "Art/Animations/Characters/" + id + "/chr_" + id + "_" + state + ".anim";
+        var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>(clipPath);
+        if (clip == null) throw new System.InvalidOperationException("剪辑缺失：" + clipPath);
+        float duration = state == "idle" ? 2.4f : state == "walk" ? .84f : .56f;
+        if (drunk) duration *= 1.2f;
+        var settings = UnityEditor.AnimationUtility.GetAnimationClipSettings(clip);
+        var bindings = UnityEditor.AnimationUtility.GetCurveBindings(clip);
+        string stateName = char.ToUpperInvariant(state[0]) + state.Substring(1);
+        if (!settings.loopTime || UnityEngine.Mathf.Abs(clip.length - duration) > .001f || bindings.Length != (drunk ? 31 : 27) ||
+            !stateMotions.ContainsKey(stateName) || stateMotions[stateName] != clip)
+            throw new System.InvalidOperationException("剪辑或状态错误：" + id + " / " + state +
+                " loop=" + settings.loopTime + " length=" + clip.length + " bindings=" + bindings.Length +
+                " state=" + stateMotions.ContainsKey(stateName));
+        bool elbowFlex = state == "idle", pendantStable = state == "idle";
+        float leftKnee = 0, rightKnee = 0;
+        foreach (var binding in bindings)
+        {
+            if (!binding.path.StartsWith("Sprite/Rig/") || asset.transform.Find(binding.path) == null)
+                throw new System.InvalidOperationException("动画越过关节层级：" + binding.path);
+            var curve = UnityEditor.AnimationUtility.GetEditorCurve(clip, binding);
+            if (curve == null || UnityEngine.Mathf.Abs(curve.Evaluate(0) - curve.Evaluate(clip.length)) > .0001f)
+                throw new System.InvalidOperationException("循环接缝：" + id + " / " + state + " / " + binding.path);
+            if (state != "idle" && binding.path.EndsWith("LeftArm/Forearm") && binding.propertyName == "localEulerAnglesRaw.z")
+            {
+                float min = float.PositiveInfinity, max = float.NegativeInfinity;
+                foreach (var key in curve.keys) { min = UnityEngine.Mathf.Min(min, key.value); max = UnityEngine.Mathf.Max(max, key.value); }
+                elbowFlex = max - min >= (state == "run" ? 7.5f : 5.5f);
+            }
+            if (state != "idle" && binding.path.EndsWith("Body/Pendant") && binding.propertyName == "localEulerAnglesRaw.z")
+            {
+                float min = float.PositiveInfinity, max = float.NegativeInfinity;
+                foreach (var key in curve.keys) { min = UnityEngine.Mathf.Min(min, key.value); max = UnityEngine.Mathf.Max(max, key.value); }
+                pendantStable = max - min <= (state == "run" ? 5.1f : 3.1f);
+            }
+            if (state != "idle" && binding.propertyName == "localEulerAnglesRaw.z")
+            {
+                if (binding.path.EndsWith("LeftFoot")) leftKnee = curve.Evaluate(clip.length * .25f);
+                if (binding.path.EndsWith("RightFoot")) rightKnee = curve.Evaluate(clip.length * .25f);
+            }
+        }
+        bool kneesAlternate = state == "idle" ||
+            (UnityEngine.Mathf.Abs(leftKnee - rightKnee) < .1f && leftKnee >= (state == "run" ? 7.5f : 4.5f));
+        if (!elbowFlex || !pendantStable || !kneesAlternate)
+            throw new System.InvalidOperationException("肘部、挂件或膝盖动作错误：" + id + " / " + state);
+    }
+    if (drunk)
+    {
+        string drinkPath = prefix + "Art/Animations/Characters/" + id + "/chr_" + id + "_drink.anim";
+        var drink = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>(drinkPath);
+        if (drink == null) throw new System.InvalidOperationException("喝酒剪辑缺失");
+        var drinkBindings = UnityEditor.AnimationUtility.GetCurveBindings(drink);
+        if (UnityEditor.AnimationUtility.GetAnimationClipSettings(drink).loopTime ||
+            UnityEngine.Mathf.Abs(drink.length - 3.6f) > .001f || drinkBindings.Length != 31 ||
+            !stateMotions.ContainsKey("Drink") || stateMotions["Drink"] != drink)
+            throw new System.InvalidOperationException("drink clip loop=" + UnityEditor.AnimationUtility.GetAnimationClipSettings(drink).loopTime +
+                " length=" + drink.length + " bindings=" + drinkBindings.Length + " state=" + stateMotions.ContainsKey("Drink") +
+                " motion=" + (stateMotions.ContainsKey("Drink") && stateMotions["Drink"] == drink) + " all=" +
+                string.Join(" | ", System.Array.ConvertAll(drinkBindings, b => b.path + ":" + b.propertyName)));
+        bool armRaised = false, elbowBent = false, gourdLayered = false, upperSleeveLayered = false, sleeveLayered = false, gourdOriented = false;
+        foreach (var binding in drinkBindings)
+        {
+            var curve = UnityEditor.AnimationUtility.GetEditorCurve(drink, binding);
+            float min = float.PositiveInfinity, max = float.NegativeInfinity;
+            foreach (var key in curve.keys) { min = UnityEngine.Mathf.Min(min, key.value); max = UnityEngine.Mathf.Max(max, key.value); }
+            if (binding.path.EndsWith("Body/LeftArm") && binding.propertyName == "localEulerAnglesRaw.z") armRaised = max >= 75;
+            if (binding.path.EndsWith("LeftArm/Forearm") && binding.propertyName == "localEulerAnglesRaw.z") elbowBent = max >= 135;
+            if (binding.propertyName == "m_SortingOrder" && binding.path.Contains("/Gourd/"))
+                gourdLayered = UnityEngine.Mathf.Approximately(curve.Evaluate(drink.length * .5f), 20);
+            if (binding.propertyName == "m_SortingOrder" && binding.path.Contains("/Body/LeftArm/") && !binding.path.Contains("/Forearm/"))
+                upperSleeveLayered = UnityEngine.Mathf.Approximately(curve.Evaluate(drink.length * .5f), 7);
+            if (binding.propertyName == "m_SortingOrder" && binding.path.Contains("/LeftArm/Forearm/") && !binding.path.Contains("/Gourd/"))
+                sleeveLayered = UnityEngine.Mathf.Approximately(curve.Evaluate(drink.length * .5f), 8);
+            if (binding.path.EndsWith("Forearm/Gourd") && binding.propertyName == "localEulerAnglesRaw.z")
+                gourdOriented = min <= -300;
+        }
+        UnityEditor.Animations.AnimatorState idleState = null, drinkState = null;
+        foreach (var child in controller.layers[0].stateMachine.states)
+        {
+            if (child.state.name == "Idle") idleState = child.state;
+            if (child.state.name == "Drink") drinkState = child.state;
+        }
+        bool entersDrink = false, exitsIdle = false, exitsWalk = false, exitsRun = false;
+        foreach (var transition in idleState.transitions) entersDrink |= transition.destinationState == drinkState && transition.hasExitTime;
+        foreach (var transition in drinkState.transitions)
+        {
+            exitsIdle |= transition.destinationState != null && transition.destinationState.name == "Idle";
+            exitsWalk |= transition.destinationState != null && transition.destinationState.name == "Walk";
+            exitsRun |= transition.destinationState != null && transition.destinationState.name == "Run";
+        }
+        if (!armRaised || !elbowBent || !gourdLayered || !upperSleeveLayered || !sleeveLayered || !gourdOriented || !entersDrink || !exitsIdle || !exitsWalk || !exitsRun ||
+            idleState.transitions.Length != 3 || drinkState.transitions.Length != 3)
+            throw new System.InvalidOperationException("喝酒动作或状态切换不完整");
+    }
+}
+var original = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+var scene = UnityEngine.SceneManagement.SceneManager.GetSceneByPath("Assets/Scenes/SampleScene.unity");
+bool opened = !scene.isLoaded;
+if (opened) scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
+int checkedActors = 0;
+try
+{
+    foreach (var root in scene.GetRootGameObjects())
+    foreach (var actor in root.GetComponentsInChildren<Game.ShopPlaytest.ShopPlaytestActor>(true))
+    {
+        string name = actor.gameObject.name;
+        string id = name == "shop_customer_a" || name == "shop_customer_b" ? "drunk_customer" :
+            name == "shop_customer0" || name == "shop_customer1" || name == "shop_customer2" || name == "shop_guest" ? "customers" : null;
+        if (id == null) continue;
+        var puppet = actor.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>(true);
+        string expectedPrefabPath = prefix + "Prefabs/Characters/Chibi_" + id + ".prefab";
+        string sourcePath = puppet == null ? null : UnityEditor.PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(puppet.gameObject);
+        if (puppet == null || sourcePath != expectedPrefabPath)
+            throw new System.InvalidOperationException("scene prefab " + name + " expected=" + expectedPrefabPath + " actual=" + sourcePath);
+        var motion = puppet.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>();
+        var data = new UnityEditor.SerializedObject(motion);
+        if (data.FindProperty("trackedRoot").objectReferenceValue != actor.transform ||
+            data.FindProperty("facingSource").objectReferenceValue != actor.GetComponent<UnityEngine.SpriteRenderer>())
+            throw new System.InvalidOperationException("驱动引用错误：" + name);
+        checkedActors++;
+    }
+    if (checkedActors != 6) throw new System.InvalidOperationException("实际应用角色数量不符");
+}
+finally
+{
+    if (opened) UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+    UnityEngine.SceneManagement.SceneManager.SetActiveScene(original);
+}
+return "PASS: flexible elbows, 6 locomotion loops, drunk Drink action/controller, 6 live scene instances.";

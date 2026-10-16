@@ -11,6 +11,7 @@ using Game.Core.Save;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
 using Game.Core.Timing;
+using Game.Core.UI;
 using Game.Interaction;
 using Game.IsometricExploration;
 using Game.Player;
@@ -56,6 +57,7 @@ namespace Game.Tests.EditMode.World
             Assert.That(container.Resolve<CameraConstraintPolicy>(), Is.Not.Null, "相机约束策略（表现层与将来的构图切换共用）");
             Assert.That(container.Resolve<WorldSceneState>(), Is.Not.Null,
                 "GameFlow 按**具体类型**解析状态，所以它必须按具体类型可取");
+            Assert.That(container.Resolve<SceneMapController>(), Is.Not.Null, "地图键入口已装配");
         }
 
         [Test]
@@ -158,6 +160,11 @@ namespace Game.Tests.EditMode.World
 
             // 按键型传送点改走统一交互：驱动只登记 / 注销，登记表用真实现（不 Start，不扫场景）。
             builder.RegisterInstance<IInteractionRegistry>(new InteractionRegistry(() => null));
+
+            var mapInput = new InputService();
+            builder.RegisterInstance<IInputService>(mapInput);
+            var mapUi = new UIService(new WorldTestSupport.UnusedAssets(), mapInput, null, null, null, null);
+            builder.RegisterInstance(mapUi).As<IUIService>();
 
             // —— 驱动要的玩法侧依赖：用真类型 + 代码建的配置资产（字段默认值都是正数，构造校验过得去）——
             builder.RegisterInstance(UnityEngine.ScriptableObject.CreateInstance<PlayerConfig>());

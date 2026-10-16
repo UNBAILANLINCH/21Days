@@ -1,0 +1,9 @@
+var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+var view = new UnityEditor.SerializedObject(prefab.GetComponent<Game.Core.UI.Views.TitleView>());
+var transition = view.FindProperty("startTransition").objectReferenceValue as Game.Core.UI.TitleStartTransition;
+if (transition == null) return new { wired = false };
+var data = new UnityEditor.SerializedObject(transition);
+var effect = data.FindProperty("screenEffect").objectReferenceValue as UnityEngine.UI.RawImage;
+var material = data.FindProperty("effectMaterial").objectReferenceValue as UnityEngine.Material;
+var button = prefab.transform.Find("Buttons/StartButton").GetComponent<UnityEngine.UI.Button>();
+return new { wired = true, config = UnityEditor.AssetDatabase.GetAssetPath(data.FindProperty("config").objectReferenceValue), mirror = data.FindProperty("mirror").objectReferenceValue == null ? null : data.FindProperty("mirror").objectReferenceValue.name, effect = effect == null ? null : effect.name, effectActive = effect != null && effect.gameObject.activeSelf, shaderSupported = material != null && material.shader.isSupported, shaderError = material != null && UnityEditor.ShaderUtil.ShaderHasError(material.shader), buttonTarget = button.targetGraphic == null ? null : button.targetGraphic.name, persistentListeners = button.onClick.GetPersistentEventCount() };

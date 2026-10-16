@@ -22,6 +22,10 @@ maturity: stable
 | `Interact` | `void Interact()` | 只由焦点系统在「本帧焦点没变」时调；也可被代码直接调（不经焦点、不受让位影响） |
 | `OnFocusChanged` | `void OnFocusChanged(bool focused)` | 只由焦点系统调；已销毁的旧焦点不会收到 `false` |
 
+## `ISecondaryInteractable`（特殊动作）
+
+有特殊动作的对象同时实现`ISecondaryInteractable`：`bool CanInteractSecondary { get; }`、`InteractionPrompt SecondaryPrompt { get; }`、`void InteractSecondary()`。F / 手柄 East（`Gameplay/Execute`）与HUD第二按钮共用同一焦点，复验让位、当前可用、距离与本帧焦点；不要求执行过`Interact()`。`InteractionFocus.RequestSecondaryInteract()`供鼠标入口，`InteractPromptHudView.IsSecondaryShown`供回放断言。成功也发`OnInteracted`；E / South 只执行主动作，F 不回退到主动作。每帧至多一次动作，E / F 同帧优先 E。
+
 ## `InteractionPrompt`（`readonly struct`，`InteractionPrompt.cs:7`）
 
 `new InteractionPrompt(string verb, string name)`。动词空白时 HUD 回退「交互」，名字空白时只显示动词
@@ -45,16 +49,18 @@ maturity: stable
 | --- | --- | --- |
 | `Current` | `IInteractable Current { get; }` | 当前焦点；让位或没有候选时为 null |
 | `OnFocusChanged` | `event Action<IInteractable>` | 只在变化时触发（含变为 null） |
-| `OnInteracted` | `event Action<IInteractable>` | 焦点系统刚对 `Current` 调过 `Interact()`（按键或点提示）；代码直接调 `Interact()` 不触发 |
+| `OnInteracted` | `event Action<IInteractable>` | 焦点系统刚对 `Current` 执行普通或特殊动作（按键或点提示）；代码直接调对象的方法不触发 |
 
 现有读方：`ExecutionInteractor`（F 键归属，经 `MonsterEncounterState.BindExecution` 的 `container.TryResolve` 可选注入，
 `MonsterEncounterState.cs:167`）、`InteractionPuppetPresenter`（小人转向）、各模块回放。
 
 ## 具体类型（容器里 `AsSelf` 可取，一般不需要）
 
+`InteractionFocus.RequestFocus(IInteractable target)`供场景鼠标点选：复验登记、可用、范围与让位后，焦点系统自身写`Current`；不执行交互。选中对象在后续帧优先于更近的候选，失效、注销、离开半径或让位时清除。调用方不能直接写焦点。
+
 | 类型 | 可用的公开成员 | 用途 |
 | --- | --- | --- |
-| `InteractionFocus` | `static bool ShouldYield(bool hasActor, bool gameplayMapEnabled, bool hudHidden, bool worldPaused)`、`Advance(bool, bool)`、`RequestInteract()` | 纯判定与测试驱动；生产路径由 `Tick` / HUD 点击调 |
+| `InteractionFocus` | `static bool ShouldYield(bool hasActor, bool gameplayMapEnabled, bool hudHidden, bool worldPaused)`、`Advance(bool gameplayMapEnabled, bool interactPressed, bool secondaryPressed = false)`、`RequestInteract()`、`RequestSecondaryInteract()` | 纯判定与测试驱动；生产路径由 `Tick` / HUD 点击调 |
 | `InteractionRegistry` | `SetActor(InteractionActor)`、`HandleSceneUnloaded()`、`InteractionRegistry(Func<InteractionActor>)` | 测试 / 运行时生成玩家时手动指定标记；卸载收尾公开只为测试可调 |
 | `InteractionSelector` | `static IInteractable Select(Vector3, IReadOnlyList<IInteractable>)`、`static bool IsAvailable(IInteractable)` | 纯函数，无分配 |
 | `InteractPromptHudView` | `FormatKeyText(string)`、`FormatLabel(...)`、`ResolveWidth(float, float, float)`、`IsShown`、`LabelText`、`KeyText` | 纯函数供测试；三个只读属性供回放断言 |
@@ -70,4 +76,4 @@ maturity: stable
 - **不要写焦点**：`Current` 只读；实现方的「是否焦点」状态只能在 `OnFocusChanged` 回调里写。
 - **登记在场景事件上做**：`sceneLoaded` 时 `Register`，卸载 / `Dispose` 时 `Unregister`，不要每帧登记。
 - **代码直接调 `Interact()` 绕过焦点**：不受沉浸 / 暂停 / Gameplay 图让位影响，也不触发 `OnInteracted`（因此不转向）。
-- 处决按键与交互共用 F / South：焦点非空时 F 归交互（`ExecutionInteractor.HandleExecuteKey`），新加按键型玩法要沿用「屏幕提示什么，按键就做什么」。
+- 普通动作 E / South 与特殊动作 F / East 分开。处决复用 F / East：焦点非空时让位给焦点的特殊动作（`ExecutionInteractor.HandleExecuteKey`）；没有特殊动作也不执行处决，防止在 NPC 旁误处决。

@@ -123,6 +123,11 @@ namespace Game.Monster
         private readonly PlayerRules player;
         private readonly MonsterRules monster;
         private Vector2[][] authoredRoutes;
+        private Func<float> playerSpeed; // 店铺只提供倍率，角色仍由本步骤推进。
+        public event Action<float> OnAdvanced;
+        private Func<bool> playerCanSneak;
+        public void BindPlayerModifiers(Func<float> speed, Func<bool> canSneak)
+        { playerSpeed = speed; playerCanSneak = canSneak; }
 
         // —— 潜行关口的接线位（S3/S4）。全部给占位默认值：不装配时遮挡体为空、判定与接线前一致。
         private StealthSight sight = new StealthSight();
@@ -670,6 +675,7 @@ namespace Game.Monster
                 throw new ArgumentException("存档玩家稳定标识与场景不匹配");
             Taming.ValidateRestore(saved.TamingTargets);
             // —— 以上全是校验，以下才改写现场。
+            ResetAdditionalTargets();
             player.Model.Restore(saved.Player);
             ResetAdditionalTargets();
             monster.Restore(saved.Monster);
@@ -793,9 +799,12 @@ namespace Game.Monster
             if (command.HasButton(InputCommand.ButtonTamePressed)) Taming.ProcessToggle(false);
             Taming.ProcessToggle(command.HasButton(InputCommand.ButtonTame) && (command.Axis1.x == 0f || requested != null), requested);
             bool enemyControlled = Taming.IsControllingEnemy;
+            Vector2 movement = command.Axis0;
+            if (GameMath.SqrMagnitude(movement) > 1f) movement = GameMath.Normalize(movement);
+            if (playerSpeed != null) movement *= playerSpeed();
             var playerIntent = new PlayerIntent(
-                enemyControlled ? Vector2.zero : command.Axis0,
-                !enemyControlled && command.HasButton(InputCommand.ButtonSneak),
+                enemyControlled ? Vector2.zero : movement,
+                !enemyControlled && command.HasButton(InputCommand.ButtonSneak) && (playerCanSneak == null || playerCanSneak()),
                 !enemyControlled && command.HasButton(InputCommand.ButtonDisguise),
                 !enemyControlled && command.HasButton(InputCommand.ButtonAttack),
                 !enemyControlled && command.HasButton(InputCommand.ButtonRun));
@@ -805,7 +814,7 @@ namespace Game.Monster
             {
                 MonsterRules rules = Taming.GetTarget(id);
                 MonsterModel enemy = rules.Model;
-                if (!attacked || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
+                if (!attacked || Taming.IsPassive(id) || Taming.IsObservationOnly(id) || Taming.IsTargetTamed(id) || !Taming.IsAvailable(id) || enemy.Health <= 0
                     || GameMath.Distance(target.Position, enemy.Position) > player.AttackRange) continue;
                 Vector2 difference = enemy.Position - target.Position;
                 if (GameMath.SqrMagnitude(difference) == 0f
@@ -878,8 +887,9 @@ namespace Game.Monster
                     // 这里不预判内容：战斗侧只负责如实报出「玩家被击倒了」。
                     SettleBattle(new BattleResult(BattleOutcome.Downed));
                 }
-                // Result.Aborted 不在这里：它由 AbortBattle 单独写（收服收尾，不是战斗结果，不承载 BattleSettlement）。
+                // Result.Aborted 由 AbortBattle 单独写，不承载 BattleSettlement。
             }
+            OnAdvanced?.Invoke(context.DeltaTime);
         }
 
         // 主怪与全部巡逻者对齐上一 tick 位置（本 tick 它们没推进时调，免得视图在两点间来回插值）。

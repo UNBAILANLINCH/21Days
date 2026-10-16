@@ -67,6 +67,16 @@ namespace Game.Tests.EditMode.Monster
         [TearDown]
         public void TearDown() => Object.DestroyImmediate(config);
 
+        [TestCase(true, MonsterMode.PatrolWalk)]
+        [TestCase(false, MonsterMode.Alert)]
+        public void DrunkIntent_ScaledCone_StillRespectsOcclusion(bool blocked, MonsterMode expected)
+        {
+            Rig rig = NewRig(new Vector2(3f, 0f), blocked ? BlockSightToCone : null);
+            var intent = new MonsterIntent(rig.Target, 0.1f, false, 0.5f, 0.5f);
+            rig.Rules.Step(in intent);
+            Assert.That(rig.Rules.Model.Mode, Is.EqualTo(expected));
+        }
+
         // ──────────────────────── 橙区（警戒）：被挡住就不涨警戒 ────────────────────────
 
         /// <summary>

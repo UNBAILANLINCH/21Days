@@ -62,6 +62,8 @@ maturity: seed
 
 标题开始转场的时长与强度在 `Data/UI/TitleStartConfig.asset`；引用通过 Unity 编辑器接入 TitleView 与 TitleStartTransition。
 只调整表现时不改 Session 的槽位选择/操作说明规则。扩展开局路径仍需保留教程，并在 finally 中复位标题转场。
+读档短版参数为 `TitleStartConfig.LoadMirrorSeconds/LoadWaveSeconds`，不能通过修改 `MirrorSeconds/WaveSeconds` 缩短新游戏。
+选档收卷时长为 `SessionConfig.LoadRollSeconds`，只在读档模式调用；纸面用 RectMask2D 裁切，底轴用原 Sprite 的 UV 区域移动，不缩放原图或修改共享资产。
 
 `Game.Session → Game.Core`（Save / Flow / UI / Events / Boot / Timing / Simulation / Telemetry）、
 `Game.Session → Game.Quest / Game.Dialogue / Game.Monster / Game.Loot / Game.Narrative`（只经它们的公开 API、保存 DTO 与事件）。

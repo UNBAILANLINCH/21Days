@@ -21,6 +21,11 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | 模块 | 状态 | 文档目录 |
 | --- | --- | --- |
 | Sample | 三件套齐备（**同时是模块文档的样例**） | [`modules/sample/`](modules/sample/sample-module-guide.md) |
+| Clothing | 独立试玩；视觉确认待开发者 | [三顾客证词形成唯一取衣解；调查需对应顾客身份，已调查证词可回看，正确身份只领一次。](modules/clothing/clothing-module-guide.md) |
+| Forging | 独立试玩；视觉确认待开发者 | [官证改拨料，匠人按固定四点位打造钥匙和首饰，提交规定首饰后保留钥匙。](modules/forging/forging-module-guide.md) |
+| Tavern | 独立试玩；视觉确认待开发者 | [场外饮酒、灌酒、真实移动和感知效果、战斗初始醉酒及离区清理。](modules/tavern/tavern-module-guide.md) |
+| Theater | 独立试玩；视觉确认待开发者 | [学徒验身、班主调开巡逻、控制乐师进入现有四轨下落式，完成或中断后回店。](modules/theater/theater-module-guide.md) |
+| ShopPlaytest | 独立试玩；视觉确认待开发者 | [四项独立试玩入口与预摆Cube＋TMP场景](modules/shopplaytest/shopplaytest-module-guide.md) |
 | Rhythm | 三曲单谱独立试玩；校准、v2 纪录、同局暂停；正式 Boot 与真人手感未验收 | [`modules/rhythm/`](modules/rhythm/rhythm-module-guide.md) |
 | Player | 三件套齐备；Boot 遭遇流程已接 | [`modules/player/`](modules/player/player-module-guide.md) |
 | Monster | 三件套齐备；Boot 遭遇、种类配置、遮挡与处决接线 | [`modules/monster/`](modules/monster/monster-module-guide.md) |
@@ -71,6 +76,11 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 
 | 要什么 | 去哪 |
 | --- | --- |
+| 把场景、十二阶段、玩法循环与当前试玩入口串起来，区分目标设计和实际接线 | [游戏流程与玩法地图](project-flow-map.md) |
+| 从全游戏流程盘音乐用途、BGM复用、音效事件与建议交付数量 | [音乐与音效需求建议](audio-demand-plan.md) |
+| 十二阶段到 10 月 20 日可玩验收的范围、工种排期、每日里程碑与完成条件 | [十二阶段可玩版本排期](oct20-playable-plan.md) |
+| 程序 B 暂代关卡安排时，讨论本期玩法范围、备选方案、工种影响与拍板日期 | [制作范围讨论清单](oct20-scope-decisions.md) |
+| 合并两批文策聊天，区分明确设定、暂定方案与确认问题，查看各机制及局部开放流程 | [文策讨论记录与游戏机制流程](narrative-discussion-record-20261012.md) |
 | 框架层设计定稿、选型理由、各服务契约 | [`docs/architecture.md`](../../docs/architecture.md) |
 | 对着参考游戏我们还差什么、按什么顺序补（差距矩阵 + 波次路线） | [`docs/roadmap.md`](../../docs/roadmap.md) |
 | 章节结构术语怎么对齐（旧版「章 / 幕 / 场」→ 聚光灯十二阶段 → Narrative 阶段机）、十二阶段逐条能不能进内容表、旧版 [14] 哪些还成立 | [`ai-docs/docs/stage-structure-spec.md`](stage-structure-spec.md) |

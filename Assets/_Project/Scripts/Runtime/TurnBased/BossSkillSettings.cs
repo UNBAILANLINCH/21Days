@@ -25,7 +25,8 @@ namespace Game.TurnBased
             int skill3StunRounds,
             int skill1Weight,
             int skill2Weight,
-            int skill3Weight)
+            int skill3Weight,
+            int skill2Damage = 0)
         {
             Skill1Damage = skill1Damage;
             Skill2DrinkAddDrunk = skill2DrinkAddDrunk;
@@ -37,6 +38,7 @@ namespace Game.TurnBased
             Skill1Weight = skill1Weight;
             Skill2Weight = skill2Weight;
             Skill3Weight = skill3Weight;
+            Skill2Damage = skill2Damage;
         }
 
         /// <summary>招式 1 伤害（sp07:157 → 14 点，= 基础攻击力）。</summary>
@@ -44,6 +46,9 @@ namespace Game.TurnBased
 
         /// <summary>招式 2 增加的醉酒值（07:80 → 30）。</summary>
         public int Skill2DrinkAddDrunk { get; }
+
+        /// <summary>招式 2 附带的伤害（阶段九人形态「金锁禁锢」同时造成少量伤害 = 8 点，sp07:176、:176 表；阶段一饮酒为 0）。</summary>
+        public int Skill2Damage { get; }
 
         /// <summary>招式 2 回复生命的百分比（07:80 → 10）。</summary>
         public int Skill2HealPercent { get; }

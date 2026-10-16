@@ -42,7 +42,8 @@ namespace Game.TurnBased
 
             Entry = entry;
             Player = new PlayerBattleRules(settings.PlayerSkills, playerSnapshot);
-            Boss = new BossBattleRules(bossSnapshot, settings.BossSkills, settings.Drunk, settings.InheritsDrunkValue);
+            Boss = new BossBattleRules(bossSnapshot, settings.BossSkills, settings.Drunk, settings.InheritsDrunkValue,
+                settings.BossProfile);
             Items = new BattleItemLedger(settings.ItemOncePerBattle);
 
             ApplyEntry();
@@ -119,6 +120,12 @@ namespace Game.TurnBased
                 return ItemUseDecision.Refuse(ItemUseReject.WrongPhase);
             }
 
+            if (Player.IsSkillLocked)
+            {
+                // 「金锁禁锢」期间所有道具置暗（阶段九 BOSS 人形态招式 2，07:176）。
+                return ItemUseDecision.Refuse(ItemUseReject.WrongPhase);
+            }
+
             ItemUseDecision decision = Items.TryUse(itemId, inventory);
             if (decision.Allowed)
             {
@@ -154,13 +161,22 @@ namespace Game.TurnBased
                 Boss.ReceiveHealReduction(result.HealReductionPercent, result.HealReductionRounds);
             }
 
-            Boss.ApplyDamage(result.Damage);
+            // 护心鳞先吃这一招（阶段九 BOSS，07:92：「可以抵挡一次玩家的任何招式」；
+            // 龙形态「需要两次攻击才能被击碎」= 一层要挨两次，由 BossBattleRules 自己数）。
+            if (Boss.TryAbsorbPlayerAttack())
+            {
+                events.Add(BattleEvent.BossShieldBlocked(Boss.ShieldLayers));
+            }
+            else
+            {
+                Boss.ApplyDamage(result.Damage);
+            }
 
             phase = BattlePhase.BossTurn;
 
             if (Boss.IsDefeated)
             {
-                End(BattleOutcome.Victory);
+                ResolveBossDefeat();
             }
 
             return result;
@@ -218,16 +234,21 @@ namespace Game.TurnBased
         private void ApplyEntry()
         {
             // 偷袭开战：BOSS 生命先扣 20%（07:18）。
-            if (Entry.BossHealthLossPercent > 0)
+            // 按 BOSS 覆盖：阶段九 BOSS「龙族感知敏锐，偷袭与正面效果相同」（07:90），档案里把百分比配成 0。
+            int lossPercent = settings.BossProfile.OverridesSneakPenalty
+                ? settings.BossProfile.SneakHealthLossPercentOverride
+                : Entry.BossHealthLossPercent;
+
+            if (lossPercent > 0)
             {
-                int loss = Boss.PercentOfHealth(Entry.BossHealthLossPercent, Entry.BossHealthLossBase);
+                int loss = Boss.PercentOfHealth(lossPercent, Entry.BossHealthLossBase);
                 Boss.ApplyDamage(loss);
                 events.Add(BattleEvent.SneakHealthLoss(loss));
             }
 
             if (Boss.IsDefeated)
             {
-                End(BattleOutcome.Victory);
+                ResolveBossDefeat();
                 return;
             }
 
@@ -238,6 +259,26 @@ namespace Game.TurnBased
             }
 
             BeginPlayerTurn();
+        }
+
+        /// <summary>
+        /// BOSS 生命归零之后：还有下一个形态就**转形态**（阶段九 BOSS，07:94「在人形态生命值耗尽后为龙形态……
+        /// 生命值恢复为100%」），否则判胜。转形态时按配置决定清谁的怒气（原文没写，占位不清；C94）。
+        /// </summary>
+        private void ResolveBossDefeat()
+        {
+            if (Boss.TryAdvancePhase())
+            {
+                events.Add(BattleEvent.BossPhaseChanged(Boss.PhaseIndex, Boss.PhaseName));
+                if (Boss.RageClearOnPhaseChange == RageClearTarget.Player)
+                {
+                    Player.ClearRage();
+                }
+
+                return;
+            }
+
+            End(BattleOutcome.Victory);
         }
 
         private void BeginPlayerTurn()
@@ -275,7 +316,22 @@ namespace Game.TurnBased
             }
 
             DrunkTier tierAtCast = drunkOutcome.TierAtTurnStart;
-            BossSkill skill = BossSkillRules.SelectWeighted(settings.BossSkills, random);
+
+            // 选招：分形态的 BOSS（阶段九）按当前形态的招式组与附加规则选；不分形态时与加这一层之前逐字一致。
+            // 自我禁锢期间「只能施放招式1」（07:192）优先。
+            BossSkill skill;
+            if (Boss.SelfImprisonRoundsRemaining > 0)
+            {
+                skill = BossSkill.Skill1;
+            }
+            else if (Boss.HasPhases)
+            {
+                skill = BossSkillRules.SelectForPhase(Boss.CurrentPhase(), Player.IsSkillLocked, random);
+            }
+            else
+            {
+                skill = BossSkillRules.SelectWeighted(settings.BossSkills, random);
+            }
 
             switch (skill)
             {
@@ -290,35 +346,131 @@ namespace Game.TurnBased
 
                     Player.ApplyDamage(damage);
                     events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill1, damage));
+                    ResolveAttackEcho();
                     break;
                 }
 
                 case BossSkill.Skill2:
                 {
-                    int drunkAdded = Boss.Drunk.Add(settings.BossSkills.Skill2DrinkAddDrunk);
-                    int healed = Boss.Heal(settings.BossSkills.Skill2HealPercent, settings.BossSkills.Skill2HealBase);
-                    Boss.GrantSkill1DamageBonus();
-                    events.Add(BattleEvent.BossDrank(drunkAdded, healed));
+                    ResolveBossSkill2();
                     break;
                 }
 
                 default:
                 {
-                    int damage = Boss.Skill3DamageNow();
-                    Player.ApplyDamage(damage);
-                    events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill3, damage));
-
-                    int stunRounds = BossSkillRules.Skill3StunRounds(tierAtCast, settings.BossSkills);
-                    if (stunRounds > 0)
-                    {
-                        // 薄醉态的高额伤害附带「晕眩玩家 1 回合」（07:82）。
-                        Player.ApplyStun(stunRounds);
-                        events.Add(BattleEvent.PlayerStunned(stunRounds));
-                    }
-
+                    ResolveBossSkill3(tierAtCast);
                     break;
                 }
             }
+
+            // 龙形态自我禁锢到期：结束后 BOSS 获得护心麟（07:192）。
+            if (Boss.TickSelfImprison())
+            {
+                events.Add(BattleEvent.BossShieldGained(Boss.ShieldLayers));
+            }
+        }
+
+        /// <summary>
+        /// 招式 2 按形态分三种：阶段一「饮酒」（07:80）、阶段九人形态「金锁禁锢」（07:176）、
+        /// 阶段九龙形态「自我禁锢」（07:192）。不分形态时落回饮酒，与加这一层之前一致。
+        /// </summary>
+        private void ResolveBossSkill2()
+        {
+            switch (Boss.CurrentPhase().Skill2Kind)
+            {
+                case BossPhaseSkill2Kind.SkillLock:
+                {
+                    // 人形态：禁锢玩家 + 少量伤害（07:176「同时造成少量伤害」）。
+                    int damage = Boss.Skill2DamageNow();
+                    Player.ApplyDamage(damage);
+                    events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill2, damage));
+
+                    int rounds = Boss.CurrentPhase().SkillLockRounds;
+                    Player.ApplySkillLock(rounds);
+                    events.Add(BattleEvent.PlayerSkillLocked(rounds));
+                    break;
+                }
+
+                case BossPhaseSkill2Kind.SelfImprison:
+                {
+                    // 龙形态：BOSS 进入自我禁锢，这一招不造成伤害（07:192）。
+                    Boss.BeginSelfImprison(Boss.CurrentPhase().SelfImprisonRounds);
+                    events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill2, 0));
+                    break;
+                }
+
+                default:
+                {
+                    int drunkAdded = Boss.Drunk.Add(Boss.Skill2DrinkAddDrunk);
+                    int healed = Boss.Heal(Boss.Skill2HealPercent, Boss.Skill2HealBase);
+                    if (Boss.Skill2NextSkill1DamageBonusPercent > 0)
+                    {
+                        Boss.GrantSkill1DamageBonus();
+                    }
+
+                    events.Add(BattleEvent.BossDrank(drunkAdded, healed));
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 招式 3：基础伤害之外按形态处理两套特例——人形态「增加一次护心麟」（07:177）、
+        /// 龙形态「消耗一层护心鳞换 +50%，没层则重获一层并回 10% 最大生命」（07:193）；阶段一另有薄醉晕眩（07:82）。
+        /// </summary>
+        private void ResolveBossSkill3(DrunkTier tierAtCast)
+        {
+            bool consumedShield = Boss.Skill3ConsumesShieldLayer && Boss.ConsumeShieldLayer();
+            int damage = Boss.Skill3DamageNow();
+            Player.ApplyDamage(damage);
+            events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill3, damage));
+
+            if (Boss.Skill3GrantsShieldLayers > 0)
+            {
+                int layers = Boss.Skill3GrantsShieldLayers;
+                Boss.GrantShield(layers, Boss.ShieldHitsPerLayer);
+                events.Add(BattleEvent.BossShieldGained(layers));
+            }
+
+            if (!consumedShield && Boss.Skill3HealPercentWhenNoShield > 0 && Boss.ShieldLayers == 0)
+            {
+                // 龙形态：没有护心鳞时「引爆后」重新获得 1 层并回复 10% 最大生命（07:193）。
+                Boss.GrantShield(1, Boss.ShieldHitsPerLayer);
+                events.Add(BattleEvent.BossShieldGained(1));
+                if (Boss.Heal(Boss.Skill3HealPercentWhenNoShield, HealthPercentBase.MaxHealth) > 0)
+                {
+                    events.Add(BattleEvent.BossDrank(0, Boss.MaxHealth * Boss.Skill3HealPercentWhenNoShield / 100));
+                }
+            }
+
+            int stunRounds = Boss.Skill3StunRounds(tierAtCast);
+            if (stunRounds > 0)
+            {
+                // 薄醉态的高额伤害附带「晕眩玩家 1 回合」（07:82）。
+                Player.ApplyStun(stunRounds);
+                events.Add(BattleEvent.PlayerStunned(stunRounds));
+            }
+
+            ResolveAttackEcho();
+        }
+
+        /// <summary>龙形态「在攻击后有 20% 概率附带一次招式 1 的攻击」（07:94）。没配概率时一个随机数都不抽。</summary>
+        private void ResolveAttackEcho()
+        {
+            int percent = Boss.AttackEchoPercent;
+            if (percent <= 0 || Boss.IsDefeated || Player.IsDefeated)
+            {
+                return;
+            }
+
+            if (random.Range(0, 100) >= percent)
+            {
+                return;
+            }
+
+            int damage = Boss.Skill1DamageNow();
+            Player.ApplyDamage(damage);
+            events.Add(BattleEvent.BossSkillUsed(BossSkill.Skill1, damage));
         }
 
         private bool TryResolveRoundLimit()

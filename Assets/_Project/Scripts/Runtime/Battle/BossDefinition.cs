@@ -57,6 +57,10 @@ namespace Game.Battle
         [Tooltip("战斗舞台上的外观预制体（纸片角色，Prefabs/Battle/）。空 = 舞台用场景里的占位外观。")]
         [SerializeField] private GameObject stagePrefab;
 
+        [Tooltip("按 BOSS 的多形态档案（阶段九 BOSS 的人 / 龙两形态、按 BOSS 覆盖偷袭扣血）。"
+                 + "**空 = 单形态**，行为与加这一层之前逐字一致。出处 sp07:86-119、:163-193。")]
+        [SerializeField] private BossProfileData battleProfile = new BossProfileData();
+
         // PRP/combat-iteration D3（2026-10-14）：「怪物的回合制战斗数据」复用 BOSS 定义的一行，不进 Luban 表
         //（沿用文件头「等 C90 / C91 再迁表」的口径）。代码默认 0 = 不是怪物行 = 加字段之前的行为（pitfalls.md:243）。
         [Tooltip("这一行同时是哪一种巡逻怪（monster_species 主键）的回合制战斗数据：实时遭遇里打到 / 被打到这种怪时按这一行开回合制。"
@@ -134,6 +138,10 @@ namespace Game.Battle
 
         /// <summary>舞台外观预制体；可能为空（舞台退回场景里的占位外观）。</summary>
         public GameObject StagePrefab => stagePrefab;
+
+        /// <summary>按 BOSS 的多形态档案；空 = 单形态（<see cref="TurnBased.BossProfile.HasPhases"/> 为假）。</summary>
+        public TurnBased.BossProfile BattleProfile =>
+            battleProfile != null ? battleProfile.ToProfile() : default;
 
         /// <summary>这一行对应的怪物种类 id（实时遭遇升级回合制按它查，见 <see cref="BossRoster.TryGetByKind"/>）；0 = 不是怪物行。</summary>
         public int MonsterKindId => monsterKindId;

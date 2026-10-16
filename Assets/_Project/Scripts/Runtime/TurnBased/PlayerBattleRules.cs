@@ -36,6 +36,10 @@ namespace Game.TurnBased
         private int regenRounds;              // 还剩几个玩家回合
         private bool extraActionPending;      // 迅击粉末：本回合可以额外释放一次招式
 
+        // ── 「金锁禁锢」（阶段九 BOSS 人形态招式 2，sp07:176）──────────────────────────────
+        private int skillLockRoundsRemaining;  // 还剩几个玩家回合只能出招式 1、不能用道具
+        private bool skillLockGrantedThisRound; // 刚挂上、还没轮到玩家——本回合不该扣它一格
+
         /// <summary>用数值配置与血量快照构造。</summary>
         public PlayerBattleRules(in PlayerSkillSettings settings, in PlayerBattleSnapshot snapshot)
         {
@@ -103,6 +107,28 @@ namespace Game.TurnBased
         /// <summary>本回合是否还留着「额外释放一次招式」的机会（迅击粉末）。</summary>
         public bool ExtraActionPending => extraActionPending;
 
+        /// <summary>「金锁禁锢」还剩几个玩家回合（0 = 没被禁锢）。</summary>
+        public int SkillLockRoundsRemaining => skillLockRoundsRemaining;
+
+        /// <summary>现在是否处于「金锁禁锢」：只能出招式 1，招式 2 / 3 与全部道具禁用（sp07:176）。</summary>
+        public bool IsSkillLocked => skillLockRoundsRemaining > 0;
+
+        /// <summary>这件招式在「金锁禁锢」下能不能用（只有招式 1 能，sp07:176「其他招式置暗」）。</summary>
+        public bool CanCastWhileLocked(PlayerSkill skill) => skill == PlayerSkill.Skill1;
+
+        /// <summary>被「金锁禁锢」若干回合（阶段九 BOSS 人形态招式 2，sp07:176 → 2 回合）。</summary>
+        public void ApplySkillLock(int rounds)
+        {
+            if (rounds > 0)
+            {
+                skillLockRoundsRemaining += rounds;
+                skillLockGrantedThisRound = true;
+            }
+        }
+
+        /// <summary>清空怒气（形态切换时的「怒气清空」，sp07:94；清谁原文没写，见 RageClearTarget / C94）。</summary>
+        public void ClearRage() => rage = 0;
+
         /// <summary>现在能不能出招。</summary>
         public bool CanCast => !IsDefeated && !cannotActThisTurn && stunRoundsRemaining == 0 && !hasCastThisTurn;
 
@@ -148,6 +174,16 @@ namespace Game.TurnBased
             damageReductionRounds = StepDown(damageReductionRounds);
             lifestealRounds = StepDown(lifestealRounds);
             regenRounds = StepDown(regenRounds);
+
+            // 金锁禁锢是**敌方回合挂上的**，挂上的那一刻不该马上扣一格——否则「下 2 个回合」实际只锁 1 个回合。
+            if (skillLockGrantedThisRound)
+            {
+                skillLockGrantedThisRound = false;
+            }
+            else
+            {
+                skillLockRoundsRemaining = StepDown(skillLockRoundsRemaining);
+            }
         }
 
         private static int StepDown(int rounds) => rounds > 0 ? rounds - 1 : 0;
@@ -308,6 +344,12 @@ namespace Game.TurnBased
             if (hasCastThisTurn && !extraActionPending)
             {
                 return SkillCastResult.Refuse(skill, SkillCastReject.AlreadyCastThisTurn, rageBefore, chargesBefore);
+            }
+
+            // 金锁禁锢：只能出招式 1，其他招式置暗（阶段九 BOSS 人形态招式 2，07:176）。
+            if (skillLockRoundsRemaining > 0 && !CanCastWhileLocked(skill))
+            {
+                return SkillCastResult.Refuse(skill, SkillCastReject.SkillLocked, rageBefore, chargesBefore);
             }
 
             int cost = PlayerSkillRules.RageCost(skill, settings);

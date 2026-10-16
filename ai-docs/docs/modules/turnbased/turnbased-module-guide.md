@@ -153,7 +153,24 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
     （`PlayerBattleRules.ExtraActionPending`），但第二次出招被拒的理由是 `NotPlayerTurn` 而不是 `AlreadyCastThisTurn`，
     `BattleItemEffectTests.ExtraAction_IsRecorded_ButTheTurnModelMovesOnAfterOneCast` 就是这条边界的看门人。
     ② 护盾与护心鳞 / 减伤怎么叠（**C101**）；道具从哪来、一场带几件、用掉后还在不在（**C99**）。
-  - **阶段九 BOSS 的数值（仍未落地）**（07:167–193）：内核没有形态 / 护心鳞 / 金锁禁锢，见 §7「回合制战斗的现状」，数值暂时无处可放。
+  - **阶段九 BOSS 的数值与机制（已落地，2026-10-16 同日第三波）**（07:86-119、:163-193）：原先「内核没有形态 / 护心鳞 / 金锁禁锢，数值无处可放」，
+    现在做成了**按 BOSS 的多形态档案**——`BossProfile`（形态表 + 按 BOSS 覆盖偷袭扣血 + 形态切换清谁的怒气）与
+    `BossPhaseSettings`（一个形态的血量 / 招式组 / 护心鳞「层 × 一层挨几次」/ 攻击后追加概率 / 招式 3 的两套特例 / 自我禁锢 / 金锁回合）。
+    `BossProfile.StageNineDefault()` 把 sp07:163-193 的数全填好了（人形 260 血·16·8·26、龙形 260 血·21·自我禁锢·32、护心鳞人形 1 层挡 1 次 / 龙形 1 层挨 2 次）。
+    规则落在 `BossBattleRules`（形态切换时血回满 + 按新形态刷护心鳞、护心鳞挡招、自我禁锢计时与结束给盾）、
+    `BossSkillRules.SelectForPhase`（按形态选招 + 人形态「只在玩家被禁锢时按 1/3 放招式 3」）、
+    `PlayerBattleRules`（金锁禁锢：只能出招式 1、道具禁用、`SkillCastReject.SkillLocked`）、`BattleSession`（转形态而不是判胜、招式 2 按形态分派、招式 3 两套特例、攻击后 20% 追加）。
+    **`BattleSettings.BossProfile` 是可选参数，不配 = 单形态、行为与加这一层之前逐字一致**——阶段一那条路不受影响（有负对照用例）。
+    **2026-10-16 同日第四波把它做进了 demo**：`BossDefinition` 上加了可序列化的 `battleProfile`
+    （`BossProfileData` / `BossPhaseData` / `BossSkillData` 三个 Inspector 镜像），`BattleSetup` 开战时
+    「覆盖里带了档案就用覆盖，否则用名册行那一份」；名册新增 **`stage9_boss`** 行（人 / 龙两形态照 sp07 填）；
+    剧情侧新增 `narrative/sample_stage9_battle.json` 与相遇 `sample_stage9`（`targetKind: Stage9Boss` → 该剧情 → Battle payload `stage9_boss`）；
+    SampleScene 里加了可挑战的 **`Npc_Stage9Boss`**（在南边 (-4, -20)，与阶段一那只互不干扰）。
+    **接线时踩到一个坑**：`BossEntryContext.bossId` 留空 =「谁来问都答」（demo 里原本只有一只 BOSS），
+    复制出来的第二个 NPC 也留空就会替真 BOSS 回答局势、把「被打、BOSS 先手」翻成「正面、玩家先手」——
+    新 NPC 必须填自己的 bossId。
+    **原文没写的三处都是显式配置项**（没替策划决定）：清谁的怒气 = `RageClearTarget`（占位 None，C94）、
+    护心鳞的「层 × 一层挨几次」（人形 1×1、龙形 1×2，C94）、人形态招式 3 的触发概率 33%（C95）。
 - **仍等 C91 的项**（原文到 2026-10-16 也没写）：百分比基数（偷袭扣血、回血）、醉酒值上限、
   **回合上限与到上限的判负口径**、玩家被晕眩时怎么过回合、自我禁锢的「额外伤害」具体几点
   （07 只给了招式 1 +40%，21×140% = 29.4 不是整数）、`Skill3ExtraDamageStacks`（两次招式 3 是累加还是重置）。

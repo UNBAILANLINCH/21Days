@@ -41,6 +41,35 @@ namespace Game.TurnBased
         }
 
         /// <summary>
+        /// 按**形态**选招（阶段九 BOSS，sp07:167-195）。与 <see cref="SelectWeighted"/> 的差别是两条附加规则：
+        /// ① 人形态的招式 3 **只在玩家被「金锁禁锢」时**才可能用（sp07:177），且概率另配（sp07:107「三分之一」）；
+        /// ② 不满足条件时退回招式 1 / 招式 2 的权重里选（人形态配 5:1）。
+        /// 随机数消耗：需要判定招式 3 时**恰好两个**（先掷触发、再掷选招），否则**恰好一个**——回放对不上时按这个数数。
+        /// </summary>
+        public static BossSkill SelectForPhase(in BossPhaseSettings phase, bool playerSkillLocked, IRandomStream random)
+        {
+            int total = phase.Skills.TotalWeight;
+            if (total <= 0)
+            {
+                throw new System.InvalidOperationException("BOSS 形态「" + phase.Name + "」的三个招式权重之和必须为正，当前 " + total);
+            }
+
+            // 人形态：玩家被禁锢时先掷一次「要不要放招式 3」（原文没写它和 5:1 怎么叠，占位「先判触发」；见 C95）。
+            if (phase.Skill3RequiresPlayerLock && playerSkillLocked && phase.Skill3ChancePercentWhenLocked > 0)
+            {
+                if (random.Range(0, 100) < phase.Skill3ChancePercentWhenLocked)
+                {
+                    return BossSkill.Skill3;
+                }
+
+                // 没触发招式 3 时，在招式 1 / 招式 2 之间按权重选（这次掷数已用掉，接着掷选招那一次）。
+                return SelectWeighted(phase.Skills, random);
+            }
+
+            return SelectWeighted(phase.Skills, random);
+        }
+
+        /// <summary>
         /// 招式 1 的实际伤害：吃到「下次招式 1 +30%」时按百分比加成（07:80）。
         /// 整数运算、向下取整（原文没写取整口径，见交付报告「待拍板」）。
         /// </summary>

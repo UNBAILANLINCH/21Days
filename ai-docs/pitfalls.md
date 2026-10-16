@@ -587,7 +587,14 @@
 - 正确做法：改完场景**立刻 `manage_scene save`**，再按脚本 GUID grep 一遍 `.unity` 确认落盘了，然后才跑回放。别把「回放里能看到」当成「已经保存」——Play 用的是内存里那一份。
 - 关联：`scripts/unity_mcp_check.py --meta` 之外的资产核对习惯；2026-10-10 BOSS 局势接线。
 
-## 纸片角色的 `transform.up` 是朝向相机的，不能当视线方向
+## 复制一只 BOSS NPC 出来，`BossEntryContext.bossId` 留空会把**原来那只**的开战方式改掉
+- 现象：给阶段九 BOSS 新加一只可挑战 NPC（照着 `Npc_SampleBoss` 整份复制），黑盒回放里阶段一那只的「被打、BOSS 先手」变成「正面、玩家先手」——`BossAggro_ChargesTauntsAndAmbushes` 红在「开战方式」这一条，**单跑也复现**，不是时序抖动；而嘲讽对白、冲刺、接触全都正常，看现象完全联想不到新加的 NPC 头上。
+- 根因：`BossEntryContext.bossId` **留空 = 通配，谁来问都答**（`MatchesBoss` 对任何 payload 都返回 true，demo 里原本只有一只 BOSS，留空是对的）。复制出来的第二份也留空，于是同一个 payload 有两份局势在答，谁被选中看的是解析顺序——真那只辛苦记下的 `Initiator = BossAttacked` 被另一份的默认值顶掉了。
+- 正确做法：**场景里每只 BOSS 的 `BossEntryContext` 都填自己的 `bossId`**（= 剧情 Battle 阶段的 payload）；只有确定全场景独此一只时才留空。复制 NPC 之后连带检查 `BossAggro.bossId`、`NarrativeTrigger.targetKind`，并把新的一行补进 `BossRosterConfig` 与相遇表——这三处一起改完才算复制完一只 BOSS。
+- 关联：`Runtime/Battle/BossEntryContext.cs`（`MatchesBoss`）、`Runtime/Battle/BossAggroSceneBinder.cs`（`BindScene`）、`Runtime/Battle/BattleFlow.cs`（`ResolveEntryContext`）；2026-10-16 阶段九 BOSS 做进 demo。
+- 顺带记：同一次还踩到「demo 回放用的道具 id 不在新的道具效果表里」——换掉效果表后旧 id 变成「只记账、不回血」，回放的「用药回血飘字」检查点因此红。**改效果表时把回放里用到的 id 一起搜一遍**（`grep -rn '1004' Assets/_Project/Scripts/Tests`）。
+
+
 - 现象：给 BOSS 做「看没看见玩家」时想复用巡逻怪的视野锥，用 `transform.up` 当朝向；结果玩家站在它南边算「看不见」、北边算「看见」——而那只是 `CameraBillboard` 把纸片立起来的结果。
 - 根因：本工程 2D 小人是纸片 + `CameraBillboard`（`pitfalls.md` 另有一条：别给它加 `ExecuteAlways`），朝向跟着相机走；巡逻怪的朝相反而是 `MonsterRules` 自己维护的转向运动。两者不是一回事。
 - 正确做法：没有「NPC 面朝哪边」的表现规则时**不要假装有视线**——按半径判（`MonsterRules.SenseFrom` 传零朝向 = 跳过视锥那一档），把「绕到背后躲不开它」这个代价写进注释；等 S6 那条表现规则落地再补视锥。

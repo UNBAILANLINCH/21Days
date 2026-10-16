@@ -16,5 +16,13 @@
         "id": "sample_battle_drill", "trigger": "Interact", "targetKind": "SampleBattleDrill",
         "priority": 10, "story": "sample_battle_drill", "entry": "brief", "repeat": "Reenter",
         "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
+    },
+    {
+        "id": "sample_stage9", "trigger": "Interact", "targetKind": "Stage9Boss",
+        "priority": 10, "story": "sample_stage9_battle", "entry": "taunt", "repeat": "Reenter",
+        "anyOf": [{"all": [
+            {"fact": "PlayerAlive", "key": "", "expected": true},
+            {"fact": "StoryFlag", "key": "world.stage9boss.defeated", "expected": false}
+        ]}]
     }
 ]

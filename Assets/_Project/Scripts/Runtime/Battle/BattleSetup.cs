@@ -173,7 +173,13 @@ namespace Game.Battle
         {
             session = null;
             BattleSettings current = Settings;
-            string issue = TurnBasedConfigValidation.Validate(current);
+            // 按 BOSS 补多形态档案：名册行配了就用它（阶段九 BOSS 的人 / 龙两形态 + 按 BOSS 覆盖偷袭扣血）；
+            // 覆盖里已经带了档案就以覆盖为准（回放要自己控形态时走这条）。
+            BattleSettings effective = current.BossProfile.HasPhases
+                ? current
+                : current.WithBossProfile(boss.BattleProfile);
+
+            string issue = TurnBasedConfigValidation.Validate(effective);
             if (issue != null)
             {
                 error = "回合制配置不自洽（TurnBasedConfig）：" + issue;
@@ -190,7 +196,7 @@ namespace Game.Battle
             int startHealth = livePlayerMaxHealth > 0
                 ? Game.Monster.EncounterEscalationRequest.ScaleHealth(livePlayerHealth, livePlayerMaxHealth, playerHealth)
                 : playerHealth;
-            var kernel = new TurnBasedKernel(current, NextStream(), inventory);
+            var kernel = new TurnBasedKernel(effective, NextStream(), inventory);
             if (!kernel.TryStartBattle(request, new PlayerBattleSnapshot(playerHealth, startHealth),
                     new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, boss.OutOfBattleDrunk), out session, out BattleEntryReject reject))
             {

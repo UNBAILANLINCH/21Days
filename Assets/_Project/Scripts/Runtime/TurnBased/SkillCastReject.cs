@@ -29,5 +29,8 @@ namespace Game.TurnBased
 
         /// <summary>招式值非法（<see cref="PlayerSkill.None"/> 或枚举外的值）。</summary>
         UnknownSkill = 6,
+
+        /// <summary>被「金锁禁锢」：只能出招式 1，其他招式置暗（阶段九 BOSS 人形态招式 2，07:176）。</summary>
+        SkillLocked = 7,
     }
 }

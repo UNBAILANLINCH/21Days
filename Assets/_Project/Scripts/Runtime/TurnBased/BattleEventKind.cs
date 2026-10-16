@@ -45,5 +45,17 @@ namespace Game.TurnBased
 
         /// <summary>打到回合上限（07:43 的「剩余回合」用完）。<c>Outcome</c> = 判出来的胜负。</summary>
         RoundLimitReached = 11,
+
+        /// <summary>护心鳞挡下了玩家这一招（阶段九 BOSS，07:92）。<c>Amount</c> = 挡下之后还剩几层。</summary>
+        BossShieldBlocked = 12,
+
+        /// <summary>BOSS 换形态（阶段九 BOSS，07:94）。<c>Amount</c> = 新形态的序号，<c>HintText</c> = 形态名。</summary>
+        BossPhaseChanged = 13,
+
+        /// <summary>玩家被「金锁禁锢」（阶段九 BOSS 人形态招式 2，07:176）。<c>Amount</c> = 禁锢回合数。</summary>
+        PlayerSkillLocked = 14,
+
+        /// <summary>BOSS 获得护心鳞（人形态招式 3、龙形态自我禁锢结束 / 大招无层时重获，07:177、:192、:193）。<c>Amount</c> = 加了几层。</summary>
+        BossShieldGained = 15,
     }
 }

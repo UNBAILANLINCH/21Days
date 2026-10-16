@@ -32,8 +32,9 @@
 //   按 E 时 BOSS 小人转向玩家、玩家小人转向 BOSS（D11，朝向保持）。战斗舞台上的两只小人是另一份实例
 //   （BOSS 按 StagePrefab 现实例化、玩家是战斗场景里摆好的），朝向由 BattleActor 立即翻面定，不带世界里的朝向保持。
 //
-// ── 给物：经背包公开口 LootService.SettleMonsterDrop 放一瓶治疗药水（1004）入包 ─────────────────────────
-//   与开箱同一条「写背包分区 → 弹获得通知」的路径；村里能走到的箱子没有 1004（Crate_C 在巡逻线以南），这条是最短的真实入包口。
+// ── 给物：经背包公开口 LootService.SettleMonsterDrop 放一件战斗消耗品（1801 活力药剂）入包 ──────────────
+//   与开箱同一条「写背包分区 → 弹获得通知」的路径。1801 是 sp07:199-211 那 10 件里的一件（回 50 点，见 TurnBasedConfig 的效果表）；
+//   原先用的是 1004 治疗药水，它不在那张表里。
 //
 // ── 2026-10-15 BOSS 主动发难（PRP/combat-iteration D6 / T6.4）────────────────────────────────────────────
 //   `Npc_SampleBoss` 挂了 BossAggro（BossRosterConfig `sample_boss`：发难半径 5 米以原位为圆心、反应 3 秒、冲刺 3 米/秒、拴绳自动 10 米；
@@ -89,7 +90,12 @@ namespace Game.Tests.Showcase.Battle
         private const string BossVerb = "挑战";
         private const string DefeatedFlag = "world.sampleboss.defeated";
         private const string RetreatOutcome = "Downed";
-        private const int HealItemId = 1004;
+        /// <summary>
+        /// 给物用的战斗消耗品：**1801 活力药剂**（sp07:201「恢复主角 50 点生命值」）。
+        /// 2026-10-16 由 1004 治疗药水改成它——1004 是背包里的旧占位，**不在** sp07 那 10 件效果表里，
+        /// 用它会「只记账、不回血」，回血飘字那条检查点就绿不了。
+        /// </summary>
+        private const int HealItemId = 1801;
 
         /// <summary>
         /// 实时遭遇演示桩（SampleScene 里 `Npc_BattleDrill`，站在村北 (1.5, 8.8)，与长者 / 旅人都不在一条线上）：

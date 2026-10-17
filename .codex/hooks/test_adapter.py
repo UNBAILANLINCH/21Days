@@ -38,6 +38,15 @@ def run():
         assert decision(call("PreToolUse", "apply_patch", patch("Assets/../Library/x"))) == "deny"
         assert decision(call("PreToolUse", "apply_patch", patch("ProjectSettings/x"))) == "deny"
         assert decision(call("PreToolUse", "Bash", "git push")) == "deny"
+        assert decision(call("PreToolUse", "Bash", "git commit -m 'fix(hooks): x' -- a.py")) is None
+        assert decision(call("PreToolUse", "Bash", "git -C sub commit -m x -- a.py")) is None
+        for command in ("git commit -m x; git push", "git commit -m x; git reset --hard",
+                        "git commit -m x; git clean -fd", "git commit -m x; git restore a.py",
+                        "git commit -m 'Co-Authored-By: Claude'"):
+            assert decision(call("PreToolUse", "Bash", command)) == "deny", command
+        message = root / "signed.txt"
+        message.write_text("fix: x\n\nCo-Authored-By: Claude", encoding="utf-8")
+        assert decision(call("PreToolUse", "Bash", "git commit -F signed.txt -- a.py")) == "deny"
         assert decision(call("PreToolUse", "Bash", "git reset --hard")) == "deny"
         assert call("PreToolUse", "Bash", "git status --short") == {}
         moved = "*** Begin Patch\n*** Update File: a.cs\n*** Move to: Library/a.cs\n@@\n-x\n+y\n*** End Patch\n"
@@ -84,6 +93,15 @@ def run():
         save_records()
         actual = adapter.transcript_response(evidence, command, root)
         assert adapter.read_path(command, root, actual) == doc
+        # 当前客户端将 CommandExecution 的正文放在 aggregated_output，仍核验实际交付全文。
+        item["aggregated_output"] = item.pop("stdout")
+        save_records()
+        assert adapter.read_path(command, root, adapter.transcript_response(evidence, command, root)) == doc
+        item["aggregated_output"] = content[:30]
+        save_records()
+        assert adapter.transcript_response(evidence, command, root) is None
+        item["aggregated_output"] = content
+        save_records()
         whole_output = records.pop()
         split = content.index("\n", len(content) // 2)
         first = {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "parent-1",

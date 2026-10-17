@@ -18,6 +18,8 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 
 不直接注册、但被钩子引用的两样：
 
+Codex 适配器调用 `guard.js --agent-commit`，仅取消 commit 的确认分支；署名、推送及危险操作继续检查，授权要求见 `AGENTS.md`。Claude 注册命令不带此参数，行为不变。
+
 | 文件 | 干什么 |
 | --- | --- |
 | `_hook_common.py` | 同会话提示去重 `should_emit(会话, 文本, 标签)`。`guard.js` 里有等价的 `shouldEmitOnce()`，**共用同一份账本**，格式必须一致 |

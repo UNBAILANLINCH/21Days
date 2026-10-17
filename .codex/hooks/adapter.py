@@ -66,7 +66,7 @@ def patch_paths(command, cwd):
 
 def guard(payload):
     proc = subprocess.run(
-        ["node", str(ROOT / ".claude/hooks/guard.js")],
+        ["node", str(ROOT / ".claude/hooks/guard.js"), "--agent-commit"],
         input=json.dumps(payload), text=True, encoding="utf-8",
         capture_output=True, timeout=10, cwd=ROOT,
     )
@@ -180,7 +180,8 @@ def transcript_response(payload, command, cwd):
                     or item.get("command", [None])[-1] != command
                     or item.get("status") != "completed" or item.get("exit_code") != 0):
                 return None
-            original = {"exit_code": item["exit_code"], "output": item.get("stdout", "")}
+            original = {"exit_code": item["exit_code"],
+                        "output": item.get("stdout", item.get("aggregated_output", ""))}
             if not read_path(command, cwd, original):
                 return None
             result = original

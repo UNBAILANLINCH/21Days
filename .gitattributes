@@ -74,3 +74,4 @@
 *.xlsm binary
 *.bytes binary
 Assets/_Project/Art/fbx/总场景.glb filter=lfs diff=lfs merge=lfs -text
+Assets/_Project/Art/fbx/CourtyardLatest.glb filter=lfs diff=lfs merge=lfs -text

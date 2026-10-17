@@ -227,7 +227,7 @@ namespace Game.Session
 
             if (info.State != SlotState.Empty)
             {
-                bool confirmed = await ConfirmAsync("覆盖存档 " + slot + "？原有进度将丢失。", OverwriteConfirmText);
+                bool confirmed = await ConfirmAsync("覆盖存档 " + slot + "？\n原有进度将丢失。", OverwriteConfirmText);
                 if (!confirmed || !IsOpen) return;
                 await session.DeleteSlotAsync(slot);
             }
@@ -253,7 +253,7 @@ namespace Game.Session
         private async UniTask DeleteAsync(int slot)
         {
             if (FindInfo(slot).State != SlotState.Available) return;
-            bool confirmed = await ConfirmAsync("删除存档 " + slot + "？此操作无法撤销。", DeleteConfirmText);
+            bool confirmed = await ConfirmAsync("删除存档 " + slot + "？\n此操作无法撤销。", DeleteConfirmText);
             if (!IsOpen) return;
             if (!confirmed)
             {

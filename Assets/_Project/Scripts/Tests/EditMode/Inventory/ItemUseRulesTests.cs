@@ -129,9 +129,9 @@ namespace Game.Tests.EditMode.Inventory
         }
 
         [Test]
-        public void TryUse_WhenTheSpecConsumeCountIsNotPositive_ReturnsInvalidSpec()
+        public void TryUse_WhenTheSpecConsumeCountIsNegative_ReturnsInvalidSpec()
         {
-            var broken = new List<ItemUseSpec> { new ItemUseSpec(CommonSkin, "shop.enter_with_skin", 0) };
+            var broken = new List<ItemUseSpec> { new ItemUseSpec(CommonSkin, "shop.enter_with_skin", -1) };
 
             ItemUseResult result = ItemUseRules.TryUse(new Dictionary<int, int> { { CommonSkin, 1 } }, CommonSkin, broken);
 
@@ -148,6 +148,18 @@ namespace Game.Tests.EditMode.Inventory
             Assert.That(result.Status, Is.EqualTo(ItemUseStatus.Ok));
             Assert.That(items[CommonSkin], Is.EqualTo(2), "判定不扣件数：执行与落盘归调用方（ItemUseRules 文件头）");
             Assert.That(items.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ReusableItem_RequiresOwnershipButConsumesNothing()
+        {
+            var reusable = new[] { new ItemUseSpec(CommonSkin, "identity.shop_skin", 0) };
+            Assert.That(ItemUseRules.TryUse(null, CommonSkin, reusable).Status, Is.EqualTo(ItemUseStatus.NotEnough));
+            var items = new Dictionary<int, int> { { CommonSkin, 1 } };
+            var result = ItemUseRules.TryUse(items, CommonSkin, reusable);
+            Assert.That(result.IsOk, Is.True);
+            Assert.That(result.ConsumeCount, Is.Zero);
+            Assert.That(items[CommonSkin], Is.EqualTo(1));
         }
 
         [Test]

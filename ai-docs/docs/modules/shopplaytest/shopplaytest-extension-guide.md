@@ -13,8 +13,8 @@ maturity: seed
 - 替换人物素材：沿现成Chibi预制体接法，保留稳定ID、职业、不可见逻辑纸片和控制标记。不要用Cube人物或新相机代替。
 - 调整布局：在编辑器改预制体和五店实例；站位和路线变更后跑真实走位回放，不靠瞬移验证。
 - 调整显隐：保持控制人物例外与角色生命周期分离；隐藏时不清领取、工件、醉酒或驯服状态。
-- 新增NPC：同时接ShopPlaytestActor职业、TamingActor及Identity定义；与建筑/柜台区分。借用经统一提示HUD的独立按钮，不放进NPC对白，也不以交谈记录作为借用前置。
-- 调整玩法：改各模块配置/规则，再接意图和结果，不在组合接线增加跨店强制门票。
+- 新增NPC：同时接ShopPlaytestActor职业、TamingActor及Identity定义；与建筑/柜台区分。可取皮对象须补ShopSkinRules、道具源表和InventoryConfig，Identity来源为Pelt。F先潜行绕背刺杀取皮，再使用皮；不恢复旧RequestControl捷径。
+- 调整玩法：改各模块配置/规则，再接意图和结果。用户2026-10-17已确认酒肆三件套门槛，由ShopRewardRules核对正式背包；不要另造门票状态副本。
 - 加正式物品：先确定物品表ID和发放/提交所有者，再接Loot与存档，不把本地成果数当正式物品。
 - 改保存：保持每次现取分区和会话代数守卫，验证从旧现场切新局/切槽；不能在旧Unbind覆盖新分区。
 - 改活动：音游复用场景内活动，战斗走Narrative Battle通知，不再注册独立SceneGameState或第二个战斗循环。

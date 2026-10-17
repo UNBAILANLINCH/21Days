@@ -54,7 +54,7 @@ namespace Game.Tests.Showcase.Clothing
             yield return CheckPreplacedObjects();
         }
         [UnityTest]
-        public IEnumerator EveryNpc_HasIdentity_TailorCanBeBorrowedWithoutTalking()
+        public IEnumerator EveryNpc_HasIdentity_TailorRemainsAnInteractionTarget()
         {
             yield return Ready(1);
             int count = 0;
@@ -66,8 +66,9 @@ namespace Game.Tests.Showcase.Clothing
                 count++;
             }
             Assert.That(count, Is.EqualTo(15));
-            yield return Borrow(3);
-            Assert.That(State.CurrentRole, Is.EqualTo("tailor"));
+            foreach (var actor in State.World.Actors)
+                if (actor.StableId == "shop_tailor") Assert.That(actor.CanInteractSecondary, Is.False);
+            Assert.That(State.CurrentRole, Is.Empty);
             Assert.That(DialogueRunning, Is.False);
         }
         private IEnumerator TalkToTailor(string expected, bool claim)

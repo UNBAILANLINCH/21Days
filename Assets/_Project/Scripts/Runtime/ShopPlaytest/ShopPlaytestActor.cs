@@ -19,6 +19,7 @@ namespace Game.ShopPlaytest
         private Action<ShopPlaytestActor> select;
         private Action<ShopPlaytestActor> borrow;
         private Func<ShopPlaytestActor, bool> allowed;
+        private Func<ShopPlaytestActor, string> skinPrompt;
         public string StableId => stableId;
         public string Role => role;
         public string DisplayName => displayName;
@@ -29,8 +30,8 @@ namespace Game.ShopPlaytest
         public int InteractionPriority => 0;
         public bool CanInteract => talk != null && IsVisible && allowed != null && allowed(this);
         public InteractionPrompt Prompt => new InteractionPrompt("对话", displayName);
-        public bool CanInteractSecondary => CanInteract && !string.IsNullOrEmpty(role) && borrow != null;
-        public InteractionPrompt SecondaryPrompt => new InteractionPrompt("借用身份", displayName);
+        public bool CanInteractSecondary => CanInteract && ShopSkinRules.ItemId(role) != 0 && borrow != null;
+        public InteractionPrompt SecondaryPrompt => new InteractionPrompt(skinPrompt == null ? "刺杀取皮" : skinPrompt(this), displayName);
         public void SetVisible(bool visible)
         {
             if (renderers == null)
@@ -42,11 +43,12 @@ namespace Game.ShopPlaytest
             IsVisible = visible;
             if (clickCollider != null) clickCollider.enabled = visible;
             for (int i = 0; i < renderers.Length; i++)
-                if (renderers[i] != null) renderers[i].enabled = visible && originalVisibility[i];
+                if (renderers[i] != null && renderers[i].transform.IsChildOf(transform)) renderers[i].enabled = visible && originalVisibility[i];
         }
         public void Bind(Action<ShopPlaytestActor> handler, Func<ShopPlaytestActor, bool> canInteract,
-            Action<ShopPlaytestActor> borrowIdentity = null, Action<ShopPlaytestActor> selectActor = null)
-        { talk = handler; allowed = canInteract; borrow = borrowIdentity; select = selectActor; }
+            Action<ShopPlaytestActor> borrowIdentity = null, Action<ShopPlaytestActor> selectActor = null,
+            Func<ShopPlaytestActor, string> secondaryText = null)
+        { talk = handler; allowed = canInteract; borrow = borrowIdentity; select = selectActor; skinPrompt = secondaryText; }
         public void Interact() { if (CanInteract) talk(this); }
         public void InteractSecondary() { if (CanInteractSecondary) borrow(this); }
         public void OnPointerClick(PointerEventData eventData)

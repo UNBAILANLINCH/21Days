@@ -5,6 +5,7 @@ using Game.Core.Input;
 using Game.Dialogue;
 using Game.Identity;
 using Game.Session;
+using Game.ShopPlaytest;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -40,7 +41,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return Borrow(0);
             yield return MoveTo(State.ControlledPosition + MapDirection(Vector3.forward) * 5);
             yield return Check("借用人物出店仍可见、其它店人物隐藏", () => State.ActiveShop == -1 &&
-                State.Taming.CurrentControlId == "shop_customer0" && CorrectMask(), 3);
+                State.CurrentSkinActorId == "shop_customer0" && CorrectMask(), 3);
             yield return Snapshot("人物出店继续控制");
             yield return CheckPreplacedObjects();
         }
@@ -50,6 +51,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return Ready(1); yield return Borrow(1);
             yield return Command(4);
             yield return Check("旧槽成果成立", () => State.Clothing.Received);
+            yield return Check("黑色长衫正式入包一次", () => ResolveService<Game.Loot.LootService>().Items[ShopRewardRules.ClothesId] == 1);
             var session = ResolveService<GameSession>(); bool saved = false;
             yield return session.SaveNowAsync("shop_showcase").ContinueWith(ok => saved = ok).ToCoroutine();
             yield return Check("隔离槽1保存成功", () => saved);
@@ -57,10 +59,12 @@ namespace Game.Tests.Showcase.ShopPlaytest
             yield return session.NewGameAsync(2).ToCoroutine();
             yield return Check("新槽没有旧领衣进度或旧店铺身份", () => !State.Clothing.Received &&
                 State.Forging.Quota == 20 && State.CurrentRole == "" && !ResolveService<IdentityState>().IsInEffect, 8);
+            yield return Check("新槽没有旧槽衣物或奖励记录", () => !ResolveService<Game.Loot.LootService>().Items.ContainsKey(ShopRewardRules.ClothesId));
             yield return Step("从槽2读回隔离槽1", null, 0);
             yield return session.ContinueAsync(1).ToCoroutine();
             yield return Check("旧槽成果和原控制人物恢复，未被槽2卸载覆盖", () => State.Clothing.Received &&
-                State.Taming.CurrentControlId == "shop_customer1" && State.CurrentRole == "customer1", 8);
+                State.CurrentSkinActorId == "shop_customer1" && State.CurrentRole == "customer1", 8);
+            yield return Check("读档恢复黑色长衫且没有重复发放", () => ResolveService<Game.Loot.LootService>().Items[ShopRewardRules.ClothesId] == 1);
             yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
             yield return Check("读档后正式人物对白可重新打开", () => DialogueRunning, 4);
             yield return Choose("leave");

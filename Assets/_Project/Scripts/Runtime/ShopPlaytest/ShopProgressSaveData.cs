@@ -6,7 +6,7 @@ namespace Game.ShopPlaytest
 {
     public sealed class ShopProgressSaveData : ISaveData
     {
-        public int Version => 2;
+        public int Version => 3;
         public bool Initialized { get; set; }
         public bool TheaterEntered { get; set; }
         public bool PatrolRedirected { get; set; }
@@ -19,10 +19,13 @@ namespace Game.ShopPlaytest
         public int BossDrunk { get; set; }
         public Dictionary<string, int> Customers { get; set; }
         public bool TavernCompleted { get; set; }
+        public List<int> RewardedItems { get; set; } = new List<int>();
+        public string EquippedSkinId { get; set; } = "";
         public void Migrate(int fromVersion)
         {
             // 旧钥匙/首饰与ABC配方没有确认的映射，留存原记录，仅新打造进度从配置初态开始。
             if (fromVersion < 2) { LegacyForging = Forging; Forging = null; }
+            if (fromVersion < 3) RewardedItems = new List<int>();
         }
     }
 }

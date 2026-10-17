@@ -107,7 +107,7 @@ namespace Game.Inventory
             }
 
             int consume = use.ConsumeCount;
-            if (!loot.TryConsume(itemId, consume))
+            if (consume > 0 && !loot.TryConsume(itemId, consume))
             {
                 // 判定过的件数扣不动说明背包在两步之间变了（同一帧别的东西扣过）：把已经生效的效果退不掉，
                 // 但必须留一条 Error —— 这是真正的不一致，不能静默。

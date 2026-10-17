@@ -38,7 +38,7 @@ namespace Game.Inventory
 
                 int owned = Owned(items, itemId);
                 if (!spec.IsValid) return ItemUseResult.Failed(ItemUseStatus.InvalidSpec, spec, owned);
-                if (owned < spec.ConsumeCount) return ItemUseResult.Failed(ItemUseStatus.NotEnough, spec, owned);
+                if (owned < (spec.ConsumeCount == 0 ? 1 : spec.ConsumeCount)) return ItemUseResult.Failed(ItemUseStatus.NotEnough, spec, owned);
                 return ItemUseResult.Succeeded(spec, owned);
             }
 

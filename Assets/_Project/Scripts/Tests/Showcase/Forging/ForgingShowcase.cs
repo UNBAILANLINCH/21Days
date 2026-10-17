@@ -55,6 +55,10 @@ namespace Game.Tests.Showcase.Forging
             yield return Snapshot("ABC达标可提交");
             yield return Click("SubmitButton");
             yield return Check("ABC已提交且三个数量清零", () => State.Forging.Submitted && State.Forging.Count(0) + State.Forging.Count(1) + State.Forging.Count(2) == 0);
+            yield return Check("金饰按1、2、3件正式入包", () => {
+                var items = ResolveService<Game.Loot.LootService>().Items;
+                return items[Game.ShopPlaytest.ShopRewardRules.ClaspId] == 1 && items[Game.ShopPlaytest.ShopRewardRules.BeltHookId] == 2 && items[Game.ShopPlaytest.ShopRewardRules.RingId] == 3;
+            });
             yield return Snapshot("交付完成");
             yield return Check("完成后不能重复打造或提交", () => !Button("CraftButton").interactable && !Button("SubmitButton").interactable && State.Forging.Spent == 30);
             yield return Click("BackButton"); yield return WaitClosed();

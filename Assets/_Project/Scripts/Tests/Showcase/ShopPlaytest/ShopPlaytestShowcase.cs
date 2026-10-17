@@ -105,8 +105,27 @@ namespace Game.Tests.Showcase.ShopPlaytest
             foreach (ShopPlaytestActor actor in State.World.Actors)
                 if (actor.Shop == State.ActiveShop && actor.Role.Length > 0) { if (index++ == roleIndex) { target = actor; break; } }
             Assert.That(target, Is.Not.Null);
-            Vector2 position = State.Taming.GetTarget(target.StableId).Model.Position;
-            yield return MoveTo(position);
+            Assert.That(ShopSkinRules.ItemId(target.Role), Is.Not.Zero, "该对象只供交谈，不能取皮");
+            var model = State.Taming.GetTarget(target.StableId).Model;
+            var actions = ResolveService<IInputService>().Actions.Gameplay;
+            var loot = ResolveService<Game.Loot.LootService>();
+            int itemId = ShopSkinRules.ItemId(target.Role);
+            if (!loot.Items.ContainsKey(itemId))
+            {
+                yield return MoveTo(model.Position - model.Facing.normalized * .8f);
+                yield return SelectActor(target);
+                yield return Input.Press(actions.Execute);
+                yield return FinishReplies();
+                yield return Check("没有潜行不能刺杀或取得皮", () => model.Health > 0 && !loot.Items.ContainsKey(itemId));
+                yield return SelectActor(target);
+                yield return Input.Hold(actions.Sneak);
+                yield return Input.Press(actions.Execute);
+                yield return Input.Release(actions.Sneak);
+                yield return FinishReplies();
+                yield return Check("潜行绕背刺杀后皮入包，尚未取得身份", () =>
+                    model.Health == 0 && loot.Items.ContainsKey(itemId) && State.CurrentRole != target.Role, 3);
+            }
+            yield return MoveTo(model.Position);
             yield return SelectActor(target);
             yield return Check("借用按钮对应目标NPC", () => ResolveService<IInteractionFocus>().Current == target, 3);
             var hud = ResolveService<IUIService>().Get<InteractPromptHudView>();
@@ -114,8 +133,26 @@ namespace Game.Tests.Showcase.ShopPlaytest
             Assert.That(DialogueRunning, Is.False, "无需先对话即可借身份");
             yield return Snapshot("F键借用身份_" + target.Role);
             yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Execute);
-            yield return Check("原控制系统与职业同步", () => State.Taming.CurrentControlId == target.StableId && State.CurrentRole == target.Role, 3);
-            yield return Check("F借身份不会同时打开对白", () => !DialogueRunning);
+            yield return FinishReplies();
+            yield return Check("换皮用玩家本体移动，职业与外观归属同步", () => State.Taming.CurrentControlId == State.Taming.PlayerId &&
+                State.CurrentSkinActorId == target.StableId && State.CurrentRole == target.Role, 3);
+            Assert.That(State.Taming.TryTame(target.StableId), Is.False, "旧驯服入口不能绕过取皮");
+            Vector2 beforeWear = State.ControlledPosition;
+            State.ReturnBody();
+            using (ResolveService<Game.Core.Timing.IWorldPauseService>().Acquire(this))
+            {
+                var used = ResolveService<Game.Inventory.ItemUseService>().TryUse(itemId, null);
+                Assert.That(used.IsOk, Is.True, used.Effect.Reason);
+                Assert.That(used.ConsumedCount, Is.Zero);
+            }
+            Assert.That(State.CurrentSkinActorId, Is.EqualTo(target.StableId));
+            Assert.That(loot.Items[itemId], Is.EqualTo(1), "重复使用不销毁皮");
+            Assert.That(Vector2.Distance(beforeWear, State.ControlledPosition), Is.LessThan(.01f), "穿皮不传送");
+            var view = Object.FindObjectOfType<EncounterSceneView>();
+            var appearance = view.PlayerBody.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppetMotion>();
+            Assert.That(appearance, Is.Not.Null);
+            Assert.That(appearance.TrackedRoot, Is.EqualTo(view.PlayerBody));
+            yield return Snapshot("换皮后外观与玩家位移绑定_" + target.Role);
             yield return MoveTo(Object.FindObjectOfType<EncounterSceneView>().ToLogicPosition(State.World.Station(State.ActiveShop).position));
         }
         protected IEnumerator CheckPreplacedObjects() => Check("各操作没有新生成占位角色", () => Object.FindObjectsOfType<ShopPlaytestActor>(true).Length == originalActors);

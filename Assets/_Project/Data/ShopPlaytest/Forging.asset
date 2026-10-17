@@ -17,3 +17,7 @@ MonoBehaviour:
   productCost: 5
   requiredProducts: 010000000200000003000000
   pointOrder: 00000000010000000200000003000000
+  productNames:
+  - "\u91D1\u895F\u6263"
+  - "\u91D1\u5E26\u94A9"
+  - "\u91D1\u73AF\u6263"

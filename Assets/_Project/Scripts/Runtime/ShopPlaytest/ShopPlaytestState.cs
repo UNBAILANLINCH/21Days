@@ -23,6 +23,8 @@ using Game.Taming;
 using Game.Tavern;
 using Game.Theater;
 using Game.Session;
+using Game.Loot;
+using Game.Stealth;
 using MessagePipe;
 using UnityEngine;
 using VContainer.Unity;
@@ -39,6 +41,7 @@ namespace Game.ShopPlaytest
             new[] { "给我来一杯。", "请你喝一杯。", "请你喝一杯。", "我们来较量一下。", "请你喝一杯。" }
         };
         private readonly ISaveService saves;
+        private readonly LootService loot;
         private readonly ISubscriber<SessionStartedEvent> sessionStarted;
         private IDisposable sessionSubscription;
         private long sessionGeneration, boundGeneration;
@@ -77,6 +80,11 @@ namespace Game.ShopPlaytest
         private long runNumber, expectedBattleGeneration;
         private CancellationTokenSource lifetime;
         private bool progressReady;
+        private readonly AssassinationRules assassination;
+        private ExecutionResolver execution;
+        private ShopSkinAppearance skinAppearance;
+        private ShopPlaytestActor equippedSkin;
+        public string CurrentSkinActorId => equippedSkin == null ? "" : equippedSkin.StableId;
         public int ActiveShop => world == null ? -1 : world.ActiveShop;
         public string CurrentRole => identity.IsInEffect && identity.Current.Value == role ? role : "";
         public ClothingRules Clothing => clothing.Rules;
@@ -86,6 +94,8 @@ namespace Game.ShopPlaytest
         public TamingRules Taming => step.Taming;
         public ShopPlaytestWorld World => world;
         public bool HasPendingReply => replies.Count > 0;
+        public string TavernEntryRequirement => ShopRewardRules.MissingDisguise(loot.Items);
+        public bool CanEnterTavern => TavernEntryRequirement.Length == 0;
         public Vector2 ControlledPosition => Taming.IsControllingEnemy ? Taming.GetTarget(Taming.CurrentControlId).Model.Position : player.Position;
         private Vector3 ControlledScenePosition => encounterView.ToScenePosition(ControlledPosition);
         private bool Busy => openingActivity || rhythm.IsActivityOpen || battle.IsBattleRunning || narrative.IsBusy || dialogue.IsRunning || awaitingBattle || pause.IsPaused;
@@ -93,8 +103,9 @@ namespace Game.ShopPlaytest
             PlayerModel player, EncounterStep step, RhythmState rhythm, BattleFlow battle, BattleSetup battleSetup,
             NarrativeService narrative, DialogueService dialogue, TheaterConfig theaterConfig, ClothingController clothing,
             ForgingController forging, TavernController tavern, TheaterController theater, IdentityRules identityRules,
-            IdentityState identity, IdentityLedger ledger, ITelemetryService telemetry)
+            IdentityState identity, IdentityLedger ledger, LootService loot, StealthKernel stealth, ITelemetryService telemetry)
         {
+            this.loot = loot;
             this.saves = saves; this.sessionStarted = sessionStarted; this.flow = flow; this.pause = pause; this.interaction = interaction;
             this.ui = ui; this.input = input;
             this.interactionFocus = interactionFocus;
@@ -103,6 +114,8 @@ namespace Game.ShopPlaytest
             this.theaterConfig = theaterConfig; this.clothing = clothing; this.forging = forging;
             this.tavern = tavern; this.theater = theater; this.identityRules = identityRules;
             this.identity = identity; this.ledger = ledger; this.telemetry = telemetry.Scope("shopplaytest");
+            AssassinationSettings settings = stealth.Assassination.Settings;
+            assassination = new AssassinationRules(new AssassinationSettings(settings.RearAngle, settings.MaxDistance, true));
         }
         public void Start() => sessionSubscription = sessionStarted.Subscribe(_ => sessionGeneration++);
         public void Dispose() { sessionSubscription?.Dispose(); sessionSubscription = null; }
@@ -111,10 +124,14 @@ namespace Game.ShopPlaytest
             world = scene; encounterView = existingView;
             boundGeneration = sessionGeneration;
             lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            string savedSkin = saves.Get<ShopProgressSaveData>().EquippedSkinId;
+            skinAppearance = new ShopSkinAppearance(existingView, world.Actors);
+            execution = new ExecutionResolver(assassination, step.FactSink, null, telemetry);
             RestoreProgress();
             FindActor("shop_boss").gameObject.SetActive(!tavernCompleted);
             foreach (ShopPlaytestActor actor in world.Actors)
-            { actor.Bind(Interact, CanInteract, BorrowIdentity, selected => interactionFocus.RequestFocus(selected)); interaction.Register(actor); }
+            { actor.Bind(Interact, CanInteract, TakeOrWearSkin, selected => interactionFocus.RequestFocus(selected),
+                target => OwnsSkin(target.Role) ? "换皮" : "潜行刺杀取皮"); interaction.Register(actor); }
             Taming.OnControlChanged += ControlChanged;
             step.OnAdvanced += AdvanceIdentity;
             Taming.BindSelection(CanSelect);
@@ -123,6 +140,8 @@ namespace Game.ShopPlaytest
             battleSetup.BindDrunkSource(BossDrunk);
             narrative.OnChanged += NarrativeChanged;
             ControlChanged(Taming.CurrentControlId);
+            ShopPlaytestActor restored = FindActor(savedSkin);
+            if (restored != null) TryWearSkin(ShopSkinRules.ItemId(restored.Role), out _);
             return UniTask.CompletedTask;
         }
         private ShopPlaytestActor FindActor(string id)
@@ -136,35 +155,75 @@ namespace Game.ShopPlaytest
             actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId)));
         private bool CanSelect(string id)
         {
-            ShopPlaytestActor actor = FindActor(id);
-            return actor == null || (actor.Role.Length > 0 && actor.IsVisible && actor.Shop == ActiveShop &&
-                Vector2.Distance(ControlledPosition, Taming.GetTarget(id).Model.Position) <= actor.InteractionRadius);
+            return FindActor(id) == null;
         }
         private void Interact(ShopPlaytestActor actor)
         {
             if (!CanInteract(actor) || Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
+            if (actor.Shop == 4 && !CheckTavernEntry()) return;
+            if (actor.Role.Length > 0 && Taming.GetTarget(actor.StableId).Model.Health <= 0)
+            { Show("这人已被刺杀；取得的皮可以在背包中使用。"); return; }
             ConverseAsync(actor).Forget();
         }
         public void ReturnBody()
-        { if (world != null && !Busy) encounterView.RequestControl(Taming.PlayerId); }
-        private void BorrowIdentity(ShopPlaytestActor actor)
+        {
+            if (world == null || Busy) return;
+            ClearSkin();
+            if (Taming.IsControllingEnemy) encounterView.RequestControl(Taming.PlayerId);
+            Persist();
+        }
+        private bool OwnsSkin(string skinRole) => ShopSkinRules.ItemId(skinRole) != 0 &&
+            loot.Items.TryGetValue(ShopSkinRules.ItemId(skinRole), out int count) && count > 0;
+        private void TakeOrWearSkin(ShopPlaytestActor actor)
         {
             if (!actor.CanInteractSecondary || !CanInteract(actor) ||
                 Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
-            if (!encounterView.RequestControl(actor.StableId, true)) Show("当前不能借用这个人物");
+            if (actor.Shop == 4 && !CheckTavernEntry()) return;
+            int itemId = ShopSkinRules.ItemId(actor.Role);
+            if (OwnsSkin(actor.Role))
+            { Show(TryWearSkin(itemId, out string reason) ? "已换上" + actor.DisplayName + "的皮。" : reason); return; }
+            if (Taming.IsControllingEnemy || player.Health <= 0) { Show("请用本体潜行绕背刺杀。"); return; }
+            MonsterRules target = Taming.GetTarget(actor.StableId);
+            MonsterModel model = target.Model;
+            var snapshot = new AssassinationInput(player.Position, player.Facing, model.Position, model.Facing,
+                model.Health > 0, model.Mode != MonsterMode.PatrolWalk && model.Mode != MonsterMode.PatrolPause, player.IsSneaking);
+            var attack = new ExecutionInput(in snapshot, itemId != 0);
+            ExecutionVerdict result = execution.TryExecute(in attack, target);
+            if (!result.Allowed) { Show("刺杀失败：" + result.Describe() + "。需潜行、绕背并靠近未察觉的目标。"); return; }
+            if (!loot.GrantItems(itemId, 1)) { Show("取皮入包失败，请重新进场恢复。"); return; }
+            Persist();
+            Show(actor.DisplayName + "的皮已存入背包；使用皮后才能获得身份。");
+        }
+        public bool TryWearSkin(int itemId, out string reason)
+        {
+            reason = "当前不能换皮";
+            string nextRole = ShopSkinRules.Role(itemId);
+            if (world == null || boundGeneration != sessionGeneration || nextRole.Length == 0 || player.Health <= 0 ||
+                openingActivity || rhythm.IsActivityOpen || battle.IsBattleRunning || narrative.IsBusy || dialogue.IsRunning || awaitingBattle)
+                return false;
+            if (!OwnsSkin(nextRole)) { reason = "先潜行刺杀取得对应的皮"; return false; }
+            ShopPlaytestActor actor = FindActor("shop_" + nextRole);
+            if (actor == null || !skinAppearance.CanWear(actor.StableId)) { reason = "这个身份的外观未接好"; return false; }
+            if (actor.Shop == 4 && !CanEnterTavern) { reason = "还缺酒肆三件套：" + TavernEntryRequirement; return false; }
+            IdentityEnterResult result = identityRules.TryEnter(identity, ledger, IdentityId.From(nextRole));
+            if (result != IdentityEnterResult.Entered && result != IdentityEnterResult.AlreadyBorrowing)
+            { reason = "换皮失败：" + result; return false; }
+            if (Taming.IsControllingEnemy) Taming.TryControl(Taming.PlayerId);
+            role = nextRole; equippedSkin = actor;
+            skinAppearance.Wear(actor.StableId);
+            Persist(); reason = ""; return true;
+        }
+        private void ClearSkin()
+        {
+            if (role.Length > 0 && identity.IsBorrowing && identity.Current.Value == role) identityRules.TryExit(identity);
+            skinAppearance?.Clear(); equippedSkin = null; role = "";
+            if (world != null) world.Display(ActiveShop, Taming.CurrentControlId);
         }
         private void ControlChanged(string id)
         {
-            ShopPlaytestActor actor = FindActor(id);
-            string nextRole = actor == null ? "" : actor.Role;
-            if (nextRole.Length > 0)
-            {
-                IdentityEnterResult result = identityRules.TryEnter(identity, ledger, IdentityId.From(nextRole));
-                if (result != IdentityEnterResult.Entered && result != IdentityEnterResult.AlreadyBorrowing)
-                { role = ""; Taming.TryControl(Taming.PlayerId); Show("身份借用失败：" + result); return; }
-            }
-            else if (identity.IsBorrowing && IsShopRole(identity.Current.Value)) identityRules.TryExit(identity);
-            role = nextRole;
+            if (FindActor(id) != null) { Taming.TryControl(Taming.PlayerId); return; }
+            if (id != Taming.PlayerId) ClearSkin();
+            else if (equippedSkin == null && identity.IsBorrowing && IsShopRole(identity.Current.Value)) identityRules.TryExit(identity);
             if (interaction.Actor != null) interaction.Actor.SetAnchor(encounterView.CurrentControlObject);
             int next = world.ShopAt(ControlledScenePosition);
             if (ActiveShop == 4 && next != 4) { tavern.Apply(TavernAction.Leave, CurrentRole); Persist(); }
@@ -186,7 +245,7 @@ namespace Game.ShopPlaytest
             if (world == null || boundGeneration != sessionGeneration) return;
             bool owned = role.Length > 0 && identity.IsBorrowing && identity.Current.Value == role;
             IdentityExitReason reason = identityRules.AdvanceIdentity(identity, deltaTime);
-            if (owned && reason != IdentityExitReason.None) Taming.TryControl(Taming.PlayerId);
+            if (owned && reason != IdentityExitReason.None) { ClearSkin(); Persist(); }
         }
         private float AwarenessMultiplier(string id) => id == "shop_boss" ? tavern.Rules.BossAwarenessMultiplier
             : id == "shop_customer_a" || id == "shop_customer_b" ? tavern.Rules.CustomerAwareness(id) : 1f;
@@ -246,7 +305,7 @@ namespace Game.ShopPlaytest
             }
             if (CurrentRole == "smith" && (actor.StableId == "shop_smith" || actor.StableId == "shop_station_2"))
                 choices.Add(new DialogueContent.Choice { Id = "forge", Text = "开始打造。", Outcome = "forge" });
-            if (Taming.IsControllingEnemy)
+            if (Taming.IsControllingEnemy || equippedSkin != null)
                 choices.Add(new DialogueContent.Choice { Id = "body", Text = "回到本体", Outcome = "body" });
             choices.Add(new DialogueContent.Choice { Id = "leave", Text = "告辞", Outcome = "leave" });
             string greeting = Greeting(actor);
@@ -277,7 +336,7 @@ namespace Game.ShopPlaytest
                 : actor.StableId == "shop_customer1" ? clothing.CustomerGreeting(1)
                 : actor.StableId == "shop_customer2" ? clothing.CustomerGreeting(2) : GreetingFor(actor.StableId, CurrentRole);
             return CurrentRole.Length == 0 || actor.StableId.StartsWith("shop_station_", StringComparison.Ordinal)
-                ? line : Taming.GetDisplayName(Taming.CurrentControlId) + "，" + line;
+                ? line : (equippedSkin == null ? Taming.GetDisplayName(Taming.CurrentControlId) : equippedSkin.DisplayName) + "，" + line;
         }
         public static string GreetingFor(string id, string currentRole)
         {
@@ -306,6 +365,7 @@ namespace Game.ShopPlaytest
                 actor == null || actor.Shop != ActiveShop || !actor.IsVisible ||
                 Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius)
             { telemetry.TrackWarn("command_rejected", TelemetryProps.Of(("reason", "unavailable_or_distance"), ("command", index))); return; }
+            if (ActiveShop == 4 && !CheckTavernEntry()) return;
             string message = "";
             switch (ActiveShop)
             {
@@ -321,7 +381,7 @@ namespace Game.ShopPlaytest
                 case 2:
                     if (index != 0) return;
                     message = forging.Apply(ForgingAction.SetQuota, forging.MaximumQuota, CurrentRole); break;
-                case 3: message = "客栈的正式线索还未配置。"; break;
+                case 3: message = "戏班借行头，衣肆取黑色长衫，金银行打金饰。三样凑齐，才能进酒肆。三店不分先后。"; break;
                 case 4:
                     string targetId = index == 1 || index == 3 ? "shop_boss" : index == 4 ? "shop_customer_b" : "shop_customer_a";
                     if (index != 0 && !NearDrinkTarget(targetId)) { Show("走近对应酒客或BOSS再操作"); return; }
@@ -368,7 +428,7 @@ namespace Game.ShopPlaytest
         private async UniTask OpenForgeAsync(ShopPlaytestActor actor)
         {
             if (CurrentRole != "smith")
-            { telemetry.TrackWarn("forging_entry_rejected", TelemetryProps.Of(("role", CurrentRole), ("reason", "not_smith"))); Show("先借用金银匠身份，再使用打造台"); return; }
+            { telemetry.TrackWarn("forging_entry_rejected", TelemetryProps.Of(("role", CurrentRole), ("reason", "not_smith"))); Show("先取得并换上金银匠皮，再使用打造台"); return; }
             openingActivity = true;
             var closed = new UniTaskCompletionSource();
             forgingClosed = closed;
@@ -415,13 +475,13 @@ namespace Game.ShopPlaytest
         }
         private async UniTask PerformAsync()
         {
-            if (!theater.CanPerform(CurrentRole)) { Show("先借学徒验身、都知调巡逻，再控制乐正演奏"); return; }
+            if (!theater.CanPerform(CurrentRole)) { Show("先换学徒皮验身、都知皮调巡逻，再换乐正皮演奏"); return; }
             openingActivity = true;
             string context = "main-theater-" + ++runNumber;
             var policy = new RhythmFixedChartCombatPolicy(theaterConfig.Chart.ChartId, theaterConfig.Chart.ChartId,
                 "standalone", "four-lane-tap-hold", "1", theaterConfig.PassScorePercent);
             var permission = new TheaterEntryPermission(Taming, Taming.CurrentControlId, context,
-                () => world != null && ActiveShop == 0 && theater.CanPerform(CurrentRole));
+                () => world != null && ActiveShop == 0 && OwnsSkin(CurrentRole) && theater.CanPerform(CurrentRole));
             var consumer = new RhythmExternalSession(permission, policy,
                 _ => PerformanceResult(true), _ => PerformanceResult(false),
                 _ => PerformanceInterrupted("演奏已取消，可以重试"), _ => PerformanceInterrupted("音频或输入中断，可以重试"));
@@ -437,13 +497,17 @@ namespace Game.ShopPlaytest
         private void PerformanceResult(bool success)
         {
             var intent = new TheaterIntent(success ? TheaterAction.FinishSuccess : TheaterAction.FinishFailure, CurrentRole);
-            Show(theater.Apply(in intent)); Persist(); closeRhythmAfterFrame = Time.frameCount + 1;
+            string message = theater.Apply(in intent);
+            Persist();
+            Show(success && theater.Completed ? "演奏达标，行头三样已存入背包。" : message);
+            closeRhythmAfterFrame = Time.frameCount + 1;
         }
         private void PerformanceInterrupted(string text) { Show(text); closeRhythmAfterFrame = Time.frameCount + 1; }
         private async UniTask StartBattleAsync()
         {
+            if (!CheckTavernEntry()) return;
             if (tavernCompleted) { Show("BOSS已击败"); return; }
-            if (CurrentRole != "guest") { Show("借酒客身份才能挑战"); return; }
+            if (CurrentRole != "guest") { Show("换上酒客皮才能挑战"); return; }
             awaitingBattle = true; expectedBattleGeneration = narrative.Generation + 1; awaitingOutcome = true;
             try
             {
@@ -456,6 +520,13 @@ namespace Game.ShopPlaytest
             catch (OperationCanceledException) { awaitingOutcome = false; }
             catch (Exception error) { awaitingOutcome = false; telemetry.TrackError("battle_failed", error); Show(error.Message); }
             finally { awaitingBattle = false; }
+        }
+        private bool CheckTavernEntry()
+        {
+            string missing = TavernEntryRequirement;
+            if (missing.Length == 0) return true;
+            Show("进酒肆要凑齐行头、衣、金。还缺：" + missing + "。");
+            return false;
         }
         private void NarrativeChanged()
         {
@@ -498,6 +569,7 @@ namespace Game.ShopPlaytest
                 Taming.GetTarget("shop_patrol").ChangePatrolRoute(world.Route(encounterView, theater.PatrolRedirected));
             }
             progressReady = true;
+            Persist();
         }
         private void Persist()
         {
@@ -509,6 +581,8 @@ namespace Game.ShopPlaytest
             saved.Investigated = clothing.Rules.CaptureInvestigations(); saved.ClothesReceived = clothing.Rules.Received;
             saved.Forging = forging.Rules.Capture(); saved.PlayerDrunk = tavern.Rules.PlayerDrunk; saved.BossDrunk = tavern.Rules.BossDrunk;
             saved.Customers = tavern.Rules.CaptureCustomers(); saved.TavernCompleted = tavernCompleted;
+            saved.EquippedSkinId = CurrentSkinActorId;
+            ShopRewardRules.GrantCompleted(saved, loot.GrantItems);
         }
         private void Show(string text)
         { if (lifetime != null && !lifetime.IsCancellationRequested && !string.IsNullOrEmpty(text)) replies.Enqueue(text); }
@@ -540,6 +614,7 @@ namespace Game.ShopPlaytest
             finally
             {
                 progressReady = false;
+                skinAppearance?.Dispose(); skinAppearance = null; equippedSkin = null; execution = null;
                 narrative.OnChanged -= NarrativeChanged;
                 battleSetup.BindDrunkSource(null);
                 Taming.OnControlChanged -= ControlChanged; Taming.BindSelection(null); Taming.BindModifiers(null, null);

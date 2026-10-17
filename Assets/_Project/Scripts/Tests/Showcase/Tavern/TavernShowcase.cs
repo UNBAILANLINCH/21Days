@@ -22,14 +22,28 @@ namespace Game.Tests.Showcase.Tavern
         public IEnumerator Drink_ExplorationEffectsBattleAndLeaveReset()
         {
             yield return Ready(4);
+            yield return Check("未集齐三件套时酒肆入口被锁", () => !State.CanEnterTavern);
+            var guest = System.Array.Find(Object.FindObjectsOfType<ShopPlaytestActor>(true), actor => actor.StableId == "shop_guest");
+            yield return OpenConversation(guest);
+            yield return ShowChoices();
+            yield return Check("门槛对白指出缺少行头、衣、金", () => ResolveService<DialogueRules>().Current.Text.Contains("还缺：行头三样、黑色长衫、金饰"));
+            yield return Choose("close");
+            // 本用例只验酒肆；三店奖励通路由各店回放覆盖，隔离存档经正式入包口准备通行物。
+            var loot = ResolveService<Game.Loot.LootService>();
+            loot.GrantItems(ShopRewardRules.CostumeId, 1);
+            loot.GrantItems(ShopRewardRules.ClothesId, 1);
+            loot.GrantItems(ShopRewardRules.ClaspId, 1);
+            loot.GrantItems(ShopRewardRules.BeltHookId, 2);
+            loot.GrantItems(ShopRewardRules.RingId, 3);
+            yield return Check("三件套齐备解锁酒肆且道具不消耗", () => State.CanEnterTavern && loot.Items[ShopRewardRules.RingId] == 3);
             yield return Borrow(0);
             yield return Command(0);
             yield return Check("出现减速与禁潜行状态", () => State.Tavern.PlayerDrunk == 10 && !State.Tavern.CanSneak);
-            Vector2 before = State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position;
+            Vector2 before = State.ControlledPosition;
             yield return Step("实际移动借来的酒客", null, 0);
             yield return Input.HoldStick(Vector2.right, .5f); Input.ReleaseStick();
             yield return Check("移动角色已减速，实际位移小于正常一秒速度", () =>
-            { float distance = Vector2.Distance(before, State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position); return distance > .1f && distance < 1f; });
+            { float distance = Vector2.Distance(before, State.ControlledPosition); return distance > .1f && distance < 1f; });
             yield return ApproachTarget("shop_boss");
             for (int i = 0; i < 10; i++) yield return Command(1);
             yield return ApproachTarget("shop_customer_a");
@@ -72,7 +86,7 @@ namespace Game.Tests.Showcase.Tavern
             Vector3 exitStation = State.World.Station(4).position;
             Vector2 exitPosition = new Vector2(exitStation.x, exitStation.z) + MapDirection(Vector3.left) * 5.5f;
             yield return MoveTo(new Vector2(exitPosition.x, State.ControlledPosition.y));
-            yield return Check("离区场外醉酒清零、控制人物保留", () => State.Tavern.PlayerDrunk + State.Tavern.BossDrunk + State.Tavern.CustomerDrunkFor("shop_customer_a") == 0 && State.Tavern.CanSneak && State.Taming.CurrentControlId == "shop_guest");
+            yield return Check("离区场外醉酒清零、皮保留", () => State.Tavern.PlayerDrunk + State.Tavern.BossDrunk + State.Tavern.CustomerDrunkFor("shop_customer_a") == 0 && State.Tavern.CanSneak && State.CurrentSkinActorId == "shop_guest");
             yield return Snapshot("离区清零");
             yield return CheckPreplacedObjects();
         }

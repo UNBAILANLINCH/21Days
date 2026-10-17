@@ -44,7 +44,7 @@ namespace Game.Forging
             Hook(pointButtons[0], Strike0); Hook(pointButtons[1], Strike1);
             Hook(pointButtons[2], Strike2); Hook(pointButtons[3], Strike3);
             Hook(craftButton, Craft); Hook(submitButton, Submit); Hook(cancelButton, Cancel); Hook(backButton, Back);
-            messageLabel.text = controller.Rules.Submitted ? "A/B/C已提交。" : "选择右侧工件，点击打造，再按高亮顺序点击圆盘点位。";
+            messageLabel.text = controller.Rules.Submitted ? "金饰已提交。" : "选择右侧工件，点击打造，再按高亮顺序点击圆盘点位。";
             OnRefresh();
             return UniTask.CompletedTask;
         }
@@ -57,8 +57,8 @@ namespace Game.Forging
             materialLabel.text = $"库存 {rules.Quota}   累计消耗 {rules.Spent}   预留 {rules.Reserved}";
             for (int i = 0; i < productLabels.Length; i++)
             {
-                string name = ((char)('A' + i)).ToString();
-                productLabels[i].text = rules.Submitted ? $"物品{name}\n已提交" : $"{(selected == i ? "◆ " : "")}物品{name}\n{rules.Count(i)}/{rules.Required(i)}";
+                string name = controller.ProductName(i);
+                productLabels[i].text = rules.Submitted ? $"{name}\n已提交" : $"{(selected == i ? "◆ " : "")}{name}\n{rules.Count(i)}/{rules.Required(i)}";
             }
             foreach (Button button in productButtons) button.interactable = !rules.IsForging && !rules.Submitted;
             for (int i = 0; i < pointButtons.Length; i++)
@@ -67,8 +67,8 @@ namespace Game.Forging
                 pointButtons[i].image.color = rules.NextPoint == i ? nextPointColor : idlePointColor;
             }
             progressLabel.text = rules.Submitted ? "打造任务已完成" : rules.IsForging
-                ? $"物品{(char)('A' + selected)} · {rules.Progress}/{rules.RequiredStrikes} · 点击高亮点 {rules.NextPoint + 1}"
-                : rules.CanSubmit ? "A/B/C数量已完成，可以提交" : rules.Available < rules.ProductCost
+                ? $"{controller.ProductName(selected)} · {rules.Progress}/{rules.RequiredStrikes} · 点击高亮点 {rules.NextPoint + 1}"
+                : rules.CanSubmit ? "金饰数量已完成，可以提交" : rules.Available < rules.ProductCost
                     ? "金属不足，请返回街面找官证补料" : "选择工件后开始打造";
             int cost = rules.ProductCost;
             costLabel.text = $"{cost} 金属";

@@ -5,6 +5,7 @@ using Game.Core.Telemetry;
 using Game.Core.Simulation;
 using Game.Forging;
 using Game.Identity;
+using Game.Inventory;
 using Game.Tavern;
 using Game.Theater;
 using UnityEngine;
@@ -28,6 +29,7 @@ namespace Game.ShopPlaytest
             builder.Register(r => new TavernController(tavern, r.Resolve<ITelemetryService>().Scope("tavern")), Lifetime.Singleton);
             builder.Register(r => new TheaterController(r.Resolve<ITelemetryService>().Scope("theater")), Lifetime.Singleton);
             builder.RegisterEntryPoint<ShopPlaytestState>(Lifetime.Singleton).AsSelf();
+            builder.RegisterBuildCallback(r => r.Resolve<ItemEffectRegistry>().Register(new ShopSkinEffect(r.Resolve<ShopPlaytestState>())));
         }
     }
 }

@@ -79,6 +79,8 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 
 ## 驱动数据流
 
+2026-10-17：`ChibiPuppetMotion.BindMotion(root, facing)`供换皮时重新绑定位移根和朝向纸片，并清空采样累计；`FacingSource`只读公开以便还原。五店只搬现成视觉子树，仍由此组件唯一驱动动画，不新增移动驱动。
+
 ```text
 角色根 Transform.position（别人推：探索移动 / 巡逻 AI / 回放虚拟输入驱动的真实移动）
    │  ChibiPuppetMotion.LateUpdate（ExecutionOrder 100）
@@ -104,13 +106,13 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | 环节 | 位置 |
 | --- | --- |
 | 执行次序 `DefaultExecutionOrder(100)` | `ChibiPuppetMotion.cs:12` |
-| `trackedRoot` 自动解析（父链上第一个名字不是 `Visual` 的节点，找不到用自身） | `ChibiPuppetMotion.cs:147` |
-| 启用时重置采样、强制待机、标记下一次定朝向立即翻面 | `ChibiPuppetMotion.cs:49`、`:57` |
-| 时停分支 | `ChibiPuppetMotion.cs:65` |
-| 采样窗口判定 | `ChibiPuppetMotion.cs:87` |
-| 跑走判定与速率标定 | `ChibiPuppetMotion.cs:100` |
-| 朝向保持时跳过、与门面目标朝向比较后转身 | `ChibiPuppetMotion.cs:109-122` |
-| 朝向解析 | `ChibiPuppetMotion.cs:126` |
+| `trackedRoot` 自动解析（父链上第一个名字不是 `Visual` 的节点，找不到用自身） | `ChibiPuppetMotion.cs` 的 ResolveTrackedRoot |
+| 启用时重置采样、强制待机、标记下一次定朝向立即翻面 | `ChibiPuppetMotion.cs` 的 OnEnable |
+| 时停分支 | `ChibiPuppetMotion.cs` 的 LateUpdate |
+| 采样窗口判定 | `ChibiPuppetMotion.cs` 的 LateUpdate |
+| 跑走判定与速率标定 | `ChibiPuppetMotion.cs` 的 LateUpdate |
+| 朝向保持时跳过、与门面目标朝向比较后转身 | `ChibiPuppetMotion.cs` 的 LateUpdate |
+| 朝向解析 | `ChibiPuppetMotion.cs` 的 ResolveFacing |
 | 写 Animator 参数（并按移动解除朝向保持） | `ChibiPuppet.cs:184`、`:188` |
 | 转身补间 / 立即翻面（保留实例整体缩放） | `ChibiPuppet.cs:130` |
 | 朝向指定点并进入保持 | `ChibiPuppet.cs:163` |
@@ -137,7 +139,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | `facingSource.flipX` | 配了 `facingSource` | 直接跟随该 `SpriteRenderer` 的 `flipX`（真 = 朝左） | SampleScene 玩家 / 巡逻者：跟随被 `EncounterSceneView` 翻转的隐藏纸片 |
 | 位移投影 | `facingSource` 为空 | `Dot(Δ, Camera.main.transform.right) / window` 过死区；取不到主相机时保持原朝向 | 无当前用例：场景内小人（玩家、巡逻者、三个 NPC）都配了 `facingSource`；Showcase 现在直接驱动这些既有小人，不再另生成无 `facingSource` 的独立小人。这条分支留给将来脱离隐藏纸片单独生成小人的场合 |
 
-用速度（除以窗口时长）而不是位移过死区：帧率 / 窗口长短不改变判定（`ChibiPuppetMotion.cs:143`）。
+用速度（除以窗口时长）而不是位移过死区：帧率 / 窗口长短不改变判定（`ChibiPuppetMotion.cs` 的 ResolveFacing）。
 `Camera.main` 只在首次需要时取一次并缓存，不每帧 Find。
 
 两种来源之上还有一层**朝向保持**（见下节）：门面 `FacingHeld` 为真时驱动层整个窗口不改朝向。
@@ -153,7 +155,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 - LitMotion `UpdateIgnoreTimeScale`：对白时停期间照转（后续交互要在时停里转向 NPC）。
 - `FaceLeft` 立刻返回**目标**朝向；`IsTurning` 表示补间进行中。
 - **立即翻面**入口 `SetFacing(left, instant: true)`：用于不该看到翻面的时刻。现有两处：驱动层启用后第一次定朝向（出生、读档进场、重新激活，
-  `ChibiPuppetMotion.cs:57`、`:109-122`；读档只能从标题进场，走的也是这条）；`BattleActor.ResetPose`（`BattleActor.cs:134`，只在挂外观布台时调）。
+  `ChibiPuppetMotion.cs` 的 OnEnable / LateUpdate；读档只能从标题进场，走的也是这条）；`BattleActor.ResetPose`（`BattleActor.cs:134`，只在挂外观布台时调）。
 - 句柄在 `OnDisable` / `OnDestroy` 掐断，掐断时直接落到目标朝向，不留半翻的纸片（`ChibiPuppet.cs:107`、`:113`、`:272`）。
 
 **朝向指定点与朝向保持**（`ChibiPuppet.FaceTowards(Vector3)`，`ChibiPuppet.cs:163`）：
@@ -187,10 +189,10 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | 对象 | 用什么时间 | 理由 |
 | --- | --- | --- |
 | Animator | **unscaled**（预制体 `m_UpdateMode: 2` = `UnscaledTime`） | 对话时停（`Time.timeScale = 0`）期间待机动画继续播放，不定格，画面不「死」 |
-| `ChibiPuppetMotion` 采样 | **scaled** `Time.deltaTime`（`ChibiPuppetMotion.cs:63`，带 `// lint-ok`） | 纯表现层，只反推动画状态，不参与逻辑推进与重放；用 scaled 恰好能识别「时停」 |
+| `ChibiPuppetMotion` 采样 | **scaled** `Time.deltaTime`（`ChibiPuppetMotion.cs` 的 LateUpdate，带 `// lint-ok`） | 纯表现层，只反推动画状态，不参与逻辑推进与重放；用 scaled 恰好能识别「时停」 |
 | 转身补间、交互回弹 | **unscaled**（LitMotion `UpdateIgnoreTimeScale`） | 时停里也要能转向说话对象、做动作 |
 
-**时停强制待机**（`ChibiPuppetMotion.cs:65`）：`Time.deltaTime ≤ 0` 时写 `SetMoving(false, false, 1)`，
+**时停强制待机**（`ChibiPuppetMotion.cs` 的 LateUpdate）：`Time.deltaTime ≤ 0` 时写 `SetMoving(false, false, 1)`，
 并清空采样累计、`lastPosition` 更新为当前位置。原因有二：
 
 1. Animator 走 unscaled 时间，不写 `Moving=false` 的话会带着 Walk / Run 继续播放，看起来像原地走；

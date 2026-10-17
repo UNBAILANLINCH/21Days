@@ -112,6 +112,19 @@ namespace Game.Tests.EditMode.Inventory
             Assert.That(loot.Items.ContainsKey(Potion), Is.False, "扣到 0 删掉这一项，与 LootRules.Consume 口径一致");
         }
 
+        [Test]
+        public void ReusableEffect_AppliesTwiceAndKeepsTheOwnedItem()
+        {
+            var reusable = new ItemUseService(new[] { new ItemUseSpec(Potion, HealPlayerEffect.PlaceholderEffectId, 0) },
+                effects, loot, NullTelemetryScope.Instance);
+            Assert.That(reusable.TryUse(Potion, target).IsOk, Is.False);
+            loot.GrantItems(Potion, 1);
+            Assert.That(reusable.TryUse(Potion, target).IsOk, Is.True);
+            target.Health = 1;
+            Assert.That(reusable.TryUse(Potion, target).IsOk, Is.True);
+            Assert.That(loot.Items[Potion], Is.EqualTo(1));
+        }
+
         // 关键分支：效果标识没有执行者时**不扣件数**、并回一个明确的失败码（防静默失败）。
         [Test]
         public void TryUse_WhenTheEffectHasNoExecutor_FailsWithoutConsuming()

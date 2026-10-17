@@ -20,6 +20,7 @@ maturity: stable
 | `OnChoiceSelected` | `event Action<DialogueChoiceSelectedEvent>` | 玩家选定一个选项（规则已接受） |
 | `OnEnded` | `event Action<DialogueEndedEvent>` | 成功 / 取消 / 失败都触发；必须看 Completed 判定是否抵达出口，不能用 Outcome 判定；正常收尾后输入与暂停已恢复 |
 | `PlayAsync`（稳定目标） | `UniTask<DialogueResult> PlayAsync(int dialogueId, Transform performanceAnchor, string targetId, CancellationToken ct = default)` | 叙事调用方传已登记的稳定目标 ID；每次条件复验使用该 ID，空白 ID 抛 ArgumentException |
+| `PlayAsync`（现场内容） | `UniTask<DialogueResult> PlayAsync(DialogueContent content, Transform anchor, string targetId, CancellationToken ct = default)` | 玩法按当前人物/状态构造经校验的内容；共用正常会话生命周期，事件和结果编号为0，不作为表内剧情对白。null内容或空目标拒绝；取消和重入保护同上 |
 
 `PlayAsync` 的异常：
 

@@ -7,6 +7,13 @@ maturity: stable
 
 # Monster 模块指南
 
+## 主场景酒肆醉酒意图（2026-10-13）
+
+MonsterIntent新增可选awarenessScale与movementScale，默认均1，旧调用点行为不变。
+范围为有限的(0,1]；Step感知的红区、橙区、贴身范围乘awarenessScale，巡逻/警戒/敌对速度乘movementScale，不缩放计时器或修改配置。
+ShopPlaytest在正常SampleScene绑定时由Tavern场外状态提供倍率，原巡逻者继续默认倍率。酒肆观测NPC用Taming的ObservationOnly标记保留察觉/追近，但双方不结算探索伤害；回合制内仍按既有Battle规则。
+新增EditMode负对照验证5米处感知拒绝、速度减半、默认感知和NaN/0拒绝。原快照和InputCommand布局未改；独立试玩不是新增正式Replay支持。
+
 ## 职责与边界
 
 Monster 在遭遇场景中沿巡逻点移动，感知 Player，累积或消退警戒值，追击、攻击、受伤和死亡。
@@ -149,6 +156,17 @@ Game.Core 不引用玩法模块；规则类不读取场景组件、不用 `Time.
 本次新注册已将回放文件格式版本提升为 2，最低可读版本也为 2。
 恢复快照后巡逻点和随机流随状态一起恢复；配置资产仍由场景外的模块注册负责。
 
+**按稳定 id 对齐（2026-10-14，PRP/combat-iteration D2）**：快照里的巡逻者按 `stableId` 落到场景各目标身上，**不再要求数量与顺序一致**——
+快照里有、场景里没有的条目丢字节后丢弃（`MonsterRules.SkipSerialized`），场景里有、快照里没有的附加巡逻者按场景初始状态开局，
+对不齐时记一条 `encounter_restore_aligned` 的 Warn。**字节布局没变**，所以不升 `ReplayFormat`。
+
+**先校验、后修改（2026-10-16 代码审查后补）**：`EncounterStep.Deserialize` 把整段字节先读进暂存区
+（每只怪一份 `MonsterRules.ReadSerialized` 读出的临时模型 + 随机流状态 + 巡逻点），全部读完验完之后才 `ApplySerialized` 写进现场；
+`MonsterRules.Deserialize` 同样先读进临时模型再一次性写回。此前是边读边写，读到第 N 只发现坏数据时前面 N-1 只已经被改掉了。
+`TamingRules.ValidateReplayFlags` 单列出来，好让调用方把它跑在写现场之前。
+
+**升级在途不进快照**：它是瞬态（见「实时遭遇升级回合制」），`Begin` / `Restore` / `Deserialize` 一律清掉。
+
 ## 场景与生命周期
 
 Boot `GameBootstrap` 已挂 `PlayerInstaller` 和 `MonsterInstaller`，并已移除 `SampleInstaller` 的入口接线。
@@ -281,7 +299,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 ## Showcase 回放（2026-09-28 重写，走 Boot 真实流程）
 
-`Assets/_Project/Scripts/Tests/Showcase/Monster/MonsterShowcase.cs` 四条用例，全部标题「开始」进 SampleScene
+`Assets/_Project/Scripts/Tests/Showcase/Monster/MonsterShowcase.cs` 八条用例，全部标题「开始」进 SampleScene
 （`EnterDemoWorld`），虚拟手柄推摇杆、虚拟键盘按 Gameplay 动作驱动真实玩家 `player`，巡逻怪 `enerme` 由容器里的
 `MonsterRules` 自己跑逻辑 tick（不再自己 `new` 规则、不再手动喂 `MonsterIntent`、不再瞬移玩家）：
 
@@ -290,7 +308,15 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 | `Patrol_WalksAlongPointsAndTurnsBack` | 巡逻沿点位走动、到端点折返 |
 | `Sense_SneakBehindStaysCalm_FrontRedZoneTurnsHostile` | 背后潜行不警戒、正面红区照样敌对 |
 | `Hostile_ChasesFleeingPlayerAndHitsIt` | 敌对后追击逃跑的玩家并出手 |
-| `Attacked_TakesHitsUntilDead` | 挨打直到生命归零倒地 |
+| `Attacked_ImmuneToNormalAttack_StillTurnsHostile` | 打 `killable = false` 的巡夜人：伤害被拒但照样转敌对 |
+| `Escalation_FrontalAttack_PlayerFirst` | 打中已察觉的市令 → 升级回合制「正面攻击」：玩家先手、市令满血开局 → 打赢 → 回世界（市令倒下 + 掉落 + 血量写回） |
+| `Escalation_MonsterStrikes_Ambushed` | 站进红区不出手，被市令打中 → 升级「被打」：市令先手 → 打输 → 镜碎页重开 |
+| `Escalation_UnawareStrike_SneakAttack` | 打中未察觉的市令 → 升级「偷袭」：玩家先手、市令开局先掉 20% |
+| `Caught_Xunye_KnockdownThenDowned` | 巡夜人（**没配战斗数据**）追上打中 → 不升级，走被抓口径：击倒 → 血尽判 Downed |
+
+2026-10-14 起升级那四条**从巡逻线以南接近市令**（经缝口绕到南侧走廊），不走观察点——从观察点下去必须横穿巡逻者乙的巡逻线；
+动身前用 `ShowcasePatrolForecast` 预判「别的巡逻者这几秒看不到这条路」（同 Identity / Stealth 的做法）。
+最近一次记录：2026-10-17 **8/8 PASS、检查点失败 0、异常 0**（`Logs/verify/monster/20261017-001349`）。
 
 ## 已知集成状态
 
@@ -344,6 +370,37 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 **验证**：EditMode `Assets/_Project/Scripts/Tests/EditMode/Monster/EncounterBattleBridgeTests.cs`（行为 + 容器级接线，含负对照）、
 `EncounterBattleSettlementTests.cs`（战斗侧承载与 `End`/`Begin` 的清理口径）。**实际结果以主窗口复跑为准**（本波未在编辑器里跑）。
+
+## 附录·实时遭遇升级回合制（2026-10-14，PRP/combat-iteration D5）
+
+> 语义真源：**用户 2026-10-14 拍板「三种触发全要」**——玩家打中未察觉的怪 / 打中已警戒敌对的怪 / 怪打中玩家，三种都升回合制。
+> 机制真源 `PRP/combat-iteration/prp.md` D5。
+
+**契约声明在 Monster 侧**（Monster 不能引用 `Game.Battle`，依赖边只有 Battle → Monster 一条）：
+`IEncounterEscalationPort`（`CanEscalate` / `TryEscalate`）、`EncounterEscalationRequest`（只读值：目标 id、种类 id、触发情形、玩家实时生命与上限）、
+`EncounterEscalationTrigger`（`PlayerHitUnaware` / `PlayerHitAware` / `MonsterHitPlayer`）。实现在 `Game.Battle` 的 `BattleFlow`，
+装配在 `BattleInstaller` 的构建回调里（`step.BindEscalation(flow)`，与 `flow.BindEntryContext(step)` 同处）。
+
+| 环节 | 行为 |
+| --- | --- |
+| 两个拦截点 | ① 玩家普攻命中、`ApplyDamage` **之前**；② 怪打中玩家、`player.ApplyDamage` **之前**（经 `TamingRules.AdvanceTargets` 的「接管这一下」回调）。背后处决走 `ExecutionInteractor` 另一条路，**天然不升级** |
+| 升级条件（**全满足才升**） | 目标是完整参与者、活着、没被驯服；玩家没在操控被驯服的怪；对应触发开关开着（`MonsterConfig` 三个开关，**代码默认全关**）；端口存在且该种类能升级；没有待消费的结果、不在升级途中；**且不在回放中** |
+| 触发 → 开战方式 | 打中未察觉 → 偷袭（玩家先手、怪先掉 20%）；打中已警戒敌对 → 正面攻击（玩家先手）；怪打中玩家 → 被打（怪先手）。翻译在 `BattleSetup.TranslateEscalation` |
+| 升级在途 | 一下伤害已经交给回合制：`Step` 像「结果待消费」那样早退，双方都不推进。**瞬态**——不进快照、不进存档；`SessionStateAdapter.BattleResultPending` 把它并进存档闸（战中不可存档） |
+| 交回结果 | 战斗侧在收场黑幕下调 `CompleteEscalation(胜, 剩余生命, 上限)`：**胜** = 目标强制死亡（不看 `killable`）+ 按 id 掉落一次 + 按比例写回实时生命（`ScaleHealthBack`，**四舍五入、至少 1**；进场方向仍是 `ScaleHealth` 的 ceil）；**负** = 玩家生命置 0。**只接受一次**。开不成 / 中途失败调 `AbortEscalation`（不改血量、不判胜负，被吞的那一下作废） |
+| 只结算一次 | 四条既有闸门（`SettleBattle` 拒重复 / `ConsumeResult` / `PendingResult == None` / `StartBattle`）+ 升级自己那条「只接受一次」+ 战斗侧「已有仗在途就拒绝升级」 |
+
+**回放期间整条功能关掉**（2026-10-16 代码审查后补）：`EncounterStep.BindReplay(ReplayPlayer)` 接上播放器，`IsReplaying` 判 `ReplayPlayer.IsActive`——
+升级的结果在**模拟循环之外**写回，重放时端口还绑着就会走一条录制时没走过的路（同「处决不进回放」一条规矩）。
+判据用 `IsActive` 而不是「有回放载入」：载入未播、放完 `Stop` 之后，实时玩法要照常能升级。
+另有一条兜底：实时玩法若在「升级在途」那一瞬被回放接管，标记会被清掉并埋 `escalation_abandoned`（否则 `Step` 会被永久钉在早退上）。
+
+**埋点**（monster 作用域）：`escalation_requested {target, kind, trigger, reject}`（命中是离散事件，不是每 tick）、
+`escalation_completed {target, victory, hp_before, hp_after}`、`escalation_aborted`、`escalation_completion_ignored`（不在途的交回）、
+`escalation_abandoned`（被回放接管）。**回放中不埋点**：那不是「被拒」，是这条功能整个关掉。
+
+**验证**：EditMode `EncounterEscalationTests`（三种触发 + 负对照 + 完成 / 放弃 / 回放五条）、`BattleFlowEncounterTests`（遭遇版不碰剧情、恰好回调一次）、
+`BattleSetupTests`（翻译表与进场取整边界）、`SessionStateAdapterTests`（在途时不可存档）；回放 `MonsterShowcase` 的 `Escalation_*` 三条 + `Caught_Xunye_KnockdownThenDowned`。
 
 ## 修改时检查
 

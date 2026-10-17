@@ -252,9 +252,16 @@ namespace Game.Identity
         /// <summary>
         /// 结算一次露馅：判定 → 走注入策略 → 需要时让身份失效 → 记露馅次数 → 给出时长。
         /// <para>
-        /// <b>身份会不会失效</b>由 <see cref="LosesIdentity"/> 决定：规则层五种会失效，
-        /// 只有警戒值一层不会（原文只写「满了转敌对」`02_身份暴露与怀疑.md:142` R32，
-        /// 没写会夺走身份；两层怎么叠加见 :145 R35 / :240 Q11 待定 [推断]）。
+        /// <b>身份会不会失效</b>按配置掩码 <see cref="IdentitySettings.IdentityLossCauses"/> 判定
+        /// （<see cref="LosesIdentity(ExposureCause, ExposureCause)"/>，PRP/combat-iteration D1，2026-10-14 起）。
+        /// 代码默认值是规则层五种，即此前写死的口径：警戒值一层不夺身份（原文只写「满了转敌对」
+        /// `02_身份暴露与怀疑.md:142` R32，没写会夺走身份；两层怎么叠加见 :145 R35 / :240 Q11 待定 [推断]）。
+        /// 用户 2026-10-14 拍板「露馅 → 借来的身份当场失效」要求六种全含，只写进资产——
+        /// 资产写六种后，警戒值（红区一律、橙区只在身份不生效时）也会让身份失效。
+        /// </para>
+        /// <para>
+        /// 本方法每调一次就按命中原因记一组埋点；调用方若每 tick 判一次，要自己做边沿过滤
+        /// （<c>EncounterStep</c> 的露馅结算只在命中原因变化时调本方法）。
         /// </para>
         /// </summary>
         public ExposureResolution ResolveExposure(
@@ -270,7 +277,7 @@ namespace Game.Identity
             }
 
             ExposureOutcome outcome = exposurePolicy == null ? ExposureOutcome.None : exposurePolicy.Decide(cause);
-            bool losesIdentity = LosesIdentity(cause);
+            bool losesIdentity = LosesIdentity(cause, settings.IdentityLossCauses);
             IdentityId wearing = state.Current;
             if (losesIdentity)
             {
@@ -304,15 +311,22 @@ namespace Game.Identity
         }
 
         /// <summary>
-        /// 这条露馅会不会让身份失效。规则层五种（人物特性 / 核验 / 账簿 / 怀疑度 / 揭露）会——
+        /// 这条露馅在<b>代码默认口径</b>下会不会让身份失效：规则层五种（人物特性 / 核验 / 账簿 / 怀疑度 / 揭露）会——
         /// 原文写的是「变回原主」（`02_身份暴露与怀疑.md:90` R1）；警戒值一层不会（见 <see cref="ResolveExposure"/>）。
+        /// <para>
+        /// 保留给旧调用方与旧测试：等价于 <see cref="LosesIdentity(ExposureCause, ExposureCause)"/> 传
+        /// <see cref="IdentitySettings.DefaultIdentityLossCauses"/>。<see cref="ResolveExposure"/> 本身已改走配置掩码。
+        /// </para>
         /// </summary>
         public static bool LosesIdentity(ExposureCause cause)
-        {
-            const ExposureCause ruleLayer = ExposureCause.PersonaTrait | ExposureCause.Checkpoint
-                | ExposureCause.Ledger | ExposureCause.Suspicion | ExposureCause.Reveal;
-            return (cause & ruleLayer) != ExposureCause.None;
-        }
+            => LosesIdentity(cause, IdentitySettings.DefaultIdentityLossCauses);
+
+        /// <summary>
+        /// 这条露馅按给定掩码会不会让身份失效：命中的原因里只要有一条在 <paramref name="lossCauses"/> 里就失效。
+        /// 掩码来源是 <see cref="IdentitySettings.IdentityLossCauses"/>（PRP/combat-iteration D1，2026-10-14）。
+        /// </summary>
+        public static bool LosesIdentity(ExposureCause cause, ExposureCause lossCauses)
+            => (cause & lossCauses) != ExposureCause.None;
 
         /// <summary>
         /// 把状态、账簿、怀疑度写进存档分区。分区里<b>只放原始量</b>，不放派生出来的剧情事实键

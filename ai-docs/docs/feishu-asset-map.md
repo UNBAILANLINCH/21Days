@@ -1,6 +1,6 @@
 # 聚光灯飞书资产映射
 
-> 核对日期：2026-10-09。定义资源归属与接入位置；不启用自动导入、替换、删除或自动提交。
+> 核对日期：2026-10-11。定义资源归属与接入位置；服务器资产同步仅处理明确绑定的交付文件，启用状态以服务器配置和推送实测为准。
 > 新建原因：现有策划转写只保存原文，美术手册只定义通用目录，均未承载逐项飞书资源与项目目标的对应关系；本表放在知识层，避免飞书重拉覆盖人工映射。
 
 本表对应外部飞书文档《2026gamejam聚光灯》的资产部分。策划原文继续维护在 [聚光灯策划目录](../../docs/design/spotlight/README.md)，不再建立第二份正文。角色拆件交付按用户确认保留；是否为逐件序列帧，必须检查实际交付包才能判断。
@@ -74,26 +74,26 @@
 | iIfihK / 2 | 泾阳·过渡平台 | `jingyang_platform` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 3 | 泾阳·井底 | `jingyang_well` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 4 | 泾阳·戏班 | `jingyang_stage` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
-| iIfihK / 5 | 泾阳·衣肆 | `jingyang_tailor_shop` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置；已有衣肆制作脚本，检查当前工作成果后再接收 |
+| iIfihK / 5 | 泾阳·衣肆 | `jingyang_tailor_shop` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置；检查实际交付成果后再接收 |
 | iIfihK / 6 | 泾阳·金银行 | `jingyang_goldsmith_shop` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 7 | 泾阳·客栈 | `jingyang_inn` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 8 | 泾阳·酒肆 | `jingyang_tavern` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置 |
-| iIfihK / 9 | 泾阳·民间祠堂 | `jingyang_shrine` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置；已有祠堂制作脚本，不能自动覆盖其工作成果 |
+| iIfihK / 9 | 泾阳·民间祠堂 | `jingyang_shrine` | 现有场景 `Scenes/HumanJingyang.unity`；仅为地点归属，未验证具体放置；不能自动覆盖已有制作成果 |
 | iIfihK / 10 | 坊市·轮回堂 | `fangshi_lunhuitang` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 11 | 坊市·过渡平台 | `fangshi_platform` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 12 | 坊市·洞庭府 | `fangshi_dongtingfu` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 13 | 坊市·戏班 | `fangshi_stage` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
-| iIfihK / 14 | 坊市·衣肆 | `fangshi_tailor_shop` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置；已有衣肆制作脚本，检查当前工作成果后再接收 |
+| iIfihK / 14 | 坊市·衣肆 | `fangshi_tailor_shop` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置；检查实际交付成果后再接收 |
 | iIfihK / 15 | 坊市·金银行 | `fangshi_goldsmith_shop` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 16 | 坊市·客栈 | `fangshi_inn` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
 | iIfihK / 17 | 坊市·酒肆 | `fangshi_tavern` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置 |
-| iIfihK / 18 | 坊市·乡集祠堂 | `fangshi_shrine` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置；已有祠堂制作脚本，不能自动覆盖其工作成果 |
+| iIfihK / 18 | 坊市·乡集祠堂 | `fangshi_shrine` | 现有场景 `Scenes/YaoFangshi.unity`；仅为地点归属，未验证具体放置；不能自动覆盖已有制作成果 |
 | iIfihK / 19 | 街道地面/角色可移动范围 | `street_ground` | 两界可共用；可站立部分须按现有 Ground 接法验证 |
 | iIfihK / 20 | 遮挡物 | `cover` | 两界可共用；可站立部分须按现有 Ground 接法验证 |
 | iIfihK / 21 | 层间楼梯 | `stairs` | 两界可共用；可站立部分须按现有 Ground 接法验证 |
 | iIfihK / 22 | 山石 | `rocks` | 两界可共用；可站立部分须按现有 Ground 接法验证 |
 
-现有 `Art/fbx/` 中核实到的是 Head-topo 相关模型，不能当作环境模型的已映射目标。`PRP/build_silk_shop.py`、`build_shrine.py`、`export_shrine.py` 有未提交工作，脚本存在不等于正式导出物已进入项目。
+现有 `Art/fbx/` 中核实到的是 Head-topo 相关模型，不能当作环境模型的已映射目标。
 
 ## UI 逐项映射
 
@@ -148,3 +148,24 @@
 6. **原文变化不自动删除资产。** 移除需求或附件只提示，确认引用和工作区状态后才能处理。已有 `.meta` 不手改、不替换；新素材交 Unity 生成 `.meta`。
 
 每次整合记录来源、资产 ID、附件 token、包内文件、目标路径、已有 GUID、变更摘要和检查结果。附件为空或格式未确认时，只更新映射。资产更新和提交另按项目流程执行。
+
+## 服务器资产同步范围
+
+已确认的交付素材提交、推送到本人仓库的 `codex/feishu-sync` 分支，审核后再手动合并。策划文档自动更新的当前实现仅同步初始基线之后新增的 `.docx`、`.pdf` 策划附件及其后续更新，目标为 `docs/design/spotlight/auto-sync/`；正文、需求表、画板和参考图只监测变化并提醒，不上传。现有人工转写不直接覆盖，配置与验证情况见下节。
+
+执行入口为 `scripts/feishu-monitor/monitor.py`，复用服务器定时器；`assets.py` 只接收服务器私有配置 `asset_sync.bindings` 中的交付 token、压缩包内文件名（如有）与完整目标文件路径。本表提供目标目录；首个交付包核对后再建立文件绑定，不能根据需求名称猜测源文件。服务器凭据、绑定信息和监测基线不提交到仓库。
+
+自动写入仅限 `Assets/_Project/Art/`、`Assets/_Project/Audio/` 下绑定的素材，压缩包只读取明确绑定的成员，不整包解压。已有 `.meta` 必须保留原样；新素材及目录必须具备 Unity 生成的 `.meta` 才能提交。缺绑定、缺 `.meta`、路径冲突或推送失败时只通知并保留状态，不自动删除资产、不强制推送、不写主分支或上游仓库。
+
+## 策划文档自动更新
+
+执行载体复用 `feishu-monitor.timer`，代码入口为 `monitor.py` → `documents.py`。服务器私有 `config.json` 的 `document_sync` 对象复用 `asset_sync` 的 `repository`、`ssh_command`、`author_name`、`author_email` 四项仓库配置，并须配置初始附件 token 列表 `baseline_tokens`（不需要 `bindings`）；缺少基线时拒绝上传，避免把存量文档全部发布。仅配置素材同步不会启用文档同步。
+
+- `auto-sync/README.md` 保存新增策划附件的索引，附件保留原件；仅处理名称后缀为 `.docx`、`.pdf` 且 token 不在初始基线中的附件。正文、表格、画板、参考图、xlsx 及基线内的存量附件不在文档发布范围。
+- `00–05` 保留人工整理版本；`06`、`07`、`source/`、功能拆分文档及本映射表不被覆盖。源引用删除后只从最新索引移除链接，不自动删除历史文件。
+- 资源读取失败、附件读取期间内容变化、附件超过 50MiB 或格式不支持时，保留上次同步基线并通知；下一轮重试。成功推送并核对远端后才保存 `document_hashes`、`document_commit`。
+- 更新进入 `codex/feishu-sync` 分支，审核后手动合并，本地工作区不会自动拉取。撤销 `document_sync` 即停止文档发布。
+
+2026-10-11 已核对本地提交 `4b55a52`（`docs(design): 同步新增策划附件`），并已通过 PR #12 合入当前历史：新增 [附件索引](../../docs/design/spotlight/auto-sync/README.md) 与 [重要角色与势力.docx](../../docs/design/spotlight/auto-sync/media_EEFlbeZQIopbPuxIxrfcddqDnqb.docx)。这证明附件已进入仓库；不单凭提交记录确认服务器定时器当前仍在运行。
+
+上线检查：查看 timer、`state.json` 中 `checked_at` / `document_commit` / `errors`，并核对远端分支中的 `auto-sync/README.md`。本次未复核服务器当前状态。逐项资产表仍沿用先前的五张需求表快照，未重新读取飞书表格。

@@ -1,7 +1,8 @@
 // 职责：把「一次通过的处决判定」结算成三件事（PRP/stealth-execution §2.3，缺一不可）：
 //   1. 写 `stealth.assassinated`（**只在执行真的成功之后**，见该类文档）；
 //   2. 让目标死亡（走 MonsterRules 的显式处决入口，不是 ApplyDamage）；
-//   3. 把这场遭遇以处决收束这件事承载成 BattleResult(Victory)（只承载，不推进剧情）。
+//   3. 把这场遭遇以处决收束这件事承载成 BattleResult(Victory)（只承载，不推进剧情）；
+//      2026-10-14 起**只在目标是主怪时**承载（PRP/combat-iteration D2：整场胜负只认主怪，附加怪被处决只是它自己死）。
 //   另外埋三个点（§2.6）并留一个表现钩子（`06:63` 的被处决动画，美术未定）。
 //
 // 为什么新建（复用 → 扩展 → 新建）：
@@ -144,8 +145,10 @@ namespace Game.Stealth
             // 第 3 件事：把战斗结果承载上去。只调 SettleBattle（PRP/battle-to-narrative §2.1 的唯一写入方），
             // **不碰 Session / Narrative**——战斗结果→剧情的消费侧目前仍无落点，本波只负责承载。
             // 不在遭遇里（未 Begin / 已 End）时不承载：那种情况下没有「这场遭遇」可言。
+            // **只有目标是主怪才承载**（PRP/combat-iteration D2，2026-10-14）：整场遭遇的胜负只认主怪；
+            // 处决一只附加的完整参与者只让它自己死亡，掉落由 EncounterStep 按 id 的闸门在下一 tick 结算。
             bool settled = false;
-            if (encounter != null && encounter.IsActive)
+            if (encounter != null && encounter.IsActive && encounter.IsPrimaryTarget(target))
             {
                 settled = encounter.SettleBattle(new BattleResult(BattleOutcome.Victory));
             }

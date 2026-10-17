@@ -1,0 +1,111 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("请退出运行模式");
+var canvasGo = new UnityEngine.GameObject("SaveSlotsPreview", typeof(UnityEngine.RectTransform), typeof(UnityEngine.Canvas));
+var cameraGo = new UnityEngine.GameObject("SaveSlotsPreviewCamera", typeof(UnityEngine.Camera));
+var target = new UnityEngine.RenderTexture(1920, 1080, 24);
+UnityEngine.GameObject instance = null;
+try
+{
+    var camera = cameraGo.GetComponent<UnityEngine.Camera>();
+    camera.clearFlags = UnityEngine.CameraClearFlags.SolidColor;
+    camera.backgroundColor = UnityEngine.Color.black; camera.cullingMask = 1 << 31;
+    camera.orthographic = true; camera.orthographicSize = 540f;
+    camera.transform.position = new UnityEngine.Vector3(0, 0, -1000);
+    camera.targetTexture = target;
+    var canvas = canvasGo.GetComponent<UnityEngine.Canvas>();
+    canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 100f;
+    var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/SaveSlotsView.prefab");
+    instance = UnityEngine.Object.Instantiate(prefab, canvasGo.transform);
+    foreach (var t in canvasGo.GetComponentsInChildren<UnityEngine.Transform>(true)) t.gameObject.layer = 31;
+    var view = instance.GetComponent<Game.Session.SaveSlotsView>();
+    view.OnOpenAsync(null, System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    var infos = new Game.Session.SlotInfo[] {
+        new Game.Session.SlotInfo(1, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"旅途开始"),
+        new Game.Session.SlotInfo(2, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"寻找线索"),
+        Game.Session.SlotInfo.Empty(3), Game.Session.SlotInfo.Unavailable(4),
+        new Game.Session.SlotInfo(5, Game.Session.SlotState.Available, new System.DateTime(2026,10,13,0,0,0,System.DateTimeKind.Utc),754,"旅途开始") };
+    view.Bind(infos, Game.Session.SlotsMode.Load);
+    var so = new UnityEditor.SerializedObject(view);
+    var list = (UnityEngine.RectTransform)so.FindProperty("listRoot").objectReferenceValue;
+    var rows = new System.Collections.Generic.List<UnityEngine.GameObject>();
+    foreach (UnityEngine.Transform t in list) if (t.gameObject.activeSelf) rows.Add(t.gameObject);
+    if (rows.Count != 5) throw new System.InvalidOperationException("显示槽数不等于5");
+    if (rows[2].GetComponent<UnityEngine.UI.Button>().interactable || rows[3].GetComponent<UnityEngine.UI.Button>().interactable)
+        throw new System.InvalidOperationException("空槽或坏槽在读档模式可选");
+    int clicked = 0; int loadClicks = 0; view.OnSlotClicked += slot => { clicked = slot; loadClicks++; };
+    rows[4].GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+    if (clicked != 5) throw new System.InvalidOperationException("第五槽点击路由错误");
+    int deleted = 0; int deleteRequests = 0; view.OnDeleteClicked += slot => { deleted = slot; deleteRequests++; };
+    foreach (var row in rows)
+        if (row.transform.Find("Delete").GetComponent<UnityEngine.CanvasGroup>().alpha != 0f)
+            throw new System.InvalidOperationException("下拉前删除叉未隐藏");
+    bool wentBack = false; view.OnBack += () => wentBack = true;
+    ((UnityEngine.UI.Button)so.FindProperty("backButton").objectReferenceValue).onClick.Invoke();
+    if (!wentBack) throw new System.InvalidOperationException("返回路由错误");
+    view.Bind(infos, Game.Session.SlotsMode.NewGame);
+    foreach (var row in rows) if (!row.GetComponent<UnityEngine.UI.Button>().interactable) throw new System.InvalidOperationException("新游戏模式不能选槽");
+    view.Bind(infos, Game.Session.SlotsMode.Load);
+    if (rows[2].transform.Find("Paper/Primary").gameObject.activeSelf) throw new System.InvalidOperationException("空槽文字未隐藏");
+    var eventSystem = cameraGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+    rows[0].GetComponent<UnityEngine.UI.Button>().OnPointerEnter(new UnityEngine.EventSystems.PointerEventData(eventSystem));
+    foreach (var row in rows)
+    {
+        var primary = row.transform.Find("Paper/Primary").GetComponent<TMPro.TMP_Text>();
+        if (!primary.gameObject.activeSelf) continue;
+        primary.ForceMeshUpdate();
+        if (primary.textInfo.characterCount == 0) throw new System.InvalidOperationException("进度文字未生成");
+    }
+    if (rows[0].transform.Find("Paper/Primary").GetComponent<TMPro.TMP_Text>().color != new UnityEngine.Color32(39,160,191,255))
+        throw new System.InvalidOperationException("高亮文字色错误");
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    var raycaster = canvasGo.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+    System.Action<string> capture = file => {
+        camera.Render();
+        var active = UnityEngine.RenderTexture.active;
+        UnityEngine.RenderTexture.active = target;
+        var shot = new UnityEngine.Texture2D(1920,1080,UnityEngine.TextureFormat.RGBA32,false);
+        shot.ReadPixels(new UnityEngine.Rect(0,0,1920,1080),0,0); shot.Apply();
+        System.IO.File.WriteAllBytes("outputs/save-ui/" + file,shot.EncodeToPNG());
+        UnityEngine.RenderTexture.active = active; UnityEngine.Object.DestroyImmediate(shot);
+    };
+    capture("before-pull.png");
+    var handle = rows[4].GetComponentInChildren<Game.Core.UI.UIDragReveal>(true);
+    var handleRect = (UnityEngine.RectTransform)handle.transform;
+    var point = (UnityEngine.Vector2)camera.WorldToScreenPoint(handleRect.TransformPoint(handleRect.rect.center));
+    var pointer = new UnityEngine.EventSystems.PointerEventData(eventSystem);
+    pointer.pointerId = -1; pointer.position = point;
+    pointer.pointerPressRaycast = new UnityEngine.EventSystems.RaycastResult { module = raycaster };
+    var hits = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+    raycaster.Raycast(pointer,hits);
+    if (hits.Count == 0 || hits[0].gameObject != handle.gameObject) throw new System.InvalidOperationException("下部射线未命中手柄");
+    var pressed = UnityEngine.EventSystems.ExecuteEvents.ExecuteHierarchy(handle.gameObject,pointer,UnityEngine.EventSystems.ExecuteEvents.pointerDownHandler);
+    if (pressed != handle.gameObject || !handle.IsHeld) throw new System.InvalidOperationException("下部按压落到读档按钮");
+    if (UnityEngine.EventSystems.ExecuteEvents.GetEventHandler<UnityEngine.EventSystems.IPointerClickHandler>(handle.gameObject) != handle.gameObject)
+        throw new System.InvalidOperationException("手柄点击冒泡到读档按钮");
+    handle.OnBeginDrag(pointer);
+    pointer.position = point + UnityEngine.Vector2.down * 110f;
+    handle.OnDrag(pointer); handle.OnPointerUp(pointer); handle.OnEndDrag(pointer);
+    if (!handle.IsRevealed) throw new System.InvalidOperationException("下拉未展开删除区");
+    if (deleted != 5 || deleteRequests != 1 || loadClicks != 1)
+        throw new System.InvalidOperationException("下拉松手未直接请求一次删除确认");
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    capture("after-pull.png");
+    view.Bind(infos, Game.Session.SlotsMode.Load);
+    if (handle.IsRevealed || rows[4].transform.Find("Delete").GetComponent<UnityEngine.CanvasGroup>().alpha != 0f)
+        throw new System.InvalidOperationException("取消后的重绑没有收起卷轴");
+    camera.Render();
+    var previous = UnityEngine.RenderTexture.active;
+    UnityEngine.RenderTexture.active = target;
+    var pixels = new UnityEngine.Texture2D(1920,1080,UnityEngine.TextureFormat.RGBA32,false);
+    pixels.ReadPixels(new UnityEngine.Rect(0,0,1920,1080),0,0); pixels.Apply();
+    System.IO.Directory.CreateDirectory("outputs/save-ui");
+    System.IO.File.WriteAllBytes("outputs/save-ui/preview.png", pixels.EncodeToPNG());
+    UnityEngine.RenderTexture.active = previous;
+    UnityEngine.Object.DestroyImmediate(pixels);
+    view.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    return "五槽绑定、读档限制、第五槽点击通过；预览已保存";
+}
+finally
+{
+    UnityEngine.Object.DestroyImmediate(canvasGo); UnityEngine.Object.DestroyImmediate(cameraGo);
+    target.Release(); UnityEngine.Object.DestroyImmediate(target);
+}

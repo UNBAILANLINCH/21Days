@@ -16,7 +16,7 @@ maturity: stable
 
 | 做 | 不做 |
 | --- | --- |
-| 明日方舟风格 Q 版小人的**待机 / 走路 / 奔跑**表现：序列帧 Sprite + Animator（编辑器工具生成） | 真骨骼形变（无 2D Animation / Spine / Live2D 包） |
+| Q 版小人的**待机 / 走路 / 奔跑**表现：整帧换图或刚性拆件关节曲线 + Animator | 真骨骼形变（无 2D Animation / Spine / Live2D 包） |
 | 从角色根的**位移**反推停 / 走 / 跑与播放速率，写 Animator 参数 | 攻击 / 受击 / 死亡等其他动作 |
 | 朝向：读外部纸片的 `flipX`，或按位移在相机右方向的投影；**转身是程序化翻面补间**（不需要帧） | 读输入、改角色位置、参与任何玩法判定；改角色的**逻辑朝向** |
 | `FaceTowards`：表现层转向某个世界坐标并**保持**到下次真正移动 | 决定「什么时候转向谁」（触发方是外部：交互时由 `Game.Interaction.InteractionPuppetPresenter` 调，`PRP/interaction/` D11） |
@@ -29,7 +29,7 @@ maturity: stable
 
 | 类型 | 文件 | 职责 |
 | --- | --- | --- |
-| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs:16` | 表现门面：持有 `Animator` 与 `SpriteRenderer[] parts`（序列帧小人只有一个）；唯一写 Animator 参数与根 `localScale.x` 的地方；转身补间、`FaceTowards` 与朝向保持、交互挤压回弹；另存本预制体剪辑的标定数据 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`（生成工具写入）与 `config` 引用 |
+| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs:16` | 表现门面：持有 `Animator` 与 `SpriteRenderer[] parts`（整帧小人一个，拆件小人多个）；唯一写 Animator 参数与根 `localScale.x` 的地方；转身补间、`FaceTowards` 与朝向保持、交互挤压回弹；另存本预制体剪辑的标定数据 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`（生成工具写入）与 `config` 引用 |
 | `ChibiPuppetMotion`（MonoBehaviour，同根，`RequireComponent(ChibiPuppet)`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotion.cs:14` | 驱动层：`LateUpdate` 读 `trackedRoot` 位移，攒满采样窗口后调规则判停 / 走 / 跑与速率，结果写给 `ChibiPuppet`；门面处于朝向保持时不改朝向 |
 | `ChibiPuppetMotionRules`（纯 C# 静态类，不依赖 UnityEngine） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs:11` | 判定规则：速度与走停滞回、跑走滞回、按剪辑地速标定的播放速率、朝向死区；转身补间时长与插值、朝向指定点、朝向保持、交互回弹曲线；EditMode 穷举 |
 | `ChibiPuppetConfig`（ScriptableObject，运行时只读） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetConfig.cs:10` | 所有小人共用的阈值、夹取范围与程序化表现参数（转身时长、交互回弹）；资产 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`，门面与驱动层引用同一份 |
@@ -68,14 +68,14 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 
 ## 预制体
 
-`Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`（现有 amiya / chen / skadi / texas / exusiai），全部由
-`FramePuppetGenerator` 生成，结构与约定见下文「序列帧小人」。早期的分件拼接小人（`ChibiPuppet_Player` / `ChibiPuppet_Patrol`、
+`Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`。amiya / chen / skadi / texas / exusiai 由
+`FramePuppetGenerator` 生成，结构与约定见下文「序列帧小人」；customers / drunk_customer 是按两份已交付 PSD 标定的刚性拆件动画，见下文「当前拆件小人」。早期的分件拼接小人（`ChibiPuppet_Player` / `ChibiPuppet_Patrol`、
 `Art/Sprites/Characters/Puppet/`、`chr_chibi_*` 动画）已于 2026-09-28 删除，要追溯看 git 历史与 `PRP/character-puppet/`。
 
 - 材质 `Art/Materials/Character/M_SpriteDepthClip`（与原纸片一致，可被灰盒遮挡），sortingLayer `Default`。
   SampleScene 里玩家的 `Chibi_amiya/Sprite` 在场景实例上覆写成 `M_SpriteDepthClip_Player`（带深度偏移，与同排 NPC 重叠时玩家在前），
   约定与取值见 `isometricexploration-module-guide.md`「纸片深度偏移」；预制体本身与生成工具仍写基础材质。
-- `parts` 数组挂唯一的 `Sprite` 渲染器，`SetTint` 只作用于数组里的渲染器。
+- `parts` 数组包含该外观的全部渲染器，`SetTint` 只作用于数组里的渲染器。
 
 ## 驱动数据流
 
@@ -169,11 +169,10 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 
 **交互动作**（`ChibiPuppet.PlayInteractPulse()`，`ChibiPuppet.cs:204`）：
 
-- 对 `Sprite` 子物体（`parts` 里第一个不在根上的渲染器，`Awake` 记下原缩放与旋转）做一次挤压回弹：Y 缩放 1 → 0.9 → 1.04 → 1，
+- 对全部 `parts` 的共同直属容器（当前均为 `Sprite`，`Awake` 记下原缩放与旋转）做一次挤压回弹：Y 缩放 1 → 0.9 → 1.04 → 1，
   下压时绕脚底朝面向一侧前倾 5°（局部绕 −Z 转，根翻面时一起镜像），共 0.25 s，unscaled；参数在 config。曲线 `ChibiPuppetMotionRules.InteractPulse`。
 - 连续调用先复位再从头播，不叠加；停用 / 销毁时复位。
-- 不冲突的依据（2026-10-08 核对全部 12 个 `chr_*.anim`）：剪辑只有 `m_PPtrCurves`、绑定 `path: Sprite`、`attribute: m_Sprite`、classID 212（SpriteRenderer），
-  位置 / 旋转 / 缩放曲线全空，Animator 不会写 `Sprite` 子物体的 transform；根缩放归转身。将来剪辑加了 transform 曲线就会和它打架。
+- 不冲突的依据：序列帧剪辑只换 `Sprite` 上的图片；customers / drunk_customer 的变换曲线只写 `Sprite/Rig/` 后代。Animator 不写 `Sprite` 容器或角色根；前者归交互回弹，后者归转身。将来给 `Sprite` 或根加 transform 曲线会产生写入冲突。
 
 ## 采样窗口（0.05 s）
 
@@ -207,7 +206,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 每个角色一套：`Assets/_Project/Art/Animations/Characters/<名字>/chr_<名字>_<状态>.anim` 与 `chr_<名字>.controller`，
 由生成工具写出，参数与过渡约定见下文「序列帧小人」。
 
-- 剪辑绑定路径是**相对小人根的层级路径** `Sprite`（`SpriteRenderer.m_Sprite`）。改子物体名会让剪辑静默失效（不报错，只是不换帧）。
+- 序列帧剪辑绑定 `Sprite` 的 `SpriteRenderer.m_Sprite`；当前拆件剪辑绑定 `Sprite/Rig/` 下关节的局部位置与旋转。改对应层级名会让剪辑静默失效。
 - 不手改，换帧后重跑工具原地更新（GUID 不变）。
 - 命名遵循 `Art/Animations/README.md`。
 
@@ -222,7 +221,14 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 - 执行次序 100 排在 `EncounterSceneView`（默认 0）之后，读到的是本帧已投影的位置与已翻好的 `flipX`。
 - 状态色仍染 `SelectRing`，小人不参与；`BlobShadow` / `NameTag` 不动。
 
-## 序列帧小人（编辑器工具生成，现行唯一的皮）
+## 当前拆件小人（customers / drunk_customer）
+
+- 源图在 `Art/Sprites/Characters/{customers,drunk_customer}/parts/`，动画在同名 `Art/Animations/Characters/` 目录；每套都有 Idle / Walk / Run，分别按地速 0 / 3 / 5 驱动。上臂负责摆动，左右前臂在肘部交替向内屈伸，Run 的屈曲幅度大于 Walk。
+- 关节位于 `Sprite/Rig`，动作由局部位置与旋转曲线组成。普通顾客 17 个渲染件；醉酒顾客 14 张源图，其中原双脚层通过同一贴图的两个 Sprite 矩形形成左右脚，共 15 个渲染件，源 PNG 不改。
+- `Tools/animate-customer-parts.txt` 保存当前两份 PSD 的初始关节坐标与图层映射，检测到既有 `Rig` 会拒绝覆盖；`Tools/refine-customer-animation.txt` 在已保存资产上维护肘部曲线和醉酒顾客 Drink 状态。两者都通过 Unity API 写资产，并复用 `FramePuppetGenerator.WriteController` 的基础状态逻辑；不是通用拆件生成器。
+- 剪辑循环闭合，普通顾客 Idle / Walk / Run 时长为 2.4 / 0.84 / 0.56 秒；醉酒顾客放慢 1.2 倍并增加身体摇摆、酒葫芦摆动。醉酒顾客静止完成一轮 Idle 后自动进入 3.6 秒非循环 Drink：屈肘举壶、仰头饮酒、放下；Moving / Running 可立即打断到 Walk / Run。转身、染色、交互回弹和位移驱动仍走原 `ChibiPuppet` 接口。
+
+## 序列帧小人（编辑器工具生成）
 
 整帧换 Sprite 的序列帧动画，由编辑器工具从帧目录生成；运行时组件与早期分件小人共用。
 
@@ -256,6 +262,8 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | --- | --- | --- |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetMotionRulesTests.cs` | 无位移静止、起步阈值、走动中阈值上保持、停步阈值、dt ≤ 0、朝向死区保持与符号、按剪辑地速的播放速率（原速、夹取、地速非正回退）、跑走滞回、无 run 剪辑永不置 Running；转身补间时长折算（整面 / 半程 / 无行程）、插值端点与过 0、保留实例幅值、单调连续、中途改向不跳变；`FaceTowards` 左右与死区；朝向保持（站着保持、一移动解除、不自动恢复）；交互回弹两端静止、最低 / 最高点、段间连续（共 40 例） |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/FramePuppetRulesTests.cs` | 帧名解析（合法 / 各类非法）、分组与数值排序、重复序号报错、缺号与陌生文件告警、缺态文案、run 可选、PPU、pivot 回退链、fps 优先级（缺省 24）、groundSpeed 解析与缺省 3 / 5、meta 解析失败、画布尺寸不一致、状态名映射 |
+| EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetPartsTests.cs` | 拆件层级下从首个有效渲染器回溯共同 `Sprite` 容器，使交互回弹覆盖全身；覆盖根渲染器、平铺/嵌套拆件及空引用 |
+| PlayMode | `Assets/_Project/Scripts/Tests/PlayMode/CharacterPuppet/CustomerPartsAnimationTests.cs` | 两套真实预制体按 3 / 5 单位每秒位移切到 Walk / Run，停步回 Idle；时停强制 Idle 且 Animator 继续按 unscaled 时间播放；醉酒顾客静止自动进入 Drink，移动立即打断到 Walk |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs`（2026-09-28 重写，走 Boot 真实流程）| 四条用例，全部标题「开始」进 SampleScene（`EnterDemoWorld`）后驱动场景里 `player` 下现成的 `Chibi_amiya`：`FaceTowards_TurnsWithTweenAndHoldsUntilMoving`（对静止玩家调 `FaceTowards` 看身后 → 逐帧盯根缩放、翻面中途截图 → 转完朝向反向且保持 → 原地站 1 秒朝向不被纸片拉回 → 纵向走一下保持解除、转回纸片朝向）、`IdleWalkTurnStop_PlaysMatchingAnimation`（待机 → 右走 Walk、`localScale.x > 0` → 左走翻面 → 停下回 Idle）、`WalkVersusRun_RunPlaysFaster`（3 单位/秒走路 `Speed` ≈ 1.0 vs 5 单位/秒奔跑：amiya 无 run 帧，仍 Walk 态、`Speed` ≈ 1.6 且高于走路）、`WorldPauseDuringDialogue_IdleKeepsPlaying`（走到长者旁按交互键拉起对白 1001，时停期间 Idle 的 normalizedTime 仍增长；按「跳过」→ 确认 → 选第二项「拒绝」关掉对白，世界恢复） |
 | 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 走 Boot 真实流程，驱动场景里 `player/Visual` 下已配好 `facingSource` 的 `Chibi_amiya`，不再另生成独立小人 |
 
@@ -274,8 +282,8 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
   程序侧已就绪：换正式美术时按 `docs/artist-guide.md`「角色序列帧交付规范」交一套 `chr_<名字>_run_NN.png`（同画布、同脚底锚点、24 fps；
   `meta.json` 可选写 `animations.run.groundSpeed`，缺省 5），重跑 `21Days/角色/从序列帧生成小人…` 即可自动换成 run 剪辑，运行时代码不用改。
 - **跑走只从位移反推**：不读输入、不读 PlayerModel；速度落在 3.5～4.0 之间时保持原态。推动者的「跑」若慢于 4 单位/秒，小人仍演走路。
-- **无 Spine / 骨骼形变**：整帧换图，动作细腻程度取决于帧数。
-- 各角色预制体是独立资产而非 Prefab Variant；结构统一由生成工具维护，改结构改工具后重跑。
+- **无 Spine / 网格骨骼形变**：序列帧角色整帧换图；customers / drunk_customer 只做刚性拆件平移、旋转。手肘等连接处的细腻程度受原 PSD 拆件边界限制。
+- 各角色预制体是独立资产而非 Prefab Variant。序列帧结构由生成工具维护；两套当前拆件结构由专用 Unity 脚本生成，换图层顺序或重画拆件后必须重新标定。
 - 翻面是整张镜像：不对称的挂件镜像后会换边；「默认朝左」素材靠子物体 `Sprite.flipX`，与根 `localScale.x` 翻面叠加后仍正确。
 - 朝向在 `facingSource` 模式下完全由纸片决定，`facingDeadZone` 不生效（朝向保持期间除外，见下条）。
 - **`FaceTowards` 只转表现层，逻辑朝向不变**：隐藏纸片的 `flipX`、`PlayerModel` / `MonsterModel` 的 `Facing` 都不跟着变，

@@ -28,8 +28,8 @@ namespace Game.Tests.EditMode.TurnBased
             int bossMaxHealth = 100,
             int bossHealth = 100,
             int bossDrunk = 0,
-            int playerMaxHealth = 10,
-            int playerHealth = 10,
+            int playerMaxHealth = 120,
+            int playerHealth = 120,
             IRandomStream random = null,
             IBattleItemInventory inventory = null)
         {
@@ -111,7 +111,7 @@ namespace Game.Tests.EditMode.TurnBased
             SkillCastResult result = session.TryCastSkill(PlayerSkill.Skill1);
 
             Assert.That(result.Accepted, Is.True);
-            Assert.That(session.Boss.Health, Is.EqualTo(99));
+            Assert.That(session.Boss.Health, Is.EqualTo(82), "100 - 18（招式 1 伤害，sp07:139）");
             // 07:56 玩家在施放招式后进入敌方回合。
             Assert.That(session.Phase, Is.EqualTo(BattlePhase.BossTurn));
             Assert.That(HasEvent(session, BattleEventKind.SkillCast), Is.True);
@@ -189,7 +189,7 @@ namespace Game.Tests.EditMode.TurnBased
             Assert.That(skip.DrunkTier, Is.EqualTo(DrunkTier.Tipsy));
             Assert.That(skip.SkipReason, Is.EqualTo(DrunkSkipReason.Tipsy));
             Assert.That(skip.HintText, Is.EqualTo(BattleHintTexts.TipsySkip), "屏幕中央闪现提示的文案");
-            Assert.That(session.Player.Health, Is.EqualTo(10), "跳过的回合不该打人");
+            Assert.That(session.Player.Health, Is.EqualTo(120), "跳过的回合不该打人");
             Assert.That(session.Phase, Is.EqualTo(BattlePhase.PlayerTurn));
         }
 
@@ -207,7 +207,7 @@ namespace Game.Tests.EditMode.TurnBased
 
             Assert.That(HasEvent(session, BattleEventKind.BossTurnSkipped), Is.False);
             Assert.That(HasEvent(session, BattleEventKind.BossSkillUsed), Is.True);
-            Assert.That(session.Player.Health, Is.EqualTo(9), "BOSS 招式 1 打掉 1 点（占位伤害）");
+            Assert.That(session.Player.Health, Is.EqualTo(106), "BOSS 招式 1 打掉 14 点（sp07:157）；120 - 14");
         }
 
         [Test]
@@ -252,7 +252,7 @@ namespace Game.Tests.EditMode.TurnBased
 
             Assert.That(HasEvent(session, BattleEventKind.BossSkillUsed), Is.True);
             Assert.That(HasEvent(session, BattleEventKind.PlayerStunned), Is.True);
-            Assert.That(session.Player.Health, Is.EqualTo(7));
+            Assert.That(session.Player.Health, Is.EqualTo(117), "120 - 3（本例把 BOSS 招式 3 调成 3 点）");
             // 晕眩「跳过整个玩家回合」口径（占位）：回合自动交回 BOSS，并且有事件说明跳过了。
             Assert.That(session.Player.CannotActThisTurn, Is.True);
             Assert.That(HasEvent(session, BattleEventKind.PlayerStunnedTurnSkipped), Is.True);
@@ -339,8 +339,8 @@ namespace Game.Tests.EditMode.TurnBased
             Assert.That(drank.Amount, Is.EqualTo(30));
             Assert.That(drank.SecondaryAmount, Is.EqualTo(10));
             Assert.That(session.Boss.DrunkValue, Is.EqualTo(90));
-            // 50（初始）- 1（玩家那一下招式 1）+ 10（回 10% 上限）= 59。
-            Assert.That(session.Boss.Health, Is.EqualTo(59));
+            // 50（初始）- 18（玩家那一下招式 1，sp07:139）+ 10（回 10% 上限）= 42。
+            Assert.That(session.Boss.Health, Is.EqualTo(42));
             Assert.That(session.Boss.NextSkill1DamageBonusPending, Is.True);
         }
 

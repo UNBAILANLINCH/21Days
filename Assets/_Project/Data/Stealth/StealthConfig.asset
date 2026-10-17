@@ -35,7 +35,7 @@ MonoBehaviour:
   chaseTrackMemorySeconds: 6
   chaseEscapeRequiresLineOfSightLost: 1
   chaseCaughtPolicy: 5
-  chaseCaughtFailCount: 2
+  chaseCaughtFailCount: 0
   summonRadius: 8
   summonGroupMin: 3
   summonGroupMax: 4

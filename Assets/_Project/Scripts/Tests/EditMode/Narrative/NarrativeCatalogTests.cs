@@ -227,6 +227,15 @@ namespace Game.Tests.EditMode.Narrative
                 new[] { FlagStory(key) }, Array.Empty<EncounterRules.Rule>(), dialogues));
         }
 
+        [Test]
+        public void ShopBoss_ResultDoesNotWriteOriginalBossFlag()
+        {
+            var shop = Find("shop_boss_battle");
+            Assert.That(shop.Get("fight").PayloadId, Is.EqualTo("sample_boss"), "复用原战斗配置");
+            Assert.That(shop.Get("cleared").Outcome, Is.EqualTo("Success"));
+            Assert.That(shop.Get("cleared").SetFlags, Is.Empty, "酒肆结果由本店进度持有");
+            Assert.That(Find("sample_boss_battle").Get("cleared").SetFlags, Does.Contain("world.sampleboss.defeated"), "原示例行为保留");
+        }
         private NarrativeContent Find(string storyId)
         {
             foreach (NarrativeContent story in catalog.Stories)

@@ -1,7 +1,9 @@
 // 职责：钉住交互层那一层——「按 F 之后选谁、拿什么门槛、什么时候什么都不做」。
 // 为什么新建：`ExecutionResolverTests` 从判定输入直接进入结算，跳过了「从 MonsterRules / PlayerModel 采快照」
 //   这一段；条件 ② 的取值（物种 defat_method）与条件 ① 的察觉口径都只在交互层里组装，
-//   而真实表里两行怪都是 `可击杀（方式没写）`——本文件用**真表数据**钉住「它们绝不能被处决」。
+//   而真实表里有 `可击杀（方式没写）` 的怪（种类 1002 井边妇人）——本文件用**真表数据**钉住「它绝不能被处决」。
+//   （2026-10-15 起种类 1001 巡夜人改成了「暗杀」、可被处决——用户拍板，PRP/combat-iteration W6a 补修；
+//   原先这里取的是 1001，物种门槛负对照随之改取仍是「可击杀（方式没写）」的 1002。）
 // 负对照：没有目标 / 目标在正面 / 超出距离 / 目标已察觉 / 物种不可处决 —— 五条都必须什么都没发生。
 // F 键归属（PRP/interaction D6）：统一交互焦点非空时按键让位（不处决、记 interaction_focus），焦点为空 / 没接焦点时照旧。
 using Game.Core.Config;
@@ -64,7 +66,7 @@ namespace Game.Tests.EditMode.Stealth
         }
 
         /// <summary>
-        /// PRP §3.2（真表数据）：当前表里的怪（`killable = true` + `defeat_method = 可击杀（方式没写）`）
+        /// PRP §3.2（真表数据）：表里 `killable = true` + `defeat_method = 可击杀（方式没写）` 的怪（种类 1002 井边妇人）
         /// 站在背后也**不能**被处决——否则绕背变成万能解。
         /// </summary>
         [Test]
@@ -74,7 +76,7 @@ namespace Game.Tests.EditMode.Stealth
             PlayerRules player = NewPlayer(new Vector2(-1f, 0f));
             interactor.Configure(player.Model, target, facts, assassination);
 
-            Assert.That(target.Kind.DefeatMethod, Is.EqualTo("可击杀（方式没写）"), "真表里两行都是这个值");
+            Assert.That(target.Kind.DefeatMethod, Is.EqualTo("可击杀（方式没写）"), "前提：真表里种类 1002 是这个值");
             Assert.That(target.IsKillable, Is.True, "它是能被常规打死的——只是不该被一键处决");
             Assert.That(interactor.TryExecute().Reject, Is.EqualTo(ExecutionReject.SpeciesNotExecutable));
 
@@ -314,20 +316,24 @@ namespace Game.Tests.EditMode.Stealth
             return target;
         }
 
-        /// <summary>用**真实生成的表**造一只怪（走「表 → 目录 → 规则」这条真链路）。</summary>
+        /// <summary>
+        /// 用**真实生成的表**造一只怪（走「表 → 目录 → 规则」这条真链路），取真表里**不可处决**的那只：
+        /// `monster_species/1002.json` → `yao/2.json`（井边妇人，killable = true + 可击杀（方式没写））。
+        /// 2026-10-15 之前取的是 1001 巡夜人；它的 defeat_method 改成「暗杀」后（用户拍板）就不再是负对照了。
+        /// </summary>
         private MonsterRules NewRealTableTarget()
         {
             var stub = new StubConfigService(ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes()));
             var kinds = new MonsterKindCatalog(stub, new YaoCatalog(stub), monsterConfig.HostileRadius);
             var target = new MonsterRules(monsterConfig, new MonsterModel(), new RandomService(3ul),
-                NullTelemetryScope.Instance, kinds.Get(1001));
+                NullTelemetryScope.Instance, kinds.Get(1002));
             target.Reset(new[] { Vector2.zero, new Vector2(10f, 0f) });
             return target;
         }
 
         /// <summary>
         /// 真表里**只能靠暗杀解决**的那只：`Tables/Data/yao/3.json`（市令，killable = false + defeat_method = 暗杀）
-        /// 与 `monster_species/1003.json`。用它才能覆盖交互层的成功路径（表里第一条不是暗杀，会被物种门槛拒）。
+        /// 与 `monster_species/1003.json`。用它才能覆盖交互层的成功路径（不是暗杀的种类会被物种门槛拒）。
         /// </summary>
         private MonsterRules NewExecutableTableTarget()
         {

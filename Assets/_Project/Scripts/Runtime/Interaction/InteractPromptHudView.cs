@@ -50,12 +50,18 @@ namespace Game.Interaction
         [SerializeField] private TMP_Text label;
         [Tooltip("图标（占位，可空；当前 PC 式提示不显示）。")]
         [SerializeField] private Image icon;
+        [SerializeField] private Button secondaryButton;
+        [SerializeField] private TMP_Text secondaryLabel;
+        private string secondaryKeyText = "F";
+        private InteractionPrompt secondaryPrompt;
 
         public override UILayer Layer => UILayer.Hud;
         public override bool IsFullScreen => false;
 
         /// <summary>玩家点了交互提示。</summary>
         public event Action OnInteract;
+        public event Action OnSecondaryInteract;
+        public bool IsSecondaryShown => secondaryButton != null && secondaryButton.gameObject.activeSelf;
 
         /// <summary>提示当前是否显示。</summary>
         public bool IsShown => root != null && root.activeSelf;
@@ -73,13 +79,20 @@ namespace Game.Interaction
             label.text = FormatLabel(default(InteractionPrompt));
             button.onClick.RemoveListener(RaiseInteract);
             button.onClick.AddListener(RaiseInteract);
+            if (secondaryButton != null)
+            {
+                secondaryButton.onClick.RemoveListener(RaiseSecondaryInteract);
+                secondaryButton.onClick.AddListener(RaiseSecondaryInteract);
+            }
             return UniTask.CompletedTask;
         }
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
             if (button != null) button.onClick.RemoveListener(RaiseInteract);
+            if (secondaryButton != null) secondaryButton.onClick.RemoveListener(RaiseSecondaryInteract);
             OnInteract = null;
+            OnSecondaryInteract = null;
             return UniTask.CompletedTask;
         }
 
@@ -87,6 +100,12 @@ namespace Game.Interaction
         public void SetKeyText(string bindingDisplay)
         {
             if (keyLabel != null) keyLabel.text = FormatKeyText(bindingDisplay);
+        }
+
+        public void SetSecondaryKeyText(string bindingDisplay)
+        {
+            secondaryKeyText = string.IsNullOrWhiteSpace(bindingDisplay) ? "F" : bindingDisplay.Trim();
+            if (IsSecondaryShown) secondaryLabel.text = FormatSecondaryLabel(secondaryKeyText, secondaryPrompt);
         }
 
         /// <summary>显示提示，右侧写「动词 · 名字」；名字为空只写动词。胶囊宽度随文字在 [minWidth, maxWidth] 里伸缩。</summary>
@@ -141,7 +160,23 @@ namespace Game.Interaction
         public void Hide()
         {
             if (root != null && root.activeSelf) root.SetActive(false);
+            ShowSecondary(null);
         }
+
+        public void ShowSecondary(ISecondaryInteractable target)
+        {
+            if (secondaryButton == null || secondaryLabel == null) return;
+            bool shown = target != null && target.CanInteractSecondary;
+            secondaryButton.gameObject.SetActive(shown);
+            if (shown)
+            {
+                secondaryPrompt = target.SecondaryPrompt;
+                secondaryLabel.text = FormatSecondaryLabel(secondaryKeyText, secondaryPrompt);
+            }
+        }
+
+        public static string FormatSecondaryLabel(string key, InteractionPrompt prompt) =>
+            "[" + (string.IsNullOrWhiteSpace(key) ? "F" : key.Trim()) + "] " + FormatLabel(prompt);
 
         /// <summary>键位徽章文字：绑定显示串去首尾空白；为空（无键盘绑定 / 输入未初始化）时回退「E」。纯函数，供测试。</summary>
         public static string FormatKeyText(string bindingDisplay)
@@ -174,5 +209,6 @@ namespace Game.Interaction
         }
 
         private void RaiseInteract() => OnInteract?.Invoke();
+        private void RaiseSecondaryInteract() => OnSecondaryInteract?.Invoke();
     }
 }

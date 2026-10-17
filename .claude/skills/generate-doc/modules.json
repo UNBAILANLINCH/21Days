@@ -8,6 +8,11 @@
     }
   },
   "modules": {
+    "clothing": { "src": "Assets/_Project/Scripts/Runtime/Clothing", "docs": "ai-docs/docs/modules/clothing", "status": "ready" },
+    "forging": { "src": "Assets/_Project/Scripts/Runtime/Forging", "docs": "ai-docs/docs/modules/forging", "status": "ready" },
+    "tavern": { "src": "Assets/_Project/Scripts/Runtime/Tavern", "docs": "ai-docs/docs/modules/tavern", "status": "ready" },
+    "theater": { "src": "Assets/_Project/Scripts/Runtime/Theater", "docs": "ai-docs/docs/modules/theater", "status": "ready" },
+    "shopplaytest": { "src": "Assets/_Project/Scripts/Runtime/ShopPlaytest", "docs": "ai-docs/docs/modules/shopplaytest", "status": "ready" },
     "interaction": {
       "src": "Assets/_Project/Scripts/Runtime/Interaction",
       "docs": "ai-docs/docs/modules/interaction",

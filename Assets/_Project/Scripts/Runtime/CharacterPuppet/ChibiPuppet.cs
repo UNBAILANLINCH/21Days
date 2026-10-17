@@ -295,7 +295,7 @@ namespace Game.CharacterPuppet
             }
         }
 
-        /// <summary>交互动作作用的子物体：parts 里第一个不在根上的渲染器（序列帧小人即唯一的 Sprite 子物体）。</summary>
+        /// <summary>交互作用于拆件所在的根子节点；骨骼动画只写其下的节点，避免只挤压一件或抢写动画。</summary>
         private Transform ResolvePulseTarget()
         {
             if (parts == null)
@@ -307,7 +307,16 @@ namespace Game.CharacterPuppet
             {
                 if (parts[i] != null && parts[i].transform != transform)
                 {
-                    return parts[i].transform;
+                    Transform target = parts[i].transform;
+                    while (target.parent != null && target.parent != transform)
+                    {
+                        target = target.parent;
+                    }
+
+                    if (target.parent == transform)
+                    {
+                        return target;
+                    }
                 }
             }
 

@@ -109,13 +109,14 @@ namespace Game.Tests.EditMode.Mirror
         [Test]
         public void DemoRows_TierKillableAndDropsParsed()
         {
-            // 聚光灯「怪物分层」（[06]）新加的三列：两只 demo 妖都是 A 底层、可击杀。
+            // 聚光灯「怪物分层」（[06]）新加的三列：两只 demo 妖都是 A 底层。井边妇人可击杀；巡夜人原也是可击杀，
+            // 2026-10-15 规格变更为「只能暗杀」（killable = false + defeat_method = 暗杀，用户拍板，PRP/combat-iteration W6a 补修）。
             // 掉落（2026-10-08 填上占位）：原来这里断言的是空列表——那是「掉落还没定」时的写法，本用例的注释
             // 当时已经预告「写 [] 不算错」只在当时成立；数据一填就必须跟着改，别把空列表当成契约。
             // 「id 是不是真物品」不在这里守，由 AllRows_DropItemsExistInItemTable 对着 tbitem 查。
             global::cfg.yao.Yao watchman = tables.TbYao.Get(1);
             Assert.That(watchman.Tier, Is.EqualTo("A"));
-            Assert.That(watchman.Killable, Is.True);
+            Assert.That(watchman.Killable, Is.False);
             Assert.That(watchman.DropItems, Is.EqualTo(new[] { CommonSkinItemId }));
 
             global::cfg.yao.Yao woman = tables.TbYao.Get(2);
@@ -128,11 +129,14 @@ namespace Game.Tests.EditMode.Mirror
         public void DemoRows_DefeatMethodParsed()
         {
             // 分层第 4 列 defeat_method（06_怪物分层.md:130 表头的「可否击杀 / 怎么杀」列里「怎么杀」那一半）。
-            // 两只 demo 妖是占位数据，killable 都是 true，所以填「可击杀（方式没写）」——
-            // 与 06_怪物分层.md:132 / :154 那批「可击杀（方式没写）」同一个说法，不引入与 killable 矛盾的取值。
+            // 两只 demo 妖是占位数据。井边妇人 killable = true，填「可击杀（方式没写）」——
+            // 与 06_怪物分层.md:132 / :154 那批「可击杀（方式没写）」同一个说法。
+            // 巡夜人（妖 1）2026-10-15 规格变更为「只能暗杀」：killable = false + defeat_method = 暗杀，与 Tables/Defines/yao.xml
+            // 对「暗杀」的定义一致（用户拍板，PRP/combat-iteration W6a 补修，是替策划定的内容，不出自策划原文）。
+            // 原断言是 killable = true + 「可击杀（方式没写）」。
             global::cfg.yao.Yao watchman = tables.TbYao.Get(1);
-            Assert.That(watchman.Killable, Is.True);
-            Assert.That(watchman.DefeatMethod, Is.EqualTo("可击杀（方式没写）"));
+            Assert.That(watchman.Killable, Is.False);
+            Assert.That(watchman.DefeatMethod, Is.EqualTo("暗杀"));
 
             global::cfg.yao.Yao woman = tables.TbYao.Get(2);
             Assert.That(woman.Killable, Is.True);
@@ -237,7 +241,7 @@ namespace Game.Tests.EditMode.Mirror
         {
             Assert.That(catalog.TierOf(1), Is.EqualTo("A"));
             Assert.That(catalog.TierOf(2), Is.EqualTo("A"));
-            Assert.That(catalog.IsKillable(1), Is.True);
+            Assert.That(catalog.IsKillable(1), Is.False, "妖 1 巡夜人只能暗杀（2026-10-15 用户拍板，原为 true）");
             // 掉落列也经 YaoCatalog 转读，不是空列表：数据填上之后这里必须跟着改（原来断言 Is.Empty）。
             Assert.That(catalog.DropItemsOf(1), Is.EqualTo(new[] { CommonSkinItemId }));
         }
@@ -245,7 +249,8 @@ namespace Game.Tests.EditMode.Mirror
         [Test]
         public void Catalog_DefeatMethod_ReadByYaoId()
         {
-            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("可击杀（方式没写）"));
+            // 妖 1 = 「暗杀」：2026-10-15 规格变更（用户拍板巡夜人可被背后处决，见 DemoRows_DefeatMethodParsed）。
+            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("暗杀"));
             Assert.That(catalog.DefeatMethodOf(2), Is.EqualTo("可击杀（方式没写）"));
             Assert.That(catalog.DefeatMethodOf(2), Is.EqualTo(tables.TbYao.Get(2).DefeatMethod),
                 "读出来的就是表里那一列，本类不加工");
@@ -281,7 +286,7 @@ namespace Game.Tests.EditMode.Mirror
                 catalog.Invalidate();
             }
 
-            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("可击杀（方式没写）"), "换回来之后照常可读");
+            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("暗杀"), "换回来之后照常可读（妖 1 = 暗杀，2026-10-15 规格变更）");
         }
 
         [Test]
@@ -372,7 +377,7 @@ namespace Game.Tests.EditMode.Mirror
                 catalog.Invalidate();
             }
 
-            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("可击杀（方式没写）"), "换回来之后照常可读");
+            Assert.That(catalog.DefeatMethodOf(1), Is.EqualTo("暗杀"), "换回来之后照常可读（妖 1 = 暗杀，2026-10-15 规格变更）");
         }
 
         [Test]

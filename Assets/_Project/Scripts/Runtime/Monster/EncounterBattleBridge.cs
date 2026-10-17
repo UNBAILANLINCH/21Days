@@ -17,9 +17,10 @@
 //     · `MirrorCrackPresenter` 是渲染帧入口点，而 `HitCracks` 直接由 `PlayerModel.Health` 推出（`MirrorService`），
 //       所以它**同一帧**就看到第三道裂痕并 `step.End()`。根作用域的入口点先注册、模块入口点后注册
 //       （`GameLifetimeScope.Configure` 末尾才 InstallGameplay），所以那一下排在整段 tick 之后；
-//     · `End()` 只置 `IsActive = false` 并清瞬时事实（`EncounterStep.cs:395-402`），**并不清** `PendingResult` /
+//     · `End()` 只置 `IsActive = false` 并清瞬时事实（`EncounterStep.cs:715-722`），**并不清** `PendingResult` /
 //       `BattleSettlement` / `ResultConsumed`；真正抹掉它们的是下一场遭遇的 `Begin()`（镜碎页交回后重载场景，
-//       `EncounterStep.cs:377-393`）与换了身份的 `StartBattle`。
+//       `EncounterStep.cs:694-713`）与换了身份的 `StartBattle`。行号按 combat-iteration 之后的工作区版本核过
+//       （2026-10-16；此前引的是 HEAD 版行号，升级那一段落地后就漂了）。
 //   → 结论：**「End() 会抹掉结果」这个前提不成立**，但轮询式写法仍要同时满足两个隐式假设才安全
 //     （① 读结果不能以 `IsActive` 为前提——镜碎之后它就是 false；② 必须赶在下一场 `Begin()` 之前），
 //     两个都不是代码保证的。所以「取走结果」放进 `Step`，并且必须紧跟在 `EncounterStep` 之后注册

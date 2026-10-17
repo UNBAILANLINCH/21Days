@@ -34,7 +34,7 @@ maturity: seed
 4. `SessionStartedEvent.IsNewGame` 区分新游戏（分区是刚 `ResetAll()` 的默认值）与读档（分区是 `LoadAsync`
    载入的实际存档），需要区分这两种情况时用它判断，不要另外猜。
 
-遭遇模块的重载走另一条路径（`ISessionStateSource.PrepareRestore`，`SessionStateAdapter.cs:95`）：因为
+遭遇模块的重载走另一条路径（`ISessionStateSource.PrepareRestore`，`SessionStateAdapter.cs:113`）：因为
 遭遇现场要在**进场景之前**准备好（不是进场景后再灌），不是普通「订阅事件后重载」的形状；新模块如果也有
 「进场景前准备」的需要，参照这条而不是硬塞进 `SessionStartedEvent` 回调。
 
@@ -62,6 +62,8 @@ maturity: seed
 
 标题开始转场的时长与强度在 `Data/UI/TitleStartConfig.asset`；引用通过 Unity 编辑器接入 TitleView 与 TitleStartTransition。
 只调整表现时不改 Session 的槽位选择/操作说明规则。扩展开局路径仍需保留教程，并在 finally 中复位标题转场。
+读档短版参数为 `TitleStartConfig.LoadMirrorSeconds/LoadWaveSeconds`，不能通过修改 `MirrorSeconds/WaveSeconds` 缩短新游戏。
+选档收卷时长为 `SessionConfig.LoadRollSeconds`，只在读档模式调用；纸面用 RectMask2D 裁切，底轴用原 Sprite 的 UV 区域移动，不缩放原图或修改共享资产。
 
 `Game.Session → Game.Core`（Save / Flow / UI / Events / Boot / Timing / Simulation / Telemetry）、
 `Game.Session → Game.Quest / Game.Dialogue / Game.Monster / Game.Loot / Game.Narrative`（只经它们的公开 API、保存 DTO 与事件）。

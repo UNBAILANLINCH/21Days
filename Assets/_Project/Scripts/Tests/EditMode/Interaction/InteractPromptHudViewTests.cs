@@ -9,6 +9,15 @@ namespace Game.Tests.EditMode.Interaction
 {
     public sealed class InteractPromptHudViewTests
     {
+        [TestCase(null, "[F] 借用身份 · 顾客乙")]
+        [TestCase(" F ", "[F] 借用身份 · 顾客乙")]
+        [TestCase("Q", "[Q] 借用身份 · 顾客乙")]
+        public void FormatSecondaryLabel_IncludesItsOwnKey(string key, string expected)
+        {
+            Assert.That(InteractPromptHudView.FormatSecondaryLabel(key, new InteractionPrompt("借用身份", "顾客乙")),
+                Is.EqualTo(expected));
+        }
+
         [TestCase(null, "E")]
         [TestCase("", "E")]
         [TestCase("   ", "E")]

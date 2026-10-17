@@ -68,5 +68,37 @@ namespace Game.Monster
 
         /// <summary>把 <see cref="PreviousPosition"/> 对齐到当前位置：每 tick 推进前、以及瞬移 / 读档后调用。</summary>
         internal void SyncPreviousPosition() => PreviousPosition = Position;
+
+        /// <summary>
+        /// 逐字段抄一份状态（不含 <see cref="PreviousPosition"/>：它不进快照，调用方自己 <see cref="SyncPreviousPosition"/>）。
+        /// <para>
+        /// 给「先校验、后修改」用的（2026-10-16 代码审查）：<c>MonsterRules.Deserialize</c> 先把字节读进一只临时
+        /// <see cref="MonsterModel"/>，全部读完验完，再用这个方法一次性写回现场的那一只——直接读进现场就会
+        /// 「读到一半发现坏数据、现场已经改了半只」。**刻意不做归一化**（上一 tick 位置、朝向、生命周期都不动）：
+        /// 这里只是搬运快照里的值，语义归 <c>MonsterRules.Deserialize</c> 管。
+        /// </para>
+        /// </summary>
+        internal void CopyFrom(MonsterModel source)
+        {
+            if (source == null)
+            {
+                throw new System.ArgumentNullException(nameof(source));
+            }
+
+            Position = source.Position;
+            Facing = source.Facing;
+            LastKnownTarget = source.LastKnownTarget;
+            Mode = source.Mode;
+            Health = source.Health;
+            WaypointIndex = source.WaypointIndex;
+            Alert = source.Alert;
+            PatrolWalkElapsed = source.PatrolWalkElapsed;
+            NextPauseAfter = source.NextPauseAfter;
+            PatrolPauseLeft = source.PatrolPauseLeft;
+            AlertAtLoss = source.AlertAtLoss;
+            AlertDecayElapsed = source.AlertDecayElapsed;
+            HostileLostElapsed = source.HostileLostElapsed;
+            AttackCooldownLeft = source.AttackCooldownLeft;
+        }
     }
 }

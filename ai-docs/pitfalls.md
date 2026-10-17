@@ -587,7 +587,14 @@
 - 正确做法：改完场景**立刻 `manage_scene save`**，再按脚本 GUID grep 一遍 `.unity` 确认落盘了，然后才跑回放。别把「回放里能看到」当成「已经保存」——Play 用的是内存里那一份。
 - 关联：`scripts/unity_mcp_check.py --meta` 之外的资产核对习惯；2026-10-10 BOSS 局势接线。
 
-## 纸片角色的 `transform.up` 是朝向相机的，不能当视线方向
+## 复制一只 BOSS NPC 出来，`BossEntryContext.bossId` 留空会把**原来那只**的开战方式改掉
+- 现象：给阶段九 BOSS 新加一只可挑战 NPC（照着 `Npc_SampleBoss` 整份复制），黑盒回放里阶段一那只的「被打、BOSS 先手」变成「正面、玩家先手」——`BossAggro_ChargesTauntsAndAmbushes` 红在「开战方式」这一条，**单跑也复现**，不是时序抖动；而嘲讽对白、冲刺、接触全都正常，看现象完全联想不到新加的 NPC 头上。
+- 根因：`BossEntryContext.bossId` **留空 = 通配，谁来问都答**（`MatchesBoss` 对任何 payload 都返回 true，demo 里原本只有一只 BOSS，留空是对的）。复制出来的第二份也留空，于是同一个 payload 有两份局势在答，谁被选中看的是解析顺序——真那只辛苦记下的 `Initiator = BossAttacked` 被另一份的默认值顶掉了。
+- 正确做法：**场景里每只 BOSS 的 `BossEntryContext` 都填自己的 `bossId`**（= 剧情 Battle 阶段的 payload）；只有确定全场景独此一只时才留空。复制 NPC 之后连带检查 `BossAggro.bossId`、`NarrativeTrigger.targetKind`，并把新的一行补进 `BossRosterConfig` 与相遇表——这三处一起改完才算复制完一只 BOSS。
+- 关联：`Runtime/Battle/BossEntryContext.cs`（`MatchesBoss`）、`Runtime/Battle/BossAggroSceneBinder.cs`（`BindScene`）、`Runtime/Battle/BattleFlow.cs`（`ResolveEntryContext`）；2026-10-16 阶段九 BOSS 做进 demo。
+- 顺带记：同一次还踩到「demo 回放用的道具 id 不在新的道具效果表里」——换掉效果表后旧 id 变成「只记账、不回血」，回放的「用药回血飘字」检查点因此红。**改效果表时把回放里用到的 id 一起搜一遍**（`grep -rn '1004' Assets/_Project/Scripts/Tests`）。
+
+
 - 现象：给 BOSS 做「看没看见玩家」时想复用巡逻怪的视野锥，用 `transform.up` 当朝向；结果玩家站在它南边算「看不见」、北边算「看见」——而那只是 `CameraBillboard` 把纸片立起来的结果。
 - 根因：本工程 2D 小人是纸片 + `CameraBillboard`（`pitfalls.md` 另有一条：别给它加 `ExecuteAlways`），朝向跟着相机走；巡逻怪的朝相反而是 `MonsterRules` 自己维护的转向运动。两者不是一回事。
 - 正确做法：没有「NPC 面朝哪边」的表现规则时**不要假装有视线**——按半径判（`MonsterRules.SenseFrom` 传零朝向 = 跳过视锥那一档），把「绕到背后躲不开它」这个代价写进注释；等 S6 那条表现规则落地再补视锥。
@@ -598,3 +605,27 @@
 - 根因：Unity 的文件监视与刷新请求有竞态，第一次刷新可能读到写盘前的旧文本。**DLL 时间戳新 + 日志里是旧错误**就是这一种，不是「改错了」。
 - 正确做法：判「编译过没过」看三样对齐——DLL 时间戳、日志末尾的 `## Script Compilation Error`、以及**直接跑一次测试**；三者不一致时再 touch 一下文件重刷一次。别照着日志里那条已经修掉的报错去改代码（会白改一轮）。
 - 关联：`HANDOVER.md` §5 工具速查「强制 Unity 重编」；2026-10-10 BOSS 局势接线。
+
+## 恢复快照时 `SyncPreviousPosition` 放在 `CopyFrom` 之前：玩家/怪被从旧位置「拉」一下
+- 现象：新增的 `ApplySerialized` 里先 `pending.SyncPreviousPosition()` 再 `model.CopyFrom(pending)`；`Restore` / 恢复快照之后 `PreviousPosition` 是**恢复前**的坐标，渲染插值第一帧把角色从旧位置拉过来一次。`MonsterRulesTests.Step_RecordsPreviousPosition_AndResetRestoreAlignIt` 当场变红（Expected (2,0) / But was (0,0)）。
+- 根因：`MonsterModel.CopyFrom` **有意不搬** `PreviousPosition`（它是纯表现辅助、不进快照）。所以对齐必须作用在**现场那一只**上、且在 `CopyFrom` **之后**；在临时模型上对齐只改了临时对象，现场那只的 `PreviousPosition` 仍是旧值。
+- 正确做法：`model.CopyFrom(pending)` 之后再 `model.SyncPreviousPosition()`。任何「整体改写 `Position`」的新入口（传送、读档、快照恢复）都按这个顺序，`Reset` / `Restore` 已经是对的，照抄它们。
+- 关联：`Runtime/Monster/MonsterRules.cs`（`ApplySerialized`）、`Runtime/Monster/MonsterModel.cs`（`CopyFrom`）、本文上面那条「整体改写 `Position` 要同步 `PreviousPosition`」；2026-10-17 combat-iteration 收尾（快照改「先校验后修改」时踩到）。
+
+## EditMode 里造不出场景：`SceneManager.CreateScene` 与 `EditorSceneManager.NewScene(Additive)` 都会抛
+- 现象：给「场景扫描」写 EditMode 用例，`SetUp` 里 `SceneManager.CreateScene("X")` 抛 `This can only be used during play mode...`；改用 `EditorSceneManager.NewScene(EmptyScene, Additive)` 又抛 `Cannot create a new scene additively with an untitled scene unsaved`（测试运行器当前那个场景是未命名且未保存的）。
+- 根因：前者只在 play mode 可用；后者在「当前活动的未命名场景有未保存改动」时拒绝——而 EditMode 测试运行器**正好**把活动场景换成未保存的 `InitTestScene*`。
+- 正确做法：EditMode 测试**直接用测试运行器当前那个场景**（`new GameObject(...)` 就行，不调 `MoveGameObjectToScene`），用例自己造的对象登记进列表、`TearDown` 逐个 `DestroyImmediate`；要扫真实场景内容的用例照 `SampleSceneObstacleWiringTests` 用 `EditorSceneManager.OpenScene(ScenePath, Additive)` + `CloseScene`。
+- 关联：`Tests/EditMode/Battle/BossAggroSceneBinderTests.cs`（按这条写的）、`Tests/EditMode/Monster/SampleSceneCombatWiringTests.cs`；2026-10-17 combat-iteration 收尾（写绑定器场景扫描用例时踩到）。
+
+## 全量跑才红、单跑通过的用例：先查前一条用例留下的全局状态，别改断言
+- 现象：全量 EditMode 里 `Core.UIServiceTests.OpenAsync_WhenOnOpenAsyncThrows_LeavesNoUnobservedTaskException` 报「Unhandled log message: `GameInput.Gameplay.Disable() has not been called`」；单独 `group_names=["Game.Tests.EditMode.Core.UIServiceTests"]` 跑 19/19 全绿，前后两次全量里另一次也是全绿。
+- 根因：这条用例的判据是「没有未观察的异常 / 没有意外日志」，而 Input System 的「动作图没 Disable」告警来自**前一条用例**创建的 `InputService`（`AddComponent` 出来的组件在测试场景切换时才 OnDisable）。顺序一变，告警就落到这条头上。
+- 正确做法：判据是「单跑绿 + 全量偶发」时按**顺序相关**处理——查前一条用例有没有留下 `InputService` / 静态状态、用例自己起一个 `[SetUp]` 前的清理，而不是把 `LogAssert.Expect` 塞进断言把它压掉（那会让真出问题时也静默）。定位不到就先记进 `HANDOVER.md` 的偶发清单。
+- 关联：`HANDOVER.md` §1.3 偶发清单、`Tests/EditMode/Core/UIServiceTests.cs`；2026-10-17 combat-iteration 收尾时观察到。
+
+## 标题关闭取消了选档加载，画面只剩 Boot
+- 现象：点击可读槽后标题和选档面板关闭，但玩法未出现；运行时只加载 `Boot`，`IGameFlow.Current` 仍为 `TitleState`，其 View 已销毁。根作用域仍存在，不能只因 Boot 根节点没有 Bootstrap 就判断它丢失（它已移到 `DontDestroyOnLoad`）。
+- 根因：`SaveSlotsController` 把 `TitleView.GetCancellationTokenOnDestroy()` 传给 `GameSession.ContinueAsync`。`TitleState.ExitAsync` 正常销毁标题时，取消令牌随之取消，打断尚未完成的玩法场景加载；`OperationCanceledException` 被当成正常退出处理，空画面没有业务错误提示。
+- 正确做法：跨 UI 关闭的流程使用控制器寿命令牌，在控制器 `Dispose` 时取消；局部 UI 动画仍可跟随对应 View 寿命。正常玩法继续由 `SceneGameState` Additive 加载 `SampleScene`，保留 Boot。验证必须检查目标流程状态和实际加载场景；标题消失、根容器可解析 PlayerModel 都不能证明入场完成。至少一条生命周期测试要让标题先销毁、异步加载后完成，避免已缓存场景掩盖时序问题。
+- 关联：`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的 `SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad`、`Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` 的 `MouseLoad_RollsScrollThenShortWaterWarpEntersWorld`。日期：2026-10-15。

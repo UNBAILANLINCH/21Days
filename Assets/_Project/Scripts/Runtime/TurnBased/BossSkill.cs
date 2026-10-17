@@ -1,6 +1,6 @@
 // 职责：BOSS 的三个招式（07 三、1. 阶段1BOSS · BOSS招式）。
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:79-84`；转写见
-// `docs/design/features-spotlight/09_BOSS战.md:231`（R47）。
+// `docs/design/features-spotlight/09_BOSS战.md:239`（R47）。
 
 namespace Game.TurnBased
 {

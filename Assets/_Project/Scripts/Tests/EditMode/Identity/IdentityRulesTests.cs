@@ -315,6 +315,60 @@ namespace Game.Tests.EditMode.Identity
             Assert.That(state.ExposureCount, Is.Zero, "只有规则层露馅才记 identity.exposed 的次数");
         }
 
+        // ── 失效掩码（PRP/combat-iteration D1，2026-10-14）──────────────────────────────
+
+        /// <summary>
+        /// 默认掩码 = 规则层五种（旧行为）：五种各自单独命中都失效，警戒值一层不失效；静态旧入口与默认掩码逐条一致。
+        /// </summary>
+        [Test]
+        public void LosesIdentity_DefaultMask_FiveRuleLayerCausesOnly()
+        {
+            Assert.That(settings.IdentityLossCauses, Is.EqualTo(IdentitySettings.DefaultIdentityLossCauses), "代码默认值等于旧行为");
+
+            ExposureCause[] ruleLayer =
+            {
+                ExposureCause.PersonaTrait, ExposureCause.Checkpoint, ExposureCause.Ledger,
+                ExposureCause.Suspicion, ExposureCause.Reveal,
+            };
+            foreach (ExposureCause cause in ruleLayer)
+            {
+                Assert.That(IdentityRules.LosesIdentity(cause, settings.IdentityLossCauses), Is.True, cause.ToString());
+                Assert.That(IdentityRules.LosesIdentity(cause), Is.True, "静态旧入口：" + cause);
+            }
+
+            Assert.That(IdentityRules.LosesIdentity(ExposureCause.Alertness, settings.IdentityLossCauses), Is.False);
+            Assert.That(IdentityRules.LosesIdentity(ExposureCause.Alertness), Is.False, "静态旧入口不变");
+        }
+
+        /// <summary>配置六种全含（用户 2026-10-14 拍板「借来的身份当场失效」）：警戒值一层也让身份失效，并记一次露馅。</summary>
+        [Test]
+        public void ResolveExposure_MaskWithAllSixCauses_AlertnessLosesIdentity()
+        {
+            settings.IdentityLossCauses = IdentitySettings.DefaultIdentityLossCauses | ExposureCause.Alertness;
+            rules.TryEnter(state, ledger, StewardId);
+
+            ExposureResolution result = rules.ResolveExposure(state, ledger, suspicion, ExposureSignals.Alert(true, false));
+
+            Assert.That(result.Cause, Is.EqualTo(ExposureCause.Alertness));
+            Assert.That(result.IdentityLost, Is.True);
+            Assert.That(state.IsBorrowing, Is.False);
+            Assert.That(state.ExposureCount, Is.EqualTo(1));
+        }
+
+        /// <summary>掩码按配置走而不是写死：把某条规则层原因移出掩码，它就不再夺身份（反向证明掩码真的被读）。</summary>
+        [Test]
+        public void ResolveExposure_CauseRemovedFromMask_KeepsIdentity()
+        {
+            settings.IdentityLossCauses = IdentitySettings.DefaultIdentityLossCauses & ~ExposureCause.Checkpoint;
+            rules.TryEnter(state, ledger, StewardId);
+
+            ExposureResolution result = rules.ResolveExposure(state, ledger, suspicion, ExposureSignals.Checkpoint(false));
+
+            Assert.That(result.Cause, Is.EqualTo(ExposureCause.Checkpoint));
+            Assert.That(result.IdentityLost, Is.False);
+            Assert.That(state.IsInEffect, Is.True);
+        }
+
         // ── 埋点（状态迁移处各一条，不埋每帧量）─────────────────────────────────────
 
         [Test]

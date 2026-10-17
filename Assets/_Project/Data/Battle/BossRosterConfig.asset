@@ -15,7 +15,89 @@ MonoBehaviour:
   bosses:
   - id: sample_boss
     displayName: "\u9636\u6BB5\u4E00 BOSS\uFF08\u5360\u4F4D\uFF09"
-    maxHealth: 12
+    maxHealth: 220
     outOfBattleDrunk: 50
-    playerHealth: 10
+    playerHealth: 120
     stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    monsterKindId: 0
+    aggroEnabled: 1
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0
+  - id: monster_1003
+    displayName: "\u5E02\u4EE4"
+    maxHealth: 6
+    outOfBattleDrunk: 0
+    playerHealth: 120
+    stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    monsterKindId: 1003
+    aggroEnabled: 0
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0
+  - id: stage9_boss
+    displayName: "\u9636\u6BB5\u4E5D BOSS\uFF08\u94B1\u5858\u541B\u00B7\u5360\u4F4D\uFF09"
+    maxHealth: 260
+    outOfBattleDrunk: 0
+    playerHealth: 120
+    stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    monsterKindId: 0
+    aggroEnabled: 0
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0
+    battleProfile:
+      phases:
+      - name: "\u4EBA\u5F62\u6001"
+        maxHealth: 260
+        skills:
+          skill1Damage: 16
+          skill2Damage: 8
+          skill2DrinkAddDrunk: 0
+          skill2HealPercent: 0
+          skill2NextSkill1DamageBonusPercent: 0
+          skill3Damage: 26
+          skill3StunRounds: 0
+          skill1Weight: 5
+          skill2Weight: 1
+          skill3Weight: 0
+        shieldLayers: 1
+        shieldHitsPerLayer: 1
+        attackEchoPercent: 0
+        skill3RequiresPlayerLock: 1
+        skill3ChancePercentWhenLocked: 33
+        skill3GrantsShieldLayers: 1
+        skill3ShieldDamageBonusPercent: 0
+        skill3HealPercentWhenNoShield: 0
+        selfImprisonRounds: 0
+        selfImprisonAttackBonusPercent: 0
+        skillLockRounds: 2
+      - name: "\u9F99\u5F62\u6001"
+        maxHealth: 260
+        skills:
+          skill1Damage: 21
+          skill2Damage: 0
+          skill2DrinkAddDrunk: 0
+          skill2HealPercent: 0
+          skill2NextSkill1DamageBonusPercent: 0
+          skill3Damage: 32
+          skill3StunRounds: 0
+          skill1Weight: 6
+          skill2Weight: 3
+          skill3Weight: 1
+        shieldLayers: 1
+        shieldHitsPerLayer: 2
+        attackEchoPercent: 20
+        skill3RequiresPlayerLock: 0
+        skill3ChancePercentWhenLocked: 0
+        skill3GrantsShieldLayers: 0
+        skill3ShieldDamageBonusPercent: 50
+        skill3HealPercentWhenNoShield: 10
+        selfImprisonRounds: 2
+        selfImprisonAttackBonusPercent: 40
+        skillLockRounds: 0
+      sneakHealthLossPercentOverride: 0
+      rageClearOnPhaseChange: 0

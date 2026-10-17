@@ -29,3 +29,6 @@ MonoBehaviour:
   attackCooldown: 1
   maxHealth: 3
   attackDamage: 1
+  escalateOnSneakStrike: 1
+  escalateOnFrontalStrike: 1
+  escalateWhenStruck: 1

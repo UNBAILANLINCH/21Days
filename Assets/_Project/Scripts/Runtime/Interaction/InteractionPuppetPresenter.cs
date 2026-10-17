@@ -68,7 +68,7 @@ namespace Game.Interaction
             if (target is UnityEngine.Object unityTarget && unityTarget == null) return;
 
             InteractionActor actor = registry.Actor;
-            ChibiPuppet playerPuppet = actor == null ? null : actor.GetComponentInChildren<ChibiPuppet>();
+            ChibiPuppet playerPuppet = actor == null ? null : actor.Anchor.GetComponentInChildren<ChibiPuppet>();
             ChibiPuppet targetPuppet = TargetPuppetOf(target);
             // 目标层级里找到的就是玩家自己那只（不该发生的摆法）：只当作没有目标小人，免得自己转向自己。
             if (targetPuppet != null && targetPuppet == playerPuppet) targetPuppet = null;

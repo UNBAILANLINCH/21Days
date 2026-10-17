@@ -18,8 +18,8 @@ maturity: stable
 
 | 做 | 不做 |
 | --- | --- |
-| 统一选焦点：全局任一时刻至多一个焦点，屏幕上只有一条提示，一次按键只触发一件事 | 认识任何具体的可交互类型（对白、箱子、传送点都只是 `IInteractable` 的实现方） |
-| 全工程唯一读 `Gameplay/Interact`（E / F / 手柄 South）；底部提示 HUD「[E] 动词 · 名字」，点提示与按键同一判定 | 进入范围即触发的东西：演出触发、剧情触发、`EnterRange` 型传送点（各自模块轮询） |
+| 统一选焦点：全局任一时刻至多一个焦点，普通与特殊动作共享提示HUD，每帧至多执行一次动作 | 认识任何具体的可交互类型（对白、箱子、传送点都只是 `IInteractable` 的实现方） |
+| 全工程唯一读 `Gameplay/Interact`（E / 手柄 South）；普通提示「[E] 动词 · 名字」，特殊提示「[F] 动词 · 名字」，点提示与按键同一判定 | 进入范围即触发的东西：演出触发、剧情触发、`EnterRange` 型传送点（各自模块轮询） |
 | 玩家锚点（`InteractionActor`）：扫已加载场景找到它，场景卸载后重扫 | 各模块的头顶标记（显隐规则各不相同，留在实现方，契约只给焦点变化回调） |
 | 交互那一刻的小人表现：玩家小人转向目标 + 交互动作，目标小人转向玩家（D11） | 处决：不进统一焦点，只在 `ExecutionInteractor` 里按焦点做按键归属裁决（D6） |
 | 让位：没有玩家锚点 / Gameplay 图关着 / 沉浸 / 世界暂停时没有焦点 | 键位绑定、提示美术、各模块存档（Loot 已开、Narrative 已消耗各存各的） |
@@ -29,12 +29,13 @@ maturity: stable
 | 类型 | 文件 | 职责 |
 | --- | --- | --- |
 | `IInteractable` | `IInteractable.cs:13` | 契约（D5）：位置、半径（≤ 0 不限距离）、`CanInteract`（**不含距离**）、优先级、`Prompt`、`Interact()`、`OnFocusChanged(bool)` |
+| `ISecondaryInteractable` | `ISecondaryInteractable.cs` | 同一焦点的特殊动作：`CanInteractSecondary`、`SecondaryPrompt`、`InteractSecondary()`；由 F / 手柄 East / HUD 第二按钮触发，不依赖主动作已执行 |
 | `InteractionPrompt` | `InteractionPrompt.cs:7` | `readonly struct`：动词 + 名字，取值无分配 |
 | `InteractionActor` | `InteractionActor.cs:12` | 玩家根上的空标记（测距原点），由 `DialogueInteractionActor` 迁入、保 GUID |
 | `IInteractionRegistry` / `InteractionRegistry` | `InteractionRegistry.cs:23` | 候选登记 / 注销（按引用比较，`:71`、`:77`）；启动时扫已加载场景找玩家标记，每次 `sceneLoaded` 扫新场景；`HandleSceneUnloaded`（`:96`）清已销毁候选，玩家标记成伪空时重扫 |
 | `InteractionSelector` | `InteractionSelector.cs:17` | 静态纯函数 `Select`：可用 + `CanInteract` + 半径内，三维距离最近；等距按优先级大者胜，再相等取登记靠前的；无分配 |
-| `IInteractionFocus` / `InteractionFocus` | `InteractionFocus.cs:27` | 入口点（`ITickable`）：让位判定（`ShouldYield`，`:70`）→ 选焦点 → 焦点变化回调 + HUD + 埋点（`SetFocus`，`:143`）→ 读交互键 → 本帧焦点没变才 `Interact()` 并抛 `OnInteracted`（`TryInteract`，`:162`–`:174`） |
-| `InteractPromptHudView` | `InteractPromptHudView.cs:25` | `UIView`（Hud 层）：底部居中胶囊「[键位] 动词 · 名字」，常驻打开、显隐只切 `root`；宽度随文字在 320–640 之间伸缩（`ResolveWidth`，`:106`；`FitWidth`，`:113`）；整条是按钮，抛 `OnInteract` |
+| `IInteractionFocus` / `InteractionFocus` | `InteractionFocus.cs` | 入口点（`ITickable`）：让位判定（`ShouldYield`，`:70`）→ 选焦点 → 焦点变化回调 + HUD + 埋点（`SetFocus`，`:143`）→ 读交互键 → 本帧焦点没变才 `Interact()` 并抛 `OnInteracted`（`TryInteract`，`:162`–`:174`） |
+| `InteractPromptHudView` | `InteractPromptHudView.cs` | `UIView`（Hud 层）：底部居中胶囊「[键位] 动词 · 名字」，常驻打开、显隐只切 `root`；宽度随文字在 320–640 之间伸缩（`ResolveWidth`，`:106`；`FitWidth`，`:113`）；整条是按钮，抛 `OnInteract` |
 | `InteractionPuppetPresenter` | `InteractionPuppetPresenter.cs:31` | 入口点：订阅 `OnInteracted`，玩家小人 `FaceTowards(目标)` + `PlayInteractPulse`，目标层级里的小人 `FaceTowards(玩家)`（`Present`，`:64`） |
 | `InteractionInstaller` | `InteractionInstaller.cs:25` | `GameplayInstaller`：注册以上三个入口点（`:33`、`:35`、`:44`），挂 Boot 的 `GameBootstrap`，排在 `DialogueInstaller` 之前 |
 
@@ -49,9 +50,9 @@ maturity: stable
 ## 一帧的数据流
 
 ```text
-InteractionFocus.Tick（每帧，InteractionFocus.cs:83）
-  ├─ 取 input.Actions：Gameplay 图开没开、Interact 本帧按没按（全工程唯一读处，带 lint-ok）
-  └─ Advance(gameplayEnabled, pressed)
+InteractionFocus.Tick（每帧，InteractionFocus.cs）
+  ├─ 取 input.Actions：Gameplay 图开没开、Interact / Execute 本帧按没按
+  └─ Advance(gameplayEnabled, pressed, secondaryPressed)
        ├─ ShouldYield(有无 Actor, Gameplay 图, 沉浸, 世界暂停) → 让位则 next = null
        ├─ 否则 next = InteractionSelector.Select(Actor.Anchor.position, registry.Candidates)
        ├─ next 与 Current 引用不同 → SetFocus：旧.OnFocusChanged(false)（旧的已销毁则跳过）→ 新.OnFocusChanged(true)
@@ -59,17 +60,19 @@ InteractionFocus.Tick（每帧，InteractionFocus.cs:83）
        └─ pressed → TryInteract("key")：本帧焦点刚变 → 埋 interact_ignored 不响应（D4）；
              否则 埋 interacted → Current.Interact() → OnInteracted 事件
                                                          └─ InteractionPuppetPresenter.Present（转向 + 交互动作）
+       └─ 仅 secondaryPressed → TrySecondaryInteract("secondary_key")：同一焦点与距离检查，只执行特殊动作；E / F 同帧优先 E
 HUD 点击 → RequestInteract：同一让位判定 + TryInteract("hud")
+第二按钮 → RequestSecondaryInteract：同一让位/本帧焦点检查，再验当前可用与距离，执行Secondary并发OnInteracted；没有第二动作的焦点隐藏该按钮。键盘与鼠标共用每帧一次动作保护。
 ```
 
 ## 关键决策（源码读不出来的部分）
 
-- **最近者得焦点（D2）**：废掉了「箱子永远让位对白」。统一后只有一条提示，原来让位的理由（两条提示同位重叠）没了；
+- **默认最近者得焦点（D2）**：近距离显式点选通过`RequestFocus`请求同一个统一焦点；只接受已登记、可用、半径内目标，暂停/失效/离开范围/注销后恢复最近者。点选不执行主动作，防止多NPC靠近时借错身份。废掉了「箱子永远让位对白」。原来让位的理由（两条提示同位重叠）没了；
   顺带修掉 `interactRadius ≤ 0` 的 NPC 永久压住所有箱子。将来真要某类优先，改 `InteractionPriority`（只在距离精确相等时打平）。
 - **让位只看通用信号（D3）**：对白、演出、任务面板、镜碎页都会关 Gameplay 图，焦点不必认识对白服务。
   `input.Actions == null`（输入未初始化）按「Gameplay 图未启用」处理。任务面板 / 背包面板打开动画那几帧焦点仍在，旧实现同样存在，不算回归。
 - **本帧焦点刚变不响应按键（D4）**：防止「关掉对白的那一下顺手开箱」。
-- **F 键归交互（D6）**：`Interact` 绑 E / F / South，`Execute` 绑 F / South。屏幕提示什么，按键就做什么——
+- **E / F 分工（D6 修订）**：`Interact` 绑 E / South，负责对话、拾取、开箱等普通动作；`Execute` 绑 F / East，在当前焦点上执行特殊动作（如借身份），没有特殊动作时不回退对话。屏幕提示什么，按键就做什么——
   焦点非空时 `ExecutionInteractor.HandleExecuteKey` 让位（`ExecutionInteractor.cs:199`），只记一条拒绝 `reason = interaction_focus`。
   要反过来让处决优先，只改那一处。
 - **按键型传送点「成为焦点 = 进入范围」（D9）**：`PortalAnchor` 契约不读输入、不查物理，范围本来就由外部喂；
@@ -117,16 +120,17 @@ Interaction 不认识任何实现方；CharacterPuppet 不反向认识 Interacti
 | 玩家标记 | 每张玩法场景的玩家根挂一个 `InteractionActor`：SampleScene 的 `player`；世界灰盒 `HumanJingyang` / `YaoFangshi` 的 `Player`（第二波补挂） | 没有焦点、没有提示、交互键无效（让位条件第一条） |
 | HUD 地址 | Addressables（UI 组）`InteractPromptHudView` → `Prefabs/UI/InteractPromptHudView.prefab`，**地址等于类名** | 记 Error + 埋 `hud_open_failed`，交互键与点击 NPC 照常可用 |
 | HUD 预制体 | `root` / `button` → `Root`（底部居中 `(0, 72)`，高 48，`HorizontalLayoutGroup`，宽度运行时按文字算）；`keyLabel` → `KeyBadge/KeyText`；`label` → `Label`（弹性宽、单行省略号）；`icon` 可空 | 打开时 `Validate` 逐个点名抛出 |
+| 特殊动作 | HUD的`secondaryButton` / `secondaryLabel`接`SecondaryButton`（底部居中`(0,132)`，400×48）；同一焦点、同一HUD实例，显示「[F] 借用身份 · 名字」，键位从 Execute 绑定显示串读取 | 缺引用时按钮不显示；F 按键路径仍可执行 |
 | 实现方登记 | 场景登记器在 `sceneLoaded` 时 `Register`，卸载 / `Dispose` 时 `Unregister`；运行时 `Instantiate` 出来的对象要自己登记 | 不登记就永远不是焦点 |
 
 ## 埋点（模块名 `interaction`）
 
 | 事件 | 属性 | 位置 |
 | --- | --- | --- |
-| `focus_changed` | `target`（物体名）、`verb` | `InteractionFocus.cs:158`，只在变化时 |
-| `interacted` | `target`、`verb`、`via`（key / hud） | `InteractionFocus.cs:172` |
-| `interact_ignored` | `target`、`via`、`reason`=focus_changed_this_frame | `InteractionFocus.cs:169` |
-| `hud_open_failed`（Error） | 异常 | `InteractionFocus.cs:200` |
+| `focus_changed` | `target`（物体名）、`verb` | `InteractionFocus.cs`，只在变化时 |
+| `interacted` | `target`、`verb`、`via`（key / hud / secondary_key / secondary_hud） | `InteractionFocus.cs` |
+| `interact_ignored` | `target`、`via`、`reason`=focus_changed_this_frame | `InteractionFocus.cs` |
+| `hud_open_failed`（Error） | 异常 | `InteractionFocus.cs` |
 | `puppets_turned` | `target`、`player`（找到玩家小人没）、`npc`（找到目标小人没） | `InteractionPuppetPresenter.cs:88` |
 
 F 键让位记在模块 `stealth`：`stealth_execute_rejected`，`reason = interaction_focus`、`focus` = 焦点对象名（`ExecutionResolver.cs:186`）。
@@ -136,7 +140,7 @@ F 键让位记在模块 `stealth`：`stealth_execute_rejected`，`reason = inter
 | 类型 | 位置 | 覆盖 |
 | --- | --- | --- |
 | EditMode | `Tests/EditMode/Interaction/InteractionSelectorTests.cs` | 最近、半径外、半径恰好、≤ 0 不限距离、跳过不可交互 / 未激活 / 已销毁 / null、优先级只打平、等距取靠前 |
-| EditMode | `.../InteractionFocusTests.cs` | 四条让位各自清焦点且按键无效、本帧焦点刚变按键 / 点击不响应、换焦点那一帧谁都不触发、`OnInteracted` 一次、焦点对象被销毁（伪空）时清焦点但不回调它 |
+| EditMode | `.../InteractionFocusTests.cs` | 四条让位各自清焦点且按键无效、本帧焦点刚变按键 / 点击不响应、换焦点那一帧谁都不触发、`OnInteracted` 一次、焦点对象被销毁（伪空）时清焦点但不回调它；F 只执行特殊动作、不可用不回退对话、E / F / HUD 同帧只执行一次 |
 | EditMode | `.../InteractionRegistryTests.cs` | 重复登记忽略、注销按引用（两个已销毁对象不删错）、`SetActor` 事件含置空与同值不触发、标记先到 / 订阅方先到、卸载后重扫找回新标记 / 找不到置空 / 标记活着不重扫、卸载清已销毁候选 |
 | EditMode | `.../InteractionPuppetPresenterTests.cs` | 双方互相转向并保持、父链上的小人、目标没小人只转玩家、纯 C# 目标、玩家没小人时 NPC 照转、没有玩家标记谁都不转、`Dispose` 退订 |
 | EditMode | `.../InteractPromptHudViewTests.cs` | 键位回退「E」、「动词 · 名字」拼接、宽度夹取 |
@@ -148,7 +152,7 @@ F 键让位记在模块 `stealth`：`stealth_execute_rejected`，`reason = inter
 
 ## 已知约束
 
-- **只显示键盘键位**：徽章取 `Interact` 第一条 `<Keyboard>` 绑定的显示串（`InteractionFocus.cs:231`），打开时赋一次；手柄为主时不切换。
+- **只显示键盘键位**：普通 / 特殊动作分别取 `Interact` / `Execute` 第一条 `<Keyboard>` 绑定显示串（`InteractionFocus.cs`），打开时赋一次；手柄为主时不切换。
 - **面板打开动画那几帧焦点仍在**：任务 / 背包面板在 `await ui.OpenAsync` 之后才关 Gameplay 图（PRP §8 第一波第 1 条）。
 - **NPC 被交互后一直面向那个方向**：NPC 不走动，朝向保持不会自己解除；要「说完话转回去」得在小人门面加解除入口，本模块不做。
 - **按键型传送点的范围是三维距离**：世界灰盒里出口与玩家根同高（y 0），与旧的 XZ 判定等价；出口摆高了要相应放大 `triggerRadius`。
@@ -156,7 +160,7 @@ F 键让位记在模块 `stealth`：`stealth_execute_rejected`，`reason = inter
 
 ## 禁止事项
 
-- 不要在别处再读 `Gameplay/Interact`：`Runtime` 里只许 `InteractionFocus.cs:225` 一处（grep 可查）。不要复用 `Confirm`（确定性输入位）。
+- 不要在别处再读 `Gameplay/Interact`：`Runtime` 里只许 `InteractionFocus.cs` 一处（grep 可查）。不要复用 `Confirm`（确定性输入位）。
 - 不要在实现方里自己选焦点、自己读键、自己开提示：实现契约 + 登记，其余交给焦点系统。
 - 不要在实现方外部写 `Focused` 一类状态：只有焦点系统经 `OnFocusChanged` 回调能写。
 - 不要让焦点系统每帧 `Find`：候选只从 `IInteractionRegistry.Candidates` 读。

@@ -121,7 +121,7 @@ namespace Game.Identity
             }
         }
 
-        /// <summary>记一次露馅（仅在「规则层」露馅时调用，见 <see cref="IdentityRules.LosesIdentity"/>）。</summary>
+        /// <summary>记一次露馅（仅在「规则层」露馅时调用，见 <see cref="IdentityRules.LosesIdentity(ExposureCause)"/>）。</summary>
         internal void RecordExposure()
         {
             ExposureCount++;

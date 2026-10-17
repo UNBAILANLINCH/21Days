@@ -12,8 +12,9 @@
 //   · 先手方 / 进入方式 —— `07_回合制作战文档.md:18`（偷袭：玩家先手 + BOSS 生命 -20%）、
 //     `:23`（正面攻击：玩家先手）、`:28`（被打：BOSS 先手）；值取自 `BattleSession.Entry`。
 //   · 玩家怒气 —— `:50`（招式 1 使用后 +1 怒气）、`:52`（招式 2 消耗 1）、`:54`（招式 3 消耗 3）；
-//     怒气上限原文没给，是配置项 `PlayerSkillSettings.RageMax`（占位 3，等 C91），所以面板写「怒气 x/上限」。
-//   · 玩家生命 —— 原文没写玩家血量（`09_BOSS战.md:294`），由接线侧注入 `PlayerBattleSnapshot`，面板如实显示。
+//     怒气上限是配置项 `PlayerSkillSettings.RageMax`（sp07:132「最大怒气 3 点」，2026-10-16 起是原文值），
+//     所以面板写「怒气 x/上限」。
+//   · 玩家生命 —— sp07:129-133「最大生命值 120」（2026-10-16 起有出处），由接线侧注入 `PlayerBattleSnapshot`，面板如实显示。
 //   · 招式可用性 —— `:40`「在招式有足够怒气可以施放时，招式格显示高亮，否则置暗」的**白盒版**：
 //     正式界面用高亮 / 置暗，这里用「✓ 可施放 / ✗ 原因」表达同一件事，判定取 `PlayerBattleRules.CanCast` 与
 //     `PlayerSkillRules.RageCost`。
@@ -233,7 +234,7 @@ namespace Game.Tests.Showcase.TurnBased
             renderedLineCount++;
         }
 
-        /// <summary>剩余回合：配置 0 = 不限（原文只说「显示剩余回合」，上限多少等 C91），照实显示，不编数。</summary>
+        /// <summary>剩余回合：配置 0 = 不限（原文只说「显示剩余回合」，**上限多少到 2026-10-16 仍没给**，等 C91），照实显示，不编数。</summary>
         private string DescribeRoundsLeft()
         {
             int limit = settings.Flow.RoundLimit;

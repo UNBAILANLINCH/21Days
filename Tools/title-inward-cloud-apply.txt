@@ -1,0 +1,36 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("仍在播放，不能保存资产");
+string path="Assets/_Project/Prefabs/UI/TitleView.prefab";
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");
+var preserved=new System.Collections.Generic.Dictionary<int,string>();int clouds=0,stones=0;
+for(int i=0;i<tracks.arraySize;i++){
+ var t=tracks.GetArrayElementAtIndex(i);string name=t.FindPropertyRelative("part").stringValue;
+ bool cloud=name.StartsWith("云_")||name.StartsWith("雾气_");
+ bool stone=name=="石头_左中景"||name=="石头_右中景";
+ if(!cloud&&!stone){preserved.Add(i,UnityEngine.JsonUtility.ToJson(config.Tracks[i]));continue;}
+ t.FindPropertyRelative("linearFade").boolValue=true;t.FindPropertyRelative("subtleFade").boolValue=false;
+ if(cloud){t.FindPropertyRelative("fadeSeconds").floatValue=t.FindPropertyRelative("duration").floatValue;clouds++;}
+ else{
+  bool left=name=="石头_左中景";
+  t.FindPropertyRelative("offset").vector2Value=new UnityEngine.Vector2(left?-180f:180f,left?40f:35f);
+  t.FindPropertyRelative("delay").floatValue=left?0.52f:0.6f;
+  t.FindPropertyRelative("duration").floatValue=1.25f;t.FindPropertyRelative("fadeSeconds").floatValue=1.25f;
+  t.FindPropertyRelative("scale").floatValue=1f;
+  t.FindPropertyRelative("curve").animationCurveValue=new UnityEngine.AnimationCurve(
+   new UnityEngine.Keyframe(0f,0f,0.7f,0.7f),new UnityEngine.Keyframe(0.55f,0.78f,1f,1f),new UnityEngine.Keyframe(1f,1f,0f,0f));
+  stones++;
+ }
+}
+if(clouds!=4||stones!=2)throw new System.InvalidOperationException("云雾或中景轨道数量不符");
+data.ApplyModifiedPropertiesWithoutUndo();
+foreach(var p in preserved)if(p.Value!=UnityEngine.JsonUtility.ToJson(config.Tracks[p.Key]))throw new System.InvalidOperationException("其他轨道被修改");
+var root=UnityEditor.PrefabUtility.LoadPrefabContents(path);
+try{
+ int fills=0;
+ foreach(string name in new string[]{"SettingsButton","LoadButton","ContinueButton","QuitButton"}){
+  var paper=root.transform.Find("Buttons/"+name+"/EntranceArtwork/卷轴底");
+  var fill=paper.Find("底部渐变").GetComponent<UnityEngine.UI.Image>();fill.enabled=false;fills++;
+ }
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,path);UnityEditor.AssetDatabase.SaveAssets();
+ return new {inwardStones=stones,wholeMotionFades=clouds,bakedBottomGradients=fills,preservedTracks=preserved.Count};
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

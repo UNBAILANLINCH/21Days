@@ -25,7 +25,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | `ExecutionInteractor` | 交互层的 MonoBehaviour：读 `Gameplay/Execute`、按 F 键归属裁决（交互焦点在场就让位，D6）、选最近的可处决目标、采快照交给上面两层。**本模块唯一依赖 Monster / Player / Narrative / Interaction 的文件**（见「依赖方向」） |
 | `KnockdownRules` | 击倒状态机（倒地 → 挣扎 → 起身）+ `DownedHitPolicy` 三口径开关 |
 | `ChaseRules` | 触发 / 摆脱 / 推进三判定 + `ChaseBaseline` 速度校验（**追兵必须快过步行、不快过奔跑**） |
-| `ChaseCaughtRules` | 「被抓」后果的五口径策略（纯函数，只答「该发生什么」） |
+| `ChaseCaughtRules` | 「被抓」后果的五口径策略 + 次数口径（纯函数，只答「该发生什么」；`FailAfterCaughtCount = 0` = 不按次数判死） |
 | `SummonRules` | 追逐编队数据形状（成员、召唤半径、集群规模、巡逻段）+ 召唤判定 + 落点布局 + 编队静态校验 |
 | `FixedChasePlanner` | 脚本化「固定追逐」路线的读法（当前段 / 推进 / 总长 / 终点判定） |
 | `StealthFactKeys` | **字典键常量的唯一出处** + 瞬时态内存快照 `StealthFactSnapshot` + 档位换算 |
@@ -91,6 +91,22 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 | 挨打：击倒 vs 死亡 | `DownedHitPolicy`：`KnockdownOnly`（sp00）/ `HealthDeath`（mai）/ `KnockdownThenDeath`（折中占位）。**状态机只有一份**，口径只改「血尽死不死」与「再挨打重不重置」 | `00_功能总览.md` §5 **C5**、§8.1 #4 |
 | 被抓：击倒 / 死亡 / 追逐 | `ChaseCaughtPolicy`：`Knockdown` / `Death`（变回原主）/ `HealthDeath` / `ScriptedSetpiece` / `None` + 折中 | `00` §5 **C1**、§8.1 #3 |
 | 掩体做不做 | `WritesCoverFact=false` 时规则照跑、测试照测，只是**不对外写** `stealth.cover` | `00` §5 **C6**、§8.1 #6 |
+
+### 被抓的后果：口径 + 「几次算失败」（2026-10-14 起第二项也做成配置）
+
+| 配置 | 代码默认值 | 资产现值 | 行为 |
+| --- | --- | --- | --- |
+| `StealthConfig.chaseCaughtPolicy` | `KnockdownThenDeath`（占位口径） | `KnockdownThenDeath` | 五个口径见上表；只有 `KnockdownThenDeath` 会同时看血量与次数 |
+| `StealthConfig.chaseCaughtFailCount` | **`0`**（2026-10-16 从占位 2 改过来） | `0` | **`0` = 不按次数判死**，被抓多少次都只击倒，**生命归零才判死**（用户 2026-10-14 拍板「先击倒，没血才判死」）；正数 = 第 N 次被抓直接判死；负数非法（构造时抛） |
+
+- **代码默认值为什么也是 0**：其余字段的约定是「代码默认值 = 旧行为」，但这一格是**被推翻的占位口径**——
+  留着 2 会让任何新建的配置悄悄继承「第 2 次被抓判死」。口径由用户拍板，不留给占位值（2026-10-16 代码审查指出后改）。
+- ⚠️ **`caughtCountSoFar` 数的不是「同一场追逐里被抓几次」**：它取自击倒次数（`KnockdownRules.KnockdownCount`），
+  只在换阶段时清零，所以实际是**跨遭遇累计**的击倒次数。资产填 0 后这个问题不起作用；要改回按次数判死，
+  得先重新定义这个计数。
+- **生产调用点**：`EncounterStep` 存下内核的 `ChaseOutcomeSettings`，被抓那一刻按**实时血量**重建一份再调
+  `ChaseCaughtRules.Resolve`（见 monster guide）；纯函数本身零生产调用方之外的依赖。
+- 配置校验：`StealthConfigValidation` 对 `chaseCaughtFailCount` 放开 0、仍拒负数（`Validate_ZeroFailCount_MeansNotByCount_Passes`）。
 
 > **2026-10-08 更新（掩体贯通到怪物察觉）**：`00` §8.1 #6「掩体与视线遮挡做不做」**已由主窗口拍板「做」**，
 > 且缺口不在「做不做」而在「做了之后要不要贯通」——本波把视锥那两档接上了遮挡。
@@ -196,7 +212,12 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
     战斗结果目前**没有消费方**（`PRP/battle-to-narrative` §2.1），所以遭遇不会自己收尾。回放把这一条
     **显式钉成检查点**，不让它看着像功能坏了。
 
-- 配置资产：`Assets/_Project/Data/Stealth/StealthConfig.asset`（28 字段与 C# 声明逐一对齐）。
+- 配置资产：`Assets/_Project/Data/Stealth/StealthConfig.asset`（28 字段与 C# 声明逐一对齐；
+  被抓两项现值为 `chaseCaughtPolicy = KnockdownThenDeath`、`chaseCaughtFailCount = 0`，
+  与代码默认值同口径，见上文「被抓的后果」）。
+- **回放**：`Assets/_Project/Scripts/Tests/Showcase/Stealth/StealthShowcase.cs`。2026-10-14 起处决改成
+  「多目标 + 只认主怪结算」，巡夜人（附加完整参与者）被处决时它自己死、掉落，**整场不结算**
+  （`ExecuteKey_OnXunye_DropsWithoutEndingEncounter`）。跑法 `/verify-module Stealth`。
 
 ## 接线后的表现清单（回放要验什么）
 

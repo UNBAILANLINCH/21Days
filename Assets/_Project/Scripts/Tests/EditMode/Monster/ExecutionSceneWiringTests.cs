@@ -7,7 +7,8 @@
 //     ③ 负对照一：不调 BindExecution 时组件仍未接线，按 F 什么都不发生、也不埋点；
 //     ④ 负对照二：容器里**没有 StealthInstaller** 时仍能接线（判定内核是可选依赖，独立原型场景与
 //        纯 Monster 的测试作用域都没有它）；
-//     ⑤ 负对照三：物种不是「暗杀」的怪（真表第一条）照样被拒——物种门槛没有因为接线而失效。
+//     ⑤ 负对照三：物种不是「暗杀」的怪（真表种类 1002）照样被拒——物种门槛没有因为接线而失效。
+//        （原先取「真表第一条」= 1001 巡夜人；2026-10-15 用户拍板它改为「暗杀」、可被处决，负对照改指名 1002。）
 // 为什么新建：`ExecutionInteractorTests` 是「手工 new 出规则再手工 Configure」，测的是组件自己好用；
 //   `EncounterKernelWiringTests` 守的是身份与潜行内核的装配。**「场景里那只组件被正式流程 Configure 上了」**
 //   这一条此前没有覆盖，而它正是这一波的全部内容（判定 / 结算 / 交互三层当时已经全绿）。
@@ -48,8 +49,11 @@ namespace Game.Tests.EditMode.Monster
         /// <summary>真表里只能靠暗杀解决的那只（`yao/3.json`：killable=false + defeat_method=暗杀）。</summary>
         private const int ExecutableKindId = 1003;
 
-        /// <summary>0 = 用 monster_species 表里第一条种类（第一条是「可击杀（方式没写）」）。</summary>
-        private const int FirstTableKindId = 0;
+        /// <summary>
+        /// 真表里**不可处决**的种类：`monster_species/1002.json` → `yao/2.json`（井边妇人，可击杀（方式没写））。
+        /// 2026-10-15 之前这里是 0（= 表里第一条 1001 巡夜人）；巡夜人改成「暗杀」后（用户拍板）就不再是负对照，改为指名。
+        /// </summary>
+        private const int NonExecutableKindId = 1002;
 
         private GameObject host;
         private GameObject interactorHost;
@@ -151,6 +155,43 @@ namespace Game.Tests.EditMode.Monster
                 "埋点走的是容器里那套 ITelemetryService（接线时给的是 stealth 作用域）");
         }
 
+        /// <summary>
+        /// 多目标接线（PRP/combat-iteration D2）：BindExecution 喂的是「主怪 + 完整参与者」。
+        /// 正向：站在勾了完整参与者的附加怪背后按 F → 它死，但不结算整场、主怪无恙；
+        /// 负对照：字段为默认值的巡逻者乙即便物种可处决、站位也对，按 F 也处决不了它——它不在名单里（与改动前一致）。
+        /// </summary>
+        [Test]
+        public void BindExecution_TargetsPrimaryAndFullParticipants_DefaultAdditionalIsNotATarget()
+        {
+            Build(ExecutableKindId, withStealth: true);
+            MonsterEncounterState state = container.Resolve<MonsterEncounterState>();
+            EncounterStep step = container.Resolve<EncounterStep>();
+            MonsterRules monster = container.Resolve<MonsterRules>();
+            Vector2[] primaryRoute = { new Vector2(30f, 0f), new Vector2(35f, 0f) };
+            // 场景视图那一步（view.ConfigureTaming）的替身：主怪远在 30 米外，巡逻者乙在原点，第三只（完整参与者）在 10 米处。
+            step.ConfigureTaming("player", "玩家", new[] { "enerme", "patrol_b", "xunye" }, new[] { "甲", "乙", "巡夜人" },
+                new[] { primaryRoute, new[] { Vector2.zero, new Vector2(5f, 0f) }, new[] { new Vector2(10f, 0f), new Vector2(15f, 0f) } },
+                new[] { 0, 0, ExecutableKindId }, new[] { false, false, true });
+            ExecutionInteractor interactor = NewSceneInteractor();
+            state.BindExecution(interactor);
+            step.Begin(new Vector2(-0.5f, 0f), primaryRoute);
+            MonsterRules patrolB = step.Taming.GetTarget("patrol_b");
+            MonsterRules third = step.Taming.GetTarget("xunye");
+            Assert.That(patrolB.Kind.DefeatMethod, Is.EqualTo(YaoCatalog.AssassinationMethod),
+                "前提：巡逻者乙沿用主怪种类（市令，可处决）——它处决不了只能是因为不在名单里");
+
+            Tick(step, 0f, sneak: true);
+            Assert.That(interactor.TryExecute().Allowed, Is.False, "站在巡逻者乙背后 0.5 米：它不是处决目标");
+            Assert.That(patrolB.Model.Health, Is.GreaterThan(0));
+
+            step.CorrectPlayerPosition(new Vector2(9.5f, 0f));
+            Tick(step, 0f, sneak: true);
+            Assert.That(interactor.TryExecute().Allowed, Is.True, "完整参与者在处决名单里");
+            Assert.That(third.Model.Health, Is.Zero);
+            Assert.That(monster.Model.Health, Is.GreaterThan(0), "主怪无恙");
+            Assert.That(step.BattleSettlement.HasValue, Is.False, "处决附加怪不结算整场");
+        }
+
         // ──────────────────────── 负对照 ────────────────────────
 
         /// <summary>
@@ -213,13 +254,13 @@ namespace Game.Tests.EditMode.Monster
         }
 
         /// <summary>
-        /// 负对照：物种不是「暗杀」的怪（表里第一条，`可击杀（方式没写）`）在**同一套装配**下照样被拒——
+        /// 负对照：物种不是「暗杀」的怪（种类 1002，`可击杀（方式没写）`）在**同一套装配**下照样被拒——
         /// 位置条件成立、卡在物种门槛，且拒绝不写事实、不杀怪，但必须留一条拒绝埋点。
         /// </summary>
         [Test]
         public void WithANonExecutableSpecies_TheBackstabIsRejected_AndNothingIsWritten()
         {
-            Build(FirstTableKindId, withStealth: true);
+            Build(NonExecutableKindId, withStealth: true);
             MonsterEncounterState state = container.Resolve<MonsterEncounterState>();
             EncounterStep step = container.Resolve<EncounterStep>();
             MonsterRules monster = container.Resolve<MonsterRules>();
@@ -231,7 +272,7 @@ namespace Game.Tests.EditMode.Monster
             // 种类同样只有 Begin（Reset）之后才查得到，读早了是 null（会 NRE）。
             Assert.That(monster.Kind, Is.Not.Null, "容器里那只怪没拿到种类");
             Assert.That(monster.Kind.DefeatMethod, Is.Not.EqualTo(YaoCatalog.AssassinationMethod),
-                "前提：表里第一条不是「暗杀」那条");
+                "前提：种类 1002 不是「暗杀」那条");
 
             Tick(step, 0f, sneak: true);
 

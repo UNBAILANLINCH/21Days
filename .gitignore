@@ -100,3 +100,34 @@ Assets/InitTestScene*.unity.meta
 
 # Laila 嘴部生成诊断明细：保留本地与已核验备份，仓库只跟踪小统计摘要。
 /PRP/laila-mouth-repair-20261002/candidate3-teeth.json
+
+# 历史图册、过程记录与实施快照：保留原文件，供复核或迁出；已跟踪报告不受影响。
+/PRP/rhythm-architecture-20261004/
+/PRP/boot-authoring-review-20261005/
+/PRP/font-merge-20261007/
+/PRP/taming-multi-control/
+/PRP/Blender材质完整导出教程.txt
+/PRP/laila-recognition-20261003/realtime-progress.json
+/PRP/laila-recognition-20261003/realtime-progress.jsonl
+/PRP/laila-recognition-20261003/inspector-final-verification.json
+/PRP/rhythm-clock-calibration-fix-20261005/
+/PRP/rhythm-final-regression-fix-20261005/
+/PRP/rhythm-real-calibration-diagnostic-20261005/
+/PRP/rhythm-library-increment-review-20261005/confidence-combat-review.md
+/PRP/rhythm-song-progression-20261004/*.cs.txt
+/PRP/rhythm-song-progression-20261004/RhythmDemo.before.unity.txt
+/PRP/rhythm-song-progression-20261004/HANDOVER-fragment.md
+/PRP/rhythm-song-progression-20261004/docs/
+/PRP/rhythm-song-progression-20261004/tests/
+/PRP/rhythm-song-progression-20261004/verify-pure.ps1
+/PRP/rhythm-song-progression-20261004/verify-candidate-api.ps1
+/ML/expression-recognition/analysis/laila_v2_candidate/RefreshEditorPoints-lifecycle.patch
+
+# Unity 构建与拓扑导入缓存；资产和对应 meta 一起排除。
+/Assets/NewShaderVariants.shadervariants
+/Assets/NewShaderVariants.shadervariants.meta
+/Assets/Resources/
+/Assets/Resources.meta
+/Assets/_Project/Art/fbx/TDImportCache/
+/Assets/_Project/Art/fbx/TDImportCache.meta
+/ProjectSettings/ScriptableBuildPipeline.json

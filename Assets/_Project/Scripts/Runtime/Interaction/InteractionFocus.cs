@@ -40,7 +40,9 @@ namespace Game.Interaction
         private IDisposable bootSubscription;
         private InteractPromptHudView hud;
         private int focusChangedFrame = int.MinValue;
+        private int interactedFrame = int.MinValue;
         private bool disposed;
+        private IInteractable selected;
 
         /// <param name="frameCounter">当前帧号来源，判「焦点本帧刚变」用；为 null 时取 <see cref="Time.frameCount"/>（测试注入可控的帧号）。</param>
         public InteractionFocus(IInteractionRegistry registry, IUIService ui, IHudVisibility hudVisibility,
@@ -87,22 +89,25 @@ namespace Game.Interaction
             bool gameplayEnabled = actions != null && actions.Gameplay.enabled;
             InputAction interact = InteractAction(actions);
             bool pressed = gameplayEnabled && interact.WasPressedThisFrame(); // lint-ok: 交互键全工程只在这里读（PRP/interaction D1），不进 InputCommand、不复用 Confirm
-            Advance(gameplayEnabled, pressed);
+            bool secondaryPressed = gameplayEnabled && actions.Gameplay.Execute.WasPressedThisFrame(); // lint-ok: F 特殊动作与处决共用 Execute，处决在焦点非空时让位。
+            Advance(gameplayEnabled, pressed, secondaryPressed);
         }
 
         /// <summary>
         /// 一帧的完整判定：让位 → 选焦点 → 焦点变化 → 按键。<see cref="Tick"/> 读完输入后调它；测试直接调它喂「Gameplay 图开没开、按没按」。
         /// 焦点在本帧变化时，本帧的按键不响应（D4：防止关掉对白的那一下顺手开箱）。
         /// </summary>
-        public void Advance(bool gameplayMapEnabled, bool interactPressed)
+        public void Advance(bool gameplayMapEnabled, bool interactPressed, bool secondaryPressed = false)
         {
             if (disposed) return;
             InteractionActor actor = registry.Actor;
             bool yielding = ShouldYield(actor != null, gameplayMapEnabled, hudVisibility.IsHudHidden, worldPause.IsPaused);
-            IInteractable next = yielding ? null : InteractionSelector.Select(actor.Anchor.position, registry.Candidates);
+            if (yielding || !CanFocus(selected)) selected = null;
+            IInteractable next = yielding ? null : selected ?? InteractionSelector.Select(actor.Anchor.position, registry.Candidates);
             // 引用比较：旧焦点随场景销毁成伪空时，Unity 的 == 会把它和 null 判成相等，订阅者就收不到「焦点清空」。
             if (!ReferenceEquals(next, Current)) SetFocus(next);
             if (interactPressed) TryInteract("key");
+            else if (secondaryPressed) TrySecondaryInteract("secondary_key");
         }
 
         /// <summary>
@@ -117,6 +122,47 @@ namespace Game.Interaction
             TryInteract("hud");
         }
 
+        public void RequestSecondaryInteract()
+        {
+            if (disposed) return;
+            GameInput actions = input.Actions; // lint-ok: 只判动作图是否启用，不采样输入。
+            if (ShouldYield(registry.Actor != null, actions != null && actions.Gameplay.enabled,
+                hudVisibility.IsHudHidden, worldPause.IsPaused)) return;
+            TrySecondaryInteract("secondary_hud");
+        }
+
+        private void TrySecondaryInteract(string via)
+        {
+            IInteractable target = Current;
+            if (!CanFocus(target) || frameCounter() == focusChangedFrame || frameCounter() == interactedFrame) return;
+            if (!(target is ISecondaryInteractable secondary) || !secondary.CanInteractSecondary) return;
+            interactedFrame = frameCounter();
+            telemetry.Track("interacted", ("target", Describe(target)), ("verb", secondary.SecondaryPrompt.Verb ?? string.Empty), ("via", via));
+            secondary.InteractSecondary();
+            OnInteracted?.Invoke(target);
+            if (hud != null) hud.ShowSecondary(Current as ISecondaryInteractable);
+        }
+
+        public void RequestFocus(IInteractable target)
+        {
+            if (disposed) return;
+            GameInput actions = input.Actions; // lint-ok: 点选只判动作图是否启用，不采样玩法输入。
+            if (ShouldYield(registry.Actor != null, actions != null && actions.Gameplay.enabled,
+                hudVisibility.IsHudHidden, worldPause.IsPaused) || !CanFocus(target)) return;
+            selected = target;
+            if (!ReferenceEquals(Current, target)) SetFocus(target);
+        }
+
+        private bool CanFocus(IInteractable target)
+        {
+            InteractionActor actor = registry.Actor;
+            if (actor == null || !InteractionSelector.IsAvailable(target) || !target.CanInteract ||
+                (target.InteractionRadius > 0 && Vector3.Distance(actor.Anchor.position, target.Position) > target.InteractionRadius)) return false;
+            foreach (IInteractable candidate in registry.Candidates)
+                if (ReferenceEquals(candidate, target)) return true;
+            return false;
+        }
+
         public void Dispose()
         {
             if (disposed) return;
@@ -128,10 +174,12 @@ namespace Game.Interaction
             }
             IInteractable old = Current;
             Current = null;
+            selected = null;
             if (old != null && !IsDestroyed(old)) old.OnFocusChanged(false);
             if (hud != null)
             {
                 hud.OnInteract -= RequestInteract;
+                hud.OnSecondaryInteract -= RequestSecondaryInteract;
                 CloseHudAsync(hud).Forget();
             }
             hud = null;
@@ -153,6 +201,7 @@ namespace Game.Interaction
             {
                 if (next != null) hud.Show(next.Prompt);
                 else hud.Hide();
+                hud.ShowSecondary(next as ISecondaryInteractable);
             }
 
             telemetry.Track("focus_changed", ("target", Describe(next)), ("verb", next == null ? string.Empty : next.Prompt.Verb ?? string.Empty));
@@ -162,13 +211,14 @@ namespace Game.Interaction
         private void TryInteract(string via)
         {
             IInteractable target = Current;
-            if (target == null || IsDestroyed(target)) return;
+            if (!CanFocus(target) || frameCounter() == interactedFrame) return;
             if (frameCounter() == focusChangedFrame)
             {
                 // 焦点本帧刚变：不响应（D4）。只在按键 / 点击的那一帧走到，不是每帧。
                 telemetry.Track("interact_ignored", ("target", Describe(target)), ("via", via), ("reason", "focus_changed_this_frame"));
                 return;
             }
+            interactedFrame = frameCounter();
             telemetry.Track("interacted", ("target", Describe(target)), ("verb", target.Prompt.Verb ?? string.Empty), ("via", via));
             target.Interact();
             OnInteracted?.Invoke(target);
@@ -189,10 +239,15 @@ namespace Game.Interaction
                 hud = opened;
                 hud.OnInteract -= RequestInteract;
                 hud.OnInteract += RequestInteract;
+                hud.OnSecondaryInteract -= RequestSecondaryInteract;
+                hud.OnSecondaryInteract += RequestSecondaryInteract;
                 // 键位徽章只在打开时赋一次（改键 UI 尚无，运行中不会变）。
                 hud.SetKeyText(ReadKeyboardDisplay(InteractAction(input.Actions))); // lint-ok: 只读绑定显示串做提示文字，不读输入值
+                GameInput actions = input.Actions; // lint-ok: 只读取绑定显示串，不采样输入。
+                hud.SetSecondaryKeyText(ReadKeyboardDisplay(actions == null ? null : actions.Gameplay.Execute));
                 if (Current != null) hud.Show(Current.Prompt);
                 else hud.Hide();
+                hud.ShowSecondary(Current as ISecondaryInteractable);
             }
             catch (Exception e)
             {
@@ -220,7 +275,7 @@ namespace Game.Interaction
             }
         }
 
-        // 全工程唯一取交互键动作（Gameplay/Interact，E / F / 手柄 A）的地方：按键与键位徽章都经这里取。
+        // 全工程唯一取普通交互键动作（Gameplay/Interact，E / 手柄 South）的地方：按键与键位徽章都经这里取。
         // 不复用 Confirm（它是 LiveInputSource 采样的确定性输入位，PRP/interaction §5 第 7 条）。
         private static InputAction InteractAction(GameInput actions) => actions == null ? null : actions.Gameplay.Interact; // lint-ok: 交互不进逻辑帧、不影响回放，交互键只在这里取
 

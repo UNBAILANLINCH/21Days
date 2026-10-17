@@ -11,6 +11,13 @@
 //   冲刺也不跟：一来一回只有半秒多，跟着走只会让条横飞一趟；而且冲到对手身前那一刻，攻击方的条会正好压在对手的条上，
 //   挡住此刻最该看清的对手掉血。条留在原位，人回来时自然对上。飘字同样从站立头顶起飘。
 // 胜负大字（ShowResultAsync）与「跳过回合」等中央提示是同一条深色横条 + 白字，区别只是不淡出、留到落幕收场。
+// 表现补间（飘字、中央提示淡入淡出）跟着面板的生命周期走（PRP/combat-iteration W7c）：
+//   · 面板没在显示（被全屏面板盖住 = UIService 把它 SetActive(false)，或已关）时不开补间——看不见，而且这时 AddTo 挂上的
+//     LitMotion 链接件所在物体没激活过，Awake / OnDestroy 都不会跑，面板随后被销毁也没人掐句柄。W6b Monster 回放
+//     （批次 20261016-000310）就是这样：回合制进行中流程退回标题，标题面板盖住战斗界面，BOSS 那一下的伤害飘字恰好此时起飘，
+//     根作用域销毁面板后 Bind 回调每帧写已销毁的 RectTransform（MissingReferenceException）。
+//   · 起了的补间都挂在面板本体上（AddTo(gameObject)，面板被直接销毁时掐断），飘字另记进 floatMotions，OnCloseAsync 统一掐掉收回。
+//   · 飘字回调写之前再判一次字还在不在：上面两条之外的最后一道（例如 EditMode 下 MonoBehaviour 不跑 OnDestroy）。
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -114,6 +121,9 @@ namespace Game.Battle
         private readonly List<Image> ragePips = new List<Image>();
         private readonly List<BattleStatusEntry> statusBuffer = new List<BattleStatusEntry>();
         private readonly List<TMP_Text> floatPool = new List<TMP_Text>();
+
+        /// <summary>在飘的字的补间句柄：关面板时统一掐掉（OnCancel 把字收回池里），见文件头「表现补间跟着面板的生命周期走」。</summary>
+        private readonly CompositeMotionHandle floatMotions = new CompositeMotionHandle();
         private Camera stageCamera;
         private Vector3 playerHead;
         private Vector3 bossHead;
@@ -172,6 +182,7 @@ namespace Game.Battle
         {
             Unhook();
             if (hintMotion.IsActive()) hintMotion.Cancel();
+            floatMotions.Cancel();
             stageCamera = null;
             anchored = false;
             return UniTask.CompletedTask;
@@ -256,10 +267,11 @@ namespace Game.Battle
         /// <summary>
         /// 在 <paramref name="anchorWorld"/>（世界坐标，通常是 <see cref="BattleActor.StandingHeadPosition"/>）上方飘一行字：上升并淡出，不阻塞。
         /// <paramref name="lane"/> 是起点往上错开几行（同一时刻飘两行字时不叠在一起）。
+        /// 面板没在显示（被全屏面板盖住 / 已关）时什么都不做，理由见文件头。
         /// </summary>
         public void ShowFloat(Vector3 anchorWorld, string text, BattleFloatTone tone, bool big, int lane)
         {
-            if (string.IsNullOrEmpty(text) || !TryProject(anchorWorld, out Vector2 local)) return;
+            if (!gameObject.activeInHierarchy || string.IsNullOrEmpty(text) || !TryProject(anchorWorld, out Vector2 local)) return;
             TMP_Text label = TakeFloat();
             label.text = text;
             label.fontSize = floatTemplate.fontSize * (big ? 1.5f : 1f);
@@ -270,18 +282,26 @@ namespace Game.Battle
             rect.anchoredPosition = start;
             label.gameObject.SetActive(true);
             float rise = floatRise * (big ? 1.3f : 1f);
-            LMotion.Create(0f, 1f, floatSeconds)
+            MotionHandle motion = LMotion.Create(0f, 1f, floatSeconds)
                 .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
-                .WithOnComplete(() => label.gameObject.SetActive(false))
-                .WithOnCancel(() => label.gameObject.SetActive(false))
+                .WithOnComplete(() => HideFloat(label))
+                .WithOnCancel(() => HideFloat(label))
                 .Bind(t =>
                 {
+                    if (label == null) return; // 面板被整个销毁而句柄没被掐到：不写已销毁的对象（最后一道，见文件头）
                     rect.anchoredPosition = start + new Vector2(0f, rise * t);
                     Color c = color;
                     c.a = 1f - t * t;
                     label.color = c;
                 })
-                .AddTo(label.gameObject);
+                .AddTo(gameObject);
+            floatMotions.Add(motion);
+        }
+
+        // 飘完 / 被掐：收回池里（字已随面板销毁就不碰）。
+        private static void HideFloat(TMP_Text label)
+        {
+            if (label != null) label.gameObject.SetActive(false);
         }
 
         private void LateUpdate() => FollowHeads();
@@ -451,11 +471,20 @@ namespace Game.Battle
             if (tooltipGroup != null) tooltipGroup.alpha = 0f;
         }
 
-        private MotionHandle FadeHint(float from, float to) =>
-            LMotion.Create(from, to, hintFadeSeconds)
+        // 面板没在显示时不开补间、直接到终值（理由见文件头）：返回的空句柄不活跃，调用方 await 它立即返回，停留时长照旧。
+        private MotionHandle FadeHint(float from, float to)
+        {
+            if (!gameObject.activeInHierarchy)
+            {
+                hintGroup.alpha = to;
+                return default;
+            }
+
+            return LMotion.Create(from, to, hintFadeSeconds)
                 .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                 .BindToAlpha(hintGroup)
                 .AddTo(gameObject);
+        }
 
         private BattleSlotWidget ItemSlotAt(int index)
         {

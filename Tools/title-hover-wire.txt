@@ -1,0 +1,56 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.Exception("请先退出 Play");
+string[] directories = { "Yang", "Yin" };
+for (int i = 0; i < directories.Length; i++)
+{
+    string path = "Assets/_Project/Art/Sprites/UI/Title/" + directories[i] + "/ui_title_start_selected.png";
+    UnityEditor.AssetDatabase.ImportAsset(path);
+    var importer = (UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(path);
+    importer.textureType = UnityEditor.TextureImporterType.Sprite;
+    importer.spriteImportMode = UnityEditor.SpriteImportMode.Single;
+    importer.mipmapEnabled = false;
+    importer.textureCompression = UnityEditor.TextureImporterCompression.Uncompressed;
+    importer.alphaIsTransparency = true;
+    importer.filterMode = UnityEngine.FilterMode.Bilinear;
+    importer.maxTextureSize = 4096;
+    importer.SaveAndReimport();
+}
+var yang = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/_Project/Art/Sprites/UI/Title/Yang/ui_title_start_selected.png");
+var yin = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/_Project/Art/Sprites/UI/Title/Yin/ui_title_start_selected.png");
+string prefab = "Assets/_Project/Prefabs/UI/TitleView.prefab";
+var root = UnityEditor.PrefabUtility.LoadPrefabContents(prefab);
+try
+{
+    var button = root.transform.Find("Buttons/StartButton").GetComponent<UnityEngine.UI.Button>();
+    var art = button.transform.Find("EntranceArtwork");
+    var legacy = button.GetComponent<UnityEngine.UI.Image>();
+    var image = art.GetComponent<UnityEngine.UI.Image>();
+    if (image == null) image = art.gameObject.AddComponent<UnityEngine.UI.Image>();
+    image.sprite = legacy.sprite;
+    image.preserveAspect = true; image.raycastTarget = true;
+    legacy.enabled = false;
+    button.targetGraphic = image;
+    button.transition = UnityEngine.UI.Selectable.Transition.SpriteSwap;
+    var state = button.spriteState;
+    state.highlightedSprite = yang; state.selectedSprite = yang; state.pressedSprite = yang;
+    state.disabledSprite = legacy.sprite;
+    button.spriteState = state;
+    var motion = new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.TitleEntranceMotion>());
+    motion.FindProperty("startImage").objectReferenceValue = image;
+    motion.ApplyModifiedPropertiesWithoutUndo();
+    var view = new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.Views.TitleView>());
+    var rows = view.FindProperty("alternateButtons");
+    bool assigned = false;
+    for (int i = 0; i < rows.arraySize; i++)
+    {
+        var row = rows.GetArrayElementAtIndex(i);
+        if (row.FindPropertyRelative("button").objectReferenceValue != button) continue;
+        row.FindPropertyRelative("alternateSelected").objectReferenceValue = yin;
+        assigned = true;
+    }
+    if (!assigned) throw new System.Exception("开始按钮未在主题映射中");
+    view.ApplyModifiedPropertiesWithoutUndo();
+    UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, prefab);
+    UnityEditor.AssetDatabase.SaveAssets();
+    return new { normal = image.sprite.name, yangSelected = yang.name, yinSelected = yin.name, graphic = button.targetGraphic.name, parts = art.childCount };
+}
+finally { UnityEditor.PrefabUtility.UnloadPrefabContents(root); }

@@ -255,6 +255,41 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(HasEvent("narrative/battle_result_rejected"), Is.False, "demo 内容声明了 Downed，不许再走拒绝那条路");
         }
 
+        /// <summary>
+        /// 实时遭遇升级回合制（PRP/combat-iteration D5）打赢主怪 → 遭遇当场判 Victory → 桥**原样**在下一 tick 取走、回写 cleared。
+        /// 钉的是「桥不改也接得住升级那一路」：完成升级发生在 tick 之外（战斗收场的黑幕下），结果照旧经 `BattleSettlement` 交给桥。
+        /// </summary>
+        [Test]
+        public void EscalationVictoryOnPrimary_IsTakenAndForwardedByTheBridge()
+        {
+            var serialized = new SerializedObject(monsterConfig);
+            // 三个开关全开：登记那一 tick 里怪可能已贴身察觉到玩家，这一刀落成偷袭还是正面攻击都不影响本条要钉的事。
+            serialized.FindProperty("escalateOnSneakStrike").boolValue = true;
+            serialized.FindProperty("escalateOnFrontalStrike").boolValue = true;
+            serialized.FindProperty("escalateWhenStruck").boolValue = true;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            step.BindEscalation(new AcceptingEscalationPort());
+            step.Begin(Vector2.zero, new[] { new Vector2(0.5f, 0f), new Vector2(10f, 0f) }); // 怪在玩家右侧 0.5 米、背对玩家
+            BattleStageEnteredEvent stage = ReachLiveEncounter();
+            Tick();
+            Assert.That(step.EncounterId, Is.EqualTo(stage.ActivationId), "前提：桥给这一场登了记");
+
+            SimulationContext attack = NewContext(InputCommand.ButtonAttack);
+            step.Step(in attack);
+            bridge.Step(in attack);
+            Assert.That(step.IsEscalating, Is.True, "前提：玩家这一刀升级成了回合制");
+
+            Assert.That(step.CompleteEscalation(true, 10, 10), Is.True); // 战斗侧在收场黑幕下交回「打赢」
+            Assert.That(step.PendingResult, Is.EqualTo(EncounterStep.Result.Victory));
+
+            Tick();
+            Assert.That(step.ResultConsumed, Is.True, "桥照常取走");
+            bridge.Tick();
+
+            Assert.That(main.Narrative.Capture().Current, Is.Null);
+            Assert.That(main.Narrative.Capture().StoryFlags, Has.Member("world.samplebattle.cleared"));
+        }
+
         // ────────────────────── 负对照 ──────────────────────
 
         /// <summary>
@@ -518,10 +553,25 @@ namespace Game.Tests.EditMode.Monster
             bridge.Step(in context);
         }
 
-        private static SimulationContext NewContext()
+        private static SimulationContext NewContext(uint buttons = 0u)
         {
-            var command = new InputCommand(Vector2.zero, Vector2.zero, 0u, Vector2.zero, 0);
+            var command = new InputCommand(Vector2.zero, Vector2.zero, buttons, Vector2.zero, 0);
             return new SimulationContext(0, 0.1f, in command, new RandomService(3ul));
+        }
+
+        /// <summary>
+        /// 一律接受、什么都不做的升级端口：本组只关心「升级打赢之后结果怎么走到剧情」，
+        /// 战斗侧（BattleFlow 的遭遇版）由 `Battle/BattleFlowEncounterTests` 覆盖。
+        /// </summary>
+        private sealed class AcceptingEscalationPort : IEncounterEscalationPort
+        {
+            public bool CanEscalate(int kindId) => true;
+
+            public bool TryEscalate(EncounterStep encounter, in EncounterEscalationRequest request, out string rejectReason)
+            {
+                rejectReason = null;
+                return true;
+            }
         }
 
         /// <summary>`sample_battle_variants` 的入口就是战斗阶段（空 payload）：一步停到活遭遇档上。</summary>

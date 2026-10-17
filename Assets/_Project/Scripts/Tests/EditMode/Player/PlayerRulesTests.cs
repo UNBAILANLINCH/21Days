@@ -215,5 +215,71 @@ namespace Game.Tests.EditMode.Player
             Assert.That(buffer.Remaining, Is.Zero, "PreviousPosition 不进快照，字节布局不变");
             Assert.That(restored.PreviousPosition, Is.EqualTo(restored.Position));
         }
+
+        // ── 设定生命口（PRP/combat-iteration D4 / D5：露馅 / 被抓判死置 0、战后按比例写回）──────────────
+
+        /// <summary>MaxHealth 只转读配置上限，不另存一份。</summary>
+        [Test]
+        public void MaxHealth_ReadsConfigValue()
+        {
+            Assert.That(rules.MaxHealth, Is.EqualTo(config.MaxHealth));
+        }
+
+        /// <summary>设定生命夹在 [0, MaxHealth]：超上限取上限、负数取 0、区间内原样写入；返回值就是实际写入值。</summary>
+        [TestCase(1, 1)]
+        [TestCase(0, 0)]
+        [TestCase(-5, 0)]
+        [TestCase(99, -1)]
+        public void SetHealth_ClampsToZeroAndMax(int requested, int expected)
+        {
+            int expectedHealth = expected < 0 ? config.MaxHealth : expected;
+
+            int written = rules.SetHealth(requested);
+
+            Assert.That(written, Is.EqualTo(expectedHealth));
+            Assert.That(model.Health, Is.EqualTo(expectedHealth));
+        }
+
+        /// <summary>
+        /// 设定生命时清掉击倒状态（战后不该还趴着）：挨打进了倒地期 → SetHealth 后阶段回到 None、能攻击、能原速走；
+        /// 累计击倒次数保留（与 Reset 同一口径：次数归零由阶段迁移负责）。
+        /// </summary>
+        [Test]
+        public void SetHealth_WhileKnockedDown_ClearsPhaseButKeepsCount()
+        {
+            var knockdown = new Game.Stealth.KnockdownRules(Game.Stealth.KnockdownSettings.PlaceholderDefault);
+            rules.UseKnockdown(knockdown);
+            rules.ApplyDamage(new DamageIntent(1));
+            Assert.That(knockdown.IsDowned, Is.True, "前提：挨一下进了倒地期");
+            int count = knockdown.KnockdownCount;
+
+            rules.SetHealth(config.MaxHealth);
+
+            Assert.That(knockdown.Phase, Is.EqualTo(Game.Stealth.KnockdownPhase.None));
+            Assert.That(knockdown.KnockdownCount, Is.EqualTo(count), "累计次数不清");
+            Assert.That(rules.Step(Intent(Vector2.zero, attack: true), 0f), Is.True, "不再被击倒压住攻击");
+        }
+
+        /// <summary>负对照：不清击倒时（不调 SetHealth），同一处境下攻击被压住——证明上一条的「能攻击」来自 SetHealth。</summary>
+        [Test]
+        public void KnockedDown_WithoutSetHealth_StillCannotAttack()
+        {
+            var knockdown = new Game.Stealth.KnockdownRules(Game.Stealth.KnockdownSettings.PlaceholderDefault);
+            rules.UseKnockdown(knockdown);
+            rules.ApplyDamage(new DamageIntent(1));
+
+            Assert.That(rules.Step(Intent(Vector2.zero, attack: true), 0f), Is.False);
+        }
+
+        /// <summary>置 0 = 死亡（与受击归零同一种终态）：之后 Step 不再行动。</summary>
+        [Test]
+        public void SetHealth_Zero_PlayerIsDead()
+        {
+            rules.SetHealth(0);
+
+            Assert.That(model.Snapshot.IsAlive, Is.False);
+            Assert.That(rules.Step(Intent(Vector2.right, attack: true), 1f), Is.False);
+            Assert.That(model.Position, Is.EqualTo(Vector2.zero));
+        }
     }
 }

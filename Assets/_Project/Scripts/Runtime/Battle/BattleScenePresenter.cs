@@ -58,6 +58,9 @@ namespace Game.Battle
         private BossDefinition boss;
         private UniTaskCompletionSource<BattleCommand> pending;
         private GameInput.DialogueActions keyActions;
+
+        /// <summary>挂键时输入服务手里那一份动作集（收场时它已被释放 / 换掉就不再去关它的图，见 UnhookKeys）。</summary>
+        private GameInput hookedActions;
         private bool keysHooked;
         private bool keyMapWasEnabled;
         private int round = 1;
@@ -335,6 +338,7 @@ namespace Game.Battle
                 return;
             }
 
+            hookedActions = actions;
             keyActions = actions.Dialogue;
             keyMapWasEnabled = keyActions.enabled;
             if (!keyMapWasEnabled) input.EnableMap(KeyMap);
@@ -348,6 +352,8 @@ namespace Game.Battle
         {
             if (!keysHooked) return;
             keysHooked = false;
+            GameInput hooked = hookedActions;
+            hookedActions = null;
             try
             {
                 keyActions.Choice1.performed -= HandleKey1;
@@ -357,8 +363,16 @@ namespace Game.Battle
             finally
             {
                 // 只恢复进来前的状态：进来前就开着（不该发生，但不擅自关）就不动。
-                if (!keyMapWasEnabled) input.DisableMap(KeyMap);
+                // 输入服务已释放（根作用域先于战斗收场销毁：W6b 回放在回合制进行中收尾）或换了一份动作集：
+                //   挂键的那份图已随服务一起关掉、释放，不再去碰——否则服务只会打一条「还没初始化」的警告。别的异常照抛。
+                if (!keyMapWasEnabled && IsHookedActionsAlive(hooked)) input.DisableMap(KeyMap);
             }
+        }
+
+        private bool IsHookedActionsAlive(GameInput hooked)
+        {
+            GameInput current = input.Actions; // lint-ok: 只比对动作集是不是挂键时那一份，不读输入
+            return current != null && ReferenceEquals(current, hooked);
         }
 
         // ── 开场辅助 ──────────────────────────────────────────────────────────

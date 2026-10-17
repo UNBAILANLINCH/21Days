@@ -2,7 +2,7 @@
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:42`「道具如可以使用则高亮，用过了则置暗；
 // 如果未拥有或在之前战斗时用过了，则不显示」；
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:226`（R45「一次战斗内每件道具只能用一次」）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:234`（R45「一次战斗内每件道具只能用一次」）。
 
 namespace Game.TurnBased
 {

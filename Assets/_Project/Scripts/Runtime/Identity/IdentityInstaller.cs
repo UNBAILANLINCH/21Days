@@ -52,11 +52,13 @@ namespace Game.Identity
             // 容器里只有 ITelemetryService，所以用工厂注册（同 LootInstaller 的写法）。
             builder.Register(resolver => new SuspicionState(
                     settings, resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton);
-            // 露馅后果策略本波**不注入**：死亡 vs 追逐是 `00_功能总览.md` §5 C1 的原文矛盾（§8.1 #3），
-            // 不注入时 ResolveExposure 恒给 ExposureOutcome.None——判定照跑、后果不硬编，
-            // 这正是 IdentityRules 的契约（见它的类注释「不硬编的两处」）。策略接线归 S2 后果那一波。
+            // 露馅后果策略（PRP/combat-iteration D1，2026-10-14 起注入）：按数值块的 ExposureOutcome 口径决定后果。
+            // 死亡 vs 追逐仍是 `00_功能总览.md` §5 C1 的原文矛盾（§8.1 #3），所以口径**只放资产**、规则层仍不硬编；
+            // 代码默认 None 时与此前「不注入策略」逐字一致（后果恒为 None）。用户 2026-10-14 拍板的「露馅 → 进追逐」
+            // 写在 IdentityConfig.asset 里。策略与规则绑的是**同一份** settings（容器里那一份），改资产即生效。
             builder.Register(resolver => new IdentityRules(
-                    settings, catalog, null, resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)),
+                    settings, catalog, new ConfiguredExposurePolicy(settings),
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)),
                 Lifetime.Singleton);
         }
 

@@ -104,6 +104,36 @@ namespace Game.Identity
         [Tooltip("露馅→死亡的过渡时长（秒）。占位：原文没写，见 02 Q1/Q3。")]
         [SerializeField] private float exposureDeathDelaySeconds = 0f;
 
+        // ── 露馅后果口径（PRP/combat-iteration D1，2026-10-14）────────────────────────
+
+        /// <summary>
+        /// 规则层五种露馅（人物特性 / 核验 / 账簿 / 怀疑度 / 揭露）——<see cref="IdentityLossCauses"/> 的代码默认值，
+        /// 等于加这个字段之前 <see cref="IdentityRules.LosesIdentity(ExposureCause)"/> 写死的那一组。
+        /// </summary>
+        public const ExposureCause DefaultIdentityLossCauses = ExposureCause.PersonaTrait | ExposureCause.Checkpoint
+            | ExposureCause.Ledger | ExposureCause.Suspicion | ExposureCause.Reveal;
+
+        /// <summary>
+        /// 露馅之后的后果口径，由 <see cref="ConfiguredExposurePolicy"/> 读出交给 <see cref="IdentityRules.ResolveExposure"/>。
+        /// <b>代码默认 <see cref="ExposureOutcome.None"/> = 旧行为</b>（此前策略位不注入，后果恒为 None）；
+        /// 用户 2026-10-14 拍板的「露馅 → 进追逐」只写进 <c>IdentityConfig.asset</c>（PRP/combat-iteration D0-1：新口径只进资产）。
+        /// 原文矛盾：`00_功能总览.md` §5 C1（sp00 写死亡、sp03 写追逐），待拍板 §8.1 #3。
+        /// </summary>
+        [Tooltip("露馅后果：None=只判定不处理（旧行为）、Death=判死、Chase=察觉者起追。"
+                 + "代码默认 None；用户 2026-10-14 拍板「露馅进追逐」写在资产里。原文矛盾见 00 §5 C1。")]
+        [SerializeField] private ExposureOutcome exposureOutcome = ExposureOutcome.None;
+
+        /// <summary>
+        /// 哪些露馅原因会让借来的身份<b>当场失效</b>（位掩码）。
+        /// <b>代码默认 = 规则层五种</b>（<see cref="DefaultIdentityLossCauses"/>，即旧行为：警戒值一层不夺身份，
+        /// 理由见 <see cref="IdentityRules.ResolveExposure"/>）；用户 2026-10-14 拍板「借来的身份当场失效」
+        /// 要求六种全含（含警戒值），只写进资产。
+        /// 已知后果（与 `02_身份暴露与怀疑.md` R32/R34「伪装免橙区不免红区」一致）：资产写六种后，借着身份站进红区会立刻露馅。
+        /// </summary>
+        [Tooltip("哪些露馅原因会让身份当场失效（多选）。代码默认 = 规则层五种（不含警戒值，旧行为）；"
+                 + "用户 2026-10-14 拍板六种全含，写在资产里。")]
+        [SerializeField] private ExposureCause identityLossCauses = DefaultIdentityLossCauses;
+
         // ── 档位阈值（阈值不进表：字典 §6 第 4 条）───────────────────────────────────
 
         /// <summary>
@@ -193,6 +223,18 @@ namespace Game.Identity
         {
             get => exposureDeathDelaySeconds;
             set => exposureDeathDelaySeconds = value;
+        }
+
+        public ExposureOutcome ExposureOutcome
+        {
+            get => exposureOutcome;
+            set => exposureOutcome = value;
+        }
+
+        public ExposureCause IdentityLossCauses
+        {
+            get => identityLossCauses;
+            set => identityLossCauses = value;
         }
 
         public float SuspicionLowThreshold

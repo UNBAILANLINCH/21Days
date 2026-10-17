@@ -1,0 +1,226 @@
+// 在已组装的两套顾客预制体上加强肘部动作，并给醉酒顾客追加自动播放的喝酒动画。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("先退出 Play");
+string prefix = "Assets/_Project/";
+System.Action<UnityEngine.AnimationClip, UnityEngine.Transform, UnityEngine.Transform, string, System.Func<float, float>> setCurve =
+    (clip, root, node, property, value) =>
+    {
+        var keys = new UnityEngine.Keyframe[49];
+        for (int k = 0; k < keys.Length; k++)
+        {
+            float t = k / 48f;
+            keys[k] = new UnityEngine.Keyframe(t * clip.length, value(t));
+        }
+        var animationCurve = new UnityEngine.AnimationCurve(keys);
+        for (int k = 0; k < keys.Length; k++) animationCurve.SmoothTangents(k, 0);
+        string path = UnityEditor.AnimationUtility.CalculateTransformPath(node, root);
+        UnityEditor.AnimationUtility.SetEditorCurve(clip,
+            UnityEditor.EditorCurveBinding.FloatCurve(path, typeof(UnityEngine.Transform), property), animationCurve);
+    };
+System.Action<UnityEngine.AnimationClip, UnityEngine.Transform, UnityEngine.SpriteRenderer, float> setSorting =
+    (clip, root, renderer, order) =>
+    {
+        string path = UnityEditor.AnimationUtility.CalculateTransformPath(renderer.transform, root);
+        var curve = UnityEngine.AnimationCurve.Constant(0, clip.length, order);
+        UnityEditor.AnimationUtility.SetEditorCurve(clip,
+            UnityEditor.EditorCurveBinding.FloatCurve(path, typeof(UnityEngine.SpriteRenderer), "m_SortingOrder"), curve);
+    };
+System.Action<string> setKneePivots = prefabPath =>
+    {
+        var prefabRoot = UnityEditor.PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            foreach (string footPath in new[] { "Sprite/Rig/LeftFoot", "Sprite/Rig/RightFoot" })
+            {
+                var foot = prefabRoot.transform.Find(footPath);
+                if (foot == null) throw new System.InvalidOperationException("脚节点缺失：" + footPath);
+                var children = new UnityEngine.Transform[foot.childCount];
+                var worldPositions = new UnityEngine.Vector3[foot.childCount];
+                for (int i = 0; i < foot.childCount; i++)
+                {
+                    children[i] = foot.GetChild(i);
+                    worldPositions[i] = children[i].position;
+                }
+                var rootPosition = prefabRoot.transform.InverseTransformPoint(foot.position);
+                rootPosition.y = (512f - 402f) / 320f;
+                foot.position = prefabRoot.transform.TransformPoint(rootPosition);
+                for (int i = 0; i < children.Length; i++) children[i].position = worldPositions[i];
+            }
+            bool saved;
+            UnityEditor.PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath, out saved);
+            if (!saved) throw new System.InvalidOperationException("膝盖转轴保存失败：" + prefabPath);
+        }
+        finally { UnityEditor.PrefabUtility.UnloadPrefabContents(prefabRoot); }
+    };
+
+foreach (string id in new[] { "customers", "drunk_customer" })
+{
+    bool drunk = id == "drunk_customer";
+    string prefabPath = prefix + "Prefabs/Characters/Chibi_" + id + ".prefab";
+    setKneePivots(prefabPath);
+    var root = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(prefabPath);
+    var leftArm = root.transform.Find("Sprite/Rig/Body/LeftArm");
+    var rightArm = root.transform.Find("Sprite/Rig/Body/RightArm");
+    var leftForearm = root.transform.Find("Sprite/Rig/Body/LeftArm/Forearm");
+    var rightForearm = root.transform.Find("Sprite/Rig/Body/RightArm/Forearm");
+    var gourdNode = drunk ? root.transform.Find("Sprite/Rig/Body/LeftArm/Forearm/Gourd") : null;
+    var gourdRenderer = gourdNode == null ? null : gourdNode.GetComponentInChildren<UnityEngine.SpriteRenderer>(true);
+    UnityEngine.SpriteRenderer leftArmRenderer = null;
+    UnityEngine.SpriteRenderer leftForearmRenderer = null;
+    foreach (var candidate in leftArm.GetComponentsInChildren<UnityEngine.SpriteRenderer>(true))
+        if (candidate.transform.parent == leftArm) { leftArmRenderer = candidate; break; }
+    foreach (var candidate in leftForearm.GetComponentsInChildren<UnityEngine.SpriteRenderer>(true))
+        if (candidate.transform.parent == leftForearm) { leftForearmRenderer = candidate; break; }
+    if (leftArm == null || rightArm == null || leftForearm == null || rightForearm == null || leftArmRenderer == null || leftForearmRenderer == null)
+        throw new System.InvalidOperationException("肩肘关节缺失：" + id);
+    foreach (string state in new[] { "idle", "walk", "run" })
+    {
+        var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>(prefix + "Art/Animations/Characters/" + id + "/chr_" + id + "_" + state + ".anim");
+        if (clip == null) throw new System.InvalidOperationException("剪辑缺失：" + id + " / " + state);
+        bool moving = state != "idle";
+        bool running = state == "run";
+        System.Func<float, float> sine = t => UnityEngine.Mathf.Sin(t * UnityEngine.Mathf.PI * 2);
+        float baseBend = moving ? (running ? 10 : 6) : 2.2f;
+        float bendRange = moving ? (running ? 8 : 6) : 1.2f;
+        float armAngle = moving ? (running ? 3 : 1) : .8f;
+        // 左右图件已镜像分布；同号旋转才是视觉上的前后交替。
+        setCurve(clip, root.transform, leftArm, "localEulerAnglesRaw.z", t => armAngle * sine(t));
+        setCurve(clip, root.transform, rightArm, "localEulerAnglesRaw.z", t => armAngle * sine(t));
+        setCurve(clip, root.transform, leftForearm, "localEulerAnglesRaw.z",
+            t => baseBend + bendRange * (.5f + .5f * sine(t)));
+        setCurve(clip, root.transform, rightForearm, "localEulerAnglesRaw.z",
+            t => -baseBend - bendRange * (.5f - .5f * sine(t)));
+        float handOffset = moving ? 3f / 320f : 0;
+        setCurve(clip, root.transform, leftForearm, "m_LocalPosition.x", t => leftForearm.localPosition.x - handOffset);
+        setCurve(clip, root.transform, rightForearm, "m_LocalPosition.x", t => rightForearm.localPosition.x + handOffset);
+        var motionBody = root.transform.Find("Sprite/Rig/Body");
+        var motionPendant = root.transform.Find("Sprite/Rig/Body/Pendant");
+        var motionLeftFoot = root.transform.Find("Sprite/Rig/LeftFoot");
+        var motionRightFoot = root.transform.Find("Sprite/Rig/RightFoot");
+        float footStride = moving ? (running ? 2f : 1f) / 320f : 0;
+        float footLift = moving ? (running ? 14f : 8f) / 320f : 0;
+        float kneeAngle = moving ? (running ? 8f : 5f) : 0;
+        float weightShift = moving ? 2f / 320f : 0;
+        setCurve(clip, root.transform, motionLeftFoot, "m_LocalPosition.x", t => motionLeftFoot.localPosition.x + footStride * sine(t));
+        setCurve(clip, root.transform, motionRightFoot, "m_LocalPosition.x", t => motionRightFoot.localPosition.x + footStride * sine(t));
+        setCurve(clip, root.transform, motionLeftFoot, "m_LocalPosition.y", t => motionLeftFoot.localPosition.y + footLift * UnityEngine.Mathf.Pow(UnityEngine.Mathf.Max(0, sine(t)), 2));
+        setCurve(clip, root.transform, motionRightFoot, "m_LocalPosition.y", t => motionRightFoot.localPosition.y + footLift * UnityEngine.Mathf.Pow(UnityEngine.Mathf.Max(0, -sine(t)), 2));
+        setCurve(clip, root.transform, motionLeftFoot, "localEulerAnglesRaw.z", t => kneeAngle * sine(t));
+        setCurve(clip, root.transform, motionRightFoot, "localEulerAnglesRaw.z", t => kneeAngle * sine(t));
+        setCurve(clip, root.transform, motionBody, "m_LocalPosition.x", t => motionBody.localPosition.x + weightShift * sine(t));
+        setCurve(clip, root.transform, motionPendant, "localEulerAnglesRaw.z", t => (moving ? (running ? 2.5f : 1.5f) : 1) * sine(t));
+        if (gourdNode != null)
+            setCurve(clip, root.transform, gourdNode, "localEulerAnglesRaw.z", t => (moving ? (running ? 4 : 3) : 2) * sine(t));
+        if (gourdRenderer != null)
+        {
+            setSorting(clip, root.transform, gourdRenderer, gourdRenderer.sortingOrder);
+            setSorting(clip, root.transform, leftArmRenderer, leftArmRenderer.sortingOrder);
+            setSorting(clip, root.transform, leftForearmRenderer, leftForearmRenderer.sortingOrder);
+        }
+        UnityEditor.EditorUtility.SetDirty(clip);
+    }
+
+    if (!drunk) continue;
+    string directory = prefix + "Art/Animations/Characters/" + id;
+    string drinkPath = directory + "/chr_" + id + "_drink.anim";
+    var drink = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>(drinkPath);
+    if (drink == null)
+    {
+        drink = new UnityEngine.AnimationClip();
+        UnityEditor.AssetDatabase.CreateAsset(drink, drinkPath);
+    }
+    drink.ClearCurves();
+    drink.frameRate = 60;
+    float drinkDuration = 3.6f;
+    // 先写一条末端键来固定新剪辑长度，后续统一按该长度生成 49 键曲线。
+    drink.SetCurve("", typeof(UnityEngine.Transform), "m_LocalPosition.x",
+        new UnityEngine.AnimationCurve(new UnityEngine.Keyframe(0, root.transform.localPosition.x), new UnityEngine.Keyframe(drinkDuration, root.transform.localPosition.x)));
+    var body = root.transform.Find("Sprite/Rig/Body");
+    var head = root.transform.Find("Sprite/Rig/Body/Head");
+    var pendant = root.transform.Find("Sprite/Rig/Body/Pendant");
+    var leftFoot = root.transform.Find("Sprite/Rig/LeftFoot");
+    var rightFoot = root.transform.Find("Sprite/Rig/RightFoot");
+    var gourd = root.transform.Find("Sprite/Rig/Body/LeftArm/Forearm/Gourd");
+    if (gourd == null) throw new System.InvalidOperationException("酒葫芦关节缺失");
+    System.Func<float, float, float, float> smooth = (t, start, end) =>
+    {
+        float u = UnityEngine.Mathf.Clamp01((t - start) / (end - start));
+        return u * u * (3 - 2 * u);
+    };
+    System.Func<float, float> lift = t => t < .28f ? smooth(t, .05f, .28f) :
+        t < .64f ? 1 : t < .94f ? 1 - smooth(t, .64f, .94f) : 0;
+    System.Func<float, float> sway = t => UnityEngine.Mathf.Sin(t * UnityEngine.Mathf.PI * 2);
+    System.Func<float, float> sip = t => lift(t) * UnityEngine.Mathf.Sin((t - .22f) * UnityEngine.Mathf.PI * 8);
+    var joints = new[] { body, head, leftArm, leftForearm, rightArm, rightForearm, pendant, leftFoot, rightFoot };
+    foreach (var node in joints)
+    {
+        float baseX = node.localPosition.x;
+        float baseY = node.localPosition.y;
+        setCurve(drink, root.transform, node, "localEulerAnglesRaw.z", t =>
+            node == body ? 2 * sway(t) - 3 * lift(t) :
+            node == head ? -4 * lift(t) + 1.2f * sip(t) :
+            node == leftArm ? 80 * lift(t) + 1.2f * sway(t) * (1 - lift(t)) :
+            node == leftForearm ? 140 * lift(t) + 2.2f * (1 - lift(t)) :
+            node == rightArm ? -1.2f * sway(t) :
+            node == rightForearm ? -2.2f - 1.2f * sway(t) :
+            node == pendant ? 2 * sway(t) + 5 * lift(t) : 0);
+        setCurve(drink, root.transform, node, "m_LocalPosition.x", t =>
+            baseX + (node == body ? -.012f * lift(t) : 0));
+        setCurve(drink, root.transform, node, "m_LocalPosition.y", t =>
+            baseY + (node == body ? .005f * (1 - UnityEngine.Mathf.Cos(t * UnityEngine.Mathf.PI * 2)) * (1 - lift(t)) :
+                node == head ? .004f * sip(t) : 0));
+    }
+    setCurve(drink, root.transform, gourd, "localEulerAnglesRaw.z", t => -305 * lift(t) + 2.5f * sip(t));
+    // 葫芦图件自带右侧手掌；整件放在脸前，不能再和袖子分层或单独平移。
+    setSorting(drink, root.transform, gourdRenderer, 20);
+    setSorting(drink, root.transform, leftArmRenderer, 7);
+    setSorting(drink, root.transform, leftForearmRenderer, 8);
+    UnityEditor.AnimationUtility.SetEditorCurve(drink,
+        UnityEditor.EditorCurveBinding.FloatCurve("", typeof(UnityEngine.Transform), "m_LocalPosition.x"), null);
+    UnityEditor.AnimationUtility.SetEditorCurve(drink,
+        UnityEditor.EditorCurveBinding.FloatCurve("", typeof(UnityEngine.Transform), "m_LocalPosition.y"), null);
+    UnityEditor.AnimationUtility.SetEditorCurve(drink,
+        UnityEditor.EditorCurveBinding.FloatCurve("", typeof(UnityEngine.Transform), "m_LocalPosition.z"), null);
+    var drinkSettings = UnityEditor.AnimationUtility.GetAnimationClipSettings(drink);
+    drinkSettings.loopTime = false;
+    UnityEditor.AnimationUtility.SetAnimationClipSettings(drink, drinkSettings);
+    UnityEditor.EditorUtility.SetDirty(drink);
+
+    var animator = root.GetComponent<UnityEngine.Animator>();
+    var controller = animator.runtimeAnimatorController as UnityEditor.Animations.AnimatorController;
+    var machine = controller.layers[0].stateMachine;
+    UnityEditor.Animations.AnimatorState idle = null, walk = null, run = null, drinkState = null;
+    foreach (var child in machine.states)
+    {
+        if (child.state.name == "Idle") idle = child.state;
+        else if (child.state.name == "Walk") walk = child.state;
+        else if (child.state.name == "Run") run = child.state;
+        else if (child.state.name == "Drink") drinkState = child.state;
+    }
+    if (idle == null || walk == null || run == null) throw new System.InvalidOperationException("基础状态缺失");
+    if (drinkState == null) drinkState = machine.AddState("Drink");
+    drinkState.motion = drink;
+    foreach (var state in new[] { idle, drinkState })
+    {
+        foreach (var transition in state.transitions)
+            if (transition.destinationState == drinkState || (state == drinkState &&
+                (transition.destinationState == idle || transition.destinationState == walk || transition.destinationState == run)))
+                state.RemoveTransition(transition);
+    }
+    var idleToDrink = idle.AddTransition(drinkState);
+    idleToDrink.hasExitTime = true; idleToDrink.exitTime = 1; idleToDrink.hasFixedDuration = true; idleToDrink.duration = .12f;
+    var drinkToRun = drinkState.AddTransition(run);
+    drinkToRun.hasExitTime = false; drinkToRun.hasFixedDuration = true; drinkToRun.duration = .08f;
+    drinkToRun.AddCondition(UnityEditor.Animations.AnimatorConditionMode.If, 0, "Moving");
+    drinkToRun.AddCondition(UnityEditor.Animations.AnimatorConditionMode.If, 0, "Running");
+    var drinkToWalk = drinkState.AddTransition(walk);
+    drinkToWalk.hasExitTime = false; drinkToWalk.hasFixedDuration = true; drinkToWalk.duration = .08f;
+    drinkToWalk.AddCondition(UnityEditor.Animations.AnimatorConditionMode.If, 0, "Moving");
+    drinkToWalk.AddCondition(UnityEditor.Animations.AnimatorConditionMode.IfNot, 0, "Running");
+    var drinkToIdle = drinkState.AddTransition(idle);
+    drinkToIdle.hasExitTime = true; drinkToIdle.exitTime = 1; drinkToIdle.hasFixedDuration = true; drinkToIdle.duration = .12f;
+    drinkToIdle.AddCondition(UnityEditor.Animations.AnimatorConditionMode.IfNot, 0, "Moving");
+    UnityEditor.EditorUtility.SetDirty(controller);
+}
+UnityEditor.AssetDatabase.SaveAssets();
+UnityEditor.AssetDatabase.Refresh();
+return "PASS: elbows flex in Idle/Walk/Run; drunk customer auto-enters Drink and movement interrupts it.";

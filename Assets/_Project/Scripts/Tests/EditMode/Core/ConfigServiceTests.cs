@@ -18,8 +18,9 @@ namespace Game.Tests.EditMode.Core
     /// </summary>
     public sealed class ConfigServiceTests
     {
-        /// <summary>示例表 TbItem 在 Tables/Data/item.xlsx 里的行数。改了示例表要同步改这里。</summary>
-        private const int ExpectedItemCount = 16;
+        /// <summary>示例表 TbItem 在 Tables/Data/item.xlsx 里的行数。改了示例表要同步改这里。
+        /// 2026-10-16：16 → 26（加了 07_回合制作战文档.md:199-211 的 10 件战斗消耗品，id 1801–1810）。</summary>
+        private const int ExpectedItemCount = 26;
 
         private global::cfg.Tables tables;
 

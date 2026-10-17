@@ -18,6 +18,7 @@ using Game.Narrative;
 using Game.Session;
 using MessagePipe;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -27,6 +28,87 @@ namespace Game.Tests.PlayMode.Session
 {
     public sealed class SessionTitleRouterTests
     {
+        [UnityTest]
+        public IEnumerator SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad() =>
+            UniTask.ToCoroutine(async () =>
+            {
+                string saveRoot = Path.Combine(Path.GetTempPath(), "21Days-title-tests", Guid.NewGuid().ToString("N"));
+                var saves = new JsonSaveService(new TestPlatform(saveRoot), null, null);
+                saves.Get<SessionSaveData>().SavedAtUtcTicks = DateTime.UtcNow.Ticks;
+                Assert.That(await saves.SaveAsync(1), Is.True);
+                saves.ResetAll();
+                SessionConfig config = ScriptableObject.CreateInstance<SessionConfig>();
+                UIConfig uiConfig = ScriptableObject.CreateInstance<UIConfig>();
+                var titleRoot = new GameObject("Title", typeof(RectTransform), typeof(TitleView));
+                SaveSlotsView selection = CreateSelection();
+                var ui = new TestUI(titleRoot.GetComponent<TitleView>(), selection);
+                bool entered = false;
+                var flow = new TestFlow
+                {
+                    Transition = async ct =>
+                    {
+                        // 标题先正常退出，模拟尚未完成的冷场景加载。
+                        Object.Destroy(titleRoot);
+                        await UniTask.NextFrame();
+                        await UniTask.NextFrame();
+                        ct.ThrowIfCancellationRequested();
+                        entered = true;
+                    },
+                };
+                var notifications = new TestNotifications();
+                var session = new GameSession(saves, new TestClock(), new TestLogicClock(), flow,
+                    new TestState(), config, notifications, new TestPublisher<SessionStartedEvent>(),
+                    new TestPublisher<SaveCompletedEvent>(), NullTelemetryScope.Instance);
+                var tutorial = new NewGameTutorial(ui, uiConfig, NullTelemetryScope.Instance, new UnityTelemetryClock());
+                using (var slots = new SaveSlotsController(session, tutorial, ui, config, notifications,
+                           new TestSubscriber<GameStateChangingEvent>(), NullTelemetryScope.Instance))
+                {
+                    try
+                    {
+                        await slots.OpenAsync(SlotsMode.Load);
+                        Button row = Array.Find(selection.GetComponentsInChildren<Button>(), button =>
+                        {
+                            Transform label = button.transform.Find("Slot");
+                            return label != null && label.GetComponent<TMP_Text>().text == SaveSlotsView.FormatSlotLabel(1);
+                        });
+                        Assert.That(row, Is.Not.Null);
+                        row.onClick.Invoke();
+                        float deadline = Time.realtimeSinceStartup + 5f;
+                        while (!entered && Time.realtimeSinceStartup < deadline) await UniTask.NextFrame();
+                        Assert.That(titleRoot == null, Is.True, "测试必须经过标题销毁");
+                        Assert.That(entered, Is.True, "标题关闭不能取消尚未完成的场景加载");
+                        Assert.That(session.CurrentSlot, Is.EqualTo(1));
+                    }
+                    finally
+                    {
+                        session.Dispose();
+                        if (selection != null) Object.Destroy(selection.gameObject);
+                        if (titleRoot != null) Object.Destroy(titleRoot);
+                        Object.Destroy(uiConfig);
+                        Object.Destroy(config);
+                        if (Directory.Exists(saveRoot)) Directory.Delete(saveRoot, true);
+                    }
+                }
+            });
+
+        private static SaveSlotsView CreateSelection()
+        {
+            var root = new GameObject("Selection", typeof(RectTransform), typeof(CanvasGroup), typeof(SaveSlotsView));
+            var list = new GameObject("List", typeof(RectTransform));
+            list.transform.SetParent(root.transform, false);
+            var row = new GameObject("Row", typeof(RectTransform), typeof(Button));
+            row.transform.SetParent(list.transform, false);
+            foreach (string name in new[] { "Slot", "Primary", "Secondary" })
+                new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI)).transform.SetParent(row.transform, false);
+            new GameObject("Delete", typeof(RectTransform), typeof(Button)).transform.SetParent(row.transform, false);
+            row.SetActive(false);
+            SaveSlotsView view = root.GetComponent<SaveSlotsView>();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            typeof(SaveSlotsView).GetField("listRoot", flags).SetValue(view, list.GetComponent<RectTransform>());
+            typeof(SaveSlotsView).GetField("rowTemplate", flags).SetValue(view, row);
+            return view;
+        }
+
         [UnityTest]
         public IEnumerator Appearance_AfterRestart_DoesNotCommitCandidateAndNewGameRestoresNormal() =>
             UniTask.ToCoroutine(async () =>
@@ -113,10 +195,22 @@ namespace Game.Tests.PlayMode.Session
         private sealed class TestUI : IUIService
         {
             private readonly TitleView title;
-            public TestUI(TitleView title) => this.title = title;
-            public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView =>
+            private readonly SaveSlotsView selection;
+            public TestUI(TitleView title, SaveSlotsView selection = null)
+            {
+                this.title = title;
+                this.selection = selection;
+            }
+            public UniTask<T> OpenAsync<T>(object arg = null, CancellationToken ct = default) where T : UIView
+            {
+                if (selection != null && selection is T typed) return UniTask.FromResult(typed);
                 throw new NotSupportedException();
-            public UniTask CloseAsync(UIView view, CancellationToken ct = default) => UniTask.CompletedTask;
+            }
+            public UniTask CloseAsync(UIView view, CancellationToken ct = default)
+            {
+                if (view != null) Object.Destroy(view.gameObject);
+                return UniTask.CompletedTask;
+            }
             public UniTask CloseTopAsync(CancellationToken ct = default) => UniTask.CompletedTask;
             public T Get<T>() where T : UIView => title as T;
             public void SetLayerVisible(UILayer layer, bool visible) { }
@@ -147,7 +241,9 @@ namespace Game.Tests.PlayMode.Session
         private sealed class TestFlow : IGameFlow
         {
             public GameState Current => null;
-            public UniTask GoToAsync<TState>(CancellationToken ct = default) where TState : GameState => UniTask.CompletedTask;
+            public Func<CancellationToken, UniTask> Transition { get; set; }
+            public UniTask GoToAsync<TState>(CancellationToken ct = default) where TState : GameState =>
+                Transition == null ? UniTask.CompletedTask : Transition(ct);
         }
         private sealed class TestState : ISessionStateSource
         {

@@ -3,7 +3,11 @@
 // 好处是配置校验的测试不必碰 ScriptableObject；另外配置文件本身只该管「字段 + 取值」。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:70-84`（四档区间与 6:3:1 权重是硬约束）、
-// `docs/design/features-spotlight/待策划拍板问题.md:1293` C91（数值待拍板，但内部一致性必须成立）。
+// `:199-211`（10 件道具的效果，2026-10-16）、
+// `docs/design/features-spotlight/待策划拍板问题.md` C91（数值待拍板，但内部一致性必须成立）。
+
+using System;
+using System.Collections.Generic;
 
 namespace Game.TurnBased
 {
@@ -46,12 +50,27 @@ namespace Game.TurnBased
             return ValidateItems(settings.Items);
         }
 
-        // 道具效果是占位（PRP/turnbased-battle D10，等 C91）：只钉「百分比要落在 0..100」这一条自洽性。
+        // 道具效果（sp07:199-211 的 10 件，2026-10-16 落地）：逐条钉「数值与种类自洽」+ id 不重复。
+        // 原文没写的（携带 / 来源 / 用掉后还在不在 = C99，额外一招与回合结构 = C100，护盾叠加 = C101）不在这里管。
         private static string ValidateItems(BattleItemSettings items)
         {
-            if (!IsPercent(items.HealPercent))
+            IReadOnlyList<BattleItemEffect> list = items.Effects;
+            for (int i = 0; i < list.Count; i++)
             {
-                return "治疗道具的回复百分比必须落在 0..100（占位 30%，等 C91），当前 " + items.HealPercent;
+                BattleItemEffect effect = list[i];
+                if (!effect.IsWellFormed)
+                {
+                    return "第 " + (i + 1) + " 条道具效果写坏了（" + effect + "）：数值 / 持续回合 / 次数要为正，"
+                           + "减疗类百分比落在 0..100；出处 07_回合制作战文档.md:199-211";
+                }
+
+                for (int j = 0; j < i; j++)
+                {
+                    if (string.Equals(list[j].ItemId, effect.ItemId, StringComparison.Ordinal))
+                    {
+                        return "道具效果表里 " + effect.ItemId + " 出现了两次（一个 id 只能挂一条效果）";
+                    }
+                }
             }
 
             return null;

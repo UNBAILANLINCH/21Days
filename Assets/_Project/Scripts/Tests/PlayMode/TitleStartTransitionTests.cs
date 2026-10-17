@@ -47,6 +47,24 @@ namespace Game.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator LoadProfile_CompletesWithShortTiming_WithoutChangingNewGameTiming() => UniTask.ToCoroutine(async () =>
+        {
+            Set(config, "mirrorSeconds", 30f); Set(config, "waveSeconds", 30f);
+            Set(config, "loadMirrorSeconds", 0.04f); Set(config, "loadWaveSeconds", 0.15f);
+            using (var timeout = new CancellationTokenSource())
+            {
+                timeout.CancelAfterSlim(2000);
+                await transition.PlayAsync(timeout.Token, true);
+            }
+            Assert.That(transition.IsCovered, Is.True);
+            Assert.That(transition.HasCapture, Is.False);
+            Assert.That(config.MirrorSeconds, Is.EqualTo(30f));
+            Assert.That(config.WaveSeconds, Is.EqualTo(30f));
+            transition.ResetVisuals();
+            Assert.That(root.GetComponent<CanvasGroup>().interactable, Is.True);
+        });
+
+        [UnityTest]
         public IEnumerator Cancellation_DuringMirrorTurn_RestoresPoseAndInteraction() => UniTask.ToCoroutine(async () =>
         {
             using (var cancel = new CancellationTokenSource())

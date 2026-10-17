@@ -19,6 +19,7 @@ maturity: stable
 | 新的让位条件（某个时刻不该有焦点） | 先找通用信号（关 Gameplay 图 / 世界暂停 / 沉浸），实在没有才在 `InteractionFocus.ShouldYield` 加一个参数 | 不要让 Interaction 认识对白 / 任务等具体服务 |
 | 交互那一刻的表现（转向、动作、音效） | 订阅 `IInteractionFocus.OnInteracted`，参照 `InteractionPuppetPresenter` | 不要在实现方的 `Interact()` 里驱动玩家小人 |
 | 提示样式 | `Prefabs/UI/InteractPromptHudView.prefab`；宽度上下限是视图上的 `minWidth` / `maxWidth` | 不要给实现方加自己的提示 UI |
+| 同一对象的特殊动作 | 额外实现`ISecondaryInteractable`，复用 F / East 与HUD第二按钮 | 不另选焦点，不把特殊动作混进 E 普通交互，不让通用层认识NPC职业 |
 
 ## 新加一种可交互物（标准步骤）
 

@@ -1,7 +1,7 @@
 // 职责：内核装配层（TurnBasedKernel）的测试——进入战斗的拒绝路径、脏输入、以及默认配置资产的自检。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:13-28`（拒绝路径）；
-// `docs/design/features-spotlight/09_BOSS战.md:294`（数值待拍板，但配置必须自洽）。
+// `docs/design/features-spotlight/09_BOSS战.md:354`（数值待拍板，但配置必须自洽）。
 
 using Game.Core.Simulation;
 using Game.TurnBased;
@@ -215,12 +215,21 @@ namespace Game.Tests.EditMode.TurnBased
                 Assert.That(asset.ItemOncePerBattle, Is.EqualTo(placeholder.ItemOncePerBattle));
                 Assert.That(asset.InheritsDrunkValue, Is.EqualTo(placeholder.InheritsDrunkValue));
 
-                // 道具效果占位（PRP/turnbased-battle D10，等 C91）：1004 治疗药水回复 30% 生命上限。
-                Assert.That(asset.Items.HealItemId, Is.EqualTo(placeholder.Items.HealItemId));
-                Assert.That(asset.Items.HealPercent, Is.EqualTo(placeholder.Items.HealPercent));
-                Assert.That(asset.Items.HealBase, Is.EqualTo(placeholder.Items.HealBase));
-                Assert.That(asset.Items.HealItemId, Is.EqualTo("1004"));
-                Assert.That(asset.Items.HealPercent, Is.EqualTo(30));
+                // 道具效果（sp07:199-211 的 10 件，2026-10-16 落地）：资产与默认表逐条对齐。
+                Assert.That(asset.Items.Effects.Count, Is.EqualTo(placeholder.Items.Effects.Count));
+                for (int i = 0; i < placeholder.Items.Effects.Count; i++)
+                {
+                    Assert.That(asset.Items.Effects[i].ItemId, Is.EqualTo(placeholder.Items.Effects[i].ItemId), "第 " + (i + 1) + " 条的 id");
+                    Assert.That(asset.Items.Effects[i].Kind, Is.EqualTo(placeholder.Items.Effects[i].Kind), "第 " + (i + 1) + " 条的种类");
+                    Assert.That(asset.Items.Effects[i].Amount, Is.EqualTo(placeholder.Items.Effects[i].Amount), "第 " + (i + 1) + " 条的数值");
+                    Assert.That(asset.Items.Effects[i].Rounds, Is.EqualTo(placeholder.Items.Effects[i].Rounds), "第 " + (i + 1) + " 条的回合");
+                    Assert.That(asset.Items.Effects[i].Charges, Is.EqualTo(placeholder.Items.Effects[i].Charges), "第 " + (i + 1) + " 条的次数");
+                }
+
+                Assert.That(asset.Items.Effects.Count, Is.EqualTo(10), "07:199-211 是 10 件道具");
+                Assert.That(asset.Items.TryGet("1801", out BattleItemEffect vitality), Is.True, "活力药剂在表里");
+                Assert.That(vitality.Kind, Is.EqualTo(BattleItemEffectKind.HealFixed));
+                Assert.That(vitality.Amount, Is.EqualTo(50), "07:201「恢复主角 50 点生命值」");
             }
             finally
             {

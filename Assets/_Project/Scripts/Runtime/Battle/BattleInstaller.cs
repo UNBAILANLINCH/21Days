@@ -1,4 +1,5 @@
-// 职责：把回合制战斗流程接进根作用域——BOSS 名册、剧情口、背包口、开战门闸、世界锁、战斗场景宿主、开仗装配、战斗表现、流程入口点。
+// 职责：把回合制战斗流程接进根作用域——BOSS 名册、剧情口、背包口、开战门闸、世界锁、战斗场景宿主、开仗装配、战斗表现、流程入口点，
+//   以及 BOSS 主动发难的场景绑定入口点（BossAggroSceneBinder，PRP/combat-iteration D6）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   1. 复用不行：Game.Core 不许引用 Game.Runtime（asmdef 依赖方向），玩法类型只能经 GameplayInstaller 这道缝自己注册。
 //   2. 扩展不行：塞进 NarrativeInstaller / LootInstaller 会让它们认识战斗；TurnBased 是纯规则、没有 Installer 也不该有。
@@ -43,6 +44,7 @@ namespace Game.Battle
 
         [Tooltip("BOSS 名册（剧情 Battle 阶段的 payload → BOSS 定义）。拖 Data/Battle/BossRosterConfig.asset。")]
         [SerializeField] private BossRosterConfig bossRoster;
+        [SerializeField] private string arenaSceneKey = BattleArena.SceneKey;
 
         public override void Install(IContainerBuilder builder)
         {
@@ -66,7 +68,7 @@ namespace Game.Battle
             builder.Register(resolver => new BattleWorldLock(
                 resolver.Resolve<IWorldPauseService>(), resolver.Resolve<IInputService>(), resolver.Resolve<IUIService>()), Lifetime.Singleton);
             builder.Register(resolver => new BattleArena(
-                resolver.Resolve<ILoadingCurtain>(), resolver.Resolve<IAssetService>(), Scope(resolver)), Lifetime.Singleton);
+                resolver.Resolve<ILoadingCurtain>(), resolver.Resolve<IAssetService>(), Scope(resolver), arenaSceneKey), Lifetime.Singleton);
             builder.Register(resolver => new BattleSetup(
                 settings, SeedSource(resolver), resolver.Resolve<BattleItemInventory>()), Lifetime.Singleton);
             builder.Register<IBattlePresenter>(resolver => new BattleScenePresenter(
@@ -84,6 +86,23 @@ namespace Game.Battle
                 resolver.TryResolve(out IBattlePresenter presenter) ? presenter : null,
                 Scope(resolver)), Lifetime.Singleton).AsSelf();
 
+            // PRP/combat-iteration D6「BOSS 主动发难」的场景绑定：入口点 Start 扫已加载场景、之后每次 sceneLoaded 扫新场景，
+            // 给 BossEntryContext 接配置与投影、给 BossAggro 交名册那一行与外部世界（不在下面的构建回调里找：那时只有 Boot 场景）。
+            // 守卫 / 交互 / 局势的来源一律 TryResolve：纯 Battle 测试作用域里没有对白 / 演出 / 剧情 / 交互，缺剧情时守卫恒挡（不发难），
+            // 其余缺了那一道放行。AsSelf：接线测试按具体类型取（RegisterEntryPoint 默认只注册接口）。
+            builder.RegisterEntryPoint(resolver => new BossAggroSceneBinder(
+                resolver.Resolve<BossRoster>(),
+                resolver.Resolve<BattleFlow>(),
+                resolver.Resolve<BattleArena>(),
+                resolver.Resolve<IWorldPauseService>(),
+                Scope(resolver),
+                Optional<Game.Dialogue.DialogueService>(resolver),
+                Optional<Game.Performance.IPerformanceService>(resolver),
+                Optional<NarrativeService>(resolver),
+                Optional<Game.Interaction.IInteractionRegistry>(resolver),
+                Optional<Game.Monster.MonsterConfig>(resolver),
+                Optional<Game.Player.PlayerModel>(resolver)), Lifetime.Singleton).AsSelf();
+
             // 进战斗的局势快照（07 的偷袭 / 正面攻击 / 被打三种方式）：由遭遇侧（EncounterStep）提供。
             // 方向是**消费方自己拉**（同 MonsterInstaller 拉 StealthKernel 的既有写法）：Monster 不反向认识 Battle。
             // 没有 MonsterInstaller 的测试作用域 / 独立原型场景里这一句 TryResolve 落空，BattleFlow 保持
@@ -97,6 +116,10 @@ namespace Game.Battle
             // 那时 FindObjectOfType 看不见玩法场景里的 NPC（2026-10-10 实测拿到 null，见
             // `BattleFlow.BindEntryContextProvider`）。所以这里交出去的是「开仗那一刻去找一次」这个动作，
             // 兜底仍是构建期拿到的巡逻遭遇快照。
+            //
+            // 2026-10-14（PRP/combat-iteration D5）：同一处再接「实时遭遇升级回合制」的端口——BattleFlow 实现 Monster 侧声明的
+            // IEncounterEscalationPort，由本回调交给 EncounterStep（BindEscalation）。方向仍是 Battle → Monster 单向：
+            // Monster 只认识自己声明的接口。没有 MonsterInstaller 的作用域里 TryResolve 落空，遭遇侧不升级（行为不变）。
             builder.RegisterBuildCallback(resolver =>
             {
                 if (!resolver.TryResolve(out BattleFlow flow))
@@ -107,6 +130,7 @@ namespace Game.Battle
                 if (resolver.TryResolve(out Game.Monster.EncounterStep step))
                 {
                     flow.BindEntryContext(step);
+                    step.BindEscalation(flow);
                 }
 
                 flow.BindEntryContextProvider(bossId => FindBossContext(bossId, resolver));
@@ -114,6 +138,9 @@ namespace Game.Battle
         }
 
         private static ITelemetryScope Scope(IObjectResolver resolver) => resolver.Resolve<ITelemetryService>().Scope(TelemetryModule);
+
+        // 可选依赖：注册了就取，没注册给 null（各读方自己定缺了怎么办，见 BossAggroSceneBinder 的构造参数说明）。
+        private static T Optional<T>(IObjectResolver resolver) where T : class => resolver.TryResolve(out T value) ? value : null;
 
         /// <summary>
         /// 开仗那一刻找一次「BOSS 自己的局势快照」（③ 方案 2）。

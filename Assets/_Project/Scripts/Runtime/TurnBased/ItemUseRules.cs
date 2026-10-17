@@ -1,11 +1,11 @@
 // 职责：道具能不能用的纯判定——「拥有 + 本场没用过」两条同时成立才可以用。
 //
 // 本模块**不读背包**：持有与否由调用方通过 `IBattleItemInventory` 或直接传布尔值注入
-// （`docs/design/features-spotlight/09_BOSS战.md:333` 把背包读写划给 Loot / Inventory 模块）。
+// （`docs/design/features-spotlight/09_BOSS战.md:395` 把背包读写划给 Loot / Inventory 模块）。
 // 也不做界面高亮：07:42 的高亮 / 置暗 / 不显示是表现层的事，本模块只给判定结果。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:42`、:58；
-// 转写：`docs/design/features-spotlight/09_BOSS战.md:226`（R45）。
+// 转写：`docs/design/features-spotlight/09_BOSS战.md:234`（R45）。
 
 namespace Game.TurnBased
 {

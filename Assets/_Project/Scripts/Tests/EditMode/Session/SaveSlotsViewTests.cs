@@ -49,8 +49,8 @@ namespace Game.Tests.EditMode.Session
         public void FormatSecondary_WhenAvailable_ShowsLocalTimeAndPlaytime()
         {
             var info = new SlotInfo(1, SlotState.Available, SavedAt, 125f, "进度");
-            string expectedTime = SavedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-            Assert.That(SaveSlotsView.FormatSecondary(info), Is.EqualTo(expectedTime + " · 游玩时长 02:05"));
+            string expectedTime = SavedAt.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            Assert.That(SaveSlotsView.FormatSecondary(info), Is.EqualTo(expectedTime + "\n游玩时长：02:05"));
         }
 
         [Test]

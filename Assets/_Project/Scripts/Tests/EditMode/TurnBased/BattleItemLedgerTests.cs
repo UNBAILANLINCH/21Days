@@ -1,7 +1,7 @@
 // 职责：道具账本（本场哪些用过了）与背包接口注入的 EditMode 测试。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:42`、:58；
-// 背包不归本模块（`docs/design/features-spotlight/09_BOSS战.md:333` 划给 Loot / Inventory），
+// 背包不归本模块（`docs/design/features-spotlight/09_BOSS战.md:395` 划给 Loot / Inventory），
 // 所以「有没有」必须走注入，这里连注入口一起验。
 
 using Game.TurnBased;

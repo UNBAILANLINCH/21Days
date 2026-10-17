@@ -205,6 +205,38 @@ namespace Game.Tests.EditMode.Stealth
             Assert.That(LineFor("stealth/stealth_executed"), Does.Contain("\"settled\":false"));
         }
 
+        /// <summary>
+        /// 负对照（PRP/combat-iteration D2「整场胜负只认主怪」）：处决一只**附加的完整参与者**——它死、事实照写、
+        /// 埋点照记，但**不承载**战斗结果（`settled:false`）；随后处决主怪才承载 Victory。
+        /// </summary>
+        [Test]
+        public void TryExecute_NonPrimaryTarget_KillsItButDoesNotSettleTheEncounter()
+        {
+            MonsterRules primary = new MonsterRules(monsterConfig, new MonsterModel(), new RandomService(3ul),
+                NullTelemetryScope.Instance);
+            var encounter = new EncounterStep(new PlayerRules(playerConfig, new PlayerModel(), NullTelemetryScope.Instance), primary);
+            encounter.ConfigureTaming("player", "玩家", new[] { "primary", "extra" }, new[] { "主怪", "附加怪" },
+                new[] { new[] { Vector2.zero, new Vector2(10f, 0f) }, new[] { new Vector2(0f, 5f), new Vector2(10f, 5f) } },
+                null, new[] { false, true });
+            encounter.Begin(new Vector2(-1f, 0f), new[] { Vector2.zero, new Vector2(10f, 0f) });
+            MonsterRules extra = encounter.Taming.GetTarget("extra");
+            var resolver = new ExecutionResolver(assassination, encounter.FactSink, encounter, telemetry.Scope("stealth"));
+            Assert.That(encounter.IsFullParticipant("extra"), Is.True, "前提：它是可被处决的完整参与者");
+
+            ExecutionVerdict verdict = resolver.TryExecute(
+                new ExecutionInput(Input(extra, extra.Model.Position + new Vector2(-1f, 0f), aware: false), true), extra);
+
+            Assert.That(verdict.Allowed, Is.True);
+            Assert.That(extra.Model.Health, Is.Zero, "附加怪照样被处决");
+            Assert.That(encounter.Facts.IsTrue(StealthFactKeys.Assassinated), Is.True, "事实照写（它确实被暗杀了）");
+            Assert.That(encounter.BattleSettlement.HasValue, Is.False, "非主怪不结算整场");
+            Assert.That(LineFor("stealth/stealth_executed"), Does.Contain("\"settled\":false"));
+
+            Assert.That(resolver.TryExecute(Behind(primary), primary).Allowed, Is.True);
+            Assert.That(encounter.BattleSettlement.HasValue, Is.True, "主怪被处决才承载结果");
+            Assert.That(encounter.BattleSettlement.Value.Kind, Is.EqualTo(BattleOutcome.Victory));
+        }
+
         // ──────────────────────── 表现钩子（06:63，本波只留接口） ────────────────────────
 
         [Test]

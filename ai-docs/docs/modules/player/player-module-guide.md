@@ -16,7 +16,7 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动（走 / �
 | --- | --- | --- |
 | 输入 | `PlayerIntent` | 一个逻辑 tick 的移动向量与四个按钮状态（潜行、伪装、攻击、奔跑） |
 | 配置 | `PlayerConfig` | 不变的原型数值，编辑器可调 |
-| 规则 | `PlayerRules` | 固定步长推进、按键边缘、伤害 |
+| 规则 | `PlayerRules` | 固定步长推进、按键边缘、伤害；**外加 `MaxHealth` 与 `SetHealth(int)`**（2026-10-14 新增，见下） |
 | 运行数据 | `PlayerModel` | 位置、朝向、状态、生命、计时器与回放字段 |
 | 跨模块读口 | `PlayerSnapshot` | Monster 感知所需的只读值 |
 | 跨模块写口 | `DamageIntent` | 经 `PlayerRules.ApplyDamage` 施加正伤害 |
@@ -42,8 +42,19 @@ Player 提供本次 Monster 遭遇所需的最小玩家行为：移动（走 / �
 伪装开启后 Monster 的攻击统一被 DisguiseRules 禁止（含已敌对敌人），但不禁止警戒或追击；切换记录 `disguise_changed` 遥测。
 独立场景的 StandaloneEncounterController 缓存 J/G/左 Ctrl 按下事件，避免短按落在两个物理帧之间被漏读。
 玩家生命归零后不再移动或攻击；死亡视觉由遭遇场景的占位图反馈。
+
+### 设定生命口（2026-10-14，PRP/combat-iteration D4 / D5）
+
+`PlayerRules.MaxHealth`（只读，转读 `PlayerConfig.MaxHealth`，不另存一份）与 `PlayerRules.SetHealth(int)`：
+
+- **为什么要它**：露馅判死、被抓判死与回合制战后血量回写都要「把生命**置成**某个值」，
+  而 `ApplyDamage` / `Heal` 都是增量口径，且 `Heal` 对已倒下的人拒绝——两者都答不了「置 0 / 置成战后余量」。
+- **夹在 `[0, MaxHealth]`**，并且**设定时清掉击倒状态**（战后不该还趴着）。
+- 放本类而不是让调用方直接写 `PlayerModel.Health`：上限、击倒状态与埋点都归本类（同 `Heal` 的理由）。
+- 调用方：`EncounterStep`（露馅判死、被抓判死、`CompleteEscalation` 战后写回）。
+
 玩家 `Health` 归零后，若 `Mirror` 模块已接线，会弹出镜碎页并调 `EncounterStep.End()` 结束本场遭遇、重进场景恢复满生命，取代这里描述的「原地不再移动」旧表现，见 [`mirror-module-guide.md`](../mirror/mirror-module-guide.md)。
-遭遇场景调试面板（`OnGUI`）也已按 Mirror 的 V8 验收去掉玩家生命数字，只显示潜行 / 伪装状态（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs:257-258`）。
+遭遇场景调试面板（`OnGUI`）也已按 Mirror 的 V8 验收去掉玩家生命数字，只显示潜行 / 伪装状态（`Assets/_Project/Scripts/Runtime/Monster/EncounterSceneView.cs`的OnGUI）。
 
 ## 运行数据与回放
 

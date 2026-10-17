@@ -5,6 +5,10 @@
 // 治疗口（2026-10-07，S5 背包「使用」通路）：新增 Heal(int)，与 ApplyDamage 对称；道具效果侧经
 //   Game.Inventory 的薄适配器 PlayerItemEffectTarget 调它，**不让 Player 认识 Inventory**（依赖方向是 Inventory → Player）。
 //   本类不实现 IItemEffectTarget：那会新开一条反方向的依赖边（契约声明在使用方那一侧）。
+// 设定生命口（2026-10-14，PRP/combat-iteration D4 / D5）：新增只读 MaxHealth 与 SetHealth(int)。
+//   露馅判死、被抓判死（W2）与回合制战后血量回写（W3）都要「把生命直接置成某个值」，
+//   而 ApplyDamage / Heal 都是增量口径，且 Heal 对已倒下的人拒绝——两者都答不了「置 0 / 置成战后余量」。
+//   放在本类而不是让调用方写 PlayerModel.Health：上限、击倒状态与埋点都归本类（同 Heal 的理由）。
 using System;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
@@ -37,6 +41,9 @@ namespace Game.Player
         public PlayerModel Model => model;
         public float AttackRange => config.AttackRange;
         public int AttackDamage => config.AttackDamage;
+
+        /// <summary>生命上限（唯一定义在 <see cref="PlayerConfig.MaxHealth"/>；本属性只转读，不另存一份）。</summary>
+        public int MaxHealth => config.MaxHealth;
 
         /// <summary>
         /// 击倒状态机；为 null 表示本次流程没接击倒（挨打只扣血）。接线方是遭遇流程
@@ -193,6 +200,42 @@ namespace Game.Player
 
             telemetry.Track("healed", ("hp", model.Health), ("amount", healed));
             return healed;
+        }
+
+        /// <summary>
+        /// 把生命直接设成 <paramref name="health"/>，夹在 [0, <see cref="MaxHealth"/>]；同时<b>清掉击倒状态</b>
+        /// （只清阶段、不清累计次数，同 <see cref="Reset"/> 的口径）。
+        /// <para>
+        /// 调用方（PRP/combat-iteration）：露馅口径为「死亡」、被抓口径判定失败时置 0（D1 / D4，走既有的生命归零收尾：
+        /// 剧情阶段内判 Downed、自由探索弹镜碎页）；回合制战后按比例写回实时血量（D5）。
+        /// 清击倒的理由：被设定的血量是「结算之后的终态」，战后不该还趴着；置 0 时也不留一个半截的倒地计时。
+        /// </para>
+        /// <para>
+        /// 与 <see cref="Heal"/> 的分工：Heal 是道具的增量回复、对已倒下的人拒绝；本方法是流程结算的直接设定，
+        /// 不看当前是否倒下（战后写回可以把 0 以外的值写进来，由调用方保证语义）。不在 tick 里逐帧调。
+        /// </para>
+        /// </summary>
+        /// <returns>夹值之后实际写入的生命。</returns>
+        public int SetHealth(int health)
+        {
+            int before = model.Health;
+            int clamped = GameMath.Clamp(health, 0, config.MaxHealth);
+            model.Health = clamped;
+            if (knockdown != null)
+            {
+                knockdown.Reset(false);
+            }
+
+            if (clamped != before)
+            {
+                telemetry.Track("health_set", ("hp", clamped), ("from", before), ("requested", health));
+                if (clamped == 0)
+                {
+                    telemetry.Track("dead");
+                }
+            }
+
+            return clamped;
         }
     }
 }

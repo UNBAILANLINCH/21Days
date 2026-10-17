@@ -43,6 +43,8 @@ public readonly struct SaveCompletedEvent { int Slot; string Reason; bool Succes
 SaveNowAsync 在对白运行或 NarrativeStable=false 时返回 false、保留待保存请求；退出/离场也不覆盖旧槽。
 ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)，后者必须只校验、不修改当前分区。
 
+新游戏/继续切换尚未结束或写盘在途时，NewGameAsync与ContinueAsync拒绝重入并返回false。切槽期间SaveNowAsync直接返回false，不捕获旧现场，也不把旧离场请求延后写入目标槽；新场景完成后的RequestSave留到切换结束再由Tick处理。失败/取消也会释放切换守卫。
+
 > **新游戏入口要先放操作说明**：`NewGameAsync` 本身**不显示**开局操作说明（教程面板是 UI，塞进 `GameSession`
 > 会让它认识 `IUIService`）。Session 内部两条入口——`SessionTitleRouter`（标题「开始」）与 `SaveSlotsController`
 > （选槽面板的新游戏模式）——都先调 `NewGameTutorial.ShowAsync(ct)`、等玩家按键关掉教程，再调 `NewGameAsync`。
@@ -68,7 +70,9 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 标题空槽开局先等待 `TitleView.PlayStartTransitionAsync(ct)`，再显示原操作说明并开启会话。
 表现接口只播放镜转/水波；`ResetStartTransition()` 供取消或失败收尾，不初始化存档、不加载场景。
-转场缺少接线时直接完成，旧预制体继续兼容。新游戏选择槽位并完成覆盖确认后，先关闭选槽面板再播放同一转场；继续读档不播放。
+转场缺少接线时直接完成，旧预制体继续兼容。新游戏选择槽位并完成覆盖确认后，先关闭选槽面板再播放同一转场。
+读档使用 `TitleView.PlayLoadTransitionAsync(ct)` 的短镜转/水波；选槽路径先等待 `SaveSlotsView.PlayLoadTransitionAsync(slot, seconds, ct)` 收卷，关闭面板后播放短版，再调用原 `GameSession.ContinueAsync`。
+`SaveSlotsView.ResetLoadTransition()` 恢复裁切和交互；标题短版与完整版都通过 `ResetStartTransition()` 收尾。读档失败会复位并重新显示选档面板，不显示新游戏操作说明。
 
 ```csharp
 public readonly struct SlotInfo { int Slot; SlotState State; DateTime SavedAtUtc; float PlaytimeSeconds; string ProgressText; }

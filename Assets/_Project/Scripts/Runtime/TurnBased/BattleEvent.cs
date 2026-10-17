@@ -116,6 +116,26 @@ namespace Game.TurnBased
             new BattleEvent(BattleEventKind.RoundLimitReached, 0, 0, PlayerSkill.None, BossSkill.None,
                 DrunkTier.Normal, DrunkSkipReason.None, null, null, outcome);
 
+        /// <summary>护心鳞挡下了玩家这一招（阶段九 BOSS，07:92）；<paramref name="layersLeft"/> = 挡下之后还剩几层。</summary>
+        public static BattleEvent BossShieldBlocked(int layersLeft) =>
+            new BattleEvent(BattleEventKind.BossShieldBlocked, layersLeft, 0, PlayerSkill.None, BossSkill.None,
+                DrunkTier.Normal, DrunkSkipReason.None, null, null, BattleOutcome.None);
+
+        /// <summary>BOSS 换形态（阶段九 BOSS，07:94）；<paramref name="phaseIndex"/> 从 0 起，<paramref name="phaseName"/> 是形态名。</summary>
+        public static BattleEvent BossPhaseChanged(int phaseIndex, string phaseName) =>
+            new BattleEvent(BattleEventKind.BossPhaseChanged, phaseIndex, 0, PlayerSkill.None, BossSkill.None,
+                DrunkTier.Normal, DrunkSkipReason.None, phaseName, null, BattleOutcome.None);
+
+        /// <summary>玩家被「金锁禁锢」（阶段九 BOSS 人形态招式 2，07:176）；<paramref name="rounds"/> = 禁锢几回合。</summary>
+        public static BattleEvent PlayerSkillLocked(int rounds) =>
+            new BattleEvent(BattleEventKind.PlayerSkillLocked, rounds, 0, PlayerSkill.None, BossSkill.None,
+                DrunkTier.Normal, DrunkSkipReason.None, null, null, BattleOutcome.None);
+
+        /// <summary>BOSS 获得护心鳞（07:177、:192、:193）；<paramref name="layers"/> = 加了几层。</summary>
+        public static BattleEvent BossShieldGained(int layers) =>
+            new BattleEvent(BattleEventKind.BossShieldGained, layers, 0, PlayerSkill.None, BossSkill.None,
+                DrunkTier.Normal, DrunkSkipReason.None, null, null, BattleOutcome.None);
+
         /// <summary>中文描述，用于日志与测试失败信息。</summary>
         public string Describe()
         {
@@ -143,6 +163,14 @@ namespace Game.TurnBased
                     return "BOSS 被打倒";
                 case BattleEventKind.RoundLimitReached:
                     return "打到回合上限，判定：" + Outcome;
+                case BattleEventKind.BossShieldBlocked:
+                    return "护心鳞挡下这一招，还剩 " + Amount + " 层";
+                case BattleEventKind.BossPhaseChanged:
+                    return "BOSS 换成第 " + (Amount + 1) + " 形态（" + HintText + "）";
+                case BattleEventKind.PlayerSkillLocked:
+                    return "玩家被金锁禁锢 " + Amount + " 回合";
+                case BattleEventKind.BossShieldGained:
+                    return "BOSS 获得护心鳞 " + Amount + " 层";
                 default:
                     return "无事件";
             }

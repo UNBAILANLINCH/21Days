@@ -1,0 +1,8 @@
+var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+var root = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TitleView.prefab");
+var rows = new System.Collections.Generic.List<object>();
+foreach (var rect in root.GetComponentsInChildren<UnityEngine.RectTransform>(true)) {
+    var image = rect.GetComponent<UnityEngine.UI.Image>();
+    rows.Add(new { name = rect.name, size = rect.sizeDelta.ToString(), anchors = rect.anchorMin.ToString(), position = rect.anchoredPosition.ToString(), sprite = image == null || image.sprite == null ? "" : UnityEditor.AssetDatabase.GetAssetPath(image.sprite), active = rect.gameObject.activeSelf });
+}
+return new { playing = UnityEditor.EditorApplication.isPlaying, compiling = UnityEditor.EditorApplication.isCompiling, scene = scene.path, dirty = scene.isDirty, objects = rows };

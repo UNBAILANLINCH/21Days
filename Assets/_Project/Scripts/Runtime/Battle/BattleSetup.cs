@@ -14,6 +14,14 @@
 //   药水 30% 取整为 0，演示不出东西；07 没写玩家血量，也没说与探索血量挂钩。所以改读 BossDefinition.PlayerHealth
 //   （占位 10，等 C91），开战满血、战后不回写（PRP D10 的「不回写」照旧）。
 //
+// 实时遭遇升级回合制（PRP/combat-iteration D5，2026-10-14）：新增按 `Game.Monster.EncounterEscalationRequest` 开仗的重载。
+//   ① 触发情形 → 开战请求的翻译在这里（TranslateEscalation，对照 TurnBased/BattleEntryRules.cs:23-52）；
+//   ② 血量互通（用户拍板「按比例互通」）：请求里带玩家实时生命与上限，进战斗生命 = ceil(实时比例 × 战斗上限)、至少 1，
+//      战斗上限仍是 BossDefinition.PlayerHealth；换算只有两处口径、都在 EncounterEscalationRequest 上：
+//      **进场向上取整**（ScaleHealth，本文件用）、**出场四舍五入**（ScaleHealthBack，EncounterStep.CompleteEscalation 用）。
+//      两侧都 `ceil` 会让残血原样打完凭空回血（1/3 → 4/10 → 2/3），2026-10-16 代码审查指出后改的，理由写在那两个方法上。
+//   剧情那两个重载不传实时血量 = 满血开打，与之前逐字一致。
+//
 // 随机源（PRP D8）：**不用 logic.* 流**。IRandomService 的约定只有两类前缀——logic.*（进快照、参与状态哈希）和
 //   view.*（纯表现、多抽少抽都无所谓）。回合制战斗在确定性内核之外推进（不在 tick 里、会话不进快照），
 //   用 logic.* 会让回放在战斗之后哈希对不上；用 view.* 又违背「表现流不影响逻辑」的语义。两个前缀都不合适，
@@ -44,6 +52,10 @@ namespace Game.Battle
         private readonly IBattleItemInventory inventory;
         private ulong battleOrdinal;
         private SettingsOverride activeOverride;
+        private Func<string, int?> drunkSource;
+
+        /// <summary>场外醉酒快照来源；卸载调用方时传 null 恢复配置默认值，不修改配置资产。</summary>
+        public void BindDrunkSource(Func<string, int?> source) => drunkSource = source;
 
         /// <param name="settings">回合制数值（TurnBasedConfig.Settings）。</param>
         /// <param name="seedSource">会话主种子（RandomService.MasterSeed）；每场开打时现读。</param>
@@ -114,11 +126,64 @@ namespace Game.Battle
         public bool TryCreate(BossDefinition boss, Game.Monster.IBattleEntryContext context,
             out BattleSession session, out string error)
         {
-            session = null;
             if (boss == null) throw new ArgumentNullException(nameof(boss));
+            return TryCreateCore(boss, BuildEntryRequest(context), 0, 0, out session, out error);
+        }
 
+        /// <summary>
+        /// 按**实时遭遇的升级请求**开一场仗（PRP/combat-iteration D5）：触发情形经 <see cref="TranslateEscalation"/> 翻成开战请求，
+        /// 玩家进战斗生命按请求里的实时比例换算（<see cref="Game.Monster.EncounterEscalationRequest.ScaleHealth"/>，
+        /// <c>ceil(实时 / 实时上限 × 战斗上限)</c>，至少 1；战斗上限仍是 <see cref="BossDefinition.PlayerHealth"/>）。
+        /// 失败（配置不自洽 / 本场玩家生命非正 / 进战斗判定被拒）返回 false 并给出中文原因。
+        /// </summary>
+        public bool TryCreate(BossDefinition boss, in Game.Monster.EncounterEscalationRequest request,
+            out BattleSession session, out string error)
+        {
+            if (boss == null) throw new ArgumentNullException(nameof(boss));
+            return TryCreateCore(boss, TranslateEscalation(request.Trigger), request.PlayerHealth, request.PlayerMaxHealth,
+                out session, out error);
+        }
+
+        /// <summary>
+        /// 实时遭遇的触发情形 → 进战斗请求（PRP/combat-iteration D5 的翻译表，对照 <see cref="BattleEntryRules.Decide"/>）：
+        /// <list type="table">
+        /// <item><term>玩家打中未察觉的怪</term><description><c>Initiator = PlayerAttacked</c>、<c>SneakStrikeReady = true</c>
+        /// （潜行 + 偷袭命中）→ 偷袭：玩家先手、怪物开战前先掉 20%。用户拍板「打中未察觉的怪就是偷袭」，不另要求此刻在潜行。</description></item>
+        /// <item><term>玩家打中已警戒 / 敌对的怪</term><description><c>Initiator = PlayerAttacked</c>、<c>InAlertOrHostileContext = true</c>
+        /// （按警戒档填）→ 正面攻击：玩家先手。</description></item>
+        /// <item><term>怪打中玩家</term><description><c>Initiator = BossAttacked</c>、<c>InAlertOrHostileContext = true</c>
+        /// （它出手只能在敌对态，按敌对档填）→ 被打：怪物先手。</description></item>
+        /// </list>
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">触发情形是 <c>None</c> 或未知值。</exception>
+        public static BattleEntryRequest TranslateEscalation(Game.Monster.EncounterEscalationTrigger trigger)
+        {
+            switch (trigger)
+            {
+                case Game.Monster.EncounterEscalationTrigger.PlayerHitUnaware:
+                    return new BattleEntryRequest(true, true, false, false, MonsterAlertState.Unaware, BattleInitiator.PlayerAttacked);
+                case Game.Monster.EncounterEscalationTrigger.PlayerHitAware:
+                    return new BattleEntryRequest(false, false, true, false, MonsterAlertState.Alert, BattleInitiator.PlayerAttacked);
+                case Game.Monster.EncounterEscalationTrigger.MonsterHitPlayer:
+                    return new BattleEntryRequest(false, false, false, true, MonsterAlertState.Hostile, BattleInitiator.BossAttacked);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(trigger), trigger, "没有对应开战方式的升级触发情形");
+            }
+        }
+
+        // 开仗的公共部分。livePlayerMaxHealth <= 0 = 没给实时血量（剧情那两个重载）→ 满血开打，与之前逐字一致。
+        private bool TryCreateCore(BossDefinition boss, in BattleEntryRequest request, int livePlayerHealth, int livePlayerMaxHealth,
+            out BattleSession session, out string error)
+        {
+            session = null;
             BattleSettings current = Settings;
-            string issue = TurnBasedConfigValidation.Validate(current);
+            // 按 BOSS 补多形态档案：名册行配了就用它（阶段九 BOSS 的人 / 龙两形态 + 按 BOSS 覆盖偷袭扣血）；
+            // 覆盖里已经带了档案就以覆盖为准（回放要自己控形态时走这条）。
+            BattleSettings effective = current.BossProfile.HasPhases
+                ? current
+                : current.WithBossProfile(boss.BattleProfile);
+
+            string issue = TurnBasedConfigValidation.Validate(effective);
             if (issue != null)
             {
                 error = "回合制配置不自洽（TurnBasedConfig）：" + issue;
@@ -132,10 +197,14 @@ namespace Game.Battle
                 return false;
             }
 
-            var kernel = new TurnBasedKernel(current, NextStream(), inventory);
-            BattleEntryRequest request = BuildEntryRequest(context);
-            if (!kernel.TryStartBattle(request, new PlayerBattleSnapshot(playerHealth, playerHealth),
-                    new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, boss.OutOfBattleDrunk), out session, out BattleEntryReject reject))
+            int drunk = drunkSource?.Invoke(boss.Id) ?? boss.OutOfBattleDrunk;
+            if (drunk < 0) { error = "场外醉酒值不可为负"; return false; }
+            int startHealth = livePlayerMaxHealth > 0
+                ? Game.Monster.EncounterEscalationRequest.ScaleHealth(livePlayerHealth, livePlayerMaxHealth, playerHealth)
+                : playerHealth;
+            var kernel = new TurnBasedKernel(effective, NextStream(), inventory);
+            if (!kernel.TryStartBattle(request, new PlayerBattleSnapshot(playerHealth, startHealth),
+                    new BossBattleSnapshot(boss.MaxHealth, boss.MaxHealth, drunk), out session, out BattleEntryReject reject))
             {
                 error = "进战斗判定被拒：" + BattleEntryRules.Describe(reject);
                 return false;

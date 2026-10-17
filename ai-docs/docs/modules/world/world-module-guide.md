@@ -66,6 +66,62 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 | `ISpawnPlacement` / `UnwiredSpawnPlacement` | 出生点放置策略的契约 / **未接线的默认实现**（一定返回 false 并说清缺什么，绝不假装成功） |
 | `WorldInstaller` | 本模块的根作用域注册器（**接线波已挂到 Boot 的 `GameBootstrap`，组件列表末尾**）。注册：`WorldCatalog` / `WorldSceneBinder` / `IWorldTransition` / `ISpawnPlacement`（真实现）/ `CameraConstraintPolicy` / `WorldSceneState` / `WorldSceneDriver` |
 | `CameraConstraintPolicy`（在 `Game.IsometricExploration`） | 镜头约束的共享策略：**没有边界 = 不约束**；`WorldSceneState` 进场景时把它推给 `SmoothCameraFollow` |
+| `SceneMapController` | 共用探索小地图 HUD 入口；`WorldInstaller` 注册，随统一玩家锚点和探索状态更新，复用同一界面实例，不暂停世界或接管输入 |
+| `SceneMapView` / `SceneMapGraphic` | 当前场景的俯视轮廓、玩家位置、可加载出口及楼梯标记；绘图不写玩法状态 |
+
+## 共用探索小地图（2026-10-13）
+
+范围与验收记录见 [`PRP/scene-map/prp.md`](../../../../PRP/scene-map/prp.md)。
+
+- **形态**：主界面左上角常驻 HUD，放在任务栏上方；进入探索自动显示，不需要按键，不暂停世界。
+  默认跟随 `IHudVisibility` 的沉浸显隐；标题或没有玩家锚点时隐藏内容。
+  同一控件服务所有通过 Boot 根作用域进入的探索场景，不按场景名筛选。
+- **数据源**：`IInteractionRegistry.Actor` 所在场景。玩家锚点／场景变化时扫描该场景的活跃 `MeshRenderer`，
+  排除玩家子树，按世界 XZ 包围盒绘制等比俯视矩形轮廓；不使用额外相机、不每帧扫描。
+  世界 +Z 朝上（北）、+X 朝右；玩家标记使用当前锚点位置。
+- **出口**：只标活跃、尚未触发且 `WorldCatalog.CanLoadScene` 为真的 `PortalAnchor`。
+  这只表示目标场景可加载，不承诺剧情权限或路线可达。
+- **楼梯**：最小版按 `Stair` / `楼梯` 名称识别几何，合并连续命名的父子节点。
+  当前两张世界灰盒没有楼梯几何；有楼梯的 SampleScene 使用同一规则。
+- **切场景**：统一玩家锚点变化时清除旧内容，场景就绪后在同一个 HUD 实例中重新构图；世界标题从当前 `WorldSceneState.Spawn.SceneKey`
+  查询显示名；非世界状态显示「探索地图」，不把场景资产文件名暴露给玩家。
+- **接线**：`Prefabs/UI/SceneMapView.prefab` 在 Addressables 的 UI 组，地址 `SceneMapView`；
+  Boot 已有的 `WorldInstaller` 注册入口，不新增场景组件。
+  编辑器菜单 `21Days/世界/生成最小场景地图`（`Scripts/Editor/World/SceneMapBuilder.cs`）生成小地图预制体，
+  同时把 `QuestHudView.prefab` 的任务栏放到其下方；地图为参考画布下 264×294 的左上角控件，任务栏顶部偏移为 -332。
+  重建会覆盖小地图布局和任务栏位置，正式美术接管后停用生成器；不修改或保存场景。
+- **限制**：轮廓是轴对齐矩形示意，重叠楼层叠画；没有楼层筛选、正式底图、寻路、迷雾或敌人扫描。
+  新场景要有统一玩家锚点才会显示数据；没摆好的地点不会虚构标记。
+- **验证**：`SceneMapTests` 验投影、旧图替换与显示条件；`SceneMapControllerTests` 验失败／销毁不改变输入；
+  `WorldShowcase.MapHud_ShowsCurrentPositionAndFollowsSceneChanges` 验自动显示、实时定位和两界换图复用同一实例。
+  `WorldShowcase.MapInDemo_ShowsExistingStairs` 从标题进入 SampleScene，验两组楼梯、任务栏上下布局与沉浸显隐；两条地图回放都有实际绘制像素检查。
+  自动结果与截图不替代开发者视觉验收。
+
+## 关卡点位与测试动线编辑（2026-10-14）
+
+菜单 **21Days → 关卡 → 点位与动线编辑器**，对应 `Scripts/Editor/World/LevelPointEditorWindow.cs`。
+先打开要编辑的关卡，并在多场景编辑时设为活动场景；Boot 是启动入口，不是摆关卡内容的地方。
+
+- 列表包含未激活的出生点、任务地点、NPC、角色/怪物、传送点与已接线巡逻点。点击条目定位到 Scene，使用移动工具拖动；窗口可直接编辑选中点坐标、出生/地点 ID 与抵达半径。
+- 新增出生点或任务地点：填写 ID，点「开始放置」，在带 Collider 的场景地面左键落点；Esc 取消。重复 ID 拒绝创建。出生 ID 还要登记到 `Tables/Data/world/scene/` 的对应记录；任务地点键须与任务编辑器的目标对应，窗口不自动改表。
+- SampleScene 等遭遇场景使用 `EncounterSceneView.playerSpawn`，调整列表里的「遭遇出生」，不额外添加 `SpawnAnchor`，避免改变世界/遭遇驱动判据。
+- 怪物/角色沿用已有组件：选中角色，点「把选中角色设为巡逻编辑对象」，编辑巡逻点数组与顺序，或增加巡逻点。黄色线显示该对象的巡逻路线；巡逻初始位置由巡逻点决定，改出生位置要同时调整首点。新增点为场景根物体，不随角色移动。
+- 新建测试动线后选「测试动线点」逐个放置。青色线按子物体层级顺序连接，调整子物体顺序即可调路线；显示包含高度的三维直线段长度。测试路线以带 `EditorOnly` 标签的 `测试动线_` 根物体及其子点保存，打包时剔除，不参与运行时逻辑。
+- 所有修改支持 Unity 撤销；点「保存当前场景」保存。播放期间只读，实际走测从 Boot → 标题进入关卡。连线仅为人工走测参考，不证明碰撞、楼梯、任务触发或寻路可达。
+
+**整店摆位**：窗口上部提供「整店 / 分组移动」。当前五店可用「关联现有五店建筑和人员（保留当前位置）」建立关联，沿用五店文档已确认的五处模型节点，不按距离猜归属；重复执行保留已添加的关联对象。关联前核对五处建筑和店铺根，歧义或共享成员拒绝，失败撤销本轮关联。
+
+1. 点「戏班 / 衣肆 / 金银行 / 客栈 / 酒肆」激活专用整组移动手柄，或修改「整组世界位置」；建筑、店铺根及人员/活动区/操作点/路线子物体一起平移。模型层级、稳定 ID 和玩法引用保持原样，不拆导入模型预制体。
+2. 展开「人员 / 点位」点击条目，切回普通移动工具进行单独调整。W 切换普通工具后只移动选中物体；需要整体移动时再次点店名。
+3. 「关联对象」可补充在店铺层级之外的任务地点、巡逻点或测试路线根。本组子物体自动跟随，无需重复登记。跨店对象要明确唯一归属，共享对象、空引用、跨场景对象和地图祖先会阻止整体移动。
+   选定店铺后新建的地点和测试路线自动归在该组下；为店内角色新增巡逻点也归到店铺组下，避免以后搬店时遗漏。
+4. 其他分组可选场景根物体点「把选中物体设为摆位分组」，再填关联对象。关联数据由 `Runtime/World/LevelLayoutGroup.cs` 保存；纯作者数据，不增加运行时位置同步。`Editor/World/LevelGroupMoveTool.cs` 对最高层成员只平移一次，支持整组撤销及预制体实例位置 override。
+
+整体摆位只做平移，不自动旋转、缩放、贴地、重建楼梯或迁移旧存档里的绝对角色位置。改变布局后从新局走测，重新核对地面、店前通路和任务触发。
+
+该工具不重建场景、不改任务进度，也不创建未接线的怪物。新增怪物仍需沿用已有角色预制体与遭遇登记接法。
+覆盖路线空/单点、楼梯高度和层级调序的 EditMode 测试位于 `Tests/EditMode/World/LevelPointEditorWindowTests.cs`。
+整体移动的父子去重、层级保持、共享成员拒绝、地图祖先拒绝、空成员拒绝、非法坐标拒绝及撤销由 `LevelGroupMoveToolTests.cs` 覆盖。
 
 ## 三张表
 
@@ -94,8 +150,8 @@ A4「多场景流转」与 A6「相机边界与死区」的**数据层 + 纯逻�
 
 ## 依赖方向
 
-只依赖 `Game.Core`（存档 / 流程 / 配置 / 埋点 / 确定性内核 / 输入）。
-`PortalAnchor` / `SpawnAnchor` 依赖 `UnityEngine`（MonoBehaviour），其余为纯逻辑。
+框架依赖为 `Game.Core`（存档 / 流程 / 配置 / 埋点 / 确定性内核 / 输入 / UI / 世界暂停）。
+场景锚点依赖 `UnityEngine`；地图显示依赖 Unity UI 与 TMP，控制器只读取场景与世界目录。
 不依赖 Quest / Narrative / Session / Monster；**反向**由它们调本模块。
 
 **接线波新增的两条边**（都在 `Game.Runtime` 这同一个程序集里，asmdef 层面不需要改动）：

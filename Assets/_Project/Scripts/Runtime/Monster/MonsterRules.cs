@@ -52,6 +52,12 @@ namespace Game.Monster
         private float coneCosine;
         private Vector2[] waypoints = Array.Empty<Vector2>();
 
+        // 本 tick 的步进结果（PRP/combat-iteration W2）：Step 写、遭遇结算读（露馅信号、被抓判据），
+        // 每次 Step / MoveControlled 开头清零。**不进快照、不进存档**：它们只回答「这一 tick 发生了什么」，
+        // 下一 tick 一定重算；恢复（Reset / Restore / Deserialize）时一并清零，不让上一场的结果漏到读档后。
+        private int sensedThisStep;
+        private bool attackedThisStep;
+
         /// <param name="kind">
         /// 直接指定按种类的数值；为 null（且 <paramref name="kindCatalog"/> 也为 null）表示「这份配置没接种类表」，
         /// 全部按 <paramref name="config"/> 的全局默认值跑——也就是拆分前的行为。测试与独立原型场景用这一支。
@@ -87,8 +93,44 @@ namespace Game.Monster
         }
 
         public MonsterModel Model => model;
-        public MonsterRules CreateForActor(string stableId) => new MonsterRules(config, new MonsterModel(), random,
-            telemetry, kind, kindCatalog, kindId, describeKind, "logic.monster.patrol." + stableId, sight);
+
+        /// <summary>
+        /// 全局配置（同一场遭遇里所有巡逻者共用同一份，见 <see cref="CreateForActor"/>）。
+        /// 读方是遭遇调度（<c>EncounterStep</c> 读升级回合制的触发开关，PRP/combat-iteration D5）；只读，运行时不改 SO。
+        /// </summary>
+        public MonsterConfig Config => config;
+
+        /// <summary>
+        /// 为场景里的另一只巡逻者造一份规则：共用全局配置、随机服务、埋点与遮挡，巡逻随机流按稳定标识各走各的。
+        /// <para>
+        /// <paramref name="kindIdOverride"/>（PRP/combat-iteration D2「一场遭遇多种怪」）：
+        /// <c>0</c>（默认）= <b>沿用本只怪的种类</b>，与加这个参数之前逐字一致——连已解析的 <see cref="Kind"/>
+        /// 带种类目录与种类 id 一起复制（巡逻者乙靠这一支）；
+        /// 非 <c>0</c> = 用覆盖的种类：<b>不复制</b>已解析的 <see cref="Kind"/>（传 null），只换种类 id，
+        /// 让新规则在 <see cref="Reset"/> 里按新 id 自己查表（查表时机的理由见字段区「种类在 Reset 时才查」）。
+        /// 没接种类目录（测试 / 独立原型场景）时覆盖不到任何种类，整只怪走全局默认——同 <c>kind == null</c> 的既有口径。
+        /// </para>
+        /// </summary>
+        /// <param name="stableId">场景稳定标识；拼进巡逻随机流的名字，保证每只怪的停步节奏互不相干。</param>
+        /// <param name="kindIdOverride">种类覆盖；<c>0</c> = 沿用本只怪的种类。负数视为非法。</param>
+        public MonsterRules CreateForActor(string stableId, int kindIdOverride = 0)
+        {
+            if (kindIdOverride < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(kindIdOverride), kindIdOverride, "种类覆盖不能为负数（0 = 沿用主怪种类）");
+            }
+
+            if (kindIdOverride == 0)
+            {
+                return new MonsterRules(config, new MonsterModel(), random,
+                    telemetry, kind, kindCatalog, kindId, describeKind, "logic.monster.patrol." + stableId, sight);
+            }
+
+            // 报错来源点到场景里那只巡逻者的字段上：查不到种类时，要改的是它的 TamingActor.kindId，不是 MonsterInstaller。
+            return new MonsterRules(config, new MonsterModel(), random,
+                telemetry, null, kindCatalog, kindIdOverride, () => "巡逻者 " + stableId + " 的 TamingActor.kindId",
+                "logic.monster.patrol." + stableId, sight);
+        }
 
         /// <summary>
         /// 注入视线遮挡（S3「掩体贯通到怪物察觉」，2026-10-08）。
@@ -164,6 +206,42 @@ namespace Game.Monster
         /// </summary>
         public int PerceivedBySenses(in PlayerSnapshot target) => model.Health > 0 && target.IsAlive ? SenseBySensesOnly(in target) : 0;
 
+        /// <summary>
+        /// 本 tick <see cref="Step"/> 里对玩家的感知档位（<b>行为层</b>口径，含遮挡，与 <see cref="Detects"/> 同一个答案）：
+        /// <c>2</c> = 红区、<c>1</c> = 橙区或贴身察觉、<c>0</c> = 没察觉。
+        /// <para>
+        /// 复用 Step 已经算好的结果，不再算一遍（零分配、零开方）；没被 Step 推进的 tick（死亡、被驯服操控、
+        /// 还没 Reset）为 0。读方是遭遇结算的露馅信号（PRP/combat-iteration D1）——<b>只在同一 tick 的 Step 之后读才有意义</b>。
+        /// </para>
+        /// </summary>
+        public int SensedThisStep => sensedThisStep;
+
+        /// <summary>
+        /// 本 tick <see cref="Step"/> 是否出手打了玩家（Step 返回 true 的那一 tick）。只在敌对态出手，
+        /// 所以「这一 tick 打中了」就是「追上了」——遭遇结算拿它判附加完整参与者的「被抓」（PRP/combat-iteration D4）。
+        /// 没被 Step 推进的 tick 为 false。
+        /// </summary>
+        public bool AttackedThisStep => attackedThisStep;
+
+        /// <summary>
+        /// 「被惊动」入口（PRP/combat-iteration D1：露馅 → 察觉者转敌对）：让这只怪立刻转敌对、把玩家当前位置记为追击目标，
+        /// 之后的追击沿用既有的敌对态与 ChaseRules。内部走与红区 / 警戒升满 / 受击<b>同一个</b> <see cref="EnterHostile"/>。
+        /// <para>
+        /// <b>幂等</b>：已死亡（生命 ≤ 0）或已经敌对时什么都不改，返回 false——已敌对的怪不重置它的追击记忆与丢失计时。
+        /// </para>
+        /// </summary>
+        /// <returns>这一次是否真的让它进入了敌对态。</returns>
+        public bool Provoke(Vector2 target)
+        {
+            if (model.Health <= 0 || model.Mode == MonsterMode.Hostile)
+            {
+                return false;
+            }
+
+            EnterHostile(target);
+            return true;
+        }
+
         public MonsterSaveData Capture()
         {
             var saved = new MonsterSaveData
@@ -198,6 +276,9 @@ namespace Game.Monster
         {
             if (saved == null) throw new ArgumentNullException(nameof(saved));
             saved.Validate();
+            // 读档不走 Reset（Begin），种类与视锥只在 Reset 里解析——这里补上，放在改写现场之前（配置非法时不部分改写）。
+            ResolveKindAndCone();
+            ClearStepResults();
             var restoredPoints = new Vector2[saved.WaypointX.Length];
             for (int i = 0; i < restoredPoints.Length; i++) restoredPoints[i] = new Vector2(saved.WaypointX[i], saved.WaypointY[i]);
             model.Position = new Vector2(saved.PositionX, saved.PositionY);
@@ -226,8 +307,8 @@ namespace Game.Monster
                 throw new ArgumentException("怪物至少需要一个巡逻点", nameof(patrolPoints));
             }
 
-            ResolveKind();
-            ValidateResolvedConfig();
+            ResolveKindAndCone();
+            ClearStepResults();
 
             waypoints = (Vector2[])patrolPoints.Clone();
             model.Position = waypoints[0];
@@ -251,6 +332,27 @@ namespace Game.Monster
             model.AlertDecayElapsed = 0f;
             model.HostileLostElapsed = 0f;
             model.AttackCooldownLeft = 0f;
+        }
+
+        /// <summary>
+        /// 解析种类并按解析结果重算视锥余弦。<see cref="Reset"/>、<see cref="Restore"/>、<see cref="Deserialize"/> 三处都走它。
+        /// <para>
+        /// 修的缺陷（PRP/combat-iteration 执行中修订，2026-10-14 用户同意并进 W2）：读档与快照恢复都不走 <see cref="Reset"/>，
+        /// 此前恢复出来的主怪种类为 null（数值 / 可否击杀 / 掉落全退回全局默认），<c>coneCosine</c> 停在初值 0，
+        /// 也就是视野变成 180°。现在恢复之后与 <see cref="Reset"/> 之后的种类与视锥逐字一致；
+        /// 种类已解析过时 <see cref="ResolveKind"/> 不重查，所以重复调用是幂等的。
+        /// </para>
+        /// </summary>
+        private void ResolveKindAndCone()
+        {
+            ResolveKind();
+            ValidateResolvedConfig();
+        }
+
+        private void ClearStepResults()
+        {
+            sensedThisStep = 0;
+            attackedThisStep = false;
         }
 
         // 种类只查一次，且只在 Reset 时查（理由见字段区与 MonsterKindCatalog 的类文档）。
@@ -327,13 +429,15 @@ namespace Game.Monster
 
             // 表现层插值的起点：放在任何提前返回之前，死亡 / 停步的 tick 也要对齐，否则视图会在旧两点间来回插。
             model.SyncPreviousPosition();
+            ClearStepResults();
             if (model.Health <= 0 || waypoints.Length == 0)
             {
                 return false;
             }
 
             model.AttackCooldownLeft = GameMath.Max(0f, model.AttackCooldownLeft - deltaTime);
-            int sensed = Sense(intent.Target);
+            int sensed = Sense(intent.Target, intent.AwarenessScale);
+            sensedThisStep = sensed;
             if (sensed == 2)
             {
                 EnterHostile(intent.Target.Position);
@@ -390,7 +494,7 @@ namespace Game.Monster
             switch (model.Mode)
             {
                 case MonsterMode.PatrolWalk:
-                    MoveTowards(waypoints[model.WaypointIndex], config.PatrolSpeed, deltaTime);
+                    MoveTowards(waypoints[model.WaypointIndex], config.PatrolSpeed * intent.MovementScale, deltaTime);
                     if (GameMath.Distance(model.Position, waypoints[model.WaypointIndex]) <= 0.001f)
                     {
                         model.WaypointIndex = (model.WaypointIndex + 1) % waypoints.Length;
@@ -415,11 +519,11 @@ namespace Game.Monster
                 case MonsterMode.Alert:
                     if (sensed > 0)
                     {
-                        MoveTowards(intent.Target.Position, config.PatrolSpeed * config.AlertSpeedMultiplier, deltaTime);
+                        MoveTowards(intent.Target.Position, config.PatrolSpeed * config.AlertSpeedMultiplier * intent.MovementScale, deltaTime);
                     }
                     break;
                 case MonsterMode.Hostile:
-                    MoveTowards(model.LastKnownTarget, config.PatrolSpeed * config.HostileSpeedMultiplier, deltaTime);
+                    MoveTowards(model.LastKnownTarget, config.PatrolSpeed * config.HostileSpeedMultiplier * intent.MovementScale, deltaTime);
                     if (sensed > 0 && intent.Target.IsAlive
                         // 攻击许可的两层：旧伪装布尔（DisguiseRules，语义原样保留）+ 身份生效中（S1）。
                         // 身份那一层的判据在 Game.Identity.IdentityAttackRules，本类不认识身份状态对象。
@@ -429,6 +533,7 @@ namespace Game.Monster
                     {
                         model.AttackCooldownLeft = config.ResolveAttackCooldown(kind);
                         telemetry.Track("attack", ("damage", config.ResolveAttackDamage(kind)));
+                        attackedThisStep = true;
                         return true;
                     }
                     break;
@@ -437,11 +542,23 @@ namespace Game.Monster
             return false;
         }
 
+        public void ChangePatrolRoute(Vector2[] points)
+        {
+            if (points == null || points.Length == 0 || points.Length > 1024) throw new ArgumentException("巡逻路线不能为空");
+            foreach (Vector2 point in points)
+                if (float.IsNaN(point.x) || float.IsInfinity(point.x) || float.IsNaN(point.y) || float.IsInfinity(point.y))
+                    throw new ArgumentException("巡逻点必须有限");
+            waypoints = (Vector2[])points.Clone();
+            model.WaypointIndex = FindNearestWaypoint();
+        }
+
         // 驯服验证的公开移动入口；调用方接管期间不再调用 AI Step。
         public void MoveControlled(Vector2 movement, float deltaTime)
         {
             if (deltaTime < 0f) throw new ArgumentOutOfRangeException(nameof(deltaTime));
             model.SyncPreviousPosition();
+            // 被操控期间它不感知、不出手：本 tick 的步进结果清零，露馅信号与被抓判据都不会算到它头上。
+            ClearStepResults();
             if (model.Health <= 0) return;
             if (GameMath.SqrMagnitude(movement) > 1f) movement = GameMath.Normalize(movement);
             if (GameMath.SqrMagnitude(movement) > 0f)
@@ -519,6 +636,30 @@ namespace Game.Monster
             return true;
         }
 
+        /// <summary>
+        /// <b>回合制战斗打赢</b>的死亡入口（PRP/combat-iteration D5，用户 2026-10-14 拍板「打赢视同击杀，无视 killable」）：
+        /// 遭遇升级成回合制、玩家在回合制里赢了，由 <c>EncounterStep.CompleteEscalation</c> 调。
+        /// <para>
+        /// 与 <see cref="ApplyExecution"/> 同一个收尾（生命置 0 + <see cref="SetMode"/> 进 <see cref="MonsterMode.Dead"/>），
+        /// 同样<b>不看 <see cref="IsKillable"/></b>——回合制本身就是这只怪的「打法」，常规伤害的拒伤条件管不到它。
+        /// 单开入口而不直接复用处决：两者的埋点要分得开（处决记 <c>executed</c>，这里记 <c>battle_defeated</c>），
+        /// 否则倒推现场时会把「回合制打赢」读成「被背后处决」。
+        /// </para>
+        /// <para>返回 false = 没执行：目标已经死了。</para>
+        /// </summary>
+        public bool ApplyBattleDefeat()
+        {
+            if (model.Health <= 0)
+            {
+                return false;
+            }
+
+            model.Health = 0;
+            SetMode(MonsterMode.Dead);
+            telemetry.Track("battle_defeated", ("kind", kind == null ? 0 : kind.KindId));
+            return true;
+        }
+
         public void Serialize(IStateWriter writer)
         {
             model.Serialize(writer);
@@ -530,22 +671,98 @@ namespace Game.Monster
             }
         }
 
+        /// <summary>
+        /// 回放快照恢复一只怪。<b>先读完、验完，再写进现场</b>（2026-10-16 代码审查指出：原先边读边写，
+        /// 读到中途发现坏数据时这只怪已经被改掉一半）。解析与写回分别见 <see cref="ReadSerialized"/>
+        /// 与 <see cref="ApplySerialized"/>——它们也供 <c>EncounterStep</c> 的「先校验、后修改」复用，
+        /// 字节布局因此只在本文件里写一遍。
+        /// </summary>
         public void Deserialize(IStateReader reader)
         {
-            model.Deserialize(reader);
-            patrolRandom.State = reader.ReadULong();
+            MonsterModel pending = ReadSerialized(reader, out ulong pendingPatrolRandom, out Vector2[] pendingWaypoints);
+            ApplySerialized(pending, pendingPatrolRandom, pendingWaypoints);
+        }
+
+        /// <summary>
+        /// 读一段由 <see cref="Serialize"/> 写出的怪物状态，<b>不改任何一只怪</b>：模型读进一只临时实例返回，
+        /// 巡逻随机流状态与巡逻点经 <c>out</c> 交出；巡逻点数量非法（&lt; 0 或 &gt; 1024）在这里就抛
+        /// ——这是「先校验、后修改」的校验那一半。
+        /// <para>
+        /// 读的是**快照字节**、不是 <c>MonsterSaveData</c>：快照允许中间态（例如还没 Reset 过的怪、空巡逻点），
+        /// 而存档校验（<c>MonsterSaveData.Validate</c>）比快照格式严，借用它会把合法快照判死。
+        /// </para>
+        /// <para>临时对象是必要的拷贝：直接读进现场那只就又变成边读边写了。只在恢复快照起点调用，不在 tick 上。</para>
+        /// </summary>
+        public static MonsterModel ReadSerialized(IStateReader reader, out ulong patrolRandomState, out Vector2[] restoredWaypoints)
+        {
+            if (reader == null)
+            {
+                throw new ArgumentNullException(nameof(reader));
+            }
+
+            // Serialize 的顺序是「模型 → 巡逻随机流 → 巡逻点」，读必须逐字段同序：先读模型。
+            var pending = new MonsterModel();
+            pending.Deserialize(reader);
+            patrolRandomState = reader.ReadULong();
             int count = reader.ReadInt();
             if (count < 0 || count > 1024)
             {
                 throw new InvalidOperationException($"巡逻点数量非法：{count}");
             }
 
-            waypoints = new Vector2[count];
+            restoredWaypoints = new Vector2[count];
             for (int i = 0; i < count; i++)
             {
-                waypoints[i] = reader.ReadVector2();
+                restoredWaypoints[i] = reader.ReadVector2();
             }
+
+            return pending;
         }
+
+        /// <summary>
+        /// 把 <see cref="ReadSerialized"/> 读出来的东西<b>一次性</b>写进现场（含解析种类与视锥、清 tick 结果，
+        /// 同 <see cref="Restore"/> 与 <see cref="Reset"/> 的恢复口径）。三个参数全部来自同一段字节。
+        /// <b>不校验</b>：坏数据在 <see cref="ReadSerialized"/> 那一步已经抛过了。
+        /// </summary>
+        public void ApplySerialized(MonsterModel pending, ulong patrolRandomState, Vector2[] restoredWaypoints)
+        {
+            if (pending == null)
+            {
+                throw new ArgumentNullException(nameof(pending));
+            }
+
+            if (restoredWaypoints == null)
+            {
+                throw new ArgumentNullException(nameof(restoredWaypoints));
+            }
+
+            // 解析种类与视锥、清 tick 结果是写入而不是校验，所以放在最后这一段（同 Restore）。
+            ResolveKindAndCone();
+            ClearStepResults();
+            model.CopyFrom(pending);
+            // 上一 tick 位置对齐到**恢复后**的位置（`ReadSerialized` 已经把它在临时模型上对齐过），
+            // 不跨瞬移插值。这条必须在 CopyFrom 之后：CopyFrom **有意不搬** PreviousPosition，
+            // 在它之前调只会把旧的 Position 写进 PreviousPosition（2026-10-16 的实测就是这一格读成了 (0,0)）。
+            model.SyncPreviousPosition();
+            patrolRandom.State = patrolRandomState;
+            waypoints = restoredWaypoints;
+        }
+
+        /// <summary>
+        /// 读过（并丢弃）一段由 <see cref="Serialize"/> 写出的怪物状态，不改任何一只怪。
+        /// <para>
+        /// 给回放快照「按稳定 id 对齐」用（PRP/combat-iteration D2）：快照里有、场景里已经没有的巡逻者，
+        /// 它那一段字节仍要读掉，后面的条目才对得上。读法与 <see cref="Serialize"/> **逐字段同序**——
+        /// 放在本类里而不是调用方，是为了让「一只怪的快照长什么样」只在这一个文件里写一遍；
+        /// 也不借一只临时 <see cref="MonsterRules"/> 来读：那会向随机服务登记一条多余的巡逻随机流。
+        /// </para>
+        /// <para>
+        /// 实现就是 <see cref="ReadSerialized"/> 读完把结果丢掉——**读法只有那一处**（含巡逻点数量校验），
+        /// 这里不重抄一遍布局。差别只在「读出来的东西要不要留下」：这只怪已经不在场景里，留下也没处放。
+        /// </para>
+        /// </summary>
+        public static void SkipSerialized(IStateReader reader) =>
+            ReadSerialized(reader, out _, out _);
 
         /// <summary>
         /// 这一 tick 对这个目标的感知（**行为层**口径）：<c>2</c> = 红区（敌对）、<c>1</c> = 橙区 / 贴身（警戒）、
@@ -560,7 +777,7 @@ namespace Game.Monster
         /// <c>TrySight</c>（它在有遮挡体时会 new 一个数组）。
         /// </para>
         /// </summary>
-        private int Sense(in PlayerSnapshot target)
+        private int Sense(in PlayerSnapshot target, float scale = 1f)
         {
             if (!target.IsAlive)
             {
@@ -572,7 +789,7 @@ namespace Game.Monster
             bool inCone = distance == 0f || GameMath.Dot(model.Facing, difference / distance) >= coneCosine;
             // 视线：只有「在视锥里」才值得问（锥外本来就不看），零长度线段的退化情形再由 StealthSight 自己挡。
             bool sightClear = !inCone || sight == null || sight.HasSightNonAlloc(model.Position, target.Position);
-            return ClassifyByRanges(target, distance, inCone && sightClear);
+            return ClassifyByRanges(target, distance, inCone && sightClear, scale);
         }
 
         /// <summary>
@@ -641,23 +858,23 @@ namespace Game.Monster
         /// </para>
         /// <para><paramref name="distance"/> 由调用方算好传进来，本方法不再算一次（tick 路径上少一次开方）。</para>
         /// </summary>
-        private int ClassifyByRanges(in PlayerSnapshot target, float distance, bool inSightCone)
-            => Classify(config, kind, in target, distance, inSightCone);
+        private int ClassifyByRanges(in PlayerSnapshot target, float distance, bool inSightCone, float scale = 1f)
+            => Classify(config, kind, in target, distance, inSightCone, scale);
 
         /// <summary>
         /// 档位本体（静态）：<see cref="ClassifyByRanges"/> 与 <see cref="SenseFrom"/> 共用这一份，
         /// 保证「巡逻怪此刻算不算察觉」与「某只 NPC 算不算察觉」永远是同一套判据。
         /// </summary>
         private static int Classify(MonsterConfig config, MonsterKind kind, in PlayerSnapshot target,
-            float distance, bool inSightCone)
+            float distance, bool inSightCone, float scale = 1f)
         {
-            if (inSightCone && distance <= config.HostileRadius)
+            if (inSightCone && distance <= config.HostileRadius * scale)
             {
                 return 2;
             }
 
-            if ((inSightCone && distance <= config.ResolveAlertRadius(kind) && !target.IsDisguised)
-                || (distance <= config.ResolveNearSenseRadius(kind) && !target.IsSneaking))
+            if ((inSightCone && distance <= config.ResolveAlertRadius(kind) * scale && !target.IsDisguised)
+                || (distance <= config.ResolveNearSenseRadius(kind) * scale && !target.IsSneaking))
             {
                 return 1;
             }

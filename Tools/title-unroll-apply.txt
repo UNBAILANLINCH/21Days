@@ -1,0 +1,82 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("仍在播放，不能修改资产");
+string path="Assets/_Project/Prefabs/UI/TitleView.prefab";
+string[] buttons={"SettingsButton","LoadButton","ContinueButton","QuitButton"};
+string[] folders={"设置","选择存档","继续","退出游戏"};
+float[] beats={4f,3.65f,3.75f,4.1f};
+for(int i=0;i<folders.Length;i++){
+ string art="Assets/_Project/Art/Sprites/UI/Title/Yang/Entrance/05_卷轴按钮/"+folders[i]+"/未选中/卷轴底.png";
+ var importer=(UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(art);
+ if(importer==null)throw new System.InvalidOperationException("缺少卷轴贴图");
+ importer.spriteBorder=new UnityEngine.Vector4(18f,18f,18f,18f);importer.SaveAndReimport();
+}
+var root=UnityEditor.PrefabUtility.LoadPrefabContents(path);
+try{
+ var motionData=new UnityEditor.SerializedObject(root.GetComponent<Game.Core.UI.TitleEntranceMotion>());
+ var targets=motionData.FindProperty("targets");
+ var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+ var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");
+ if(tracks.arraySize!=45||targets.arraySize!=45)throw new System.InvalidOperationException("轨道数量已改变");
+ var preserved=new System.Collections.Generic.Dictionary<int,string>();
+ var centers=new System.Collections.Generic.Dictionary<UnityEngine.RectTransform,UnityEngine.Vector3>();
+ for(int i=0;i<45;i++){
+  var rect=(UnityEngine.RectTransform)targets.GetArrayElementAtIndex(i).objectReferenceValue;
+  centers.Add(rect,rect.TransformPoint(rect.rect.center));
+  if(i<24&&!rect.name.StartsWith("石头_"))preserved.Add(i,UnityEngine.JsonUtility.ToJson(config.Tracks[i]));
+ }
+ preserved.Add(44,UnityEngine.JsonUtility.ToJson(config.Tracks[44]));
+ for(int b=0;b<buttons.Length;b++){
+  var art=root.transform.Find("Buttons/"+buttons[b]+"/EntranceArtwork");
+  var paper=(UnityEngine.RectTransform)art.Find("卷轴底");
+  paper.anchoredPosition+=UnityEngine.Vector2.Scale(new UnityEngine.Vector2(0.5f,1f)-paper.pivot,paper.sizeDelta);
+  paper.pivot=new UnityEngine.Vector2(0.5f,1f);
+  paper.GetComponent<UnityEngine.UI.Image>().type=UnityEngine.UI.Image.Type.Sliced;
+  if(paper.GetComponent<UnityEngine.UI.RectMask2D>()==null)paper.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+  string[] children={"底部渐变","花纹","文字"};
+  for(int c=0;c<children.Length;c++){
+   var rect=(UnityEngine.RectTransform)art.Find(children[c]);
+   if(rect==null)rect=(UnityEngine.RectTransform)paper.Find(children[c]);
+   var position=rect.position;rect.SetParent(paper,true);
+   rect.anchorMin=rect.anchorMax=new UnityEngine.Vector2(0.5f,c==0?0f:1f);rect.position=position;
+  }
+  for(int i=0;i<45;i++){
+   var rect=(UnityEngine.RectTransform)targets.GetArrayElementAtIndex(i).objectReferenceValue;
+   if(!rect.IsChildOf(art))continue;
+   var track=tracks.GetArrayElementAtIndex(i);float beat=beats[b];
+   track.FindPropertyRelative("offset").vector2Value=UnityEngine.Vector2.zero;
+   track.FindPropertyRelative("scale").floatValue=1f;
+   track.FindPropertyRelative("curve").animationCurveValue=UnityEngine.AnimationCurve.EaseInOut(0f,0f,1f,1f);
+   track.FindPropertyRelative("unrollVertical").boolValue=rect==paper;
+   float delay=beat,duration=0.3f,fade=0.3f;
+   if(rect==paper){
+    duration=1.1f;fade=0.16f;track.FindPropertyRelative("scale").floatValue=0.06f;
+    track.FindPropertyRelative("curve").animationCurveValue=new UnityEngine.AnimationCurve(
+     new UnityEngine.Keyframe(0f,0f,0f,0.1f),new UnityEngine.Keyframe(0.32f,0.4f,2f,2f),
+     new UnityEngine.Keyframe(0.64f,1.065f,0f,0f),new UnityEngine.Keyframe(0.82f,0.93f,0f,0f),new UnityEngine.Keyframe(1f,1f,0f,0f));
+   }else if(rect.name=="吊线与菱形"){delay=beat-0.1f;duration=fade=0.24f;}
+   else if(rect.name=="花纹"||rect.name=="文字"){
+    delay=beat+(rect.name=="花纹"?0.5f:0.68f);duration=fade=0.45f;
+    track.FindPropertyRelative("offset").vector2Value=new UnityEngine.Vector2(0f,8f);
+   }
+   track.FindPropertyRelative("delay").floatValue=delay;
+   track.FindPropertyRelative("duration").floatValue=duration;
+   track.FindPropertyRelative("fadeSeconds").floatValue=fade;
+  }
+ }
+ for(int i=0;i<45;i++){
+  var rect=(UnityEngine.RectTransform)targets.GetArrayElementAtIndex(i).objectReferenceValue;
+  if(!rect.name.StartsWith("石头_"))continue;
+  var track=tracks.GetArrayElementAtIndex(i);bool middle=rect.name.EndsWith("中景");
+  track.FindPropertyRelative("scale").floatValue=1f;
+  track.FindPropertyRelative("offset").vector2Value=middle?new UnityEngine.Vector2(-rect.anchoredPosition.x,0f):UnityEngine.Vector2.zero;
+  track.FindPropertyRelative("delay").floatValue=rect.name=="石头_左中景"?0.7f:rect.name=="石头_右中景"?0.82f:rect.name=="石头_左远景"?1.5f:1.62f;
+  track.FindPropertyRelative("duration").floatValue=rect.name=="石头_右前景"?1.9f:1.8f;
+  track.FindPropertyRelative("fadeSeconds").floatValue=middle?1.05f:1.25f;
+ }
+ data.ApplyModifiedPropertiesWithoutUndo();
+ foreach(var pair in preserved)if(UnityEngine.JsonUtility.ToJson(config.Tracks[pair.Key])!=pair.Value)
+  throw new System.InvalidOperationException("无关轨道被改动："+pair.Key);
+ foreach(var pair in centers)if(UnityEngine.Vector3.Distance(pair.Key.TransformPoint(pair.Key.rect.center),pair.Value)>0.01f)
+  throw new System.InvalidOperationException("最终构图位置变化："+pair.Key.name);
+ UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,path);UnityEditor.AssetDatabase.SaveAssets();
+ return new{scrolls=4,stones=4,preservedTracks=preserved.Count,finalCentersPreserved=centers.Count};
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

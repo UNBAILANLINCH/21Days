@@ -11,7 +11,7 @@
     "sealable": true,
     "mask": false,
     "tier": "A",
-    "killable": true,
-    "defeat_method": "可击杀（方式没写）",
+    "killable": false,
+    "defeat_method": "暗杀",
     "drop_items": [1101]
 }

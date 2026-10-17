@@ -1,6 +1,6 @@
 // 职责：玩家的三个招式（07 二、战斗过程 · 2 战斗规则）。
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:48-54`；转写见
-// `docs/design/features-spotlight/09_BOSS战.md:223`（R42）。
+// `docs/design/features-spotlight/09_BOSS战.md:231`（R42）。
 
 namespace Game.TurnBased
 {

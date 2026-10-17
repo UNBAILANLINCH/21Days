@@ -28,7 +28,7 @@ S1「换皮与附身」与 S2「身份暴露与怀疑」共用的**纯规则内�
 | `IdentityLedger` | 账簿：两种计数口径 + 超量判定（阈值外部注入，`≤0` 表示关闭） |
 | `SuspicionState` | 怀疑度：只增 / 可回落由配置开关选，上限封顶，档位 + 埋点 |
 | `ExposureCause` / `ExposureSignals` | 露馅判定的输入（六位 `[Flags]` 原因 / 原始事实） |
-| `ExposureOutcome` / `ExposureResolution` / `IExposureOutcomePolicy` | 后果的**可注入策略**：`ResolveExposure` 只回答「该发生什么」，走什么流程由接线侧定 |
+| `ExposureOutcome` / `ExposureResolution` / `IExposureOutcomePolicy` / `ConfiguredExposurePolicy` | 后果的**可注入策略**：`ResolveExposure` 只回答「该发生什么」，走什么流程由接线侧定。`ConfiguredExposurePolicy`（2026-10-14 新增）是读 `IdentitySettings.ExposureOutcome` 的实现，**`IdentityInstaller` 默认注入它**（接线前注入的是 null） |
 | `IdentitySaveData` | `ISaveData` 存档分区（版本 1）：只存原始量，**不存任何 `identity.*` 事实键** |
 | `IdentityAttackRules` | 集成接口①：敌人攻击许可（旧 `DisguiseRules` 语义逐字保留，身份作**新增层**） |
 | `IdentityFacts` / `IdentityFactSnapshot` | 集成接口②：字典键常量 + 查询期投影（`CollectTrueKeys` / `IsTrue`） |
@@ -71,8 +71,19 @@ S1「换皮与附身」与 S2「身份暴露与怀疑」共用的**纯规则内�
 | ⑤ 揭露 | 被揭露（**蜃师面具可挡一次**） | `:131-134`（R27–R30） |
 | ⑥ 警戒值 | 红区一律；橙区只在**身份不生效**时 | `:142-145`（R32–R35） |
 
-**不做的事**：不裁「被发现之后是死亡还是追逐」——`00_功能总览.md` §5 **C1** 是原文矛盾，
-所以后果走 `IExposureOutcomePolicy` 策略注入；**不注入策略时 `outcome` 恒为 `None`**（不硬编一种）。
+**不做的事**：不裁「被发现之后是死亡还是追逐」——`00_功能总览.md` §5 **C1** 是原文矛盾，所以后果走 `IExposureOutcomePolicy` 策略注入。
+
+## 后果口径与「哪些原因让身份失效」（2026-10-14 起可配）
+
+| 配置 | 代码默认值 | 资产现值（`IdentityConfig.asset`） | 行为 |
+| --- | --- | --- | --- |
+| `IdentitySettings.ExposureOutcome` | `None`（= 接线前的行为） | **`Chase`** | `None` 只记账不产生后果；`Chase` 让**本 tick 察觉到玩家的那几只**转敌对、之后的追击沿用现有 `ChaseRules`；`Death` 把玩家生命置 0，走既有失败流程 |
+| `IdentitySettings.IdentityLossCauses`（`ExposureCause` 位掩码） | 五种**规则层**原因（`LosesIdentity` 接线前的口径） | **六种全含**（位掩码 63） | 命中掩码的露馅才让身份失效；`Alertness`（红 / 橙警戒值）默认**不在**掩码里——接线前 `LosesIdentity` 有意把它排除，资产 2026-10-14 才把它加进去 |
+
+- **判据落地在 `IdentityRules.LosesIdentity`**：静态版保留并转调默认掩码，旧调用方与旧测试不动。
+- **接线**：`IdentityInstaller` 注入 `ConfiguredExposurePolicy`（替换原来的 null）；生产调用点是 `EncounterStep.BindExposure`（见 monster guide）。
+- ⚠️ **行为变化（拍板的必然结果）**：借着身份**站进红区**会立刻露馅——身份只在橙区保护玩家（与 `02` R32/R34「伪装免橙区不免红区」一致）。
+- 埋点：`identity_exit` / `identity_chase` 照旧；露馅结算那一刻由 monster 侧记一条 `exposure_applied`。
 
 ## 已知约束
 
@@ -94,12 +105,15 @@ S1「换皮与附身」与 S2「身份暴露与怀疑」共用的**纯规则内�
 
 ## 验证入口
 
-- EditMode：`Assets/_Project/Scripts/Tests/EditMode/Identity/`（6 个测试类，**52 条**）
-  `IdentityRulesTests`（六种露馅各一条、非当前身份不触发、时限归零自动退出、无效/未知 id、策略注入、埋点）、
+- EditMode：`Assets/_Project/Scripts/Tests/EditMode/Identity/`（7 个测试类）
+  `IdentityRulesTests`（六种露馅各一条、非当前身份不触发、时限归零自动退出、无效/未知 id、策略注入、掩码三组、埋点）、
+  `ConfiguredExposurePolicyTests`（2026-10-14 新增：三种口径 + 配置改了当场读到 + 未知值回退 `None` + 经 `ResolveExposure` 的端到端）、
   `IdentityLedgerTests`、`SuspicionStateTests`、`IdentityFactSnapshotTests`（字典对齐 + 档位互斥）、
+  `IdentityInstallerTests`（含「从真实容器解析出的规则已注入策略」与「默认口径 ⇒ 不产生后果」两条对照）、
   `IdentitySaveDataTests`（含经 `JsonSaveService` 真落盘往返）、`IdentityTestContent`（共用表）。
-- **Showcase（本波新增）**：`Assets/_Project/Scripts/Tests/Showcase/Identity/IdentityShowcase.cs`
-  —— 1 条用例 `EnterIdentity_StopsEnemyAttack_ExitRestoresIt`、5 步、5 个检查点。
+- **Showcase**：`Assets/_Project/Scripts/Tests/Showcase/Identity/IdentityShowcase.cs`
+  —— 2 条用例：`EnterIdentity_StopsEnemyAttack_ExitRestoresIt`（5 步、5 个检查点；2026-10-14 走位改到**橙区**，
+  因为红区现在会露馅）与 `Exposure_RedZone_LosesIdentityAndMonsterChases`（新增：站进红区 → 身份失效 + 怪起追）。
   - **回放舞台**：`Assets/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
     标题「开始」→ 进世界 → 推摇杆沿北侧路线绕开村口触发区，走到巡逻线北侧观察点 → 走到场景里那只巡逻怪（`enerme`）正前方。
   - **接线走真实容器**：`IdentityRules` / `IdentityState` / `IdentityLedger` 全部 `ResolveService` 拿，

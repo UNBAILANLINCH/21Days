@@ -1,7 +1,8 @@
 // 职责：进入战斗判定用得上的那几个数（从 TurnBasedConfig 拆出来，纯值，测试不必创建资产）。
 //
 // 出处：`docs/design/spotlight/07_回合制作战文档.md:18`「BOSS生命值减少20%」；
-// 基数原文没写（`docs/design/features-spotlight/09_BOSS战.md:294`），等 C91。
+// 原文 2026-10-16 补齐了各 BOSS 的生命值与攻击力（sp07:149、:167、:183），
+// 但**这 20% 的基数仍没写**（`docs/design/features-spotlight/09_BOSS战.md:354`），等 C91。
 
 namespace Game.TurnBased
 {
@@ -10,7 +11,7 @@ namespace Game.TurnBased
     {
         /// <summary>构造。</summary>
         /// <param name="sneakBossHealthLossPercent">偷袭开战扣掉 BOSS 的生命百分比（07:18，20）。</param>
-        /// <param name="sneakLossBase">上面百分比的基数（原文没写，等 C91）。</param>
+        /// <param name="sneakLossBase">上面百分比的基数（原文仍没写，等 C91）。</param>
         public BattleEntrySettings(int sneakBossHealthLossPercent, HealthPercentBase sneakLossBase)
         {
             SneakBossHealthLossPercent = sneakBossHealthLossPercent;

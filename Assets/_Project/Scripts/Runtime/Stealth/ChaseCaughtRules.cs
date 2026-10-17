@@ -69,11 +69,24 @@ namespace Game.Stealth
         public int PlayerHealth { get; }
 
         /// <summary>
-        /// [待拍板] 同一个追逐里被抓几次算最终失败。占位 2：
-        /// 第一次抓只击倒（留逃生窗口，`03:214`），第二次才判死。
-        /// 等 `04:190` Q3 与 `03:86` R4 一起拍。
+        /// 同一个追逐里被抓几次算最终失败。<b><c>0</c> = 不按次数判死</b>，只在
+        /// <see cref="ChaseCaughtPolicy.KnockdownThenDeath"/> 下有意义：被抓多少次都只击倒，生命归零才判死。
+        /// 出处：用户 2026-10-14 拍板「先击倒，没血才判死」（PRP/combat-iteration D4 执行中修订）。负数非法。
+        /// <para>
+        /// <b>代码默认值也是 <c>0</c></b>（<c>StealthConfig.chaseCaughtFailCount</c> 与
+        /// <see cref="StealthConfig"/> 的字段初始化同值），与 <c>StealthConfig.asset</c> 的现值同口径——
+        /// 2026-10-16 代码审查指出：占位 2 会让**任何新建的配置**悄悄继承「第 2 次被抓判死」这个被推翻的口径，
+        /// 而这正是「代码默认值 = 旧行为」那条约定要防的事。口径本身由用户拍板，不留给占位值。
+        /// </para>
+        /// <para>
+        /// 「同一个追逐里」这句话要按 <c>caughtCountSoFar</c> 的实际来源读：它是**跨遭遇累计的击倒次数**
+        /// （只在换阶段时清零），不是同一场追逐内的次数。要改回按次数判死，先重新定义这个计数。
+        /// </para>
         /// </summary>
         public int FailAfterCaughtCount { get; }
+
+        /// <summary>是否按被抓次数判死（<see cref="FailAfterCaughtCount"/> 为 0 时不按次数，只看血量）。</summary>
+        public bool FailsByCaughtCount => FailAfterCaughtCount > 0;
 
         public ChaseOutcomeSettings(ChaseCaughtPolicy policy, int playerHealth, int failAfterCaughtCount)
         {
@@ -82,9 +95,10 @@ namespace Game.Stealth
                 throw new System.ArgumentOutOfRangeException(nameof(playerHealth), "生命不可为负");
             }
 
-            if (failAfterCaughtCount <= 0)
+            // 0 合法（= 不按次数判死，用户 2026-10-14 拍板「没血才判死」）；负数是配置错误。
+            if (failAfterCaughtCount < 0)
             {
-                throw new System.ArgumentOutOfRangeException(nameof(failAfterCaughtCount), "失败所需被抓次数必须为正数");
+                throw new System.ArgumentOutOfRangeException(nameof(failAfterCaughtCount), "失败所需被抓次数不可为负（0 = 不按次数判死）");
             }
 
             Policy = policy;
@@ -92,7 +106,14 @@ namespace Game.Stealth
             FailAfterCaughtCount = failAfterCaughtCount;
         }
 
-        /// <summary>占位默认：折中口径、生命按满血 3、被抓 2 次算失败。</summary>
+        /// <summary>
+        /// 占位默认：折中口径、生命按满血 3、被抓 2 次算失败。
+        /// <para>
+        /// <b>它不是运行时的默认值</b>，全工程也没有调用方（2026-10-16 核对）：运行时默认在
+        /// <c>StealthConfig</c> 的字段初始化上（口径 <see cref="ChaseCaughtPolicy.KnockdownThenDeath"/>、
+        /// 次数 <c>0</c>）。这份「两次判死」的值只留着当历史占位，别拿它当默认值引用。
+        /// </para>
+        /// </summary>
         public static ChaseOutcomeSettings PlaceholderDefault =>
             new ChaseOutcomeSettings(ChaseCaughtPolicy.KnockdownThenDeath, 3, 2);
     }
@@ -160,10 +181,18 @@ namespace Game.Stealth
                     return new ChaseOutcome(ChaseCaughtPolicy.ScriptedSetpiece, true, false, true, "被抓 → 进入脚本化固定追逐的预设结局");
 
                 case ChaseCaughtPolicy.KnockdownThenDeath:
-                    if (settings.PlayerHealth <= 0 || caughtCountSoFar + 1 >= settings.FailAfterCaughtCount)
+                    // 次数为 0 = 不按次数判死，只看血量（用户 2026-10-14 拍板「先击倒，没血才判死」）。
+                    if (settings.PlayerHealth <= 0
+                        || (settings.FailsByCaughtCount && caughtCountSoFar + 1 >= settings.FailAfterCaughtCount))
                     {
                         return new ChaseOutcome(ChaseCaughtPolicy.HealthDeath, true, false, true,
                             $"被抓第 {caughtCountSoFar + 1} 次（或已无血）→ 判死");
+                    }
+
+                    if (!settings.FailsByCaughtCount)
+                    {
+                        return new ChaseOutcome(ChaseCaughtPolicy.Knockdown, false, true, false,
+                            $"被抓第 {caughtCountSoFar + 1} 次 → 击倒（不按次数判死，没血才死）");
                     }
 
                     return new ChaseOutcome(ChaseCaughtPolicy.Knockdown, false, true, false,

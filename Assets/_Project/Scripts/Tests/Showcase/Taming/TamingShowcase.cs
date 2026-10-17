@@ -49,7 +49,7 @@ namespace Game.Tests.Showcase.Taming
                 return follow != null && follow == view.ControlCamera;
             }, 3f);
             if (follow == null || follow != view.ControlCamera) yield break;
-            Assert.That(view.PatrolActors.Length, Is.EqualTo(2));
+            Assert.That(view.PatrolActors.Length >= 2 && view.PatrolActors[0].StableId == "patrol-a" && view.PatrolActors[1].StableId == "patrol-b", Is.True);
             string a = view.PatrolActors[0].StableId;
             string b = view.PatrolActors[1].StableId;
             string lastEvent = null;

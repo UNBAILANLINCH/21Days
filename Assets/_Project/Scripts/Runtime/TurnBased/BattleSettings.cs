@@ -12,7 +12,8 @@ namespace Game.TurnBased
     public readonly struct BattleSettings
     {
         /// <summary>构造。</summary>
-        /// <param name="items">道具效果（占位，等 C91）；不传 = 没有任何道具效果（既有调用方行为不变）。</param>
+        /// <param name="items">道具效果（sp07:199-211 的 10 件）；不传 = 没有任何道具效果（既有调用方行为不变）。</param>
+        /// <param name="bossProfile">按 BOSS 的多形态档案（阶段九 BOSS）；不传 / 空 = 单形态，行为与加这一层之前一致。</param>
         public BattleSettings(
             in BattleEntrySettings entry,
             in PlayerSkillSettings playerSkills,
@@ -21,7 +22,8 @@ namespace Game.TurnBased
             in BattleFlowSettings flow,
             bool itemOncePerBattle,
             bool inheritsDrunkValue,
-            in BattleItemSettings items = default)
+            in BattleItemSettings items = default,
+            in BossProfile bossProfile = default)
         {
             Entry = entry;
             PlayerSkills = playerSkills;
@@ -31,6 +33,7 @@ namespace Game.TurnBased
             ItemOncePerBattle = itemOncePerBattle;
             InheritsDrunkValue = inheritsDrunkValue;
             Items = items;
+            BossProfile = bossProfile;
         }
 
         /// <summary>进入战斗的判定参数。</summary>
@@ -56,6 +59,14 @@ namespace Game.TurnBased
 
         /// <summary>道具效果（占位，等 C91；`PRP/turnbased-battle` D10）。</summary>
         public BattleItemSettings Items { get; }
+
+        /// <summary>按 BOSS 的多形态档案（阶段九 BOSS）；空 = 单形态。</summary>
+        public BossProfile BossProfile { get; }
+
+        /// <summary>换一份多形态档案、其余照旧（接线侧按 BOSS 行补档案时用；<see cref="BattleSetup"/>）。</summary>
+        public BattleSettings WithBossProfile(in BossProfile profile) =>
+            new BattleSettings(Entry, PlayerSkills, BossSkills, Drunk, Flow,
+                ItemOncePerBattle, InheritsDrunkValue, Items, profile);
 
         /// <summary>本工程当前的占位默认值（与 `TurnBasedConfig` 的字段默认完全一致）。</summary>
         public static BattleSettings PlaceholderDefault =>

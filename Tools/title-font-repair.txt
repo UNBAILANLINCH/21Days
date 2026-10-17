@@ -1,0 +1,22 @@
+if (UnityEditor.EditorApplication.isPlaying) throw new System.Exception("不能在 Play 中修图集");
+string backup = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(UnityEngine.Application.dataPath), "Tools/Font_NotoSansSC_before_missing_atlas.asset.backup");
+if (!System.IO.File.Exists(backup) || new System.IO.FileInfo(backup).Length == 0) throw new System.Exception("必须先完成字体备份");
+var font = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset");
+var serial = new UnityEditor.SerializedObject(font);
+int index = serial.FindProperty("m_AtlasTextureIndex").intValue;
+if (font.atlasTextures[index] != null) return new { repaired = false, reason = "当前页已有效" };
+int invalidGlyphs = 0;
+foreach (var glyph in font.glyphTable)
+    if (glyph.atlasIndex >= font.atlasTextures.Length || font.atlasTextures[glyph.atlasIndex] == null) invalidGlyphs++;
+if (invalidGlyphs != 0) throw new System.Exception("缺页包含已有字形，需保留字符集重建：" + invalidGlyphs);
+int characters = font.characterTable.Count;
+var page = new UnityEngine.Texture2D(font.atlasWidth, font.atlasHeight, UnityEngine.TextureFormat.Alpha8, false);
+page.name = font.name + " Atlas " + index;
+page.LoadRawTextureData(new byte[font.atlasWidth * font.atlasHeight]);
+page.Apply(false, false);
+UnityEditor.AssetDatabase.AddObjectToAsset(page, font);
+font.atlasTextures[index] = page;
+UnityEditor.EditorUtility.SetDirty(font);
+UnityEditor.EditorUtility.SetDirty(page);
+UnityEditor.AssetDatabase.SaveAssetIfDirty(font);
+return new { repaired = true, page = index, preservedCharacters = characters, invalidGlyphs = invalidGlyphs, valid = font.atlasTextures[index] != null };

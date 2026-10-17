@@ -11,7 +11,7 @@ maturity: seed
 | --- | --- |
 | `TamingRules(PlayerRules, MonsterRules, ITelemetryScope)` | 两个规则先 Reset；每场景创建一个实例 |
 | `Step(in TamingIntent, float)` | 非负步长；同 tick 不再由其他调度器推进这两个角色 |
-| `AdvanceTargets(Vector2, float, bool isIdentityInEffect = false)` | 每个巡逻者只推进一次，向所有未驯服目标传递身份禁攻；返回首位巡逻者本 tick 是否出手 |
+| `AdvanceTargets(Vector2, float, bool isIdentityInEffect = false, Func<string, MonsterRules, bool> takeOverHit = null)` | 每个巡逻者只推进一次，向所有未驯服目标传递身份禁攻；返回首位巡逻者本 tick 是否出手。`takeOverHit`（2026-10-14 加，**默认 null = 行为逐字不变**）在某只怪命中玩家、**扣血之前**被调，返回 true = 调用方接管这一下（升级回合制）→ 不扣血也不计入返回值 |
 | `IsTamed` | 首位巡逻者是否驯服；`Reset` 或新游戏清除 |
 | `IsControllingEnemy` | 当前移动输入应交给敌人，镜头跟随该对象 |
 | `TamingSceneController.Simulate` | 自动化验证驱动与正常输入复用的入口 |
@@ -27,11 +27,14 @@ maturity: seed
 | 接口 | 契约 |
 | --- | --- |
 | `TamingActor.StableId / DisplayName` | 场景保存的身份；复制后必须赋新 ID，配置拒绝重复或缺失身份 |
+| `TamingActor.KindId / FullParticipant` | 2026-10-14 加的两个作者字段：`KindId = 0` = 沿用主怪种类、`FullParticipant = false` = 只巡逻 / 感知 / 攻击的附加巡逻者（**两个默认值都等于加字段之前的行为**，巡逻者乙没改）。`true` 才参与处决 / 掉落 / 露馅 / 被抓 / 升级；整场胜负仍只认主怪 |
 | `IsTargetTamed(id) / CanControl(id)` | 查询独立驯服状态与当前可选性；死亡、禁用、销毁目标不能选 |
 | `EncounterStep.CurrentControlId` | 当前控制稳定 ID；默认 `player` |
 | `EncounterSceneView.CurrentControlObject` | 与该 ID 对应的 Transform；场景卸载后不应继续持有视图 |
 | `EncounterSceneView.RequestControl(id, tame = false)` | UI 共用入口；校验后排队，下一逻辑 tick 生效；普通请求不能绕过驯服 |
 | `TamingRules.OnControlChanged` | 控制变更时传新 ID；重复选择不重复发；订阅方负责退订 |
+| `ConfigureActor(id, passive, allowMissingFromOldSave, observesWithoutCombat = false)` | 作者静态分类；友善不察觉/伤害，观测者有感知但不结算探索伤害。默认观测false保留旧调用行为 |
+| `IsObservationOnly(id)` | 观测NPC查询；EncounterStep也用它拒绝玩家的探索伤害，不影响回合制 |
 
 ```csharp
 string id = step.CurrentControlId;

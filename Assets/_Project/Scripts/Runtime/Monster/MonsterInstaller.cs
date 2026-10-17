@@ -96,6 +96,14 @@ namespace Game.Monster
                 replay.Register(resolver.Resolve<MonsterRules>());
                 replay.Register(step);
 
+                // 回放期间关掉升级回合制（2026-10-16 代码审查后补）：升级的结果在模拟循环之外写回，
+                // 重放时端口还绑着就会走一条录制时没走过的路。判据与理由见 EncounterStep.IsReplaying。
+                // 与上面同一时机（ReplayPlayer 也是 Boot 那个容器里的单例）；独立作用域没有它就不接 = 不当自己在回放。
+                if (resolver.TryResolve(out ReplayPlayer replayPlayer))
+                {
+                    step.BindReplay(replayPlayer);
+                }
+
                 // —— S 组内核接线（Q3 波）：身份 / 潜行内核此前是死代码，这里把它们接进遭遇结算。
                 // 方向是**消费方自己拉**（本模块只 TryResolve）：Identity 与 Stealth 都不反过来认识 Monster，
                 // 所以不会成环；缺 IdentityInstaller / StealthInstaller 也合法——独立原型场景与纯 Monster 的
@@ -106,6 +114,16 @@ namespace Game.Monster
                 {
                     // 身份生效中 → 敌人不攻击（两层兼容见 IdentityAttackRules）。
                     step.BindIdentity(identity);
+                }
+
+                // 露馅结算（PRP/combat-iteration D1）：同上「消费方自己拉」，三件都取得到才接——
+                // 缺 IdentityInstaller 的作用域里露馅不结算，与接线前逐字一致。后果口径在 IdentityConfig.asset
+                // （IdentityInstaller 注入的 ConfiguredExposurePolicy 读它），本模块不认识口径本身。
+                if (resolver.TryResolve(out IdentityRules identityRules)
+                    && resolver.TryResolve(out IdentityLedger identityLedger)
+                    && resolver.TryResolve(out SuspicionState suspicion))
+                {
+                    step.BindExposure(identityRules, identityLedger, suspicion);
                 }
 
                 if (resolver.TryResolve(out StealthKernel stealth))
@@ -137,6 +155,9 @@ namespace Game.Monster
                 if (resolver.TryResolve(out ITelemetryService telemetryService))
                 {
                     bridge.UseTelemetry(telemetryService.Scope("monster"));
+                    // 遭遇结算自己的埋点（battle_settled / kill_drop_settled / encounter_restore_aligned）同一模块作用域。
+                    // 此前这一句缺席，那几条在正式流程里一直落在空实现上（PRP/combat-iteration W1 补上）。
+                    step.UseTelemetry(telemetryService.Scope("monster"));
                 }
 
                 if (resolver.TryResolve(out NarrativeService narrative)

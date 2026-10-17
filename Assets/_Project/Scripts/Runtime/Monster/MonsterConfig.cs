@@ -73,6 +73,18 @@ namespace Game.Monster
         [Tooltip("每次命中伤害的兜底值；种类表填了就用种类表。")]
         [SerializeField] private int attackDamage = 1;
 
+        // ↓↓↓ 全局：实时遭遇升级回合制的三个触发开关（PRP/combat-iteration D5）。 ↓↓↓
+        // 代码默认全关 = 加开关之前的行为（pitfalls.md:243：新字段默认值必须等于旧行为）；用户拍板的「三种触发全要」只写进资产。
+        // 开着也只对「种类配了回合制战斗数据」的怪生效（战斗侧 BossRosterConfig 的 monsterKindId 行），没配的怪照旧实时打。
+        [Tooltip("玩家打中未察觉（巡逻中）的怪时升级回合制（偷袭：玩家先手、怪先掉 20%）。默认关 = 旧行为。")]
+        [SerializeField] private bool escalateOnSneakStrike;
+
+        [Tooltip("玩家打中已警戒 / 敌对的怪时升级回合制（正面攻击：玩家先手）。默认关 = 旧行为。")]
+        [SerializeField] private bool escalateOnFrontalStrike;
+
+        [Tooltip("怪打中玩家（含追逐中追上）时升级回合制（被打：怪先手）。默认关 = 旧行为。")]
+        [SerializeField] private bool escalateWhenStruck;
+
         // ↓↓↓ 全局字段的取值 ↓↓↓
         public float PatrolSpeed => patrolSpeed;
         public float AlertSpeedMultiplier => alertSpeedMultiplier;
@@ -82,6 +94,25 @@ namespace Game.Monster
         public float PatrolPauseSeconds => patrolPauseSeconds;
         public int PatrolMinSeconds => patrolMinSeconds;
         public int PatrolMaxSeconds => patrolMaxSeconds;
+        public bool EscalateOnSneakStrike => escalateOnSneakStrike;
+        public bool EscalateOnFrontalStrike => escalateOnFrontalStrike;
+        public bool EscalateWhenStruck => escalateWhenStruck;
+
+        /// <summary>这种触发情形的升级开关开着没有（<see cref="EncounterEscalationTrigger.None"/> 恒为否）。零分配，可在 tick 里调。</summary>
+        public bool AllowsEscalation(EncounterEscalationTrigger trigger)
+        {
+            switch (trigger)
+            {
+                case EncounterEscalationTrigger.PlayerHitUnaware:
+                    return escalateOnSneakStrike;
+                case EncounterEscalationTrigger.PlayerHitAware:
+                    return escalateOnFrontalStrike;
+                case EncounterEscalationTrigger.MonsterHitPlayer:
+                    return escalateWhenStruck;
+                default:
+                    return false;
+            }
+        }
 
         // ↓↓↓ 兜底取值：MonsterRules 经 Resolve* 取到「种类优先、否则全局」的最终值，不要直接用这几个属性配怪。 ↓↓↓
         public float VisionAngle => visionAngle;

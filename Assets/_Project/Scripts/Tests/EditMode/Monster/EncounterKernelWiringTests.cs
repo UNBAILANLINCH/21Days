@@ -181,6 +181,50 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(player.Health, Is.LessThan(playerConfig.MaxHealth), "身份失效后：恢复攻击");
         }
 
+        /// <summary>
+        /// `BindExposure` 由容器装上（PRP/combat-iteration D1；pitfalls :225）：用容器里那一份身份数值块切到
+        /// 用户拍板的口径（追逐 + 六种全失效），借着身份站进红区 → 下一 tick 身份失效。
+        /// 构建回调若漏了 BindExposure，这里身份会一直借着（露馅根本不结算）。
+        /// </summary>
+        [Test]
+        public void BindExposure_IsAppliedByTheContainer_RedZoneExposureEndsBorrowedIdentity()
+        {
+            Build();
+            IdentityState state = container.Resolve<IdentityState>();
+            IdentityRules rules = container.Resolve<IdentityRules>();
+            EncounterStep step = container.Resolve<EncounterStep>();
+            IdentitySettings settings = container.Resolve<IdentitySettings>();
+            Assert.That(settings, Is.SameAs(identityConfig.Settings), "前提：改的是装配用的那一份数值块");
+            settings.ExposureOutcome = ExposureOutcome.Chase;
+            settings.IdentityLossCauses = IdentitySettings.DefaultIdentityLossCauses | ExposureCause.Alertness;
+
+            Assert.That(rules.TryEnter(state, container.Resolve<IdentityLedger>(), IdentityId.From(StewardId)),
+                Is.EqualTo(IdentityEnterResult.Entered));
+            // 怪在玩家右侧 1.5 米、面朝玩家：红区。
+            step.Begin(Vector2.zero, new[] { new Vector2(1.5f, 0f), new Vector2(-10f, 0f) });
+            Tick(step, 0.1f);
+
+            Assert.That(state.IsBorrowing, Is.False, "露馅结算没接上：身份一直借着");
+            Assert.That(container.Resolve<MonsterModel>().Mode, Is.EqualTo(MonsterMode.Hostile));
+        }
+
+        /// <summary>
+        /// 被抓后果口径由容器装上（PRP/combat-iteration D4）：`UseStealth` 存下的就是潜行内核（StealthConfig.asset）那一份，
+        /// 而不是不装配时的 None。
+        /// </summary>
+        [Test]
+        public void UseStealth_IsApplied_StepKeepsTheKernelChaseOutcomeSettings()
+        {
+            Build();
+            StealthKernel kernel = container.Resolve<StealthKernel>();
+            EncounterStep step = container.Resolve<EncounterStep>();
+            Assert.That(kernel.ChaseOutcomeSettings.Policy, Is.Not.EqualTo(ChaseCaughtPolicy.None),
+                "前提：资产口径不是 None，否则下面的相等证明不了接线");
+
+            Assert.That(step.ChaseOutcomeSettings.Policy, Is.EqualTo(kernel.ChaseOutcomeSettings.Policy));
+            Assert.That(step.ChaseOutcomeSettings.FailAfterCaughtCount, Is.EqualTo(kernel.ChaseOutcomeSettings.FailAfterCaughtCount));
+        }
+
         // ──────────────────────────── 夹具 ────────────────────────────
 
         /// <summary>按 Boot 的接法把三个注册器挂到同一个物体上再装容器；MonsterInstaller 故意排在最前。</summary>

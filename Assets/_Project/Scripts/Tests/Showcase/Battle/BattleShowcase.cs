@@ -1,4 +1,4 @@
-// 职责：回合制战斗（Battle 模块）回放——SampleScene 村西北角的「阶段一 BOSS（占位）」：
+// 职责：回合制战斗（Battle 模块）回放——SampleScene 村南围栏外的「阶段一 BOSS（占位）」：
 //   走到跟前按 E → 开战对白 → 叠加加载战斗场景（战斗相机接管、世界暂停）→ 出招 / 用药 → 胜负 → 回到世界；
 //   ① Victory_BossLeavesAndFlagWritten：打赢后相机 / 输入 / 暂停 / HUD 全部恢复，写「已击败」标记、BOSS 退场、再按 E 不触发；
 //   ② Downed_RetreatsAndCanFightAgain：被击倒走 retreat，BOSS 还在、标记没写，再按 E 能重新开打。
@@ -6,9 +6,11 @@
 //   必须在黑幕还盖着时就已隐藏，揭幕后第一帧画面里没有它（剧情回写排在揭幕之前，见 BattleFlow 文件头）。
 //
 // ── 舞台：ScenePath 返回 null + EnterDemoWorld（走 Boot 真实流程，标题「开始」→ SampleScene）───────────────
-//   BOSS NPC 是 SampleScene 里的 demo 内容（Npc_SampleBoss，(-4.2, 8.4)）：离出生点 5 米、离巡逻线十几米、在村口演出区外；
+//   BOSS NPC 是 SampleScene 里的 demo 内容（Npc_SampleBoss，(-4, -8)，2026-10-16 W7b 由院子 (-4.2, 8.4) 挪到院外南面）：
+//   离出生点 11.4 米、离巡逻线 21 米、在村口演出区外；院子出口只有演出触发区东边那条缝，所以去它跟前一律
+//   GoThroughSouthGap（框架 DemoScene：缝口候场、预判两条巡逻线西端的视野、一口气跑过）→ 往西南到 BOSS 正东 6 米的候场点。
 //   接法 = DialogueInteractable（焦点 / 交互提示 / 头顶标记）+ NarrativeTrigger（targetKind SampleBoss，交互转交）
-//   + NarrativeFlagVisibility（world.sampleboss.defeated 成立即退场）。站位点在它正南 1.4 米，最近的别的 NPC 在 5 米外。
+//   + NarrativeFlagVisibility（world.sampleboss.defeated 成立即退场）。站位点在它正东 1.4 米，最近的别的 NPC（长者）在 10 米外。
 //
 // ── 输入：全走真实路径 ──────────────────────────────────────────────────────────────────────────
 //   走路推虚拟摇杆；交互按 Gameplay/Interact（E）；对白按 Dialogue/Advance；出招按 Dialogue/Choice1–3（战斗期间借用的键盘 1/2/3）；
@@ -17,16 +19,43 @@
 // ── 胜负怎么做到可控：回放内换一份数值（BattleSetup.OverrideSettings），不改 TurnBasedConfig 资产 ───────────
 //   战斗随机流从会话主种子派生、没有测试口（BattleSetup 文件头 D8），所以靠数值定死 BOSS 的行为：
 //   · 打赢那条：BOSS 只出招式 1（权重 1:0:0，不喝酒不重击）、伤害 1。没调成 0 是因为满血喝药回血为 0、看不到回血飘字；
-//     最坏每回合挨 1 下，玩家 10 血 + 药水，7 个回合内必打死 12 血的 BOSS（1+1+1 → 招式 3 的 3 → 带加伤的招式 1 各 2）。
-//   · 被击倒那条：同样只出招式 1，伤害 10（= 本场玩家生命），BOSS 第一次出手就击倒玩家。
+//     最坏每回合挨 1 下（BOSS 220 血、玩家 120 血都不至于被打死）。玩家侧用原文值：招式 1/2/3 = 18/23/32，招式 3 后 3 次 +8，
+//     按「怒气满就放招式 3，否则招式 1」约 9 个回合打完 220 血（18×3+32 → 26×3+32 …）。
+//   · 被击倒那条：同样只出招式 1，伤害 120（= 本场玩家生命，sp07:129-133），BOSS 第一次出手就击倒玩家。
 //   微醺 20% 跳过回合只会让 BOSS 少出手，不影响结论。
+//
+// ── 2026-10-16 数值落地（本文件跟着改的地方）─────────────────────────────────────────────────────
+//   资产里 `sample_boss` 血量 12 → 220、本场玩家生命 10 → 120（照 sp07:149、:129-133 的原文值），
+//   于是 DownedBossDamage 从 10 改成 120（含义仍是「等于本场玩家生命」）；打赢那条的出招循环回合数变多，超时仍是 90 秒。
 //
 // ── 统一交互第二波（PRP/interaction）：交互提示随文字加宽，「挑战 · 阶段一 BOSS（占位）」整句显示不截断；
 //   按 E 时 BOSS 小人转向玩家、玩家小人转向 BOSS（D11，朝向保持）。战斗舞台上的两只小人是另一份实例
 //   （BOSS 按 StagePrefab 现实例化、玩家是战斗场景里摆好的），朝向由 BattleActor 立即翻面定，不带世界里的朝向保持。
 //
-// ── 给物：经背包公开口 LootService.SettleMonsterDrop 放一瓶治疗药水（1004）入包 ─────────────────────────
-//   与开箱同一条「写背包分区 → 弹获得通知」的路径；村里能走到的箱子没有 1004（Crate_C 在巡逻线以南），这条是最短的真实入包口。
+// ── 给物：经背包公开口 LootService.SettleMonsterDrop 放一件战斗消耗品（1801 活力药剂）入包 ──────────────
+//   与开箱同一条「写背包分区 → 弹获得通知」的路径。1801 是 sp07:199-211 那 10 件里的一件（回 50 点，见 TurnBasedConfig 的效果表）；
+//   原先用的是 1004 治疗药水，它不在那张表里。
+//
+// ── 2026-10-15 BOSS 主动发难（PRP/combat-iteration D6 / T6.4）────────────────────────────────────────────
+//   `Npc_SampleBoss` 挂了 BossAggro（BossRosterConfig `sample_boss`：发难半径 5 米以原位为圆心、反应 3 秒、冲刺 3 米/秒、拴绳自动 10 米；
+//   接触距离 = 交互半径 2 × 0.6 = 1.2 米）：玩家进 5 米 → 警觉（头顶 MarkerAggro 红「!」）→ 3 秒内走到跟前按 E = 正面攻击、玩家先手、不冲；
+//   磨蹭满 3 秒 → 冲刺 → 接触 → 照常嘲讽对白（与按 E 同一段，对白 1004）→「被打」开战、BOSS 先手；
+//   战后回原位、解除武装，玩家**同时**离开察觉范围（全局 MonsterConfig 警戒半径 6）与发难半径 5 才恢复待机。
+//   · 新增三条：BossAggro_ChallengeWithinReaction_FrontalAttack / BossAggro_ChargesTauntsAndAmbushes / BossAggro_RetreatThenRearmsAfterLeaving。
+//     开战方式只读战斗界面（左上角回合提示、两根生命条），框架 ShowcaseScenario.TurnBattle 的 WatchBattleOpening。
+//   · 原 ① ② 的「走近 → 按 E」压进同一步连续完成（WalkToBossAndInteractWithinReaction）：从发难半径外的候场点直走到站位，
+//     半径里只走 3.6 米（约 1.2 秒），提示几帧落定后立即按 E；提示的两条检查点挪到按 E 之后（读的是按 E 之前那一刻记下的状态），断言语义不变。
+//     不为回放在 Runtime 里加关发难的测试口。
+//   · ④ Drill_Downed：巡逻线上市令打中你那一下现在按升级规则交给回合制（市令配了战斗数据，「被打」市令先手）。
+//     回放内换一份数值让回合制里一下击倒（同 ②，不需要输入），实时生命照样归零 → 遭遇桥回写 Downed，断言不变。
+//
+// ── 2026-10-16 BOSS 挪到院外南面 (-4, -8)（W7b 用户拍板，PRP/combat-iteration w7-plan 任务 A）─────────────────────
+//   · 站位从「BOSS 正南 1.4 米」改为「正东 1.4 米」(-2.6, -8)：过了缝口是从东边过来的，沿东西一条线直走进去，
+//     半径里那段与挪位前一样是 3.6 米（反应期 3 秒内做完按 E）；正南要在半径里绕过它半圈，超出反应期；正北则站在纸片 BOSS
+//     的身后（相机在南面朝北看），截图里玩家被它挡住。发难三条用例的站点同理沿这条东西线放：4 米 / 5.5 米 / 6.5 米，
+//     离开 / 回来都往东走——离主怪 / 巡逻者乙的巡逻线（x ≥ 13.86、z 3.4 / 5）15 米以上，不会把玩家带进巡逻怪视野。
+//   · 演示桩那两条改回挪位前的原站位 (0.6, 8.8) 与原走法（出生点直走过去）：W6b 为避开旧 BOSS 发难半径挪到东侧 (2.4, 8.8)
+//     并经 (0.5, 5.5) 拐一下，BOSS 挪走后（离原站位 17 米）不再需要。
 using System;
 using System.Collections;
 using System.Globalization;
@@ -44,7 +73,6 @@ using Game.TurnBased;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 // 两个同名 BattleOutcome（Game.TurnBased / Game.Narrative）：剧情侧只取用到的类型，不 using 整个命名空间（PRP §7 坑 4）。
 using NarrativeService = Game.Narrative.NarrativeService;
@@ -62,7 +90,12 @@ namespace Game.Tests.Showcase.Battle
         private const string BossVerb = "挑战";
         private const string DefeatedFlag = "world.sampleboss.defeated";
         private const string RetreatOutcome = "Downed";
-        private const int HealItemId = 1004;
+        /// <summary>
+        /// 给物用的战斗消耗品：**1801 活力药剂**（sp07:201「恢复主角 50 点生命值」）。
+        /// 2026-10-16 由 1004 治疗药水改成它——1004 是背包里的旧占位，**不在** sp07 那 10 件效果表里，
+        /// 用它会「只记账、不回血」，回血飘字那条检查点就绿不了。
+        /// </summary>
+        private const int HealItemId = 1801;
 
         /// <summary>
         /// 实时遭遇演示桩（SampleScene 里 `Npc_BattleDrill`，站在村北 (1.5, 8.8)，与长者 / 旅人都不在一条线上）：
@@ -85,7 +118,10 @@ namespace Game.Tests.Showcase.Battle
         private const string DrillClearedFlag = "world.samplebattle.cleared";
         private const string DrillDownedFlag = "world.samplebattle.downed";
 
-        /// <summary>走到演示桩西侧 0.9 米（交互半径 2 内；长者 / BOSS / 旅人都在 5 米外，焦点只会落在它身上）。</summary>
+        /// <summary>
+        /// 走到演示桩西侧 0.9 米（交互半径 2 内；长者 / BOSS / 旅人都在 5 米外，焦点只会落在它身上）。
+        /// 2026-10-16 改回挪位前的原站位：W6b 为避开 BOSS 旧位置 (-4.2, 8.4) 的发难半径挪到东侧 (2.4, 8.8)，BOSS 挪到 (-4, -8) 后离这里 17 米。
+        /// </summary>
         private static readonly Vector2 DrillStandPoint = new Vector2(0.6f, 8.8f);
 
         /// <summary>给物借道「怪物掉落」入包口时填的妖物 id（只进埋点与事件载荷，没有订阅方）。</summary>
@@ -94,11 +130,41 @@ namespace Game.Tests.Showcase.Battle
         /// <summary>打赢那条 BOSS 招式 1 的伤害：挨得到、回血看得见，又打不死玩家（推演见文件头）。</summary>
         private const int VictoryBossDamage = 1;
 
-        /// <summary>被击倒那条 BOSS 招式 1 的伤害：等于本场玩家生命（BossRosterConfig 的 playerHealth 占位 10）。</summary>
-        private const int DownedBossDamage = 10;
+        /// <summary>被击倒那条 BOSS 招式 1 的伤害：等于本场玩家生命（`BossRosterConfig` 的 playerHealth 120，sp07:129-133）。</summary>
+        private const int DownedBossDamage = 120;
 
-        /// <summary>站位点：BOSS 正南 1.4 米（交互半径 2 内；离长者 / 旅人 5 米以上，焦点只会落在 BOSS 上）。</summary>
-        private static readonly Vector2 BossStandPoint = new Vector2(-4.2f, 7.0f);
+        /// <summary>
+        /// 站位点：BOSS（(-4, -8)）正东 1.4 米（交互半径 2 内、接触距离 1.2 之外；离长者等 NPC 10 米以上，焦点只会落在 BOSS 上）。
+        /// 为什么是正东不是挪位前的正南：见文件头「2026-10-16 BOSS 挪到院外南面」。
+        /// </summary>
+        private static readonly Vector2 BossStandPoint = new Vector2(-2.6f, -8f);
+
+        /// <summary>
+        /// 去 BOSS 跟前的候场点：BOSS 原位正东 6 米（发难半径 5 之外）。过了缝口跑到这里停下、切回步行，再一口气直走到
+        /// <see cref="BossStandPoint"/> 按 E——半径里只走 3.6 米。缝口出口 (11.6, -2) 到这里一路在围栏（z −1）以南，没有碰撞体。
+        /// </summary>
+        private static readonly Vector2 BossStagingPoint = new Vector2(2f, -8f);
+
+        /// <summary>名册里这只 BOSS 的 id（发难的半径 / 反应时间 / 生命上限都按它取）。</summary>
+        private const string SampleBossId = "sample_boss";
+
+        /// <summary>BOSS 头顶「要冲过来了」的红「!」（Npc_SampleBoss 下的子物体，BossAggro.alertIndicator）。</summary>
+        private const string AggroMarkerName = "MarkerAggro";
+
+        /// <summary>开战嘲讽对白（`sample_boss_battle` 的 taunt 阶段 payload）：按 E 挑战与它冲上来接触，都是这一段。</summary>
+        private const int TauntDialogueId = 1004;
+
+        /// <summary>发难半径里的站点：BOSS 原位 (-4, -8) 正东 4 米（发难半径 5 之内、接触距离 1.2 之外），离候场点 2 米。</summary>
+        private static readonly Vector2 AggroWatchPoint = new Vector2(0f, -8f);
+
+        /// <summary>两个圈之间的站点：离原位 5.5 米（发难半径 5 之外、察觉范围 6 之内），同在原位正东那条线上。</summary>
+        private static readonly Vector2 AggroBetweenRingsPoint = new Vector2(1.5f, -8f);
+
+        /// <summary>
+        /// 两个圈之外的站点：离原位 6.5 米（发难半径 5 与察觉范围 6 都在外面），同在原位正东那条线上；
+        /// 离围栏（z −1）7 米、离两条巡逻线 15 米以上，往这边退不会进巡逻怪的视野。
+        /// </summary>
+        private static readonly Vector2 AggroOutsidePoint = new Vector2(2.5f, -8f);
 
         private IInputService input;
         private PlayerModel player;
@@ -119,6 +185,15 @@ namespace Game.Tests.Showcase.Battle
         private Camera worldCamera;
         private IDisposable settingsOverride;
 
+        /// <summary>BOSS 的发难组件、头顶红「!」、名册里那一行（半径 / 反应时间 / 生命上限）。</summary>
+        private BossAggro aggro;
+        private GameObject aggroMarker;
+        private BossDefinition bossRow;
+
+        /// <summary>最近一次开始的对白 id（订阅 DialogueService.OnStarted；嘲讽是不是按 E 那一段就看它）。</summary>
+        private int lastDialogueId;
+        private DialogueService subscribedDialogue;
+
         /// <summary>剧情服务（实时遭遇那两条用例要读当前阶段 / 故事标记）。</summary>
         private NarrativeService stageReader;
 
@@ -135,6 +210,11 @@ namespace Game.Tests.Showcase.Battle
         {
             settingsOverride?.Dispose();
             settingsOverride = null;
+            if (subscribedDialogue != null)
+            {
+                subscribedDialogue.OnStarted -= RecordDialogueStarted;
+                subscribedDialogue = null;
+            }
         }
 
         // ───────────────────────── ① 打赢：回世界、写标记、BOSS 退场 ─────────────────────────
@@ -152,12 +232,11 @@ namespace Game.Tests.Showcase.Battle
             yield return Check("背包里有治疗药水", () => potionsBefore >= 1);
             yield return Step($"回放内换一份数值（不改资产）：BOSS 只出招式 1、伤害 {VictoryBossDamage}——胜负可控，又能挨一下好演示回血",
                 () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, VictoryBossDamage)), 0f);
+            yield return GoToBossStaging();
 
-            yield return WalkToBossAndCheckPrompt("走到BOSS跟前·交互提示");
             ChibiPuppet worldBossPuppet = bossObject.GetComponentInChildren<ChibiPuppet>();
             ChibiPuppet worldPlayerPuppet = WorldPlayerPuppet();
-            yield return Step("按交互键（E）", null, 0f);
-            yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return WalkToBossAndInteractWithinReaction("走到BOSS跟前·交互提示");
             yield return Check("交互转向：BOSS 小人转向玩家、玩家小人转向 BOSS（两边都进入朝向保持）",
                 () => worldBossPuppet != null && worldBossPuppet.FacingHeld && worldPlayerPuppet != null && worldPlayerPuppet.FacingHeld, 3f);
             yield return ReadTaunt(true);
@@ -232,10 +311,9 @@ namespace Game.Tests.Showcase.Battle
             yield return EnterWorld();
             yield return Step($"回放内换一份数值（不改资产）：BOSS 只出招式 1、伤害 {DownedBossDamage}（= 本场玩家生命），一下击倒",
                 () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, DownedBossDamage)), 0f);
+            yield return GoToBossStaging();
 
-            yield return WalkToBossAndCheckPrompt(null);
-            yield return Step("按交互键（E）", null, 0f);
-            yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return WalkToBossAndInteractWithinReaction(null);
             yield return ReadTaunt(false);
             yield return CheckEnteredBattle("进战斗场景：战斗相机接管、世界暂停、战斗界面打开");
 
@@ -345,6 +423,9 @@ namespace Game.Tests.Showcase.Battle
 
             yield return Check("停在实时遭遇档 fight（内容是 `sample_battle_drill`）", () => StageId() == "fight", 5f);
 
+            yield return Step($"回放内换一份数值（不改资产）：回合制里 BOSS 只出招式 1、伤害 {DownedBossDamage}——巡逻线上市令打中你那一下"
+                              + "会按升级规则交给回合制（「被打」市令先手），让它在回合制里一下击倒（不需要输入）",
+                () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, DownedBossDamage)), 0f);
             yield return Step("走巡逻线那条老路：切跑 → 北侧绕行 → 观察点 → 再往南踏进巡逻线（潜行档），等被打倒", null, 0f);
             yield return GoToPatrolLookout();
             yield return Walk(new Vector2(0f, -1f), 3.5f);
@@ -353,6 +434,174 @@ namespace Game.Tests.Showcase.Battle
             yield return Check("剧情没有卡在战斗阶段：走到 downed 出口、写 world.samplebattle.downed，这一关结束",
                 () => StageId() == null && stageReader.HasStoryFlag(DrillDownedFlag), 20f);
             yield return Snapshot("较量·被击倒后这一关结束");
+        }
+
+        // ───────────────────────── ⑤ BOSS 发难：反应期内按 E = 正面攻击、玩家先手、它不冲 ─────────────────────────
+
+        /// <summary>
+        /// 走进 BOSS 的发难半径（5 米）→ 它警觉、头顶红「!」亮 → 3 秒反应期内走到跟前按 E →
+        /// 照常的开战对白 → 正面攻击、玩家先手（第一次轮到你出招时 BOSS 满血、你没挨过打），它一次都没冲。
+        /// 验完开战方式用回放内数值让它一下击倒，撤退收尾。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator BossAggro_ChallengeWithinReaction_FrontalAttack()
+        {
+            yield return EnterWorld();
+            yield return Step($"回放内换一份数值（不改资产）：BOSS 只出招式 1、伤害 {DownedBossDamage}——验完开战方式后一下击倒、撤退收尾",
+                () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, DownedBossDamage)), 0f);
+            yield return Check("BOSS 发难已武装：站在原位待机，头顶没有红「!」",
+                () => aggro.IsArmed && aggro.State == BossAggroState.Idle && BossAtHome() && !AggroMarkerShown());
+            yield return GoToBossStaging();
+
+            yield return Step($"走进 BOSS 的发难半径（{bossRow.AggroRadius} 米，以原位为圆心）：离原位 4 米", null, 0f);
+            yield return WalkTo(AggroWatchPoint, 0.2f, 5f);
+            yield return Check($"BOSS 警觉：头顶红「!」亮起，开始计反应时间（{bossRow.AggroReactionSeconds} 秒）",
+                () => aggro.State == BossAggroState.Alerted && AggroMarkerShown(), 1f);
+            yield return Snapshot("BOSS警觉·头顶红感叹号");
+
+            yield return WalkToBossAndInteractWithinReaction(null);
+            yield return ReadTaunt(false);
+            var opening = new BattleOpeningRecord();
+            yield return WatchBattleOpening(opening, 20f);
+            yield return CheckEnteredBattle("进战斗场景：战斗相机接管、世界暂停、战斗界面打开");
+            yield return Check($"开战方式：正面攻击、玩家先手——第一次轮到你出招时是「{BattleHudRules.TurnText(1, true)}」、出招前没挨打，"
+                               + $"BOSS 满血 {bossRow.MaxHealth}/{bossRow.MaxHealth}（{opening.Describe()}）",
+                () => opening.CommandAwaited && !opening.PlayerHitBeforeCommand
+                      && opening.TurnTextAtCommand == BattleHudRules.TurnText(1, true)
+                      && opening.BossHealthAtCommand == bossRow.MaxHealth && opening.BossMaxAtCommand == bossRow.MaxHealth);
+            yield return Check("BOSS 发难进入「战斗中」：这一仗是你按 E 开的（它没冲、没接触，开战理由一直是「玩家先动手」）",
+                () => aggro.State == BossAggroState.InBattle && BossEntryInitiator() == BattleInitiator.PlayerAttacked);
+            yield return Snapshot("反应期内按E·正面攻击·玩家先手");
+
+            yield return Step("出招式 1（键盘 1），BOSS 还手一下击倒（回放内数值），撤退收尾", null, 0f);
+            yield return FightUntil(() => !flow.IsBattleRunning, 60f, true);
+            yield return CheckBackToWorld();
+        }
+
+        // ───────────────────────── ⑥ BOSS 发难：磨蹭满 3 秒 → 冲刺 → 接触 → 嘲讽 →「被打」BOSS 先手 ─────────────────────────
+
+        /// <summary>
+        /// 走进发难半径后站定不动（在接触距离外）、不按 E → 反应时间计满它冲过来 → 停在你跟前（接触距离）→
+        /// 照常的嘲讽对白（与按 E 同一段）→「被打」开战、BOSS 先手（开场是「敌方回合」，你还没出招就先挨了一下）。
+        /// 回放内数值让那一下就击倒，撤退收尾。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator BossAggro_ChargesTauntsAndAmbushes()
+        {
+            yield return EnterWorld();
+            yield return Step($"回放内换一份数值（不改资产）：BOSS 只出招式 1、伤害 {DownedBossDamage}（= 本场玩家生命）——它先手那一下就击倒、撤退收尾",
+                () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, DownedBossDamage)), 0f);
+            yield return Check("BOSS 发难已武装：站在原位待机", () => aggro.IsArmed && aggro.State == BossAggroState.Idle && BossAtHome());
+            yield return GoToBossStaging();
+
+            yield return Step($"走进发难半径站定不动、不按 E：离原位 4 米（接触距离 {aggro.ContactDistance:0.##} 米之外）", null, 0f);
+            yield return WalkTo(AggroWatchPoint, 0.2f, 5f);
+            yield return Check("BOSS 警觉：头顶红「!」亮起", () => aggro.State == BossAggroState.Alerted && AggroMarkerShown(), 1f);
+
+            float reactionSeen = 0f;
+            yield return WaitUntil($"站着不动，等 BOSS 愣满 {bossRow.AggroReactionSeconds} 秒冲过来", () =>
+            {
+                if (aggro.State == BossAggroState.Alerted)
+                {
+                    reactionSeen = Mathf.Max(reactionSeen, aggro.ReactionElapsed);
+                }
+
+                return aggro.State == BossAggroState.Charging || aggro.State == BossAggroState.Contact;
+            }, bossRow.AggroReactionSeconds + 3f);
+            yield return Check($"它是愣满反应时间才冲的：警觉期计到 {reactionSeen:0.##} 秒（反应时间 {bossRow.AggroReactionSeconds} 秒），头顶红「!」冲刺中仍亮着",
+                () => reactionSeen >= bossRow.AggroReactionSeconds - 0.1f
+                      && (aggro.State != BossAggroState.Charging || AggroMarkerShown()));
+            yield return Snapshot("BOSS冲刺");
+
+            float contactGap = -1f;
+            yield return Check($"冲到你跟前停住（接触距离 {aggro.ContactDistance:0.##} 米，没贴到身上），照常的嘲讽对白出现——和按 E 挑战是同一段（对白 {TauntDialogueId}）",
+                () =>
+                {
+                    if (ui.Get<DialogueView>() == null || lastDialogueId != TauntDialogueId) return false;
+                    contactGap = BossGapToPlayer();
+                    return contactGap <= aggro.ContactDistance + 0.15f && contactGap >= aggro.ContactDistance - 0.3f;
+                }, 5f);
+            yield return Snapshot("接触·嘲讽对白");
+            yield return ReadTaunt(false);
+
+            var opening = new BattleOpeningRecord();
+            yield return WatchBattleOpening(opening, 20f);
+            // BOSS 先手 = 开场就是它的回合：它要么先打了你（血条掉了 / 一下击倒），要么醉酒跳过了这一回合
+            // （sample_boss 战斗外醉酒 50，微醺每回合 20% 跳过，W6b 第二跑实测遇到）——那时你第一次出招已经是第 2 回合。
+            yield return Check($"开战方式：被打、BOSS 先手——开场是「{BattleHudRules.TurnText(1, false)}」，你还没出招它的回合就先走完了"
+                               + $"（先打了你，或醉酒跳过、轮到你时已是「{BattleHudRules.TurnText(2, true)}」）（{opening.Describe()}）",
+                () => opening.FirstTurnText == BattleHudRules.TurnText(1, false)
+                      && (opening.PlayerHitBeforeCommand || opening.TurnTextAtCommand == BattleHudRules.TurnText(2, true)));
+            yield return Snapshot("被打·BOSS先手");
+
+            yield return Step("BOSS 出手一下就击倒（回放内数值；它醉酒跳过回合时你按招式 1 等它出手），撤退收尾", null, 0f);
+            yield return FightUntil(() => !flow.IsBattleRunning, 60f, true);
+            yield return CheckBackToWorld();
+        }
+
+        // ───────────────────────── ⑦ 被打开战后打输：BOSS 回原位、解除武装，离开两个圈才重新武装 ─────────────────────────
+
+        /// <summary>
+        /// 让 BOSS 冲上来「被打」开战并打输（撤退，BOSS 不被击败）→ 回到世界：它在原位、解除武装 →
+        /// 只退出发难半径 5 米、还在察觉范围 6 米内：不恢复 → 同时离开 6 米与 5 米：恢复待机 → 再进 5 米：重新警觉。
+        /// 最后赶在反应时间计满之前退出半径收尾（别让它再冲一次）。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator BossAggro_RetreatThenRearmsAfterLeaving()
+        {
+            yield return EnterWorld();
+            yield return Step($"回放内换一份数值（不改资产）：BOSS 只出招式 1、伤害 {DownedBossDamage}（= 本场玩家生命）——这一仗打输",
+                () => settingsOverride = setup.OverrideSettings(WithBossOnlySkill1(setup.Settings, DownedBossDamage)), 0f);
+            yield return GoToBossStaging();
+
+            yield return Step("走进发难半径站定不动，等 BOSS 冲过来、嘲讽、「被打」开战", null, 0f);
+            yield return WalkTo(AggroWatchPoint, 0.2f, 5f);
+            yield return WaitUntil("BOSS 冲到跟前，开战嘲讽对白出现", () => ui.Get<DialogueView>() != null, bossRow.AggroReactionSeconds + 5f);
+            yield return ReadTaunt(false);
+            yield return CheckEnteredBattle("「被打」开战：战斗相机接管、世界暂停、战斗界面打开");
+
+            yield return Step("BOSS 先手一下击倒（回放内数值）：这一仗打输、撤退", null, 0f);
+            yield return FightUntil(() => !flow.IsBattleRunning, 60f, true);
+            yield return CheckBackToWorld();
+            yield return WaitCurtainRevealed();
+            yield return Check($"撤退：剧情走了 retreat（结局 {RetreatOutcome}）、{DefeatedFlag} 没写，BOSS 还站在村里",
+                () =>
+                {
+                    NarrativeSaveData saved = narrative.Capture();
+                    return saved.Current == null && saved.Outcome == RetreatOutcome && !narrative.HasStoryFlag(DefeatedFlag)
+                           && bossObject.activeSelf;
+                }, 5f);
+            yield return Check($"BOSS 回到原位、解除武装：头顶没有红「!」；你还站在离原位 {PlayerHomeDistance():0.##} 米处（发难半径里）也不再警觉",
+                () => aggro.State == BossAggroState.Disarmed && BossAtHome() && !AggroMarkerShown(), 3f);
+            yield return Snapshot("撤退后·BOSS回原位解除武装");
+
+            yield return Step("退出发难半径（5 米）、但还在察觉范围（6 米）里：走到离原位 5.5 米处站 1.5 秒", null, 0f);
+            yield return WalkTo(AggroBetweenRingsPoint, 0.2f, 5f);
+            bool stayedDisarmed = true;
+            float watchUntil = Time.realtimeSinceStartup + 1.5f;
+            yield return WaitUntil("站 1.5 秒", () =>
+            {
+                stayedDisarmed &= aggro.State == BossAggroState.Disarmed;
+                return Time.realtimeSinceStartup >= watchUntil;
+            }, 3f);
+            yield return Check($"只出了 5 米、还在 6 米察觉范围内（离原位 {PlayerHomeDistance():0.##} 米）：BOSS 一直解除武装，不恢复待机",
+                () => stayedDisarmed && aggro.State == BossAggroState.Disarmed);
+
+            yield return Step("再往外走，同时离开察觉范围（6 米）与发难半径（5 米）：离原位 6.5 米", null, 0f);
+            yield return WalkTo(AggroOutsidePoint, 0.2f, 5f);
+            yield return Check($"两个圈都出了（离原位 {PlayerHomeDistance():0.##} 米）：BOSS 恢复待机（重新武装）",
+                () => aggro.State == BossAggroState.Idle && !AggroMarkerShown(), 3f);
+            yield return Snapshot("离开察觉范围·恢复待机");
+
+            yield return Step("再走进发难半径（离原位 4 米）", null, 0f);
+            yield return WalkTo(AggroWatchPoint, 0.2f, 5f);
+            yield return Check("BOSS 重新警觉：头顶红「!」再亮", () => aggro.State == BossAggroState.Alerted && AggroMarkerShown(), 1f);
+            yield return Snapshot("再进半径·重新警觉");
+
+            yield return Step("赶在反应时间计满之前退出半径收尾（别让它再冲一次）", null, 0f);
+            yield return WalkTo(AggroOutsidePoint, 0.2f, 5f);
+            yield return Check("退出半径：BOSS 回到待机、仍在原位（没冲过来）",
+                () => aggro.State == BossAggroState.Idle && BossAtHome(), 2f);
         }
 
         // ───────────────────────── 进场 / 走位 / 对白 ─────────────────────────
@@ -364,8 +613,23 @@ namespace Game.Tests.Showcase.Battle
             bossEntry = FindRequired<DialogueInteractable>(BossObjectName);
             bossObject = bossEntry.gameObject;
             worldCamera = Camera.main;
+            aggro = FindRequired<BossAggro>(BossObjectName);
+            Transform marker = FindDeep<Transform>(bossObject.transform, AggroMarkerName);
+            aggroMarker = marker == null ? null : marker.gameObject;
+            BossRoster roster = ResolveService<BossRoster>();
+            if (roster == null || !roster.TryGet(SampleBossId, out bossRow))
+            {
+                Assert.Fail($"容器里取不到 BossRoster，或名册里没有「{SampleBossId}」那一行（BossRosterConfig.asset）。");
+            }
+
+            // 嘲讽对白是不是按 E 那一段：记下每次开始的对白 id（收尾在 TearDown 里退订）。
+            lastDialogueId = 0;
+            subscribedDialogue = dialogue;
+            subscribedDialogue.OnStarted += RecordDialogueStarted;
             yield return Check("村里站着 BOSS NPC，世界相机在渲染", () => bossObject.activeSelf && worldCamera != null && worldCamera.enabled);
         }
+
+        private void RecordDialogueStarted(DialogueStartedEvent started) => lastDialogueId = started.DialogueId;
 
         private bool ResolveAll()
         {
@@ -389,15 +653,47 @@ namespace Game.Tests.Showcase.Battle
                    && flow != null && arena != null && setup != null && presenter != null;
         }
 
-        private IEnumerator WalkToBossAndCheckPrompt(string snapshot)
+        /// <summary>
+        /// 从出生点去 BOSS 那边（2026-10-16 挪到院外南面之后）：经缝口绕出院子（<see cref="ShowcaseScenario.GoThroughSouthGap"/>：
+        /// 缝口候场、等两条巡逻线西端接下来几秒都扫不到缝里那段路再一口气跑过）→ 往西南跑到 <see cref="BossStagingPoint"/>
+        /// （BOSS 正东 6 米，发难半径外）停下、切回步行。全程不进发难半径，BOSS 保持待机。
+        /// </summary>
+        private IEnumerator GoToBossStaging()
         {
-            yield return Step("走到村西北角的 BOSS 跟前（离巡逻怪十几米，绕开村口演出区）", null, 0f);
+            yield return GoThroughSouthGap(new[] { BossStagingPoint });
+        }
+
+        /// <summary>
+        /// 走到 BOSS 跟前并**立刻**按 E（2026-10-15 BOSS 发难之后的写法，见文件头）：从候场点走进它 5 米发难半径到按下 E 要在
+        /// 3 秒反应期内一口气做完，所以这一整段只记一步、中间不放检查点——提示几帧落定（最多再等 1 秒，不记条目）后记下
+        /// 「按 E 之前那一刻」的焦点 / 提示状态，按下 E，再把原来的两条提示检查点与一条「它还在反应期里」放到按 E 之后判。
+        /// </summary>
+        private IEnumerator WalkToBossAndInteractWithinReaction(string snapshot)
+        {
+            yield return Step("走到村南围栏外的 BOSS 跟前（它正东 1.4 米）并立刻按交互键（E）——它开了发难：踏进 5 米半径到按下 E 要在 3 秒反应期内连续做完"
+                              + "（检查点挪到按 E 之后，读的是按 E 之前那一刻记下的状态）", null, 0f);
             yield return WalkTo(BossStandPoint, 0.3f, 8f);
+            // 提示要几帧才落定（焦点 → 提示显示 → 量宽）：最多再等 1 秒，不记报告条目。
+            float settleUntil = Time.realtimeSinceStartup + 1f;
+            while (Time.realtimeSinceStartup < settleUntil
+                   && !(ReferenceEquals(focus.Current, bossEntry) && HudShowsChallenge() && HudPromptFitsText()))
+            {
+                yield return null;
+            }
+
             // 进战斗前这一步钉住提示动词（PRP/interaction D10）：BOSS 经 handover 进战斗，提示应是「挑战」而不是「对话」。
-            yield return Check($"焦点落在 BOSS 上，底部交互提示写着「{BossVerb} · {BossDisplayName}」",
-                () => ReferenceEquals(focus.Current, bossEntry) && HudShowsChallenge(), 3f);
-            yield return Check("提示整句完整显示：胶囊随文字加宽（超过最小宽 320），文字没有被截成省略号", HudPromptFitsText, 3f);
+            bool focusedOnBoss = ReferenceEquals(focus.Current, bossEntry) && HudShowsChallenge();
+            bool promptFits = HudPromptFitsText();
             if (!string.IsNullOrEmpty(snapshot)) yield return Snapshot(snapshot);
+            BossAggroState stateAtPress = aggro.State;
+            float reactionAtPress = aggro.ReactionElapsed;
+            bool homeAtPress = BossAtHome();
+            yield return Input.Press(input.Actions.Gameplay.Interact);
+            yield return Check($"焦点落在 BOSS 上，底部交互提示写着「{BossVerb} · {BossDisplayName}」（按 E 之前那一刻）", () => focusedOnBoss);
+            yield return Check("提示整句完整显示：胶囊随文字加宽（超过最小宽 320），文字没有被截成省略号（按 E 之前那一刻）", () => promptFits);
+            yield return Check($"按 E 时 BOSS 还在反应期里、站在原位没冲（发难状态 {stateAtPress}，已计 {reactionAtPress:0.##} 秒，"
+                               + $"不到 {bossRow.AggroReactionSeconds} 秒）",
+                () => stateAtPress == BossAggroState.Alerted && reactionAtPress < bossRow.AggroReactionSeconds && homeAtPress);
         }
 
         private IEnumerator WalkToDrillAndCheckPrompt(string snapshot)
@@ -457,6 +753,12 @@ namespace Game.Tests.Showcase.Battle
         private IEnumerator CheckEnteredBattle(string expect)
         {
             yield return Check(expect, InBattle, 20f);
+            yield return Check("原BOSS目标保持配置醉酒50，不读取酒肆的0", () =>
+            {
+                if (presenter.View == null) return false;
+                var bar = FindDeep<BattleBarWidget>(presenter.View.transform, "DrunkBar");
+                return bar != null && bar.GetComponentInChildren<TMP_Text>(true).text.StartsWith("醉酒 50");
+            }, 5f);
             yield return WaitCurtainRevealed();
         }
 
@@ -479,32 +781,8 @@ namespace Game.Tests.Showcase.Battle
                       && ui.IsLayerVisible(UILayer.Hud), 15f);
         }
 
-        /// <summary>
-        /// 轮到玩家就出招，直到 <paramref name="done"/> 成立或超时：<paramref name="skill1Only"/> 时只按 1；
-        /// 否则怒气满（招式 3 格亮）按 3，不然按 1（招式 1 攒怒气）。按下后等这一手被接住再进下一轮。
-        /// </summary>
-        private IEnumerator FightUntil(Func<bool> done, float timeout, bool skill1Only)
-        {
-            float deadline = Time.realtimeSinceStartup + timeout;
-            while (!done() && Time.realtimeSinceStartup < deadline)
-            {
-                if (!presenter.IsAwaitingCommand || presenter.View == null)
-                {
-                    yield return null;
-                    continue;
-                }
-
-                InputAction key = !skill1Only && presenter.View.IsSkillLit(2)
-                    ? input.Actions.Dialogue.Choice3
-                    : input.Actions.Dialogue.Choice1;
-                yield return Input.Press(key);
-                float accepted = Time.realtimeSinceStartup + 2f;
-                while (presenter.IsAwaitingCommand && !done() && Time.realtimeSinceStartup < accepted)
-                {
-                    yield return null;
-                }
-            }
-        }
+        // 出招循环（FightUntil）、读头顶生命条（ReadBattleHealthBar）、换 BOSS 招式数值（WithBossOnlySkill1）
+        // 2026-10-15 收进框架 ShowcaseScenario.TurnBattle（Monster 回放的升级回合制也要用），行为逐字不变。
 
         // 要完全淡入：只看 HintVisible（alpha > 0）会在淡入第一帧就成立，截图里横条和字都几乎透明（20261007-194728 批次的 08 / 01）。
         private bool HintShows(string text) =>
@@ -552,24 +830,9 @@ namespace Game.Tests.Showcase.Battle
         }
 
         /// <summary>玩家头顶血条上的「生命 当前 / 上限」里的当前值；取不到返回 -1。</summary>
-        private int PlayerHealthShown() => ReadPlayerBar(0);
+        private int PlayerHealthShown() => ReadBattleHealthBar(presenter.View, PlayerHudName, 0);
 
-        private int PlayerMaxShown() => ReadPlayerBar(1);
-
-        private int ReadPlayerBar(int part)
-        {
-            BattleView view = presenter.View;
-            Transform hud = view == null ? null : FindDeep<Transform>(view.transform, "PlayerHud");
-            Transform bar = hud == null ? null : FindDeep<Transform>(hud, "HealthBar");
-            TMP_Text label = bar == null ? null : FindDeep<TMP_Text>(bar, "Label");
-            if (label == null) return -1;
-            string text = label.text;
-            int space = text.IndexOf(' ');
-            string[] parts = (space >= 0 ? text.Substring(space + 1) : text).Split('/');
-            return parts.Length == 2 && int.TryParse(parts[part].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-                ? value
-                : -1;
-        }
+        private int PlayerMaxShown() => ReadBattleHealthBar(presenter.View, PlayerHudName, 1);
 
         // ───────────────────────── 杂项 ─────────────────────────
 
@@ -612,14 +875,38 @@ namespace Game.Tests.Showcase.Battle
 
         private int Potions() => loot.Items.TryGetValue(HealItemId, out int count) ? count : 0;
 
-        /// <summary>只换 BOSS 招式：只出招式 1（权重 1:0:0）、伤害 <paramref name="skill1Damage"/>；其余数值照装配时的那份。</summary>
-        private static BattleSettings WithBossOnlySkill1(in BattleSettings source, int skill1Damage)
+        // ───────────────────────── BOSS 发难 ─────────────────────────
+
+        /// <summary>BOSS 在原位（水平距离 5 厘米内）。</summary>
+        private bool BossAtHome()
         {
-            BossSkillSettings boss = source.BossSkills;
-            var replaced = new BossSkillSettings(skill1Damage, boss.Skill2DrinkAddDrunk, boss.Skill2HealPercent, boss.Skill2HealBase,
-                boss.Skill2NextSkill1DamageBonusPercent, boss.Skill3Damage, boss.Skill3StunRounds, 1, 0, 0);
-            return new BattleSettings(source.Entry, source.PlayerSkills, replaced, source.Drunk, source.Flow,
-                source.ItemOncePerBattle, source.InheritsDrunkValue, source.Items);
+            Vector3 position = bossObject.transform.position;
+            Vector3 home = aggro.Home;
+            return new Vector2(position.x - home.x, position.z - home.z).magnitude <= 0.05f;
+        }
+
+        /// <summary>头顶红「!」此刻亮着。</summary>
+        private bool AggroMarkerShown() => aggroMarker != null && aggroMarker.activeInHierarchy;
+
+        /// <summary>玩家离 BOSS 原位的水平距离（米，逻辑平面 = 场景 XZ）。</summary>
+        private float PlayerHomeDistance()
+        {
+            Vector3 home = aggro.Home;
+            return Vector2.Distance(new Vector2(home.x, home.z), player.Position);
+        }
+
+        /// <summary>BOSS 此刻离玩家的水平距离（米，逻辑平面 = 场景 XZ）。</summary>
+        private float BossGapToPlayer()
+        {
+            Vector3 position = bossObject.transform.position;
+            return Vector2.Distance(new Vector2(position.x, position.z), player.Position);
+        }
+
+        /// <summary>BOSS 局势里记的开战理由（谁先动的手）：它冲上来碰到你才置成「BOSS 先动手」。</summary>
+        private BattleInitiator BossEntryInitiator()
+        {
+            BossEntryContext context = bossObject.GetComponent<BossEntryContext>();
+            return context == null ? BattleInitiator.PlayerAttacked : context.Initiator;
         }
     }
 }

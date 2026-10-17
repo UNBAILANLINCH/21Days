@@ -34,6 +34,7 @@ namespace Game.Session
 
         [Tooltip("存档会话参数（槽数、保存提示、进度占位文案、退出保存超时）。拖 Data/Session/SessionConfig.asset。")]
         [SerializeField] private SessionConfig config;
+        [SerializeField] private bool registerTitleRouter = true;
 
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)
         {
@@ -97,7 +98,7 @@ namespace Game.Session
                     resolver.Resolve<ITelemetryClock>()), Lifetime.Singleton);
 
             // 标题路由：接管 TitleStart / TitleContinue / TitleLoad 三个事件（原 MonsterTitleRouter 已退役）。
-            builder.RegisterEntryPoint(resolver => new SessionTitleRouter(
+            if (registerTitleRouter) builder.RegisterEntryPoint(resolver => new SessionTitleRouter(
                     resolver.Resolve<GameSession>(),
                     resolver.Resolve<SaveSlotsController>(),
                     resolver.Resolve<NewGameTutorial>(),

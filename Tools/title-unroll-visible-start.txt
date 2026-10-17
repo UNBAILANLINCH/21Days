@@ -1,0 +1,12 @@
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("请先退出播放");
+var config=UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Core.UI.TitleEntranceConfig>("Assets/_Project/Data/UI/TitleEntranceConfig.asset");
+var data=new UnityEditor.SerializedObject(config);var tracks=data.FindProperty("tracks");
+int[] indices={24,29,34,39};float[] hidden={361f,239f,239f,366f};float[] heights={624f,624f,624f,634f};
+for(int i=0;i<4;i++){
+ var track=tracks.GetArrayElementAtIndex(indices[i]);
+ if(track.FindPropertyRelative("part").stringValue!="卷轴底"||!track.FindPropertyRelative("unrollVertical").boolValue)
+  throw new System.InvalidOperationException("卷轴轨道不符");
+ track.FindPropertyRelative("scale").floatValue=UnityEngine.Mathf.Lerp(hidden[i]/heights[i],1f,0.06f);
+}
+data.ApplyModifiedPropertiesWithoutUndo();UnityEditor.AssetDatabase.SaveAssets();
+return "四张卷轴从屏幕上沿的短纸面开始展开";

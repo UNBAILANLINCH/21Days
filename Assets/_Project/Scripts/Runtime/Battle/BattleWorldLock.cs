@@ -6,6 +6,10 @@
 //      并抽成独立类，让「正常 / 异常 / 取消都恢复到进来前」能单测。
 // 自动存档不在这里压：那一层走剧情的「战斗在途」登记（IBattleNarrative.TryBeginBattle → NarrativeService.CanSave = false），
 //   Session 的现成闸门（NarrativeStable）就会挡住自动保存与离场保存，不用改 Session。
+// 宿主销毁时的撤锁（2026-10-15，PRP/combat-iteration W6a 补修）：根作用域释放时 UI / 输入服务与 BattleFlow 一起销毁，
+//   收场（异步，可能晚于它们的 Dispose）再调 SetLayerVisible 会抛 ObjectDisposedException。所以按住世界的令牌多一条
+//   Engagement.Abandon：只交还暂停令牌、不还原 HUD 层与输入图（世界本身也在销毁，没有可还原的对象），之后的 Dispose 是空操作。
+//   由 BattleFlow.Dispose 同步调用；正常 / 出错收场仍走 Dispose，逐项还原。
 using System;
 using Game.Core.Input;
 using Game.Core.Timing;
@@ -30,8 +34,9 @@ namespace Game.Battle
         /// <summary>
         /// 按住世界：取暂停令牌（timeScale = 0、逻辑 tick 停）、关 Gameplay 图、藏 HUD 层。
         /// 返回的令牌 Dispose 即恢复，且只恢复进来之前的状态（进来前就关着的图 / 藏着的层不擅自打开）；Dispose 幂等。
+        /// 宿主销毁时改调 <see cref="Engagement.Abandon"/>（只交还暂停令牌）。
         /// </summary>
-        public IDisposable Engage(object owner)
+        public Engagement Engage(object owner)
         {
             IDisposable pauseToken = pause.Acquire(owner);
             try
@@ -51,8 +56,10 @@ namespace Game.Battle
             }
         }
 
-        /// <summary>一次按住；Dispose 按「HUD → 输入图 → 暂停」逆序恢复。</summary>
-        private sealed class Engagement : IDisposable
+        /// <summary>
+        /// 一次按住；Dispose 按「HUD → 输入图 → 暂停」逆序恢复，<see cref="Abandon"/> 只交还暂停。两者合起来只生效一次（先到先得）。
+        /// </summary>
+        public sealed class Engagement : IDisposable
         {
             private readonly BattleWorldLock owner;
             private readonly IDisposable pauseToken;
@@ -60,7 +67,7 @@ namespace Game.Battle
             private readonly bool hudWasVisible;
             private bool released;
 
-            public Engagement(BattleWorldLock owner, IDisposable pauseToken, bool gameplayWasEnabled, bool hudWasVisible)
+            internal Engagement(BattleWorldLock owner, IDisposable pauseToken, bool gameplayWasEnabled, bool hudWasVisible)
             {
                 this.owner = owner;
                 this.pauseToken = pauseToken;
@@ -81,6 +88,19 @@ namespace Game.Battle
                 {
                     pauseToken.Dispose();
                 }
+            }
+
+            /// <summary>
+            /// 宿主（根作用域）销毁时的撤锁：只交还暂停令牌，<b>不还原 HUD 层与输入图</b>——UI / 输入服务随同一作用域销毁
+            /// （可能已先一步释放，再调会抛 ObjectDisposedException），世界本身也在销毁，没有可还原的对象。
+            /// 交还暂停令牌在暂停服务已释放时是空操作（WorldPauseService.Token），没释放时恰好让 timeScale 回来。
+            /// 之后的 <see cref="Dispose"/> 是空操作；已经还原过再调也是空操作。
+            /// </summary>
+            public void Abandon()
+            {
+                if (released) return;
+                released = true;
+                pauseToken.Dispose();
             }
         }
     }

@@ -12,6 +12,14 @@
 //   在报告里单列，不在回放里掩盖。
 // 路线：出生点与巡逻怪之间隔着村口演出触发区，一律走北侧路线到巡逻线北侧观察点（GoToPatrolLookout，坐标与理由见
 //   Framework/ShowcaseScenario.DemoScene.cs）；再从观察点逐帧朝怪物当前位置推摇杆贴近，出手用同文件的 StrikeMonster / FaceMonster。
+// 2026-10-16（PRP/combat-iteration W7d，对手换人，断言不动；用户 2026-10-16 拍板对手用巡夜人）：
+//   「伪装挡攻击 → 取消伪装挨打 → 普通攻击击杀」那条的对手由市令换成东南角巡夜人——市令打中玩家会升级回合制
+//   （W7d 基线：取消伪装那一下交给了回合制，世界里不扣血，后面的步骤全在暂停的世界里空转）；巡夜人没配回合制战斗数据，打中不升级。
+//   走位：经缝口绕到它的候场点（GoThroughSouthGap，离市令与巡逻者乙都远），开伪装后贴过去；伪装挡掉橙区，
+//   贴到它身边由贴身 / 红区察觉转敌对；之后全在那儿做（市令与乙都看不到东南角）。
+//   取消伪装后它打中你先击倒（被抓次数 0 → 只击倒），「玩家掉血」照旧成立；倒地期间不能攻击，重新伪装后要等起身才挥得出刀。
+//   「普通攻击击杀」照旧断言、会如实红：巡夜人只能暗杀（killable = false），场上已没有普通攻击能打掉血的怪，按既有问题记录。
+//   短按那条没换对手：它要验的是短按按下沿，「扣血」同样因只能暗杀而红（打中市令另升级回合制），换谁都绿不了，不动。
 using System.Collections;
 using Game.Core.Input;
 using Game.Core.Simulation;
@@ -30,6 +38,9 @@ namespace Game.Tests.Showcase.Disguise
         /// <summary>伪装期间观察多久不挨打（真实秒）：怪物攻击冷却 1 秒，2.5 秒内不伪装至少会挨两下。</summary>
         private const float DisguisedWatchSeconds = 2.5f;
 
+        /// <summary>从巡夜人候场点贴到它身边的上限（真实秒）：候场点离它的巡逻线 7~10 米，步行 3 米/秒、它还在走。</summary>
+        private const float XunyeApproachTimeoutSeconds = 12f;
+
         private IInputService inputService;
         private PlayerModel player;
         private MonsterModel monster;
@@ -44,35 +55,42 @@ namespace Game.Tests.Showcase.Disguise
         public IEnumerator Disguise_BlocksHostileAttack_ThenCanKillNormally()
         {
             yield return EnterWorld();
-            yield return GoToPatrolLookout();
+            MonsterRules xunyeRules = FindPatroller(XunyePatrollerId);
+            if (xunyeRules == null)
+            {
+                Assert.Fail($"前置不成立：场上找不到巡夜人（stableId = {XunyePatrollerId}），没有不升级回合制的对手可演");
+            }
 
-            yield return Step("按伪装键开启伪装，走到怪物身边", null, 0f);
+            MonsterModel xunye = xunyeRules.Model;
+            yield return GoThroughSouthGap(new[] { SoutheastTransit, XunyeStagingPoint });
+
+            yield return Step("按伪装键开启伪装，走到巡夜人身边", null, 0f);
             yield return Input.PressUntil(inputService.Actions.Gameplay.Disguise, () => player.IsDisguised);
-            yield return ApproachMonster(0.8f, 8f);
-            yield return Check("贴身后怪物察觉并转敌对（状态色变红）", () => player.IsDisguised && monster.Mode == MonsterMode.Hostile, 5f);
+            yield return ApproachMonster(xunye, 0.8f, XunyeApproachTimeoutSeconds);
+            yield return Check("贴身后巡夜人察觉并转敌对（状态色变红）", () => player.IsDisguised && xunye.Mode == MonsterMode.Hostile, 5f);
 
             int health = player.Health;
             float watchUntil = 0f;
-            yield return Step($"伪装着站在敌对怪物身边 {DisguisedWatchSeconds} 秒", () => watchUntil = Time.realtimeSinceStartup + DisguisedWatchSeconds, 0f);
+            yield return Step($"伪装着站在敌对的巡夜人身边 {DisguisedWatchSeconds} 秒", () => watchUntil = Time.realtimeSinceStartup + DisguisedWatchSeconds, 0f);
             yield return WaitUntil($"过去 {DisguisedWatchSeconds} 秒", () => Time.realtimeSinceStartup >= watchUntil, DisguisedWatchSeconds + 1f);
-            yield return Check("伪装期间生命不下降，怪物仍敌对",
-                () => player.IsDisguised && player.Health == health && monster.Mode == MonsterMode.Hostile);
+            yield return Check("伪装期间生命不下降，巡夜人仍敌对",
+                () => player.IsDisguised && player.Health == health && xunye.Mode == MonsterMode.Hostile);
             yield return Snapshot("伪装禁攻");
 
             yield return Step("按伪装键取消伪装", null, 0f);
             yield return Input.PressUntil(inputService.Actions.Gameplay.Disguise, () => !player.IsDisguised);
-            yield return Check("取消伪装后怪物立刻出手，玩家掉血", () => !player.IsDisguised && player.Health < health, 3f);
+            yield return Check("取消伪装后巡夜人立刻出手，玩家掉血", () => !player.IsDisguised && player.Health < health, 3f);
             yield return Snapshot("取消伪装挨打");
 
-            yield return Step("重新伪装，连续普通攻击直到怪物倒下", null, 0f);
+            yield return Step("重新伪装，连续普通攻击直到巡夜人倒下", null, 0f);
             yield return Input.PressUntil(inputService.Actions.Gameplay.Disguise, () => player.IsDisguised);
-            for (int i = 0; i < monsterConfig.MaxHealth && monster.Health > 0 && player.Health > 0; i++)
+            for (int i = 0; i < monsterConfig.MaxHealth && xunye.Health > 0 && player.Health > 0; i++)
             {
-                yield return StrikeMonster();
+                yield return StrikeMonster(xunye);
             }
 
-            yield return Check("伪装不影响出手：普通攻击令怪物血量归零（状态 Dead）",
-                () => player.IsDisguised && monster.Health == 0 && monster.Mode == MonsterMode.Dead, 2f);
+            yield return Check($"伪装不影响出手：普通攻击令巡夜人血量归零（状态 Dead；出手 {StrikeSwings} 次）",
+                () => player.IsDisguised && xunye.Health == 0 && xunye.Mode == MonsterMode.Dead, 2f);
             yield return Snapshot("普通攻击击杀");
         }
 
@@ -87,7 +105,7 @@ namespace Game.Tests.Showcase.Disguise
 
             yield return GoToPatrolLookout();
             yield return Step("伪装着贴到怪物身边、面朝它", null, 0f);
-            yield return ApproachMonster(0.6f, 8f);
+            yield return ApproachMonster(monster, 0.6f, 8f);
             yield return WaitUntil("攻击冷却就绪", () => player.AttackCooldownLeft <= 0f, 2f);
 
             int before = monster.Health;
@@ -117,12 +135,12 @@ namespace Game.Tests.Showcase.Disguise
             }, "进世界后容器里取不到 PlayerModel / MonsterModel / IInputService / MonsterConfig，后续步骤无法驱动");
         }
 
-        /// <summary>逐帧朝怪物当前位置推摇杆（它在巡逻、位置一直在变），进入 <paramref name="within"/> 米内松杆；超时记失败继续。</summary>
-        private IEnumerator ApproachMonster(float within, float timeout)
+        /// <summary>逐帧朝 <paramref name="target"/> 当前位置推摇杆（它在巡逻、位置一直在变），进入 <paramref name="within"/> 米内松杆；超时记失败继续。</summary>
+        private IEnumerator ApproachMonster(MonsterModel target, float within, float timeout)
         {
             yield return WaitUntil($"贴到怪物 {within} 米内", () =>
             {
-                Vector2 diff = monster.Position - player.Position;
+                Vector2 diff = target.Position - player.Position;
                 if (diff.magnitude <= within)
                 {
                     Input.ReleaseStick();

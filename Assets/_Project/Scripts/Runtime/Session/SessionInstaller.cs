@@ -16,6 +16,7 @@ using Game.Monster;
 using Game.Narrative;
 using Game.Quest;
 using Game.Loot;
+using Game.Tavern;
 using MessagePipe;
 using UnityEngine;
 using VContainer;
@@ -52,7 +53,9 @@ namespace Game.Session
                 resolver.Resolve<IGameFlow>(), resolver.Resolve<DialogueService>(), resolver.Resolve<UIService>(),
                 resolver.Resolve<EncounterStep>(), resolver.Resolve<MonsterEncounterState>(), resolver.Resolve<QuestService>(),
                 resolver.Resolve<ISaveService>(), resolver.Resolve<SessionConfig>(),
-                resolver.TryResolve(out NarrativeService narrative) ? narrative : null), Lifetime.Singleton).As<ISessionStateSource>();
+                resolver.TryResolve(out NarrativeService narrative) ? narrative : null,
+                resolver.TryResolve(out TavernController tavern) ? tavern : null,
+                resolver.TryResolve(out SpotlightStoryFlow story) ? story : null), Lifetime.Singleton).As<ISessionStateSource>();
 
             // 一条注册同时拿到三种身份：RegisterEntryPoint 按已实现接口注册（IGameService 进启动串行、ITickable 每帧驱动、
             // IDisposable 随容器释放），再 AsSelf 让保存触发桥与标题路由按具体类型注入（先例 GameLifetimeScope 的 ReplayRecorder）。

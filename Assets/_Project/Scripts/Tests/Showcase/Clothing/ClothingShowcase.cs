@@ -40,11 +40,11 @@ namespace Game.Tests.Showcase.Clothing
         {
             yield return Ready(1);
             yield return Borrow(0);
-            yield return TalkToTailor("头一回来", false);
+            yield return TalkToTailor("你身上没这单", false);
             yield return Check("甲不符合掌柜线索，没有发放衣物", () => State.Clothing.HasInvestigated(0) && !State.Clothing.Received);
             yield return Snapshot("裁衣匠认出甲_没有订衣");
             yield return Borrow(2);
-            yield return TalkToTailor("陪人来的", false);
+            yield return TalkToTailor("你身上没这单", false);
             yield return Borrow(1);
             yield return Command(4);
             yield return Check("衣物领取完成，场景成果出现", () => State.Clothing.Received);

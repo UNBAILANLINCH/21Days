@@ -13,6 +13,7 @@ namespace Game.ShopPlaytest
         public const int RingId = 1805;
         private static readonly int[] ItemIds = { CostumeId, ClothesId, ClaspId, BeltHookId, RingId };
         private static readonly int[] Counts = { 1, 1, 1, 2, 3 };
+        private static readonly string[] MissingLabels = { "", "行头三样", "黑色长衫", "行头三样、黑色长衫", "金饰", "行头三样、金饰", "黑色长衫、金饰", "行头三样、黑色长衫、金饰" };
 
         public static void GrantCompleted(ShopProgressSaveData progress, Func<int, int, bool> grant)
         {
@@ -27,12 +28,12 @@ namespace Game.ShopPlaytest
 
         public static string MissingDisguise(IReadOnlyDictionary<int, int> items)
         {
-            var missing = new List<string>();
-            if (!Has(items, CostumeId, 1)) missing.Add("行头三样");
-            if (!Has(items, ClothesId, 1)) missing.Add("黑色长衫");
-            if (!Has(items, ClaspId, 1) || !Has(items, BeltHookId, 2) || !Has(items, RingId, 3)) missing.Add("金饰");
-            return string.Join("、", missing);
+            int mask = (Has(items, CostumeId, 1) ? 0 : 1) | (Has(items, ClothesId, 1) ? 0 : 2) |
+                (Has(items, ClaspId, 1) && Has(items, BeltHookId, 2) && Has(items, RingId, 3) ? 0 : 4);
+            return MissingLabels[mask];
         }
+        public static bool HasDisguise(IReadOnlyDictionary<int, int> items) => Has(items, CostumeId, 1) && Has(items, ClothesId, 1) &&
+            Has(items, ClaspId, 1) && Has(items, BeltHookId, 2) && Has(items, RingId, 3);
 
         private static bool Has(IReadOnlyDictionary<int, int> items, int id, int count)
             => items.TryGetValue(id, out int owned) && owned >= count;

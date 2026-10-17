@@ -12,6 +12,7 @@ using Game.Dialogue;
 using Game.Monster;
 using Game.Quest;
 using Game.Narrative;
+using Game.Tavern;
 
 namespace Game.Session
 {
@@ -27,6 +28,8 @@ namespace Game.Session
         private readonly ISaveService saves;
         private readonly SessionConfig config;
         private readonly NarrativeService narrative;
+        private readonly TavernController tavern;
+        private readonly SpotlightStoryFlow story;
 
         /// <remarks>
         /// <see cref="UIService"/> 按具体类型注入（要 <see cref="UIService.TopView"/>，接口上没有），
@@ -42,7 +45,7 @@ namespace Game.Session
             QuestService quests,
             ISaveService saves,
             SessionConfig config,
-            NarrativeService narrative = null)
+            NarrativeService narrative = null, TavernController tavern = null, SpotlightStoryFlow story = null)
         {
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
@@ -55,6 +58,8 @@ namespace Game.Session
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
             this.narrative = narrative;
+            this.tavern = tavern;
+            this.story = story;
         }
 
         /// <summary>
@@ -69,7 +74,7 @@ namespace Game.Session
         public bool IsGameplayState => flow.Current is MonsterEncounterState && step.IsActive;
 
         public bool DialogueRunning => dialogue.IsRunning;
-        public bool NarrativeStable => narrative == null || narrative.CanSave;
+        public bool NarrativeStable => (narrative == null || narrative.CanSave) && (tavern == null || !tavern.Guess.IsPending) && (story == null || story.CanSave);
         public void ValidateCandidate(SaveSnapshot candidate) => narrative?.ValidateCandidate(candidate);
 
         // UIView 是 UnityEngine.Object，判空只用 !=。

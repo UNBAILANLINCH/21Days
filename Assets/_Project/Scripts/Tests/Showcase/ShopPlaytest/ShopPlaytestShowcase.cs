@@ -7,6 +7,8 @@ using Game.Interaction;
 using Game.Dialogue;
 using TMPro;
 using Game.Monster;
+using Game.Narrative;
+using Game.Battle;
 using Game.ShopPlaytest;
 using NUnit.Framework;
 using UnityEngine;
@@ -27,6 +29,7 @@ namespace Game.Tests.Showcase.ShopPlaytest
             State = ResolveService<ShopPlaytestState>();
             Assert.That(State.World, Is.Not.Null);
             Assert.That(ResolveService<IGameFlow>().Current, Is.TypeOf<MonsterEncounterState>());
+            yield return FormalPrologue();
             yield return GoToShop(shop);
             originalActors = Object.FindObjectsOfType<ShopPlaytestActor>(true).Length;
         }
@@ -34,12 +37,20 @@ namespace Game.Tests.Showcase.ShopPlaytest
         {
             Input.Prime();
             var station = State.World.Station(shop);
+            yield return GoToWorldPoint(station.position);
+            yield return Check("走入店前范围显示对应人物", () => State.ActiveShop == shop, 3);
+            yield return Check("当前店前操作点或本店NPC成为统一交互焦点", () =>
+                ResolveService<IInteractionFocus>().Current is ShopPlaytestActor actor && actor.Shop == shop && actor.CanInteract, 3);
+            yield return Check("五店不加载操作面板", () => ResolveService<IUIService>().Get<ShopPlaytestView>() == null);
+        }
+        protected IEnumerator GoToWorldPoint(Vector3 position, float stopDistance = .25f)
+        {
             var encounter = Object.FindObjectOfType<EncounterSceneView>();
-            Vector2 target = encounter.ToLogicPosition(station.position);
+            Vector2 target = encounter.ToLogicPosition(position);
             // 路线按模型局部坐标摆定，随整张地图的旋转同步。
             Transform map = GameObject.Find("Environment_FiveShopsPlaceholder").transform;
             Vector3 currentLocal = map.InverseTransformPoint(encounter.ToScenePosition(State.ControlledPosition));
-            Vector3 targetLocal = map.InverseTransformPoint(station.position);
+            Vector3 targetLocal = map.InverseTransformPoint(position);
             float currentStreet = currentLocal.z > 404 ? 884 : 284;
             float targetStreet = targetLocal.z > 404 ? 884 : 284;
             yield return MoveTo(MapPoint(map, currentLocal.x, currentStreet));
@@ -49,11 +60,81 @@ namespace Game.Tests.Showcase.ShopPlaytest
                 yield return MoveTo(MapPoint(map, 584, targetStreet));
             }
             yield return MoveTo(MapPoint(map, targetLocal.x, targetStreet));
-            yield return MoveTo(target);
-            yield return Check("走入店前范围显示对应人物", () => State.ActiveShop == shop, 3);
-            yield return Check("当前店前操作点或本店NPC成为统一交互焦点", () =>
-                ResolveService<IInteractionFocus>().Current is ShopPlaytestActor actor && actor.Shop == shop && actor.CanInteract, 3);
-            yield return Check("五店不加载操作面板", () => ResolveService<IUIService>().Get<ShopPlaytestView>() == null);
+            yield return MoveTo(target, stopDistance);
+        }
+        protected IEnumerator FormalPrologue()
+        {
+            var story = ResolveService<SpotlightStoryFlow>();
+            if (story == null || story.Bindings == null) yield break;
+            yield return AdvanceFormalDialogue();
+            foreach (string stage in new[] { "enter_r0026", "action_r0070", "enter_r0083", "enter_r0129", "enter_r0171", "enter_r0188" })
+            {
+                yield return StoryPoint(stage);
+                if (stage == "action_r0070") yield return PlayBattle();
+                yield return AdvanceFormalDialogue();
+            }
+            yield return Check("序章与入镜完成，主线等待三店和酒肆真实结果", () => ResolveService<NarrativeService>().CurrentStageId == "action_r0197", 5);
+        }
+        protected IEnumerator StoryPoint(string stage)
+        {
+            var narrative = ResolveService<NarrativeService>();
+            yield return WaitUntil("正式剧情到达 " + stage, () => narrative.CurrentStageId == stage && !narrative.IsBusy, 10);
+            var point = ResolveService<SpotlightStoryFlow>().Bindings.Find(stage);
+            Assert.That(point, Is.Not.Null, stage);
+            foreach (var other in ResolveService<SpotlightStoryFlow>().Bindings.Points)
+                if (other.StageId != stage) Assert.That(other.CanInteract, Is.False, "错误节点不能交互：" + other.StageId);
+            // 人物有实体碰撞，走到交互范围即可；不能要求穿进人物中心。
+            yield return GoToWorldPoint(point.Position, .8f);
+            yield return Check("节点与区域一致，现场交互可用", () => ResolveService<IInteractionFocus>().Current == point && point.CanInteract, 5);
+            var guide = ResolveService<IUIService>().Get<StoryGuideHudView>();
+            yield return Check("对应节点教程显示且不挡现场交互", () => guide != null && guide.Text.Length > 0 && !guide.GetComponent<CanvasGroup>().blocksRaycasts, 3);
+            if (stage == "enter_r0026") yield return Snapshot("节点区域软引导");
+            yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
+            yield return WaitUntil("真实交互推进节点", () => narrative.CurrentStageId != stage, 5);
+        }
+        protected IEnumerator AdvanceFormalDialogue()
+        {
+            var narrative = ResolveService<NarrativeService>();
+            var actions = ResolveService<IInputService>().Actions;
+            float deadline = Time.realtimeSinceStartup + 90;
+            yield return null;
+            while ((narrative.IsBusy || DialogueRunning || narrative.CurrentStoryId.Length == 0) && Time.realtimeSinceStartup < deadline)
+            {
+                if (DialogueRunning)
+                {
+                    var rules = ResolveService<DialogueRules>();
+                    var ui = ResolveService<IUIService>();
+                    var confirm = ui.Get<DialogueSkipConfirmView>();
+                    if (confirm != null) FindDeep<Button>(confirm.transform, "ConfirmButton").onClick.Invoke();
+                    else
+                    {
+                        var view = ui.Get<DialogueView>();
+                        var skip = view == null ? null : FindDeep<Button>(view.transform, "SkipButton");
+                        if (skip != null && skip.interactable) skip.onClick.Invoke();
+                        else if (rules.Phase == DialogueSaveData.Phase.AwaitChoice) yield return Choose(rules.Current.Choices[0].Id);
+                        else yield return Input.Press(actions.Dialogue.Advance);
+                    }
+                    yield return null;
+                }
+                else yield return null;
+            }
+            Assert.That(narrative.IsBusy || DialogueRunning, Is.False, "正式对白没有正常收尾");
+        }
+        protected IEnumerator PlayBattle()
+        {
+            var battle = ResolveService<BattleFlow>();
+            var presenter = ResolveService<IBattlePresenter>() as BattleScenePresenter;
+            var input = ResolveService<IInputService>();
+            yield return WaitUntil("战斗舞台打开", () => battle.IsBattleEngaged && presenter != null && presenter.View != null, 15);
+            float deadline = Time.realtimeSinceStartup + 120;
+            while (battle.IsBattleEngaged && Time.realtimeSinceStartup < deadline)
+            {
+                if (DialogueRunning) yield return AdvanceFormalDialogue();
+                else if (presenter.IsAwaitingCommand && presenter.View != null)
+                    yield return Input.Press(presenter.View.IsSkillLit(2) ? input.Actions.Dialogue.Choice3 : input.Actions.Dialogue.Choice1);
+                else yield return null;
+            }
+            yield return WaitUntil("战斗结案完成，允许战后对白接续", () => !battle.IsBattleRunning, 15);
         }
         private static Vector2 MapPoint(Transform map, float x, float z)
         {
@@ -65,10 +146,10 @@ namespace Game.Tests.Showcase.ShopPlaytest
             Vector3 world = GameObject.Find("Environment_FiveShopsPlaceholder").transform.TransformDirection(direction);
             return new Vector2(world.x, world.z);
         }
-        protected IEnumerator MoveTo(Vector2 target)
+        protected IEnumerator MoveTo(Vector2 target, float stopDistance = .25f)
         {
             float deadline = Time.realtimeSinceStartup + 30;
-            while (Vector2.Distance(State.ControlledPosition, target) > .25f && Time.realtimeSinceStartup < deadline)
+            while (Vector2.Distance(State.ControlledPosition, target) > stopDistance && Time.realtimeSinceStartup < deadline)
             {
                 var performance = ResolveService<Game.Performance.IPerformanceService>();
                 if (performance.IsRunning || DialogueRunning)
@@ -95,8 +176,9 @@ namespace Game.Tests.Showcase.ShopPlaytest
                 yield return Walk(delta.normalized, Mathf.Min(.15f, delta.magnitude / 4));
             }
             Input.ReleaseStick();
-            if (Vector2.Distance(State.ControlledPosition, target) >= .5f) yield return Snapshot("实际移动受阻");
-            Assert.That(Vector2.Distance(State.ControlledPosition, target), Is.LessThan(.5f),
+            float tolerance = Mathf.Max(.5f, stopDistance + .1f);
+            if (Vector2.Distance(State.ControlledPosition, target) >= tolerance) yield return Snapshot("实际移动受阻");
+            Assert.That(Vector2.Distance(State.ControlledPosition, target), Is.LessThan(tolerance),
                 "原主场景实际移动到目标失败：当前=" + State.ControlledPosition + "，目标=" + target);
         }
         protected IEnumerator Borrow(int roleIndex)

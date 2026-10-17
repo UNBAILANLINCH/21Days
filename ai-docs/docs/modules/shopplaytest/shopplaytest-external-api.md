@@ -19,6 +19,7 @@ ShopPlaytestState由正常Boot根注册，绑定到既有MonsterEncounterState�
 | Retry() | 仅开发版本、空闲且近操作点；重置当前店，保留其它店、控制及位置 |
 | ActiveShop/CurrentRole | -1为街面；职业以当前穿皮和Identity生效为准 |
 | CanEnterTavern/TavernEntryRequirement | 由当前槽正式背包计算三件套资格及缺件名称；不消耗物品 |
+| TavernCompleted/CanChallengeTavern | 当前酒肆胜利与主人醉意是否达到挑战门槛的只读事实 |
 | World/ControlledPosition | 只读作者引用及当前受控人物逻辑位置，供验证 |
 | Clothing/Forging/Tavern/Theater/Taming | 只读规则查询；其它模块不借此绕过意图写进度 |
 
@@ -30,3 +31,5 @@ ShopPlaytestView抛OnRole、OnCommand、OnBody、OnRetry；旧选店/回标题�
 v3的RewardedItems记录三店已发物品ID；Persist在现有会话守卫内通过LootService.GrantItems发奖，旧档已完成成果补发一次。调试重试保留已发记录。
 不得手改本分区来给玩家发物品，不得用旧独立场景键或选店传送接线。
 EquippedSkinId保存穿皮来源，读档必须仍持有对应皮。ShopSkinRules映射1901–1909，ShopSkinEffect由五店组合根注册到通用道具效果口。
+
+v4 `TavernClues` 去重已获消息，v5 `TavernLearning` 保存各目标的历史／平滑表现／强度。新局默认空，恢复显式替换控制器学习；外部不能通过这些字典绕过真实划拳结算。`TavernEntryRequirement` 使用固定缺件名称表，不逐帧建列表。

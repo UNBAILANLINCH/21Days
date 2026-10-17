@@ -7,6 +7,12 @@ maturity: seed
 
 # Session 模块指南
 
+## 正式新局与软引导（2026-10-18）
+
+本轮正常新游戏入口保留标题转场，进入世界后由 Narrative 的节点／区域软引导承接，不再调用 `NewGameTutorial.ShowAsync`。旧 TutorialView 与独立测试保留兼容资产，下方操作说明章节为历史实现，不能据此恢复全屏等待。
+
+`SessionStateAdapter.NarrativeStable` 同时检查正式开场已启动、Narrative稳定和 `TavernController.Guess.IsPending == false`。未揭晓划拳或开场尚未启动时，即时保存也拒绝；结算写完醉意／消息／学习后才允许稳定存档。可选依赖通过 Installer 的 TryResolve 保持无五店的最小作用域兼容。实际验证见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
+
 ## 五槽存档卷轴界面（2026-10-14）
 
 SessionConfig 的默认值和正式配置均为五槽，原槽 1～3 的文件编号与数据格式保留，新增槽 4、5 复用同一读写、覆盖与删除流程。
@@ -61,7 +67,7 @@ NewGame/Continue从重置/读取候选到场景切换结束持有sessionTransiti
 | --- | --- | --- |
 | `GameSession` | 门面：槽位状态、新游戏 / 继续 / 删除 / 读槽摘要、`RequestSave` 待处理合并、`ITickable.Tick` 评估闸门并落盘、游玩时长累计 | 根作用域单例 + `IGameService` + `ITickable`（`GameSession.cs:36`） |
 | `SaveGateRules` | 纯静态：`CanSave` 四条件、`Request`/`Take` 合并待处理请求 | `GameSession.Tick` 调（`SaveGateRules.cs:10`） |
-| `ISessionStateSource` / `SessionStateAdapter` | 把 Quest / Dialogue / Monster / UIService 的具体依赖包成一个接口，供 `GameSession` 在 EditMode 里假实现测试 | `SessionInstaller` 注册适配器为该接口（`ISessionStateSource.cs`、`SessionStateAdapter.cs:18`） |
+| `ISessionStateSource` / `SessionStateAdapter` | 把 Quest / Dialogue / Monster / UIService 的具体依赖包成一个接口，供 `GameSession` 在 EditMode 里假实现测试 | `SessionInstaller` 注册适配器为该接口 |
 | `SaveTriggerBridge` | 入口点：把任务三事件 / 开箱 / 对白结束 / 场景切换完成 接成 `RequestSave`；离开玩法状态与退出游戏接成 `SaveNowAsync` | 根作用域入口点（`SaveTriggerBridge.cs:23`） |
 | `SessionTitleRouter` | 入口点：标题「开始 / 继续 / 选择存档」三事件路由；回标题时按 `LatestSlot` 显示 / 隐藏「继续」 | 根作用域入口点（`SessionTitleRouter.cs:25`） |
 | `SessionTitleRules` | 纯静态：`PickNewGameSlot`、`ShouldShowContinue` | `SessionTitleRouter` 调（`SessionTitleRules.cs:10`） |

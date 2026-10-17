@@ -1,28 +1,137 @@
 [
-    {
-        "id": "sample_traveler", "trigger": "Interact", "targetKind": "SampleTraveler",
-        "priority": 10, "story": "sample_encounter", "entry": "check", "repeat": "Once",
-        "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
-    },
-    {
-        "id": "sample_boss", "trigger": "Interact", "targetKind": "SampleBoss",
-        "priority": 10, "story": "sample_boss_battle", "entry": "taunt", "repeat": "Reenter",
-        "anyOf": [{"all": [
-            {"fact": "PlayerAlive", "key": "", "expected": true},
-            {"fact": "StoryFlag", "key": "world.sampleboss.defeated", "expected": false}
-        ]}]
-    },
-    {
-        "id": "sample_battle_drill", "trigger": "Interact", "targetKind": "SampleBattleDrill",
-        "priority": 10, "story": "sample_battle_drill", "entry": "brief", "repeat": "Reenter",
-        "anyOf": [{"all": [{"fact": "PlayerAlive", "key": "", "expected": true}]}]
-    },
-    {
-        "id": "sample_stage9", "trigger": "Interact", "targetKind": "Stage9Boss",
-        "priority": 10, "story": "sample_stage9_battle", "entry": "taunt", "repeat": "Reenter",
-        "anyOf": [{"all": [
-            {"fact": "PlayerAlive", "key": "", "expected": true},
-            {"fact": "StoryFlag", "key": "world.stage9boss.defeated", "expected": false}
-        ]}]
-    }
+  {
+    "id": "sample_traveler",
+    "trigger": "Interact",
+    "targetKind": "SampleTraveler",
+    "priority": 10,
+    "story": "sample_encounter",
+    "entry": "check",
+    "repeat": "Once",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sample_boss",
+    "trigger": "Interact",
+    "targetKind": "SampleBoss",
+    "priority": 10,
+    "story": "sample_boss_battle",
+    "entry": "taunt",
+    "repeat": "Reenter",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          },
+          {
+            "fact": "StoryFlag",
+            "key": "world.sampleboss.defeated",
+            "expected": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sample_battle_drill",
+    "trigger": "Interact",
+    "targetKind": "SampleBattleDrill",
+    "priority": 10,
+    "story": "sample_battle_drill",
+    "entry": "brief",
+    "repeat": "Reenter",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sample_stage9",
+    "trigger": "Interact",
+    "targetKind": "Stage9Boss",
+    "priority": 10,
+    "story": "sample_stage9_battle",
+    "entry": "taunt",
+    "repeat": "Reenter",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          },
+          {
+            "fact": "StoryFlag",
+            "key": "world.stage9boss.defeated",
+            "expected": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "spotlight_mentor",
+    "trigger": "SpotlightMentor",
+    "targetKind": "SpotlightMentor",
+    "priority": 30,
+    "story": "spotlight_mentor_duel",
+    "entry": "fight",
+    "repeat": "Reenter",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "spotlight_shop_boss",
+    "trigger": "SpotlightShopBoss",
+    "targetKind": "SpotlightShopBoss",
+    "priority": 30,
+    "story": "shop_boss_battle",
+    "entry": "taunt",
+    "repeat": "Reenter",
+    "anyOf": [
+      {
+        "all": [
+          {
+            "fact": "PlayerAlive",
+            "key": "",
+            "expected": true
+          },
+          {
+            "fact": "StoryFlag",
+            "key": "world.shopboss.defeated",
+            "expected": false
+          }
+        ]
+      }
+    ]
+  }
 ]

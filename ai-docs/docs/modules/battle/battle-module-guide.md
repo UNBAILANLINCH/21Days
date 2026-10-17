@@ -160,7 +160,7 @@ EncounterStep 打击命中（玩家打中怪 / 怪打中玩家）→ 问 IEncoun
 
 ## 战中不存档（D9）
 
-- 开打前 `TryBeginBattle` 登记「战斗在途」（复用阶段帧的 `RequestIssued`，`NarrativeService.cs:229-240`）→ `NarrativeService.CanSave` 为假
+- 开打前 `TryBeginBattle` 登记「战斗在途」（复用阶段帧的 `RequestIssued`）→ `NarrativeService.CanSave` 为假
   （`NarrativeService.cs:71`、`IsStable` 在 `:345-347`）→ Session 的 `NarrativeStable` 闸门（`SessionStateAdapter.cs:72`、`GameSession.cs:251,275`）
   挡住自动保存与离场保存。**Session 本身没改**（`BattleWorldLock.cs:7-8` 同样说明）。
   <br>**2026-10-14 起另加一道**：实时遭遇升级那一路不经剧情，`NarrativeStable` 挡不住它，所以 `SessionStateAdapter.BattleResultPending`

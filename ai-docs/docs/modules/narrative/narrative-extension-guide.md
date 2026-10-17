@@ -7,6 +7,10 @@ maturity: seed
 
 # Narrative 扩展指南
 
+正式章节新增节点时，同步源故事／对白、Quest目标及 `SpotlightStoryConfig` 节点。通过编辑器给 `SpotlightSceneBindings` 补实际锚点，保留稳定主目标；不要靠到过店铺或播过教程判玩法成功。菜单 `21Days/剧情/接入序章至酒肆会面` 仅首次接线，已有 SpotlightStory 时拒绝覆盖；后续直接编辑现有点位与配置。
+
+软引导条件扩展在纯 `StoryGuideRules`，提示和范围在配置；节点变化才更新舞台，缺件文案按变化缓存，不能逐帧 Capture 或拼接字符串。完整回放入口 `NarrativeShowcase.Spotlight_ThreeShopsGuessBossAndReunion` 经过真实三店成果、划拳、BOSS与会面，不得用发道具／直接写任务进度替代。
+
 > 要给剧情规则加条件类型、加阶段类型、加遭遇规则，或要把 Narrative 真正接进 Unity 时看这份。
 > 架构见 [`narrative-module-guide.md`](narrative-module-guide.md)，对外签名见 [`narrative-external-api.md`](narrative-external-api.md)。
 > 原七文件保持纯规则；运行入口 NarrativeService 与 NarrativeInstaller 已有源码，接线/实测状态见 tasks.md。

@@ -240,7 +240,7 @@ namespace Game.Session
             {
                 using (telemetry.BeginSpan("title_start_transition"))
                     if (title != null) await title.PlayStartTransitionAsync(title.GetCancellationTokenOnDestroy());
-                await tutorial.ShowAsync();
+                // 与标题直接开始一致：由正式场景的分段软引导接手。
                 bool started = await session.NewGameAsync(slot);
                 if (!started) notifications.Show(NewGameFailedTitle);
             }

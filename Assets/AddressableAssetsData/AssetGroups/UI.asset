@@ -67,6 +67,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 28d33c943c1e6ed45a7e34874c13c28a
+    m_Address: StoryGuideHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3ca22c653559fbe40ae17a623807590d
     m_Address: Dialogue/ChoiceIcon_Leave
     m_ReadOnly: 0
@@ -74,6 +79,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5c8d1a58deb981e42914a17ba0ca0fa8
     m_Address: SceneMapView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 69d8860865b602c4aab88eb0bbe62ce1
+    m_Address: TavernFingerGuessView
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

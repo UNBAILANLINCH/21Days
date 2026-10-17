@@ -1,0 +1,54 @@
+{
+  "id": 21100,
+  "entry": "challenge",
+  "nodes": [
+    {
+      "id": "challenge",
+      "revision": 1,
+      "kind": "Line",
+      "speaker": "",
+      "speakerName": "崔皓",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "我们来较量一下。",
+      "next": "reply",
+      "outcome": "",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    },
+    {
+      "id": "reply",
+      "revision": 1,
+      "kind": "Line",
+      "speaker": "",
+      "speakerName": "酒肆主人",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "想上楼？先过我这一关。",
+      "next": "end",
+      "outcome": "",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    },
+    {
+      "id": "end",
+      "revision": 1,
+      "kind": "End",
+      "speaker": "",
+      "speakerName": "",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "",
+      "next": "",
+      "outcome": "Done",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    }
+  ]
+}

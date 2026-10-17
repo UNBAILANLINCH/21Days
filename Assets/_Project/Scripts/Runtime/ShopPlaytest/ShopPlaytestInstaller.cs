@@ -26,7 +26,8 @@ namespace Game.ShopPlaytest
             builder.RegisterInstance(theater);
             builder.Register(r => new ClothingController(clothing, r.Resolve<ITelemetryService>().Scope("clothing")), Lifetime.Singleton);
             builder.Register(r => new ForgingController(forging, r.Resolve<ITelemetryService>().Scope("forging")), Lifetime.Singleton);
-            builder.Register(r => new TavernController(tavern, r.Resolve<ITelemetryService>().Scope("tavern")), Lifetime.Singleton);
+            builder.Register(r => new TavernController(tavern, r.Resolve<ITelemetryService>().Scope("tavern"),
+                () => r.Resolve<RandomService>().MasterSeed), Lifetime.Singleton);
             builder.Register(r => new TheaterController(r.Resolve<ITelemetryService>().Scope("theater")), Lifetime.Singleton);
             builder.RegisterEntryPoint<ShopPlaytestState>(Lifetime.Singleton).AsSelf();
             builder.RegisterBuildCallback(r => r.Resolve<ItemEffectRegistry>().Register(new ShopSkinEffect(r.Resolve<ShopPlaytestState>())));

@@ -68,6 +68,12 @@ namespace Game.Narrative
         public bool IsReady => rules != null && !disposed;
         public bool IsBusy => busy;
         public long Generation => RequireRules().Generation;
+        public string CurrentStoryId => IsReady && rules.Current != null ? rules.Current.StoryId : "";
+        public string CurrentStageId => IsReady && rules.Current != null ? rules.Current.StageId : "";
+        public string CurrentTargetId => IsReady && rules.Current != null ? rules.Current.TargetId : "";
+        /// <summary>外部操作开始时固定身份；回调不得重新读取它再提交旧结果。</summary>
+        public NarrativeIntent ResultIntent(string result) => new NarrativeIntent(Generation, RequireRules().Current.ActivationId,
+            rules.Current.TargetId, rules.Current.ActionRequestId, result);
         public bool CanSave => IsReady && !busy && IsStable(rules);
         public NarrativeSaveData Capture() => RequireRules().Capture();
 

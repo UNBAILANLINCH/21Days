@@ -7,9 +7,19 @@ maturity: seed
 
 # Narrative 模块指南
 
+## 正式序章至会面接入（2026-10-18）
+
+新游戏在场景与会话就绪后由 `SpotlightStoryFlow` 启动 `spotlight_current`；继续游戏只恢复现有阶段，缺正式故事的旧五店档继续原流程。正常入口范围到 `enter_r0293`，完成21000～21011，停在轮回堂下一段前。主线仍由 Narrative／Dialogue 独占；章节适配器不复制状态机。
+
+`SpotlightSceneBindings` 保存预摆点位、主目标、教学目标和旧示例对象。`SpotlightStoryConfig` 保存节点提示、交互／引导半径和退出缓冲。序章、接案、书库、入镜、坊市与会面复用 SampleScene 舞台和已有角色占位，不代表完整人间地图或正式角色美术。只有当前节点激活对应点位；真实近距交互才提交结果。
+
+李诏阳教学档 `spotlight_mentor_duel` 与酒肆 `shop_boss_battle` 分别在 `action_r0070/action_r0197` 进入一层局部遭遇。Victory 的 Success 出口推进父帧；Downed 恢复原等待，可重试。酒肆写独立 `world.shopboss.defeated`，不写原示例标记。自定义 Reenter 纪元来自已保存的 NextActivationId。
+
+正式主目标是 Quest900，三店任意顺序；只有真实背包成果／酒肆胜利推进对应计数。`StoryGuideRules` 按节点、区域、皮是否持有／穿戴、店铺成果选择提示；`StoryGuideHudView` 不暂停、不拦射线，对白／活动／战斗／菜单时隐藏，重新进区可再提示。UI 地址已登记、Boot 引用已接线；实际测试结果见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
+
 ## 五店占位战斗内容（2026-10-13）
 
-新增shop_boss_battle只复用1004对白、sample_boss战斗配置与既有胜负出口；cleared不写world.sampleboss.defeated，本店完成由ShopProgressSaveData持有。原sample_boss_battle与其原标记保持不变，避免酒肆胜利让原示例NPC一并退场。配置源JSON经scripts/gen-tables.ps1生成到既有故事表bytes；未新增章节或剧情框架。
+历史占位方案已替换：shop_boss_battle 现在使用21100战前衔接对白，仍复用sample_boss战斗档和既有胜负出口。原sample_boss_battle与其原标记保留；配置源JSON经scripts/gen-tables.ps1生成。
 
 > 改 `Assets/_Project/Scripts/Runtime/Narrative/` 之前读这份。对外怎么调看
 > [`narrative-external-api.md`](narrative-external-api.md)，要加东西看 [`narrative-extension-guide.md`](narrative-extension-guide.md)。
@@ -59,7 +69,7 @@ Boot 挂接、定向测试、Showcase 与人工视觉验收的实际状态统一
 | `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:55-60,67`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
 | `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:95-96,409-410`）；BOSS NPC 靠它在胜利后退场 |
 | `NarrativeChangedEvent` | 分区已经写回的通知 | SaveTriggerBridge 合并保存请求 |
-| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是两个、按 payload 分工：**非空 → `Game.Battle` 的 `BattleFlow`（BOSS 战）**，**空 → `Game.Monster` 的 `EncounterBattleBridge`（活遭遇档）** | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:21`），`NarrativeService` 发布 |
+| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`；订阅方按 payload 分工：**非空 → `Game.Battle.BattleFlow`**，**空 → `Game.Monster.EncounterBattleBridge`** | `NarrativeInstaller.InstallEvents` 注册 broker，`NarrativeService` 发布 |
 | `NarrativeInstaller` | 根作用域服务及 MessagePipe 注册 | Boot 的 GameBootstrap，配置加载完成后初始化 |
 
 ## 数据流（代码路径，资产接线与验证状态见 tasks.md）

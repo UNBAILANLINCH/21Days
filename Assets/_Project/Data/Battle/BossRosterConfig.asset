@@ -19,6 +19,10 @@ MonoBehaviour:
     outOfBattleDrunk: 50
     playerHealth: 120
     stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    battleProfile:
+      phases: []
+      sneakHealthLossPercentOverride: -1
+      rageClearOnPhaseChange: 0
     monsterKindId: 0
     aggroEnabled: 1
     aggroChargeSpeed: 3
@@ -31,6 +35,10 @@ MonoBehaviour:
     outOfBattleDrunk: 0
     playerHealth: 120
     stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    battleProfile:
+      phases: []
+      sneakHealthLossPercentOverride: -1
+      rageClearOnPhaseChange: 0
     monsterKindId: 1003
     aggroEnabled: 0
     aggroChargeSpeed: 3
@@ -38,17 +46,11 @@ MonoBehaviour:
     aggroReactionSeconds: 3
     aggroLeashDistance: 0
   - id: stage9_boss
-    displayName: "\u9636\u6BB5\u4E5D BOSS\uFF08\u94B1\u5858\u541B\u00B7\u5360\u4F4D\uFF09"
+    displayName: "\u9636\u6BB5\u4E5D BOSS\uFF08\u94B1\u5858\u541B\xB7\u5360\u4F4D\uFF09"
     maxHealth: 260
     outOfBattleDrunk: 0
     playerHealth: 120
     stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
-    monsterKindId: 0
-    aggroEnabled: 0
-    aggroChargeSpeed: 3
-    aggroRadius: 5
-    aggroReactionSeconds: 3
-    aggroLeashDistance: 0
     battleProfile:
       phases:
       - name: "\u4EBA\u5F62\u6001"
@@ -101,3 +103,25 @@ MonoBehaviour:
         skillLockRounds: 0
       sneakHealthLossPercentOverride: 0
       rageClearOnPhaseChange: 0
+    monsterKindId: 0
+    aggroEnabled: 0
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0
+  - id: spotlight_mentor
+    displayName: "\u674E\u8BCF\u9633 \xB7 \u5207\u78CB"
+    maxHealth: 24
+    outOfBattleDrunk: 0
+    playerHealth: 120
+    stagePrefab: {fileID: 0}
+    battleProfile:
+      phases: []
+      sneakHealthLossPercentOverride: 0
+      rageClearOnPhaseChange: 0
+    monsterKindId: 0
+    aggroEnabled: 0
+    aggroChargeSpeed: 3
+    aggroRadius: 5
+    aggroReactionSeconds: 3
+    aggroLeashDistance: 0

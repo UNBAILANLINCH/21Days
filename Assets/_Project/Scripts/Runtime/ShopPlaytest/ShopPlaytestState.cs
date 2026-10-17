@@ -38,7 +38,7 @@ namespace Game.ShopPlaytest
             new[] { "", "", "", "那就劳烦您拿给我。", "那就劳烦您拿给我。", "那就劳烦您拿给我。" },
             new[] { "请按文书把金属补足。" },
             new[] { "想向您打听点事。" },
-            new[] { "给我来一杯。", "请你喝一杯。", "请你喝一杯。", "我们来较量一下。", "请你喝一杯。" }
+            new[] { "请教这里的酒令。", "五魁首、六六顺，划两拳？", "划两拳，输的喝酒。", "我们来较量一下。", "划两拳，输的喝酒。" }
         };
         private readonly ISaveService saves;
         private readonly LootService loot;
@@ -58,6 +58,7 @@ namespace Game.ShopPlaytest
         private readonly BattleSetup battleSetup;
         private readonly NarrativeService narrative;
         private readonly DialogueService dialogue;
+        private readonly DialogueCatalog dialogues;
         private readonly TheaterConfig theaterConfig;
         private readonly ClothingController clothing;
         private readonly ForgingController forging;
@@ -74,6 +75,8 @@ namespace Game.ShopPlaytest
         private ForgingView forgingView;
         // 卸载等结束信号；活动本身由Forget观察，不能再并发await同一个UniTask。
         private UniTaskCompletionSource forgingClosed;
+        private UniTaskCompletionSource tavernClosed;
+        private TavernFingerGuessView tavernView;
         private string role = "";
         private bool openingActivity, awaitingBattle, tavernCompleted, awaitingOutcome;
         private int closeRhythmAfterFrame = -1;
@@ -95,13 +98,15 @@ namespace Game.ShopPlaytest
         public ShopPlaytestWorld World => world;
         public bool HasPendingReply => replies.Count > 0;
         public string TavernEntryRequirement => ShopRewardRules.MissingDisguise(loot.Items);
-        public bool CanEnterTavern => TavernEntryRequirement.Length == 0;
+        public bool CanEnterTavern => ShopRewardRules.HasDisguise(loot.Items);
+        public bool TavernCompleted => tavernCompleted;
+        public bool CanChallengeTavern => CanEnterTavern && tavern.CanChallenge;
         public Vector2 ControlledPosition => Taming.IsControllingEnemy ? Taming.GetTarget(Taming.CurrentControlId).Model.Position : player.Position;
         private Vector3 ControlledScenePosition => encounterView.ToScenePosition(ControlledPosition);
         private bool Busy => openingActivity || rhythm.IsActivityOpen || battle.IsBattleRunning || narrative.IsBusy || dialogue.IsRunning || awaitingBattle || pause.IsPaused;
         public ShopPlaytestState(ISaveService saves, ISubscriber<SessionStartedEvent> sessionStarted, IGameFlow flow, IWorldPauseService pause, IUIService ui, IInputService input, IInteractionRegistry interaction, InteractionFocus interactionFocus,
             PlayerModel player, EncounterStep step, RhythmState rhythm, BattleFlow battle, BattleSetup battleSetup,
-            NarrativeService narrative, DialogueService dialogue, TheaterConfig theaterConfig, ClothingController clothing,
+            NarrativeService narrative, DialogueService dialogue, DialogueCatalog dialogues, TheaterConfig theaterConfig, ClothingController clothing,
             ForgingController forging, TavernController tavern, TheaterController theater, IdentityRules identityRules,
             IdentityState identity, IdentityLedger ledger, LootService loot, StealthKernel stealth, ITelemetryService telemetry)
         {
@@ -110,7 +115,7 @@ namespace Game.ShopPlaytest
             this.ui = ui; this.input = input;
             this.interactionFocus = interactionFocus;
             this.player = player; this.step = step; this.rhythm = rhythm; this.battle = battle;
-            this.battleSetup = battleSetup; this.narrative = narrative; this.dialogue = dialogue;
+            this.battleSetup = battleSetup; this.narrative = narrative; this.dialogue = dialogue; this.dialogues = dialogues;
             this.theaterConfig = theaterConfig; this.clothing = clothing; this.forging = forging;
             this.tavern = tavern; this.theater = theater; this.identityRules = identityRules;
             this.identity = identity; this.ledger = ledger; this.telemetry = telemetry.Scope("shopplaytest");
@@ -152,6 +157,7 @@ namespace Game.ShopPlaytest
         }
         // 旧场景仍引用衣肆柜台锚点，交谈统一由现场裁衣匠承接。
         private bool CanInteract(ShopPlaytestActor actor) => world != null && actor.StableId != "shop_station_1" && !Busy && !HasPendingReply && actor.Shop == ActiveShop &&
+            (narrative.CurrentStoryId != "spotlight_current" || narrative.CurrentStageId == "action_r0197") &&
             actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId)));
         private bool CanSelect(string id)
         {
@@ -283,7 +289,7 @@ namespace Game.ShopPlaytest
 
         private static DialogueContent Conversation(string id, string speaker, string text, DialogueContent.Choice[] choices)
         {
-            // shortcut: 五店占位台词仍在接线代码中，正式文案定稿后迁到已有对白内容表。
+            // 正文取正式内容表，现场选项仍由角色资格生成，不另建对白系统。
             return new DialogueContent("shop:" + id, "line", new[] {
                 new DialogueContent.Node { Id = "line", SpeakerName = speaker, Text = text, Next = "choices" },
                 new DialogueContent.Node { Id = "choices", Kind = DialogueContent.NodeKind.Choice,
@@ -331,32 +337,39 @@ namespace Game.ShopPlaytest
         }
         private string Greeting(ShopPlaytestActor actor)
         {
-            if (actor.StableId == "shop_tailor") return clothing.TailorReply(CurrentRole);
-            string line = actor.StableId == "shop_customer0" ? clothing.CustomerGreeting(0)
-                : actor.StableId == "shop_customer1" ? clothing.CustomerGreeting(1)
-                : actor.StableId == "shop_customer2" ? clothing.CustomerGreeting(2) : GreetingFor(actor.StableId, CurrentRole);
+            string key = GreetingKey(actor.StableId, CurrentRole);
+            if (actor.StableId == "shop_tailor" && CurrentRole == "customer1" && clothing.Rules.Received) key = "tailor_done";
+            if (actor.StableId == "shop_customer_a" && tavern.UnlockedClue(actor.StableId).Length > 0) key = "customer_a_drunk";
+            if (actor.StableId == "shop_customer_b" && tavern.UnlockedClue(actor.StableId).Length > 0) key = "customer_b_drunk";
+            string line = ShopLine(key);
             return CurrentRole.Length == 0 || actor.StableId.StartsWith("shop_station_", StringComparison.Ordinal)
                 ? line : (equippedSkin == null ? Taming.GetDisplayName(Taming.CurrentControlId) : equippedSkin.DisplayName) + "，" + line;
         }
-        public static string GreetingFor(string id, string currentRole)
+        private string ShopLine(string key)
+        {
+            if (!dialogues.TryGet(21101, out var content)) throw new InvalidOperationException("缺少五店正式对白21101");
+            return content.Get(key).Text;
+        }
+        public static string GreetingKey(string id, string currentRole)
         {
             switch (id)
             {
-                case "shop_apprentice": case "shop_patrol": case "shop_director": case "shop_musician": case "shop_station_0":
-                    return currentRole == "apprentice" ? "来核对入场名册吧？" : currentRole == "director" ? "巡逻的事，听您安排。"
-                        : currentRole == "musician" ? "戏台备好了，请奏一曲吧。"
-                        : id == "shop_apprentice" ? "我还得去验身，您有什么事？" : id == "shop_patrol" ? "我正在巡逻，您有什么事？"
-                        : id == "shop_director" ? "戏班的事由我安排，您有什么事？" : id == "shop_musician" ? "我还在练曲，您有什么事？"
-                        : "戏班今日还在排练，您有什么事？";
-                case "shop_officer": return currentRole == "smith" ? "金属若不足，需按文书核准后再领。" : "拨料的文书都在这里。";
-                case "shop_smith": case "shop_station_2": return currentRole == "officer" ? "文书上的金属份额，需要补足吗？"
-                    : currentRole == "smith" ? "打造台已经备好，可以开工了。" : "来看看金银行的工件吗？";
-                case "shop_innkeeper": case "shop_station_3": return "客官，请进，有什么想问的？";
-                case "shop_guest": return "来喝一杯？";
-                case "shop_boss": return currentRole == "guest" ? "又来了？一起喝一杯，还是较量一下？" : "找我有什么事？";
-                case "shop_customer_a": case "shop_customer_b": return currentRole == "guest" ? "你也来喝酒了？一起坐吧。" : "我在这里歇歇脚。";
-                case "shop_station_4": return currentRole == "guest" ? "酒已备好，来一杯吧。" : "客官，想喝点什么？";
-                default: return "找我有什么事？";
+                case "shop_customer0": return "customer0";
+                case "shop_customer1": return "customer1";
+                case "shop_customer2": return "customer2";
+                case "shop_tailor": return currentRole == "customer1" ? "tailor_ready" : currentRole == "customer0" || currentRole == "customer2" ? "tailor_wrong" : "tailor_visitor";
+                case "shop_apprentice": return "apprentice";
+                case "shop_musician": return "musician";
+                case "shop_patrol": return currentRole == "apprentice" ? "theater_verify" : currentRole == "director" ? "theater_command" : "patrol";
+                case "shop_director": case "shop_station_0": return currentRole == "apprentice" ? "theater_verify" : currentRole == "director" ? "theater_command" : currentRole == "musician" ? "theater_perform" : "theater_visitor";
+                case "shop_officer": return "quota";
+                case "shop_smith": case "shop_station_2": return currentRole == "officer" ? "forge_officer" : currentRole == "smith" ? "forge_smith" : "forge_visitor";
+                case "shop_innkeeper": case "shop_station_3": return "inn";
+                case "shop_guest": case "shop_station_4": return "guest";
+                case "shop_boss": return currentRole == "guest" ? "boss_guest" : "boss_visitor";
+                case "shop_customer_a": return "customer_a";
+                case "shop_customer_b": return "customer_b";
+                default: return "generic";
             }
         }
         private void ExecuteCommand(int index, ShopPlaytestActor actor)
@@ -386,8 +399,8 @@ namespace Game.ShopPlaytest
                     string targetId = index == 1 || index == 3 ? "shop_boss" : index == 4 ? "shop_customer_b" : "shop_customer_a";
                     if (index != 0 && !NearDrinkTarget(targetId)) { Show("走近对应酒客或BOSS再操作"); return; }
                     if (index == 3) { StartBattleAsync().Forget(); return; }
-                    message = tavern.Apply(index == 0 ? TavernAction.DrinkPlayer : index == 1 ? TavernAction.DrinkBoss :
-                        TavernAction.DrinkCustomer, CurrentRole, index == 4 ? "shop_customer_b" : "shop_customer_a"); break;
+                    if (index == 0) { Show("先各出零至五指，再喊双方总数。只有一人猜中才分胜负，输者饮一杯；同中或都不中不罚。走近客人或主人即可划拳。"); return; }
+                    OpenGuessAsync(actor, targetId).Forget(); return;
             }
             Persist(); Show(message);
         }
@@ -424,6 +437,56 @@ namespace Game.ShopPlaytest
                 Taming.GetTarget(id).Model.Health > 0 && Vector2.Distance(ControlledPosition, Taming.GetTarget(id).Model.Position) <= actor.InteractionRadius;
             if (!allowed) telemetry.TrackWarn("drink_target_rejected", TelemetryProps.Of(("id", id), ("reason", "unavailable_or_distance")));
             return allowed;
+        }
+        private async UniTask OpenGuessAsync(ShopPlaytestActor actor, string targetId)
+        {
+            if (CurrentRole != "guest" || !CanEnterTavern || !NearDrinkTarget(targetId)) return;
+            openingActivity = true;
+            var closed = new UniTaskCompletionSource(); tavernClosed = closed;
+            var scene = world; long generation = sessionGeneration;
+            CancellationToken token = lifetime.Token;
+            bool gameplayEnabled = input.Actions.Gameplay.enabled; // lint-ok: 记录动作图状态，收尾恢复，不读原始玩法输入。
+            IDisposable paused = pause.Acquire(this); input.DisableMap("Gameplay");
+            long round = 0;
+            bool Allowed() => !token.IsCancellationRequested && world == scene && generation == sessionGeneration && boundGeneration == generation &&
+                CurrentRole == "guest" && CanEnterTavern && actor != null && actor.IsVisible && ActiveShop == 4 && NearDrinkTarget(targetId);
+            string DrunkStatus() => "你：醉意 " + tavern.Rules.PlayerDrunk + "　" + actor.DisplayName + "：醉意 " +
+                (targetId == "shop_boss" ? tavern.Rules.BossDrunk : tavern.Rules.CustomerDrunkFor(targetId));
+            void Next()
+            {
+                if (!Allowed()) { tavern.CancelGuess(); tavernView.Reject("已离席，请返回街面重新交互。"); return; }
+                round = tavern.BeginGuess(targetId); tavernView.BeginRound(actor.DisplayName, DrunkStatus());
+            }
+            void Confirm(int fingers, int call)
+            {
+                if (!Allowed()) { tavern.CancelGuess(); tavernView.Reject("当前不能划拳，请重新入席。"); return; }
+                var intent = new TavernIntent(round, targetId, true, fingers, call);
+                if (!tavern.ResolveGuess(in intent, out var result, out string reason)) { tavernView.Reject(reason); return; }
+                string clue = tavern.UnlockedClue(targetId);
+                var saved = saves.Get<ShopProgressSaveData>();
+                if (clue.Length > 0 && !saved.TavernClues.Add(targetId)) clue = "";
+                if (targetId == "shop_boss" && tavern.CanChallenge) clue = "主人已有醉意，回席后可以向他发起挑战。";
+                Persist(); tavernView.ShowResult(in result, actor.DisplayName, DrunkStatus(), clue);
+            }
+            try
+            {
+                using (telemetry.BeginSpan("guess_open")) tavernView = await ui.OpenAsync<TavernFingerGuessView>(null, token);
+                tavernView.OnGuess += Confirm; tavernView.OnNext += Next; Next();
+                await tavernView.WaitAsync(token);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error) { telemetry.TrackError("guess_failed", error); Show("划拳未能打开，请重新交互。"); }
+            finally
+            {
+                tavern.CancelGuess(); await UniTask.Yield();
+                try { if (tavernView != null && ui.Get<TavernFingerGuessView>() == tavernView) await ui.CloseAsync(tavernView, CancellationToken.None); }
+                finally
+                {
+                    tavernView = null; paused.Dispose();
+                    if (gameplayEnabled && generation == sessionGeneration) input.EnableMap("Gameplay");
+                    openingActivity = false; tavernClosed = null; closed.TrySetResult();
+                }
+            }
         }
         private async UniTask OpenForgeAsync(ShopPlaytestActor actor)
         {
@@ -508,13 +571,19 @@ namespace Game.ShopPlaytest
             if (!CheckTavernEntry()) return;
             if (tavernCompleted) { Show("BOSS已击败"); return; }
             if (CurrentRole != "guest") { Show("换上酒客皮才能挑战"); return; }
-            awaitingBattle = true; expectedBattleGeneration = narrative.Generation + 1; awaitingOutcome = true;
+            if (!tavern.CanChallenge) { Show("先和主人划拳，让他喝过一杯再挑战。"); return; }
+            bool local = narrative.CurrentStoryId == "spotlight_current" && narrative.CurrentStageId == "action_r0197";
+            if (!local && narrative.CurrentStoryId.Length > 0) { Show("请先完成当前剧情。"); return; }
+            awaitingBattle = true; expectedBattleGeneration = narrative.Generation + (local ? 0 : 1); awaitingOutcome = true;
             try
             {
                 telemetry.Track("battle_requested", ("boss_drunk", tavern.Rules.BossDrunk));
                 bool started;
                 using (telemetry.BeginSpan("battle_entry_ready"))
-                    started = await narrative.StartAsync("shop_boss_battle", "shop_boss", lifetime.Token);
+                    started = local ? await narrative.TryEncounterAsync(new[] { new EncounterRules.Candidate {
+                        TriggerId = "shop_boss", TriggerKind = "SpotlightShopBoss", EntryEpoch = narrative.Capture().NextActivationId,
+                        Context = narrative.Conditions.Snapshot("shop_boss") } }, lifetime.Token)
+                        : await narrative.StartAsync("shop_boss_battle", "shop_boss", lifetime.Token);
                 if (!started) { awaitingOutcome = false; Show("战斗入口正忙"); }
             }
             catch (OperationCanceledException) { awaitingOutcome = false; }
@@ -530,9 +599,20 @@ namespace Game.ShopPlaytest
         }
         private void NarrativeChanged()
         {
-            if (world == null || !awaitingOutcome || narrative.Generation != expectedBattleGeneration) return;
+            if (world == null || boundGeneration != sessionGeneration) return;
+            if (narrative.HasStoryFlag("world.shopboss.defeated"))
+            {
+                if (!tavernCompleted) { tavernCompleted = true; FindActor("shop_boss").gameObject.SetActive(false); Persist(); }
+                awaitingOutcome = false; return;
+            }
+            if (!awaitingOutcome || narrative.Generation != expectedBattleGeneration) return;
             var snapshot = narrative.Capture();
-            if (snapshot.Current != null) return;
+            if (snapshot.Current != null)
+            {
+                if (snapshot.Parent == null && snapshot.Current.StoryId == "spotlight_current" && snapshot.Current.StageId == "action_r0197")
+                { awaitingOutcome = false; Show("挑战失败，划拳醉意保留，可以再挑战。"); }
+                return;
+            }
             awaitingOutcome = false;
             if (snapshot.Outcome == "Success")
             { tavernCompleted = true; FindActor("shop_boss").gameObject.SetActive(false); Show("BOSS已击败，挑战完成"); }
@@ -568,6 +648,7 @@ namespace Game.ShopPlaytest
                 tavernCompleted = saved.TavernCompleted;
                 Taming.GetTarget("shop_patrol").ChangePatrolRoute(world.Route(encounterView, theater.PatrolRedirected));
             }
+            tavern.RestoreLearning(saved.TavernLearning);
             progressReady = true;
             Persist();
         }
@@ -581,6 +662,7 @@ namespace Game.ShopPlaytest
             saved.Investigated = clothing.Rules.CaptureInvestigations(); saved.ClothesReceived = clothing.Rules.Received;
             saved.Forging = forging.Rules.Capture(); saved.PlayerDrunk = tavern.Rules.PlayerDrunk; saved.BossDrunk = tavern.Rules.BossDrunk;
             saved.Customers = tavern.Rules.CaptureCustomers(); saved.TavernCompleted = tavernCompleted;
+            saved.TavernLearning = tavern.CaptureLearning();
             saved.EquippedSkinId = CurrentSkinActorId;
             ShopRewardRules.GrantCompleted(saved, loot.GrantItems);
         }
@@ -606,9 +688,10 @@ namespace Game.ShopPlaytest
             using var unloading = telemetry.BeginSpan("scene_unloading");
             try
             {
-                var closed = forgingClosed;
+                var closed = forgingClosed; var guessClosed = tavernClosed;
                 Persist(); lifetime.Cancel();
                 if (closed != null) await closed.Task;
+                if (guessClosed != null) await guessClosed.Task;
                 await rhythm.CloseActivityAsync();
             }
             finally

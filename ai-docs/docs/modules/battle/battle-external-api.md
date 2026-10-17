@@ -52,8 +52,8 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 | 成员 | 说明 |
 | --- | --- |
 | `BattleStageEnteredEvent`（`readonly struct`）：`Generation` / `ActivationId` / `TargetId` / `StageId` / `Payload` | 三个发布点见 narrative-external-api「战斗阶段通知」 |
-| `NarrativeService.TryBeginBattle(generation, activationId, targetId)` | 开打前登记在途；`false` = 旧身份或已在途，不该开仗。`NarrativeService.cs:229` |
-| `NarrativeService.ReleaseBattle(...)` / `CompleteBattleAsync(...)` | 没打完就收场时解除在途 / 按出口键回写。`NarrativeService.cs:246`、`:208` |
+| `NarrativeService.TryBeginBattle(generation, activationId, targetId)` | 开打前登记在途；`false` = 旧身份或已在途，不该开仗。 |
+| `NarrativeService.ReleaseBattle(...)` / `CompleteBattleAsync(...)` | 没打完就收场时解除在途 / 按出口键回写。 |
 
 ## `Game.Battle.BossRosterConfig` / `BossDefinition`（ScriptableObject 数据）
 
@@ -68,7 +68,7 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 | `monsterKindId` | 这一行同时是哪一种巡逻怪（`monster_species` 主键）的回合制数据；**0 = 不是怪物行**（只给剧情阶段按 id 查）。非 0 的值整份名册不许重复 | `BossDefinition.cs:64` |
 | `aggroEnabled` | 开主动发难（BOSS 自己冲上来）；**默认关 = 只能按 E 挑战** | `BossDefinition.cs:70` |
 | `aggroChargeSpeed` | 发难冲刺速度（米 / 秒），撤回原位也用它；占位 3 | `BossDefinition.cs:73` |
-| `aggroRadius` | 发难半径（米，以**原位**为圆心）；占位 5（用户 2026-10-15 拍板）。应大于交互半径 | `BossDefinition.cs:78` |
+| `aggroRadius` | 发难半径（米，以**原位**为圆心）；占位 5（用户 2026-10-15 拍板）。应大于交互半径 | `BossDefinition.cs` 的 `AggroRadius` |
 | `aggroReactionSeconds` | 反应时间（秒）：警觉后愣这么久才冲，这段里按 E 仍是正面攻击；占位 3 | `BossDefinition.cs:82` |
 | `aggroLeashDistance` | 拴绳距离（米）；**0 = 按发难半径 × 2 算** | `BossDefinition.cs:86` |
 

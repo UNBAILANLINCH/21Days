@@ -72,25 +72,25 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
 
 | 07 原文 | 落点 |
 | --- | --- |
-| §一 偷袭：玩家潜行并偷袭成功、玩家攻击 → 先手 + BOSS 生命 −20%（07:15-18） | `BattleEntryRules.cs:31`、`TurnBasedConfig.cs:33`、`BattleSession.cs:218`（开战扣血） |
+| §一 偷袭：玩家潜行并偷袭成功、玩家攻击 → 先手 + BOSS 生命 −20%（07:15-18） | `BattleEntryRules.cs:31`、`TurnBasedConfig.cs:33`、`BattleSession.cs` 的开战扣血 |
 | §一 正面攻击：在警戒 / 敌对区域或怪物警戒 / 敌对 → 玩家先手（07:20-23） | `BattleEntryRules.cs:40-43` |
 | §一 被打：同上前提，玩家被 BOSS 攻击 → BOSS 先手（07:25-28） | `BattleEntryRules.cs:44`、`TurnBasedKernel.cs:83`（先手决定首回合谁动） |
-| 招式只能在自己回合使用（07:48） | `PlayerBattleRules.cs:110`、`BattleSession.cs:134`（阶段不对直接拒） |
+| 招式只能在自己回合使用（07:48） | `PlayerBattleRules.cs:110`、`BattleSession.cs` 的阶段检查 |
 | 招式 1：无消耗、用后 +1 怒气、造成伤害（07:50） | `PlayerSkillRules.cs:18/34/38`（消耗 / 产出 / 伤害）、`PlayerBattleRules.cs:110` |
-| 招式 2：消耗 1、造成伤害并减少对方 50% 治疗效果（07:52） | `PlayerSkillSettings.cs:62`、`BattleSession.cs:154`（把减疗挂到 BOSS）、`BossBattleRules.cs:124` |
+| 招式 2：消耗 1、造成伤害并减少对方 50% 治疗效果（07:52） | `PlayerSkillSettings.cs:62`、`BattleSession.cs:154`（把减疗挂到 BOSS）、`BossBattleRules.cs` 的减疗状态 |
 | 招式 3：消耗 3、造成伤害、接下来 3 次攻击附带额外伤害（07:54） | `PlayerSkillSettings.cs:77`、`PlayerBattleRules.cs:143-155`（消耗 / 累加次数） |
 | 玩家施放招式后进入敌方回合（07:56） | `BattleSession.cs:159` |
 | 道具在施放招式之前使用（07:58） | `BattleSession.cs:101`（出招后 / 非玩家回合一律拒） |
 | 道具「用过了则置暗；未拥有则不显示」（07:42） | `ItemUseRules.cs:21`、`BattleItemLedger.cs`（`TryUse` 记账、`CanUse` 只判定） |
 | 道具效果（07:42、:58 只说「能用 / 置暗」；**07:199-211 的 10 件道具，2026-10-16 落地**） | `BattleSession.cs:125`（用掉后调 `ApplyItemEffect`）、`PlayerBattleRules.ApplyItemEffect`（按 9 种 `BattleItemEffectKind` 分发）、`BattleHudRules.DescribeItemEffect`（悬停详情） |
-| BOSS 进战斗继承战斗外的醉酒值（07:66） | `BossBattleSnapshot.cs`、`BossBattleRules.cs:31`（构造）、`TurnBasedConfig.cs:89` |
+| BOSS 进战斗继承战斗外的醉酒值（07:66） | `BossBattleSnapshot.cs`、`BossBattleRules.cs` 构造、`TurnBasedConfig.cs:89` |
 | 正常 0-49 / 微醺 50-79（20%）/ 薄醉 80-99（40%）/ 酩酊 100（100%、−50、持续 2 回合）（07:70-73） | `DrunkTierRules.cs:17`、`DrunkTierRules.cs:33`、`DrunkTierRules.cs:55`、`BossDrunkRules.cs:66` |
 | 跳过回合时屏幕中央闪现提示（07:71-73） | `BattleHintTexts.cs`（三句原文逐字）、`BattleEvent.BossTurnSkipped`（带 `HintText`） |
-| BOSS 招式 1 普通攻击（07:79） | `BossSkillRules.cs:47`、`BossBattleRules.cs:148`（下次 +30% 只吃一次） |
-| BOSS 招式 2 饮酒：+30 醉酒、回 10% 生命、下次招式 1 +30%（07:80） | `BattleSession.cs:298-301`、`BossBattleRules.cs:53/100` |
-| BOSS 招式 3：正常 / 微醺 高额伤害；薄醉 高额伤害 + 晕眩玩家 1 回合（07:81-82） | `BossSkillRules.cs:56`、`BattleSession.cs:311`、`PlayerBattleRules.cs:85` |
+| BOSS 招式 1 普通攻击（07:79） | `BossSkillRules.cs:47`、`BossBattleRules.cs` 的一次性增伤 |
+| BOSS 招式 2 饮酒：+30 醉酒、回 10% 生命、下次招式 1 +30%（07:80） | `BattleSession.cs` 的饮酒分支、`BossBattleRules.cs` 的饮酒结算 |
+| BOSS 招式 3：正常 / 微醺 高额伤害；薄醉 高额伤害 + 晕眩玩家 1 回合（07:81-82） | `BossSkillRules.cs`、`BattleSession.cs:311`、`PlayerBattleRules.cs` 的晕眩处理 |
 | 施放比例 6:3:1（07:84） | `BossSkillRules.cs:20`、`TurnBasedConfig.cs:145-151` |
-| 玩家状态右下角显示剩余回合（07:43）→ 有回合上限 | `BattleFlowSettings.cs`、`BattleSession.cs:324`（上限口径可配，**数值 2026-10-16 仍没给**，等 C91）。2026-10-14：这句另有一种读法——指每个玩家状态还剩几回合（`09_BOSS战.md` R58、Q18） |
+| 玩家状态右下角显示剩余回合（07:43）→ 有回合上限 | `BattleFlowSettings.cs`、`BattleSession.cs` 的回合上限处理（上限口径可配，**数值 2026-10-16 仍没给**，等 C91）。2026-10-14：这句另有一种读法——指每个玩家状态还剩几回合（`09_BOSS战.md` R58、Q18） |
 
 ## 随机数与回放（本模块的取舍）
 

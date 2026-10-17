@@ -15,7 +15,7 @@ MonoBehaviour:
   settings:
     defaultDurationSeconds: 0
     cooldownSeconds: 0
-    ledgerLimit: 3
+    ledgerLimit: 9
     ledgerMode: 0
     suspicionLimit: 100
     suspicionCanDecay: 0

@@ -14,6 +14,8 @@ maturity: seed
 
 ```csharp
 bool IsReady { get; } bool IsBusy { get; } bool CanSave { get; }
+string CurrentStoryId { get; } string CurrentStageId { get; } string CurrentTargetId { get; }
+NarrativeIntent ResultIntent(string result);
 long Generation { get; }
 event Action OnChanged;
 bool HasStoryFlag(string key);
@@ -31,6 +33,7 @@ void CaptureIntoPartition();
 ```
 
 - 开局/遭遇/意图返回 false 表示未接受；取消抛 OperationCanceledException，失败原样抛出。无后台重试。
+- 三个 Current 属性为无快照分配的只读查询，未就绪或无当前帧为空。`ResultIntent` 在实际存在等待帧时同步固定身份，之后再提交；不能缓存跨槽使用。`Capture` 是 JSON 深拷贝，不放每帧路径。
 - 当前停在未完成 Dialogue 时，同目标的有效 Interact 候选会重试原阶段，不再次消费 Once；其他触发类型不重试。
 - `Capture()` 是当前内存深拷贝，不承诺可落盘；Session 必须检查 CanSave，稳定等待/结束才支持恢复。
 - 提交意图从 Generation 与 Capture().Current 固定身份；不能 await 回来再读取新阶段身份。
@@ -49,7 +52,7 @@ public readonly struct BattleStageEnteredEvent
 {
     long Generation; long ActivationId; string TargetId; string StageId; string Payload;   // 全是只读属性
 }
-// MessagePipe：IPublisher / ISubscriber<BattleStageEnteredEvent>，NarrativeInstaller.InstallEvents 注册（NarrativeInstaller.cs:21）
+// MessagePipe：IPublisher / ISubscriber<BattleStageEnteredEvent>，NarrativeInstaller.InstallEvents 注册。
 ```
 
 - **三个发布点**（都在 `NarrativeService`，经 `PublishBattleStage`，`:359`）：`DriveAsync` 停到 Battle 阶段（`:284-288`）、`ReloadFromSave` 恢复到 Battle 阶段（`:116-120`）、Battle 阶段上同目标主动交互重发（`:159-168`）。
@@ -57,8 +60,8 @@ public readonly struct BattleStageEnteredEvent
 - 发布时 `busy` 仍为 true：订阅方先 `TryBeginBattle` 登记在途，不要在回调里同步回写，否则会被 `CanAccept` 拒掉。
 
 ```csharp
-bool TryBeginBattle(long generation, long activationId, string targetId); // NarrativeService.cs:229
-void ReleaseBattle(long generation, long activationId);                  // NarrativeService.cs:246
+bool TryBeginBattle(long generation, long activationId, string targetId);
+void ReleaseBattle(long generation, long activationId);
 ```
 
 - `TryBeginBattle`：身份对得上当前 Battle 阶段且未在途才登记并 `Flush`；登记后 `CanSave` 为 false（战中不存档）。`false` = 旧身份或已在途，不要开仗。

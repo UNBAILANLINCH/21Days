@@ -629,3 +629,9 @@
 - 根因：`SaveSlotsController` 把 `TitleView.GetCancellationTokenOnDestroy()` 传给 `GameSession.ContinueAsync`。`TitleState.ExitAsync` 正常销毁标题时，取消令牌随之取消，打断尚未完成的玩法场景加载；`OperationCanceledException` 被当成正常退出处理，空画面没有业务错误提示。
 - 正确做法：跨 UI 关闭的流程使用控制器寿命令牌，在控制器 `Dispose` 时取消；局部 UI 动画仍可跟随对应 View 寿命。正常玩法继续由 `SceneGameState` Additive 加载 `SampleScene`，保留 Boot。验证必须检查目标流程状态和实际加载场景；标题消失、根容器可解析 PlayerModel 都不能证明入场完成。至少一条生命周期测试要让标题先销毁、异步加载后完成，避免已缓存场景掩盖时序问题。
 - 关联：`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的 `SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad`、`Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` 的 `MouseLoad_RollsScrollThenShortWaterWarpEntersWorld`。日期：2026-10-15。
+
+## MCP 相机截图先分配全尺寸纹理，缩小返回图片不能降低捕获峰值
+- 现象：相机截图触发 `Could not allocate memory: System out of memory!`，申请 `74649600B`、`MemoryLabel: Texture`；完整调用栈指向 `ScreenshotUtility.CaptureFromCameraToProjectFolder` 创建 `Texture2D`，随后出现 `5760 x 3240` RenderTexture 创建失败和 MCP 连续超时。
+- 根因：当前包先按相机像素尺寸乘截图倍率创建 RenderTexture，渲染后再创建 RGBA32 Texture2D；`5760 × 3240 × 4 = 74649600`，仅这一份纹理约 71.2 MiB，另有渲染附件和编码开销。`max_resolution` 只在完整捕获、编码之后缩小返回图片，挡不住前面的分配。本次失败时 Unity GFX 分配器已使用约 3.93 GiB；这不等于独立显存占用，也不足以判定泄漏或某个模型的占用。
+- 正确做法：先核对当前实例的 `-logFile` 或 `Application.consoleLogPath`，按申请字节数和调用栈匹配弹窗；默认 Editor.log 可能仍是上一轮崩溃。本次日志中庭院模型已导入完成，截图才是这次弹窗的直接触发点。内存紧张时先降低实际相机捕获尺寸和截图倍率，再截图；不要仅调小返回图片的 `max_resolution`，也不要在致命弹窗期间反复发送截图命令。降低尺寸是否解决仍需另行验证。
+- 关联：`outputs/water/unity-recovery.log`、`Library/PackageCache/com.coplaydev.unity-mcp@*/Runtime/Helpers/ScreenshotUtility.cs` 的 `CaptureFromCameraToProjectFolder`；2026-10-17 日志排查。此项依赖运行时尺寸与内存状态，不新增逐行正则 lint。

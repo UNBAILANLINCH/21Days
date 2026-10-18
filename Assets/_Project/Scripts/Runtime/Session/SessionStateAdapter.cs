@@ -100,7 +100,9 @@ namespace Game.Session
 
             // 原地复制进分区，不换实例：别处（MonsterEncounterState 已准备的恢复）可能正拿着这个分区对象。
             EncounterSaveData target = saves.Get<EncounterSaveData>();
-            target.SceneKey = captured.SceneKey;
+            target.SceneKey = encounter.ActiveSceneAddress;
+            target.StoryWorld = encounter.IsHumanWorld ? "human" : "demon";
+            target.ScenePlayerHeight = encounter.ActivePlayerHeight;
             target.Tick = captured.Tick;
             target.Active = captured.Active;
             target.EncounterId = captured.EncounterId;
@@ -120,6 +122,7 @@ namespace Game.Session
             if (!fromSave)
             {
                 encounter.ClearPreparedRestore();
+                if (story != null) encounter.PrepareHumanStory();
                 return;
             }
 
@@ -127,6 +130,12 @@ namespace Game.Session
             try
             {
                 saved.Validate();
+                if (ResolveLegacyStoryScene(saved, saves.Get<Game.Narrative.NarrativeSaveData>()) == MonsterEncounterState.HumanStoryAddress && saved.StoryWorld != "human")
+                {
+                    saved.StoryWorld = "human";
+                    saved.Player.PositionY += EncounterSaveData.HumanOffsetZ;
+                }
+                saved.SceneKey = MonsterEncounterState.DemonStoryAddress;
                 encounter.PrepareRestore(saved);
             }
             catch (Exception e)
@@ -135,6 +144,15 @@ namespace Game.Session
                 Log.Warn($"存档里的遭遇快照不合法，本次落回出生点：{e.Message}");
                 encounter.ClearPreparedRestore();
             }
+        }
+
+        public static string ResolveLegacyStoryScene(EncounterSaveData saved, Game.Narrative.NarrativeSaveData narrative)
+        {
+            var frame = narrative?.Current;
+            if (!saved.LegacySceneRoute || frame == null || frame.StoryId != "spotlight_current") return saved.SceneKey;
+            string stage = frame.StageId;
+            return stage == "enter_r0026" || stage == "action_r0070" || stage == "enter_r0083" || stage == "enter_r0129"
+                ? MonsterEncounterState.HumanStoryAddress : saved.SceneKey;
         }
 
         public string BuildProgressText()

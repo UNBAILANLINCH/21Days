@@ -7,6 +7,8 @@ maturity: seed
 
 # Narrative 扩展指南
 
+人间边界以最新用户决定为准：地点变化不等于玩家任务。导入器只保留登记的边界ID；83／129／70仅在人界自动续播，不恢复西城／书库跑点或24血战斗。正常只加载SampleScene，人界为同场景Z+300分组，妖界保留原坐标；同布局、修复网格、左下出生与李诏阳保留。171人界镜前E只传送不提交剧情，妖界须到轮回堂值守旁E；188坊市必须到场E，禁止自动衔接。旧SpotlightHuman资产只保留兼容。
+
 正式章节新增节点时，同步源故事／对白、Quest目标及 `SpotlightStoryConfig` 节点。通过编辑器给 `SpotlightSceneBindings` 补实际锚点，保留稳定主目标；不要靠到过店铺或播过教程判玩法成功。菜单 `21Days/剧情/接入序章至酒肆会面` 仅首次接线，已有 SpotlightStory 时拒绝覆盖；后续直接编辑现有点位与配置。
 
 软引导条件扩展在纯 `StoryGuideRules`，提示和范围在配置；节点变化才更新舞台，缺件文案按变化缓存，不能逐帧 Capture 或拼接字符串。完整回放入口 `NarrativeShowcase.Spotlight_ThreeShopsGuessBossAndReunion` 经过真实三店成果、划拳、BOSS与会面，不得用发道具／直接写任务进度替代。

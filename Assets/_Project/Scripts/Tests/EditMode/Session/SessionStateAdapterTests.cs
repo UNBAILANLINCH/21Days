@@ -38,6 +38,24 @@ namespace Game.Tests.EditMode.Session
         private EncounterStep step;
         private SessionStateAdapter adapter;
 
+        [TestCase(2, "enter_r0026", true)]
+        [TestCase(2, "action_r0070", true)]
+        [TestCase(2, "enter_r0083", true)]
+        [TestCase(2, "enter_r0129", true)]
+        [TestCase(2, "enter_r0171", false)]
+        [TestCase(2, "enter_r0188", false)]
+        [TestCase(2, "action_r0197", false)]
+        [TestCase(3, "enter_r0026", false)]
+        [TestCase(3, "enter_r0171", false)]
+        public void LegacySceneRoute_OnlyMigratesOldHumanWaits(int version, string stage, bool human)
+        {
+            var saved = Newtonsoft.Json.JsonConvert.DeserializeObject<EncounterSaveData>("{\"SceneKey\":\"IsometricEncounter\",\"Active\":true}");
+            if (version < saved.Version) saved.Migrate(version);
+            var narrative = new Game.Narrative.NarrativeSaveData { Current = new Game.Narrative.NarrativeSaveData.Frame {
+                StoryId = "spotlight_current", StageId = stage } };
+            Assert.That(SessionStateAdapter.ResolveLegacyStoryScene(saved, narrative), Is.EqualTo(human ? "SpotlightHuman" : "IsometricEncounter"));
+        }
+
         [SetUp]
         public void SetUp()
         {

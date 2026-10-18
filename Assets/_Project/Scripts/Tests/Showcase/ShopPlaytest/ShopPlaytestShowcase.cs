@@ -25,13 +25,17 @@ namespace Game.Tests.Showcase.ShopPlaytest
         private int originalActors;
         protected IEnumerator Ready(int shop)
         {
-            yield return EnterWorldFromTitle(enterTimeout: 60f);
-            State = ResolveService<ShopPlaytestState>();
-            Assert.That(State.World, Is.Not.Null);
-            Assert.That(ResolveService<IGameFlow>().Current, Is.TypeOf<MonsterEncounterState>());
+            yield return EnterStoryWorld();
             yield return FormalPrologue();
+            Assert.That(State.World, Is.Not.Null);
             yield return GoToShop(shop);
             originalActors = Object.FindObjectsOfType<ShopPlaytestActor>(true).Length;
+        }
+        protected IEnumerator EnterStoryWorld()
+        {
+            yield return EnterWorldFromTitle(enterTimeout: 60f, expectedScene: "SampleScene");
+            State = ResolveService<ShopPlaytestState>();
+            Assert.That(ResolveService<IGameFlow>().Current, Is.TypeOf<MonsterEncounterState>());
         }
         protected IEnumerator GoToShop(int shop)
         {
@@ -67,30 +71,87 @@ namespace Game.Tests.Showcase.ShopPlaytest
             var story = ResolveService<SpotlightStoryFlow>();
             if (story == null || story.Bindings == null) yield break;
             yield return AdvanceFormalDialogue();
-            foreach (string stage in new[] { "enter_r0026", "action_r0070", "enter_r0083", "enter_r0129", "enter_r0171", "enter_r0188" })
+            if (ResolveService<NarrativeService>().CurrentStageId == "enter_r0026")
             {
-                yield return StoryPoint(stage);
-                if (stage == "action_r0070") yield return PlayBattle();
-                yield return AdvanceFormalDialogue();
+                yield return StoryPoint("enter_r0026");
             }
+            yield return NarrationToMirror();
+            yield return StoryPoint("enter_r0171");
+            yield return WaitUntil("真实切换至妖界五店", () => State.World != null && !ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory, 60);
+            yield return DemonArrivalToShops();
+        }
+        protected IEnumerator DemonArrivalToShops()
+        {
+            yield return StoryPoint("enter_r0171"); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0188"); yield return AdvanceFormalDialogue();
+            float deadline = Time.realtimeSinceStartup + 100;
+            while (ResolveService<NarrativeService>().CurrentStageId != "action_r0197" && Time.realtimeSinceStartup < deadline)
+            { yield return AdvanceFormalDialogue(); yield return null; }
             yield return Check("序章与入镜完成，主线等待三店和酒肆真实结果", () => ResolveService<NarrativeService>().CurrentStageId == "action_r0197", 5);
         }
-        protected IEnumerator StoryPoint(string stage)
+        protected IEnumerator NarrationToMirror()
+        {
+            float deadline = Time.realtimeSinceStartup + 100;
+            while (ResolveService<NarrativeService>().CurrentStageId != "enter_r0171" && Time.realtimeSinceStartup < deadline)
+            {
+                Assert.That(ResolveService<BattleFlow>().IsBattleRunning, Is.False, "人间不应进入强制战斗");
+                yield return AdvanceFormalDialogue(); yield return null;
+            }
+            yield return WaitUntil("人间对白自然衔接到唯一穿越点", () => ResolveService<NarrativeService>().CurrentStageId == "enter_r0171" && ResolveService<SpotlightStoryFlow>().CanSave, 5);
+        }
+        protected IEnumerator StoryPoint(string stage, bool interact = true)
         {
             var narrative = ResolveService<NarrativeService>();
             yield return WaitUntil("正式剧情到达 " + stage, () => narrative.CurrentStageId == stage && !narrative.IsBusy, 10);
             var point = ResolveService<SpotlightStoryFlow>().Bindings.Find(stage);
+            bool crossing = ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory && stage == "enter_r0171";
             Assert.That(point, Is.Not.Null, stage);
             foreach (var other in ResolveService<SpotlightStoryFlow>().Bindings.Points)
                 if (other.StageId != stage) Assert.That(other.CanInteract, Is.False, "错误节点不能交互：" + other.StageId);
             // 人物有实体碰撞，走到交互范围即可；不能要求穿进人物中心。
-            yield return GoToWorldPoint(point.Position, .8f);
+            if (ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory)
+            {
+                if (stage == "enter_r0171")
+                {
+                    yield return MoveTo(new Vector2(-8f, 282.5f));
+                    yield return MoveTo(new Vector2(14f, 282.5f));
+                    yield return MoveTo(new Vector2(22.5f, 282.5f));
+                    yield return MoveTo(new Vector2(22.5f, 286.8f));
+                }
+                yield return MoveTo(new Vector2(point.Position.x, point.Position.z), .8f);
+            }
+            else if (stage == "enter_r0171")
+            {
+                yield return GoToWorldPoint(new Vector3(10.33f, 4.85f, 4.4f));
+                yield return MoveTo(new Vector2(10.33f, 10.5f));
+                yield return MoveTo(new Vector2(10.33f, 22f));
+                // 桥口在东侧；从北侧切入会撞到模型上的木栏杆。
+                yield return MoveTo(new Vector2(-8.2f, 22f));
+                yield return MoveTo(new Vector2(-8.2f, 17.7f));
+                yield return MoveTo(new Vector2(-20f, 17.7f));
+                yield return MoveTo(new Vector2(point.Position.x, 19.8f), .15f);
+            }
+            else if (stage == "enter_r0188")
+            {
+                yield return MoveTo(new Vector2(-20f, 19.8f));
+                yield return MoveTo(new Vector2(-20f, 17.7f));
+                yield return MoveTo(new Vector2(-8.2f, 17.7f));
+                yield return MoveTo(new Vector2(-8.2f, 22f));
+                yield return MoveTo(new Vector2(10.33f, 22f));
+                yield return MoveTo(new Vector2(10.33f, 10.5f));
+                yield return MoveTo(new Vector2(10.33f, 4.4f));
+                yield return GoToWorldPoint(point.Position, .8f);
+            }
+            else yield return GoToWorldPoint(point.Position, .8f);
             yield return Check("节点与区域一致，现场交互可用", () => ResolveService<IInteractionFocus>().Current == point && point.CanInteract, 5);
             var guide = ResolveService<IUIService>().Get<StoryGuideHudView>();
             yield return Check("对应节点教程显示且不挡现场交互", () => guide != null && guide.Text.Length > 0 && !guide.GetComponent<CanvasGroup>().blocksRaycasts, 3);
             if (stage == "enter_r0026") yield return Snapshot("节点区域软引导");
+            if (!interact) yield break;
             yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
-            yield return WaitUntil("真实交互推进节点", () => narrative.CurrentStageId != stage, 5);
+            yield return WaitUntil("真实交互推进节点或切换妖界", () => crossing
+                ? ResolveService<SpotlightStoryFlow>().Bindings != null && !ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory
+                : narrative.CurrentStageId != stage, crossing ? 60 : 5);
         }
         protected IEnumerator AdvanceFormalDialogue()
         {

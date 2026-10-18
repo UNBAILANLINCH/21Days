@@ -18,7 +18,7 @@ public readonly struct SaveCompletedEvent { int Slot; string Reason; bool Succes
 ```
 
 - `SessionStartedEvent`：一局开始（新游戏或读档），**内存分区已就位、切进玩法状态之前**发布。各分区所有者
-  在回调里同步重载即可（示例：`QuestService.ReloadFromSave()`，见 `QuestService.cs:135`）。回调必须同步完成，
+  在回调里同步重载即可（示例：`QuestService.ReloadFromSave()`，见 `QuestService.cs`）。回调必须同步完成，
   不要 `await` 或切状态。
 - `SaveCompletedEvent`：一次落盘结束（成功或失败），`GameSession.SaveNowAsync` 里 `ISaveService.SaveAsync`
   返回后发布。用来等一次保存真正完成（例如回放里的「触发保存并等待」）。

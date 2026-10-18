@@ -179,7 +179,8 @@ namespace Game.Quest
                 ? string.Empty
                 : selected.Definition.Kind == QuestKind.Main ? config.MainKindLabel : config.SideKindLabel;
             bool tracked = !showingCompleted && selectedId != 0 && selectedId == service.TrackedId;
-            view.SetDetail(selected, tracked, kindLabel, TrackText, UntrackText, showingCompleted);
+            view.SetDetail(selected, tracked, kindLabel, TrackText, UntrackText, showingCompleted,
+                !showingCompleted && selectedId == service.PresentationQuestId ? service.PresentationObjective : "");
         }
 
         private void HandleQuestSelected(int id)

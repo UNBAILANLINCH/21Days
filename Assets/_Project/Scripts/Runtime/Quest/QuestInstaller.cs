@@ -58,7 +58,7 @@ namespace Game.Quest
                     resolver.Resolve<IPublisher<QuestCompletedEvent>>(),
                     resolver.Resolve<IPublisher<QuestTrackingChangedEvent>>(),
                     resolver.Resolve<ISubscriber<SessionStartedEvent>>(),
-                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule)), Lifetime.Singleton)
+                    resolver.Resolve<ITelemetryService>().Scope(TelemetryModule), resolver.Resolve<QuestConfig>().AvailableQuestIds), Lifetime.Singleton)
                 .AsSelf()
                 .As<IGameService>();
             // 工厂注册：构造要 ITelemetryScope（同 QuestCatalog）。实现 IDisposable 的话容器会托管释放。

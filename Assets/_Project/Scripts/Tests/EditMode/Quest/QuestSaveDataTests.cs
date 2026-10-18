@@ -23,6 +23,34 @@ namespace Game.Tests.EditMode.Quest
     {
         private string saveRoot;
 
+        [Test]
+        public void Migrate_VersionTwoTerminalPlaceholder_BecomesCompleted()
+        {
+            var data = new QuestSaveData();
+            data.Quests.Add(new QuestProgressData { Id = 900, ObjectiveIndex = 4, State = (int)QuestState.InProgress });
+            data.Migrate(2);
+            Assert.That(data.Quests[0].State, Is.EqualTo((int)QuestState.Completed));
+            Assert.That(data.Quests[0].ObjectiveIndex, Is.EqualTo(4));
+        }
+
+        [TestCase(0, 0)]
+        [TestCase(6, 0)]
+        [TestCase(7, 0)]
+        [TestCase(8, 1)]
+        [TestCase(11, 4)]
+        public void Migrate_OldHumanCheckpoints_PreservesDemonProgress(int oldIndex, int expected)
+        {
+            var data = new QuestSaveData();
+            data.Quests.Add(new QuestProgressData { Id = 900, ObjectiveIndex = oldIndex, Count = 1, State = (int)QuestState.InProgress });
+            data.Quests.Add(new QuestProgressData { Id = 1001, ObjectiveIndex = 2, Count = 3 });
+            data.Migrate(1);
+            Assert.That(data.Quests[0].ObjectiveIndex, Is.EqualTo(expected));
+            Assert.That(data.Quests[0].Count, Is.EqualTo(oldIndex < 7 || expected >= 4 ? 0 : 1));
+            Assert.That(data.Quests[0].State, Is.EqualTo((int)(expected >= 4 ? QuestState.Completed : QuestState.InProgress)));
+            Assert.That(data.Quests[1].ObjectiveIndex, Is.EqualTo(2));
+            Assert.That(data.Quests[1].Count, Is.EqualTo(3));
+        }
+
         [SetUp]
         public void SetUp()
         {

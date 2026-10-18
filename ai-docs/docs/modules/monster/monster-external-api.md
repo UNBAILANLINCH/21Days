@@ -7,6 +7,8 @@ maturity: stable
 
 # Monster 外部接口
 
+正式入口：`PrepareHumanStory()` / `PrepareDemonStory()` 清除旧恢复并选择SampleScene内的世界；新局／Continue仍由既有GameFlow进场。`EnterDemonWorldAsync(CancellationToken)` 仅供章节镜面入口在黑幕与输入门闸下切换同场景分组，失败恢复原现场，不卸载地图。`PrepareRestore(saved)` 按v4的StoryWorld和实际XYZ恢复；`IsHumanWorld` / `ActiveSceneAddress` / `ActivePlayerHeight` 读取现场。旧SpotlightHuman常量仅用于迁移，禁止再以它作为正常加载目标。
+
 | 接口 | 用途 | 前提 |
 | --- | --- | --- |
 | `MonsterRules.Reset(Vector2[])` | 开始一场遭遇并复制巡逻点 | 数组至少一个点；`MonsterRules.cs` |

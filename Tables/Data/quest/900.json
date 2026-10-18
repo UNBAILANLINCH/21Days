@@ -6,55 +6,6 @@
     "prerequisites": [],
     "objectives": [
         {
-            "text": "听完梦中旧事",
-            "kind": "TalkTo",
-            "key": "21003",
-            "count": 1,
-            "location": ""
-        },
-        {
-            "text": "前往客店院落，与李诏阳交谈",
-            "kind": "TalkTo",
-            "key": "21004",
-            "count": 1,
-            "location": "spotlight_courtyard"
-        },
-        {
-            "text": "完成切磋，取得西城线索",
-            "kind": "TalkTo",
-            "key": "21005",
-            "count": 1,
-            "location": "spotlight_duel"
-        },
-        {
-            "text": "在西城接下委托",
-            "kind": "TalkTo",
-            "key": "21006",
-            "count": 1,
-            "location": "spotlight_west_city"
-        },
-        {
-            "text": "前往书库查证旧案",
-            "kind": "TalkTo",
-            "key": "21007",
-            "count": 1,
-            "location": "spotlight_library"
-        },
-        {
-            "text": "入镜，向轮回堂值守问询",
-            "kind": "TalkTo",
-            "key": "21008",
-            "count": 1,
-            "location": "spotlight_mirror"
-        },
-        {
-            "text": "进入坊市，寻找窗边人影的线索",
-            "kind": "TalkTo",
-            "key": "21009",
-            "count": 1,
-            "location": "spotlight_market"
-        },
-        {
             "text": "完成戏班、衣肆和金银行，备齐乔装成果",
             "kind": "Counter",
             "key": "spotlight.three_shops",
@@ -81,13 +32,6 @@
             "key": "21011",
             "count": 1,
             "location": "spotlight_alley"
-        },
-        {
-            "text": "本段已完成：殷红将带你前往轮回堂",
-            "kind": "Counter",
-            "key": "spotlight.stage2",
-            "count": 1,
-            "location": ""
         }
     ]
 }

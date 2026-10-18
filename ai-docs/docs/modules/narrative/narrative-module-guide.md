@@ -9,11 +9,21 @@ maturity: seed
 
 ## 正式序章至会面接入（2026-10-18）
 
+### 人间叙事与真实入镜修正（同日后续，以本段为准）
+
+正式新局只加载SampleScene，在同场景的 `HumanWorld_Z300` 人界分组出生；共用CourtyardLatest与修复网格，左下出生及李诏阳位置整体Z+300。妖界原坐标保留在 `DemonWorld`，两组互斥活动，Boot不放地图。共用一个玩家、移动驱动和相机；稳定剧情目标单独共用，避免复制ID。
+
+`action_r0070`、`enter_r0083`、`enter_r0129` 保留为叙事边界，仅在人界自动提交；第70行短淡出，不要求24血切磋。西城／书库连续对白，不创建跑点任务。355句文本及稳定ID保留。原任务HUD、列表与通知保留，适配器只覆盖当前任务的可见目标文本。
+
+线索后停在 `enter_r0171`，人界镜点为 `(29.4, 3.235, 283.5)`。靠近按真实E后，经黑幕、暂停和输入门闸调用同场景换界，落到妖界对应平台 `(29.4, 3.21, -16.5)`；不提交171剧情结果。玩家须实走上层左桥，到轮回堂值守旁E才进入21008；离开轮回堂再到坊市入口E才进入21009，188禁止自动提交。171的人界提示为入镜，妖界提示为问询，不能共用错误路线文本。
+
+失败未推进剧情则恢复镜前现场并释放保存锁，可再按E；切槽/取消更新会话代数并取消旧请求。转场期间不可保存。旧五店档仍进入SampleScene，不强制补播。正常链与失败/取消回放见 `NarrativeShowcase.Spotlight_HumanMirrorSkinAndContinue`、`Spotlight_MirrorFailureAndCancellationRemainRetryable`；实际结果另记交接，不沿用此前同舞台回放作为真实切图证据。
+
 新游戏在场景与会话就绪后由 `SpotlightStoryFlow` 启动 `spotlight_current`；继续游戏只恢复现有阶段，缺正式故事的旧五店档继续原流程。正常入口范围到 `enter_r0293`，完成21000～21011，停在轮回堂下一段前。主线仍由 Narrative／Dialogue 独占；章节适配器不复制状态机。
 
 `SpotlightSceneBindings` 保存预摆点位、主目标、教学目标和旧示例对象。`SpotlightStoryConfig` 保存节点提示、交互／引导半径和退出缓冲。序章、接案、书库、入镜、坊市与会面复用 SampleScene 舞台和已有角色占位，不代表完整人间地图或正式角色美术。只有当前节点激活对应点位；真实近距交互才提交结果。
 
-李诏阳教学档 `spotlight_mentor_duel` 与酒肆 `shop_boss_battle` 分别在 `action_r0070/action_r0197` 进入一层局部遭遇。Victory 的 Success 出口推进父帧；Downed 恢复原等待，可重试。酒肆写独立 `world.shopboss.defeated`，不写原示例标记。自定义 Reenter 纪元来自已保存的 NextActivationId。
+李诏阳教学档 `spotlight_mentor_duel` 只保留兼容，正常入口不进入。酒肆 `shop_boss_battle` 在197进入一层局部遭遇；Victory续回父帧，Downed可重试。使用独立标记与持久Reenter纪元。任务900在21011会面后真实完成；293为后续内容边界，不常驻虚假完成目标或解锁旧示例任务。
 
 正式主目标是 Quest900，三店任意顺序；只有真实背包成果／酒肆胜利推进对应计数。`StoryGuideRules` 按节点、区域、皮是否持有／穿戴、店铺成果选择提示；`StoryGuideHudView` 不暂停、不拦射线，对白／活动／战斗／菜单时隐藏，重新进区可再提示。UI 地址已登记、Boot 引用已接线；实际测试结果见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
 

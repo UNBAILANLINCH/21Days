@@ -16,15 +16,17 @@ namespace Game.Quest
         private readonly ITelemetryScope telemetry;
         private readonly QuestProgress[] byIdOrder;
         private readonly Dictionary<int, QuestProgress> byId;
+        private readonly HashSet<int> availableIds;
         private readonly List<QuestProgress> inProgress = new List<QuestProgress>();
         private readonly List<QuestProgress> reportScratch = new List<QuestProgress>();
         private int nextAcceptOrder;
         private int currentMainId;
 
-        public QuestRules(QuestContent content, ITelemetryScope telemetry)
+        public QuestRules(QuestContent content, ITelemetryScope telemetry, IReadOnlyCollection<int> availableQuestIds = null)
         {
             if (content == null) throw new ArgumentNullException(nameof(content));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
+            availableIds = availableQuestIds == null || availableQuestIds.Count == 0 ? null : new HashSet<int>(availableQuestIds);
 
             IReadOnlyList<QuestDefinition> all = content.All;
             byIdOrder = new QuestProgress[all.Count];
@@ -38,7 +40,11 @@ namespace Game.Quest
 
             // 按 id 升序遍历：多条主线同时可激活时取 id 最小的那条。
             Array.Sort(byIdOrder, (a, b) => a.Id.CompareTo(b.Id));
+            if (availableIds != null) foreach (int id in availableIds)
+                if (!byId.ContainsKey(id)) throw new ArgumentException("当前任务集含未知任务：" + id);
         }
+
+        private bool IsAvailable(int id) => availableIds == null || availableIds.Contains(id);
 
         public event Action<int> OnActivated;
 
@@ -69,7 +75,7 @@ namespace Game.Quest
             for (int i = 0; i < byIdOrder.Length; i++)
             {
                 QuestProgress progress = byIdOrder[i];
-                if (progress.State != QuestState.Inactive || !PrerequisitesCompleted(progress.Definition)) continue;
+                if (!IsAvailable(progress.Id) || progress.State != QuestState.Inactive || !PrerequisitesCompleted(progress.Definition)) continue;
                 if (progress.Definition.Kind == QuestKind.Main && currentMainId != 0) continue;
 
                 progress.State = QuestState.InProgress;
@@ -155,7 +161,7 @@ namespace Game.Quest
         /// <summary>追踪一条进行中的任务；任务不存在或不在进行中返回 false。</summary>
         public bool Track(int id)
         {
-            if (!byId.TryGetValue(id, out QuestProgress progress) || progress.State != QuestState.InProgress) return false;
+            if (!IsAvailable(id) || !byId.TryGetValue(id, out QuestProgress progress) || progress.State != QuestState.InProgress) return false;
             if (TrackedId == id) return true;
 
             SetTracked(id);
@@ -203,7 +209,7 @@ namespace Game.Quest
             buffer.Clear();
             for (int i = 0; i < byIdOrder.Length; i++)
             {
-                if (byIdOrder[i].State == QuestState.Completed)
+                if (IsAvailable(byIdOrder[i].Id) && byIdOrder[i].State == QuestState.Completed)
                 {
                     buffer.Add(byIdOrder[i]);
                 }
@@ -290,7 +296,7 @@ namespace Game.Quest
             RebuildInProgress();
 
             TrackedId = data.TrackedId;
-            if (TrackedId != 0 && (!byId.TryGetValue(TrackedId, out QuestProgress tracked) || tracked.State != QuestState.InProgress))
+            if (TrackedId != 0 && (!IsAvailable(TrackedId) || !byId.TryGetValue(TrackedId, out QuestProgress tracked) || tracked.State != QuestState.InProgress))
             {
                 TrackedId = 0;
             }
@@ -326,7 +332,7 @@ namespace Game.Quest
             for (int i = 0; i < byIdOrder.Length; i++)
             {
                 QuestProgress progress = byIdOrder[i];
-                if (progress.State != QuestState.InProgress) continue;
+                if (!IsAvailable(progress.Id) || progress.State != QuestState.InProgress) continue;
 
                 inProgress.Add(progress);
                 if (progress.Definition.Kind == QuestKind.Main && currentMainId == 0)

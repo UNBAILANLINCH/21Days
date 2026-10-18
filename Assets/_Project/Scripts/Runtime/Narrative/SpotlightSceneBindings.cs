@@ -23,21 +23,24 @@ namespace Game.Narrative
             public int InteractionPriority => 10;
             public InteractionPrompt Prompt => prompt;
             public Transform Anchor => anchor;
-            public void Bind(SpotlightStoryConfig source, Func<Point, bool> canInteract, Action<Point> onInteract)
+            public void Bind(SpotlightStoryConfig source, Func<Point, bool> canInteract, Action<Point> onInteract, bool human = false)
             {
                 config = source; allowed = canInteract; interact = onInteract;
                 var node = config.Find(stageId);
                 prompt = new InteractionPrompt(node == null ? "交谈" : node.Verb, node == null ? stageId : node.DisplayName);
+                if (stageId == "enter_r0171") prompt = human ? new InteractionPrompt("入镜", "妖界") : new InteractionPrompt("问询", "轮回堂值守");
             }
             public void Interact() { if (CanInteract) interact?.Invoke(this); }
             public void OnFocusChanged(bool focused) { }
         }
         [SerializeField] private SpotlightStoryConfig config;
+        [SerializeField] private bool humanStory;
         [SerializeField] private NarrativeTrigger mainTarget;
         [SerializeField] private NarrativeTrigger mentorTarget;
         [SerializeField] private Point[] points = System.Array.Empty<Point>();
         [SerializeField] private GameObject[] legacyExamples = System.Array.Empty<GameObject>();
         public SpotlightStoryConfig Config => config;
+        public bool IsHumanStory => humanStory;
         public NarrativeTrigger MainTarget => mainTarget;
         public NarrativeTrigger MentorTarget => mentorTarget;
         public Point[] Points => points;
@@ -48,9 +51,9 @@ namespace Game.Narrative
             foreach (var point in points)
             {
                 if (point == null || point.Anchor == null) continue;
-                bool visible = false;
+                bool visible = humanStory && point.StageId == "enter_r0026" && stage != "enter_r0171";
                 foreach (var candidate in points)
-                    if (candidate != null && candidate.Anchor == point.Anchor && (candidate.StageId == stage || mentorBattle && candidate.StageId == "action_r0070")) visible = formal;
+                    if (candidate != null && candidate.Anchor == point.Anchor && !StoryGuideRules.IsAutomaticEntry(candidate.StageId) && (candidate.StageId == stage || mentorBattle && candidate.StageId == "action_r0070")) visible = formal;
                 point.Anchor.gameObject.SetActive(visible);
             }
         }

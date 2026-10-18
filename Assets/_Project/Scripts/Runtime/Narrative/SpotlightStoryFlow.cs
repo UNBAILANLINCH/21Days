@@ -41,10 +41,15 @@ namespace Game.Narrative
         private readonly RhythmState rhythm;
         private readonly ISubscriber<SessionStartedEvent> sessions;
         private readonly ITelemetryScope telemetry;
+        private readonly EncounterStep step;
+        private readonly ILoadingCurtain curtain;
         private IDisposable sessionSubscription;
         private SpotlightSceneBindings scene;
+        private SpotlightSceneBindings humanBindings, demonBindings;
         private StoryGuideHudView hud;
         private CancellationTokenSource lifetime;
+        private CancellationTokenSource sessionLifetime = new CancellationTokenSource();
+        private bool crossingMirror;
         private long sessionGeneration;
         private bool newGame, startHandled, working, hudOpening, inGuideRange;
         private string rangeStage = "", lastStage = "", lastRaw = "";
@@ -53,20 +58,25 @@ namespace Game.Narrative
         private StoryGuideRules.Action lastAction;
         public SpotlightSceneBindings Bindings => scene;
         public bool IsFormalStory => narrative.CurrentStoryId == "spotlight_current";
-        public bool CanSave => !newGame || startHandled && !working;
+        public bool CanSave => !crossingMirror && !working && (!newGame || startHandled);
         public SpotlightStoryFlow(NarrativeService narrative, ShopPlaytestState shops, IGameFlow flow, IUIService ui,
             IInputService input, IWorldPauseService pause, IInteractionRegistry interaction, QuestService quests,
             LootService loot, DialogueService dialogue, BattleFlow battle, RhythmState rhythm,
-            ISubscriber<SessionStartedEvent> sessions, ITelemetryService telemetry)
+            ISubscriber<SessionStartedEvent> sessions, ITelemetryService telemetry, EncounterStep step, ILoadingCurtain curtain)
         {
             this.narrative = narrative; this.shops = shops; this.flow = flow; this.ui = ui; this.input = input;
             this.pause = pause; this.interaction = interaction; this.quests = quests; this.loot = loot;
             this.dialogue = dialogue; this.battle = battle; this.rhythm = rhythm; this.sessions = sessions;
             this.telemetry = telemetry.Scope("spotlight");
+            this.step = step; this.curtain = curtain;
         }
         public void Start()
         {
-            sessionSubscription = sessions.Subscribe(start => { sessionGeneration++; newGame = start.IsNewGame; startHandled = false; });
+            sessionSubscription = sessions.Subscribe(start => {
+                sessionLifetime.Cancel(); sessionLifetime.Dispose(); sessionLifetime = new CancellationTokenSource();
+                crossingMirror = false; working = false;
+                sessionGeneration++; newGame = start.IsNewGame; startHandled = false;
+            });
             SceneManager.sceneLoaded += Loaded; SceneManager.sceneUnloaded += Unloaded;
             for (int i = 0; i < SceneManager.sceneCount; i++) Loaded(SceneManager.GetSceneAt(i), LoadSceneMode.Additive);
         }
@@ -74,21 +84,31 @@ namespace Game.Narrative
         {
             foreach (var root in loaded.GetRootGameObjects())
             {
-                var bindings = root.GetComponentInChildren<SpotlightSceneBindings>(true);
-                if (bindings == null) continue;
-                Unbind(); scene = bindings; lifetime = new CancellationTokenSource();
-                if (scene.Config == null || scene.MainTarget == null || scene.MentorTarget == null) throw new InvalidOperationException("正式剧情场景引用未接齐");
-                foreach (var point in scene.Points) { point.Bind(scene.Config, Allowed, Interact); interaction.Register(point); }
-                return;
+                foreach (var bindings in root.GetComponentsInChildren<SpotlightSceneBindings>(true))
+                    if (bindings.IsHumanStory) humanBindings = bindings; else demonBindings = bindings;
             }
         }
-        private void Unloaded(Scene unloaded) { if (scene != null && scene.gameObject.scene == unloaded) Unbind(); }
-        private bool Blocked => working || dialogue.IsRunning || narrative.IsBusy || battle.IsBattleRunning || rhythm.IsActivityOpen || pause.IsPaused;
+        private void Bind(SpotlightSceneBindings bindings)
+        {
+            Unbind(); scene = bindings;
+            if (scene == null) return;
+            lifetime = new CancellationTokenSource();
+            if (scene.Config == null || scene.MainTarget == null || scene.MentorTarget == null) throw new InvalidOperationException("正式剧情场景引用未接齐");
+            foreach (var point in scene.Points) { point.Bind(scene.Config, Allowed, Interact, scene.IsHumanStory); interaction.Register(point); }
+        }
+        private void Unloaded(Scene unloaded)
+        {
+            if (scene != null && scene.gameObject.scene == unloaded) Unbind();
+            if (humanBindings != null && humanBindings.gameObject.scene == unloaded) humanBindings = null;
+            if (demonBindings != null && demonBindings.gameObject.scene == unloaded) demonBindings = null;
+        }
+        private bool Blocked => crossingMirror || working || dialogue.IsRunning || narrative.IsBusy || battle.IsBattleRunning || rhythm.IsActivityOpen || pause.IsPaused;
         private bool Allowed(SpotlightSceneBindings.Point point) => scene != null && IsFormalStory && !Blocked &&
-            narrative.CurrentStageId == point.StageId && point.StageId != "enter_r0293" && interaction.Actor != null;
+            narrative.CurrentStageId == point.StageId && !StoryGuideRules.IsAutomaticEntry(point.StageId) && point.StageId != "enter_r0293" && interaction.Actor != null;
         private void Interact(SpotlightSceneBindings.Point point)
         {
             if (!Allowed(point) || (interaction.Actor.Anchor.position - point.Position).sqrMagnitude > scene.Config.InteractionRadius * scene.Config.InteractionRadius) return;
+            if (scene.IsHumanStory && point.StageId == "enter_r0171") { CrossMirrorAsync().Forget(); return; }
             InteractAsync(point).Forget();
         }
         private async UniTask InteractAsync(SpotlightSceneBindings.Point point)
@@ -97,18 +117,8 @@ namespace Game.Narrative
             long generation = sessionGeneration;
             try
             {
-                if (point.StageId == "action_r0070")
-                {
-                    await narrative.TryEncounterAsync(new[] { new EncounterRules.Candidate {
-                        TriggerId = scene.MentorTarget.TargetId, TriggerKind = "SpotlightMentor",
-                        EntryEpoch = narrative.Capture().NextActivationId,
-                        Context = narrative.Conditions.Snapshot(scene.MentorTarget.TargetId) } }, token);
-                }
-                else
-                {
-                    NarrativeIntent intent = narrative.ResultIntent("Success");
-                    await narrative.SubmitAsync(intent, token);
-                }
+                NarrativeIntent intent = narrative.ResultIntent("Success");
+                await narrative.SubmitAsync(intent, token);
             }
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("interaction_failed", error); }
@@ -116,7 +126,10 @@ namespace Game.Narrative
         }
         public void Tick()
         {
-            if (scene == null || shops.World == null || !(flow.Current is MonsterEncounterState) || !narrative.IsReady) return;
+            if (!(flow.Current is MonsterEncounterState encounter) || !step.IsActive || !narrative.IsReady) return;
+            var bindings = encounter.IsHumanWorld ? humanBindings : demonBindings;
+            if (scene != bindings) Bind(bindings);
+            if (scene == null) return;
             if (!startHandled)
             {
                 startHandled = true;
@@ -129,8 +142,11 @@ namespace Game.Narrative
                 bool localBoss = currentStory == "shop_boss_battle" && narrative.Capture().Parent != null;
                 scene.Display(currentStage, IsFormalStory || mentorBattle || localBoss, mentorBattle);
                 visualStory = currentStory; visualStage = currentStage;
+                quests.SetObjectivePresentation(scene.Config.QuestId, IsFormalStory ? StoryGuideRules.Objective(currentStage, scene.IsHumanStory) : "");
             }
             if (!IsFormalStory) { if (hud != null) hud.Show(""); return; }
+            if (!Blocked && scene.IsHumanStory && StoryGuideRules.IsAutomaticEntry(currentStage))
+            { AdvanceNarrationAsync(currentStage).Forget(); return; }
             if (hud == null && !hudOpening) OpenHudAsync().Forget();
             UpdateQuest(); UpdateGuide();
         }
@@ -139,12 +155,66 @@ namespace Game.Narrative
             working = true; long generation = sessionGeneration;
             try
             {
-                quests.Track(scene.Config.QuestId);
                 await narrative.StartAsync("spotlight_current", scene.MainTarget.TargetId, lifetime.Token);
             }
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("start_failed", error); startHandled = false; }
             finally { if (generation == sessionGeneration) working = false; }
+        }
+        private async UniTask AdvanceNarrationAsync(string stage)
+        {
+            working = true; long generation = sessionGeneration;
+            var token = lifetime.Token;
+            var intent = narrative.ResultIntent("Success");
+            try
+            {
+                // 以短暂淡出衔接旧教学段，不再要求玩家打赢额外切磋。
+                if (stage == "action_r0070" && curtain != null)
+                { await curtain.CoverAsync(token); await curtain.RevealAsync(CancellationToken.None); }
+                await narrative.SubmitAsync(intent, token);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error) { telemetry.TrackError("narration_failed", error); }
+            finally { if (generation == sessionGeneration) working = false; }
+        }
+        private async UniTask CrossMirrorAsync()
+        {
+            crossingMirror = true;
+            long generation = sessionGeneration;
+            CancellationToken token = sessionLifetime.Token;
+            var encounter = (MonsterEncounterState)flow.Current;
+            encounter.NavigationBlocked = true;
+            bool gameplay = input.Actions.Gameplay.enabled; // lint-ok: 只保存输入图状态，换界后成对恢复。
+            IDisposable hold = pause.Acquire(this);
+            input.DisableMap(InputService.GameplayMap);
+            try
+            {
+                await curtain.CoverAsync(token);
+                await encounter.EnterDemonWorldAsync(token);
+                token.ThrowIfCancellationRequested();
+                Bind(demonBindings);
+                if (scene == null || scene.IsHumanStory || shops.World == null) throw new InvalidOperationException("入镜目标未接入妖界五店");
+                telemetry.Track("mirror_crossed", ("world", "demon"));
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error)
+            {
+                telemetry.TrackError("mirror_failed", error);
+            }
+            finally
+            {
+                hold.Dispose();
+                if (generation == sessionGeneration)
+                {
+                    try { await curtain.RevealAsync(CancellationToken.None); }
+                    finally
+                    {
+                        if (gameplay) input.EnableMap(InputService.GameplayMap);
+                        encounter.NavigationBlocked = false;
+                        crossingMirror = false; working = false;
+                    }
+                }
+            }
         }
         private async UniTask OpenHudAsync()
         {
@@ -174,7 +244,7 @@ namespace Game.Narrative
             bool blocked = Blocked || !input.Actions.Gameplay.enabled || !ui.IsLayerVisible(UILayer.Hud) || shops.HasPendingReply; // lint-ok: 只读动作图启用状态控制提示显隐，不采样玩法输入。
             StoryGuideRules.Action action = StoryGuideRules.Action.None;
             string text = "";
-            if (stage == "action_r0197")
+            if (stage == "action_r0197" && shops.World != null)
             {
                 int shop = shops.ActiveShop;
                 bool quotaReady = shops.Forging.Available >= shops.Forging.ProductCost || shops.Forging.IsForging || shops.Forging.CanSubmit;
@@ -200,8 +270,10 @@ namespace Game.Narrative
                 float radius = scene.Config.GuideRadius + (inGuideRange ? scene.Config.ExitPadding : 0f);
                 inGuideRange = interaction.Actor != null && (interaction.Actor.Anchor.position - point.Position).sqrMagnitude <= radius * radius;
                 action = StoryGuideRules.Select(true, inGuideRange, false, blocked, StoryGuideRules.Action.Interact);
-                if (stage == "enter_r0293") { action = StoryGuideRules.Action.Complete; text = scene.Config.HintFor(action); }
-                else if (action != StoryGuideRules.Action.None) text = scene.Config.Find(stage).Hint;
+                if (stage == "enter_r0293") text = "";
+                else if (action != StoryGuideRules.Action.None) text = stage == "enter_r0171"
+                    ? scene.IsHumanStory ? "靠近镜面，按 {Interact} 穿越。" : "靠近轮回堂值守，按 {Interact} 问询。"
+                    : scene.Config.Find(stage).Hint;
             }
             if (blocked) text = "";
             if (lastStage == stage && lastAction == action && lastRaw == text) return;
@@ -220,12 +292,14 @@ namespace Game.Narrative
         {
             if (scene != null) foreach (var point in scene.Points) { interaction.Unregister(point); point.Bind(scene.Config, null, null); }
             lifetime?.Cancel(); lifetime?.Dispose(); lifetime = null; scene = null;
+            quests.SetObjectivePresentation(0, "");
             if (hud != null) { hud.Show(""); ui.CloseAsync(hud).Forget(); hud = null; }
             working = false; hudOpening = false; inGuideRange = false; rangeStage = lastStage = visualStory = visualStage = "";
         }
         public void Dispose()
         {
             sessionSubscription?.Dispose(); SceneManager.sceneLoaded -= Loaded; SceneManager.sceneUnloaded -= Unloaded; Unbind();
+            sessionLifetime.Cancel(); sessionLifetime.Dispose();
         }
     }
 }

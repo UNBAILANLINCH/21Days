@@ -8,7 +8,7 @@ namespace Game.Quest
 {
     public sealed class QuestSaveData : ISaveData
     {
-        public int Version => 1;
+        public int Version => 3;
 
         public bool Initialized { get; set; }
 
@@ -22,7 +22,22 @@ namespace Game.Quest
 
         public void Migrate(int fromVersion)
         {
-            // 第 1 版无迁移。
+            if (fromVersion >= 3 || Quests == null) return;
+            foreach (var quest in Quests)
+            {
+                if (quest == null || quest.Id != 900) continue;
+                // 移除七项被误当任务的人间对白检查点，妖界成果及后续进度保留。
+                if (fromVersion < 2)
+                {
+                    if (quest.ObjectiveIndex < 7) quest.Count = 0;
+                    quest.ObjectiveIndex = quest.ObjectiveIndex < 7 ? 0 : quest.ObjectiveIndex - 7;
+                }
+                // 旧末项已在会面之后，迁成真实完成，不能重新激活整条任务。
+                if (quest.ObjectiveIndex >= 4)
+                {
+                    quest.ObjectiveIndex = 4; quest.Count = 0; quest.State = (int)QuestState.Completed;
+                }
+            }
         }
     }
 }

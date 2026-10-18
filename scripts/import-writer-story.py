@@ -10,6 +10,10 @@ from pathlib import Path
 
 import openpyxl
 
+# 已接入/保留兼容的场景边界；地点文本变化本身不构成玩家任务。
+# 83、129 是旧档叙事衔接 ID，运行时自动续播；171 才等待玩家按键入镜。
+ENTRY_ROWS = frozenset((26, 83, 129, 171, 188, 198, 215, 293, 339, 384, 397, 427, 435, 469))
+
 
 def compile_rows(rows, occupied_ids):
     trees, stages, records, pending = [], [], [], []
@@ -49,8 +53,7 @@ def compile_rows(rows, occupied_ids):
             raise ValueError(f"第 {number} 行包含选项/分支，需先明确选项结构")
         if scene is not None and location != scene:
             flush()
-            # 同一段说书梦境内的地点改变不要求玩家完成跨场景操作。
-            if not (location.startswith("序章上半") and scene.startswith("序章上半")):
+            if number in ENTRY_ROWS:
                 stage(f"enter_r{number:04d}", "WaitAction", location)
         scene = location
         note = who in ("演出说明（非字幕）", "策划说明（非字幕）")
@@ -99,6 +102,10 @@ def main():
         trees, story, records = compile_rows(sample, set())
         assert [n["text"] for t in trees for n in t["nodes"] if n["kind"] == "Line"] == ["开场", "战后"]
         assert [s["kind"] for s in story["stages"]] == ["Dialogue", "WaitAction", "Dialogue", "End"]
+        changed_scene = [row(1, "说书人", "前情"), row(2, "崔皓", "线索")]
+        changed_scene[1][1] = "人间｜新的叙事地点"
+        _, changed_story, _ = compile_rows(changed_scene, set())
+        assert all(s["kind"] != "WaitAction" for s in changed_story["stages"])
         for occupied, option in [({21000}, "否"), (set(), "是")]:
             sample[0][8] = option
             try:

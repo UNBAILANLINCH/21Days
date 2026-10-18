@@ -4,6 +4,15 @@ namespace Game.Narrative
 {
     public static class StoryGuideRules
     {
+        // 保留旧等待 ID 供存档恢复；这些叙事衔接不要求玩家跑点。
+        public static bool IsAutomaticEntry(string stage) => stage == "action_r0070" || stage == "enter_r0083" || stage == "enter_r0129";
+        public static string Objective(string stage, bool human)
+        {
+            if (human) return stage == "enter_r0171" ? "前往戏班右侧平台，靠近镜面穿越" : "与李诏阳交谈，听取旧案线索";
+            if (stage == "enter_r0171") return "前往轮回堂，向门前值守问询";
+            if (stage == "enter_r0188") return "离开轮回堂，前往坊市入口查看酒肆";
+            return "";
+        }
         public enum Action { None, Interact, Sneak, Equip, Verify, Redirect, Perform, Clothes, Quota, Forge, Guess, Challenge, Meet, Complete }
         public static Action Select(bool eligibleNode, bool inRange, bool completed, bool blocked, Action action) =>
             eligibleNode && inRange && !completed && !blocked ? action : Action.None;

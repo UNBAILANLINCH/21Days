@@ -36,7 +36,7 @@ maturity: seed
 
 ## 入口和作者位置
 
-正常Boot → 标题开始/继续 → MonsterEncounterState → IsometricEncounter（当前SampleScene）。
+正常新局：Boot → 标题 → MonsterEncounterState → SampleScene内Z+300人界 → 镜前E同场景传到妖界对应平台；不卸载／重进。人界停用妖界分组且不绑定五店；妖界原坐标、稳定ID及原玩法保留。入镜后仍须实走左上桥后轮回堂E问询，再到坊市入口E，才进入197三店阶段；不能自动播放这两处对白。Continue按v4 StoryWorld及实际XYZ恢复，两界SceneKey相同，旧档迁移归Session。
 五店在SampleScene的FiveShops下预摆；正式地图替换时重绑入口、点位和角色引用，不重写规则。
 
 | 店铺 | 角色 | 操作 |
@@ -82,7 +82,7 @@ maturity: seed
 | Data/Identity/IdentityConfig.asset | 保留原定义，追加五店职业 |
 | Scenes/Boot.unity | 注册四店Controller与既有Rhythm，关闭Rhythm自动Demo入口 |
 
-上表资产前缀为Assets/_Project/；主灰盒在Assets/Scenes/SampleScene.unity。
+上表资产前缀为Assets/_Project/；主灰盒在Assets/_Project/Scenes/SampleScene.unity。
 人物、建筑和物品由编辑器预摆，进入店铺不会Instantiate。`Main_0..4.prefab` 保留原模板，新地图特定点位记录在 SampleScene 实例；重跑旧灰盒生成或整理菜单不会维护新地图布局。
 
 整店调整使用 **21Days → 关卡 → 点位与动线编辑器**：关联现有五店后点店名，使用专用整组移动手柄或「整组世界位置」。`Main_0..4` 上的 `LevelLayoutGroup` 关联对应导入建筑，店内人员、活动区、操作点和路线随店铺根一起平移，不重挂模型层级。展开人员/点位可单独调整；跨层级任务点和路线可加入关联对象。普通 W 工具仍只移动当前物体，整店移动须点店名激活。详见 [World 操作说明](../world/world-module-guide.md#关卡点位与测试动线编辑2026-10-14)。

@@ -34,6 +34,21 @@ namespace Game.Monster
         private const float AlertBarGapAboveLines = 24f;
 
         [SerializeField] private Transform playerSpawn;
+        [SerializeField] private Transform humanSpawn;
+        [SerializeField] private Transform mirrorArrival;
+        [SerializeField] private GameObject humanWorldRoot;
+        [SerializeField] private GameObject[] demonWorldRoots = Array.Empty<GameObject>();
+        public bool IsHumanWorld { get; private set; }
+        public bool HasStoryWorlds => humanWorldRoot != null;
+        public Transform StorySpawn => IsHumanWorld && humanSpawn != null ? humanSpawn : playerSpawn;
+        public Transform MirrorArrival => mirrorArrival != null ? mirrorArrival : playerSpawn;
+        public void SelectStoryWorld(bool human)
+        {
+            if (human && humanWorldRoot == null) throw new InvalidOperationException("人间地图分组未接线");
+            IsHumanWorld = human;
+            if (humanWorldRoot != null) humanWorldRoot.SetActive(human);
+            foreach (var root in demonWorldRoots) if (root != null) root.SetActive(!human);
+        }
         [SerializeField] private Transform[] patrolPoints;
         [SerializeField] private bool useXZPlane;
         [SerializeField] private Transform playerBody;
@@ -230,7 +245,7 @@ namespace Game.Monster
         }
         public Vector3 PlayerScenePosition => playerBody == null ? Vector3.zero : playerBody.position;
 
-        public Vector2 PlayerStart => playerSpawn == null ? Vector2.zero : ToLogicPosition(playerSpawn.position);
+        public Vector2 PlayerStart => StorySpawn == null ? Vector2.zero : ToLogicPosition(StorySpawn.position);
 
         public void ConfigureXZ(Transform spawn, Transform[] points, Transform playerVisual,
             SpriteRenderer playerRenderer, Transform monsterVisual, SpriteRenderer monsterRenderer)
@@ -676,7 +691,7 @@ namespace Game.Monster
         // Time.timeScale <= 0f（对白 / 面板暂停期间）整块不画，避免压在对话框或暂停面板上。
         private void OnGUI()
         {
-            if (player == null || monster == null || Time.timeScale <= 0f)
+            if (player == null || monster == null || monsterBody == null || !monsterBody.gameObject.activeInHierarchy || Time.timeScale <= 0f)
             {
                 return;
             }

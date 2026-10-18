@@ -37,7 +37,7 @@ maturity: stable
 3. 如果新类型对键格式有约束（像 TalkTo 要求 `Key` 是整数字符串），在 `QuestContent.ValidateObjectives`（`QuestContent.cs:58`）补一段校验。
 4. 找到「谁能判定这个条件被满足」，在那一侧调 `QuestService.Report(kind, key, amount)`——参照
    `QuestObjectiveDriver.HandleDialogueEnded` / `Tick`：一次性事实（如对话结束）在回调里报一次；每帧判定的（如进入范围）在 `Tick` 里判、命中后 `return`（`Report` 会重建 `InProgress` 缓存，一帧只报一次）；
-   `QuestRules.Report`（`QuestRules.cs:95`）本身不用改：它只按 `QuestObjectiveDefinition.Matches(kind, key)` 匹配当前目标。
+   `QuestRules.Report`（`QuestRules.cs`）本身不用改：它只按 `QuestObjectiveDefinition.Matches(kind, key)` 匹配当前目标。
 
 ## 加指引来源
 

@@ -68,7 +68,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
 `ExecutionInteractor.HandleExecuteKey`（`ExecutionInteractor.cs:199`）不选目标、不结算，只记一条拒绝
 （`ExecutionReject.YieldedToInteraction`，埋点 `stealth_execute_rejected`、`reason = interaction_focus`、`focus` = 焦点对象名，
 `ExecutionResolver.cs:186`）；白盒面板 `Inspect` 同口径报「屏幕上有交互提示，这一下按键归交互」。焦点为空时照常走四条门槛。
-焦点由 `MonsterEncounterState.BindExecution` 从容器可选取（`container.TryResolve`，`MonsterEncounterState.cs:167`）经 `Configure` 传入，
+焦点由 `MonsterEncounterState.BindExecution` 从容器可选取（`container.TryResolve`，`MonsterEncounterState.cs`）经 `Configure` 传入，
 组件不 GetComponent；没传（独立原型场景、测试）时不做这层裁决。处决没有提示 UI，所以让位的是它；要反过来让处决优先，只改 `HandleExecuteKey` 一处。
 
 ## 事实键
@@ -168,7 +168,7 @@ S3「潜行与暗杀」与 S4「追逐」共用的**纯规则 / 纯数学内核*
   —— `Sight_BlockedByCover_HidesFromEnemy`、`Sneak_BehindEnemy_AllowsAssassination`，以及接线波新增的
   `ExecuteKey_BehindEnemy_ExecutesTheTarget`（前两条各 5 步演判定，第三条端到端演按 F）。
   **主窗口 2026-10-07 独立复跑：3 条全 PASS**（报告在 `Logs/verify/stealth/`，本地生成物不入库）。
-  - **回放舞台**：`Assets/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
+  - **回放舞台**：`Assets/_Project/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
     玩家推摇杆走北侧路线到巡逻线北侧观察点，怪物是场景里那只真实巡逻怪（`enerme`）。
   - **遮挡体就登记在场景里**（这是正式场景的标准接法，正式场景照抄）：
     `Environment_Graybox/Cover_SightDemo`（box，层 Default，逻辑覆盖 4 × 0.8 米）登记为

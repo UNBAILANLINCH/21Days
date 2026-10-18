@@ -7,6 +7,12 @@ maturity: stable
 
 # Quest 模块指南
 
+## 人间叙事不任务化（2026-10-18）
+
+正式900删除七个人间检查目标及永久阶段二占位，共四项：三店成果、酒肆BOSS、21010、21011，会面后真实完成。原HUD、任务列表及通知保留；`SetObjectivePresentation(questId,text)` 仅覆盖指定任务当前可见目标，人界交谈／镜面、妖界轮回堂／坊市按节点更新，解绑清空，197恢复表内真实成果目标。没有隐藏整套任务UI。
+
+`QuestSaveData` v3：旧v1下标先减七（人界检查归零），旧v2停在原第五项占位的900改为已完成、索引4、计数0；其它任务不变。`QuestConfig.AvailableQuestIds` 在正式资产设为[900]，规则只激活／展示／追踪允许的任务，旧示例进度继续保存在分区，900完成后不自动接示例1001。默认空集合仍保留既有测试／独立配置的全任务行为。
+
 > 改 `Assets/_Project/Scripts/Runtime/Quest/` 之前读这份。对外怎么调看
 > [`quest-external-api.md`](quest-external-api.md)，要加东西看 [`quest-extension-guide.md`](quest-extension-guide.md)。
 > 设计定稿与执行中的修订见 [`PRP/quest-system/prp.md`](../../../../PRP/quest-system/prp.md) 第 7 节；与源码不符时以源码为准。
@@ -70,7 +76,7 @@ maturity: stable
 
 ## 重置进度（ResetProgress）
 
-`QuestService.ResetProgress()`（`QuestService.cs:192`，与读档共用 `RestoreAndBroadcast`）把全部任务打回「新开局」：清空待发布的事件缓冲 →
+`QuestService.ResetProgress()`（`QuestService.cs`，与读档共用 `RestoreAndBroadcast`）把全部任务打回「新开局」：清空待发布的事件缓冲 →
 `rules.Restore(new QuestSaveData())`（一份全新的空分区）→ `rules.ActivateAvailable()` → 写回存档分区 →
 补发事件（每条重新激活的任务一条 `Activated`，进行中任务各一条计数归零的 `Progressed`，至少一条
 `TrackingChanged` 让 HUD 与面板整体刷新）。`IsReady == false` 时记 Warn 并忽略，不抛异常。这是**内存重置**，
@@ -92,7 +98,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 ## 为什么这样设计（源码读不出来的部分）
 
 - **`QuestRules` 不持有存档分区引用**：`ISaveService.Commit` 会整体替换分区实例，长期持有旧引用会把进度写进一份没人读的对象；
-  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs:314`）。
+  `QuestService.Flush` 每次操作后重新 `saves.Get<QuestSaveData>()` 再 `CaptureInto`（`QuestService.cs`）。
 - **事件走 MessagePipe，Core 因此新增 `GameplayInstaller.InstallEvents`**：`Install` 拿不到根作用域的
   `MessagePipeOptions`，Dialogue 因此退回 C# `event`（违反 `EventConventions.cs` 第 1 条）。Quest 不想再开这个例外，
   于是给 `GameplayInstaller` 加一个默认空实现的虚方法，在 `Install` 之前把 `options` 递进来，既有注册器零改动
@@ -142,7 +148,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | 玩家标记 | 玩家根挂 `InteractionActor`（`Game.Interaction`，与统一交互共用） | 无到达判定、无指引；`QuestObjectiveDriver.Tick` / `QuestHudPresenter.Tick` 直接返回 |
 | 入口 | 从 Boot → 标题「开始」进场景才有任务服务 | 直接 Play 玩法场景：服务未初始化，`IsReady == false`，查询返回空、上报被忽略 |
 
-示例接线：`Assets/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；回放也在 SampleScene 上跑。
+示例接线：`Assets/_Project/Scenes/SampleScene.unity` 的 `QuestLocation`（`camp`、`lookout`）；回放也在 SampleScene 上跑。
 
 ## 内容表（Luban）
 
@@ -183,7 +189,7 @@ Quest 与 Session 互相引用（同在 `Game.Runtime` asmdef，编译不拦）�
 | EditMode | `.../QuestTableValidatorTests.cs`（32） | 编辑期校验每条规则的触发与不触发、聚合、排序、运行时兜底、`CollectContext` 收集真实工程键 |
 | EditMode | `.../QuestMainChainTests.cs`（13） | 主线链推导（线性 / 分叉 / 成环 / 空）、▲▼ 调序重写前置、支线解锁分组名 |
 | Showcase | `Tests/Showcase/Quest/QuestShowcase.cs`（3） | HUD 指引（屏内头顶标记 / 屏外贴边箭头）、对白与地点联动（末尾切「已完成」标签核对列表、目标全 ✓、追踪按钮隐藏）、面板暂停与追踪切换（肉眼验收） |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 透视相机、`player`、Elder/Traveler、两个 `QuestLocation` |
+| 回放舞台 | 回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑 | 透视相机、`player`、Elder/Traveler、两个 `QuestLocation` |
 
 跑 `/unity-test EditMode Quest`；视觉验收跑 `/verify-module Quest`（编辑器须打开，本轮尚未跑）。
 

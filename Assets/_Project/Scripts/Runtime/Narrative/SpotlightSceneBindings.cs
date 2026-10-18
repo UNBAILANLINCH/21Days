@@ -52,6 +52,8 @@ namespace Game.Narrative
             {
                 if (point == null || point.Anchor == null) continue;
                 bool visible = humanStory && point.StageId == "enter_r0026" && stage != "enter_r0171";
+                // 赵十四没有离场剧情，留在戏台旁；交互许可仍由当前节点决定。
+                if (humanStory && formal && point.StageId == "enter_r0083") visible = true;
                 foreach (var candidate in points)
                     if (candidate != null && candidate.Anchor == point.Anchor && !StoryGuideRules.IsAutomaticEntry(candidate.StageId) && (candidate.StageId == stage || mentorBattle && candidate.StageId == "action_r0070")) visible = formal;
                 point.Anchor.gameObject.SetActive(visible);

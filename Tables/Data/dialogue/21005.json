@@ -4,14 +4,14 @@
   "nodes": [
     {
       "id": "r0072",
-      "revision": 1,
+      "revision": 2,
       "kind": "Line",
       "speaker": "",
       "speakerName": "李诏阳",
       "side": "Left",
       "expression": "",
       "clearOther": false,
-      "text": "西城，一家门上没有牌子的。",
+      "text": "去戏台旁找赵十四，他就在那里。",
       "next": "r0073",
       "outcome": "",
       "blocking": true,

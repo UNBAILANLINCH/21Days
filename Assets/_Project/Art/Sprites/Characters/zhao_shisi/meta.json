@@ -1,0 +1,17 @@
+{
+  "frameWidth": 512,
+  "frameHeight": 768,
+  "fps": 24,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.020833333333333332
+  },
+  "animations": {
+    "walk": {
+      "groundSpeed": 3
+    },
+    "run": {
+      "groundSpeed": 5
+    }
+  }
+}

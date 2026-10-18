@@ -20,6 +20,46 @@ namespace Game.Tests.Showcase.Narrative
     {
         [UnityTest]
         [Timeout(300000)]
+        public IEnumerator Spotlight_ZhaoShisiWaitsBesideHumanTheater()
+        {
+            yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026"); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("action_r0070"); yield return PlayBattle(); yield return AdvanceFormalDialogue();
+            var narrative = ResolveService<NarrativeService>();
+            var story = ResolveService<SpotlightStoryFlow>();
+            var quests = ResolveService<QuestService>();
+            var interact = ResolveService<IInputService>().Actions.Gameplay.Interact;
+            yield return Step("李诏阳线索结束，任务指向人间戏台旁的赵十四");
+            yield return Check("留在人间等待寻人，没有自动播放赵十四对白", () => story.Bindings.IsHumanStory &&
+                narrative.CurrentStageId == "enter_r0083" && !DialogueRunning && quests.PresentationObjective == "寻找并与赵十四交谈", 5);
+            yield return Input.Press(interact);
+            yield return Check("远处按E不跳过寻人", () => narrative.CurrentStageId == "enter_r0083" && !DialogueRunning, 2);
+            bool saved = false;
+            yield return ResolveService<GameSession>().SaveNowAsync("before_zhao_shisi").ToCoroutine(value => saved = value);
+            Assert.That(saved, Is.True);
+            yield return ResolveService<GameSession>().ContinueAsync(1).ToCoroutine(); yield return WaitCurtainRevealed();
+            yield return Check("继续后仍须到戏台旁主动交谈", () => narrative.CurrentStageId == "enter_r0083" && !DialogueRunning, 5);
+            yield return StoryPoint("enter_r0083", false);
+            var point = story.Bindings.Find("enter_r0083");
+            var puppet = point.Anchor.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>();
+            Assert.That(puppet, Is.Not.Null);
+            Assert.That(puppet.name, Is.EqualTo("Chibi_zhao_shisi"));
+            Assert.That(point.Prompt.Name, Is.EqualTo("赵十四"));
+            yield return Snapshot("人间戏台旁_赵十四等待交谈");
+            yield return Input.Press(interact);
+            yield return WaitUntil("赵十四旁按E才打开原21006对白", () => DialogueRunning && narrative.CurrentStageId == "talk_21006", 5);
+            yield return Check("对白期间赵十四仍在原地且不可重复触发", () => point.Anchor.gameObject.activeInHierarchy && !point.CanInteract, 3);
+            yield return WaitUntil("赵十四首句完整显示", () => ResolveService<Game.Dialogue.DialogueRules>().Current != null &&
+                ResolveService<Game.Dialogue.DialogueRules>().Current.Id == "r0085" &&
+                ResolveService<Game.Dialogue.DialogueRules>().Phase == Game.Dialogue.DialogueSaveData.Phase.AwaitAdvance, 8);
+            yield return Snapshot("人间戏台旁_赵十四原剧情");
+            yield return AdvanceFormalDialogue();
+            yield return Check("原线索剧情结束才转入入镜目标，赵十四仍留在戏台旁", () =>
+                narrative.CurrentStageId == "enter_r0171" && point.Anchor.gameObject.activeInHierarchy && !point.CanInteract, 5);
+        }
+
+        [UnityTest]
+        [Timeout(300000)]
         public IEnumerator Spotlight_MentorTeachingRequiresInteractionAndBattle()
         {
             yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();

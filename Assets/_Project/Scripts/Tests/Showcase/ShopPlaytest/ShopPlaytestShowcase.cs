@@ -104,6 +104,8 @@ namespace Game.Tests.Showcase.ShopPlaytest
                     Assert.That(ResolveService<NarrativeService>().CurrentStageId, Is.Not.EqualTo("action_r0070"), "教学胜利后才能继续主线");
                     deadline = Time.realtimeSinceStartup + 100;
                 }
+                if (ResolveService<NarrativeService>().CurrentStageId == "enter_r0083")
+                    yield return StoryPoint("enter_r0083");
                 yield return AdvanceFormalDialogue(); yield return null;
             }
             yield return WaitUntil("完成教学与人间对白后到达穿越点", () => ResolveService<NarrativeService>().CurrentStageId == "enter_r0171" && ResolveService<SpotlightStoryFlow>().CanSave, 5);
@@ -120,10 +122,13 @@ namespace Game.Tests.Showcase.ShopPlaytest
             // 人物有实体碰撞，走到交互范围即可；不能要求穿进人物中心。
             if (ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory)
             {
-                if (stage == "enter_r0171")
+                if (stage == "enter_r0083" || stage == "enter_r0171")
                 {
                     yield return MoveTo(new Vector2(-8f, 282.5f));
                     yield return MoveTo(new Vector2(14f, 282.5f));
+                }
+                if (stage == "enter_r0171")
+                {
                     yield return MoveTo(new Vector2(22.5f, 282.5f));
                     yield return MoveTo(new Vector2(22.5f, 286.8f));
                 }

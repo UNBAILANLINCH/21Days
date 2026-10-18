@@ -22,9 +22,10 @@ MonoBehaviour:
     verb: "\u5207\u78CB"
     hint: "\u524D\u60C5\u5BF9\u767D\u8FDE\u7EED\u64AD\u653E\u3002"
   - stageId: enter_r0083
-    displayName: "\u524D\u60C5"
+    displayName: "\u8D75\u5341\u56DB"
     verb: "\u4EA4\u8C08"
-    hint: "\u524D\u60C5\u5BF9\u767D\u8FDE\u7EED\u64AD\u653E\u3002"
+    hint: "\u5BFB\u627E\u5E76\u4E0E\u8D75\u5341\u56DB\u4EA4\u8C08\uFF0C\u9760\u8FD1\u540E\u6309
+      {Interact}\u3002"
   - stageId: enter_r0129
     displayName: "\u524D\u60C5"
     verb: "\u67E5\u9605"

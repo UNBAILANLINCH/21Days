@@ -6,7 +6,7 @@ namespace Game.Tests.EditMode.Narrative
     public sealed class StoryGuideRulesTests
     {
         [TestCase("action_r0070", false)]
-        [TestCase("enter_r0083", true)]
+        [TestCase("enter_r0083", false)]
         [TestCase("enter_r0129", true)]
         [TestCase("enter_r0188", false)]
         [TestCase("enter_r0171", false)]
@@ -16,6 +16,13 @@ namespace Game.Tests.EditMode.Narrative
         [Test]
         public void Objective_MentorTeaching_RequestsTurnBasedBattle()
         { Assert.That(StoryGuideRules.Objective("action_r0070", true), Is.EqualTo("与李诏阳切磋，学习回合制战斗")); }
+        [TestCase("enter_r0083")]
+        [TestCase("talk_21006")]
+        public void Objective_ZhaoShisi_RequestsFindingAndConversation(string stage)
+        {
+            Assert.That(StoryGuideRules.Objective(stage, true), Is.EqualTo("寻找并与赵十四交谈"));
+            Assert.That(StoryGuideRules.Objective(stage, false), Is.Empty);
+        }
         [Test]
         public void Select_RequiresCurrentNodeAndRegionAndUnfinishedUnblocked()
         {

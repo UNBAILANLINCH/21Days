@@ -116,7 +116,7 @@ S1「换皮与附身」与 S2「身份暴露与怀疑」共用的**纯规则内�
 - **Showcase**：`Assets/_Project/Scripts/Tests/Showcase/Identity/IdentityShowcase.cs`
   —— 2 条用例：`EnterIdentity_StopsEnemyAttack_ExitRestoresIt`（5 步、5 个检查点；2026-10-14 走位改到**橙区**，
   因为红区现在会露馅）与 `Exposure_RedZone_LosesIdentityAndMonsterChases`（新增：站进红区 → 身份失效 + 怪起追）。
-  - **回放舞台**：`Assets/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
+  - **回放舞台**：`Assets/_Project/Scenes/SampleScene.unity`，走 Boot 真实流程（`ScenePath => null` + `EnterWorldFromTitle`）：
     标题「开始」→ 进世界 → 推摇杆沿北侧路线绕开村口触发区，走到巡逻线北侧观察点 → 走到场景里那只巡逻怪（`enerme`）正前方。
   - **接线走真实容器**：`IdentityRules` / `IdentityState` / `IdentityLedger` 全部 `ResolveService` 拿，
     与 `MonsterInstaller` 构建回调 `BindIdentity` 给 `EncounterStep` 的是**同一只** `IdentityState`；

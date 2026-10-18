@@ -63,7 +63,7 @@
 
 ## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
 - 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
-- 根因：Showcase 从独立验证场景迁到 `Assets/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
+- 根因：Showcase 从独立验证场景迁到 `Assets/_Project/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
 - 正确做法：回放先用 `WalkTo` / `GoToPatrolLookout` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体或 `ShowcaseScenario.DemoScene.cs` 的坐标常量读，不写死数字。
 - 关联：`.claude/rules/module-verify.md`、`docs/module-dev-spec.md`。日期：2026-09-28。
 
@@ -444,7 +444,7 @@
 - 关联：`ai-docs/docs/modules/dialogue/dialogue-module-guide.md #对白面板视觉与演出面板共用规范`、`ai-docs/docs/modules/performance/performance-module-guide.md #对白面板`、`Assets/_Project/Scripts/Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`；2026-09-28。
 
 ## 正式场景引用了测试程序集脚本
-- 现象：`Assets/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
+- 现象：`Assets/_Project/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
 - 根因：asmdef 依赖方向只在代码层有 `invariants.py` 拦（Runtime 不引用 Tests），资产层（场景 / 预制体挂了哪个脚本）没人查；回放用的临时控制器顺手挂进了正式场景。
 - 正确做法：正式场景、预制体只挂 `Scripts/Core/`、`Scripts/Runtime/` 下的脚本；回放需要的控制器由 Showcase 运行时 `AddComponent` / 实例化并 `Track()`。`invariants.py` 新增「正式场景 / 预制体不引用测试程序集脚本」检查，`/gc` 会报。
 - 关联：`.claude/rules/project-root.md #目录与 asmdef 依赖方向`、`.claude/skills/evolution/invariants.py`；2026-09-28。

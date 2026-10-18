@@ -36,7 +36,7 @@ JSON 块的，JSON 里只要有一个非 ASCII 字符（中文材质名就算）
 **不要放**：`.glb` / `.fbx` 以外的中间产物（`.blend` 源文件、导出临时件）；压缩包（`.rar` / `.zip` / `.7z`）——
 Unity 不导入压缩包，改一处就要整包重存一份。
 
-## 在 demo 场景（`Assets/Scenes/SampleScene.unity`）里的实例
+## 在 demo 场景（`Assets/_Project/Scenes/SampleScene.unity`）里的实例
 
 2026-10-08 放入，走 Unity MCP，场景由 Unity 自己序列化：
 

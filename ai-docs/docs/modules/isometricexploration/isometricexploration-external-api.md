@@ -43,7 +43,7 @@ Addressables：`UI` 组地址 `ExplorationHudView`（预制体 `Assets/_Project/
 
 ## 场景契约
 
-正式遭遇要求把 `Assets/Scenes/SampleScene.unity` 以 Addressables 地址 `IsometricEncounter` 登记后加载。
+正式遭遇要求把 `Assets/_Project/Scenes/SampleScene.unity` 以 Addressables 地址 `IsometricEncounter` 登记后加载。
 场景必须显式保存 `EncounterSceneView`、玩家出生点、至少一个巡逻点，以及玩家、敌人与纸片引用。
 玩家 `PlayerInput` 在直接播放时启用，由 `StandaloneEncounterController` 读取；Boot 路径下该控制器自行停用。
 双方角色没有任何组件驱动 `Rigidbody` 速度（历史原型 `IsometricPlayerController3D` 已删除）——刚体只是无重力运动学体，

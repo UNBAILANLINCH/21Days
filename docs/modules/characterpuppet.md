@@ -58,7 +58,7 @@
 - **5 套占位序列帧小人**：明日方舟基建小人（amiya / chen / skadi / texas / exusiai）离线渲染的待机、走路帧，版权归鹰角，仅作开发期占位。
 - **5 个预制体**：`Assets/_Project/Prefabs/Characters/Chibi_<名字>.prefab`，由菜单 **21Days → 角色 → 从序列帧生成小人…** 生成。
 - **SampleScene**：玩家 amiya、巡逻者 chen、三个 NPC 分别是 skadi / texas / exusiai，原来的整张纸片隐藏保留（只当朝向来源）。
-- **回放**：在 `Assets/Scenes/SampleScene.unity` 上跑，一只小人（`Chibi_amiya`）按「站 2 秒 → 右走 → 左走 → 停下 → 走路 3 → 奔跑 5 → 停下 → 模拟对话暂停」回放，检查动画、朝向与走跑步频差别，已通过。
+- **回放**：在 `Assets/_Project/Scenes/SampleScene.unity` 上跑，一只小人（`Chibi_amiya`）按「站 2 秒 → 右走 → 左走 → 停下 → 走路 3 → 奔跑 5 → 停下 → 模拟对话暂停」回放，检查动画、朝向与走跑步频差别，已通过。
 - 早期的「5 张分件图拼接小人」已于 2026-09-28 被序列帧小人替换并删除。
 
 ## 6. 已知限制与还没做的

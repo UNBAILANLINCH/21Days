@@ -267,7 +267,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/CharacterPuppet/ChibiPuppetPartsTests.cs` | 拆件层级下从首个有效渲染器回溯共同 `Sprite` 容器，使交互回弹覆盖全身；覆盖根渲染器、平铺/嵌套拆件及空引用 |
 | PlayMode | `Assets/_Project/Scripts/Tests/PlayMode/CharacterPuppet/CustomerPartsAnimationTests.cs` | 两套真实预制体按 3 / 5 单位每秒位移切到 Walk / Run，停步回 Idle；时停强制 Idle 且 Animator 继续按 unscaled 时间播放；醉酒顾客静止自动进入 Drink，移动立即打断到 Walk |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/CharacterPuppet/CharacterPuppetShowcase.cs`（2026-09-28 重写，走 Boot 真实流程）| 四条用例，全部标题「开始」进 SampleScene（`EnterDemoWorld`）后驱动场景里 `player` 下现成的 `Chibi_amiya`：`FaceTowards_TurnsWithTweenAndHoldsUntilMoving`（对静止玩家调 `FaceTowards` 看身后 → 逐帧盯根缩放、翻面中途截图 → 转完朝向反向且保持 → 原地站 1 秒朝向不被纸片拉回 → 纵向走一下保持解除、转回纸片朝向）、`IdleWalkTurnStop_PlaysMatchingAnimation`（待机 → 右走 Walk、`localScale.x > 0` → 左走翻面 → 停下回 Idle）、`WalkVersusRun_RunPlaysFaster`（3 单位/秒走路 `Speed` ≈ 1.0 vs 5 单位/秒奔跑：amiya 无 run 帧，仍 Walk 态、`Speed` ≈ 1.6 且高于走路）、`WorldPauseDuringDialogue_IdleKeepsPlaying`（走到长者旁按交互键拉起对白 1001，时停期间 Idle 的 normalizedTime 仍增长；按「跳过」→ 确认 → 选第二项「拒绝」关掉对白，世界恢复） |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 走 Boot 真实流程，驱动场景里 `player/Visual` 下已配好 `facingSource` 的 `Chibi_amiya`，不再另生成独立小人 |
+| 回放舞台 | 回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑 | 走 Boot 真实流程，驱动场景里 `player/Visual` 下已配好 `facingSource` 的 `Chibi_amiya`，不再另生成独立小人 |
 
 - Showcase 走 Boot 真实流程（`LoadBootScene` 默认 `true`，`ScenePath => null`），虚拟手柄推摇杆驱动真实 `PlayerModel` 位移，
   小人只从这个真实位移反推动画，不再由协程直接推根节点；对白时停用例中途失败留下未关的对白，`[UnityTearDown]`

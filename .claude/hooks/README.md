@@ -96,10 +96,10 @@ printf '{"session_id":"smoke","hook_event_name":"PostToolUse","tool_name":"Read"
 cat .claude/.cache/reads/smoke.jsonl
 
 # 2) required-reads —— PreToolUse 查闸：没读过 unity-assets.md 的会话改场景 → deny
-printf '{"session_id":"fresh","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity"}}' \
+printf '{"session_id":"fresh","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity"}}' \
   | python .claude/hooks/required-reads.py
 # 换成上面记过账的 smoke 会话 → 静默放行
-printf '{"session_id":"smoke","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity"}}' \
+printf '{"session_id":"smoke","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity"}}' \
   | python .claude/hooks/required-reads.py
 
 # 3) Windows 反斜杠绝对路径也认（把 X/工程根 换成实际盘符与目录名）
@@ -153,7 +153,7 @@ printf '{"session_id":"smoke","hook_event_name":"PreCompact"}' | python .claude/
 
 ```bash
 # 7) guard.js —— 拦生成物
-printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity.meta"}}' \
+printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity.meta"}}' \
   | node .claude/hooks/guard.js
 ```
 

@@ -116,7 +116,7 @@ MonsterRules.DropItemIds（= YaoCatalog.DropItemsOf(yao_id)，来自 Tables/Data
 | 玩家标记 | 玩家根挂 `InteractionActor`（Game.Interaction） | 无标记：统一焦点让位，箱子永远不成为焦点 |
 | 入口 | 从 Boot → 标题「开始」进场景才有 `LootService` | 直接 Play 玩法场景：任务上报会跳过并记 Warn（`quest.IsReady == false`） |
 
-示例接线：`Assets/Scenes/SampleScene.unity` 的 `Crates` 根节点下 `Crate_A`（营地，itemId 1005 破旧信笺 ×1，线索；B1 背包白盒由 1001 改来）、
+示例接线：`Assets/_Project/Scenes/SampleScene.unity` 的 `Crates` 根节点下 `Crate_A`（营地，itemId 1005 破旧信笺 ×1，线索；B1 背包白盒由 1001 改来）、
 `Crate_B`（瞭望点，itemId 1002 精钢长剑 ×1）、`Crate_C`（灰盒另一角，itemId 1004 治疗药水 ×2）、
 `Crate_D`（(12, -8)，itemId 1401 水痕 ×1）与 `Crate_E`（(13.5, -8)，itemId 1102 湿皮 ×1）——**后两只是 2026-10-09 为「背包 · 合成」这条 demo 示例加的**：
 占位配方（`ItemRecipeEntry.PlaceholderOfficeKey`，出处 `05_皮面具与道具.md:113 R7`）要水痕 + 湿皮 → 进入废弃官署的钥匙，

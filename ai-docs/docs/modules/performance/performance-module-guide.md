@@ -278,7 +278,7 @@ Performance 不认识任何对白名词，输入图常量 `"Dialogue"` 写死在
 | 对白插播 | 对白节点 JSON 的 `performance` 字段非空，且 `Tables/Defines/dialogue.xml` 已生成对应字段 | 空串：不插播；服务未注册：记 Warn 埋 `performance_unavailable` 直接显示台词 |
 | 入口 | 从 Boot → 标题「开始」进场景才有演出服务与场景绑定 | 直接 Play 玩法场景：触发器 `TryFire` 记 Warn「未绑定演出服务」 |
 
-示例：回放舞台 `Assets/Scenes/SampleScene.unity`（Main Camera 已排除第 9 层剔除遮罩；场景里唯一的触发区是村口
+示例：回放舞台 `Assets/_Project/Scenes/SampleScene.unity`（Main Camera 已排除第 9 层剔除遮罩；场景里唯一的触发区是村口
 `Trigger_VillageEntrance`，挂世界舞台示例，见上「示例 `perf_sample_scene_talk`」；对白 1003 不挂在任何 NPC 上，只由回放用代码拉起）。
 示例演出只剩世界舞台的 `perf_sample_scene_talk`；旧叠加示例 greeting（模板工厂建的预制体 + 时间轴 + 入场动画）已下架，
 Addressables 地址一并移除。
@@ -315,7 +315,7 @@ Addressables 地址一并移除。
 | EditMode（Dialogue 侧） | `Tests/EditMode/Dialogue/DialogueControllerTests.cs` | 插播摆放：传锚点 → 演出服务收到 `HasValue == true` 且位姿等于锚点；不传 → 收到 `None`。插播期间场景角色的显隐已改由 `PerformanceService.PlayAsync` 统一处理，不再在本类测（见上 `PerformanceServiceWorldTests`） |
 | Showcase | `Tests/Showcase/Performance/PerformanceShowcase.cs`（4 条，全部用世界舞台示例 `perf_sample_scene_talk`） | `PlayById_ShowsSubtitlesAndRestoresWorld`：代码拉起并摆到村口 `Trigger_VillageEntrance.Anchor`（对白面板 / 字幕 / 时停 / 舞台落在锚点 / 停顿确认 / 结束恢复，PRD A2）；`HoldSkip_EndsEarlyWithSkippedOutcome` 长按跳过（A3）；`Trigger_PlaysOnEnter_FollowsOnceFlag` 场景触发按 Once 判定（A4）；`DialogueNode_PlaysPerformanceBeforeSecondLine` 对白 1003 经 `DialogueService.PlayAsync(1003, Npc_Elder)` 在第二句前插播，查演出实例根与 `Npc_Elder` 水平距离、高度差都 < 0.5（A5）；插播期间查 玩家、长者、旅人、村民、巡逻怪与 Yao 根下 Renderer 全部 `enabled == false`（截图「插播·场景角色已隐藏」），回到对白后查全部恢复为进入插播前的值。代码试播也检查同一批角色隐藏与结束恢复 |
 | Showcase | `Tests/Showcase/Performance/ScenePerformanceShowcase.cs`（2 条） | SampleScene 村口触发世界舞台示例：头像 / 说话者逐句、舞台相机接管、玩家与 NPC（含手工名单外的 Yao）/ 巡逻怪 / 标记隐藏，播放期间时间轴推进而模拟 Tick 与玩家坐标不变，结束后 Tick 恢复、五人在画内；「面板显示第一句」前新增瞬态检查「第一句逐字显示中（0 < 已显示字数 < 总字数）」；逐句走完 / 跳过后全部恢复；`WalkIntoTrigger()` 拍 before 快照前先检查「回放环境干净：演出尚未运行、玩家存活」（见 `ai-docs/pitfalls.md`）；新增 LOG 步骤：某句停顿时点左上「LOG」打开台词记录（内容含「阿米娅：」）→ 静置 0.5 秒真实时间验证导演没走、仍停在停顿 → 点「关闭」；随后在第三句验证点右上「自动」后标签变「自动中」，不再手动确认也能自行播完 |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑 | 见「接线要求」示例 |
+| 回放舞台 | 回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑 | 见「接线要求」示例 |
 
 跑 `/unity-test EditMode Performance`；视觉验收跑 `/verify-module Performance`（编辑器须打开）。
 

@@ -12,7 +12,7 @@ alwaysApply: false
 - 改场景 / 预制体**优先通过 Unity MCP 在编辑器里做**（`manage_gameobject`、`manage_scene`），让 Unity 自己序列化。直接改 `.unity` / `.prefab` 文本只在用户明确要求时，且只改明确的字段，不动 `fileID` / `guid`。
 - 可复用的对象做成预制体，场景里只放实例；预制体改动走 Prefab 本身，不在场景实例上堆 override。
 - 场景尽量小而多（主场景 + 功能子场景 Additive），减少多人/多会话同时改同一场景的合并冲突。
-- 正式场景接某功能，照 `Assets/Scenes/SampleScene.unity` 里该功能的接法抄（挂哪些组件、引用哪些配置资产、触发怎么接），
+- 正式场景接某功能，照 `Assets/_Project/Scenes/SampleScene.unity` 里该功能的接法抄（挂哪些组件、引用哪些配置资产、触发怎么接），
   只改内容（位置、数量、具体资产）不改接法；SampleScene 没有的接法先补进 SampleScene 并让回放覆盖，再用到正式场景。
 
 ## ScriptableObject 配置
@@ -31,6 +31,7 @@ alwaysApply: false
 - `.meta` 由 Unity 生成，随资产一起提交；移动/删除/重命名资产用 `git mv` / `git rm` 连同 `.meta`。
 - 新建文件后要等 Unity 刷新生成 `.meta` 再提交，否则别人打开工程会 GUID 变动、引用断裂。
 - 序列化文件按文本处理（`.gitattributes` 已设 `text eol=lf`）；大素材（图、音、模型）标 `binary`，体积上来再考虑 git-lfs。
+- 飞书角色交付必须按 [资产映射与接收规则](../../ai-docs/docs/feishu-asset-map.md) 核对包内文件、目标与已有绑定；新增附件不能只提醒后静默跳过。已有动画角色的不同版本先保留到角色交付区，不直接覆盖已标定拆件；本地接收、Unity 导入和服务器发布状态分别报告。
 
 ## 检查清单
 

@@ -38,7 +38,7 @@
 | 场景 / 界面 | 性质 | 说明 |
 | --- | --- | --- |
 | `Assets/_Project/Scenes/Boot.unity` + `TitleView` | **正式（当前唯一）** | 标题 / 登录页：功能正式（开始游戏 / 设置 / 退出游戏 / 版本号），美术占位，替换清单见[美术手册 6.10](../artist-guide.md) |
-| `Assets/Scenes/SampleScene.unity`（Addressables 地址 `IsometricEncounter`） | 非正式 | 功能 demo 示例场景 + 模块回放舞台；`IsometricEncounter` 临时指向，正式内容将指向 `Assets/_Project/Scenes/` 下新场景 |
+| `Assets/_Project/Scenes/SampleScene.unity`（Addressables 地址 `IsometricEncounter`） | 非正式 | 功能 demo 示例场景 + 模块回放舞台；`IsometricEncounter` 临时指向，正式内容将指向 `Assets/_Project/Scenes/` 下新场景 |
 | `Assets/_Project/Scenes/MonsterEncounter.unity` | 非正式 | 早期遭遇原型；`Sample.unity` 已于 2026-09-28 删除 |
 
 ## 怎么维护

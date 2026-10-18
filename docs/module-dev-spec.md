@@ -70,7 +70,7 @@ AI 不做视觉验收，只负责把回放跑出来、把报告和截图摆到�
 3. 改 `Module` 返回模块名（PascalCase）；`ScenePath` 默认返回 `null`，用例开头 `yield return EnterWorldFromTitle();` 走 Boot 真实流程进世界；
    不进世界、只叠加加载 SampleScene 验框架机制时才返回 `ShowcaseOptions.DemoScenePath`。
 4. 把自检的步骤换成模块行为：一条 `[UnityTest]` 讲一个用户可见行为，3～10 步。
-5. 需要 demo 物体就用 MCP 把它加进 `Assets/Scenes/SampleScene.unity`（预制体实例化，不堆 override），存盘；或在回放里运行时生成并 `Track()` 清理。
+5. 需要 demo 物体就用 MCP 把它加进 `Assets/_Project/Scenes/SampleScene.unity`（预制体实例化，不堆 override），存盘；或在回放里运行时生成并 `Track()` 清理。
 6. `Game.Core` / `Game.Runtime` 已存在时，确认它们在 `Game.Tests.Showcase.asmdef` 的 `references` 里，否则引用不到模块类型。
 7. 跑 `/verify-module <模块>`。
 
@@ -191,7 +191,7 @@ namespace Game.Tests.Showcase.Player
 | 现象 | 多半是 | 怎么办 |
 | --- | --- | --- |
 | `No Unity Editor instances` | 编辑器没开，或 bridge 没启动 | 打开 Unity，`Window → MCP for Unity` 确认 bridge 运行中再重跑；不重试、不改 `.mcp.json` |
-| 回放没开始就报错 / 场景是空的 | 编辑器还停在 Play 模式，或所需 demo 物体没放进 SampleScene | 先停止 Play；确认 `Assets/Scenes/SampleScene.unity` 里有回放需要的对象，或改成运行时生成并 `Track()` |
+| 回放没开始就报错 / 场景是空的 | 编辑器还停在 Play 模式，或所需 demo 物体没放进 SampleScene | 先停止 Play；确认 `Assets/_Project/Scenes/SampleScene.unity` 里有回放需要的对象，或改成运行时生成并 `Track()` |
 | 截图全黑 | `Snapshot` 撞上帧边界，或 Game 视图被别的窗口完全挡住 | 保证 Game 视图可见；`Snapshot` 前加一步 `Wait(0.2f)`；批处理无图形时截图本来就跳过 |
 | 某个检查点一直红 | 期望写错了（比如查了看不见的内部状态），或模块行为确实不对 | 先看报告里那一步的截图对不对；只在数值上说不通的检查点，该挪去 EditMode |
 | 回放太慢等不住 | 节奏倍率是标准或慢速 | 菜单切 `快速 (x0.25)`；确认没红之后再切回标准细看 |

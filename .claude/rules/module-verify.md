@@ -20,7 +20,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
 | 命名空间 | `Game.Tests.Showcase.<Module>` |
 | 类名 | `<Module>Showcase : ShowcaseScenario`，带 `[Category("Showcase")]` |
 | 测试方法 | `[UnityTest] public IEnumerator <行为>_<期望>()`，如 `TakeDamage_ShowsHealthDrop` |
-| 回放舞台 | `Assets/Scenes/SampleScene.unity`（即 `ShowcaseOptions.DemoScenePath`），不建独立验证场景 |
+| 回放舞台 | `Assets/_Project/Scenes/SampleScene.unity`（即 `ShowcaseOptions.DemoScenePath`），不建独立验证场景 |
 | 报告 | `Logs/verify/<模块小写>/<yyyyMMdd-HHmmss>/report.md` + 截图 `NN-<名字>.png`，另复制一份 `latest.md` |
 
 框架代码在 `Showcase/Framework/`，模板在 `Showcase/SelfTest/ShowcaseSelfTest.cs`。
@@ -71,7 +71,7 @@ Showcase 是**给人看的回放**：一条 `[UnityTest]` 按固定顺序调模�
   「不读 `Input.*`」指旧版 `UnityEngine.Input` 静态 API 与 `Input.touches`，走 `Input`/`WalkTo` 驱动的动作路径不算。
 - 每步 hold 1～3 秒；**至少在末尾 `Snapshot` 一次**；`Check` 必须对应肉眼可见或数值可见的变化——
   检查一个屏幕上看不出区别的内部标志位，属于写错了地方，该去 EditMode。
-- 回放统一在 `Assets/Scenes/SampleScene.unity` 上跑；**优先走 Boot 真实流程进场**（`EnterWorldFromTitle`，`ScenePath` 返回 `null`），
+- 回放统一在 `Assets/_Project/Scenes/SampleScene.unity` 上跑；**优先走 Boot 真实流程进场**（`EnterWorldFromTitle`，`ScenePath` 返回 `null`），
   只叠加加载 SampleScene（`ScenePath` 返回 `DemoScenePath`）留给验框架机制、不验玩法的回放；回放需要的物体作为 demo 内容放进 SampleScene，
   或由回放运行时生成并 `Track()` 清理；**不许改变从标题「开始」进 SampleScene 的正常游玩表现**。
 - **移动真走不瞬移**：用 `WalkTo` / `Walk` 经虚拟摇杆走，不 `playerRules.Reset` 瞬移；长距离挪位（十几个单位以上、走路本身不是

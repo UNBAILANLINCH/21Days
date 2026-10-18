@@ -20,7 +20,7 @@ Unity 版本以 `ProjectSettings/ProjectVersion.txt` 为准。
 
 ## 目录约定（细则见 `.claude/rules/project-root.md`）
 
-自己的内容全放 `Assets/_Project/`；模板留下的 `Assets/Scenes/`、`Assets/Settings/` 原位不动；第三方包走 Package Manager 或 `Assets/Plugins/`。
+自己的内容全放 `Assets/_Project/`；场景统一放 `Assets/_Project/Scenes/`（含从模板迁入的 SampleScene）；模板留下的 `Assets/Settings/` 原位不动；第三方包走 Package Manager 或 `Assets/Plugins/`。
 
 ```
 Assets/_Project/

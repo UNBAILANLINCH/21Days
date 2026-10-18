@@ -146,7 +146,7 @@ S7「BOSS 战」的**回合制作战内核**（纯规则 + 数据）：三种进
   - **10 件道具（已落地）**（07:199–211）：**先前「仓库里没有 `tbitem` 表」的判断是错的**——它是 Excel 定义的表
     （`Tables/Data/item.xlsx` → `Assets/_Project/Data/Config/tbitem.bytes`，注册在 `__tables__.xlsx`、结构在 `__beans__.xlsx`）；
     `Tables/Defines/` 里没有 `item.xml` 是**对的**，建了会报重复定义。10 件战斗消耗品按表内「每类占一个 100 段」的惯例
-    新开 **1801–1810** 写进 item.xlsx（原文没给 id；`quality` / `price` 原文也没给，一律 Common / 0 占位），
+    新开 **2001–2010** 写进 item.xlsx（原文没给 id；`quality` / `price` 原文也没给，一律 Common / 0 占位），
     跑 `scripts/gen-tables.ps1` 重新生成（16 → 26 行）。内核侧：`BattleItemSettings` 从「一件治疗道具」扩成**效果表**
     （`BattleItemEffect` + 9 种 `BattleItemEffectKind`），效果落在 `PlayerBattleRules`（回血 / 怒气 / 护盾 / 减伤 / 加攻 / 吸血 / 回春 / 额外一招）
     与 `BattleSession.ApplyItemEffect`，悬停详情在 `BattleHudRules.DescribeItemEffect`。

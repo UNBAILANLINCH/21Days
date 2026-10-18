@@ -227,7 +227,7 @@ namespace Game.Tests.EditMode.TurnBased
                 }
 
                 Assert.That(asset.Items.Effects.Count, Is.EqualTo(10), "07:199-211 是 10 件道具");
-                Assert.That(asset.Items.TryGet("1801", out BattleItemEffect vitality), Is.True, "活力药剂在表里");
+                Assert.That(asset.Items.TryGet("2001", out BattleItemEffect vitality), Is.True, "活力药剂在表里");
                 Assert.That(vitality.Kind, Is.EqualTo(BattleItemEffectKind.HealFixed));
                 Assert.That(vitality.Amount, Is.EqualTo(50), "07:201「恢复主角 50 点生命值」");
             }

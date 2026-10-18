@@ -175,15 +175,15 @@ namespace Game.Tests.EditMode.Battle
         [Test]
         public void ItemTooltip_EffectFromSettings()
         {
-            // sp07:199-211 的效果表：1801 活力药剂回 50 点、1808 坚韧斗篷 1 层护盾；没配效果的道具写「暂无效果」。
+            // sp07:199-211 的效果表：2001 活力药剂回 50 点、2008 坚韧斗篷 1 层护盾；没配效果的道具写「暂无效果」。
             var items = new BattleItemSettings(new[]
             {
-                new BattleItemEffect("1801", BattleItemEffectKind.HealFixed, 50),
-                new BattleItemEffect("1808", BattleItemEffectKind.Shield, 0, charges: 1),
+                new BattleItemEffect("2001", BattleItemEffectKind.HealFixed, 50),
+                new BattleItemEffect("2008", BattleItemEffectKind.Shield, 0, charges: 1),
             });
 
-            string potion = BattleHudRules.ItemTooltip(new BattleItemSlot("1801", "活力药剂", 2, false), items, true);
-            string cloak = BattleHudRules.ItemTooltip(new BattleItemSlot("1808", "坚韧斗篷", 1, false), items, false);
+            string potion = BattleHudRules.ItemTooltip(new BattleItemSlot("2001", "活力药剂", 2, false), items, true);
+            string cloak = BattleHudRules.ItemTooltip(new BattleItemSlot("2008", "坚韧斗篷", 1, false), items, false);
             string other = BattleHudRules.ItemTooltip(new BattleItemSlot("1001", "铜钱", 1, true), items, false);
 
             Assert.That(potion, Does.Contain("活力药剂").And.Contain("×2").And.Contain("恢复 50 点生命值").And.Contain("每场战斗限用一次"));

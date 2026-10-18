@@ -12,16 +12,16 @@ namespace Game.Tests.EditMode.TurnBased
 {
     public sealed class BattleItemEffectTests
     {
-        private const string Vitality = "1801";   // 活力药剂 恢复 50 点
-        private const string RageCrystal = "1802"; // 狂怒结晶 怒气补满
-        private const string IronTalisman = "1803"; // 铁壁护符 2 回合受伤 -40%
-        private const string SharpOintment = "1804"; // 锐锋油膏 3 次攻击 +7
-        private const string BloodPotion = "1805";  // 浴血药剂 3 回合命中回 12
-        private const string BigPotion = "1806";    // 大瓶生命药剂 恢复 70 点
-        private const string RageShard = "1807";    // 瞬怒晶石 +2 怒气
-        private const string Cloak = "1808";        // 坚韧斗篷 1 层护盾
-        private const string QuickPowder = "1809";  // 迅击粉末 本回合多出一招
-        private const string RootDew = "1810";      // 固本甘露 3 回合每回合末回 25
+        private const string Vitality = "2001";   // 活力药剂 恢复 50 点
+        private const string RageCrystal = "2002"; // 狂怒结晶 怒气补满
+        private const string IronTalisman = "2003"; // 铁壁护符 2 回合受伤 -40%
+        private const string SharpOintment = "2004"; // 锐锋油膏 3 次攻击 +7
+        private const string BloodPotion = "2005";  // 浴血药剂 3 回合命中回 12
+        private const string BigPotion = "2006";    // 大瓶生命药剂 恢复 70 点
+        private const string RageShard = "2007";    // 瞬怒晶石 +2 怒气
+        private const string Cloak = "2008";        // 坚韧斗篷 1 层护盾
+        private const string QuickPowder = "2009";  // 迅击粉末 本回合多出一招
+        private const string RootDew = "2010";      // 固本甘露 3 回合每回合末回 25
         private const string Unknown = "1005";      // 破旧信笺：没配效果
 
         private static BattleEntryRequest FrontalRequest() =>

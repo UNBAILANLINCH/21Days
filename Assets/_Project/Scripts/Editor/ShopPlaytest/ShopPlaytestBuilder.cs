@@ -26,7 +26,7 @@ namespace Game.Editor.ShopPlaytest
 {
     public static class ShopPlaytestBuilder
     {
-        private const string MainPath = "Assets/Scenes/SampleScene.unity";
+        private const string MainPath = "Assets/_Project/Scenes/SampleScene.unity";
         private const string BootPath = "Assets/_Project/Scenes/Boot.unity";
         private const string Prefabs = "Assets/_Project/Prefabs/ShopPlaytest";
         private const string Data = "Assets/_Project/Data/ShopPlaytest";

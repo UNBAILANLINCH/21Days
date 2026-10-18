@@ -23,7 +23,7 @@ namespace Game.Tests.EditMode.Monster
 {
     public sealed class SampleSceneObstacleWiringTests
     {
-        private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+        private const string ScenePath = "Assets/_Project/Scenes/SampleScene.unity";
         private const string GroundLayerName = "Ground";
 
         private Scene scene;

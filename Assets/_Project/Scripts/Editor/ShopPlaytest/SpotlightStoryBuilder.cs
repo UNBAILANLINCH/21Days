@@ -28,7 +28,7 @@ namespace Game.Editor.ShopPlaytest
         public static void Build()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("退出 Play 后接线");
-            var scene = SceneManager.GetSceneByPath("Assets/Scenes/SampleScene.unity");
+            var scene = SceneManager.GetSceneByPath("Assets/_Project/Scenes/SampleScene.unity");
             if (!scene.isLoaded) throw new InvalidOperationException("先打开现有 SampleScene，不覆盖其它场景");
             if (scene.GetRootGameObjects().Any(root => root.GetComponent<SpotlightSceneBindings>() != null)) throw new InvalidOperationException("已接线，后续请直接调整点位与配置");
             var world = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<ShopPlaytestWorld>(true)).Single();

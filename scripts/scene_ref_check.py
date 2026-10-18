@@ -10,7 +10,7 @@ from collections import defaultdict
 ANCHOR = re.compile(r"^--- !u!(\d+) &(\d+)(?: stripped)?\s*$")
 REF = re.compile(r"\{fileID: (-?\d+)\}")
 
-path = sys.argv[1] if len(sys.argv) > 1 else "Assets/Scenes/SampleScene.unity"
+path = sys.argv[1] if len(sys.argv) > 1 else "Assets/_Project/Scenes/SampleScene.unity"
 with open(path, "r", encoding="utf-8") as handle:
     lines = handle.read().split("\n")
 

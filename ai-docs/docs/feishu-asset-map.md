@@ -1,6 +1,6 @@
 # 聚光灯飞书资产映射
 
-> 核对日期：2026-10-11。定义资源归属与接入位置；服务器资产同步仅处理明确绑定的交付文件，启用状态以服务器配置和推送实测为准。
+> 角色交付核对日期：2026-10-18；其余类别沿用各节注明的快照。定义资源归属与接入位置；服务器资产同步仅处理明确绑定的交付文件，启用状态以服务器配置和推送实测为准。
 > 新建原因：现有策划转写只保存原文，美术手册只定义通用目录，均未承载逐项飞书资源与项目目标的对应关系；本表放在知识层，避免飞书重拉覆盖人工映射。
 
 本表对应外部飞书文档《2026gamejam聚光灯》的资产部分。策划原文继续维护在 [聚光灯策划目录](../../docs/design/spotlight/README.md)，不再建立第二份正文。角色拆件交付按用户确认保留；是否为逐件序列帧，必须检查实际交付包才能判断。
@@ -16,7 +16,7 @@
 | 小游戏界面 | 同表 / `hGHTpX` | 同上 |
 | 附件与画板 | 正文中的资源 token | `docs/design/spotlight/01` 至 `05` 对应转写；补交 `06`、`07` 另有来源，不能被飞书同步删除 |
 
-本次读取五张表的版本均为 165，完整范围依次为 `A1:D11`、`A1:D11`、`A1:C22`、`A1:C27`、`A1:B4`。下表行号仅用于当前定位，后续以子表 token + 原文名称 + 本表资产 ID 识别；新增或插行后重新定位。已读取的角色、模型附件列均为空，不能将需求文字或参考图当成已经交付的正式资产。
+2026-10-09 初次读取五张表的版本均为 165，完整范围依次为 `A1:D11`、`A1:D11`、`A1:C22`、`A1:C27`、`A1:B4`，当时角色、模型附件列均为空。2026-10-18 重新完整读取两张角色表，版本为 204，已取得下文九个交付包。下表行号仅用于当前定位，后续以子表 token + 原文名称 + 本表资产 ID 识别；新增或插行后重新定位。不能将需求文字或参考图当成正式交付。
 
 ## 已有目录和接入契约
 
@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 角色拆件 PNG | `Art/Sprites/Characters/<资产ID>/parts/`（拟） | 不混入 `Ark/` 占位素材；实际部件、帧名、pivot 和层次尚待交付包核实 |
 | 角色整帧序列（如交付包含） | `Art/Sprites/Characters/<资产ID>/`（拟） | `chr_<资产ID>_<状态>_<NN>.png` 才能交给现有 FramePuppetGenerator；拆件文件不得误当整帧 |
-| 角色动画与预制体 | `Art/Animations/Characters/<资产ID>/`、`Prefabs/Characters/Chibi_<资产ID>.prefab`（拟） | 这些是接入后的目标，不是已存在的角色；拆件动画与组装流程尚未建立 |
+| 角色动画与预制体 | `Art/Animations/Characters/<资产ID>/`、`Prefabs/Characters/Chibi_<资产ID>.prefab`（目标；顾客两套现有） | `customers`、`drunk_customer` 已按当前 PSD 标定拆件关节；其余角色不能直接套用这份专用标定 |
 | 对话立绘 | `Art/Sprites/Dialogue/Portrait_<资产ID>_<表情>.png`（拟） | 配合 `Tables/Data/dialogue_character.json` 和 `Dialogue/Portrait_<资产ID>_<表情>` 地址；不把 elder/traveler 默认映射成剧情人物 |
 | 建筑和环境交付包 | 现有 `Art/scene/`，每项拟按资产 ID 分目录 | `readme.txt` 已说明此处是美术场景资产接收目录；正式模型、纹理和材质归属需检查交付包，不另建平行接收根目录 |
 | 环境运行时预制体 | `Prefabs/World/Environment/<资产ID>.prefab`（拟） | 与接收文件分开；通过 Unity 组装，当前没有对应正式建筑预制体的证据 |
@@ -37,30 +37,30 @@
 
 ## 角色逐项映射
 
-以下资产 ID 是本表新分配的目录标识，不是现有角色表 ID。所有角色目标目前为“待交付及接入”；保留既有 amiya、chen、skadi、texas、exusiai、nian 预制体与场景引用，不自动挑一个替换。
+以下资产 ID 是目录标识，不是角色表 ID。顾客与醉酒顾客已按下文的本地 PSD 记录接收，并应用拆件待机、走路、奔跑动画；其飞书补交版本单独接收，未替换动画使用的图件。妻子及另外六个角色已接收拆件，尚未组装。既有占位预制体资产保留，角色实例只按核实身份替换。
 
 | 子表与当前行 | 原文名称 | 资产 ID | 拆件接收位置 | 复用或接入说明 |
 | --- | --- | --- | --- | --- |
 | ddVEoY / 2 | 主角 | `player` | `Art/Sprites/Characters/player/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 3 | 妻子 | `wife` | `Art/Sprites/Characters/wife/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| ddVEoY / 3 | 妻子 | `wife` | `Art/Sprites/Characters/wife/parts/`（现有） | 已接收《妻子-何素.zip》的 13 张静态拆件，Unity 已生成 meta；组装、动画和服务器绑定仍待完成 |
+| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
 | ddVEoY / 5 | 泾阳老吏 | `jingyang_clerk` | `Art/Sprites/Characters/jingyang_clerk/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 6 | 民众 | `villagers` | `Art/Sprites/Characters/villagers/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| ddVEoY / 6 | 民众 | `villagers` | `Art/Sprites/Characters/villagers/parts/`（现有） | 已接收 19 张拆件；不按编号推断动作帧或部位 |
 | ddVEoY / 7 | 镜中乡老 | `mirror_elder` | `Art/Sprites/Characters/mirror_elder/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 8 | 钱塘龙君 | `qiantang_dragon` | `Art/Sprites/Characters/qiantang_dragon/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
 | ddVEoY / 10 | 弥勒教信众 | `mile_believers` | `Art/Sprites/Characters/mile_believers/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 11 | 赵十四 | `zhao_shisi` | `Art/Sprites/Characters/zhao_shisi/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | pKSkSs / 2 | 都知 | `duzhi` | `Art/Sprites/Characters/duzhi/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | pKSkSs / 3 | 乐正 | `yuezheng` | `Art/Sprites/Characters/yuezheng/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | pKSkSs / 4 | 学徒 | `apprentice` | `Art/Sprites/Characters/apprentice/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | pKSkSs / 5 | 裁衣匠 | `tailor` | `Art/Sprites/Characters/tailor/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 6 | 顾客 | `customers` | `Art/Sprites/Characters/customers/parts/`（拟） | 群像可能多套外观，不能覆盖成单一角色 |
-| pKSkSs / 7 | 金银匠 | `goldsmith` | `Art/Sprites/Characters/goldsmith/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 8 | 官证 | `official_witness` | `Art/Sprites/Characters/official_witness/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 9 | 杂役 | `handyman` | `Art/Sprites/Characters/handyman/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| pKSkSs / 6 | 顾客 | `customers` | `Art/Sprites/Characters/customers/parts/`（现有） | 一套 17 件拆件外观，已有待机、走路、奔跑；应用衣肆三顾客及酒肆酒客，不代表已交付多套外观 |
+| pKSkSs / 7 | 金银匠 | `goldsmith` | `Art/Sprites/Characters/goldsmith/parts/`（现有） | 已接收 19 张拆件；组装及动画待接入 |
+| pKSkSs / 8 | 官证 | `official_witness` | `Art/Sprites/Characters/official_witness/parts/`（现有） | 已接收 16 张拆件；组装及动画待接入 |
+| pKSkSs / 9 | 杂役 | `handyman` | `Art/Sprites/Characters/handyman/parts/`（现有） | 已接收 18 张拆件；组装及动画待接入 |
 | pKSkSs / 10 | 阶段一BOSS | `stage1_boss` | `Art/Sprites/Characters/stage1_boss/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 11 | 小怪（醉酒的顾客） | `drunk_customer` | `Art/Sprites/Characters/drunk_customer/parts/`（拟） | 与顾客外观可能共用，敌人表现单独核实 |
+| pKSkSs / 11 | 小怪（醉酒的顾客） | `drunk_customer` | `Art/Sprites/Characters/drunk_customer/parts/`（现有） | 独立 PSD，14 张源拆件；运行时将脚层裁成左右两件并提供待机、走路、奔跑，应用酒肆两顾客；保留 ObservationOnly 行为，未新增攻击动作 |
 
 主页另列“女主”“乡中老人”“仪式民众”等名称，而当前主线表只有上述十项。不能自动把女主合并到妻子、乡中老人合并到镜中乡老；先核对是否别名或新增需求。
 
@@ -149,6 +149,57 @@
 
 每次整合记录来源、资产 ID、附件 token、包内文件、目标路径、已有 GUID、变更摘要和检查结果。附件为空或格式未确认时，只更新映射。资产更新和提交另按项目流程执行。
 
+## 2026-10-13 本地顾客 PSD 接入
+
+用户提供 `顾客_512x512.psd` 与 `醉酒顾客（小怪）_512x512.psd`，均为 512×512 静态拆件，不含动作序列。通过 Photoshop 原生脚本导出可见图层，排除隐藏背景；保留原图层名、透明像素、完整画布和层序，不保存源 PSD。此交付来自本地文件，没有飞书附件 token。
+
+- `customers/parts/` 共 17 张 PNG；`drunk_customer/parts/` 共 14 张 PNG。各角色目录另有 `parts.json`（来源文件名、画布、层序）与 `composite.png`（原合成预览）。拆件重组与原合成的最大通道误差为 1/255。
+- Unity 生成 `Prefabs/Characters/Chibi_customers.prefab`（GUID `5db29df9f3d9b534095b8c352cb6df4f`）、`Chibi_drunk_customer.prefab`（GUID `88421727b4a8f494cba6aef31f9157bd`）与新资产的 `.meta`；PPU 320、脚底 pivot `(0.5, 0)`，画布世界高度 1.6。原层序由 SpriteRenderer 排序保留，SortingGroup 避免不同角色拆件交错；所有关节位于共用 `Sprite/Rig` 下，使既有交互回弹仍覆盖全身。
+- `Main_1.prefab` 中 `shop_customer0/1/2` 与 `Main_4.prefab` 中 `shop_guest` 使用顾客外观；`Main_4.prefab` 中 `shop_customer_a/b` 使用醉酒顾客外观。保留原角色根、身份、逻辑纸片、位置、控制和交互；没有把酒肆 BOSS 换成小怪。
+- 两套预制体各有 Idle / Walk / Run 循环剪辑与同名控制器，走跑时上臂摆动并带动肘部交替屈伸；普通顾客为 17 个渲染件，醉酒顾客由 14 张源图形成 15 个渲染件，酒葫芦和双脚可独立摆动。醉酒顾客另有 3.6 秒 Drink 动作，静止一轮待机后自动举壶饮酒，移动会立即打断并切回 Walk / Run。动画只写 `Sprite/Rig` 后代关节，不写角色根或交互回弹使用的 `Sprite` 变换。
+- 重新打开实际 SampleScene 后验证六个实例的预制体来源、trackedRoot、facingSource、32 个渲染件、6 个移动循环剪辑、Drink 动作及控制器；CharacterPuppet EditMode 74 项通过，专用 PlayMode 2 项验证 Idle / Walk / Run、时停待机、自动喝酒和移动打断。动作品质仍需在最终游戏镜头下人工验收。
+- 新资产与目录的 `.meta` 检查通过。全项目 gc_scan 仍报告两处现有动态字体数据膨胀（NotoSansSC 与 SourceHanSerifCN），本次未修改字体资产，不能将全项目扫描报告为通过。
+- 这是刚性拆件关节动画，不是网格骨骼形变。FramePuppetGenerator 仍只负责整帧动画；本次仅复用其控制器生成逻辑，关节坐标与图层映射专用于这两份 PSD，不构成通用拆件动画系统。
+
+本次操作脚本为 `Tools/export-character-parts.jsx`、`Tools/apply-customer-parts.txt`、`Tools/animate-customer-parts.txt`、`Tools/refine-customer-animation.txt`；校验为 `Tools/verify-character-parts.py`、`Tools/verify-customer-unity.txt`，预览采样脚本为 `Tools/preview-customer-animation.txt`。应用与动画脚本均按当前交付保护既有结构，不能当成任意角色生成器。原 ShopPlaytestBuilder 重建店铺仍会选用占位小人，重建后需重新核对美术接线。
+
+## 2026-10-17 妻子飞书拆件接收
+
+主线角色表 `ddVEoY` 的 D3 当前交付为《妻子-何素.zip》，228946 字节。包内有 13 张 512×512 PNG 静态拆件，不含 `.meta`；缺少 `.meta` 不构成美术交付不合格，应由项目导入流程通过 Unity 生成。
+
+- 原始 PNG 按既有映射接收到 `Art/Sprites/Characters/wife/parts/`，保留包内图名、透明像素和完整画布；逐文件散列与交付包一致。
+- Unity 生成 13 份图片 `.meta` 和 wife、parts 两份目录 `.meta`。已核对图片为 Sprite Single、GUID 唯一，且通过服务器发布代码的资产校验；未组装预制体、制作动画或替换场景角色。
+- 已按真实包内成员形成 13 项文件绑定清单。服务器配置尚未安装本批绑定，远端素材提交、PR 和服务部署均未完成；不能把本地接收或映射表条目当作已启用自动同步的证据。
+
+## 2026-10-18 九包接收与后续规则
+
+两张角色表版本 204 的九个 ZIP 均已下载并检查：合计 146 张 512×512 RGBA PNG；六个包另含 PSD，原件保留在本地原始 ZIP，不导入运行时图片目录。全部 PNG 保留原始字节、画布和文件名。
+
+以下路径相对 `Art/Sprites/Characters/`；交付区仅保存候选源图，不表示已接入预制体。
+
+| 来源单元格 | 交付包 | PNG 数 | 本地接收位置与结果 |
+| --- | --- | --- | --- |
+| ddVEoY D3 | 妻子-何素.zip | 13 | `wife/parts/`；与已接收文件逐字节一致，不重复写入 |
+| ddVEoY D4 | 轮回堂值守.zip | 15 | `lunhuitang_guard/parts/`；新增 |
+| ddVEoY D6 | chr_citizen.zip | 19 | `villagers/parts/`；新增 |
+| ddVEoY D9 | 王录业.zip | 15 | `wang_luye/parts/`；新增 |
+| pKSkSs D6 | chr_customer.zip | 17 | `customers/deliveries/20261018/parts/`；与既有图件像素不一致，保留候选，不覆盖当前动画 |
+| pKSkSs D7 | chr_goldsmith.zip | 19 | `goldsmith/parts/`；新增 |
+| pKSkSs D8 | chr_official_witness.zip | 16 | `official_witness/parts/`；新增 |
+| pKSkSs D9 | chr_servant.zip | 18 | `handyman/parts/`；新增 |
+| pKSkSs D11 | chr_drunk _customer.zip | 14 | `drunk_customer/deliveries/20261018/parts/`；与既有图件像素不一致，保留候选，不覆盖当前动画 |
+
+接收规则：
+
+1. 表内新增或替换的交付附件属于实质性素材变化，必须进入下载、包内检查和映射核对流程；不能只报单元格变化后静默结束。新增角色按本表资产 ID 定位，不用附件文件名另建角色 ID。
+2. ZIP 先检查路径穿越、符号链接、大小及重名冲突，仅接收明确核实的图片成员；PSD 等源文件保留原包，不把 ZIP 整包解压进 Assets。编号 PNG 不自动当作整帧序列或推断身体部位。
+3. 同内容不重复写入；已有动画角色须先按内容比较并核对图层与关节绑定。不同内容或部件关系不明确时，接收到该角色的 `deliveries/<接收日期>/parts/`，保留现有 `parts/`、`.meta`、pivot、PPU、控制器和预制体引用，待明确对应后再替换。
+4. 美术无需提供 `.meta`；新图片及新目录由本项目 Unity 导入生成。已有目标 `.meta` 必须保留。缺少本地 Unity 导入结果时标为“已落盘、待导入”，不能宣称可提交或已自动发布。
+5. 文件绑定必须记录实际附件 token、包内完整成员和目标文件；原包内的空格和大小写保持精确。缺绑定时通知具体角色和缺项，不能把“提醒成功”当作“资产同步成功”。删除或改名只提醒，不自动删除项目文件。
+6. 发布通知分开说明“发现交付 / 已落盘 / 已导入 / 已推送分支 / PR 链接或未建原因”。仅真实文件差异触发推送及 PR，仍由用户合入主支；策划正文与表格快照不随美术发布。
+
+本批新增 133 张 PNG，13 张妻子图件复用已有文件。正在运行的 Unity 构建进程已自动导入新增文件；146 张图片均为 Sprite Single，图片及所属目录的 `.meta` 齐全、GUID 唯一，原图散列与交付一致，并通过现有 `assets.validate_files` 校验。已生成真实包内成员与目标文件的绑定记录；服务器配置未安装本批文件绑定，不代表服务器自动接收规则已部署。未组装新角色或替换已有动画。
+
 ## 服务器资产同步范围
 
 已确认的交付素材提交、推送到本人仓库的 `codex/feishu-sync` 分支，审核后再手动合并。策划文档自动更新的当前实现仅同步初始基线之后新增的 `.docx`、`.pdf` 策划附件及其后续更新，目标为 `docs/design/spotlight/auto-sync/`；正文、需求表、画板和参考图只监测变化并提醒，不上传。现有人工转写不直接覆盖，配置与验证情况见下节。
@@ -168,4 +219,4 @@
 
 2026-10-11 已核对本地提交 `4b55a52`（`docs(design): 同步新增策划附件`），并已通过 PR #12 合入当前历史：新增 [附件索引](../../docs/design/spotlight/auto-sync/README.md) 与 [重要角色与势力.docx](../../docs/design/spotlight/auto-sync/media_EEFlbeZQIopbPuxIxrfcddqDnqb.docx)。这证明附件已进入仓库；不单凭提交记录确认服务器定时器当前仍在运行。
 
-上线检查：查看 timer、`state.json` 中 `checked_at` / `document_commit` / `errors`，并核对远端分支中的 `auto-sync/README.md`。本次未复核服务器当前状态。逐项资产表仍沿用先前的五张需求表快照，未重新读取飞书表格。
+上线检查：查看 timer、`state.json` 中 `checked_at` / `document_commit` / `errors`，并核对远端分支中的 `auto-sync/README.md`。本次未复核服务器当前状态；两张角色表已按上文日期重新核对，其余三张表仍沿用早期快照。

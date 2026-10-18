@@ -71680,6 +71680,8 @@ MonoBehaviour:
     anchor: {fileID: 670944901}
   - stageId: enter_r0171
     anchor: {fileID: 275168765}
+  - stageId: action_r0070
+    anchor: {fileID: 670944901}
   legacyExamples: []
 --- !u!1 &1708815600
 GameObject:

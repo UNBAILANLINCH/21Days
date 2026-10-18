@@ -5,7 +5,7 @@ namespace Game.Tests.EditMode.Narrative
 {
     public sealed class StoryGuideRulesTests
     {
-        [TestCase("action_r0070", true)]
+        [TestCase("action_r0070", false)]
         [TestCase("enter_r0083", true)]
         [TestCase("enter_r0129", true)]
         [TestCase("enter_r0188", false)]
@@ -13,6 +13,9 @@ namespace Game.Tests.EditMode.Narrative
         [TestCase("action_r0197", false)]
         public void EntryPolicy_DoesNotTurnHumanSceneChangesIntoTasks(string stage, bool automatic)
         { Assert.That(StoryGuideRules.IsAutomaticEntry(stage), Is.EqualTo(automatic)); }
+        [Test]
+        public void Objective_MentorTeaching_RequestsTurnBasedBattle()
+        { Assert.That(StoryGuideRules.Objective("action_r0070", true), Is.EqualTo("与李诏阳切磋，学习回合制战斗")); }
         [Test]
         public void Select_RequiresCurrentNodeAndRegionAndUnfinishedUnblocked()
         {

@@ -94,10 +94,19 @@ namespace Game.Tests.Showcase.ShopPlaytest
             float deadline = Time.realtimeSinceStartup + 100;
             while (ResolveService<NarrativeService>().CurrentStageId != "enter_r0171" && Time.realtimeSinceStartup < deadline)
             {
-                Assert.That(ResolveService<BattleFlow>().IsBattleRunning, Is.False, "人间不应进入强制战斗");
+                if (ResolveService<NarrativeService>().CurrentStageId == "action_r0070")
+                {
+                    yield return StoryPoint("action_r0070");
+                    Assert.That(ResolveService<NarrativeService>().CurrentStoryId, Is.EqualTo("spotlight_mentor_duel"));
+                    yield return PlayBattle();
+                    yield return AdvanceFormalDialogue();
+                    Assert.That(ResolveService<NarrativeService>().CurrentStoryId, Is.EqualTo("spotlight_current"));
+                    Assert.That(ResolveService<NarrativeService>().CurrentStageId, Is.Not.EqualTo("action_r0070"), "教学胜利后才能继续主线");
+                    deadline = Time.realtimeSinceStartup + 100;
+                }
                 yield return AdvanceFormalDialogue(); yield return null;
             }
-            yield return WaitUntil("人间对白自然衔接到唯一穿越点", () => ResolveService<NarrativeService>().CurrentStageId == "enter_r0171" && ResolveService<SpotlightStoryFlow>().CanSave, 5);
+            yield return WaitUntil("完成教学与人间对白后到达穿越点", () => ResolveService<NarrativeService>().CurrentStageId == "enter_r0171" && ResolveService<SpotlightStoryFlow>().CanSave, 5);
         }
         protected IEnumerator StoryPoint(string stage, bool interact = true)
         {

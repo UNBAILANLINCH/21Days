@@ -108,8 +108,18 @@ namespace Game.Narrative
             long generation = sessionGeneration;
             try
             {
-                NarrativeIntent intent = narrative.ResultIntent("Success");
-                await narrative.SubmitAsync(intent, token);
+                if (point.StageId == "action_r0070")
+                {
+                    await narrative.TryEncounterAsync(new[] { new EncounterRules.Candidate {
+                        TriggerId = scene.MentorTarget.TargetId, TriggerKind = "SpotlightMentor",
+                        EntryEpoch = narrative.Capture().NextActivationId,
+                        Context = narrative.Conditions.Snapshot(scene.MentorTarget.TargetId) } }, token);
+                }
+                else
+                {
+                    NarrativeIntent intent = narrative.ResultIntent("Success");
+                    await narrative.SubmitAsync(intent, token);
+                }
             }
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("interaction_failed", error); }
@@ -137,7 +147,7 @@ namespace Game.Narrative
             }
             if (!IsFormalStory) return;
             if (!Blocked && scene.IsHumanStory && StoryGuideRules.IsAutomaticEntry(currentStage))
-            { AdvanceNarrationAsync(currentStage).Forget(); return; }
+            { AdvanceNarrationAsync().Forget(); return; }
             UpdateQuest();
         }
         private async UniTask StartStoryAsync()
@@ -151,16 +161,13 @@ namespace Game.Narrative
             catch (Exception error) { telemetry.TrackError("start_failed", error); startHandled = false; }
             finally { if (generation == sessionGeneration) working = false; }
         }
-        private async UniTask AdvanceNarrationAsync(string stage)
+        private async UniTask AdvanceNarrationAsync()
         {
             working = true; long generation = sessionGeneration;
             var token = lifetime.Token;
             var intent = narrative.ResultIntent("Success");
             try
             {
-                // 以短暂淡出衔接旧教学段，不再要求玩家打赢额外切磋。
-                if (stage == "action_r0070" && curtain != null)
-                { await curtain.CoverAsync(token); await curtain.RevealAsync(CancellationToken.None); }
                 await narrative.SubmitAsync(intent, token);
             }
             catch (OperationCanceledException) { }

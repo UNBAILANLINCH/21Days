@@ -19,6 +19,29 @@ namespace Game.Tests.Showcase.Narrative
     public sealed partial class NarrativeShowcase
     {
         [UnityTest]
+        [Timeout(300000)]
+        public IEnumerator Spotlight_MentorTeachingRequiresInteractionAndBattle()
+        {
+            yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026"); yield return AdvanceFormalDialogue();
+            var narrative = ResolveService<NarrativeService>();
+            var battle = ResolveService<Game.Battle.BattleFlow>();
+            yield return Step("教学节点保留，等待与李诏阳切磋");
+            yield return Check("教学不自动跳过，现场显示切磋目标", () => narrative.CurrentStageId == "action_r0070" &&
+                !battle.IsBattleRunning && ResolveService<QuestService>().PresentationObjective.Contains("切磋"), 5);
+            yield return StoryPoint("action_r0070");
+            Assert.That(narrative.CurrentStoryId, Is.EqualTo("spotlight_mentor_duel"));
+            var presenter = ResolveService<Game.Battle.IBattlePresenter>() as Game.Battle.BattleScenePresenter;
+            yield return Check("教学战斗界面已显示并等待出招", () => battle.IsBattleEngaged &&
+                presenter != null && presenter.View != null && presenter.IsAwaitingCommand, 15);
+            yield return Snapshot("李诏阳回合制教学入口恢复");
+            yield return PlayBattle(); yield return AdvanceFormalDialogue();
+            yield return Check("教学胜利后续回正式剧情", () => narrative.CurrentStoryId == "spotlight_current" &&
+                narrative.CurrentStageId != "action_r0070" && !battle.IsBattleRunning, 10);
+            yield return Snapshot("教学胜利后续回主线");
+        }
+
+        [UnityTest]
         [Timeout(600000)]
         public IEnumerator Spotlight_MirrorArrivalRequiresLunhuitangInteraction()
         {
@@ -94,7 +117,7 @@ namespace Game.Tests.Showcase.Narrative
             var story = ResolveService<SpotlightStoryFlow>();
             var session = ResolveService<GameSession>();
             var narrative = ResolveService<NarrativeService>();
-            yield return Step("人间出生：同一布局，只有对白教学");
+            yield return Step("人间出生：同一布局，保留对白与回合制教学");
             yield return Check("同场景人界保留左下出生，无五店人物", () => story.Bindings.IsHumanStory && State.World == null &&
                 Vector2.Distance(State.ControlledPosition, new Vector2(-11, 276.2f)) < .1f && ResolveService<QuestService>().PresentationObjective.Contains("李诏阳") &&
                 Object.FindObjectsOfType<Game.ShopPlaytest.ShopPlaytestActor>().Length == 0, 5);
@@ -111,7 +134,7 @@ namespace Game.Tests.Showcase.Narrative
             yield return StoryPoint("enter_r0026");
             yield return NarrationToMirror();
             yield return Step("前情与线索连播后，只前往戏班右侧穿越平台");
-            Assert.That(story.Bindings.Points.Length, Is.EqualTo(2));
+            Assert.That(story.Bindings.Points.Length, Is.EqualTo(3));
             yield return StoryPoint("enter_r0171");
             yield return WaitUntil("妖界场景与五店接线完成", () => !story.Bindings.IsHumanStory && State.World != null, 60);
             Assert.That(narrative.CurrentStageId, Is.EqualTo("enter_r0171"), "入妖界不能代替到轮回堂问询");

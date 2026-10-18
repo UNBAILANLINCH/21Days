@@ -25,7 +25,7 @@ maturity: seed
 
 李诏阳教学档 `spotlight_mentor_duel` 只保留兼容，正常入口不进入。酒肆 `shop_boss_battle` 在197进入一层局部遭遇；Victory续回父帧，Downed可重试。使用独立标记与持久Reenter纪元。任务900在21011会面后真实完成；293为后续内容边界，不常驻虚假完成目标或解锁旧示例任务。
 
-正式主目标是 Quest900，三店任意顺序；只有真实背包成果／酒肆胜利推进对应计数。`StoryGuideRules` 按节点、区域、皮是否持有／穿戴、店铺成果选择提示；`StoryGuideHudView` 不暂停、不拦射线，对白／活动／战斗／菜单时隐藏，重新进区可再提示。UI 地址已登记、Boot 引用已接线；实际测试结果见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
+正式主目标是 Quest900，三店任意顺序；只有真实背包成果／酒肆胜利推进对应计数。按用户要求移除黑底操作提示：`SpotlightStoryFlow` 不再加载或更新 `StoryGuideHudView`，包括序章、入镜与五店提示。原任务HUD、现场交互提示与真实E交互保留；旧提示资产和配置暂留兼容。历史接入测试见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)，不代表本次移除后的回放结果。
 
 ## 五店占位战斗内容（2026-10-13）
 

@@ -167,9 +167,8 @@ namespace Game.Tests.Showcase.Narrative
             Vector3 screenPoint = worldCamera.WorldToViewportPoint(restoredView.PlayerScenePosition + Vector3.up);
             Assert.That(screenPoint.x, Is.InRange(.1f, .9f), "继续后角色应在画面内，世界=" + restoredView.PlayerScenePosition + " 相机=" + worldCamera.transform.position);
             Assert.That(screenPoint.y, Is.InRange(.1f, .9f), "继续后角色应在画面内，世界=" + restoredView.PlayerScenePosition + " 相机=" + worldCamera.transform.position);
-            yield return Check("镜前继续后恢复穿越软教程", () => ResolveService<IUIService>().Get<StoryGuideHudView>() != null &&
-                ResolveService<IUIService>().Get<StoryGuideHudView>().Text.Contains("穿越"), 5);
-            yield return Snapshot("镜前继续_穿越软教程");
+            yield return Check("镜前继续后不显示黑底操作提示", () => ResolveService<IUIService>().Get<StoryGuideHudView>() == null, 5);
+            yield return Snapshot("镜前继续_无黑底提示");
             ExpectErrorLogs("故意破坏本次妖界接线以验证换界回滚", message => message.Contains("入镜目标未接入妖界五店"));
             yield return Step("临时移除本次运行的五店接线，确认回到镜前");
             var worlds = Object.FindObjectsOfType<Game.ShopPlaytest.ShopPlaytestWorld>(true);

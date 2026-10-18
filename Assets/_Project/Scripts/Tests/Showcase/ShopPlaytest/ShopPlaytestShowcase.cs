@@ -144,9 +144,8 @@ namespace Game.Tests.Showcase.ShopPlaytest
             }
             else yield return GoToWorldPoint(point.Position, .8f);
             yield return Check("节点与区域一致，现场交互可用", () => ResolveService<IInteractionFocus>().Current == point && point.CanInteract, 5);
-            var guide = ResolveService<IUIService>().Get<StoryGuideHudView>();
-            yield return Check("对应节点教程显示且不挡现场交互", () => guide != null && guide.Text.Length > 0 && !guide.GetComponent<CanvasGroup>().blocksRaycasts, 3);
-            if (stage == "enter_r0026") yield return Snapshot("节点区域软引导");
+            yield return Check("现场交互可用且不显示黑底操作提示", () => ResolveService<IUIService>().Get<StoryGuideHudView>() == null, 3);
+            if (stage == "enter_r0026") yield return Snapshot("节点交互_无黑底提示");
             if (!interact) yield break;
             yield return Input.Press(ResolveService<IInputService>().Actions.Gameplay.Interact);
             yield return WaitUntil("真实交互推进节点或切换妖界", () => crossing

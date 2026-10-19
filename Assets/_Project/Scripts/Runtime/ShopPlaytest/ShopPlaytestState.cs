@@ -573,15 +573,16 @@ namespace Game.ShopPlaytest
             if (CurrentRole != "guest") { Show("换上酒客皮才能挑战"); return; }
             if (!tavern.CanChallenge) { Show("先和主人划拳，让他喝过一杯再挑战。"); return; }
             bool local = narrative.CurrentStoryId == "spotlight_current" && narrative.CurrentStageId == "action_r0197";
-            if (!local && narrative.CurrentStoryId.Length > 0) { Show("请先完成当前剧情。"); return; }
-            awaitingBattle = true; expectedBattleGeneration = narrative.Generation + (local ? 0 : 1); awaitingOutcome = true;
+            bool retry = narrative.CurrentStoryId == "shop_boss_battle" && narrative.CurrentTargetId == "shop_boss";
+            if (!local && !retry && narrative.CurrentStoryId.Length > 0) { Show("请先完成当前剧情。"); return; }
+            awaitingBattle = true; expectedBattleGeneration = narrative.Generation + (local || retry ? 0 : 1); awaitingOutcome = true;
             try
             {
                 telemetry.Track("battle_requested", ("boss_drunk", tavern.Rules.BossDrunk));
                 bool started;
                 using (telemetry.BeginSpan("battle_entry_ready"))
-                    started = local ? await narrative.TryEncounterAsync(new[] { new EncounterRules.Candidate {
-                        TriggerId = "shop_boss", TriggerKind = "SpotlightShopBoss", EntryEpoch = narrative.Capture().NextActivationId,
+                    started = local || retry ? await narrative.TryEncounterAsync(new[] { new EncounterRules.Candidate {
+                        TriggerId = "shop_boss", TriggerKind = retry ? "Interact" : "SpotlightShopBoss", EntryEpoch = narrative.Capture().NextActivationId,
                         Context = narrative.Conditions.Snapshot("shop_boss") } }, lifetime.Token)
                         : await narrative.StartAsync("shop_boss_battle", "shop_boss", lifetime.Token);
                 if (!started) { awaitingOutcome = false; Show("战斗入口正忙"); }

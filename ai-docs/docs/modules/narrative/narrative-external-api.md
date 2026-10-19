@@ -17,6 +17,37 @@ maturity: seed
 
 `SpotlightStoryConfig.DialogueActorDistance` 为临时演员沿相机水平右方向的距离，默认1.5单位；缺配置时演员不显示。
 
+## 剧情环境表现接口
+
+```csharp
+// SpotlightEnvironmentRules：纯只读映射，不推进剧情。
+enum Preset { None, Dawn, Day, MoonNight }
+static SpotlightEnvironmentRules.State Resolve(NarrativeSaveData snapshot);
+// State 的只读属性：Lighting、Snow、AltarFire、Candles、WaterMist。
+
+// SpotlightEnvironmentConfig：ScriptableObject，只读预设配置。
+SpotlightEnvironmentConfig.LightingSettings Get(SpotlightEnvironmentRules.Preset preset);
+Color FlameColor { get; }
+float AltarIntensity { get; }
+float CandleIntensity { get; }
+
+// SpotlightEnvironmentView：场景表现，由 SpotlightStoryFlow 协调调用。
+void Apply(SpotlightEnvironmentRules.State state);
+void Restore();
+bool HasApplied { get; }
+SpotlightEnvironmentRules.State CurrentState { get; }
+event Action OnInvalidated;
+```
+
+- `Resolve` 优先读取当前正式帧；当前为局部遭遇时回看 `Parent` 中的 `spotlight_current`。空快照、无正式帧、未知节点返回默认状态（`None` 且局部效果关闭）。不从历史标记或现实时间猜时段，不修改快照。
+- `Apply` 缺配置、缺方向光或收到 `None` 时调用 `Restore`；已应用的相同状态不重复写入。局部效果引用允许为空，缺件不会自动创建。只播放活动对象上的粒子，不启用禁用的待摆位标记。
+- 视图 Inspector 引用为 `config`、`directionalLight`、`snow`、`altarFire`、`altarFlame`、`candles`、`waterMist`；粒子关闭 Play On Awake。方向光与环境全局设置由单一视图接管，不能让另一个时钟/天气脚本同时写入。
+- `Restore` 还原捕获的灯光状态，停止并清空已接粒子；全局 `RenderSettings` 仅在原活动场景仍是所有者时还原，避免污染另一场景。禁用/销毁视图也会恢复。`OnInvalidated` 在启用/禁用时通知协调者重算，不是剧情写入入口。
+- `LightingSettings` 提供只读 `LightColor/LightIntensity/LightEulerAngles`、`AmbientSky/AmbientEquator/AmbientGround/AmbientIntensity`、`ReflectionIntensity`、`FogEnabled/FogColor/FogStart/FogEnd`。`Get(None)` 返回 `null`。
+- `SpotlightStoryFlow` 负责变化通知、快照读取及书库黑幕切光，不应由外部每帧调用 `Capture` 或自行推进节点。正式剧情目前到 `enter_r0293`；后续环境映射仅为表现规则，不构成后续剧情接线承诺。
+
+首次安装与所选位置补效果使用 [环境作者菜单](narrative-extension-guide.md#剧情环境首次接线与补位)，不通过运行时 Find 或自动造地图。播放中的剧情粒子使用非缩放时间，避免对白暂停世界时冻住；Restore停止并清空。实际安装、编译、分批回归及尚未接线的锚点见 [本地验证](narrative-module-guide.md#本地验证2026-10-20)，视觉验收仍待确认。
+
 ## `NarrativeService`（根作用域）
 
 ```csharp

@@ -7,6 +7,29 @@ maturity: seed
 
 # Narrative 模块指南
 
+## 剧情光照与局部环境
+
+`SpotlightEnvironmentRules.Resolve(NarrativeSaveData)` 从 `spotlight_current` 的当前帧选择 `Dawn`、`Day`、`MoonNight` 固定预设；处于局部遭遇时读取正式父帧。规则同时返回 `Snow`、`AltarFire`、`Candles`、`WaterMist`，无正式帧或未知节点返回 `None`。这是剧情快照驱动的表现映射，不是连续时间、昼夜循环或随机天气；不新增存档分区、不推进剧情。
+
+- `SpotlightEnvironmentConfig` 保存三个光照预设的方向光、三色环境光、反射强度、线性雾以及坛火/烛光参数。
+- `SpotlightEnvironmentView` 应用预设与已接线的局部粒子/灯光；`Restore()` 停止粒子并恢复所捕获的灯光，在仍拥有活动场景设置时恢复全局光照。每场景只放一个视图，位于人妖两界分组之外；运行时不搜索光源或生成材质。
+- `SpotlightStoryFlow` 缓存场景视图，剧情/会话/绑定变化后才重新读取快照；书库 `enter_r0129` 的同会话白天转夜晚走现有黑幕与输入门闸，读档直接恢复对应预设。环境切换不构成新的任务、地点或剧情提交。
+- 当前映射包括序章月夜雪与坛火、导师段黎明、委托段白天烛光、书库及后续月夜；水边节点启用局部薄雾。具体逐节点键以 `SpotlightEnvironmentRules.cs` 为准，不按编号范围推断。
+
+正式可达剧情仍到 `enter_r0293`。规则中为后续节点预留的月夜、烛光和水雾映射，不表示那些剧情、地图或锚点已经接线。首次菜单仅根据现有 `SpotlightSceneBindings.Points` 摆局部预览；没有人界书库或妖界水边锚点时只留禁用空标记。尤其水雾必须由作者选定真实位置后补放，不能默认放在原点。静态积水菜单只生成可调整美术预览，不是实时水体，也不随 `WaterMist` 自动切换。
+
+实现与接线步骤见 [扩展指南](narrative-extension-guide.md#剧情环境首次接线与补位)，接口见 [外部接口](narrative-external-api.md#剧情环境表现接口)。2026-10-20已合并云端补丁并保留本地王录业、值守及窗边表现，在Unity 2022.3.62f2c1编译、执行首次菜单并保存SampleScene。根对象`SpotlightEnvironment`引用唯一方向光及配置；导师附近有雪／坛火预览。人界没有129书库锚点，妖界没有384水口锚点，因此烛光数组为空、水雾未引用，保留禁用待摆位标记。
+
+### 本地验证（2026-10-20）
+
+- 定向EditMode 77/77通过，失败0、跳过0（job `a3202baacf1e4dc4b88a5ae270b6006d`）；扩大Narrative／GameFlow批次job `8bcd697bbe464ad8aeb7416435de77df`成功、完成206项、失败列表为空，工具未返回最终passed/skipped摘要，不补算数目。
+- 环境视图初始两项PlayMode通过。随后补测发现粒子默认使用缩放时间，会被对白的时停冻住（RED job `00c35b17971c41c79e45d9c69cf5fa5c`）；在视图实际播放粒子前设置非缩放时间。最终三项PlayMode完成且无失败（job `cb01e848e89640d0beb3e4b77cfc39d0`），涵盖活动场景归属／禁用恢复和`timeScale=0`时实际发射粒子、恢复后清空。
+- [014621回放报告](../../../../Logs/verify/narrative/20261020-014621/report.md)中`Spotlight_EnvironmentFollowsStoryAndContinue`通过，真实新局经过教学、赵十四、书库夜转场及夜档继续，相关检查点全部通过；该批整体FAIL，因为另一条转场中直接Continue的测试被拒绝，不能把整批记成PASS。
+- 改为检验转场中返回标题，再从隔离槽继续白昼检查点：[014955专项](../../../../Logs/verify/narrative/20261020-014955/report.md)PASS，零失败检查／零运行时异常（job `0db43040aca94a60a59e6c0b9cd561b5`），包含实际恢复移动。测试通过Save服务保存隔离槽检查点，不使用用户存档。
+- 最早[014228](../../../../Logs/verify/narrative/20261020-014228/report.md)失败保留：首轮把仍会自动保存的当前槽当作固定白昼检查点，未断言Continue是否接受；普通回放助手又停在129转场前，未继续播放21007就等待171。修正测试使用隔离槽并等待真实书库对白；转场中直接Continue的拒绝原因尚未定位，不宣称已验证该路径。014621正常流程及014955取消路径均早于粒子计时修复；最终粒子修复只追加了三项生命周期回归，未再次完整回放。
+
+回放代码为`Scripts/Tests/Showcase/Narrative/NarrativeShowcase.Environment.cs`。已查看月夜、黎明和白昼截图；颜色、粒子密度和正式摆位尚待人工视觉验收，未出独立包或测Player性能。没有制作梦境场景、书库室内、水口关卡或完整天空盒，也未推进阶段二三玩法。
+
 
 轮回堂值守外观接入（2026-10-19）：妖界enter_r0171的锚点、QuestLocation和Point保持原样，SpotlightSceneBindings.lunhuitangGuard指向独立持卷外观。SpotlightStoryFlow读取已有DialogueRules说话人，通过PresentLunhuitangGuard调用原门面选择talk／Idle；不改变人物常驻和交互许可。人界同编号MirrorCrossing不是此次替换目标；角色与王录业独立。对白源表及验证见 [值守接入记录](../../lunhuitang-guard-20261019.md)。
 

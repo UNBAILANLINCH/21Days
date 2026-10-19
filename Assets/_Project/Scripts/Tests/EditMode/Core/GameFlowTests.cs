@@ -175,6 +175,105 @@ namespace Game.Tests.EditMode.Core
         }
 
         [Test]
+        public void IsTransitioning_WhenTransitionSucceeds_ResetsAfterChangedAndQueueDrain()
+        {
+            var status = (IGameFlowTransitionStatus)flow;
+            var observed = new List<bool>();
+            Assert.That(status.IsTransitioning, Is.False, "尚未切换时不占用队列");
+
+            using (container.Resolve<ISubscriber<GameStateChangingEvent>>()
+                       .Subscribe(_ => observed.Add(status.IsTransitioning)))
+            using (container.Resolve<ISubscriber<GameStateChangedEvent>>()
+                       .Subscribe(_ => observed.Add(status.IsTransitioning)))
+            {
+                UniTask task = flow.GoToAsync<StateA>();
+                Assert.That(task.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            }
+
+            Assert.That(observed, Is.EqualTo(new[] { true, true }),
+                "Changed 发布时队列仍在收尾，不能用事件提前宣布切换结束");
+            Assert.That(status.IsTransitioning, Is.False);
+        }
+
+        [Test]
+        public void IsTransitioning_WhenRequestsQueued_RemainsTrueThroughFinalReveal()
+        {
+            var status = (IGameFlowTransitionStatus)flow;
+            curtain.HoldReveal = true;
+            UniTask first = flow.GoToAsync<GatedState>();
+            UniTask second = flow.GoToAsync<GatedScene>();
+
+            Assert.That(status.IsTransitioning, Is.True);
+            Assert.That(first.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(second.Status, Is.EqualTo(UniTaskStatus.Pending));
+
+            container.Resolve<GatedState>().OpenGate();
+
+            Assert.That(first.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            Assert.That(second.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(status.IsTransitioning, Is.True, "首个请求完成不等于整轮排队结束");
+
+            container.Resolve<GatedScene>().OpenGate();
+
+            Assert.That(second.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(status.IsTransitioning, Is.True, "最后一次揭幕完成前仍在切换");
+
+            curtain.ReleaseReveal();
+
+            Assert.That(second.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            Assert.That(status.IsTransitioning, Is.False);
+        }
+
+        [Test]
+        public void IsTransitioning_WhenSceneEnterFails_ResetsAfterFailureCleanup()
+        {
+            var status = (IGameFlowTransitionStatus)flow;
+            curtain.HoldReveal = true;
+            LogAssert.Expect(LogType.Error, new Regex("切换到 ThrowingScene 失败"));
+
+            UniTask failing = flow.GoToAsync<ThrowingScene>();
+
+            Assert.That(failing.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(status.IsTransitioning, Is.True, "失败后的揭幕清理仍属于切换");
+
+            curtain.ReleaseReveal();
+
+            Assert.Throws<InvalidOperationException>(() => failing.GetAwaiter().GetResult());
+            Assert.That(status.IsTransitioning, Is.False, "失败不能遗留切换标记");
+            flow.GoToAsync<StateB>().Forget();
+            Assert.That(flow.Current, Is.TypeOf<StateB>());
+            Assert.That(status.IsTransitioning, Is.False);
+        }
+
+        [Test]
+        public void IsTransitioning_WhenCanceled_ResetsAfterCancellationCleanup()
+        {
+            var status = (IGameFlowTransitionStatus)flow;
+            curtain.HoldCover = true;
+            curtain.HoldReveal = true;
+            using (var cts = new CancellationTokenSource())
+            {
+                UniTask pending = flow.GoToAsync<SceneA>(cts.Token);
+                Assert.That(status.IsTransitioning, Is.True);
+
+                cts.Cancel();
+
+                Assert.That(pending.Status, Is.EqualTo(UniTaskStatus.Pending));
+                Assert.That(status.IsTransitioning, Is.True, "取消仍须等不受取消令牌影响的揭幕清理");
+
+                curtain.ReleaseReveal();
+
+                Assert.That(pending.Status, Is.EqualTo(UniTaskStatus.Canceled));
+                Assert.Catch<OperationCanceledException>(() => pending.GetAwaiter().GetResult());
+                Assert.That(status.IsTransitioning, Is.False, "取消不能遗留切换标记");
+            }
+
+            flow.GoToAsync<StateB>().Forget();
+            Assert.That(flow.Current, Is.TypeOf<StateB>());
+            Assert.That(status.IsTransitioning, Is.False);
+        }
+
+        [Test]
         public void GoToAsync_WhenEnterAsyncThrows_KeepsPreviousCurrentAndPropagates()
         {
             flow.GoToAsync<StateA>().Forget();

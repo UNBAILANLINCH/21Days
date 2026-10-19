@@ -7,6 +7,21 @@ maturity: seed
 
 # Narrative 扩展指南
 
+## 剧情环境首次接线与补位
+
+1. 等 Unity 编译完成，退出 Play，打开并激活 `Assets/_Project/Scenes/SampleScene.unity`。场景需已有 `SpotlightSceneBindings`，且包括禁用对象在内恰好一个方向光。
+2. 执行 `21Days/剧情/接入剧情光照与局部天气`。菜单在稳定场景根创建一个 `SpotlightEnvironmentView`，接入现有方向光并创建或复用 `Assets/_Project/Data/Narrative/SpotlightEnvironmentConfig.asset`。已有视图时选中并拒绝覆盖；不重复运行故事生成器。
+3. 根据现有 Points 的界别和稳定键取真实位置：人界 `enter_r0026` 为雪/坛火预览，人界 `enter_r0129` 为烛光预览，妖界 `enter_r0384` 为薄雾预览。位置有歧义则停止；缺失时只建立禁用空标记并警告，效果引用留空，不借用另一界同名点、不在原点造特效。
+4. 缺水雾位置时，作者必须先选择或摆好 SampleScene 内的真实位置锚点，再执行 `21Days/剧情/局部环境/在所选位置添加水雾`。菜单复制所选世界坐标、生成粒子并赋 `waterMist`；已有水雾引用则选中并拒绝覆盖。不要把未摆位的原点空标记当成真实水边。
+5. `21Days/剧情/局部环境/在所选位置添加烛光` 在选择位置增加点光并追加 `candles` 数组，不覆盖现有灯。`21Days/剧情/局部环境/在所选位置添加静态积水` 生成无碰撞、灰蓝低光泽的 3×2 米 Plane 美术预览；已有同名预览则选中。积水是静态几何，不是实时反射水体，不修改 Terrain，也不受水雾开关控制。
+6. 所选位置菜单要求场景内有效选择、非 Play、活动 SampleScene 和唯一根级环境视图。效果放在稳定环境根下，只复制位置，不挂在 `Display` 会关闭的剧情演员/交互点下面。作者再调整位置、尺寸、颜色和粒子参数，检查后手动保存场景。
+
+菜单支持场景 Undo 与异常回滚，不自动保存场景、不调用全局 `SaveAssets`，也不改包或渲染设置。首次运行按需创建 `Assets/_Project/Art/Materials/Narrative/SpotlightSoftParticle.mat`、同目录 `SpotlightSoftParticle.asset`（程序生成柔边纹理）；静态积水菜单按需创建 `SpotlightStaticWaterPreview.mat`。已有资产复用、不覆盖；场景 Undo 不删除新资产。缺可用 URP Shader 时停止，不私自切换渲染管线。
+
+增加表现映射应扩展 `SpotlightEnvironmentRules.Resolve` 的明确阶段键与对应纯规则测试，不按节点数字范围推断，也不增加连续时间、随机天气或独立天气存档。调整观感通过 `SpotlightEnvironmentConfig` 的 `Dawn/Day/MoonNight` 与局部参数；环境只读剧情，不替代 Narrative 的推进入口。正式流程目前停在 `enter_r0293`，后续月夜/水雾键存在不代表后续剧情或水边地图已经实现。
+
+已在 Unity 编译、执行首次菜单并保存场景；新局、夜档继续、日转夜中返回标题再继续另一槽，以及粒子在对白时停中推进的验证范围见 [本地验证](narrative-module-guide.md#本地验证2026-10-20)。重复菜单拒绝覆盖、Undo、所选位置补位菜单尚未实际验收；书库烛光和水口薄雾因缺锚点仍未接线。还须人工检查真实镜头下的摆位、亮度、粒子材质和静态积水观感，现有测试不代表视觉验收通过。
+
 人间边界以最新用户决定为准：地点变化不等于玩家任务。导入器只保留登记的边界ID；83／129／70仅在人界自动续播，不恢复西城／书库跑点或24血战斗。正常只加载SampleScene，人界为同场景Z+300分组，妖界保留原坐标；同布局、修复网格、左下出生与李诏阳保留。171人界镜前E只传送不提交剧情，妖界须到轮回堂值守旁E；188坊市必须到场E，禁止自动衔接。旧SpotlightHuman资产只保留兼容。
 
 正式章节新增节点时，同步源故事／对白、Quest目标及 `SpotlightStoryConfig` 节点。通过编辑器给 `SpotlightSceneBindings` 补实际锚点，保留稳定主目标；不要靠到过店铺或播过教程判玩法成功。菜单 `21Days/剧情/接入序章至酒肆会面` 仅首次接线，已有 SpotlightStory 时拒绝覆盖；后续直接编辑现有点位与配置。

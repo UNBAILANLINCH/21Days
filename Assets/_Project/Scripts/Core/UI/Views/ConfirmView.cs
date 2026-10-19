@@ -49,6 +49,10 @@ namespace Game.Core.UI.Views
         [Tooltip("取消按钮文字（可空，空则保留预制体原文）。")]
         [SerializeField] private TMP_Text cancelLabel;
 
+        [Header("按钮文字颜色")]
+        [SerializeField] private Color normalButtonTextColor = Color.white;
+        [SerializeField] private Color selectedButtonTextColor = Color.white;
+
         private UniTaskCompletionSource<bool> pending;
 
         public override UILayer Layer => UILayer.Popup;
@@ -84,6 +88,17 @@ namespace Game.Core.UI.Views
 
             Hook(confirmButton, HandleConfirm);
             Hook(cancelButton, HandleCancel);
+            if (confirmButton != null && confirmButton.image != null)
+            {
+                confirmButton.image.UnregisterDirtyVerticesCallback(RefreshButtonTextColors);
+                confirmButton.image.RegisterDirtyVerticesCallback(RefreshButtonTextColors);
+            }
+            if (cancelButton != null && cancelButton.image != null)
+            {
+                cancelButton.image.UnregisterDirtyVerticesCallback(RefreshButtonTextColors);
+                cancelButton.image.RegisterDirtyVerticesCallback(RefreshButtonTextColors);
+            }
+            RefreshButtonTextColors();
 
             // 重复打开（已开着再 OpenAsync）时沿用未决的那一次，已决的换新。
             if (pending == null || pending.Task.Status != UniTaskStatus.Pending)
@@ -98,6 +113,10 @@ namespace Game.Core.UI.Views
         {
             Unhook(confirmButton, HandleConfirm);
             Unhook(cancelButton, HandleCancel);
+            if (confirmButton != null && confirmButton.image != null)
+                confirmButton.image.UnregisterDirtyVerticesCallback(RefreshButtonTextColors);
+            if (cancelButton != null && cancelButton.image != null)
+                cancelButton.image.UnregisterDirtyVerticesCallback(RefreshButtonTextColors);
 
             // 被关掉按取消处理：TrySetResult 而不是 TrySetCanceled，等待方不会收到异常。
             Complete(false);
@@ -120,6 +139,16 @@ namespace Game.Core.UI.Views
             {
                 return await source.Task;
             }
+        }
+
+        private void RefreshButtonTextColors()
+        {
+            if (confirmLabel != null && confirmButton != null && confirmButton.image != null)
+                confirmLabel.color = confirmButton.image.overrideSprite != confirmButton.image.sprite
+                    ? selectedButtonTextColor : normalButtonTextColor;
+            if (cancelLabel != null && cancelButton != null && cancelButton.image != null)
+                cancelLabel.color = cancelButton.image.overrideSprite != cancelButton.image.sprite
+                    ? selectedButtonTextColor : normalButtonTextColor;
         }
 
         private void Complete(bool result)

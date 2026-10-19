@@ -459,7 +459,7 @@ Console 看到熟悉的 `[配置表] 完成……`、`[配置表] 生成完成�
 
 ### 12.3 场景里放地点
 
-「到达地点」目标要求场景里有一个挂着 **Quest Location** 组件的物体，它的 **Location Key** 和表里的 `key` 一致。现有两个都在 `Assets/Scenes/SampleScene.unity` 里：
+「到达地点」目标要求场景里有一个挂着 **Quest Location** 组件的物体，它的 **Location Key** 和表里的 `key` 一致。现有两个都在 `Assets/_Project/Scenes/SampleScene.unity` 里：
 
 | 场景里的物体 | Location Key | Radius |
 | --- | --- | --- |

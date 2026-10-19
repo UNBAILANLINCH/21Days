@@ -19,8 +19,8 @@ namespace Game.Tests.EditMode.Core
     public sealed class ConfigServiceTests
     {
         /// <summary>示例表 TbItem 在 Tables/Data/item.xlsx 里的行数。改了示例表要同步改这里。
-        /// 2026-10-16：16 → 26（加了 07_回合制作战文档.md:199-211 的 10 件战斗消耗品，id 1801–1810）。</summary>
-        private const int ExpectedItemCount = 26;
+        /// 2026-10-17：40 条，包含五店奖励、身份皮与 2001–2010 战斗消耗品。</summary>
+        private const int ExpectedItemCount = 40;
 
         private global::cfg.Tables tables;
 
@@ -43,6 +43,9 @@ namespace Game.Tests.EditMode.Core
         {
             Assert.That(tables.TbItem.Get(1001).Name, Is.EqualTo("铁剑"));
             Assert.That(tables.TbItem.Get(1004).Name, Is.EqualTo("治疗药水"));
+            Assert.That(tables.TbItem.Get(1801).Name, Is.EqualTo("行头三样"));
+            Assert.That(tables.TbItem.Get(1901).Name, Is.EqualTo("学徒皮"));
+            Assert.That(tables.TbItem.Get(2001).Name, Is.EqualTo("活力药剂"));
         }
 
         [Test]

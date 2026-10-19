@@ -221,8 +221,7 @@ namespace Game.Session
             {
                 using (telemetry.BeginSpan("title_start_transition"))
                     if (title != null) await title.PlayStartTransitionAsync(ct);
-                // 暗幕由操作说明和原场景加载流程接住；不绕过教程或存档初始化。
-                await tutorial.ShowAsync(ct);
+                // 正式开场的操作提示由剧情节点和区域驱动，不再盖全屏操作说明。
                 await session.NewGameAsync(slot, ct);
             }
             finally

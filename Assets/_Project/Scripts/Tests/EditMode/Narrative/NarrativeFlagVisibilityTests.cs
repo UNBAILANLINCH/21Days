@@ -25,6 +25,7 @@ using Game.Session;
 using Game.Tests.EditMode.Core;
 using MessagePipe;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -173,7 +174,103 @@ namespace Game.Tests.EditMode.Narrative
             Assert.That(visibility.gameObject.activeSelf, Is.False, "读回打赢之后的档：BOSS 不在");
         }
 
+        [Test]
+        public void Display_FormalSuppression_SurvivesFlagRefresh()
+        {
+            NarrativeFlagVisibility visibility = CreateVisibility(DefeatedFlag);
+            SpotlightSceneBindings bindings = CreateBindings(visibility.gameObject);
+            bindings.Display("enter_r0171", true, false);
+            Assert.That(visibility.gameObject.activeSelf, Is.False, "前置：正式流程已隔离旧示例");
+
+            visibility.Refresh();
+
+            Assert.That(narrative.HasStoryFlag(DefeatedFlag), Is.False);
+            Assert.That(visibility.gameObject.activeSelf, Is.False, "未击败标记不能覆盖正式流程隔离");
+        }
+
+        [Test]
+        public void Display_FormalSuppression_SurvivesSameStageReload()
+        {
+            ReachBossFight();
+            NarrativeFlagVisibility visibility = CreateVisibility(DefeatedFlag);
+            SpotlightSceneBindings bindings = CreateBindings(visibility.gameObject);
+            string stage = narrative.CurrentStageId;
+            bindings.Display(stage, true, false);
+
+            narrative.ReloadFromSave();
+
+            Assert.That(narrative.CurrentStageId, Is.EqualTo(stage), "刷新不依赖阶段变化");
+            Assert.That(visibility.gameObject.activeSelf, Is.False, "同阶段叙事通知不能重新显示旧示例");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Display_ReleaseFormalSuppression_RespectsDefeatedFlag(bool defeated)
+        {
+            if (defeated) Complete(ReachBossFight(), "Victory");
+            NarrativeFlagVisibility visibility = CreateVisibility(DefeatedFlag);
+            GameObject plainExample = Track(new GameObject("PlainLegacyExample"));
+            SpotlightSceneBindings bindings = CreateBindings(visibility.gameObject, plainExample);
+            bindings.Display("enter_r0171", true, false);
+            Assert.That(visibility.gameObject.activeSelf, Is.False);
+            Assert.That(plainExample.activeSelf, Is.False);
+
+            bindings.Display("", false, false);
+
+            Assert.That(visibility.gameObject.activeSelf, Is.EqualTo(!defeated), "非正式Demo仍遵守击败标记");
+            Assert.That(plainExample.activeSelf, Is.True, "没有标记组件的普通示例恢复原显示行为");
+        }
+
         // ── 没绑定 / 解绑 ───────────────────────────────────────────────────────
+
+        [Test]
+        public void Display_WindowFigureAndStairLight_FollowStoryAndWorld()
+        {
+            var bindings = CreateBindings();
+            var figure = Track(new GameObject("WindowFigure"));
+            var anchor = Track(new GameObject("StairPoint"));
+            var marker = Track(new GameObject("StairLight"));
+            var meeting = Track(new GameObject("MeetingWife"));
+            marker.transform.SetParent(anchor.transform);
+            using (var serialized = new SerializedObject(bindings))
+            {
+                serialized.FindProperty("windowFigure").objectReferenceValue = figure;
+                var points = serialized.FindProperty("points"); points.arraySize = 2;
+                var point = points.GetArrayElementAtIndex(0);
+                point.FindPropertyRelative("stageId").stringValue = "enter_r0188";
+                point.FindPropertyRelative("anchor").objectReferenceValue = anchor.transform;
+                point.FindPropertyRelative("marker").objectReferenceValue = marker;
+                var wife = points.GetArrayElementAtIndex(1);
+                wife.FindPropertyRelative("stageId").stringValue = "enter_r0215";
+                wife.FindPropertyRelative("anchor").objectReferenceValue = meeting.transform;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            foreach (string beforeLunhuitangEnds in new[] { "enter_r0171", "talk_21008" })
+            {
+                bindings.Display(beforeLunhuitangEnds, true, false);
+                Assert.That(marker.activeInHierarchy || figure.activeInHierarchy, Is.False,
+                    "轮回堂问询结束前，入口光点与窗边人影都不能出现");
+            }
+            bindings.Display("enter_r0188", true, false);
+            Assert.That(marker.activeInHierarchy && figure.activeInHierarchy, Is.True);
+            bindings.Display("action_r0197", true, false);
+            Assert.That(marker.activeInHierarchy, Is.False, "已看过窗边，光点收起");
+            Assert.That(figure.activeInHierarchy, Is.True, "三店探索时仍在窗边");
+            bindings.Display("enter_r0215", true, false);
+            Assert.That(figure.activeInHierarchy, Is.False, "会面不能有第二个窗边何素");
+            Assert.That(meeting.activeInHierarchy, Is.True);
+            bindings.Display("talk_21011", true, false);
+            Assert.That(meeting.activeInHierarchy, Is.True, "交谈不能让正在说话的何素消失");
+            bindings.Display("enter_r0188", false, false);
+            Assert.That(marker.activeInHierarchy || figure.activeInHierarchy, Is.False);
+            using (var serialized = new SerializedObject(bindings))
+            {
+                serialized.FindProperty("humanStory").boolValue = true;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            bindings.Display("enter_r0188", true, false);
+            Assert.That(figure.activeInHierarchy, Is.False, "人界不能显示妖界窗边人影");
+        }
 
         [Test]
         public void Unbound_Refresh_DoesNotTouchObject()
@@ -209,6 +306,19 @@ namespace Game.Tests.EditMode.Narrative
             visibility.Configure(key);
             visibility.Bind(narrative);
             return visibility;
+        }
+
+        private SpotlightSceneBindings CreateBindings(params GameObject[] examples)
+        {
+            var bindings = Track(new GameObject("SpotlightBindingsTest")).AddComponent<SpotlightSceneBindings>();
+            using (var serialized = new SerializedObject(bindings))
+            {
+                SerializedProperty legacy = serialized.FindProperty("legacyExamples");
+                legacy.arraySize = examples.Length;
+                for (int i = 0; i < examples.Length; i++) legacy.GetArrayElementAtIndex(i).objectReferenceValue = examples[i];
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            return bindings;
         }
 
         // 按 E → 遭遇 sample_boss → taunt（测试 UI 让对白展示失败，阶段停在 taunt）→ 以对白出口 Done 提交 → 停到 fight。

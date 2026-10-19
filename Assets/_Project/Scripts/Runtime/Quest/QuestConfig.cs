@@ -7,6 +7,10 @@ namespace Game.Quest
     [CreateAssetMenu(menuName = "21Days/Quest/QuestConfig")]
     public sealed class QuestConfig : ScriptableObject
     {
+        [Tooltip("当前入口可激活和显示的任务ID；空为全部。正式入口仅启用900，保留旧示例存档但不激活示例链。")]
+        [SerializeField] private int[] availableQuestIds = System.Array.Empty<int>();
+        public System.Collections.Generic.IReadOnlyCollection<int> AvailableQuestIds => availableQuestIds;
+
         [Tooltip("目标在屏幕外时，指引标识中心贴屏幕边缘的留白（参考分辨率像素）。取值依据：须 ≥ 箭头公转半径 48 + 箭头半宽 14 + 余量，" +
                  "否则箭头转到朝外一侧时被屏幕边裁掉；距离文本总在箭头对面（朝屏内），不参与这个下限。")]
         [SerializeField, Min(0)] private float edgeMargin = 72f;

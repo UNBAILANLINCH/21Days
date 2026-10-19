@@ -21,7 +21,7 @@ using UnityEngine.UI;
 namespace Game.Tests.Showcase.Narrative
 {
     [Category("Showcase")]
-    public sealed class NarrativeShowcase : ShowcaseScenario
+    public sealed partial class NarrativeShowcase : Game.Tests.Showcase.ShopPlaytest.ShopPlaytestShowcase
     {
         private IUIService ui;
         private NarrativeService narrative;

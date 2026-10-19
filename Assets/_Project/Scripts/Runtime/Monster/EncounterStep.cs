@@ -125,6 +125,8 @@ namespace Game.Monster
         private Vector2[][] authoredRoutes;
         private Func<float> playerSpeed; // 店铺只提供倍率，角色仍由本步骤推进。
         public event Action<float> OnAdvanced;
+        /// <summary>开局、读档、回放恢复和离场的表现重置，不进入快照。</summary>
+        public event Action OnPresentationReset;
         private Func<bool> playerCanSneak;
         public void BindPlayerModifiers(Func<float> speed, Func<bool> canSneak)
         { playerSpeed = speed; playerCanSneak = canSneak; }
@@ -695,6 +697,7 @@ namespace Game.Monster
             ActivationId = saved.ActivationId;
             PendingResult = saved.Result;
             ResultConsumed = saved.ResultConsumed;
+            OnPresentationReset?.Invoke();
         }
 
         public void Begin(Vector2 playerSpawn, Vector2[] patrolPoints)
@@ -716,11 +719,13 @@ namespace Game.Monster
             // 新的一场遭遇不继承上一场的升级在途（那一场的战斗若之后才交回结果，会因「不在途」被忽略并留痕）。
             ClearEscalation();
             IsActive = true;
+            OnPresentationReset?.Invoke();
         }
 
         public void End()
         {
             IsActive = false;
+            OnPresentationReset?.Invoke();
             if (Taming != null) Taming.TryControl(Taming.PlayerId);
             // 离场清瞬时事实，避免泄漏到下一场遭遇。
             chasePhase = ChasePhase.Idle;
@@ -1594,6 +1599,7 @@ namespace Game.Monster
             AlignDropGatesWithHealth();
             exposureLatch = ExposureCause.None;
             ClearEscalation();
+            OnPresentationReset?.Invoke();
         }
 
         // 升级在途是瞬态：Begin / Restore / Deserialize 都从「不在途」起步（不埋点：这不是一次放弃，是现场被整体换掉了）。

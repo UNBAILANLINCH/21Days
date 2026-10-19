@@ -1,0 +1,757 @@
+{
+  "id": "spotlight_current",
+  "entry": "talk_21000",
+  "stages": [
+    {
+      "id": "talk_21000",
+      "kind": "Dialogue",
+      "payload": "21000",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "talk_21001"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21001",
+      "kind": "Dialogue",
+      "payload": "21001",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "talk_21002"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21002",
+      "kind": "Dialogue",
+      "payload": "21002",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "talk_21003"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21003",
+      "kind": "Dialogue",
+      "payload": "21003",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0026"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0026",
+      "kind": "WaitAction",
+      "payload": "序章下半｜客店院落",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21004"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21004",
+      "kind": "Dialogue",
+      "payload": "21004",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0070"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0070",
+      "kind": "WaitAction",
+      "payload": "writer_row_70",
+      "allowEncounter": true,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21005"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21005",
+      "kind": "Dialogue",
+      "payload": "21005",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0083"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0083",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段一 入镜｜人间-戏台旁（赵十四）",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21006"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21006",
+      "kind": "Dialogue",
+      "payload": "21006",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0129"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0129",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段一 入镜｜朝廷书库",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21007"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21007",
+      "kind": "Dialogue",
+      "payload": "21007",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0171"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0171",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段一 入镜｜镜中长安-轮回堂",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21008"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21008",
+      "kind": "Dialogue",
+      "payload": "21008",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0188"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0188",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段一 入镜｜镜中长安-轮回堂外/坊市入口/酒肆门口",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21009"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21009",
+      "kind": "Dialogue",
+      "payload": "21009",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0197"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0197",
+      "kind": "WaitAction",
+      "payload": "writer_row_197",
+      "allowEncounter": true,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "enter_r0198"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0198",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段一 入镜｜镜中长安-酒肆",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21010"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21010",
+      "kind": "Dialogue",
+      "payload": "21010",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0215"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0215",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段二 名册勘察｜镜中长安-坊市巷",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21011"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21011",
+      "kind": "Dialogue",
+      "payload": "21011",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0293"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0293",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段二 名册勘察｜镜中长安-轮回堂",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21012"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21012",
+      "kind": "Dialogue",
+      "payload": "21012",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0304"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0304",
+      "kind": "WaitAction",
+      "payload": "writer_row_304",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21013"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21013",
+      "kind": "Dialogue",
+      "payload": "21013",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0339"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0339",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段二 名册勘察｜人间-朝廷书库",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21014"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21014",
+      "kind": "Dialogue",
+      "payload": "21014",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0384"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0384",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段三 验堤｜镜中泾阳-水口",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21015"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21015",
+      "kind": "Dialogue",
+      "payload": "21015",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0397"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0397",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段三 验堤｜镜中泾阳-里巷",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21016"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21016",
+      "kind": "Dialogue",
+      "payload": "21016",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0427"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0427",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段三 验堤｜镜中泾阳-决堤",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21017"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21017",
+      "kind": "Dialogue",
+      "payload": "21017",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0434"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0434",
+      "kind": "WaitAction",
+      "payload": "writer_row_434",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "enter_r0435"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0435",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段三 验堤｜镜中泾阳-废弃官署",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21018"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21018",
+      "kind": "Dialogue",
+      "payload": "21018",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0445"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0445",
+      "kind": "WaitAction",
+      "payload": "writer_row_445",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21019"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21019",
+      "kind": "Dialogue",
+      "payload": "21019",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "enter_r0469"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "enter_r0469",
+      "kind": "WaitAction",
+      "payload": "第一章｜阶段三 验堤｜镜中泾阳-废弃官署-抄房",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "talk_21020"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "talk_21020",
+      "kind": "Dialogue",
+      "payload": "21020",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Done",
+          "next": "action_r0478"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "action_r0478",
+      "kind": "WaitAction",
+      "payload": "writer_row_478",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Success",
+          "next": "end"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "end",
+      "kind": "End",
+      "payload": "",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [],
+      "setFlags": [],
+      "outcome": "CurrentContentEnd"
+    }
+  ]
+}

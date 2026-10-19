@@ -118,7 +118,7 @@ namespace Game.Core.Boot
 
             // Audio 排在 UI 前面：按 5.1 的顺序，而且 UI 面板一打开就可能要播音效。
             builder.Register<AudioService>(Lifetime.Singleton)
-                .As<IAudioService, IGameService>();
+                .As<IAudioService, ISfxVoiceService, IGameService>();
 
             // UI 最后：它的 InitializeAsync 要拿 IInputService.Actions 去接 EventSystem，
             // Input 必须已经初始化完。

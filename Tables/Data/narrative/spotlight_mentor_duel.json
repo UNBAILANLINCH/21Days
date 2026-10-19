@@ -1,0 +1,57 @@
+{
+  "id": "spotlight_mentor_duel",
+  "entry": "fight",
+  "stages": [
+    {
+      "id": "fight",
+      "kind": "Battle",
+      "payload": "spotlight_mentor",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [
+        "Victory",
+        "Downed"
+      ],
+      "anyOf": [],
+      "exits": [
+        {
+          "result": "Victory",
+          "next": "cleared"
+        },
+        {
+          "result": "Downed",
+          "next": "retreat"
+        }
+      ],
+      "setFlags": [],
+      "outcome": ""
+    },
+    {
+      "id": "cleared",
+      "kind": "End",
+      "payload": "",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [],
+      "setFlags": [],
+      "outcome": "Success"
+    },
+    {
+      "id": "retreat",
+      "kind": "End",
+      "payload": "",
+      "allowEncounter": false,
+      "issueRequest": false,
+      "requiredParts": [],
+      "battleResults": [],
+      "anyOf": [],
+      "exits": [],
+      "setFlags": [],
+      "outcome": "Downed"
+    }
+  ]
+}

@@ -40,11 +40,13 @@ maturity: stable
 
 ## `Game.CharacterPuppet.ChibiPuppetMotion`（同根驱动组件）
 
+`BindMotion(Transform root, SpriteRenderer facing)`重新绑定位移和朝向来源并清空采样累计，调用方须提供有效角色根；`TrackedRoot`和`FacingSource`只读公开当前绑定，供五店换皮及卸载还原。组件不推动角色、不改逻辑朝向。
+
 | 序列化字段 | 含义 | 为空时 |
 | --- | --- | --- |
 | `puppet` | 同根的 `ChibiPuppet` | `Awake` 里 `GetComponent` 取 |
 | `config` | `ChibiPuppetConfig` 资产 | **必填**，否则 `LateUpdate` 空引用 |
-| `trackedRoot` | 读位移的角色根 | 父链上第一个名字不是 `Visual` 的节点；找不到用自身（`ChibiPuppetMotion.cs:136`） |
+| `trackedRoot` | 读位移的角色根 | 父链上第一个名字不是 `Visual` 的节点；找不到用自身（`ChibiPuppetMotion.cs` 的 ResolveTrackedRoot） |
 | `facingSource` | 朝向来源 `SpriteRenderer`，读其 `flipX`（真 = 朝左） | 按位移在 `Camera.main.transform.right` 上的投影判朝向 |
 
 使用前提：

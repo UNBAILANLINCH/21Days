@@ -590,6 +590,7 @@ namespace Game.Monster
 
             model.Health = GameMath.Max(0, model.Health - intent.Amount);
             telemetry.Track("hit", ("hp", model.Health), ("damage", intent.Amount));
+            OnDamaged?.Invoke();
             if (model.Health == 0)
             {
                 SetMode(MonsterMode.Dead);
@@ -623,6 +624,9 @@ namespace Game.Monster
         /// 调用方据此**不写** <c>stealth.assassinated</c>、不埋 <c>stealth_executed</c>。
         /// </para>
         /// </summary>
+        public event Action OnDamaged;
+        public event Action OnExecuted;
+
         public bool ApplyExecution()
         {
             if (model.Health <= 0)
@@ -633,6 +637,7 @@ namespace Game.Monster
             model.Health = 0;
             SetMode(MonsterMode.Dead);
             telemetry.Track("executed", ("hp", model.Health), ("kind", kind == null ? 0 : kind.KindId));
+            OnExecuted?.Invoke();
             return true;
         }
 

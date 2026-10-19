@@ -18,6 +18,8 @@ Claude Code 在固定时机调用的小程序：编辑前查、编辑后记、�
 
 不直接注册、但被钩子引用的两样：
 
+Codex 适配器调用 `guard.js --agent-commit`，仅取消 commit 的确认分支；署名、推送及危险操作继续检查，授权要求见 `AGENTS.md`。Claude 注册命令不带此参数，行为不变。
+
 | 文件 | 干什么 |
 | --- | --- |
 | `_hook_common.py` | 同会话提示去重 `should_emit(会话, 文本, 标签)`。`guard.js` 里有等价的 `shouldEmitOnce()`，**共用同一份账本**，格式必须一致 |
@@ -94,10 +96,10 @@ printf '{"session_id":"smoke","hook_event_name":"PostToolUse","tool_name":"Read"
 cat .claude/.cache/reads/smoke.jsonl
 
 # 2) required-reads —— PreToolUse 查闸：没读过 unity-assets.md 的会话改场景 → deny
-printf '{"session_id":"fresh","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity"}}' \
+printf '{"session_id":"fresh","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity"}}' \
   | python .claude/hooks/required-reads.py
 # 换成上面记过账的 smoke 会话 → 静默放行
-printf '{"session_id":"smoke","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity"}}' \
+printf '{"session_id":"smoke","hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity"}}' \
   | python .claude/hooks/required-reads.py
 
 # 3) Windows 反斜杠绝对路径也认（把 X/工程根 换成实际盘符与目录名）
@@ -151,7 +153,7 @@ printf '{"session_id":"smoke","hook_event_name":"PreCompact"}' | python .claude/
 
 ```bash
 # 7) guard.js —— 拦生成物
-printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/Scenes/SampleScene.unity.meta"}}' \
+printf '{"tool_name":"Edit","tool_input":{"file_path":"Assets/_Project/Scenes/SampleScene.unity.meta"}}' \
   | node .claude/hooks/guard.js
 ```
 

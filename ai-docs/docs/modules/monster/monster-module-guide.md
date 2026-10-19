@@ -7,6 +7,14 @@ maturity: stable
 
 # Monster 模块指南
 
+## 正式两界承载（2026-10-18 后续）
+
+正常入口只加载 `IsometricEncounter`（SampleScene）。`HumanWorld_Z300` 是同场景内共用CourtyardLatest网格、材质及草坡修复资源的人界副本，整体Z+300；`DemonWorld` 保留原地图坐标和五店引用。`PrepareHumanStory()` / `PrepareDemonStory()` 选择逻辑世界，不选择场景地址；互斥启用分组，原未激活对象状态不被改成全启用。人界停用妖界巡逻、五店与处决入口，只有一套玩家移动驱动和相机。
+
+`EnterDemonWorldAsync` 在黑幕及输入／保存门闸下原地解绑、切分组、落到妖界对应镜台，不经GameFlow重进或场景卸载。绑定互斥门串行处理换界与Continue退出；失败恢复换界前快照。Begin／Restore同时对齐逻辑位置、PreviousPosition、表现高度与相机，重发既有玩家锚点变化使小地图重建当前地图。轮回堂守卫位于上层左侧桥后的岛上，桥与岛使用原网格补Ground碰撞并以不可见接缝坡面连通。
+
+`EncounterSaveData` v4保存 `StoryWorld`（human/demon）、同一SceneKey、实际XZ与可空高度。v3的SpotlightHuman档将玩家Z加300并迁入同场景人界；v1/2人界阶段由Session识别，妖界旧档不偏移。旧场景资产和地址仅保留兼容，不再正常加载。不改变确定性回放字节布局。
+
 ## 主场景酒肆醉酒意图（2026-10-13）
 
 MonsterIntent新增可选awarenessScale与movementScale，默认均1，旧调用点行为不变。

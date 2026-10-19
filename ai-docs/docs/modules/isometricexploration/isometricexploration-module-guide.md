@@ -54,7 +54,7 @@ IsometricExploration 是 `SampleScene` 中的 2.5D / 3D 混合原型。
 
 ## 场景结构
 
-当前接线保存在 `Assets/Scenes/SampleScene.unity`。
+当前接线保存在 `Assets/_Project/Scenes/SampleScene.unity`。
 
 运行时通过 Addressables 地址 `IsometricEncounter` 加载该场景。场景根节点 `Encounter` 上的
 `EncounterSceneView` 显式引用 `player`、`enerme`、两个 `Visual/SpriteRenderer`、出生点和巡逻点。
@@ -155,7 +155,7 @@ NPC 在 Default 层，**不挡人**，玩家可以穿过，前后关系靠下文
 站在桥正中下方反而看得见（回放用 (17.25, 12.3) 验证桥淡出）。
 
 角色（`player` / `enerme`）当前层级；根节点已改为**脚底**、缩放归一 `(1, 1, 1)`，
-Y = 地面高度 `4.8884`（`Assets/Scenes/SampleScene.unity:4581`，`CapsuleCollider.center (0, 0.8, 0)`、
+Y = 地面高度 `4.8884`（`Assets/_Project/Scenes/SampleScene.unity:4581`，`CapsuleCollider.center (0, 0.8, 0)`、
 `height 1.6`、`radius 0.3`，即碰撞体从脚底往上量）：
 
 ```text

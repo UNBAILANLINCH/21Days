@@ -58,7 +58,7 @@ namespace Game.Tests.Showcase
         /// <param name="enterTimeout">点「开始」后等进世界的上限（秒，不乘节奏倍率）。</param>
         /// <param name="startStepTitle">「点开始」这一步的标题；null 用默认「点标题界面「开始」」。
         /// 给需要在标题里写清前提的用例（例如「三个槽都空：新游戏应落在槽 1」）。</param>
-        protected IEnumerator EnterWorldFromTitle(float bootTimeout = 20f, float enterTimeout = 20f, string startStepTitle = null)
+        protected IEnumerator EnterWorldFromTitle(float bootTimeout = 20f, float enterTimeout = 20f, string startStepTitle = null, string expectedScene = null)
         {
             if (!string.IsNullOrEmpty(ScenePath))
             {
@@ -83,7 +83,7 @@ namespace Game.Tests.Showcase
                 0f);
             yield return DismissNewGameTutorial(enterTimeout);
 
-            string worldScene = DemoSceneName();
+            string worldScene = expectedScene ?? DemoSceneName();
             yield return WaitUntil(
                 $"进入世界：标题关闭、流程离开标题、场景 {worldScene} 已加载、玩家模型可用",
                 () =>

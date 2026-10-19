@@ -21,7 +21,7 @@ namespace Game.Tests.EditMode.CharacterPuppet
 {
     public sealed class SpriteDepthBiasWiringTests
     {
-        private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+        private const string ScenePath = "Assets/_Project/Scenes/SampleScene.unity";
         private const string ShaderName = "21Days/SpriteDepthClip";
         private const string BaseMaterialPath = "Assets/_Project/Art/Materials/Character/M_SpriteDepthClip.mat";
         private const string PlayerMaterialPath = "Assets/_Project/Art/Materials/Character/M_SpriteDepthClip_Player.mat";

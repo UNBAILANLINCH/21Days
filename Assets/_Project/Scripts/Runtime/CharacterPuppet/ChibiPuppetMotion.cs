@@ -32,6 +32,16 @@ namespace Game.CharacterPuppet
         private bool snapFacing;
 
         public Transform TrackedRoot => trackedRoot;
+        public SpriteRenderer FacingSource => facingSource;
+        public void BindMotion(Transform root, SpriteRenderer facing)
+        {
+            trackedRoot = root;
+            facingSource = facing;
+            lastPosition = root.position;
+            pendingDelta = Vector3.zero;
+            pendingTime = 0f;
+            snapFacing = true;
+        }
 
         private void Awake()
         {

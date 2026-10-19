@@ -18,7 +18,7 @@ public readonly struct SaveCompletedEvent { int Slot; string Reason; bool Succes
 ```
 
 - `SessionStartedEvent`：一局开始（新游戏或读档），**内存分区已就位、切进玩法状态之前**发布。各分区所有者
-  在回调里同步重载即可（示例：`QuestService.ReloadFromSave()`，见 `QuestService.cs:135`）。回调必须同步完成，
+  在回调里同步重载即可（示例：`QuestService.ReloadFromSave()`，见 `QuestService.cs`）。回调必须同步完成，
   不要 `await` 或切状态。
 - `SaveCompletedEvent`：一次落盘结束（成功或失败），`GameSession.SaveNowAsync` 里 `ISaveService.SaveAsync`
   返回后发布。用来等一次保存真正完成（例如回放里的「触发保存并等待」）。
@@ -45,11 +45,7 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 新游戏/继续切换尚未结束或写盘在途时，NewGameAsync与ContinueAsync拒绝重入并返回false。切槽期间SaveNowAsync直接返回false，不捕获旧现场，也不把旧离场请求延后写入目标槽；新场景完成后的RequestSave留到切换结束再由Tick处理。失败/取消也会释放切换守卫。
 
-> **新游戏入口要先放操作说明**：`NewGameAsync` 本身**不显示**开局操作说明（教程面板是 UI，塞进 `GameSession`
-> 会让它认识 `IUIService`）。Session 内部两条入口——`SessionTitleRouter`（标题「开始」）与 `SaveSlotsController`
-> （选槽面板的新游戏模式）——都先调 `NewGameTutorial.ShowAsync(ct)`、等玩家按键关掉教程，再调 `NewGameAsync`。
-> 别处新增新游戏入口时照做，否则那条路径会**静默跳过**教程（不报错、只是玩家看不到说明）。
-> `NewGameTutorial` 由 Session 自己注册（`SessionInstaller`），面板开不出来时它记错误日志后照常返回，不会挡开局。
+> **2026-10-18 新游戏入口**：两条正常入口保留标题转场后调用 `NewGameAsync`，进入世界后由 `SpotlightStoryFlow` 按节点／范围提示，不再打开全屏操作说明。`NewGameTutorial` 保留兼容 API，正常入口不调用。
 
 **线程 / 时序**：`SaveNowAsync` 的捕获段（`state.CaptureEncounter` + 更新 `SessionSaveData`）在第一个
 `await` 之前**同步**完成，所以在 `GameStateChangingEvent` 回调里调用时，捕获发生在前一状态 `ExitAsync`
@@ -68,7 +64,7 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 ## 只读值类型
 
-标题空槽开局先等待 `TitleView.PlayStartTransitionAsync(ct)`，再显示原操作说明并开启会话。
+标题空槽开局先等待 `TitleView.PlayStartTransitionAsync(ct)`，再开启会话与正式剧情。
 表现接口只播放镜转/水波；`ResetStartTransition()` 供取消或失败收尾，不初始化存档、不加载场景。
 转场缺少接线时直接完成，旧预制体继续兼容。新游戏选择槽位并完成覆盖确认后，先关闭选槽面板再播放同一转场。
 读档使用 `TitleView.PlayLoadTransitionAsync(ct)` 的短镜转/水波；选槽路径先等待 `SaveSlotsView.PlayLoadTransitionAsync(slot, seconds, ct)` 收卷，关闭面板后播放短版，再调用原 `GameSession.ContinueAsync`。

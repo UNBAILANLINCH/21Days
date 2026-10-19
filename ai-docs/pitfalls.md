@@ -63,7 +63,7 @@
 
 ## 回放迁到 SampleScene 后，距离都是真实距离，别假设物体在身边
 - 现象：照旧验证场景时代的写法「向右走 1 秒」之类硬编码位移，回放对象走不到目标附近，交互 / 触发类检查点判失败。
-- 根因：Showcase 从独立验证场景迁到 `Assets/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
+- 根因：Showcase 从独立验证场景迁到 `Assets/_Project/Scenes/SampleScene.unity` 后，用的是这张场景里真实摆放的出生点与间距：出生点离长者 3、离巡逻怪约 18，NPC 交互半径 2 且只认 `player`。这些距离比独立验证场景里凑近的占位摆法大得多，靠感觉给的位移量走不到。
 - 正确做法：回放先用 `WalkTo` / `GoToPatrolLookout` 这类按逻辑位置走到目标附近，再触发交互，不要臆造一个位移时长；坐标优先从场景里的锚点物体或 `ShowcaseScenario.DemoScene.cs` 的坐标常量读，不写死数字。
 - 关联：`.claude/rules/module-verify.md`、`docs/module-dev-spec.md`。日期：2026-09-28。
 
@@ -444,7 +444,7 @@
 - 关联：`ai-docs/docs/modules/dialogue/dialogue-module-guide.md #对白面板视觉与演出面板共用规范`、`ai-docs/docs/modules/performance/performance-module-guide.md #对白面板`、`Assets/_Project/Scripts/Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs`；2026-09-28。
 
 ## 正式场景引用了测试程序集脚本
-- 现象：`Assets/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
+- 现象：`Assets/_Project/Scenes/SampleScene.unity`（在 Build Settings 与 Addressables 里，会进包）的 `player` 挂着 `IsometricPlayerController3D`，脚本却在 `Assets/_Project/Scripts/Tests/Showcase/IsometricExploration/`（asmdef `Game.Tests.Showcase`）。编辑器里一切正常，出包后测试程序集不进包，组件变 missing script。
 - 根因：asmdef 依赖方向只在代码层有 `invariants.py` 拦（Runtime 不引用 Tests），资产层（场景 / 预制体挂了哪个脚本）没人查；回放用的临时控制器顺手挂进了正式场景。
 - 正确做法：正式场景、预制体只挂 `Scripts/Core/`、`Scripts/Runtime/` 下的脚本；回放需要的控制器由 Showcase 运行时 `AddComponent` / 实例化并 `Track()`。`invariants.py` 新增「正式场景 / 预制体不引用测试程序集脚本」检查，`/gc` 会报。
 - 关联：`.claude/rules/project-root.md #目录与 asmdef 依赖方向`、`.claude/skills/evolution/invariants.py`；2026-09-28。
@@ -629,3 +629,9 @@
 - 根因：`SaveSlotsController` 把 `TitleView.GetCancellationTokenOnDestroy()` 传给 `GameSession.ContinueAsync`。`TitleState.ExitAsync` 正常销毁标题时，取消令牌随之取消，打断尚未完成的玩法场景加载；`OperationCanceledException` 被当成正常退出处理，空画面没有业务错误提示。
 - 正确做法：跨 UI 关闭的流程使用控制器寿命令牌，在控制器 `Dispose` 时取消；局部 UI 动画仍可跟随对应 View 寿命。正常玩法继续由 `SceneGameState` Additive 加载 `SampleScene`，保留 Boot。验证必须检查目标流程状态和实际加载场景；标题消失、根容器可解析 PlayerModel 都不能证明入场完成。至少一条生命周期测试要让标题先销毁、异步加载后完成，避免已缓存场景掩盖时序问题。
 - 关联：`Assets/_Project/Scripts/Runtime/Session/SaveSlotsController.cs`、`Assets/_Project/Scripts/Tests/PlayMode/Session/SessionTitleRouterTests.cs` 的 `SelectedSlot_TitleDestroyedBeforeSceneReady_DoesNotCancelLoad`、`Assets/_Project/Scripts/Tests/Showcase/Title/TitleShowcase.cs` 的 `MouseLoad_RollsScrollThenShortWaterWarpEntersWorld`。日期：2026-10-15。
+
+## MCP 相机截图先分配全尺寸纹理，缩小返回图片不能降低捕获峰值
+- 现象：相机截图触发 `Could not allocate memory: System out of memory!`，申请 `74649600B`、`MemoryLabel: Texture`；完整调用栈指向 `ScreenshotUtility.CaptureFromCameraToProjectFolder` 创建 `Texture2D`，随后出现 `5760 x 3240` RenderTexture 创建失败和 MCP 连续超时。
+- 根因：当前包先按相机像素尺寸乘截图倍率创建 RenderTexture，渲染后再创建 RGBA32 Texture2D；`5760 × 3240 × 4 = 74649600`，仅这一份纹理约 71.2 MiB，另有渲染附件和编码开销。`max_resolution` 只在完整捕获、编码之后缩小返回图片，挡不住前面的分配。本次失败时 Unity GFX 分配器已使用约 3.93 GiB；这不等于独立显存占用，也不足以判定泄漏或某个模型的占用。
+- 正确做法：先核对当前实例的 `-logFile` 或 `Application.consoleLogPath`，按申请字节数和调用栈匹配弹窗；默认 Editor.log 可能仍是上一轮崩溃。本次日志中庭院模型已导入完成，截图才是这次弹窗的直接触发点。内存紧张时先降低实际相机捕获尺寸和截图倍率，再截图；不要仅调小返回图片的 `max_resolution`，也不要在致命弹窗期间反复发送截图命令。降低尺寸是否解决仍需另行验证。
+- 关联：`outputs/water/unity-recovery.log`、`Library/PackageCache/com.coplaydev.unity-mcp@*/Runtime/Helpers/ScreenshotUtility.cs` 的 `CaptureFromCameraToProjectFolder`；2026-10-17 日志排查。此项依赖运行时尺寸与内存状态，不新增逐行正则 lint。

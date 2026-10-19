@@ -51,6 +51,14 @@ namespace Game.Quest
         private readonly List<QuestTrackingChangedEvent> batchTracking = new List<QuestTrackingChangedEvent>();
 
         private QuestRules rules;
+        private readonly IReadOnlyCollection<int> availableQuestIds;
+        public int PresentationQuestId { get; private set; }
+        public string PresentationObjective { get; private set; } = "";
+        public void SetObjectivePresentation(int questId, string text)
+        {
+            PresentationQuestId = questId;
+            PresentationObjective = text ?? "";
+        }
         private IDisposable sessionSubscription;
 
         public QuestService(
@@ -61,7 +69,7 @@ namespace Game.Quest
             IPublisher<QuestCompletedEvent> completed,
             IPublisher<QuestTrackingChangedEvent> tracking,
             ISubscriber<SessionStartedEvent> sessionStarted,
-            ITelemetryScope telemetry)
+            ITelemetryScope telemetry, IReadOnlyCollection<int> availableQuestIds = null)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
@@ -71,6 +79,7 @@ namespace Game.Quest
             trackingPublisher = tracking ?? throw new ArgumentNullException(nameof(tracking));
             this.sessionStarted = sessionStarted ?? throw new ArgumentNullException(nameof(sessionStarted));
             this.telemetry = telemetry ?? NullTelemetryScope.Instance;
+            this.availableQuestIds = availableQuestIds;
         }
 
         /// <summary>内容合法且初始化完成后为 true。</summary>
@@ -99,7 +108,7 @@ namespace Game.Quest
         {
             try
             {
-                rules = new QuestRules(catalog.Content, telemetry);
+                rules = new QuestRules(catalog.Content, telemetry, availableQuestIds);
             }
             catch (ArgumentException e)
             {

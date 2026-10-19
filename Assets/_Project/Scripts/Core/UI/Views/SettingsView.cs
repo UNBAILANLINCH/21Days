@@ -32,7 +32,7 @@ namespace Game.Core.UI.Views
         /// <summary>全屏模式下拉框的选项，下标即 <c>SettingsSaveData.FullScreenMode</c>（0 无边框全屏 / 1 窗口化）。</summary>
         private static readonly string[] FullScreenLabels = { "无边框全屏", "窗口化" };
 
-        private const string LanguageLabel = "简体中文";
+        private static readonly string[] LanguageLabels = { "简体中文", "英语" };
 
         [Header("音频")]
         [SerializeField] private Slider masterSlider;
@@ -48,7 +48,7 @@ namespace Game.Core.UI.Views
         [Tooltip("帧率上限；垂直同步开着时禁用。")]
         [SerializeField] private TMP_Dropdown frameRateDropdown;
 
-        [Header("语言（占位，只有一项且禁用）")]
+        [Header("语言（选项占位）")]
         [SerializeField] private TMP_Dropdown languageDropdown;
 
         [Header("按钮")]
@@ -112,8 +112,9 @@ namespace Game.Core.UI.Views
             // 静态选项在这里填一次；随数据变的选项（分辨率）在 Bind 里填。
             FillOptions(fullScreenDropdown, FullScreenLabels);
             FillOptions(frameRateDropdown, FrameRateLabels);
-            FillOptions(languageDropdown, new[] { LanguageLabel });
-            if (languageDropdown != null) languageDropdown.interactable = false;
+            // shortcut: 语言暂只供界面选择，本地化接入时再绑定保存与文本切换。
+            FillOptions(languageDropdown, LanguageLabels);
+            if (languageDropdown != null) languageDropdown.interactable = true;
             return UniTask.CompletedTask;
         }
 

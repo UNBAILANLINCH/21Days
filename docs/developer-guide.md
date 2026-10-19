@@ -380,7 +380,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 `DialogueInteractableMarker`，子物体放头顶标记 `MarkerIdle` / `MarkerFocus` 与名字 `NameLabel`（3D 场景再挂 `CameraBillboard`）。
 玩家根挂一个 `InteractionActor`（Game.Interaction），焦点系统据此选最近的 NPC，确认键或右下角「对话」按钮触发。
 要支持鼠标 / 触屏点 NPC，场景相机挂 `PhysicsRaycaster`（3D 碰撞体）或 `Physics2DRaycaster`（`Collider2D`），缺了点击静默无效。
-现成样子照 `Assets/Scenes/SampleScene.unity` 的 `Npc_Elder` 抄。
+现成样子照 `Assets/_Project/Scenes/SampleScene.unity` 的 `Npc_Elder` 抄。
 
 **无对话树的 NPC**：编号填 `0`、Inspector 的 `bubbleLines` 填几句台词，再放一个 `Prefabs/World/DialogueSpeechBubble.prefab` 实例作子物体
 并拖进标记的 `speechBubble`。交互时头顶气泡按序循环说一句，不暂停世界、不开对话面板。
@@ -389,7 +389,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 - 对话服务、焦点系统、EventSystem 都随 Boot 启动。**从 Boot → 标题「开始」进入才有对话**；直接 Play 玩法场景只会记 Warn。
 - 运行时 `Instantiate` 出来的 NPC 不会被自动扫描，要自己调 `interactable.Bind(service)`，且不参与焦点。
 
-验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（回放在 `Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
+验证：`/unity-test EditMode Dialogue`；看回放 `/verify-module Dialogue`（回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
 对话内容怎么配见 [`designer-guide.md` 第 11 章](designer-guide.md)。
 
 ### 6.15 角色小人 — `ChibiPuppet`
@@ -406,7 +406,7 @@ audio.MasterVolume = 0.5f;                      // 立刻生效并写回 Setting
 3. 没有原纸片的情况（如回放运行时生成的独立小人）`facingSource` 留空，朝向按位移在 `Camera.main` 右方向上的投影判。
 
 手感参数在 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`（起步 / 停步阈值、采样窗口、跑走切换阈值（runStart 4 / runStop 3.5）、播放速率夹取（0.8～1.6）；剪辑地速在各预制体 `ChibiPuppet.walkClipSpeed` / `runClipSpeed`）。
-Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（回放在 `Assets/Scenes/SampleScene.unity` 上跑）。
+Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`/verify-module CharacterPuppet`（回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑）。
 
 **序列帧小人（现行唯一做法；早期分件拼接小人已于 2026-09-28 删除）**：美术按状态交序列帧（规范见 [`artist-guide.md` 3.4 节](artist-guide.md)），
 编辑器工具一键生成动画、控制器与预制体；运行时是 `ChibiPuppet` + `ChibiPuppetMotion`，`parts` 只有一个 `SpriteRenderer`。
@@ -468,7 +468,7 @@ Animator 走 unscaled 时间，对话时停期间待机呼吸照播。验证：`
   透视 Base 舞台相机、Addressables 登记）就播不出来；校验按钮能列出舞台相机类型不对 / 空字幕 / 演员名单缺头像等问题。
 
 验证：`/unity-test EditMode Performance`；看回放 `/verify-module Performance`（回放在
-`Assets/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
+`Assets/_Project/Scenes/SampleScene.unity` 上跑，编辑器须打开）。
 
 ### 6.17 任务系统 — QuestService / 任务编辑器
 
@@ -1173,7 +1173,7 @@ IL2CPP —— 所以这两项是绑定的，不能只改架构不换后端。
   编辑器的 Play Mode Script 是 `Use Asset Database (fastest)`，它不看组，直接从工程里取。
   这是「编辑器好好的、出包就白屏」的头号原因，接完线跑一次 `21Days/工程/资产体检` 能提前抓到。
 - 玩法场景走 Addressables 加载，**不进 Build Settings**；Build Settings 里只有 `Boot.unity`。
-- 地址 `IsometricEncounter` 现在指向 `Assets/Scenes/SampleScene.unity`（功能 demo 示例场景），这是**临时**的；
+- 地址 `IsometricEncounter` 现在指向 `Assets/_Project/Scenes/SampleScene.unity`（功能 demo 示例场景），这是**临时**的；
   正式内容落地后只改这一处指向 `Assets/_Project/Scenes/` 下的新场景。
   SampleScene 同时是功能实现模板：新场景接同一功能时照它的接法抄，只改内容不改接法。
 

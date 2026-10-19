@@ -1,17 +1,20 @@
-// 职责：真实饮酒按钮、控制角色减速、灌酒、现有战斗返回与离区清理。
+// 职责：真实按钮验证划拳、动态学习、稳定存档、战斗继承和离区清理。
 using System.Collections;
-using Game.Battle;
-using Game.Core.Flow;
+using Cysharp.Threading.Tasks;
 using Game.Core.Input;
+using Game.Core.Save;
+using Game.Core.Simulation;
 using Game.Core.Timing;
-using Game.Dialogue;
+using Game.Core.UI;
 using Game.Narrative;
+using Game.Session;
 using Game.ShopPlaytest;
+using Game.Tavern;
 using Game.Tests.Showcase.ShopPlaytest;
 using NUnit.Framework;
-using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 namespace Game.Tests.Showcase.Tavern
 {
     [Category("Showcase")]
@@ -19,68 +22,67 @@ namespace Game.Tests.Showcase.Tavern
     {
         protected override string Module => "Tavern";
         [UnityTest]
-        public IEnumerator Drink_ExplorationEffectsBattleAndLeaveReset()
+        [Timeout(600000)]
+        public IEnumerator Guess_LearningSaveBattleAndLeaveReset()
         {
             yield return Ready(4);
+            yield return Check("三店尚未完成，酒肆资格不足", () => !State.CanEnterTavern);
+            // 聚焦酒肆的夹具；三店真实奖励链另由连续剧情回放完成。
+            var loot = ResolveService<Game.Loot.LootService>();
+            loot.GrantItems(ShopRewardRules.CostumeId, 1); loot.GrantItems(ShopRewardRules.ClothesId, 1);
+            loot.GrantItems(ShopRewardRules.ClaspId, 1); loot.GrantItems(ShopRewardRules.BeltHookId, 2); loot.GrantItems(ShopRewardRules.RingId, 3);
             yield return Borrow(0);
-            yield return Command(0);
-            yield return Check("出现减速与禁潜行状态", () => State.Tavern.PlayerDrunk == 10 && !State.Tavern.CanSneak);
-            Vector2 before = State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position;
-            yield return Step("实际移动借来的酒客", null, 0);
-            yield return Input.HoldStick(Vector2.right, .5f); Input.ReleaseStick();
-            yield return Check("移动角色已减速，实际位移小于正常一秒速度", () =>
-            { float distance = Vector2.Distance(before, State.Taming.GetTarget(State.Taming.CurrentControlId).Model.Position); return distance > .1f && distance < 1f; });
-            yield return ApproachTarget("shop_boss");
-            for (int i = 0; i < 10; i++) yield return Command(1);
-            yield return ApproachTarget("shop_customer_a");
-            for (int i = 0; i < 3; i++) yield return Command(2);
-            yield return Check("场外上限与两客人互不串值", () => State.Tavern.BossDrunk == 100 && State.Tavern.CustomerDrunkFor("shop_customer_a") == 20 && State.Tavern.CustomerDrunkFor("shop_customer_b") == 0 && State.Tavern.BossAwarenessMultiplier == .5f);
-            yield return Snapshot("场外醉酒与范围");
-            yield return ApproachTarget("shop_boss");
+            yield return Step("与主人出拳：先选手指，再喊总数");
+            yield return GuessUntil(1, "shop_boss", 100, true);
+            yield return GuessUntil(2, "shop_customer_a", 20, false);
+            yield return Check("主人与两客人的醉意独立", () => State.Tavern.BossDrunk == 100 &&
+                State.Tavern.CustomerDrunkFor("shop_customer_a") == 20 && State.Tavern.CustomerDrunkFor("shop_customer_b") == 0);
+            bool saved = false;
+            yield return ResolveService<GameSession>().SaveNowAsync("guess_showcase").ToCoroutine(value => saved = value);
+            yield return Check("离席后可稳定保存学习记录", () => saved &&
+                ResolveService<ISaveService>().Get<ShopProgressSaveData>().TavernLearning["shop_boss"].History.Count > 0);
+            yield return Step("醉意继承到正式酒肆战斗");
             yield return Command(3, false);
-            var dialogue = ResolveService<DialogueService>(); var rules = ResolveService<DialogueRules>(); var input = ResolveService<IInputService>();
-            float deadline = Time.realtimeSinceStartup + 20;
-            while (dialogue.IsRunning && Time.realtimeSinceStartup < deadline)
-            { if (rules.Phase == DialogueSaveData.Phase.AwaitAdvance) yield return Input.Press(input.Actions.Dialogue.Advance); else yield return null; }
-            var battle = ResolveService<BattleFlow>(); var presenter = ResolveService<IBattlePresenter>() as BattleScenePresenter;
-            yield return Check("现有战斗舞台和界面已打开", () => battle.IsBattleEngaged && presenter != null && presenter.View != null, 15);
-            yield return Check("开战醉酒继承现场100，覆盖原配置占位50", () =>
-            {
-                if (presenter.View == null) return false;
-                var bar = FindDeep<BattleBarWidget>(presenter.View.transform, "DrunkBar");
-                return bar != null && bar.GetComponentInChildren<TMP_Text>(true).text.StartsWith("醉酒 100");
-            }, 5);
-            yield return WaitCurtainRevealed(10);
-            yield return Snapshot("战斗开场");
-            yield return Step("经真实出招键打完本场", null, 0);
-            deadline = Time.realtimeSinceStartup + 90;
-            while (battle.IsBattleEngaged && Time.realtimeSinceStartup < deadline)
-            {
-                if (presenter.IsAwaitingCommand && presenter.View != null)
-                    yield return Input.Press(presenter.View.IsSkillLit(2) ? input.Actions.Dialogue.Choice3 : input.Actions.Dialogue.Choice1);
-                else yield return null;
-            }
-            yield return WaitUntil("战斗结案完成", () => !battle.IsBattleEngaged && !ResolveService<NarrativeService>().IsBusy, 15);
-            yield return FinishReplies();
-            yield return Check("收场交还原主场景、输入与暂停", () => !battle.IsBattleEngaged && ResolveService<IGameFlow>().Current is Game.Monster.MonsterEncounterState && !ResolveService<IWorldPauseService>().IsPaused, 10);
-            var bossActor = System.Array.Find(Object.FindObjectsOfType<ShopPlaytestActor>(true), actor => actor.StableId == "shop_boss");
-            string outcome = ResolveService<NarrativeService>().Capture().Outcome;
-            yield return Check("战斗结案结果已消费：胜利退场，失败保留BOSS", () => bossActor != null &&
-                (outcome == "Success" ? !bossActor.gameObject.activeSelf : outcome == "Downed" && bossActor.gameObject.activeSelf));
-            yield return Check("酒肆结案不写原示例BOSS的击败标记", () => !ResolveService<NarrativeService>().HasStoryFlag("world.sampleboss.defeated"));
-            yield return Snapshot("战斗结束回店");
-            Vector3 exitStation = State.World.Station(4).position;
-            Vector2 exitPosition = new Vector2(exitStation.x, exitStation.z) + MapDirection(Vector3.left) * 5.5f;
-            yield return MoveTo(new Vector2(exitPosition.x, State.ControlledPosition.y));
-            yield return Check("离区场外醉酒清零、控制人物保留", () => State.Tavern.PlayerDrunk + State.Tavern.BossDrunk + State.Tavern.CustomerDrunkFor("shop_customer_a") == 0 && State.Tavern.CanSneak && State.Taming.CurrentControlId == "shop_guest");
-            yield return Snapshot("离区清零");
-            yield return CheckPreplacedObjects();
+            yield return AdvanceFormalDialogue();
+            yield return PlayBattle();
+            yield return AdvanceFormalDialogue();
+            yield return Check("酒肆胜利推进到楼梯口，原示例标记独立", () => State.TavernCompleted &&
+                ResolveService<NarrativeService>().CurrentStageId == "enter_r0198" && !ResolveService<NarrativeService>().HasStoryFlag("world.sampleboss.defeated"), 5);
+            yield return Snapshot("划拳后挑战完成");
+            Vector3 station = State.World.Station(4).position;
+            yield return MoveTo(new Vector2(station.x - 7, station.z));
+            yield return Check("离区清醉意，历史学习保留", () => State.Tavern.PlayerDrunk + State.Tavern.BossDrunk == 0 &&
+                ResolveService<ISaveService>().Get<ShopProgressSaveData>().TavernLearning["shop_boss"].History.Count > 0);
         }
-        private IEnumerator ApproachTarget(string id)
+        private IEnumerator GuessUntil(int command, string target, int goal, bool checkSave)
         {
-            Vector2 target = State.Taming.GetTarget(id).Model.Position;
-            Vector2 station = UnityEngine.Object.FindObjectOfType<Game.Monster.EncounterSceneView>().ToLogicPosition(State.World.Station(4).position);
-            yield return MoveTo(Vector2.Lerp(target, station, .35f));
+            yield return Command(command, false);
+            var ui = ResolveService<IUIService>();
+            yield return WaitUntil("划拳界面可操作", () => ui.Get<TavernFingerGuessView>() != null && ui.Get<TavernFingerGuessView>().IsAwaitingGuess, 5);
+            var view = ui.Get<TavernFingerGuessView>();
+            Assert.That(view, Is.Not.Null);
+            if (checkSave)
+            {
+                bool saved = true;
+                yield return ResolveService<GameSession>().SaveNowAsync("pending_guess").ToCoroutine(value => saved = value);
+                yield return Check("未揭晓的一拳不进入存档", () => !saved);
+            }
+            var random = new XorShiftRandomStream(7123);
+            int Drunk() => target == "shop_boss" ? State.Tavern.BossDrunk : State.Tavern.CustomerDrunkFor(target);
+            for (int i = 0; i < 400 && Drunk() < goal; i++)
+            {
+                if (!view.IsAwaitingGuess) FindDeep<Button>(view.transform, "Next").onClick.Invoke();
+                FindDeep<Button>(view.transform, "Finger" + random.Range(0, 6)).onClick.Invoke();
+                FindDeep<Button>(view.transform, "Call" + random.Range(0, 6)).onClick.Invoke();
+                FindDeep<Button>(view.transform, "Confirm").onClick.Invoke();
+                if (i == 0) yield return Snapshot("双方同时揭晓_" + target);
+                yield return null;
+            }
+            yield return Check("输者饮酒达到目标，平局没有重复结算", () => Drunk() == goal);
+            yield return Snapshot("划拳结果与线索_" + target);
+            FindDeep<Button>(view.transform, "Back").onClick.Invoke();
+            yield return WaitUntil("离席恢复输入与时间", () => ui.Get<TavernFingerGuessView>() == null &&
+                !ResolveService<IWorldPauseService>().IsPaused && ResolveService<IInputService>().Actions.Gameplay.enabled, 5);
         }
     }
 }

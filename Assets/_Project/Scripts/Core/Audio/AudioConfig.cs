@@ -36,6 +36,12 @@ namespace Game.Core.Audio
 
         /// <summary>SFX 声部数。</summary>
         public int SfxVoices => sfxVoices;
+        [SerializeField, Min(0f)] private float feedbackRetriggerSeconds = 0.15f;
+        [SerializeField, Range(0f, 1f)] private float dangerVolume = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float footstepsVolume = 0.6f;
+        public float FeedbackRetriggerSeconds => feedbackRetriggerSeconds;
+        public float DangerVolume => dangerVolume;
+        public float FootstepsVolume => footstepsVolume;
 
         /// <summary>BGM 默认淡入淡出秒数。</summary>
         public float DefaultBgmFadeSeconds => defaultBgmFadeSeconds;

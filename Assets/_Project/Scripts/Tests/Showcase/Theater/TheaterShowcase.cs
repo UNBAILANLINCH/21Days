@@ -56,6 +56,7 @@ namespace Game.Tests.Showcase.Theater
                 else yield return Input.Release(rhythm.LaneAction(edge.Lane));
             }
             yield return Check("完整演奏达标并返回戏班", () => State.Theater.Completed && !rhythm.IsActivityOpen && DialogueRunning, 12);
+            yield return Check("演奏奖励行头三样正式入包", () => ResolveService<Game.Loot.LootService>().Items[Game.ShopPlaytest.ShopRewardRules.CostumeId] == 1);
             yield return Snapshot("演奏完成回店");
             yield return Check("原主场景保持乐正控制与成果", () => State.Theater.Completed && State.CurrentRole == "musician");
             yield return CheckPreplacedObjects();

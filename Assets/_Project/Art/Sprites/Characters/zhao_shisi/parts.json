@@ -1,0 +1,39 @@
+{
+  "source": "赵十四角色拆分素材",
+  "width": 735,
+  "height": 1378,
+  "layers": [
+    {
+      "file": "parts/赵十四腿一.png",
+      "sortingOrder": 0
+    },
+    {
+      "file": "parts/赵十四腿二.png",
+      "sortingOrder": 1
+    },
+    {
+      "file": "parts/赵十四身体.png",
+      "sortingOrder": 2
+    },
+    {
+      "file": "parts/赵十四脖子.png",
+      "sortingOrder": 3
+    },
+    {
+      "file": "parts/赵十四胳膊二.png",
+      "sortingOrder": 4
+    },
+    {
+      "file": "parts/赵十四的脸部.png",
+      "sortingOrder": 5
+    },
+    {
+      "file": "parts/赵十四头部.png",
+      "sortingOrder": 6
+    },
+    {
+      "file": "parts/赵十四胳膊一.png",
+      "sortingOrder": 7
+    }
+  ]
+}

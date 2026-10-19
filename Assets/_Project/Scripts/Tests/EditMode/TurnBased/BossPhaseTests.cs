@@ -79,7 +79,7 @@ namespace Game.Tests.EditMode.TurnBased
             params string[] owned)
         {
             var kernel = new TurnBasedKernel(settings, random,
-                new FakeBattleItemInventory(owned.Length == 0 ? new[] { "1801" } : owned));
+                new FakeBattleItemInventory(owned.Length == 0 ? new[] { "2001" } : owned));
             Assert.That(kernel.TryStartBattle(request,
                 new PlayerBattleSnapshot(playerHealth, playerHealth),
                 new BossBattleSnapshot(bossHealth, bossHealth, 0),
@@ -200,7 +200,7 @@ namespace Game.Tests.EditMode.TurnBased
         public void HumanSkill2_LocksThePlayerToSkillOneAndDisablesItems()
         {
             // 权重改成只有招式 2，选招必中金锁禁锢，不依赖随机数剧本。
-            BattleSession session = Start(HumanOnlySettings(), FrontalRequest(), new XorShiftRandomStream(1UL), owned: "1801");
+            BattleSession session = Start(HumanOnlySettings(), FrontalRequest(), new XorShiftRandomStream(1UL), owned: "2001");
 
             session.TryCastSkill(PlayerSkill.Skill1);   // 先出一招，把回合交给 BOSS
             session.RunBossTurn();                      // BOSS 这一招 = 金锁禁锢
@@ -211,7 +211,7 @@ namespace Game.Tests.EditMode.TurnBased
 
             Assert.That(session.TryCastSkill(PlayerSkill.Skill2).Reject, Is.EqualTo(SkillCastReject.SkillLocked), "招式 2 置暗");
             Assert.That(session.TryCastSkill(PlayerSkill.Skill3).Reject, Is.EqualTo(SkillCastReject.SkillLocked), "招式 3 置暗");
-            Assert.That(session.TryUseItem("1801").Allowed, Is.False, "所有道具置暗");
+            Assert.That(session.TryUseItem("2001").Allowed, Is.False, "所有道具置暗");
             Assert.That(session.TryCastSkill(PlayerSkill.Skill1).Accepted, Is.True, "招式 1 仍可用");
         }
 

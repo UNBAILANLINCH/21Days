@@ -1,0 +1,54 @@
+{
+  "id": 21009,
+  "entry": "r0190",
+  "nodes": [
+    {
+      "id": "r0190",
+      "revision": 1,
+      "kind": "Line",
+      "speaker": "",
+      "speakerName": "崔皓",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "……抱歉。",
+      "next": "r0192",
+      "outcome": "",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    },
+    {
+      "id": "r0192",
+      "revision": 1,
+      "kind": "Line",
+      "speaker": "",
+      "speakerName": "崔皓",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "……何素？",
+      "next": "end",
+      "outcome": "",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    },
+    {
+      "id": "end",
+      "revision": 1,
+      "kind": "End",
+      "speaker": "",
+      "speakerName": "",
+      "side": "Left",
+      "expression": "",
+      "clearOther": false,
+      "text": "",
+      "next": "",
+      "outcome": "Done",
+      "blocking": true,
+      "performance": "",
+      "choices": []
+    }
+  ]
+}

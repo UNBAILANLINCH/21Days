@@ -10,7 +10,9 @@ namespace Game.Forging
         [SerializeField] private int productCost = 5;
         [SerializeField] private int[] requiredProducts = { 1, 2, 3 };
         [SerializeField] private int[] pointOrder = { 0, 1, 2, 3 };
+        [SerializeField] private string[] productNames = { "金襟扣", "金带钩", "金环扣" };
         public int MaximumQuota => maximumQuota;
+        public string ProductName(int index) => productNames[index];
         public ForgingRules CreateRules() => new ForgingRules(initialQuota, maximumQuota, productCost, requiredProducts, pointOrder);
     }
 }

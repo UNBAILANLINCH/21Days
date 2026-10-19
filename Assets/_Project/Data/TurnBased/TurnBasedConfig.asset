@@ -53,52 +53,52 @@ MonoBehaviour:
   roundLimitOutcome: 0
   stunTurnPolicy: 0
   itemEffects:
-  - itemId: 1801
+  - itemId: 2001
     kind: 1
     amount: 50
     rounds: 0
     charges: 0
-  - itemId: 1802
+  - itemId: 2002
     kind: 2
     amount: 0
     rounds: 0
     charges: 0
-  - itemId: 1803
+  - itemId: 2003
     kind: 4
     amount: 40
     rounds: 2
     charges: 0
-  - itemId: 1804
+  - itemId: 2004
     kind: 5
     amount: 7
     rounds: 0
     charges: 3
-  - itemId: 1805
+  - itemId: 2005
     kind: 6
     amount: 12
     rounds: 3
     charges: 0
-  - itemId: 1806
+  - itemId: 2006
     kind: 1
     amount: 70
     rounds: 0
     charges: 0
-  - itemId: 1807
+  - itemId: 2007
     kind: 3
     amount: 2
     rounds: 0
     charges: 0
-  - itemId: 1808
+  - itemId: 2008
     kind: 7
     amount: 0
     rounds: 0
     charges: 1
-  - itemId: 1809
+  - itemId: 2009
     kind: 8
     amount: 0
     rounds: 0
     charges: 0
-  - itemId: 1810
+  - itemId: 2010
     kind: 9
     amount: 25
     rounds: 3

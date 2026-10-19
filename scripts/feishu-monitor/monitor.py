@@ -161,32 +161,117 @@ def change_lines(old, new, known=()):
         elif after is None:
             lines.append("删除引用：" + label + "（项目资产不会自动删除）")
         elif item["kind"] == "document":
-            lines.append("修改：文档正文")
-            delta = list(difflib.unified_diff(before["value"].splitlines(), after["value"].splitlines(),
-                                            fromfile="之前", tofile="现在", lineterm=""))
-            lines.append("\n".join(delta[:80]))
+            a, b = document_lines(before["value"]), document_lines(after["value"])
+            edits = [op for op in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+                     if op[0] != "equal"]
+            if not edits:
+                continue
+            lines.append("修改：文档正文，{} 处".format(len(edits)))
+            for tag, i, end_i, j, end_j in edits[:8]:
+                heading = next((line.lstrip("# ") for line in reversed(b[:j] or a[:i])
+                                if line.startswith("#")), "正文")
+                left, right = change_text("\n".join(a[i:end_i]), "\n".join(b[j:end_j]))
+                lines.append("• {}\n  之前：{}\n  现在：{}".format(heading, left, right))
+            if len(edits) > 8:
+                lines.append("另有 {} 处修改，请查看原文".format(len(edits) - 8))
         elif item["kind"] == "sheet":
             a, b = before["value"], after["value"]
-            positions = [p for p in sorted(set(a) | set(b)) if a.get(p) != b.get(p)]
+            positions = [p for p in sorted(set(a) | set(b), key=lambda p: (int(re.search(r"\d+$", p)[0]), p))
+                         if a.get(p) != b.get(p)]
             lines.append("修改：{}，{} 个单元格".format(label, len(positions)))
             for position in positions[:12]:
-                lines.append("{}：{} → {}".format(position, compact(a.get(position)), compact(b.get(position))))
+                col, row = re.fullmatch(r"([A-Z]+)(\d+)", position).groups()
+                name = compact((b.get("A" + row) or a.get("A" + row) or {}).get("value"))
+                header = (b.get(col + "1") or a.get(col + "1") or {}).get("value")
+                if header and label in ("主线角色", "玩法角色"):
+                    header = "附件" if "附件" in str(header) else str(header)
+                else:
+                    header = position
+                lines.append("• {} / {}（{}）".format(name, header, position))
+                fields = list(changed_fields(a.get(position) or {}, b.get(position) or {}))
+                for field, left, right in fields[:6]:
+                    left, right = change_text(left, right)
+                    lines.append("  {}：{} → {}".format(field_label(field), left, right))
+                if len(fields) > 6:
+                    lines.append("  另有 {} 项属性变化，请查看原表".format(len(fields) - 6))
             if len(positions) > 12:
-                lines.append("其余单元格请查看原表")
+                lines.append("另有 {} 个单元格变化，请查看原表".format(len(positions) - 12))
         elif item["kind"] == "board":
             a, b = before["value"], after["value"]
             ids = [i for i in sorted(set(a) | set(b)) if a.get(i) != b.get(i)]
             lines.append("修改：{}，{} 个节点".format(label, len(ids)))
             for node_id in ids[:8]:
-                lines.append("{}：{} → {}".format(node_id, compact(a.get(node_id)), compact(b.get(node_id))))
+                lines.append("• 节点 " + node_id)
+                fields = list(changed_fields(a.get(node_id) or {}, b.get(node_id) or {}))
+                for field, left, right in fields[:4]:
+                    left, right = change_text(left, right)
+                    lines.append("  {}：{} → {}".format(field_label(field), left, right))
+                if len(fields) > 4:
+                    lines.append("  其余节点属性请查看原画板")
+            if len(ids) > 8:
+                lines.append("其余 {} 个节点请查看原画板".format(len(ids) - 8))
         elif before["value"] == after["value"]:
             lines.append("引用名称修改：{} → {}".format(before["label"], after["label"]))
         else:
             lines.append("文件内容更新：" + label + "（需查看文件确认具体改动）")
     return lines
 
+def document_lines(text):
+    lines, fence = [], None
+    for line in text.splitlines():
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            token = marker[1]
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence) and line.strip() == token:
+                fence = None
+        # 只忽略重复空行；保留段落边界及代码块内的原始空行。
+        if fence is None and not line.strip() and lines and not lines[-1].strip():
+            continue
+        lines.append(line)
+    return lines
+
+def changed_fields(before, after, prefix=""):
+    if before == after:
+        return
+    if isinstance(before, dict) and isinstance(after, dict):
+        priority = {key: i for i, key in enumerate(("value", "rich_text", "formula", "comment"))}
+        for key in sorted(set(before) | set(after), key=lambda k: (priority.get(k, 4), k)):
+            yield from changed_fields(before.get(key), after.get(key), prefix + key + ".")
+    else:
+        yield prefix.rstrip("."), before, after
+
+def field_label(field):
+    names = {"value": "内容", "rich_text": "富文本/附件", "formula": "公式", "comment": "批注",
+             "cell_background_color": "底色", "background_color": "底色", "border_styles": "边框",
+             "style": "样式", "font_color": "文字颜色", "text": "文字", "color": "颜色"}
+    return "/".join(names.get(part, part) for part in field.split("."))
+
 def compact(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True)[:180]
+    if value is None or value == "":
+        return "（空）"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "；".join(compact(v) for v in value) or "（空）"
+    if isinstance(value, dict) and value.get("type") == "attachment":
+        size = value.get("file_size")
+        return "附件《{}》{}".format(value.get("text", "未命名"),
+                                    "（{} 字节）".format(size) if size is not None else "")
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+def change_text(before, after):
+    left, right = compact(before), compact(after)
+    if left == right and before != after:
+        right += "（显示内容相同，引用或属性已变化）"
+    index = next((i for i, pair in enumerate(zip(left, right)) if pair[0] != pair[1]),
+                 min(len(left), len(right)))
+    start = max(0, index - 60) if max(len(left), len(right)) > 320 else 0
+    def excerpt(text):
+        offset = min(start, max(0, len(text) - 60))
+        return ("…" if offset else "") + text[offset:offset + 320] + ("…" if len(text) > offset + 320 else "")
+    return excerpt(left), excerpt(right)
 
 def send(config, text):
     # 文档差异作为文本发送，避免 CLI 自动下载并上传 Markdown 内的图片。
@@ -240,6 +325,11 @@ def run(config, state_path):
             revision, config["document_url"], "\n".join(changes))
         if not config.get("document_sync"):
             message += "\n\n策划自动同步未配置，需求变动只提醒。"
+        if not document_commit and not asset_commit:
+            if errors:
+                message += "\n\nGit：同步未完成，详情见故障说明。"
+            else:
+                message += "\n\nGit：本轮没有文件推送，不触发新 PR。交付包尚需核对文件绑定与 Unity 导入；新素材的 .meta 由项目生成，无需美术提供。"
     if document_commit:
         message += "\n\n新增策划附件已推送到 {}：\n{}/commit/{}\n附件见 docs/design/spotlight/auto-sync/；审核后再合并。".format(
             assets.BRANCH, config["document_sync"]["repository"][:-4], document_commit)

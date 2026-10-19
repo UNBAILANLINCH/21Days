@@ -11,6 +11,7 @@
 // Bash 里的 git 判据（提交授权 / 署名 / 丢弃改动）按子命令判，先跳过 `-C <路径>`、`-c <键=值>` 等全局选项
 // （gitSubcommands）：本工程 Bash 不写 cd、改写 `git -C`，整串正则认不出这种写法。
 // `commit -F <文件>` 的信息文件也读前 64 KB 查署名（signedMessageFile），读不到就落回 ask。
+// Codex 适配器传 --agent-commit：仅取消 commit 的 ask，授权仍遵守会话约定；测试见 .codex/hooks/test_adapter.py。
 // 状态锚点：run.py 里 GuardGitGlobalOptions / GuardCommitMessageFile / GitSubcommandParse / GitMessageFile 全绿。
 //
 // 本钩子的输出**几乎全是决策**（deny / ask），决策一律不去重：去重掉的那一次
@@ -78,7 +79,7 @@ function main(raw) {
     if (/(^|[;&|(\n]\s*)(cd|pushd)(\s|$)/.test(cmd)) {
       return decide('deny', 'Bash 不写 cd / pushd：路径写绝对路径或相对工程根（CLAUDE.md「验证与工具」）。带 cd 的相对路径过不了 .env Read deny 的静态检查，会弹确认');
     }
-    const g = gitVerdict(cmd, input.cwd);   // 自带 try/catch：解析或读文件出错都返回 null / 落回 ask，走 fail-open
+    const g = gitVerdict(cmd, input.cwd, process.argv.includes('--agent-commit'));
     if (g && g.commitNote) {
       // ask 本身**每次都要问**——要人点头的事去重掉一次，就是护栏漏掉一次。
       // 只有附带的那句背景说明按会话去重：它每次都一样，说第二遍起只是在烧上下文。
@@ -443,7 +444,7 @@ function signedMessageFile(call, cwd) {
 // 顺序沿用旧判据：署名 deny → commit / push ask → 丢弃改动 deny。含 commit 的命令先落到 ask，
 // 提交信息里提到 `git reset --hard` 不会被误拒，人点头前也看得到整条命令。
 // 署名按整条命令文本查（heredoc 与 -m 都在里面），再读 -F / --file 给的文件查，前提是识别出了 commit 子命令。
-function gitVerdict(cmd, cwd) {
+function gitVerdict(cmd, cwd, agentCommit = false) {
   let calls;
   try { calls = gitSubcommands(cmd); } catch { return null; }   // 解析自身出错 → fail-open
   const has = (sub) => calls.some((c) => c.sub === sub);
@@ -454,7 +455,8 @@ function gitVerdict(cmd, cwd) {
     const f = c.sub === 'commit' ? signedMessageFile(c, cwd) : null;
     if (f) return { decision: 'deny', reason: `提交信息文件 ${f} 里带 AI 署名或会话链接，从文件里删掉后重试（docs/commit-convention.md）` };
   }
-  if (has('commit') || has('push')) {
+  // Codex 无 ask：授权由会话约定负责；仍检查署名、push 与同命令中的危险操作。
+  if ((!agentCommit && has('commit')) || has('push')) {
     return { decision: 'ask', reason: 'git commit / push 需要用户逐次授权', commitNote: true };
   }
   const bad = calls.find(discardsWorktree);

@@ -31,12 +31,12 @@
 JSON 块的，JSON 里只要有一个非 ASCII 字符（中文材质名就算）解析就会失败，报
 `JsonReaderException: Additional text encountered after finished reading JSON content`。
 重打包时 JSON 必须序列化成纯 ASCII（非 ASCII 走 `\uXXXX` 转义），详见
-[`ai-docs/pitfalls.md`](../../../../ai-docs/pitfalls.md) 的「GLTFUtility 按「字符数」读 GLB 的 JSON 块」一条。
+[`ai-docs/pitfalls.md`](../../../../../ai-docs/pitfalls.md) 的「GLTFUtility 按「字符数」读 GLB 的 JSON 块」一条。
 
 **不要放**：`.glb` / `.fbx` 以外的中间产物（`.blend` 源文件、导出临时件）；压缩包（`.rar` / `.zip` / `.7z`）——
 Unity 不导入压缩包，改一处就要整包重存一份。
 
-## 在 demo 场景（`Assets/Scenes/SampleScene.unity`）里的实例
+## 在 demo 场景（`Assets/_Project/Scenes/SampleScene.unity`）里的实例
 
 2026-10-08 放入，走 Unity MCP，场景由 Unity 自己序列化：
 
@@ -157,5 +157,5 @@ Blender 也**确实写对了** `"texCoord": 1`，但 **GLTFUtility 解析了 `te
   是贴图本身的颜色，不是色域问题。
 
 **重导 `.glb` 时的硬要求**：JSON 块必须保持纯 ASCII（非 ASCII 走 `\uXXXX` 转义），
-否则 GLTFUtility 按字符数读 JSON 会失败，见 [`ai-docs/pitfalls.md`](../../../../ai-docs/pitfalls.md)
+否则 GLTFUtility 按字符数读 JSON 会失败，见 [`ai-docs/pitfalls.md`](../../../../../ai-docs/pitfalls.md)
 的「GLTFUtility 按「字符数」读 GLB 的 JSON 块」一条。

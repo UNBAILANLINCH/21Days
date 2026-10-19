@@ -30,6 +30,35 @@ namespace Game.Tests.EditMode.Narrative
             Assert.That(catalog.QuestFlags[1002], Is.EqualTo("quest_completed_1002"));
         }
 
+        [Test]
+        public void RealTables_WriterStory_PreservesTextAndSeparatesDirections()
+        {
+            NarrativeContent story = Find("spotlight_current");
+            Assert.That(story.Entry, Is.EqualTo("talk_21000"));
+            DialogueContent opening;
+            Assert.That(dialogues.TryGet(21000, out opening), Is.True);
+            Assert.That(opening.Get(opening.Entry).SpeakerName, Is.EqualTo("说书人"));
+            Assert.That(opening.Get(opening.Entry).Text, Is.EqualTo("那年雪夜，崔皓又梦见自己做方相的时候。"));
+            Assert.That(story.Get("action_r0197").Kind, Is.EqualTo(NarrativeContent.StageKind.WaitAction), "五店玩法不能读完对白就跳过");
+            Assert.That(story.Get("action_r0445").Kind, Is.EqualTo(NarrativeContent.StageKind.WaitAction), "老吏战前等待真实玩法结果");
+            Assert.That(story.Get("end").Outcome, Is.EqualTo("CurrentContentEnd"));
+            int lines = 0;
+            foreach (NarrativeContent.Stage stage in story.Stages)
+            {
+                if (stage.Kind != NarrativeContent.StageKind.Dialogue) continue;
+                DialogueContent content;
+                Assert.That(dialogues.TryGet(int.Parse(stage.PayloadId), out content), Is.True);
+                foreach (DialogueContent.Node node in content.Nodes)
+                {
+                    if (node.Kind != DialogueContent.NodeKind.Line) continue;
+                    lines++;
+                    Assert.That(node.SpeakerName, Does.Not.Contain("非字幕"));
+                    Assert.That(node.Text, Does.Not.StartWith("（"), "策划说明不应显示给玩家");
+                }
+            }
+            Assert.That(lines, Is.EqualTo(355));
+        }
+
         /// <summary>战斗关样例必须能整条翻译进表；校验器从「一律抛」改为「可进表 + 有校验」的回归锚点。</summary>
         [Test]
         public void RealTables_BattleStory_TranslatesWithDeclaredResults()
@@ -42,6 +71,17 @@ namespace Game.Tests.EditMode.Narrative
             Assert.That(story.Get("fight").BattleResults, Is.EqualTo(new[] { "Downed", "Exposed", "BossPhaseChanged:form2", "Victory" }));
             Assert.That(story.Get("fight").Exits["BossPhaseChanged:form2"], Is.EqualTo("fight"));
             Assert.That(story.Get("fight").SetFlags, Does.Contain("combat.phase.1"));
+        }
+        [Test]
+        public void RealTables_ShopDialogue_CoversEveryActorAndRecognizedRole()
+        {
+            Assert.That(dialogues.TryGet(21101, out var shop), Is.True);
+            string[] actors = { "shop_apprentice", "shop_director", "shop_musician", "shop_patrol", "shop_station_0", "shop_customer0", "shop_customer1", "shop_customer2", "shop_tailor", "shop_officer", "shop_smith", "shop_station_2", "shop_innkeeper", "shop_station_3", "shop_guest", "shop_boss", "shop_customer_a", "shop_customer_b", "shop_station_4" };
+            string[] roles = { "", "apprentice", "director", "musician", "customer0", "customer1", "customer2", "officer", "smith", "guest" };
+            foreach (string actor in actors) foreach (string role in roles)
+                Assert.That(shop.Get(Game.ShopPlaytest.ShopPlaytestState.GreetingKey(actor, role)).Text, Is.Not.Empty, actor + ":" + role);
+            Assert.That(shop.Get("tailor_ready").Text, Does.Contain("黑色长衫"));
+            Assert.That(shop.Get("tailor_wrong").Text, Does.Not.Contain("昨日"), "错误身份不泄露唯一解");
         }
 
         /// <summary>请求／多部分行为样例同样要能进表；对应的缺出口负对照在下面单独覆盖。</summary>
@@ -233,8 +273,35 @@ namespace Game.Tests.EditMode.Narrative
             var shop = Find("shop_boss_battle");
             Assert.That(shop.Get("fight").PayloadId, Is.EqualTo("sample_boss"), "复用原战斗配置");
             Assert.That(shop.Get("cleared").Outcome, Is.EqualTo("Success"));
-            Assert.That(shop.Get("cleared").SetFlags, Is.Empty, "酒肆结果由本店进度持有");
+            Assert.That(shop.Get("cleared").SetFlags, Is.EqualTo(new[] { "world.shopboss.defeated" }), "局部遭遇结束后主线读取独立酒肆事实");
             Assert.That(Find("sample_boss_battle").Get("cleared").SetFlags, Does.Contain("world.sampleboss.defeated"), "原示例行为保留");
+        }
+        [Test]
+        public void ShopBoss_FailedSavedAndRecreated_PersistentEpochAllowsFirstRetry()
+        {
+            var rules = new NarrativeRules(catalog.Stories, null);
+            rules.Start("spotlight_current", "spotlight_main");
+            while (rules.Current.StageId != "action_r0197")
+            {
+                var frame = rules.Current;
+                string result = rules.Stage.Kind == NarrativeContent.StageKind.Dialogue ? "Done" : "Success";
+                Assert.That(rules.Apply(new NarrativeIntent(rules.Generation, frame.ActivationId, frame.TargetId, frame.ActionRequestId, result)), Is.True);
+            }
+            var context = new EncounterContext("shop_boss", "SpotlightShopBoss", true, false, true, true, false, false);
+            var first = new EncounterRules.Candidate { TriggerId = "shop_boss", TriggerKind = "SpotlightShopBoss", EntryEpoch = rules.Capture().NextActivationId, Context = context };
+            Assert.That(new EncounterRules(catalog.Encounters, rules).TryActivate(new[] { first }), Is.True);
+            var taunt = rules.Current;
+            Assert.That(rules.Apply(new NarrativeIntent(rules.Generation, taunt.ActivationId, taunt.TargetId, taunt.ActionRequestId, "Done")), Is.True);
+            Assert.That(rules.CompleteBattle(rules.Generation, rules.Current.ActivationId, "shop_boss", "Downed"), Is.True);
+            rules.ResolveAutomatic(context);
+            Assert.That(rules.Current.StageId, Is.EqualTo("action_r0197"));
+            var saved = rules.Capture();
+            var restored = new NarrativeRules(catalog.Stories, null); restored.Restore(saved);
+            var encounters = new EncounterRules(catalog.Encounters, restored);
+            Assert.That(encounters.TryActivate(new[] { first }), Is.False, "旧纪元不可重放");
+            var retry = new EncounterRules.Candidate { TriggerId = "shop_boss", TriggerKind = "SpotlightShopBoss", EntryEpoch = restored.Capture().NextActivationId, Context = context };
+            Assert.That(encounters.TryActivate(new[] { retry }), Is.True, "重新进程后第一下挑战即接受");
+            Assert.That(restored.Capture().Parent.StageId, Is.EqualTo("action_r0197"));
         }
         private NarrativeContent Find(string storyId)
         {

@@ -259,7 +259,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 绑定 | `DialogueSceneBinder` 只在启动与 `sceneLoaded` 时扫描（含未激活物体，不含 DontDestroyOnLoad） | **运行时 `Instantiate` 的 `DialogueInteractable` 要手动 `Bind(service)`**，否则交互只记 Warn；且**不进 `Bound`、不参与焦点** |
 | 入口 | 从 Boot → 标题「开始」进入玩法场景才有对白服务、焦点系统与 EventSystem | 直接 Play 玩法场景：有树 NPC `Start` 记 Warn，焦点 / HUD / 点击都不生效；只剩无树气泡链路本身可用（代码调 `Interact()`） |
 
-示例：`Assets/Scenes/SampleScene.unity`（3D）的 `player`（Actor）、`Npc_Elder`（1001）、`Npc_Traveler`（1002）、`Npc_Villager`（无树 + 气泡）；
+示例：`Assets/_Project/Scenes/SampleScene.unity`（3D）的 `player`（Actor）、`Npc_Elder`（1001）、`Npc_Traveler`（1002）、`Npc_Villager`（无树 + 气泡）；
 三个 NPC 的 `interactRadius` 均为 2.0（约一个多身位）。玩家 `player` 与巡逻者现已换成拼接小人（`Visual` 下的纸片隐藏、小人挂其下），
 对白时停期间小人回到待机呼吸，见 [`characterpuppet-module-guide.md`](../characterpuppet/characterpuppet-module-guide.md)。
 
@@ -344,7 +344,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | EditMode | `.../DialogueKeyboardInputTests.cs`（9 个方法 / 30 例） | 键位映射：主面板各键、未激活 / 未就绪忽略、选项期 Advance 忽略、Choice N 越界 / 不可用 / 空行忽略、历史与跳过确认期只放行弹窗键 |
 | EditMode | `Assets/_Project/Scripts/Tests/EditMode/Core/WorldPauseServiceTests.cs` | 暂停引用计数与 timeScale 恢复（Core 侧） |
 | Showcase | `Assets/_Project/Scripts/Tests/Showcase/Dialogue/DialogueShowcase.cs`（7 条） | `Portraits_SpeakerAvatarSwapsAndCrossfades`（长者入场 → l2 只显示旅人（头像在右侧，x<0）、长者收起 → l3 反转（长者头像在左侧，x>0）→ c1 残影交叉淡化）；交互 → 打字 → 选项 → 结束且全程时停，「对话拉起·世界时停」检查 Hud 层不可见、「结束·世界恢复」检查 Hud 层恢复可见；历史（LOG）改用 `TranscriptView` 后新增三步：点左上「LOG」打开 → 内容含第一句「说话者：正文」→ 点「关闭」，对白照常停在原节点；跳过（经确认）停在选项；点击旅人拉起 1002；`SkipCancelled_DialogueContinues`；`Focus_ShowsHudButton_AndHudClickStartsDialogue`（站长者右侧 → 焦点与「[E] 对话 · 老者」→ 点提示拉起对白 → **玩家小人转向长者、长者小人转向玩家**并截图「交互转向·玩家与长者对视」，2026-10-08）；`Bubble_ShowsAboveHead_WithoutPausing` |
-| 回放舞台 | 回放在 `Assets/Scenes/SampleScene.unity` 上跑（3D） | `player`（Actor）、`Npc_Elder`（1001）、`Npc_Traveler`（1002）、`Npc_Villager`（无树 + 气泡）；气泡回放同时检查文字排版边界与相机视口边界 |
+| 回放舞台 | 回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑（3D） | `player`（Actor）、`Npc_Elder`（1001）、`Npc_Traveler`（1002）、`Npc_Villager`（无树 + 气泡）；气泡回放同时检查文字排版边界与相机视口边界 |
 
 跑 `/unity-test EditMode Dialogue`；视觉验收跑 `/verify-module Dialogue`（编辑器须打开）。
 

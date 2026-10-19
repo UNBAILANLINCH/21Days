@@ -40,7 +40,7 @@ namespace Game.Tests.Showcase
         /// 回放统一舞台：所有需要场景的模块回放都加载这个功能 demo 示例场景，不再各建验证场景。
         /// 正式场景落地后只改这一处。
         /// </summary>
-        public const string DemoScenePath = "Assets/Scenes/SampleScene.unity";
+        public const string DemoScenePath = "Assets/_Project/Scenes/SampleScene.unity";
 
         /// <summary>报告与截图的根目录名（相对工程根），已在 .gitignore 里，不进版本库。</summary>
         public const string ReportRootRelative = "Logs/verify";

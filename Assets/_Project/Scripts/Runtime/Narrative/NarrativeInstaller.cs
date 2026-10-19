@@ -9,11 +9,14 @@ using Game.Quest;
 using Game.Session;
 using MessagePipe;
 using VContainer;
+using VContainer.Unity;
+using UnityEngine;
 
 namespace Game.Narrative
 {
     public sealed class NarrativeInstaller : GameplayInstaller
     {
+        [SerializeField] private SpotlightStoryConfig spotlight;
         public override void InstallEvents(IContainerBuilder builder, MessagePipeOptions options)
         {
             builder.RegisterMessageBroker<NarrativeChangedEvent>(options);
@@ -32,6 +35,7 @@ namespace Game.Narrative
                 resolver.Resolve<IPublisher<NarrativeChangedEvent>>(), resolver.Resolve<ITelemetryService>().Scope("narrative"),
                 resolver.Resolve<IPublisher<BattleStageEnteredEvent>>()),
                 Lifetime.Singleton).AsSelf().As<IGameService>();
+            if (spotlight != null) builder.RegisterEntryPoint<SpotlightStoryFlow>(Lifetime.Singleton).AsSelf();
 
             // —— S 组内核接线（Q3 波）：身份 → 剧情事实投影（S1/S2）。
             // 方向是**消费方自己拉**：本模块只 TryResolve 身份侧的服务，Identity 不反过来认识 Narrative，

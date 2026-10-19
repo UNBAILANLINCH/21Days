@@ -26,7 +26,7 @@ namespace Game.Tests.EditMode.Monster
 {
     public sealed class SampleSceneCombatWiringTests
     {
-        private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+        private const string ScenePath = "Assets/_Project/Scenes/SampleScene.unity";
         private const string IdentityConfigPath = "Assets/_Project/Data/Identity/IdentityConfig.asset";
         private const string StealthConfigPath = "Assets/_Project/Data/Stealth/StealthConfig.asset";
         private const string MonsterConfigPath = "Assets/_Project/Data/Monster/MonsterConfig.asset";

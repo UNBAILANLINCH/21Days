@@ -34,7 +34,7 @@ EditMode 全量 191/191 通过。Disguise Showcase 2/2 通过、5 个检查点�
 
 ## 试玩与调参
 
-回放在 `Assets/Scenes/SampleScene.unity` 上跑，直接 Play 也可试。
+回放在 `Assets/_Project/Scenes/SampleScene.unity` 上跑，直接 Play 也可试。
 WASD 移动，G 伪装，J 普通攻击；左上角显示双方生命和伪装状态。
 敌人血量改 `Assets/_Project/Data/Monster/MonsterConfig.asset` 的 `Max Health`，停止 Play 后修改，再重新进入。
 玩家伤害、攻击距离与冷却改 `Assets/_Project/Data/Player/PlayerConfig.asset`。

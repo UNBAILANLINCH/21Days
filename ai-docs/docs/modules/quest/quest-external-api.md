@@ -14,6 +14,8 @@ maturity: stable
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
 | `IsReady` | `bool IsReady { get; }` | 内容表校验通过且初始化完成才 true；未就绪时下列方法记 Warn / 静默返回默认值 |
+| `SetObjectivePresentation` | `void SetObjectivePresentation(int questId, string text)` | 只覆盖指定任务在HUD及未完成详情中的当前目标文字；空文本清除。不会隐藏任务UI、修改进度或自动完成目标 |
+| `PresentationQuestId` / `PresentationObjective` | 只读任务id／目标文本 | 章节适配器随节点与世界更新；场景解绑清除 |
 | `Report` | `int Report(QuestObjectiveKind kind, string key, int amount = 1)` | 上报一次目标事实，返回本次被推进的目标数；`amount <= 0` 或 `key == null` 被忽略；未就绪返回 0 |
 | `Track` | `bool Track(int id)` | 追踪一条进行中的任务；不存在 / 不在进行中 / 未就绪返回 `false` |
 | `Untrack` | `void Untrack()` | 取消追踪；未就绪空操作 |

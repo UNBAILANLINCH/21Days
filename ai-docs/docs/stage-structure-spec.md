@@ -98,7 +98,7 @@
 | 条件事实只有 7 种：`PlayerAlive / PlayerSneaking / PlayerDisguised / TargetAlive / TargetHostile / TargetDetected / StoryFlag`；其中后两者**无真实来源、禁止进生产内容** | `EncounterContext.cs:9`、`:40-55`；`NarrativeCatalog.cs:117-123`；`narrative-module-guide.md:137` |
 | 存档快照只记**当前阶段 + 局部遭遇父阶段 + 请求身份 + 标记 + 消费键 + 条件边沿 / 计数**；没有场景、没有章节号、没有阶段序号 | `NarrativeSaveData.cs:20-29`；`narrative-module-guide.md:51` |
 | 遭遇触发的目标身份由表配（`trigger` / `targetKind`），入口是 `story` + `entry` | `Tables/Defines/narrative.xml:22-31`；`narrative-module-guide.md:55` |
-| 存档槽位的「进度描述」文案取自 **Quest 的追踪任务 / 进行中任务**，不是 Narrative 阶段 | `Assets/_Project/Scripts/Runtime/Session/SessionStateAdapter.cs:124-143` |
+| 存档槽位的「进度描述」文案取自 **Quest 的追踪任务 / 进行中任务**，不是 Narrative 阶段 | `SessionStateAdapter.BuildProgressText` |
 
 ### 3.1 十二阶段逐条对照
 
@@ -247,4 +247,4 @@
 | S9 | 阶段五分歧、阶段十二「不提邪教之事」给不给玩家选择 | 给／不给 | 给选择则 `Dialogue` 选项出口 → 阶段出口的映射要逐条设计（机制已具备），并牵出软分支口径 | `features-spotlight/11:250`（Q14）、`:252`（Q16），正文 `:188`、`:233`；`旧G组-新目标映射与遗留资产.md:208`（A10） |
 | **S10** | 阶段三在妖界还是人间、阶段十一妖界那一段落在哪 | 逐条裁原文矛盾 | 关卡搭在哪张图；两界流程图（阶段二、八、十一的三次往返）才能定稿 | `features-spotlight/11:237`（Q1）；`10_两界与场景结构.md:206`（Q2）、`:218`（Q14） |
 | **S11** | 跨阶段携带的通行条件算不算"必须" | 没拿到对应皮 / 面具 / 牙时，阶段九是否仍可通过 | Narrative 标记怎么设（硬前置还是软前置）；影响内容表与关卡设计 | `features-spotlight/11:159`（R9）、`:231` |
-| **S12** | 存档槽位的「进度描述」显示什么 | 阶段名（如「阶段三 · 验堤」）／任务名（现状）／两者 | 现状取自 Quest 追踪任务（`SessionStateAdapter.cs:124-143`），要与 S3 的标题卡口径一致 | `features-spotlight/11:223`；`SessionStateAdapter.cs:124` |
+| **S12** | 存档槽位的「进度描述」显示什么 | 阶段名（如「阶段三 · 验堤」）／任务名（现状）／两者 | 现状取自 Quest 追踪任务（`SessionStateAdapter.BuildProgressText`），要与 S3 的标题卡口径一致 | `features-spotlight/11:223`；`SessionStateAdapter.BuildProgressText` |

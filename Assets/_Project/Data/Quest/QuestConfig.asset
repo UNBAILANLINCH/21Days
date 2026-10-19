@@ -12,13 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c5825a55cd44bd42a6e2ab3e1cbc25e, type: 3}
   m_Name: QuestConfig
   m_EditorClassIdentifier: 
+  availableQuestIds: 84030000
   edgeMargin: 72
   distanceRefreshInterval: 0.2
   markerLift: 0.3
   locationMarkerHeight: 1.5
   targetMarkerAddress: QuestTargetMarker
-  untrackedLabel: "\u672A\u8FFD\u8E2A\u4EFB\u52A1"
+  untrackedLabel: "\u6682\u65E0\u5F53\u524D\u76EE\u6807"
   mainKindLabel: "\u4E3B\u7EBF"
   sideKindLabel: "\u652F\u7EBF"
   activatedNotificationFormat: "\u63A5\u53D6\u4EFB\u52A1\uFF1A{0}"
-  completedNotificationFormat: "\u4EFB\u52A1\u5B8C\u6210\uFF1A{0}"
+  completedNotificationFormat: "\u672C\u6BB5\u4E3B\u7EBF\u5B8C\u6210\uFF1A{0}\u3002\u540E\u7EED\u5185\u5BB9\u6682\u672A\u5F00\u653E\u3002"

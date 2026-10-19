@@ -25,6 +25,23 @@ namespace Game.Tests.EditMode.Player
         [TearDown]
         public void TearDown() => Object.DestroyImmediate(config);
 
+        [Test]
+        public void DamageEvents_OnlyRealDamageAndFirstDeath_ArePublished()
+        {
+            int hits = 0, deaths = 0;
+            rules.OnDamaged += () => hits++;
+            rules.OnDied += () => deaths++;
+            rules.SetHealth(config.MaxHealth);
+            rules.ApplyDamage(new DamageIntent(config.MaxHealth));
+            rules.ApplyDamage(new DamageIntent(1));
+            rules.SetHealth(0);
+            Assert.That(hits, Is.EqualTo(1));
+            Assert.That(deaths, Is.EqualTo(1));
+            rules.Reset(Vector2.zero);
+            rules.SetHealth(0);
+            Assert.That(deaths, Is.EqualTo(2), "直接判死也必须通知");
+        }
+
         // 意图简写：参数顺序同 PlayerIntent 构造（移动、潜行、伪装、攻击、奔跑键）。
         private static PlayerIntent Intent(Vector2 move, bool sneak = false, bool disguise = false, bool attack = false, bool run = false)
             => new PlayerIntent(move, sneak, disguise, attack, run);

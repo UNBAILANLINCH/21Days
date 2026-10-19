@@ -42,15 +42,27 @@ namespace Game.Monster
         private EncounterSceneView view;
         private EncounterSaveData restore;
         private Game.ShopPlaytest.ShopPlaytestState shops;
+        public const string HumanStoryAddress = "SpotlightHuman";
+        public const string DemonStoryAddress = "IsometricEncounter";
+        private bool nextHumanWorld;
+        private bool mirrorArrival;
+        private readonly SemaphoreSlim bindingGate = new SemaphoreSlim(1, 1);
+        public string ActiveSceneAddress => DemonStoryAddress;
+        public bool IsHumanWorld => view != null ? view.IsHumanWorld : nextHumanWorld;
+        public float? ActivePlayerHeight => view == null ? (float?)null : view.PlayerScenePosition.y;
         public bool NavigationBlocked { get; set; }
+
+        public void PrepareHumanStory() { restore = null; nextHumanWorld = true; }
+        public void PrepareDemonStory() { restore = null; nextHumanWorld = false; }
 
         public void PrepareRestore(EncounterSaveData saved)
         {
             if (saved == null) throw new System.ArgumentNullException(nameof(saved));
             saved.Validate();
             restore = saved;
+            nextHumanWorld = saved.StoryWorld == "human";
         }
-        public void ClearPreparedRestore() => restore = null;
+        public void ClearPreparedRestore() { restore = null; nextHumanWorld = false; }
 
         /// <param name="container">
         /// 只为一件事而注入：**可选**地把 <c>StealthKernel</c> 取出来（处决的判定内核）。
@@ -75,11 +87,19 @@ namespace Game.Monster
             this.container = container;
         }
 
-        // 该地址目前指向 Assets/Scenes/SampleScene.unity（功能 demo 示例场景），是临时指向；
+        // 该地址目前指向 Assets/_Project/Scenes/SampleScene.unity（功能 demo 示例场景），是临时指向；
         // 正式内容落地后改 Addressables 条目指向 Assets/_Project/Scenes/ 下的正式场景，代码不用动。
-        protected override string SceneKey => "IsometricEncounter";
+        protected override string SceneKey => DemonStoryAddress;
 
         protected override async UniTask OnSceneReadyAsync(CancellationToken ct)
+        {
+            NavigationBlocked = false;
+            await bindingGate.WaitAsync(ct);
+            try { await BindSceneAsync(ct); }
+            finally { bindingGate.Release(); }
+        }
+
+        private async UniTask BindSceneAsync(CancellationToken ct)
         {
             GameObject[] roots = Scene.GetRootGameObjects();
             for (int i = 0; i < roots.Length && view == null; i++)
@@ -104,9 +124,32 @@ namespace Game.Monster
 
             try
             {
+                view.SelectStoryWorld(nextHumanWorld);
                 view.ConfigureTaming(step);
-                if (restore != null) step.Restore(restore);
-                else step.Begin(view.PlayerStart, view.PatrolPositions());
+                Vector3 previous = view.PlayerScenePosition;
+                Vector3 position;
+                if (restore != null)
+                {
+                    step.Restore(restore);
+                    position = view.ToScenePosition(player.Position);
+                    if (restore.ScenePlayerHeight.HasValue) position.y = restore.ScenePlayerHeight.Value;
+                }
+                else
+                {
+                    position = (mirrorArrival ? view.MirrorArrival : view.StorySpawn).position;
+                    step.Begin(view.ToLogicPosition(position), view.PatrolPositions());
+                }
+                view.PlayerBody.position = position;
+                foreach (var actor in view.PatrolActors)
+                    if (actor != null) step.Taming.SetAvailable(actor.StableId, actor.gameObject.activeInHierarchy);
+                foreach (GameObject root in roots)
+                {
+                    var follow = root.GetComponentInChildren<Game.IsometricExploration.SmoothCameraFollow>();
+                    if (follow == null || follow.Target != view.PlayerBody) continue;
+                    Vector3 offset = follow.Offset == Vector3.zero ? follow.transform.position - previous : follow.Offset;
+                    follow.SetOffset(offset); follow.transform.position = position + offset;
+                }
+                mirrorArrival = false;
                 restore = null;
                 // 视图绑定分两步（远端 taming 波）：Bind 只给模型与插值相位，BindControl 另给驯服控制回调；
                 // execution 由 Bind 的可选参数带进去，白盒面板因此多画一行「此刻能不能按 F」。
@@ -124,17 +167,26 @@ namespace Game.Monster
                 view.BindAwarenessRanges(monsterRules.Kind, monsterConfig);
                 view.OnBackClicked += HandleBackClicked;
                 view.OnPlayerBlocked += step.CorrectPlayerPosition;
-                BindExecution(execution);
+                if (execution != null) execution.enabled = !nextHumanWorld;
+                if (!nextHumanWorld) BindExecution(execution);
                 Game.ShopPlaytest.ShopPlaytestWorld shopWorld = null;
                 foreach (GameObject root in roots)
                 {
                     shopWorld = root.GetComponentInChildren<Game.ShopPlaytest.ShopPlaytestWorld>(true);
                     if (shopWorld != null) break;
                 }
-                if (shopWorld != null)
+                if (!nextHumanWorld && view.HasStoryWorlds && shopWorld == null)
+                    throw new System.InvalidOperationException("入镜目标未接入妖界五店");
+                if (shopWorld != null && !nextHumanWorld)
                 {
                     if (!container.TryResolve(out shops)) throw new System.InvalidOperationException("Boot缺少五店注册器");
                     await shops.BindAsync(shopWorld, view, ct);
+                }
+                InteractionRegistry registry;
+                if (container.TryResolve(out registry) && registry.Actor != null)
+                {
+                    var actor = registry.Actor;
+                    registry.SetActor(null); registry.SetActor(actor);
                 }
             }
             catch (System.Exception e)
@@ -195,8 +247,40 @@ namespace Game.Monster
 
         protected override async UniTask OnSceneUnloadingAsync(CancellationToken ct)
         {
+            await bindingGate.WaitAsync(ct);
+            try { await UnbindSceneAsync(); }
+            finally { bindingGate.Release(); }
+        }
+
+        private async UniTask UnbindSceneAsync()
+        {
             try { if (shops != null) await shops.UnbindAsync(); }
             finally { StopSceneBinding(); }
+        }
+
+        public async UniTask EnterDemonWorldAsync(CancellationToken ct)
+        {
+            await bindingGate.WaitAsync(ct);
+            var before = step.Capture(0);
+            before.StoryWorld = IsHumanWorld ? "human" : "demon";
+            before.ScenePlayerHeight = ActivePlayerHeight;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                await UnbindSceneAsync();
+                nextHumanWorld = false; mirrorArrival = true; restore = null;
+                await BindSceneAsync(ct);
+            }
+            catch
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    await UnbindSceneAsync(); PrepareRestore(before); mirrorArrival = false;
+                    await BindSceneAsync(CancellationToken.None);
+                }
+                throw;
+            }
+            finally { bindingGate.Release(); }
         }
 
         private void StopSceneBinding()

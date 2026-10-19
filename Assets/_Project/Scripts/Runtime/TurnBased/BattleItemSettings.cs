@@ -57,23 +57,23 @@ namespace Game.TurnBased
 
         /// <summary>
         /// 本工程当前的默认值（与 `TurnBasedConfig` 的字段默认一致，由 `TurnBasedKernelTests` 钉住）：
-        /// sp07:199–211 的 10 件道具，id 取 `tbitem` 表 1801–1810（表内每类占一个 100 段的惯例，原文没给 id）。
+        /// sp07:199–211 的 10 件道具，id 取 `tbitem` 表 2001–2010（表内每类占一个 100 段的惯例，原文没给 id）。
         /// </summary>
         public static BattleItemSettings PlaceholderDefault => new BattleItemSettings(DefaultEffects());
 
         /// <summary>默认效果表的数组形式（`TurnBasedConfig` 的字段默认也用它，避免两处各写一遍）。</summary>
         public static BattleItemEffect[] DefaultEffects() => new[]
         {
-            new BattleItemEffect("1801", BattleItemEffectKind.HealFixed, 50),                       // 活力药剂
-            new BattleItemEffect("1802", BattleItemEffectKind.RageToMax, 0),                        // 狂怒结晶
-            new BattleItemEffect("1803", BattleItemEffectKind.DamageReduction, 40, rounds: 2),      // 铁壁护符
-            new BattleItemEffect("1804", BattleItemEffectKind.AttackBonus, 7, charges: 3),          // 锐锋油膏
-            new BattleItemEffect("1805", BattleItemEffectKind.Lifesteal, 12, rounds: 3),            // 浴血药剂
-            new BattleItemEffect("1806", BattleItemEffectKind.HealFixed, 70),                       // 大瓶生命药剂
-            new BattleItemEffect("1807", BattleItemEffectKind.RageAdd, 2),                          // 瞬怒晶石
-            new BattleItemEffect("1808", BattleItemEffectKind.Shield, 0, charges: 1),               // 坚韧斗篷
-            new BattleItemEffect("1809", BattleItemEffectKind.ExtraAction, 0),                      // 迅击粉末
-            new BattleItemEffect("1810", BattleItemEffectKind.Regen, 25, rounds: 3),                // 固本甘露
+            new BattleItemEffect("2001", BattleItemEffectKind.HealFixed, 50),                       // 活力药剂
+            new BattleItemEffect("2002", BattleItemEffectKind.RageToMax, 0),                        // 狂怒结晶
+            new BattleItemEffect("2003", BattleItemEffectKind.DamageReduction, 40, rounds: 2),      // 铁壁护符
+            new BattleItemEffect("2004", BattleItemEffectKind.AttackBonus, 7, charges: 3),          // 锐锋油膏
+            new BattleItemEffect("2005", BattleItemEffectKind.Lifesteal, 12, rounds: 3),            // 浴血药剂
+            new BattleItemEffect("2006", BattleItemEffectKind.HealFixed, 70),                       // 大瓶生命药剂
+            new BattleItemEffect("2007", BattleItemEffectKind.RageAdd, 2),                          // 瞬怒晶石
+            new BattleItemEffect("2008", BattleItemEffectKind.Shield, 0, charges: 1),               // 坚韧斗篷
+            new BattleItemEffect("2009", BattleItemEffectKind.ExtraAction, 0),                      // 迅击粉末
+            new BattleItemEffect("2010", BattleItemEffectKind.Regen, 25, rounds: 3),                // 固本甘露
         };
     }
 }

@@ -33,10 +33,15 @@ namespace Game.Tests.EditMode.Quest
         }
 
         [Test]
-        public void Content_RealTable_BuildsFourQuests()
+        public void Content_RealTable_BuildsFormalChapterAndFourExamples()
         {
             QuestContent content = catalog.Content;
-            Assert.That(content.All.Count, Is.EqualTo(4));
+            Assert.That(content.All.Count, Is.EqualTo(5));
+            Assert.That(content.TryGet(900, out QuestDefinition formal), Is.True);
+            Assert.That(formal.Kind, Is.EqualTo(QuestKind.Main));
+            Assert.That(formal.Objectives[0].Key, Is.EqualTo("spotlight.three_shops"));
+            Assert.That(formal.Objectives.Count, Is.EqualTo(4), "人间对白不是玩家任务，会面后任务真实完成");
+            Assert.That(formal.Objectives[formal.Objectives.Count - 1].Key, Is.EqualTo("21011"));
 
             Assert.That(content.TryGet(1001, out QuestDefinition first), Is.True);
             Assert.That(first.Kind, Is.EqualTo(QuestKind.Main));

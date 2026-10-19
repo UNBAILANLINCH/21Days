@@ -13,6 +13,30 @@ namespace Game.Tests.EditMode.Quest
     {
         private QuestRules rules;
 
+        [Test]
+        public void ScopedContent_CompletesWithoutActivatingExampleChain()
+        {
+            var scoped = new QuestRules(Build(), NullTelemetryScope.Instance, new[] { Main1 });
+            scoped.ActivateAvailable(); CompleteMain1(scoped);
+            Assert.That(scoped.CurrentMainId, Is.Zero);
+            Assert.That(scoped.TryGet(Main2, out var next), Is.True);
+            Assert.That(next.State, Is.EqualTo(QuestState.Inactive));
+            Assert.That(scoped.InProgress.Count, Is.Zero);
+        }
+
+        [Test]
+        public void ScopedContent_PreservesHiddenLegacyProgressInSave()
+        {
+            var original = NewRules(); original.ActivateAvailable();
+            var saved = new QuestSaveData(); original.CaptureInto(saved);
+            var scoped = new QuestRules(Build(), NullTelemetryScope.Instance, new[] { Main1 });
+            scoped.Restore(saved); scoped.ActivateAvailable();
+            var captured = new QuestSaveData(); scoped.CaptureInto(captured);
+            Assert.That(scoped.InProgress.Count, Is.EqualTo(1));
+            Assert.That(scoped.Track(Side1), Is.False);
+            Assert.That(captured.Quests.Find(quest => quest.Id == Side1).State, Is.EqualTo((int)QuestState.InProgress));
+        }
+
         [SetUp]
         public void SetUp()
         {

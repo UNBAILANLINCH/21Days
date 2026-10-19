@@ -28,6 +28,10 @@ namespace Game.Identity
     /// </summary>
     public sealed class IdentityRules
     {
+        public event Action<IdentityOrigin> OnEntered;
+        public event Action OnExited;
+        public event Action OnExposed;
+        public event Action OnRefused;
         private readonly IdentitySettings settings;
         private readonly IdentityCatalog catalog;
         private readonly IExposureOutcomePolicy exposurePolicy;
@@ -114,6 +118,7 @@ namespace Game.Identity
             ledger.Record(id);
             telemetry.Track("identity_enter", ("identity", id.Value), ("origin", (int)definition.Origin));
             TrackLedgerOverLimit(ledger);
+            OnEntered?.Invoke(definition.Origin);
             return IdentityEnterResult.Entered;
         }
 
@@ -137,6 +142,7 @@ namespace Game.Identity
             IdentityId leaving = state.Current;
             state.End(settings.CooldownSeconds);
             telemetry.Track("identity_exit", ("reason", (int)IdentityExitReason.Voluntary), ("identity", leaving.Value));
+            OnExited?.Invoke();
             return IdentityExitReason.Voluntary;
         }
 
@@ -165,6 +171,7 @@ namespace Game.Identity
             IdentityId leaving = state.Current;
             state.End(settings.CooldownSeconds);
             telemetry.Track("identity_exit", ("reason", (int)IdentityExitReason.Expired), ("identity", leaving.Value));
+            OnExited?.Invoke();
             return IdentityExitReason.Expired;
         }
 
@@ -294,6 +301,7 @@ namespace Game.Identity
             // 六种露馅各记一条（命中几种就几条），这样日志里能按方式统计；
             // 事件很少发生（露馅是节点性事件），不存在刷屏问题。
             TrackExposureCauses(cause, outcome, wearing);
+            OnExposed?.Invoke();
             if (outcome == ExposureOutcome.Death)
             {
                 telemetry.Track("identity_death", ("identity", wearing.Value), ("cause", (int)cause));
@@ -470,6 +478,7 @@ namespace Game.Identity
 
         private IdentityEnterResult Refuse(IdentityEnterResult result, IdentityId id)
         {
+            OnRefused?.Invoke();
             telemetry.Track("identity_enter_refused", ("result", (int)result), ("identity", id.Value));
             return result;
         }

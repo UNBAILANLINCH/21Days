@@ -7,6 +7,22 @@ maturity: seed
 
 # Session 模块指南
 
+## 人间/妖界入口与恢复修正（2026-10-18 后续）
+
+安装正式剧情时，新局准备SampleScene内Z+300人界；正常仅加载IsometricEncounter。镜面换界不经GameFlow重进或卸载，复用原玩家／相机／移动驱动，在黑幕、暂停和输入／保存闸门下切分组并传到妖界对应镜台。Continue仍走既有会话重进流程，换界绑定互斥门防止旧请求与离场交错。
+
+遭遇v4捕获StoryWorld（human/demon）、同一SceneKey及实际XZ／高度，恢复同时对齐PreviousPosition与相机。v3的SpotlightHuman档转为人界、玩家Z+300；v1/2 Isometric且正式故事停在26／70／83／129的旧档也迁为人界，171／188／197及已有妖界／五店进度不偏移。迁移来源版本标记不序列化，避免新妖界档被旧阶段推断反复迁走。Quest v3另迁移900七项旧检查及已完成后的永久占位，其余分区保留。
+
+**实施中缺口**：上述v1/2路由尚不可靠。只读复核确认ReadCandidate、Require、Commit均经过SaveSnapshot JSON克隆，[JsonIgnore]来源标记会丢失；静态Migrate测试不足以证明真实Continue。须修为可克隆、解析后消费的迁移信息并以真实候选链验证。穿越中Continue的Gameplay所有权恢复亦待定向实测；当前不能宣称两项已修复。
+
+`SpotlightStoryFlow.CanSave` 同时检查转场、在途叙事与首次开场完成；会话变更取消旧转场并释放标志。失败在未提交剧情结果时恢复镜前，可重新按E。地图只属于玩法场景，Boot保持常驻服务；正常切换卸载旧图后进入新图。
+
+## 正式新局与软引导（2026-10-18）
+
+本轮正常新游戏入口保留标题转场，进入世界后由 Narrative 的节点／区域软引导承接，不再调用 `NewGameTutorial.ShowAsync`。旧 TutorialView 与独立测试保留兼容资产，下方操作说明章节为历史实现，不能据此恢复全屏等待。
+
+`SessionStateAdapter.NarrativeStable` 同时检查正式开场已启动、Narrative稳定和 `TavernController.Guess.IsPending == false`。未揭晓划拳或开场尚未启动时，即时保存也拒绝；结算写完醉意／消息／学习后才允许稳定存档。可选依赖通过 Installer 的 TryResolve 保持无五店的最小作用域兼容。实际验证见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
+
 ## 五槽存档卷轴界面（2026-10-14）
 
 SessionConfig 的默认值和正式配置均为五槽，原槽 1～3 的文件编号与数据格式保留，新增槽 4、5 复用同一读写、覆盖与删除流程。
@@ -61,7 +77,7 @@ NewGame/Continue从重置/读取候选到场景切换结束持有sessionTransiti
 | --- | --- | --- |
 | `GameSession` | 门面：槽位状态、新游戏 / 继续 / 删除 / 读槽摘要、`RequestSave` 待处理合并、`ITickable.Tick` 评估闸门并落盘、游玩时长累计 | 根作用域单例 + `IGameService` + `ITickable`（`GameSession.cs:36`） |
 | `SaveGateRules` | 纯静态：`CanSave` 四条件、`Request`/`Take` 合并待处理请求 | `GameSession.Tick` 调（`SaveGateRules.cs:10`） |
-| `ISessionStateSource` / `SessionStateAdapter` | 把 Quest / Dialogue / Monster / UIService 的具体依赖包成一个接口，供 `GameSession` 在 EditMode 里假实现测试 | `SessionInstaller` 注册适配器为该接口（`ISessionStateSource.cs`、`SessionStateAdapter.cs:18`） |
+| `ISessionStateSource` / `SessionStateAdapter` | 把 Quest / Dialogue / Monster / UIService 的具体依赖包成一个接口，供 `GameSession` 在 EditMode 里假实现测试 | `SessionInstaller` 注册适配器为该接口 |
 | `SaveTriggerBridge` | 入口点：把任务三事件 / 开箱 / 对白结束 / 场景切换完成 接成 `RequestSave`；离开玩法状态与退出游戏接成 `SaveNowAsync` | 根作用域入口点（`SaveTriggerBridge.cs:23`） |
 | `SessionTitleRouter` | 入口点：标题「开始 / 继续 / 选择存档」三事件路由；回标题时按 `LatestSlot` 显示 / 隐藏「继续」 | 根作用域入口点（`SessionTitleRouter.cs:25`） |
 | `SessionTitleRules` | 纯静态：`PickNewGameSlot`、`ShouldShowContinue` | `SessionTitleRouter` 调（`SessionTitleRules.cs:10`） |

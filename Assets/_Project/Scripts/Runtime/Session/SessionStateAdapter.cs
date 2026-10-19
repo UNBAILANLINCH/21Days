@@ -12,6 +12,7 @@ using Game.Dialogue;
 using Game.Monster;
 using Game.Quest;
 using Game.Narrative;
+using Game.Tavern;
 
 namespace Game.Session
 {
@@ -27,6 +28,8 @@ namespace Game.Session
         private readonly ISaveService saves;
         private readonly SessionConfig config;
         private readonly NarrativeService narrative;
+        private readonly TavernController tavern;
+        private readonly SpotlightStoryFlow story;
 
         /// <remarks>
         /// <see cref="UIService"/> 按具体类型注入（要 <see cref="UIService.TopView"/>，接口上没有），
@@ -42,7 +45,7 @@ namespace Game.Session
             QuestService quests,
             ISaveService saves,
             SessionConfig config,
-            NarrativeService narrative = null)
+            NarrativeService narrative = null, TavernController tavern = null, SpotlightStoryFlow story = null)
         {
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.dialogue = dialogue ?? throw new ArgumentNullException(nameof(dialogue));
@@ -55,6 +58,8 @@ namespace Game.Session
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
             this.narrative = narrative;
+            this.tavern = tavern;
+            this.story = story;
         }
 
         /// <summary>
@@ -69,7 +74,7 @@ namespace Game.Session
         public bool IsGameplayState => flow.Current is MonsterEncounterState && step.IsActive;
 
         public bool DialogueRunning => dialogue.IsRunning;
-        public bool NarrativeStable => narrative == null || narrative.CanSave;
+        public bool NarrativeStable => (narrative == null || narrative.CanSave) && (tavern == null || !tavern.Guess.IsPending) && (story == null || story.CanSave);
         public void ValidateCandidate(SaveSnapshot candidate) => narrative?.ValidateCandidate(candidate);
 
         // UIView 是 UnityEngine.Object，判空只用 !=。
@@ -95,7 +100,9 @@ namespace Game.Session
 
             // 原地复制进分区，不换实例：别处（MonsterEncounterState 已准备的恢复）可能正拿着这个分区对象。
             EncounterSaveData target = saves.Get<EncounterSaveData>();
-            target.SceneKey = captured.SceneKey;
+            target.SceneKey = encounter.ActiveSceneAddress;
+            target.StoryWorld = encounter.IsHumanWorld ? "human" : "demon";
+            target.ScenePlayerHeight = encounter.ActivePlayerHeight;
             target.Tick = captured.Tick;
             target.Active = captured.Active;
             target.EncounterId = captured.EncounterId;
@@ -115,6 +122,7 @@ namespace Game.Session
             if (!fromSave)
             {
                 encounter.ClearPreparedRestore();
+                if (story != null) encounter.PrepareHumanStory();
                 return;
             }
 
@@ -122,6 +130,12 @@ namespace Game.Session
             try
             {
                 saved.Validate();
+                if (ResolveLegacyStoryScene(saved, saves.Get<Game.Narrative.NarrativeSaveData>()) == MonsterEncounterState.HumanStoryAddress && saved.StoryWorld != "human")
+                {
+                    saved.StoryWorld = "human";
+                    saved.Player.PositionY += EncounterSaveData.HumanOffsetZ;
+                }
+                saved.SceneKey = MonsterEncounterState.DemonStoryAddress;
                 encounter.PrepareRestore(saved);
             }
             catch (Exception e)
@@ -130,6 +144,15 @@ namespace Game.Session
                 Log.Warn($"存档里的遭遇快照不合法，本次落回出生点：{e.Message}");
                 encounter.ClearPreparedRestore();
             }
+        }
+
+        public static string ResolveLegacyStoryScene(EncounterSaveData saved, Game.Narrative.NarrativeSaveData narrative)
+        {
+            var frame = narrative?.Current;
+            if (!saved.LegacySceneRoute || frame == null || frame.StoryId != "spotlight_current") return saved.SceneKey;
+            string stage = frame.StageId;
+            return stage == "enter_r0026" || stage == "action_r0070" || stage == "enter_r0083" || stage == "enter_r0129"
+                ? MonsterEncounterState.HumanStoryAddress : saved.SceneKey;
         }
 
         public string BuildProgressText()

@@ -1,0 +1,37 @@
+{
+    "id": 900,
+    "kind": "Main",
+    "title": "入镜寻人",
+    "description": "从梦中旧事出发，循线入镜，在坊市寻找妻子的踪迹。",
+    "prerequisites": [],
+    "objectives": [
+        {
+            "text": "完成戏班、衣肆和金银行，备齐乔装成果",
+            "kind": "Counter",
+            "key": "spotlight.three_shops",
+            "count": 1,
+            "location": ""
+        },
+        {
+            "text": "在酒肆划拳，灌醉并击败主人",
+            "kind": "Counter",
+            "key": "spotlight.tavern_boss",
+            "count": 1,
+            "location": ""
+        },
+        {
+            "text": "前往酒肆楼梯口",
+            "kind": "TalkTo",
+            "key": "21010",
+            "count": 1,
+            "location": "spotlight_tavern_stairs"
+        },
+        {
+            "text": "到巷口与殷红会面",
+            "kind": "TalkTo",
+            "key": "21011",
+            "count": 1,
+            "location": "spotlight_alley"
+        }
+    ]
+}

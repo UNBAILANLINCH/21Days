@@ -1,0 +1,70 @@
+{
+  "comparedNonEnvironmentObjects": 601,
+  "excludedAutoLayoutBubbleContent": 10,
+  "differences": [],
+  "groups": [
+    {
+      "name": "Main_1",
+      "members": 408,
+      "missing": 0
+    },
+    {
+      "name": "Main_3",
+      "members": 1,
+      "missing": 0
+    },
+    {
+      "name": "Main_2",
+      "members": 1,
+      "missing": 0
+    },
+    {
+      "name": "Main_0",
+      "members": 1,
+      "missing": 0
+    },
+    {
+      "name": "Main_4",
+      "members": 1,
+      "missing": 0
+    }
+  ],
+  "actorIds": [
+    "shop_station_4",
+    "shop_customer_b",
+    "shop_customer_a",
+    "shop_boss",
+    "shop_guest",
+    "shop_station_3",
+    "shop_innkeeper",
+    "shop_station_0",
+    "shop_patrol",
+    "shop_musician",
+    "shop_director",
+    "shop_apprentice",
+    "shop_station_2",
+    "shop_smith",
+    "shop_officer",
+    "shop_station_1",
+    "shop_tailor",
+    "shop_customer2",
+    "shop_customer1",
+    "shop_customer0"
+  ],
+  "uniqueActorIds": 20,
+  "environmentPrefab": "Assets/_Project/Art/fbx/CourtyardLatest.glb",
+  "waterMeshes": [
+    {
+      "name": "CourtyardWater_West",
+      "path": "Assets/_Project/Art/Meshes/CourtyardWater_West.asset",
+      "height": 6.89999962
+    },
+    {
+      "name": "CourtyardWater_East",
+      "path": "Assets/_Project/Art/Meshes/CourtyardWater_East.asset",
+      "height": 5.59999943
+    }
+  ],
+  "playModePassed": 4,
+  "editModePassed": 21
+}

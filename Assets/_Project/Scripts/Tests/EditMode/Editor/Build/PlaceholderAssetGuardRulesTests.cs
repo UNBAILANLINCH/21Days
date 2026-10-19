@@ -108,12 +108,12 @@ namespace Game.Tests.EditMode.Editor.Build
         public void BuildReport_WithHits_ContainsRootAndAssetPath()
         {
             List<PlaceholderAssetGuardRules.Hit> hits = PlaceholderAssetGuardRules.FindHits(
-                new[] { Root("场景 Assets/Scenes/SampleScene.unity", AmiyaFrame) },
+                new[] { Root("场景 Assets/_Project/Scenes/SampleScene.unity", AmiyaFrame) },
                 null);
 
             string report = PlaceholderAssetGuardRules.BuildReport(hits, true);
 
-            Assert.That(report, Does.Contain("场景 Assets/Scenes/SampleScene.unity → " + AmiyaFrame));
+            Assert.That(report, Does.Contain("场景 Assets/_Project/Scenes/SampleScene.unity → " + AmiyaFrame));
             Assert.That(report, Does.Contain("Release 出包已拦下"));
         }
 

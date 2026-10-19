@@ -1,0 +1,133 @@
+<div id="fangshi-whitebox-map">
+  <style>
+    #fangshi-whitebox-map { color: var(--foreground); }
+    #fangshi-whitebox-map .map-title { padding-right: 96px; }
+    #fangshi-whitebox-map .map-note { margin: 10px 0; }
+    #fangshi-whitebox-map .map-figure { width: 100%; }
+    #fangshi-whitebox-map .map-svg { display: block; width: 100%; }
+    #fangshi-whitebox-map .map-svg text { fill: var(--foreground); font-size: 12px; font-weight: 400; }
+    #fangshi-whitebox-map .map-detail { margin-top: 12px; overflow-wrap: anywhere; }
+  </style>
+  <h2 class="map-title">坊市首圈 白盒流程建议</h2>
+  <div class="text-small map-note">原图布局：坊市俯视图 · 编号、步骤顺序与路线：本次建议</div>
+  <div class="viz-controls">
+    <label class="form-label" for="fangshi-route-step">查看步骤
+      <select id="fangshi-route-step" class="form-select">
+        <option value="0">1 客栈 接临时目标</option>
+        <option value="1">2 街面 潜行取面具</option>
+        <option value="2">3 戏班 装备与核验</option>
+        <option value="3">4 戏班 控制乙到岗</option>
+        <option value="4">5 衣肆 条件对白取线索</option>
+        <option value="5">6 金银行 白盒箱子取钥匙</option>
+        <option value="6">7 酒肆 样例 BOSS 战</option>
+        <option value="7">8 客栈 交付与结束</option>
+      </select>
+    </label>
+  </div>
+  <div class="map-figure">
+    <svg class="map-svg" role="img" aria-label="沿原坊市图布局绘制的八步白盒路线，上层地图及乡集祠堂不纳入首圈"></svg>
+  </div>
+  <div class="card map-detail" aria-live="polite" data-route-detail>1 客栈 · 安全出生→临时任务；待接白盒入口、正确任务集合及首个目标。</div>
+  <div class="text-small map-note">实线：原图空间连接 · 虚线：建议动线 · 上层与乡集祠堂：保留位置，不纳入首圈</div>
+  <script>
+    (() => {
+      const root = document.getElementById('fangshi-whitebox-map');
+      const svg = root.querySelector('.map-svg');
+      const figure = root.querySelector('.map-figure');
+      const picker = root.querySelector('#fangshi-route-step');
+      const detail = root.querySelector('[data-route-detail]');
+      const ns = 'http://www.w3.org/2000/svg';
+      const points = [
+        {x:.52,y:318,label:'客栈接目标',detail:'1 客栈 · 安全出生→临时任务；待接白盒入口、正确任务集合及首个目标。'},
+        {x:.105,y:355,label:'街面潜行取面具',detail:'2 街面 · 掩体与绕背处决甲→面具入库存；待接遮挡影响AI、奖励数据、一次性掉落及保存。'},
+        {x:.12,y:318,label:'戏班装备核验',detail:'3 戏班门口 · 装备白盒面具→身份核验通过；待接背包装备、身份映射、权限判定和当前身份提示。'},
+        {x:.19,y:350,label:'戏班控制乙到岗',detail:'4 戏班 · 驯服乙→操控到岗→切回本体；待接限定资格、乙的到岗判定及回本体后的目标开放。'},
+        {x:.275,y:318,label:'衣肆取得线索',detail:'5 衣肆 · 身份与前置进度成立→条件对白→线索；待接内容与任务结果，不扩为完整多顾客推理。'},
+        {x:.395,y:318,label:'金银行取得钥匙',detail:'6 金银行 · 线索→打开白盒物资箱→钥匙和补给；待接前置与奖励数据，打造小游戏不纳入。'},
+        {x:.64,y:318,label:'酒肆样例战斗',detail:'7 酒肆 · 钥匙与前置→样例BOSS→胜利标记；已有战斗闭环，待接挑战资格、任务推进与失败重试检查。'},
+        {x:.52,y:355,label:'客栈交付结束',detail:'8 客栈 · 胜利后交付→本圈完成→保存／返回标题；待接完成条件、幂等交付及一致的重开清理。'}
+      ];
+      let selected = 0;
+      function savedStep(saved) {
+        const value = saved && saved.privateContent && saved.privateContent.step;
+        return Number.isInteger(value) && value >= 0 && value < points.length ? value : 0;
+      }
+      function node(tag, attrs, parent = svg, text) {
+        const el = document.createElementNS(ns, tag);
+        for (const [key,value] of Object.entries(attrs || {})) el.setAttribute(key,String(value));
+        if (text !== undefined) el.textContent = text;
+        parent.appendChild(el);
+        return el;
+      }
+      function draw() {
+        const w = Math.max(1, Math.round(figure.getBoundingClientRect().width));
+        svg.replaceChildren();
+        svg.setAttribute('viewBox',`0 0 ${w} 412`);
+        svg.setAttribute('height','412');
+        node('title',{},svg,'坊市首圈建议路线');
+        node('desc',{},svg,'原图的街面商铺、乡集祠堂和楼梯层级保留。虚线从客栈出发，经潜行、面具核验、控制到岗、衣肆线索、金银行钥匙、酒肆战斗，再回客栈交付。');
+        const defs = node('defs');
+        const marker = node('marker',{id:'fangshi-route-arrow',markerWidth:6,markerHeight:6,refX:5,refY:3,orient:'auto',markerUnits:'strokeWidth'},defs);
+        node('path',{d:'M0 0L6 3L0 6Z',fill:'var(--viz-series-1)'},marker);
+        function text(x,y,label,anchor='middle') { return node('text',{x,y,'text-anchor':anchor},svg,label); }
+        function box(x,y,width,height,lines) {
+          node('rect',{x:x*w,y,width:width*w,height,fill:'var(--muted)',stroke:'var(--border)','stroke-width':1});
+          lines.forEach((line,i)=>text((x+width/2)*w,y+height/2+(i-(lines.length-1)/2)*17+4,line));
+        }
+        function connector(d) { node('path',{d,fill:'none',stroke:'var(--muted-foreground)','stroke-width':1.5}); }
+        box(.46,12,.18,52,['轮回堂','3层']);
+        connector(`M${.55*w} 64V112`);
+        text(.595*w,90,'楼梯');
+        box(.50,112,.26,60,['过渡平台','2.5层']);
+        connector(`M${.76*w} 142H${.85*w}`);
+        text(.805*w,130,'楼梯');
+        box(.85,112,.13,60,['洞庭府','2层']);
+        connector(`M${.63*w} 172V205H${.745*w}V294`);
+        text(.62*w,222,'楼梯');
+        box(.03,238,.19,56,['戏班','露天']);
+        box(.22,238,.11,56,['衣肆']);
+        box(.33,238,.13,56,['金银行']);
+        box(.46,238,.12,56,['客栈']);
+        box(.58,238,.12,56,['酒肆']);
+        box(.79,238,.18,56,['乡集祠堂']);
+        node('rect',{x:.03*w,y:294,width:.94*w,height:86,fill:'var(--secondary)'});
+        text(.96*w,375,'街面','end');
+        node('rect',{x:.075*w,y:382,width:.09*w,height:9,fill:'var(--muted-foreground)'});
+        node('rect',{x:.215*w,y:382,width:.05*w,height:9,fill:'var(--muted-foreground)'});
+        text(.03*w,400,'掩体位置示意','start');
+        const routes = [
+          `M${.52*w} 329V367H${.105*w}V366`,
+          `M${.105*w} 344L${.12*w} 329`,
+          `M${.12*w} 329L${.19*w} 339`,
+          `M${.19*w} 339L${.275*w} 329`,
+          `M${.275*w+11} 318H${.395*w-11}`,
+          `M${.395*w+11} 318H${.64*w-11}`,
+          `M${.64*w} 329V367H${.52*w}V366`
+        ];
+        routes.forEach((d,i)=>node('path',{d,fill:'none',stroke:i===selected-1?'var(--viz-series-1)':'var(--muted-foreground)','stroke-width':i===selected-1?2.5:1,'stroke-dasharray':'4 5',...(i===selected-1?{'marker-end':'url(#fangshi-route-arrow)'}:{})}));
+        points.forEach((point,i)=>{
+          const group = node('g',{'data-step-marker':i});
+          node('title',{},group,`${i+1} ${point.label}`);
+          node('circle',{cx:point.x*w,cy:point.y,r:11,fill:i===selected?'var(--viz-series-1)':'var(--background)',stroke:i===selected?'none':'var(--border)','stroke-width':1},group);
+          const label=node('text',{x:point.x*w,y:point.y+4,'text-anchor':'middle'},group,String(i+1));
+          if(i===selected) label.style.fill='var(--background)';
+        });
+        picker.value = String(selected);
+        detail.textContent = points[selected].detail;
+      }
+      function save() {
+        if (window.openai && typeof window.openai.setWidgetState === 'function') {
+          window.openai.setWidgetState({modelContent:{step:selected+1,label:points[selected].label},privateContent:{step:selected}}).catch(()=>{});
+        }
+      }
+      picker.addEventListener('change',()=>{selected=Number(picker.value);draw();save();});
+      selected=savedStep(window.openai && window.openai.widgetState);
+      new ResizeObserver(draw).observe(figure);
+      draw();
+      window.addEventListener('openai:set_globals',event=>{
+        const globals=event.detail && event.detail.globals;
+        if(globals && globals.widgetState){selected=savedStep(globals.widgetState);draw();}
+      });
+    })();
+  </script>
+</div>

@@ -112,7 +112,7 @@ Player 回放状态由 `MonsterInstaller` 在固定顺序中首先注册，然�
 | `DisguiseKey_TogglesDisguiseOnAndOff` | 按伪装键开启 / 再按关闭 |
 | `AttackThenTakeHits_HealthDropsToDeath` | 打巡逻怪一下后站定挨打，真实受击直到生命归零 |
 
-舞台统一是 `Assets/Scenes/SampleScene.unity`；死亡靠真实数值（`PlayerConfig` 生命 3、`MonsterConfig` 伤害 1、
+舞台统一是 `Assets/_Project/Scenes/SampleScene.unity`；死亡靠真实数值（`PlayerConfig` 生命 3、`MonsterConfig` 伤害 1、
 冷却 1 秒，贴身约 3 秒即死），不额外调 `PlayerRules.ApplyDamage` 补刀。
 
 ## 已知集成状态

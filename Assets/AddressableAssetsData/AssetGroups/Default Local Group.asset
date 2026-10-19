@@ -16,7 +16,122 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: 1d7db3ce9bf1ba44aa6220379b739093
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: 08a3bf4acfbef40439001657600bbd3b
+    m_Address: SFX/exposed
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0ed12498c84c7a84ab3ee22df2b09bbe
+    m_Address: SFX/been_attacked
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0f67555d84847a74fa38824ae1856d89
+    m_Address: SFX/mirror_resonance_and_stop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 196b35b9ab5e25648930ce045f5d4e1f
+    m_Address: SFX/chase_start
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ccc75dc9acbfa14397f4f9534333ed4
+    m_Address: SFX/aware
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 25f4fb1fb2d85a74e9726ebd56d877f7
+    m_Address: SFX/action_denied
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3600f1ef3e3040748b0787b6642959b9
+    m_Address: SFX/wind_loop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3cfa7cb7571034541aa873261e293573
+    m_Address: SFX/attack_stab_behind
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3ea24dfa71bdf1b49b57de03b9460c9e
+    m_Address: SFX/lowkey_intense_kicks
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 507342b7651daa84196df6a88138d7dd
+    m_Address: SFX/silence_steps
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 663e73f9233cb30418864660affae665
+    m_Address: SFX/walksteps
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6d9c70d166b190d4a9c8b90f6fea895f
+    m_Address: SFX/runsteps
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6f1ada94a4a70284e87683879849c25f
+    m_Address: SFX/execute_succeed
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 752c33509ad7a7e47a57437711fba6bb
+    m_Address: SFX/lowkey_intense_kicks_faster
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9d7a2ca57a8f80943afb5204de118968
+    m_Address: SFX/ui_select
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a09b9f417a557674c8789b9a163b96a7
+    m_Address: SFX/wind_stop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b7de6160267fbe34b8328d3dc23e6f49
+    m_Address: SFX/possession_detach
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cf85370653072df4ba4ccacf9df52159
+    m_Address: SFX/mirror_vibrate
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dc2e324be4ea7fd449b49ca0d13b03e9
+    m_Address: SFX/metal_hit_ground_and_scratch
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ddff1f26c76fdfa479b213431074b588
+    m_Address: SFX/keypoint_found
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e05d342ed48ea384fb97fa8eb5f37c32
+    m_Address: SFX/possession_succeed
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ea4bbd5506ee6bc4b970e9f3288cc0d1
+    m_Address: SFX/wind_start
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f17a5dc359e4302439830249bf64d4ae
+    m_Address: SFX/knocked_down
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: f6f1748f1b9bba74d8edb0af0aaa7c26, type: 2}
   m_SchemaSet:

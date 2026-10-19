@@ -4,6 +4,19 @@
 command = "uvx"
 args = ["--from", "mcpforunityserver==10.2.0", "mcp-for-unity", "--transport", "stdio"]
 startup_timeout_sec = 60
+env = { PYTHONUTF8 = "1" } # Windows 服务输出须为 UTF-8，避免 Codex 握手时读取失败。
+
+[mcp_servers.UnityMCP.tools.manage_asset]
+approval_mode = "approve"
+
+[mcp_servers.UnityMCP.tools.manage_scriptable_object]
+approval_mode = "approve"
+
+[mcp_servers.UnityMCP.tools.manage_scene]
+approval_mode = "approve"
+
+[mcp_servers.UnityMCP.tools.run_tests]
+approval_mode = "approve"
 
 # Blender MCP（PyPI 包名 mcp-for-blender，原 blender-mcp）。
 # 与 .mcp.json 里的 blender 条目同版本；服务端经 localhost:9876 连 Blender 侧的

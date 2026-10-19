@@ -144,6 +144,7 @@ namespace Game.Stealth
         /// </para>
         /// </summary>
         public ExecutionVerdict? LastVerdict { get; private set; }
+        public event Action<ExecutionVerdict> OnResolved;
 
         /// <summary>
         /// 接线：玩家、目标、事实写入点，外加可选的判定内核 / 遭遇结算 / 埋点 / 动作资产。
@@ -365,6 +366,7 @@ namespace Game.Stealth
         private ExecutionVerdict Remember(ExecutionVerdict verdict)
         {
             LastVerdict = verdict;
+            OnResolved?.Invoke(verdict);
             return verdict;
         }
 

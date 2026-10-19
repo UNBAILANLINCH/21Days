@@ -51,6 +51,8 @@ maturity: seed
 
 ## 数据流
 
+2026-10-17：五店组合根注册`identity.shop_skin`执行者，1901–1909在InventoryConfig使用表配置`consumeCount=0`。零消耗道具仍须实际持有至少一件，成功后不扣件数；负消耗继续视为配置错误。换皮效果由ShopPlaytest持有，不在Inventory引入店内职业依赖。其它尚未注册的皮/面具效果仍明确返回没有执行者。
+
 ```text
 打开：B / 手柄 RB → InventoryHotkeyPresenter.HandleInventory
   → ShouldOpen(!对白中 && !沉浸 && 面板不忙) → InventoryPanelController.OpenAsync

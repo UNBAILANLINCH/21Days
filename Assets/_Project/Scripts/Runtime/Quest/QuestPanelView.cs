@@ -147,7 +147,7 @@ namespace Game.Quest
         /// 目标清单：当前目标之前打勾、当前与之后画圈；当前目标要求多次时追加「 已完成/需要」。
         /// <paramref name="completed"/> 为 true（已完成标签）：所有目标打勾、不追加计数，追踪按钮隐藏。
         /// </summary>
-        public void SetDetail(QuestProgress progress, bool tracked, string kindLabel, string trackText, string untrackText, bool completed)
+        public void SetDetail(QuestProgress progress, bool tracked, string kindLabel, string trackText, string untrackText, bool completed, string currentObjective = "")
         {
             if (progress == null)
             {
@@ -164,16 +164,23 @@ namespace Game.Quest
             detailDescription.text = definition.Description;
 
             IReadOnlyList<QuestObjectiveDefinition> defs = definition.Objectives;
-            while (objectives.Count < defs.Count) objectives.Add(CreateObjective());
+            bool hasPresentation = !string.IsNullOrEmpty(currentObjective);
+            int count = hasPresentation ? 1 : defs.Count;
+            while (objectives.Count < count) objectives.Add(CreateObjective());
             for (int i = 0; i < objectives.Count; i++)
             {
                 ObjectiveEntry entry = objectives[i];
-                if (i >= defs.Count)
+                if (i >= count)
                 {
                     SetActive(entry.Root, false);
                     continue;
                 }
 
+                if (hasPresentation)
+                {
+                    entry.Mark.text = PendingMark; entry.Text.text = currentObjective;
+                    SetActive(entry.Root, true); continue;
+                }
                 QuestObjectiveDefinition def = defs[i];
                 bool current = !completed && i == progress.ObjectiveIndex;
                 entry.Mark.text = completed || i < progress.ObjectiveIndex ? DoneMark : PendingMark;

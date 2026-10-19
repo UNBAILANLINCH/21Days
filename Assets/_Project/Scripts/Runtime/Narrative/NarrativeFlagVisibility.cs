@@ -20,12 +20,20 @@ namespace Game.Narrative
         private string flagKey = string.Empty;
 
         private NarrativeService service;
+        private bool suppressed;
 
         /// <summary>配置的标记键。</summary>
         public string FlagKey => flagKey;
 
         /// <summary>已绑定剧情服务。</summary>
         public bool IsBound => service != null;
+
+        /// <summary>流程对旧示例的临时隔离；解除后仍由当前剧情标记决定显隐。</summary>
+        public void SetSuppressed(bool value)
+        {
+            suppressed = value;
+            Refresh();
+        }
 
         /// <summary>运行时配置（运行时生成的物体 / 测试用）；已绑定时按新键立即重算。</summary>
         public void Configure(string key)
@@ -54,6 +62,12 @@ namespace Game.Narrative
         /// <summary>按当前标记重算显隐；没绑定、键为空或服务未就绪时不动物体。</summary>
         public void Refresh()
         {
+            // 流程隔离优先于标记刷新，避免未击败的旧示例被叙事通知重新显示。
+            if (suppressed)
+            {
+                if (gameObject.activeSelf) gameObject.SetActive(false);
+                return;
+            }
             if (service == null || !service.IsReady || string.IsNullOrWhiteSpace(flagKey)) return;
             bool visible = ShouldBeVisible(service.HasStoryFlag(flagKey));
             if (gameObject.activeSelf != visible) gameObject.SetActive(visible);

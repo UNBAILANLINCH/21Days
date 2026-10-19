@@ -95,14 +95,15 @@ namespace Game.Tests.EditMode.Monster
         }
 
         [Test]
-        public void Version_IsTwo_AndLegacySnapshotRemainsValidAfterMigration()
+        public void Version_IsFour_AndLegacySnapshotRemainsValidAfterMigration()
         {
             // 多目标控制已升级到 v2；场景键放宽不再升级版本，v1 单怪物快照仍须兼容。
             var data = Snapshot(LegacyAddress);
             PlayerSaveData originalPlayer = data.Player;
             MonsterSaveData originalMonster = data.Monster;
 
-            Assert.That(data.Version, Is.EqualTo(2));
+            Assert.That(data.Version, Is.EqualTo(4));
+            Assert.That(data.ScenePlayerHeight, Is.Null);
             Assert.That(() => data.Migrate(1), Throws.Nothing);
             Assert.That(data.SceneKey, Is.EqualTo(LegacyAddress));
             Assert.That(data.Player, Is.SameAs(originalPlayer));
@@ -113,6 +114,54 @@ namespace Game.Tests.EditMode.Monster
         }
 
         // ---------------------------------------------------------------- 辅助
+
+        [Test]
+        public void Migrate_LegacyHumanScene_OffsetsOnlyPlayerAndKeepsHeight()
+        {
+            var data = Snapshot("SpotlightHuman");
+            data.Player.PositionX = 29.4f; data.Player.PositionY = -16.5f;
+            data.ScenePlayerHeight = 3.21f;
+            float monsterZ = data.Monster.PositionY;
+            data.Migrate(3);
+            Assert.That(data.SceneKey, Is.EqualTo(LegacyAddress));
+            Assert.That(data.StoryWorld, Is.EqualTo("human"));
+            Assert.That(data.Player.PositionX, Is.EqualTo(29.4f));
+            Assert.That(data.Player.PositionY, Is.EqualTo(283.5f));
+            Assert.That(data.ScenePlayerHeight, Is.EqualTo(3.21f));
+            Assert.That(data.Monster.PositionY, Is.EqualTo(monsterZ));
+            Assert.That(() => data.Validate(), Throws.Nothing);
+        }
+
+        [TestCase("human", 283.5f)]
+        [TestCase("demon", -16.5f)]
+        public void NewWorldMarker_RoundTripsWithSameSceneKey(string world, float z)
+        {
+            var data = Snapshot(LegacyAddress); data.StoryWorld = world;
+            data.Player.PositionY = z; data.ScenePlayerHeight = 3.21f;
+            var restored = Newtonsoft.Json.JsonConvert.DeserializeObject<EncounterSaveData>(Newtonsoft.Json.JsonConvert.SerializeObject(data));
+            Assert.That(restored.StoryWorld, Is.EqualTo(world));
+            Assert.That(restored.Player.PositionY, Is.EqualTo(z));
+            Assert.That(restored.ScenePlayerHeight, Is.EqualTo(data.ScenePlayerHeight));
+            Assert.That(restored.LegacySceneRoute, Is.False);
+            Assert.That(() => restored.Validate(), Throws.Nothing);
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("other")]
+        public void Validate_UnknownWorld_Rejects(string world)
+        {
+            var data = Snapshot(LegacyAddress); data.StoryWorld = world;
+            Assert.That(() => data.Validate(), Throws.TypeOf<ArgumentException>());
+        }
+
+        [TestCase(float.NaN)]
+        [TestCase(float.PositiveInfinity)]
+        public void Validate_InvalidScenePlayerHeight_Rejects(float height)
+        {
+            var data = Snapshot(LegacyAddress); data.ScenePlayerHeight = height;
+            Assert.That(() => data.Validate(), Throws.TypeOf<ArgumentException>());
+        }
 
         private static EncounterSaveData Snapshot(string sceneKey) => new EncounterSaveData
         {

@@ -70,6 +70,7 @@ namespace Game.Quest
         private bool cameraMissingReported;
         private InputAction journalAction;
         private string journalHint = string.Empty;
+        private string lastPresentationText = "";
 
         public QuestHudPresenter(QuestService service, QuestSceneBinder binder, QuestPanelController panel,
             QuestConfig config, DialogueService dialogue, IUIService ui, IHudVisibility hudVisibility,
@@ -143,6 +144,8 @@ namespace Game.Quest
         public void Tick()
         {
             if (hud == null) return;
+            hud.SetVisible(!dialogue.IsRunning);
+            if (lastPresentationText != service.PresentationObjective) RefreshText();
             // 沉浸模式：世界空间目标标记隐藏；贴边箭头在 Hud 面板里，随面板一起被 UIService 隐藏。
             if (dialogue.IsRunning || hudVisibility.IsHudHidden)
             {
@@ -243,11 +246,13 @@ namespace Game.Quest
         private void RefreshText()
         {
             if (hud == null) return;
+            lastPresentationText = service.PresentationObjective;
             int trackedId = 0;
             if (service.TryGetTracked(out QuestProgress progress))
             {
                 trackedId = progress.Id;
-                hud.SetTracked(progress.Definition.Title, BuildObjectiveText(progress));
+                string text = progress.Id == service.PresentationQuestId ? service.PresentationObjective : "";
+                hud.SetTracked(progress.Definition.Title, text.Length > 0 ? text : BuildObjectiveText(progress));
             }
             else
             {

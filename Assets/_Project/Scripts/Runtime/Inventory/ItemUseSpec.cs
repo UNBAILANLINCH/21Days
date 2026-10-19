@@ -33,8 +33,8 @@ namespace Game.Inventory
         /// <summary>使用一次消耗的件数。</summary>
         public int ConsumeCount { get; }
 
-        /// <summary>id 为正、效果标识非空、消耗件数为正才算一条合法的使用定义。</summary>
-        public bool IsValid => ItemId > 0 && !string.IsNullOrEmpty(EffectId) && ConsumeCount > 0;
+        /// <summary>消耗为零表示可重复使用，仍要求实际持有一件。</summary>
+        public bool IsValid => ItemId > 0 && !string.IsNullOrEmpty(EffectId) && ConsumeCount >= 0;
 
         public override string ToString() => "#" + ItemId + " → " + EffectId + "（消耗 " + ConsumeCount + "）";
     }

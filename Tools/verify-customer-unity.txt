@@ -162,9 +162,9 @@ for (int c = 0; c < ids.Length; c++)
     }
 }
 var original = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-var scene = UnityEngine.SceneManagement.SceneManager.GetSceneByPath("Assets/Scenes/SampleScene.unity");
+var scene = UnityEngine.SceneManagement.SceneManager.GetSceneByPath("Assets/_Project/Scenes/SampleScene.unity");
 bool opened = !scene.isLoaded;
-if (opened) scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
+if (opened) scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/SampleScene.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
 int checkedActors = 0;
 try
 {

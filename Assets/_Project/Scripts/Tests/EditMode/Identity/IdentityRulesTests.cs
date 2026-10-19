@@ -30,6 +30,25 @@ namespace Game.Tests.EditMode.Identity
             suspicion = SuspicionState.FromSettings(settings);
         }
 
+        [Test]
+        public void FeedbackEvents_OnlyAcceptedTransitions_NotRestore_ArePublished()
+        {
+            int entered = 0, exited = 0, refused = 0;
+            rules.OnEntered += _ => entered++;
+            rules.OnExited += () => exited++;
+            rules.OnRefused += () => refused++;
+            rules.TryEnter(state, ledger, MusicianId);
+            rules.TryEnter(state, ledger, MusicianId);
+            var saved = new IdentitySaveData();
+            rules.Capture(state, ledger, suspicion, saved);
+            rules.Restore(state, ledger, suspicion, saved);
+            rules.TryExit(state);
+            rules.TryExit(state);
+            Assert.That(entered, Is.EqualTo(1));
+            Assert.That(exited, Is.EqualTo(1));
+            Assert.That(refused, Is.EqualTo(1));
+        }
+
         // ── 借 / 退 / 时限 ──────────────────────────────────────────────────────────
 
         [Test]

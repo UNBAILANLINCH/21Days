@@ -64,7 +64,7 @@ namespace Game.World
             {
                 foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>())
                 {
-                    if (!renderer.enabled || renderer.transform.IsChildOf(anchor)) continue;
+                    if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.transform.IsChildOf(anchor)) continue;
                     geometry.Add(renderer);
                     // shortcut: 楼梯暂按场景作者的 Stair/楼梯命名识别；正式关卡采用语义组件时改读组件。
                     Transform stair = renderer.transform;

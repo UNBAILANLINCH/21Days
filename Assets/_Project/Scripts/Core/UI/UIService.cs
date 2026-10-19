@@ -82,6 +82,8 @@ namespace Game.Core.UI
         /// 没初始化（EditMode 测试）时为 null，选中逻辑整体跳过。
         /// </summary>
         private EventSystem eventSystem;
+        public event Action<UIView> OnViewOpened;
+        public event Action<UIView> OnViewClosed;
         private InputAction navigationAction;
         private InputAction submitAction;
 
@@ -259,6 +261,7 @@ namespace Game.Core.UI
                 view.gameObject.SetActive(true);
 
                 await view.OnOpenAsync(arg, ct);
+                OnViewOpened?.Invoke(view);
 
                 ApplyVisibility(stack.Push(view), false);
 
@@ -321,6 +324,7 @@ namespace Game.Core.UI
 
             await view.PlayCloseTransitionAsync(TransitionSeconds, ct);
             await view.OnCloseAsync(ct);
+            OnViewClosed?.Invoke(view);
 
             // 只有关的是栈顶才动选中：关一个被盖在下面的面板不该把玩家在上层面板里的焦点抢走。
             bool wasTop = stack.Top() == view;

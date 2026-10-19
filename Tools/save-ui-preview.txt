@@ -44,17 +44,17 @@ try
     view.Bind(infos, Game.Session.SlotsMode.NewGame);
     foreach (var row in rows) if (!row.GetComponent<UnityEngine.UI.Button>().interactable) throw new System.InvalidOperationException("新游戏模式不能选槽");
     view.Bind(infos, Game.Session.SlotsMode.Load);
-    if (rows[2].transform.Find("Paper/Primary").gameObject.activeSelf) throw new System.InvalidOperationException("空槽文字未隐藏");
+    if (rows[2].transform.Find("RollMask/Paper/Primary").gameObject.activeSelf) throw new System.InvalidOperationException("空槽文字未隐藏");
     var eventSystem = cameraGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
     rows[0].GetComponent<UnityEngine.UI.Button>().OnPointerEnter(new UnityEngine.EventSystems.PointerEventData(eventSystem));
     foreach (var row in rows)
     {
-        var primary = row.transform.Find("Paper/Primary").GetComponent<TMPro.TMP_Text>();
+        var primary = row.transform.Find("RollMask/Paper/Primary").GetComponent<TMPro.TMP_Text>();
         if (!primary.gameObject.activeSelf) continue;
         primary.ForceMeshUpdate();
         if (primary.textInfo.characterCount == 0) throw new System.InvalidOperationException("进度文字未生成");
     }
-    if (rows[0].transform.Find("Paper/Primary").GetComponent<TMPro.TMP_Text>().color != new UnityEngine.Color32(39,160,191,255))
+    if (rows[0].transform.Find("RollMask/Paper/Primary").GetComponent<TMPro.TMP_Text>().color != new UnityEngine.Color32(39,160,191,255))
         throw new System.InvalidOperationException("高亮文字色错误");
     UnityEngine.Canvas.ForceUpdateCanvases();
     var raycaster = canvasGo.AddComponent<UnityEngine.UI.GraphicRaycaster>();

@@ -9,8 +9,13 @@ namespace Game.Monster
 {
     public sealed class EncounterSaveData : ISaveData
     {
-        public int Version => 2;
+        public int Version => 4;
+        public const float HumanOffsetZ = 300f;
+        public string StoryWorld { get; set; } = "demon";
         public string SceneKey { get; set; } = "IsometricEncounter";
+        // 逻辑快照只有 XZ；新档另存表现高度，避免在高台继续时卡在出生层下面。
+        public float? ScenePlayerHeight { get; set; }
+        [Newtonsoft.Json.JsonIgnore] public bool LegacySceneRoute { get; private set; }
         public long Tick { get; set; }
         public bool Active { get; set; }
         public long EncounterId { get; set; }
@@ -24,9 +29,21 @@ namespace Game.Monster
         public string ControlledActorId { get; set; }
         public string PlayerActorId { get; set; } = "player";
         public bool PreviousTame { get; set; }
-        public void Migrate(int fromVersion) { }
+        public void Migrate(int fromVersion)
+        {
+            LegacySceneRoute = fromVersion < 3;
+            if (fromVersion < 4 && SceneKey == "SpotlightHuman")
+            {
+                StoryWorld = "human"; SceneKey = "IsometricEncounter";
+                if (Player != null) Player.PositionY += HumanOffsetZ;
+                TamingTargets = null; ControlledActorId = PlayerActorId; PreviousTame = false;
+            }
+        }
         public void Validate()
         {
+            if (StoryWorld != "human" && StoryWorld != "demon") throw new ArgumentException("场景世界标识非法");
+            if (ScenePlayerHeight.HasValue && (float.IsNaN(ScenePlayerHeight.Value) || float.IsInfinity(ScenePlayerHeight.Value)))
+                throw new ArgumentException("场景玩家高度非法");
             // 场景键的判据（PRP/world-scenes §2.2：去写死）：**非空 + 格式合法**，不再是「必须等于某个字面量」。
             //   - 旧档里的 "IsometricEncounter" 照样通过：那是遗留原型路径的地址（MonsterEncounterState.cs:46
             //     仍在写常量，本波禁改，两条并存），它不是 snake_case —— 所以格式判据**不能**要求命名风格；

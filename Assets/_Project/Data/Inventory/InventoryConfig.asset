@@ -12,6 +12,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d21b40572b61d247a0667d99c6b59b2, type: 3}
   m_Name: InventoryConfig
   m_EditorClassIdentifier: 
-  uses: []
+  uses:
+  - itemId: 1004
+    effectId: heal.player_hp
+    consumeCount: 1
+  - itemId: 1901
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1902
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1903
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1904
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1905
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1906
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1907
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1908
+    effectId: identity.shop_skin
+    consumeCount: 0
+  - itemId: 1909
+    effectId: identity.shop_skin
+    consumeCount: 0
   recipes: []
   consumeIngredients: 1

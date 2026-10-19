@@ -36,6 +36,9 @@ namespace Game.Tests.EditMode.Quest
         public void SetUp()
         {
             global::cfg.Tables tables = ConfigService.BuildTables(ConfigServiceTests.ReadAllTableBytes());
+            // 本组验证旧样例链；生产章节内容另由 Catalog 与连续剧情回放覆盖。
+            ((List<global::cfg.quest.Quest>)tables.TbQuest.DataList).RemoveAll(row => row.Id == 900);
+            ((Dictionary<int, global::cfg.quest.Quest>)tables.TbQuest.DataMap).Remove(900);
             var catalog = new QuestCatalog(new FakeConfigService(tables), NullTelemetryScope.Instance);
             saves = new FakeSaveService();
             activated = new FakePublisher<QuestActivatedEvent>();

@@ -7,21 +7,29 @@ maturity: seed
 
 # 酒肆独立玩法
 
-场外饮酒、灌酒、真实移动和感知效果、战斗初始醉酒及离区清理。
+## 划拳与动态难度（2026-10-18）
 
-2026-10-13按用户纠正迁到同一3D主场景，玩法仍独立，不连接十二阶段主线。2026-10-14建筑Cube已替换为用户提供的新地图占位；现成小人、店前活动区和按店显隐的实际入口见[五店接线指南](../shopplaytest/shopplaytest-module-guide.md)。回放离区目标按新活动区安排，避免旧固定步长停在区内。
+正常入口已由直接灌酒改为划拳：各出 0～5 指，喊数在自己出指数至加 5 的范围，只有一方猜中才分胜负，输者加一杯醉意；同中或都不中为平局。对手在玩家确认前固定选择，单局身份只结算一次。`TavernFingerGuessView` 只抛选择事件；`ShopPlaytestState` 复验会话、距离、可见存活、酒客身份和三店资格，再交 `TavernController` 结算。
+
+`TavernOpponentLearning` 每个对手保存最近 24 手，按近期权重枚举 36 个合法应对。前三手只收集；之后按强度概率使用历史最佳应对，其余保留个人偏好。非平局胜负以 1/8 平滑更新玩家表现；`TavernConfig.difficultyAdjustment` 映射强度修正，每局最多变化 0.035。甲、乙、主人基础强度为 0.2／0.4／0.65；这是策略使用率，不等于胜率。没有读取玩家本轮选择或强制输赢。
+
+学习数据、已获线索随槽保存到 `ShopProgressSaveData` v5；取消未揭晓局不记样本，离区只清醉意、保留学习。主人喝一杯即可挑战，客人到 20 解锁各自消息。正式故事在 `action_r0197` 经局部遭遇进入 BOSS，胜利续回楼梯口；旧档没有正式故事时沿原独立挑战。`world.shopboss.defeated` 与原示例 BOSS 标记分开。
+
+新视图地址 `TavernFingerGuessView` 已登记 UI 组，资产由 Unity 编辑器生成。旧直接饮酒接口仅供既有规则调用，正常玩家选项不再直接加值。本轮实际测试与待验事项统一记在 [实施任务](../../../../PRP/tavern-story-guidance/tasks.md)，下方历史记录不代表新划拳已经视觉验收。
+
+复用原场外醉意、真实移动和感知倍率、战斗初始醉酒及离区清理。现成小人、店前活动区和按店显隐的实际入口见[五店接线指南](../shopplaytest/shopplaytest-module-guide.md)。酒肆与其它四店共用SampleScene，正式主线已接到本轮会面终点。
 
 ## 责任与数据流
 
-借酒客 → 自己喝酒看减速/禁潜行 → 给BOSS和客人灌酒看范围变化 → 挑战BOSS → 现有开战对白 → 回合制战斗 → 回酒肆 → 离区清零或重试。
+取得并穿上酒客皮 → 与甲／乙／主人划拳 → 输者饮酒、学习已结算历史 → 醉后消息／主人挑战 → 正式战前对白 → 回合制战斗 → 胜利续回会面或失败返回等待 → 离区清醉意。
 
-类型：TavernConfig / TavernDrunkRules / TavernIntent / TavernController。规则与意图在Game.Runtime中；规则纯C#，UI通过共用状态接线，Core不引用玩法。Controller记录意图结果，Reset只重置本玩法。
+类型：TavernConfig、TavernDrunkRules、TavernFingerGuessRules、TavernIntent、TavernController、TavernOpponentLearning、TavernLearningData、TavernFingerGuessView。规则与学习器纯C#，UI通过共用状态接线，Core不引用玩法。Controller记录意图结果，Reset清在途拳局和醉意，学习由当前槽恢复。
 
 ## 配置
 
 配置资产位于Assets/_Project/Data/ShopPlaytest/。
 
-Tavern.asset：每杯10；玩家/BOSS上限100，普通客人20；玩家效果阈值10，减速0.5，最低感知倍率0.5。20/100仅为用户批准的临时上限解释，不代表原文最终含义。
+Tavern.asset：每杯10；玩家/BOSS上限100，普通客人20；玩家效果阈值10，减速0.5，最低感知倍率0.5。划拳基础强度、个人习惯概率、曲线和最大步长由同一配置提供。
 
 ## 接线与生命周期
 
@@ -29,7 +37,7 @@ Boot上的ShopPlaytestInstaller工厂创建Controller并注入模块遥测scope�
 
 ## 约束
 
-场外倍率接既有遭遇驱动，灌酒按现场人物ID分开。NPC速度与感知倍率独立；观测NPC保留感知/追近但双方不结算探索伤害。挑战用独立占位shop_boss_battle复用sample_boss配置和原BattleArena，不写原BOSS击败标记。仅本店叙事目标的开战醉酒来自现场规则，退出解绑；0覆盖占位50，原目标仍取50。各店进度已加入正常槽位分区，实际保存仍走Session闸门。
+场外倍率接既有遭遇驱动，饮酒按现场人物ID分开。NPC速度与感知倍率独立；观测NPC保留感知/追近但双方不结算探索伤害。正式挑战通过局部shop_boss_battle复用sample_boss战斗配置和原BattleArena，写独立酒肆胜利标记。仅本店开战醉酒来自现场规则，退出解绑；0覆盖占位50，原示例目标仍取配置。各店进度加入正常槽位分区，实际保存走Session闸门。
 
 ## 验证入口
 
@@ -40,10 +48,10 @@ Boot上的ShopPlaytestInstaller工厂创建Controller并注入模块遥测scope�
 
 ## 埋点
 
-模块scope为tavern；intent_resolved记录操作与接受/拒绝，reset记录重试。每帧移动和表现不埋点。加载、借身份与长耗时由ShopPlaytest以及已有Identity/Rhythm/Battle负责。
+模块scope为tavern；guess_started、guess_resolved记录开始与结算，guess_rejected记录拒绝，difficulty_updated记录强度、表现和样本数；intent_resolved、reset沿用醉意操作日志。每帧移动和表现不埋点。面板耗时与失败由ShopPlaytest的guess_open／guess_failed记录。
 
 ## 主场景生命周期增量
 
 同店显隐不会清进度；玩家/BOSS/各客人场外醉酒及挑战结果由五店接线保存/恢复。
-新游戏和切槽先换会话代数，旧现场卸载不得覆盖新分区。当前仍为独立玩法成果，不自动接十二阶段事实或正式物品发放。
+新游戏和切槽先换会话代数，旧现场卸载不得覆盖新分区。正式主线读取三店真实背包成果与酒肆胜利；本轮结束不自动完成阶段二。
 

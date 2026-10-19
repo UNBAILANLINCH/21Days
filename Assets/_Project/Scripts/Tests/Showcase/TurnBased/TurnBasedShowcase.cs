@@ -10,7 +10,7 @@
 //   理由三条：
 //   ① `docs/module-dev-spec.md` §1 与 DoD 第 3 条的默认接法就是「走 Boot 真实流程进场」（标题「开始」→
 //      Addressables 加载 SampleScene），Identity / Stealth 两条刚落盘的同类回放用的也是这一条，TurnBased 没有理由破例；
-//   ② `Assets/Scenes/SampleScene.unity` 本波被另一条波次独占（本任务明令禁改）。走真实流程**一个场景资产都不动**，
+//   ② `Assets/_Project/Scenes/SampleScene.unity` 本波被另一条波次独占（本任务明令禁改）。走真实流程**一个场景资产都不动**，
 //      不会与并行的场景实装撞车；白盒面板是运行时生成的物体，`Track()` 登记，收尾统一销毁；
 //   ③ 内核本来就没有场景依赖（只吃快照 + 注入随机源），进场不是为了给它找东西读，而是为了「在实例场景的
 //      Game 视图里真的看见它在跑」。所以本回放**不读 SampleScene 里的任何物体**，也不会因为别人改场景而读错东西。

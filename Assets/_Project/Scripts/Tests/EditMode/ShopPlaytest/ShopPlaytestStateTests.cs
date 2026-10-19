@@ -40,10 +40,10 @@ namespace Game.Tests.EditMode.ShopPlaytest
         [Test]
         public void Greetings_RecognizeCurrentIdentity()
         {
-            Assert.That(ShopPlaytestState.GreetingFor("shop_patrol", "apprentice"), Does.Contain("名册"));
-            Assert.That(ShopPlaytestState.GreetingFor("shop_patrol", "director"), Does.Contain("听您安排"));
-            Assert.That(ShopPlaytestState.GreetingFor("shop_boss", "guest"), Does.Contain("又来了"));
-            Assert.That(ShopPlaytestState.GreetingFor("shop_boss", ""), Is.Not.EqualTo(ShopPlaytestState.GreetingFor("shop_boss", "guest")));
+            Assert.That(ShopPlaytestState.GreetingKey("shop_patrol", "apprentice"), Is.EqualTo("theater_verify"));
+            Assert.That(ShopPlaytestState.GreetingKey("shop_patrol", "director"), Is.EqualTo("theater_command"));
+            Assert.That(ShopPlaytestState.GreetingKey("shop_boss", "guest"), Is.EqualTo("boss_guest"));
+            Assert.That(ShopPlaytestState.GreetingKey("shop_boss", ""), Is.EqualTo("boss_visitor"));
         }
         [Test]
         public void PointerClick_OnlyLeftClickOnVisibleBoundActorInteracts()

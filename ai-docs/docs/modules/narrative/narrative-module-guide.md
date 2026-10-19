@@ -7,9 +7,33 @@ maturity: seed
 
 # Narrative 模块指南
 
+## 正式序章至会面接入（2026-10-18）
+
+### 人间叙事与真实入镜修正（同日后续，以本段为准）
+
+正式新局只加载SampleScene，在同场景的 `HumanWorld_Z300` 人界分组出生；共用CourtyardLatest与修复网格，左下出生及李诏阳位置整体Z+300。妖界原坐标保留在 `DemonWorld`，两组互斥活动，Boot不放地图。共用一个玩家、移动驱动和相机；稳定剧情目标单独共用，避免复制ID。
+
+`action_r0070` 保留李诏阳前期回合制教学，靠近交互进入切磋，不自动提交或用黑幕跳过；取消巡逻遭遇的回合制升级不影响教学。`enter_r0083` 恢复为人间戏台旁寻找赵十四的真实交互，教学后停在该节点，靠近按E才播放21006；赵十四使用`Chibi_zhao_shisi`帧动画，交谈后仍留在原地，随人界根分组显隐。`enter_r0129` 仍仅在人界自动提交，书库为连续叙事。李诏阳r0072的地点提示与21006最初四句的说话人称呼同步为戏台旁；355句数量及稳定ID保留。原任务HUD、列表与通知保留，适配器只覆盖当前任务的可见目标文本。
+
+赵十四点位为`(22.5, 2.673658, 285)`，从戏台旁沿通路向右移5米、靠近后续入镜方向；任务目标为“寻找并与赵十四交谈”。调整前2026-10-18定向回放`Spotlight_ZhaoShisiWaitsBesideHumanTheater`通过，批次`20261018-215809`验证教学后等待、远处E不推进、寻人存读档、实走到场交谈及原剧情转入镜，检查点失败0、运行时异常0；不作为新站位的回放证据。Narrative EditMode任务成功，完成127项、失败列表为空，MCP未返回passed/skipped计数。C# lint零违规；健康扫描仍报两份已有动态字体缓存过大，未做完整主线与手机回归。
+
+线索后停在 `enter_r0171`，人界镜点为 `(29.4, 3.235, 283.5)`。靠近按真实E后，经黑幕、暂停和输入门闸调用同场景换界，落到妖界对应平台 `(29.4, 3.21, -16.5)`；不提交171剧情结果。玩家须实走上层左桥，到轮回堂值守旁E才进入21008；离开轮回堂再到坊市入口E才进入21009，188禁止自动提交。171的人界提示为入镜，妖界提示为问询，不能共用错误路线文本。
+
+失败未推进剧情则恢复镜前现场并释放保存锁，可再按E；切槽/取消更新会话代数并取消旧请求。转场期间不可保存。旧五店档仍进入SampleScene，不强制补播。正常链与失败/取消回放见 `NarrativeShowcase.Spotlight_HumanMirrorSkinAndContinue`、`Spotlight_MirrorFailureAndCancellationRemainRetryable`；实际结果另记交接，不沿用此前同舞台回放作为真实切图证据。
+
+新游戏在场景与会话就绪后由 `SpotlightStoryFlow` 启动 `spotlight_current`；继续游戏只恢复现有阶段，缺正式故事的旧五店档继续原流程。正常入口范围到 `enter_r0293`，完成21000～21011，停在轮回堂下一段前。主线仍由 Narrative／Dialogue 独占；章节适配器不复制状态机。
+
+`SpotlightSceneBindings` 保存预摆点位、主目标、教学目标和旧示例对象。`SpotlightStoryConfig` 保存节点提示、交互／引导半径和退出缓冲。序章、接案、书库、入镜、坊市与会面复用 SampleScene 舞台和已有角色占位，不代表完整人间地图或正式角色美术。只有当前节点激活对应点位；真实近距交互才提交结果。
+
+李诏阳教学档 `spotlight_mentor_duel` 由70节点交互进入一层局部遭遇，胜利续回主线，被击倒后停回教学节点可重试；现有教学仍待完善，恢复入口不代表教学已完成。酒肆 `shop_boss_battle` 在197进入一层局部遭遇；Victory续回父帧，Downed可重试。使用独立标记与持久Reenter纪元。任务900在21011会面后真实完成；293为后续内容边界，不常驻虚假完成目标或解锁旧示例任务。
+
+正式主目标是 Quest900，三店任意顺序；只有真实背包成果／酒肆胜利推进对应计数。按用户要求移除黑底操作提示：`SpotlightStoryFlow` 不再加载或更新 `StoryGuideHudView`，包括序章、入镜与五店提示。原任务HUD、现场交互提示与真实E交互保留；旧提示资产和配置暂留兼容。历史接入测试见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)，不代表本次移除后的回放结果。
+
+右移与任务提示调整后，定向回放批次`20261018-220834`通过（1/1，0失败、0跳过、无运行时异常），已检查新站位及任务栏截图；11项StoryGuideRules测试任务成功、失败列表为空。按用户决定，朝廷书库暂不新增地点，赵十四交谈后继续直连21007对白。
+
 ## 五店占位战斗内容（2026-10-13）
 
-新增shop_boss_battle只复用1004对白、sample_boss战斗配置与既有胜负出口；cleared不写world.sampleboss.defeated，本店完成由ShopProgressSaveData持有。原sample_boss_battle与其原标记保持不变，避免酒肆胜利让原示例NPC一并退场。配置源JSON经scripts/gen-tables.ps1生成到既有故事表bytes；未新增章节或剧情框架。
+历史占位方案已替换：shop_boss_battle 现在使用21100战前衔接对白，仍复用sample_boss战斗档和既有胜负出口。原sample_boss_battle与其原标记保留；配置源JSON经scripts/gen-tables.ps1生成。
 
 > 改 `Assets/_Project/Scripts/Runtime/Narrative/` 之前读这份。对外怎么调看
 > [`narrative-external-api.md`](narrative-external-api.md)，要加东西看 [`narrative-extension-guide.md`](narrative-extension-guide.md)。
@@ -59,7 +83,7 @@ Boot 挂接、定向测试、Showcase 与人工视觉验收的实际状态统一
 | `NarrativeTrigger` | NPC / BOSS 的稳定 ID、点击入口、距离判定、禁用/销毁取消；**同物体有 `DialogueInteractable` 时绑定即接管交互转交**（交互键 / 提示 / 点击都走它的 `InteractAsync`），且有 `IsReady` 守卫（`NarrativeTrigger.cs:55-60,67`） | 场景加载时绑定；运行时生成对象须 Configure/Bind |
 | `NarrativeFlagVisibility` | 场景组件：配一个剧情标记键，标记成立即 `SetActive(false)`；绑定 / 每次 `OnChanged` 重算（`NarrativeFlagVisibility.cs:39-60`） | `NarrativeService` 场景加载时扫描绑定（`NarrativeService.cs:95-96,409-410`）；BOSS NPC 靠它在胜利后退场 |
 | `NarrativeChangedEvent` | 分区已经写回的通知 | SaveTriggerBridge 合并保存请求 |
-| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`（`BattleStageEnteredEvent.cs:14`）；订阅方是两个、按 payload 分工：**非空 → `Game.Battle` 的 `BattleFlow`（BOSS 战）**，**空 → `Game.Monster` 的 `EncounterBattleBridge`（活遭遇档）** | `NarrativeInstaller` 注册 broker（`NarrativeInstaller.cs:21`），`NarrativeService` 发布 |
+| `BattleStageEnteredEvent` | 剧情停到（或读档恢复到）Battle 阶段的通知，带三项回写身份与 `payload`；订阅方按 payload 分工：**非空 → `Game.Battle.BattleFlow`**，**空 → `Game.Monster.EncounterBattleBridge`** | `NarrativeInstaller.InstallEvents` 注册 broker，`NarrativeService` 发布 |
 | `NarrativeInstaller` | 根作用域服务及 MessagePipe 注册 | Boot 的 GameBootstrap，配置加载完成后初始化 |
 
 ## 数据流（代码路径，资产接线与验证状态见 tasks.md）

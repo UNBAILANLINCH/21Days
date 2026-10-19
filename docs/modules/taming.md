@@ -9,7 +9,7 @@ Taming 让玩家把一只敌人“收服”过来，并在玩家和这只敌人�
 
 ## 2. 玩家看到什么、做什么
 
-- 旧独立验证场景已删；回放（Showcase）在 `Assets/Scenes/SampleScene.unity` 上跑：`Encounter/TamingDemo` 默认不激活、挂 `TamingSceneController`，回放临时激活；正常游玩不激活。想手动试玩就在 Inspector 里勾上它，不经过标题。
+- 旧独立验证场景已删；回放（Showcase）在 `Assets/_Project/Scenes/SampleScene.unity` 上跑：`Encounter/TamingDemo` 默认不激活、挂 `TamingSceneController`，回放临时激活；正常游玩不激活。想手动试玩就在 Inspector 里勾上它，不经过标题。
 - 场景里有一个玩家、一个敌人（XY 平面占位图）。
 - 操作：
   - WASD 移动当前被操控的角色；
@@ -50,7 +50,7 @@ Taming 让玩家把一只敌人“收服”过来，并在玩家和这只敌人�
 
 ## 5. 现在有的内容
 
-- 回放（Showcase）在 `Assets/Scenes/SampleScene.unity` 上跑：一个玩家、一个敌人、跟随镜头（运行时生成，不常驻场景）。
+- 回放（Showcase）在 `Assets/_Project/Scenes/SampleScene.unity` 上跑：一个玩家、一个敌人、跟随镜头（运行时生成，不常驻场景）。
 - 没有配置资产，没有配置表。
 - 回放验证用例覆盖：按 T 切换并移动敌人、镜头真的跟过去、切回玩家、死亡时控制自动退出。
 

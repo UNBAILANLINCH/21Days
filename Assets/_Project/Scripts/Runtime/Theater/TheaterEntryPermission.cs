@@ -15,6 +15,7 @@ namespace Game.Theater
             this.performer = performer; this.context = context; this.valid = valid ?? throw new ArgumentNullException(nameof(valid));
         }
         public RhythmEntryAccess Capture(string contextId) => new RhythmEntryAccess(
-            contextId == context && valid(), taming.IsTargetTamed(performer), taming.CanControl(performer) && taming.CurrentControlId == performer);
+            contextId == context && valid(), performer == taming.PlayerId ? valid() : taming.IsTargetTamed(performer),
+            taming.CanControl(performer) && taming.CurrentControlId == performer);
     }
 }

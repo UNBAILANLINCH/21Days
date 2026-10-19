@@ -52,7 +52,7 @@ maturity: stable
 | `OnInteracted` | `event Action<IInteractable>` | 焦点系统刚对 `Current` 执行普通或特殊动作（按键或点提示）；代码直接调对象的方法不触发 |
 
 现有读方：`ExecutionInteractor`（F 键归属，经 `MonsterEncounterState.BindExecution` 的 `container.TryResolve` 可选注入，
-`MonsterEncounterState.cs:167`）、`InteractionPuppetPresenter`（小人转向）、各模块回放。
+`MonsterEncounterState.cs`）、`InteractionPuppetPresenter`（小人转向）、各模块回放。
 
 ## 具体类型（容器里 `AsSelf` 可取，一般不需要）
 

@@ -54,7 +54,9 @@ namespace Game.Tests.EditMode.Forging
             var old = new ForgingProgressData { Quota = 8, Spent = 6, Keys = 1, Ornaments = 0, Submitted = true };
             var partition = new ShopProgressSaveData { Initialized = true, ClothesReceived = true, TheaterCompleted = true, Forging = old };
             partition.Migrate(1);
-            Assert.That(partition.Version, Is.EqualTo(2)); Assert.That(partition.Forging, Is.Null);
+            Assert.That(partition.Version, Is.EqualTo(5)); Assert.That(partition.Forging, Is.Null);
+            Assert.That(partition.TavernClues, Is.Empty); Assert.That(partition.TavernLearning, Is.Empty);
+            Assert.That(partition.RewardedItems, Is.Empty);
             Assert.That(partition.LegacyForging, Is.SameAs(old)); Assert.That(partition.ClothesReceived && partition.TheaterCompleted, Is.True);
             var reloaded = JsonConvert.DeserializeObject<ShopProgressSaveData>(JsonConvert.SerializeObject(partition));
             Assert.That(reloaded.LegacyForging.Keys, Is.EqualTo(1)); Assert.That(reloaded.LegacyForging.Spent, Is.EqualTo(6));

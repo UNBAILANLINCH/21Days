@@ -48,6 +48,9 @@ namespace Game.Tests.EditMode.Narrative
         public void SetUp()
         {
             var config = new TableConfig();
+            // 本组验证旧旅人任务链；正式章节由独立的真实流程回放验证。
+            ((List<global::cfg.quest.Quest>)config.Tables.TbQuest.DataList).RemoveAll(row => row.Id == 900);
+            ((Dictionary<int, global::cfg.quest.Quest>)config.Tables.TbQuest.DataMap).Remove(900);
             saves = new JsonSaveService(new TestPlatform(), null, null);
             player = new PlayerModel();
             player.Restore(new PlayerSaveData { Health = 10 });

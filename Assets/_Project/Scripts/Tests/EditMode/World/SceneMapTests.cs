@@ -63,5 +63,39 @@ namespace Game.Tests.EditMode.World
             }
             finally { Object.DestroyImmediate(node); }
         }
+
+        [Test]
+        public void SetScene_InactiveRootGroupDoesNotExpandMapAcrossWorlds()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.CreateScene("MapWorldFilterTest");
+            var player = new GameObject("MapPlayer");
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(player, scene);
+            var first = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(first, scene);
+            var hidden = new GameObject("InactiveWorld");
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(hidden, scene);
+            var second = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            second.transform.SetParent(hidden.transform); second.transform.position = new Vector3(0, 0, 300);
+            hidden.SetActive(false);
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/UI/SceneMapView.prefab");
+            var instance = Object.Instantiate(prefab);
+            try
+            {
+                var view = instance.GetComponent<SceneMapView>();
+                var graphic = instance.GetComponentInChildren<SceneMapGraphic>(true);
+                view.SetScene(player.transform, "地图", null);
+                Assert.That(view.FootprintCount, Is.EqualTo(1));
+                Assert.That(graphic.WorldBounds.center.z, Is.EqualTo(0));
+                first.SetActive(false); hidden.SetActive(true); player.transform.position = new Vector3(0, 0, 300);
+                view.SetScene(player.transform, "地图", null);
+                Assert.That(view.FootprintCount, Is.EqualTo(1));
+                Assert.That(graphic.WorldBounds.center.z, Is.EqualTo(300));
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+                UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+            }
+        }
     }
 }

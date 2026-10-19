@@ -35,7 +35,27 @@ namespace Game.Tests.Showcase.ShopPlaytest
         {
             yield return EnterWorldFromTitle(enterTimeout: 60f, expectedScene: "SampleScene");
             State = ResolveService<ShopPlaytestState>();
+            originalActors = Object.FindObjectsOfType<ShopPlaytestActor>(true).Length;
             Assert.That(ResolveService<IGameFlow>().Current, Is.TypeOf<MonsterEncounterState>());
+        }
+        protected IEnumerator ReadyUnlockedShop(int shop)
+        {
+            yield return EnterStoryWorld();
+            yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026");
+            yield return NarrationToMirror();
+            yield return StoryPoint("enter_r0171");
+            yield return WaitUntil("进入妖界店铺测试现场", () => State.World != null &&
+                !ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory, 60);
+            // 只定位玩法阶段，不代表轮回堂至坊市整段主线通过。
+            yield return Step("定位到五店已开放阶段（测试夹具）", () =>
+            {
+                var narrative = ResolveService<NarrativeService>();
+                narrative.CaptureIntoPartition();
+                ResolveService<Game.Core.Save.ISaveService>().Get<NarrativeSaveData>().Current.StageId = "action_r0197";
+                narrative.ReloadFromSave();
+            }, 0);
+            yield return GoToShop(shop);
         }
         protected IEnumerator GoToShop(int shop)
         {

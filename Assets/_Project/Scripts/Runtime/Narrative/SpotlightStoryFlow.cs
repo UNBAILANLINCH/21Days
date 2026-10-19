@@ -50,6 +50,8 @@ namespace Game.Narrative
         public SpotlightSceneBindings Bindings => scene;
         public bool IsFormalStory => narrative.CurrentStoryId == "spotlight_current";
         public bool CanSave => !crossingMirror && !working && (!newGame || startHandled);
+        public event Action OnMirrorCrossingStarted;
+        public event Action<bool> OnMirrorCrossingFinished;
         public SpotlightStoryFlow(NarrativeService narrative, ShopPlaytestState shops, IGameFlow flow,
             IInputService input, IWorldPauseService pause, IInteractionRegistry interaction, QuestService quests,
             DialogueService dialogue, BattleFlow battle, RhythmState rhythm,
@@ -184,14 +186,17 @@ namespace Game.Narrative
             bool gameplay = input.Actions.Gameplay.enabled; // lint-ok: 只保存输入图状态，换界后成对恢复。
             IDisposable hold = pause.Acquire(this);
             input.DisableMap(InputService.GameplayMap);
+            bool crossed = false;
             try
             {
+                OnMirrorCrossingStarted?.Invoke();
                 await curtain.CoverAsync(token);
                 await encounter.EnterDemonWorldAsync(token);
                 token.ThrowIfCancellationRequested();
                 Bind(demonBindings);
                 if (scene == null || scene.IsHumanStory || shops.World == null) throw new InvalidOperationException("入镜目标未接入妖界五店");
                 telemetry.Track("mirror_crossed", ("world", "demon"));
+                crossed = true;
             }
             catch (OperationCanceledException) { }
             catch (Exception error)
@@ -200,6 +205,7 @@ namespace Game.Narrative
             }
             finally
             {
+                OnMirrorCrossingFinished?.Invoke(crossed);
                 hold.Dispose();
                 if (generation == sessionGeneration)
                 {

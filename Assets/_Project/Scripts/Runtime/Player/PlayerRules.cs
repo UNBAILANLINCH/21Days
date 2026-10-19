@@ -39,6 +39,8 @@ namespace Game.Player
         }
 
         public PlayerModel Model => model;
+        public event Action OnDamaged;
+        public event Action OnDied;
         public float AttackRange => config.AttackRange;
         public int AttackDamage => config.AttackDamage;
 
@@ -169,6 +171,8 @@ namespace Game.Player
                 {
                     telemetry.Track("dead");
                 }
+                OnDamaged?.Invoke();
+                if (model.Health == 0) OnDied?.Invoke();
             }
         }
 
@@ -221,6 +225,7 @@ namespace Game.Player
             int before = model.Health;
             int clamped = GameMath.Clamp(health, 0, config.MaxHealth);
             model.Health = clamped;
+            if (before > 0 && clamped == 0) OnDied?.Invoke();
             if (knockdown != null)
             {
                 knockdown.Reset(false);

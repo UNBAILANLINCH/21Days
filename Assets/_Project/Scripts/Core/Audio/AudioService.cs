@@ -31,7 +31,7 @@ namespace Game.Core.Audio
     /// setter 立刻生效但**不落盘**；落盘是设置界面调 <c>ISettingsService.SaveAsync</c> 的事（拖滑块时每帧写文件是灾难）。
     /// </para>
     /// </summary>
-    public sealed class AudioService : IAudioService, IGameService, IDisposable
+    public sealed class AudioService : IAudioService, ISfxVoiceService, IGameService, IDisposable
     {
         /// <summary>接上 Mixer 之后要在 Mixer 里暴露的参数名。没接 Mixer 时这三个常量用不到。</summary>
         private const string MasterVolumeParameter = "MasterVolume";
@@ -71,6 +71,26 @@ namespace Game.Core.Audio
         private int suspendedBgmRequest;
 
         private bool disposed;
+        private readonly HashSet<SfxVoice> ownedVoices = new HashSet<SfxVoice>();
+
+        public SfxVoice PlayVoice(AudioClip clip, bool loop, float volume = 1f)
+        {
+            ThrowIfDisposed();
+            if (clip == null) throw new ArgumentNullException(nameof(clip));
+            if (root == null) throw new InvalidOperationException("音频服务尚未初始化");
+            var host = new GameObject("SfxVoice");
+            host.transform.SetParent(root.transform);
+            var source = host.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.loop = loop;
+            source.clip = clip;
+            var voice = new SfxVoice(source, Mathf.Clamp01(volume), value => ownedVoices.Remove(value));
+            ownedVoices.Add(voice);
+            voice.SetVolume(SfxSourceLevel);
+            source.Play();
+            return voice;
+        }
 
         private readonly ITelemetryScope telemetry;
 
@@ -402,6 +422,7 @@ namespace Game.Core.Audio
             }
 
             disposed = true;
+            foreach (SfxVoice voice in new List<SfxVoice>(ownedVoices)) voice.Dispose();
             if (scheduledPlayback != null) scheduledPlayback.Dispose();
             Application.quitting -= ReleaseAllHandles;
 
@@ -432,6 +453,7 @@ namespace Game.Core.Audio
         /// <summary>把 BGM 与还没播完的 SFX 句柄全部还给资源服务。幂等：AssetHandle.Dispose 本身就幂等。</summary>
         private void ReleaseAllHandles()
         {
+            foreach (SfxVoice voice in new List<SfxVoice>(ownedVoices)) voice.Dispose();
             // 句柄 Dispose 会改这个集合，先拷一份再遍历。
             if (pendingSfxHandles.Count > 0)
             {
@@ -489,6 +511,7 @@ namespace Game.Core.Audio
             }
 
             float sfxLevel = SfxSourceLevel;
+            foreach (SfxVoice voice in ownedVoices) voice.SetVolume(sfxLevel);
             if (scheduledPlayback != null) scheduledPlayback.SetVolume(BgmSourceLevel);
             for (int i = 0; i < sfxSources.Length; i++)
             {

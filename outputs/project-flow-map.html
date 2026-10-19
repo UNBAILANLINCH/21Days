@@ -1,0 +1,154 @@
+<div id="flow-map-21days">
+  <style>
+    #flow-map-21days { color: var(--foreground); }
+    #flow-map-21days .flow-heading { padding-right: 96px; }
+    #flow-map-21days .flow-section { margin-top: 20px; }
+    #flow-map-21days .flow-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; }
+    #flow-map-21days .flow-edge { color: var(--muted-foreground); }
+    #flow-map-21days .flow-detail { margin: 16px 0; overflow-wrap: anywhere; }
+    #flow-map-21days .flow-legend { margin-top: 12px; }
+    #flow-map-21days [hidden] { display: none; }
+  </style>
+  <h2 class="flow-heading">21Days 流程地图</h2>
+  <div class="viz-controls">
+    <label class="form-label" for="flow-map-view">查看层级
+      <select class="form-select" id="flow-map-view">
+        <option value="journey">目标旅程</option>
+        <option value="scenes">当前场景</option>
+        <option value="mechanics">机制接力</option>
+        <option value="gaps">实际断口</option>
+      </select>
+    </label>
+  </div>
+  <section class="flow-section" data-view="journey" aria-label="目标主线阶段">
+    <div class="flow-chain" aria-label="剧情的调查和寻妻关系">
+      <span>接下旧案</span><span class="flow-edge" aria-hidden="true">→</span>
+      <span>两界记录矛盾</span><span class="flow-edge" aria-hidden="true">→</span>
+      <span>分福真相</span><span class="flow-edge" aria-hidden="true">→</span>
+      <span>龙族与寻妻</span><span class="flow-edge" aria-hidden="true">→</span><span>结案</span>
+    </div>
+    <div class="card flow-detail" data-detail="journey" aria-live="polite">一 入镜 · 妖界坊市 · 换皮取得线索→妻子位置；两套关卡方案未统一。</div>
+    <div class="viz-grid" data-grid="journey" aria-label="选择剧情阶段"></div>
+    <div class="text-small flow-legend">目标设计 · 集中战斗关：一、三、六、九 · 十二阶段尚未串成正式主线</div>
+  </section>
+  <section class="flow-section" data-view="scenes" aria-label="当前场景连接" hidden>
+    <div class="flow-chain"><span>Boot／标题</span><span class="flow-edge" aria-hidden="true">→</span><span>新游戏说明／继续</span><span class="flow-edge" aria-hidden="true">→</span><span>SampleScene</span><span class="flow-edge" aria-hidden="true">⇄</span><span>BattleArena</span></div>
+    <div class="flow-chain"><span>HumanJingyang</span><span class="flow-edge" aria-hidden="true">⇄</span><span>YaoFangshi</span><span class="text-small">（灰盒传送路径；开局／读档未接）</span></div>
+    <div class="card flow-detail" data-detail="scenes" aria-live="polite"></div>
+    <div class="viz-grid" data-grid="scenes" aria-label="选择当前场景"></div>
+    <div class="text-small flow-legend">⇄ 已有往返接线 · 独立音游与表情研究不在标题主流程内 · 接线不等于本次运行验收</div>
+  </section>
+  <section class="flow-section" data-view="mechanics" aria-label="玩法产出与后续用途" hidden>
+    <div class="flow-chain"><span>观察规则</span><span class="flow-edge" aria-hidden="true">→</span><span>借用身份</span><span class="flow-edge" aria-hidden="true">→</span><span>通行／交互</span><span class="flow-edge" aria-hidden="true">→</span><span>线索／道具</span><span class="flow-edge" aria-hidden="true">→</span><span>下一目标</span></div>
+    <div class="card flow-detail" data-detail="mechanics" aria-live="polite"></div>
+    <div class="viz-grid" data-grid="mechanics" aria-label="选择机制或跨阶段道具链"></div>
+    <div class="text-small flow-legend">皮面具串通行 · 线索串调查 · 牙与空白皮串战斗；原文明确用途不等于工程链路完成</div>
+  </section>
+  <section class="flow-section" data-view="gaps" aria-label="尚未闭合的流程" hidden>
+    <div class="card flow-detail" data-detail="gaps" aria-live="polite"></div>
+    <div class="viz-grid" data-grid="gaps" aria-label="选择流程断口"></div>
+    <div class="text-small flow-legend">依据当前源码／内容表与模块文档 · 2026-10-12 核对 · 未执行 Unity 运行验收</div>
+  </section>
+  <script>
+    (() => {
+      const root = document.getElementById('flow-map-21days');
+      const picker = root.querySelector('#flow-map-view');
+      const data = {
+        journey: [
+          ['序章', '序章 · 现生→镜子→里世界 · 潜行、面具、驯服／扮演→BOSS；与阶段一的关系和机制仍未定。'],
+          ['一 入镜', '一 入镜 · 妖界坊市 · 换皮取得线索→妻子位置；两套关卡方案未统一。'],
+          ['二 名册勘察', '二 名册勘察 · 轮回堂→人间官府 · 核验名簿与案件记录→发现改簿手迹来自官府。'],
+          ['三 验堤', '三 验堤 · 镜中妖界／泾阳归属冲突 · 水位、身份账簿与追逐→老吏和六万人空账。'],
+          ['四 赈粮账', '四 赈粮账 · 人间案卷处 · 比较历年赈粮→第三年重名、第五年断供。'],
+          ['五 实地勘察', '五 实地勘察 · 人间乡间／祠堂／坟地 · 龙牙、空册与无尸坟地→分福仪式；女主产生分歧。'],
+          ['六 前往', '六 前往 · 妖界分福祠 · 排队、怀疑度、身份观感→福肉仪式；战斗方案产出空白皮。'],
+          ['七 弥勒教', '七 弥勒教 · 人间泾阳 · 追溯教义与供粮→重复名字代表人“成为”了粮。'],
+          ['八 找官', '八 找官 · 人间官府→妖界 · 追赈灾命官→线索断在老吏，回访时人已消失。'],
+          ['九 找龙', '九 找龙 · 妖界洞庭府／龙窟 · 迷宫、揭露、巡逻队与幻象→对质钱塘君、救妻线索和收押。'],
+          ['十 窃法', '十 窃法 · 妖界祠堂周边 · 寻秘藏卷轴→救妻需要庞大献祭。'],
+          ['十一 失人', '十一 失人 · 妖界寻妻未果→人间 · 赵十四与官府记录→妻子转世在赈粮册出现两次。'],
+          ['十二 结案', '十二 结案 · 人间官府／井底 · 收押钱塘龙君、不提邪教；是否给予玩家选择未定。']
+        ],
+        scenes: [
+          ['Boot', 'Boot · 常驻启动→标题；新游戏看操作说明，继续先校验存档；两者目前都进入 SampleScene。'],
+          ['SampleScene', 'SampleScene · 当前综合试玩：样例任务、对白、演出、三物资箱、巡逻者控制、处决与 BOSS 挑战。'],
+          ['HumanJingyang', 'HumanJingyang · 人间灰盒；出生点、相机和传送点已有接线，开局／读档入口与完整碰撞待接。'],
+          ['YaoFangshi', 'YaoFangshi · 妖界坊市灰盒；可与人间成对转场，尚非完成版阶段一。'],
+          ['BattleArena', 'BattleArena · SampleScene 挑战BOSS后叠加加载；胜利隐藏BOSS，击倒可重试；偷袭／被打入口未接。'],
+          ['RhythmDemo', 'RhythmDemo · 独立三曲DFJK音游：校准→选曲→演奏→结算；乐师权限、主线与伤害消费未接。'],
+          ['Laila 研究试玩', 'LailaRecognitionPlaytest · 捏脸输入与五类识别的研究对照；正式关卡扮演与结果消费未接。']
+        ],
+        mechanics: [
+          ['调查', '调查 · 对话／文书／物证→比对矛盾→下一目标；对话与任务已有，专用推理过程和真实内容未闭环。'],
+          ['借用身份', '身份 · 活角色附身或皮面具→能力／权限→线索；Taming切控制与Identity生效仍需完整语义接入。'],
+          ['潜行与暴露', '潜行 · 观察巡逻→绕背处决或通行；暴露可能追逐／死亡，统一后果未定；遮挡尚未喂给怪物感知。'],
+          ['道具与背包', '道具 · 开箱→库存查看已接；一般物品使用／合成只有规则，怪物死亡掉落未接。'],
+          ['任务与剧情', '推进 · 玩家行动→任务完成→剧情标记→条件与出口；通用链已有，十二阶段仍缺实际内容。'],
+          ['演出与战斗', '收束 · 对白／演出→Battle节点→回合制结果→回到探索；样例BOSS闭环，正式关卡入口另计。'],
+          ['市令／查勘使', '跨阶段设计 · 一市令身份→三殁吏放行；三查勘使面具→老吏可互动、九半龙侍放行。'],
+          ['牙／空白皮', '跨阶段设计 · 三抢篮子并逃脱得牙→削弱六食教者／九泾龙鬼；六空白皮→九龙府通行。'],
+          ['泾龙丹／面具', '跨阶段设计 · 九泾龙鬼得泾龙丹；丹＋空白皮→泾龙面具；两者战前持有可跳钱塘君第一形态。']
+        ],
+        gaps: [
+          ['开局→两界', '开局断口 · 新游戏／继续仍进入综合试玩；World已有两图，缺会话入口和场景恢复衔接。'],
+          ['控制→身份能力', '身份断口 · 能切换控制和令身份生效，但获取／使用／人物特性解谜未闭环；时限推进无运行调用方。'],
+          ['处决→奖励剧情', '处决断口 · 能结算死亡，怪物掉落与实时遭遇结果消费无运行调用方；不能推定自动给皮或推进故事。'],
+          ['遮挡→怪物感知', '遮挡断口 · 几何可产出hidden／cover事实，Monster.Sense仍按距离和方向判定；不保证掩体后不被追。'],
+          ['背包→使用合成', '背包断口 · 有类别与纯规则，缺一般使用按钮、合成界面、扣料加物及权限效果消费。'],
+          ['规则→正式关卡', '关卡断口 · 水位、队列、账簿、揭露与幻象未组合成完整设计关卡；事实键不等于玩家入口。'],
+          ['线索→推理', '调查断口 · 有对白、目标与线索库存；卷宗／文书／比对操作和非战斗阶段目标仍需具体内容。'],
+          ['独立试玩→主线', '试玩断口 · 音游和表情研究各有独立入口；主线触发、权限、世界返回与结果影响未完整接入。'],
+          ['样例→十二阶段', '内容断口 · 通用剧情机可推进，但真实阶段、地点出口、跨阶段携带和失败恢复未配置成全流程。']
+        ]
+      };
+      let state = { view: 'journey', choices: { journey: 1, scenes: 1, mechanics: 0, gaps: 0 } };
+      const keys = Object.keys(data);
+      function restore(saved) {
+        const content = saved && saved.privateContent;
+        if (!content || !keys.includes(content.view)) return;
+        state.view = content.view;
+        for (const key of keys) {
+          const value = content.choices && content.choices[key];
+          if (Number.isInteger(value) && value >= 0 && value < data[key].length) state.choices[key] = value;
+        }
+      }
+      function render() {
+        picker.value = state.view;
+        for (const key of keys) {
+          root.querySelector('[data-view="' + key + '"]').hidden = key !== state.view;
+          root.querySelector('[data-detail="' + key + '"]').textContent = data[key][state.choices[key]][1];
+          root.querySelectorAll('[data-grid="' + key + '"] button').forEach((button, index) => {
+            button.setAttribute('aria-pressed', String(index === state.choices[key]));
+          });
+        }
+      }
+      function save() {
+        if (window.openai && typeof window.openai.setWidgetState === 'function') {
+          window.openai.setWidgetState({
+            modelContent: { view: state.view, selected: data[state.view][state.choices[state.view]][0] },
+            privateContent: { view: state.view, choices: { ...state.choices } }
+          }).catch(() => {});
+        }
+      }
+      for (const key of keys) {
+        const grid = root.querySelector('[data-grid="' + key + '"]');
+        data[key].forEach((row, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn viz-tile';
+          button.textContent = row[0];
+          button.setAttribute('aria-label', row[1]);
+          button.addEventListener('click', () => { state.choices[key] = index; render(); save(); });
+          grid.appendChild(button);
+        });
+      }
+      picker.addEventListener('change', () => { state.view = picker.value; render(); save(); });
+      restore(window.openai && window.openai.widgetState);
+      render();
+      window.addEventListener('openai:set_globals', event => {
+        const globals = event.detail && event.detail.globals;
+        if (globals && globals.widgetState) { restore(globals.widgetState); render(); }
+      });
+    })();
+  </script>
+</div>

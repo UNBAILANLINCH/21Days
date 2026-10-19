@@ -299,7 +299,15 @@ namespace Game.Tests.Showcase.Quest
 
         private string PanelText(string path)
         {
-            return TextAt(Panel(), path);
+            return TextAt(Panel(), PanelPath(path));
+        }
+
+        private static string PanelPath(string path)
+        {
+            if (path == "Detail/Title") path = "Detail/ReadingViewport/ReadingContent/Heading/Title";
+            else if (path == "Detail/Objectives") path = "Detail/ReadingViewport/ReadingContent/Objectives";
+            else if (path == "List") path = "ListViewport/List";
+            return "ArtLayout/" + path;
         }
 
         private static string TextAt(Component rootView, string path)
@@ -330,7 +338,7 @@ namespace Game.Tests.Showcase.Quest
 
         private T RequirePanelChild<T>(string path) where T : Component
         {
-            return RequireChild<T>(Panel(), path, "任务面板");
+            return RequireChild<T>(Panel(), PanelPath(path), "任务面板");
         }
 
         private static T RequireChild<T>(Component rootView, string path, string what) where T : Component
@@ -350,7 +358,7 @@ namespace Game.Tests.Showcase.Quest
         {
             var result = new List<Transform>();
             QuestPanelView panel = Panel();
-            Transform list = panel == null ? null : panel.transform.Find("List");
+            Transform list = panel == null ? null : panel.transform.Find(PanelPath("List"));
             if (list == null)
             {
                 return result;
@@ -372,7 +380,7 @@ namespace Game.Tests.Showcase.Quest
         private bool PanelActive(string path)
         {
             QuestPanelView panel = Panel();
-            Transform child = panel == null ? null : panel.transform.Find(path);
+            Transform child = panel == null ? null : panel.transform.Find(PanelPath(path));
             return child != null && child.gameObject.activeInHierarchy;
         }
 
@@ -383,7 +391,7 @@ namespace Game.Tests.Showcase.Quest
         private bool AllObjectivesDone()
         {
             QuestPanelView panel = Panel();
-            Transform root = panel == null ? null : panel.transform.Find("Detail/Objectives");
+            Transform root = panel == null ? null : panel.transform.Find(PanelPath("Detail/Objectives"));
             if (root == null)
             {
                 return false;

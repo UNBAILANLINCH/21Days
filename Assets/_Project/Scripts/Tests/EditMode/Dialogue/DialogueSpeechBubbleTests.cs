@@ -10,6 +10,49 @@ namespace Game.Tests.EditMode.Dialogue
 {
     public sealed class DialogueSpeechBubbleTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Disable_DuringEnterOrExit_CancelsMotionAndRestoresState(bool exiting)
+        {
+            var npc = new GameObject("Speaker", typeof(DialogueInteractable));
+            var host = new GameObject("Bubble", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
+            host.SetActive(false);
+            host.transform.SetParent(npc.transform, false);
+            try
+            {
+                var content = new GameObject("Content", typeof(RectTransform));
+                content.transform.SetParent(host.transform, false);
+                var bubble = host.AddComponent<DialogueSpeechBubble>();
+                var group = host.GetComponent<CanvasGroup>();
+                var serialized = new SerializedObject(bubble);
+                serialized.FindProperty("root").objectReferenceValue = content;
+                serialized.FindProperty("group").objectReferenceValue = group;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                Invoke(bubble, "Awake");
+                bubble.Show("第一句");
+                var field = typeof(DialogueSpeechBubble).GetField("fade", BindingFlags.Instance | BindingFlags.NonPublic);
+                object first = field.GetValue(bubble);
+                var active = first.GetType().Assembly.GetType("LitMotion.MotionHandleExtensions").GetMethod("IsActive");
+                Assert.That(active.Invoke(null, new[] { first }), Is.True);
+                bubble.Show("第二句");
+                Assert.That(active.Invoke(null, new[] { first }), Is.False, "重复触发须取消旧入场");
+                if (exiting) Invoke(bubble, "BeginFade");
+                object current = field.GetValue(bubble);
+                Assert.That(active.Invoke(null, new[] { current }), Is.True);
+
+                Invoke(bubble, "OnDisable");
+
+                Assert.That(active.Invoke(null, new[] { current }), Is.False, "禁用后不得留下迟到补间");
+                Assert.That(bubble.IsShowing, Is.False);
+                Assert.That(content.activeSelf, Is.False);
+                Assert.That(group.alpha, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(npc);
+            }
+        }
+
         [TestCase(false, -0.1f, 0.5f, 0.0035f)]
         [TestCase(false, 1.1f, 0.5f, 0.0035f)]
         [TestCase(false, 0.5f, -0.1f, 0.0035f)]

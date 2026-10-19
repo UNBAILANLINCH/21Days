@@ -197,7 +197,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | `CanInteract` | 在范围内、没有对白进行，且「已转交给外部入口」或「有树已绑定」或「无树有台词」 | `DialogueInteractable.cs:93` |
 | 范围 | Inspector `actor` 优先，否则场景 Actor（Binder 注入）；两者皆空或半径 ≤ 0 恒在范围；三维距离 | `DialogueInteractable.cs:115`–`128` |
 | 头顶标记 | 焦点优先于可交互；气泡 `IsShowing` 时标记与名字全隐；名字只在焦点时显示；`MarkerOverridden` 时只隐「…/!」两张图、名字仍随焦点（判定在纯静态 `ResolveVisibility`） | `DialogueInteractableMarker.cs:53` |
-| 气泡 | 逐字（TMP 可见字符）→ ▼ → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs:102`、`108`、`114`、`125`、`156`、`163`–`170` |
+| 气泡 | 逐字（TMP 可见字符）→ 图片继续标 → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs` |
 
 ### 为什么这样设计（源码读不出来的部分）
 
@@ -288,9 +288,11 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | 预制体 | 字段 → 物体 |
 | --- | --- |
 | `Prefabs/UI/DialogueSkipConfirmView.prefab` | `message` → `Message`；`confirm` → `ConfirmButton`；`cancel` → `CancelButton`；`defaultSelected`（UIView 通用字段）→ `CancelButton`（打开即选中取消） |
-| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 400、等比缩放 0.006（父级缩放为 1 时宽 2.4 世界单位；按探索相机 FOV 20、距离约 18 定，约为 1080p 下画布 1 像素 ≈ 屏幕 1 像素）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
+| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`（Image）；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 434、等比缩放 0.006（场景实例可保留已有缩放校准）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，高度随正文变化；Body 子 Canvas 隔离逐字 |
 
 ## 对白面板视觉与演出面板共用规范
+
+2026-10-19 追加的是 **NPC 世界空间气泡**，不是本节的底部面板。`DialogueSpeechBubble.prefab` 接入新阳间切片与思源宋体 Bold，动态姓名使用 `【名字】`，正文沿用逐字；Arrow 改为 Image。入场 180ms、退场 140ms，禁用时取消补间、退订来源并隐藏内容；Body 子 Canvas 隔离逐字。`DialogueSpeechBubbleYin.prefab` 是仅供预览的阴间变体，没有场景/剧情自动切换。资源映射、近似项与三版动效见 [本批置入记录](../../ui-beautify-20261019.md)。
 
 2026-10-13 修复右侧遮挡：矩形底框与 `StoneBird` 装饰分开，根上 `UIPanelAppearance` 按可见头像调整左右布局；右头像显示时名字靠右、装饰和底框纹样镜像到对侧，文字与人物图不翻转。入退场重叠时按图片透明度选择侧别；只读取序列化图片引用，不在每帧查找对象。阴/阳配色选择仍只接受显式调用，与左右布局独立。
 

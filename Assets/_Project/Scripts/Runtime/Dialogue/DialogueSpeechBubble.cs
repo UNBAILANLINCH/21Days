@@ -22,8 +22,6 @@ namespace Game.Dialogue
     [DefaultExecutionOrder(200)]
     public sealed class DialogueSpeechBubble : MonoBehaviour
     {
-        private const string NamePrefix = "◌ ";
-
         [Tooltip("台词来源；为空时在 Awake 里向父级找 DialogueInteractable。")]
         [SerializeField] private DialogueInteractable target;
         [Tooltip("气泡内容根（背景框、名字、正文、箭头）；隐藏时整体关掉。")]
@@ -40,6 +38,8 @@ namespace Game.Dialogue
         [SerializeField, Min(0f)] private float holdSeconds = 4f;
         [Tooltip("淡出时长（秒，unscaled）。")]
         [SerializeField, Min(0f)] private float fadeSeconds = 0.3f;
+        [Tooltip("框体淡入时长（秒，unscaled）；逐字节奏保持不变。")]
+        [SerializeField, Min(0f)] private float enterSeconds = 0.18f;
         [Tooltip("气泡与相机画面边缘的最小像素距离。")]
         [SerializeField, Min(0f)] private float screenPadding = 12f;
 
@@ -85,10 +85,18 @@ namespace Game.Dialogue
             {
                 Log.Warn($"{name} 的 DialogueSpeechBubble 找不到 DialogueInteractable（Inspector 未配、父级也没有）：气泡不会出现", this);
             }
-            else
-            {
-                target.OnBubbleRequested += Show;
-            }
+            HideImmediate();
+        }
+
+        private void OnEnable()
+        {
+            if (target != null) target.OnBubbleRequested += Show;
+        }
+
+        private void OnDisable()
+        {
+            if (target != null) target.OnBubbleRequested -= Show;
+            if (fade.IsActive()) fade.Cancel();
             HideImmediate();
         }
 
@@ -107,8 +115,18 @@ namespace Game.Dialogue
             if (fade.IsActive()) fade.Cancel();
             CurrentText = line ?? string.Empty;
             if (root != null) root.SetActive(true);
-            if (group != null) group.alpha = 1f;
-            if (nameLabel != null) nameLabel.text = NamePrefix + (target == null ? string.Empty : target.DisplayName);
+            if (group != null)
+            {
+                group.alpha = enterSeconds > 0f ? 0f : 1f;
+                if (enterSeconds > 0f)
+                    fade = LMotion.Create(0f, 1f, enterSeconds)
+                        .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                        .WithEase(Ease.OutQuad)
+                        .BindToAlpha(group);
+            }
+            if (nameLabel != null)
+                nameLabel.text = target == null || string.IsNullOrEmpty(target.DisplayName)
+                    ? string.Empty : "【" + target.DisplayName + "】";
             if (arrow != null) arrow.SetActive(false);
             visible = 0f;
             holdElapsed = 0f;
@@ -160,6 +178,7 @@ namespace Game.Dialogue
 
         private void BeginFade()
         {
+            if (fade.IsActive()) fade.Cancel();
             if (group == null || fadeSeconds <= 0f)
             {
                 HideImmediate();
@@ -167,7 +186,7 @@ namespace Game.Dialogue
             }
             phase = Phase.Fading;
             // UpdateIgnoreTimeScale：与世界时停无关，对白外 timeScale 被别的系统改了也照常淡出。
-            fade = LMotion.Create(1f, 0f, fadeSeconds)
+            fade = LMotion.Create(group.alpha, 0f, fadeSeconds)
                 .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
                 .WithOnComplete(onFadeCompleted)
                 .BindToAlpha(group);

@@ -39,7 +39,7 @@ Claude Code 从 `CLAUDE.md`、Codex 从 `AGENTS.md` 进入，共同读取 [项�
 | LailaFace / LailaFaceRecognition | 31 形态 / 17 输入轴、五类推理；原 51D 与独立 59D 研究试玩，人工语义 / Player 未验收 | 唯一执行入口：[spec§17](../../PRP/laila-expression-recognition/spec.md#17-当前工程候选接手入口2026-10-04)；职责：[捏脸](modules/lailaface/lailaface-module-guide.md)、[识别](modules/lailafacerecognition/lailafacerecognition-module-guide.md)；操作：[辅助标注器](../../ML/expression-recognition/analysis/laila_v2_candidate/ANNOTATOR.md) |
 | Narrative | 三件套（seed）；Boot 叙事、条件来源与存读档已接；正式章节未完成 | [`modules/narrative/`](modules/narrative/narrative-module-guide.md) |
 | Loot | 三件套齐备；物资箱拾取 / 奖励 / 背包分区，SampleScene 已接三只箱子，回放见波 4 | [`modules/loot/`](modules/loot/loot-module-guide.md) |
-| Inventory | 三件套（seed）；背包面板白盒（I / 手柄 RB，全部 / 物品 / 线索筛选），读 Loot 背包 + 物品表，未建回放 | [`modules/inventory/`](modules/inventory/inventory-module-guide.md) |
+| Inventory | 三件套（seed）；背包网格（实际绑定 B / 手柄 RB，全部 / 物品 / 线索筛选），读 Loot 背包与物品表，已有使用／合成和美术回放 | [`modules/inventory/`](modules/inventory/inventory-module-guide.md) |
 | Performance | 三件套齐备；演出管线（世界舞台 + 时间轴 + 场景触发 / 对白插播）、演出编辑器（新建即世界舞台壳），回放 4 条待开发者视觉验收 | [`modules/performance/`](modules/performance/performance-module-guide.md) |
 | Session | 三件套（seed）；标题路由、槽位与稳定保存；已有回放，整体视觉验收未完成 | [`modules/session/`](modules/session/session-module-guide.md) |
 | Mirror | 照镜 demo 已接线；随旧版策划冻结 | [`modules/mirror/`](modules/mirror/mirror-module-guide.md) |
@@ -93,6 +93,9 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
 | 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
 | 聚光灯飞书资产逐项映射、已有接收目录、角色拆件与现行接入差异 | [飞书资产映射](feishu-asset-map.md) |
+| NPC 气泡、物资提示、沉浸按钮的素材映射、三版动效与验证 | [第一批 UI 置入记录](ui-beautify-20261019.md) |
+| Tab 任务面板的叠页素材、遮罩、字体依据、三版动效与验证 | [任务界面 UI 置入记录](ui-quest-20261019.md) |
+| 背包网格、名簿图标、其余五图预览、字体依据与三版动效 | [背包 UI 置入记录](ui-inventory-20261019.md) |
 | 王录业拆件标定、透明序列、头像及既有书库对白接入 | [王录业接入记录](wang-luye-20261019.md) |
 | 轮回堂值守持卷外观、序列及原问询对白头像 | [轮回堂值守接入记录](lunhuitang-guard-20261019.md) |
 | 这套 AI 工作流本身：五层怎么交互、日常怎么用、新增东西放哪层 | [`docs/ai-workflow.md`](../../docs/ai-workflow.md) |

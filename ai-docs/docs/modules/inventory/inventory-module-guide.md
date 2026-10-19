@@ -7,6 +7,14 @@ maturity: seed
 
 # Inventory 模块指南
 
+## 背包美术接入（2026-10-19）
+
+当前预制体与验证结果见[本批记录](../../ui-inventory-20261019.md)，以下旧白盒层级与“未运行”仅是历史波次状态。现在实际输入资产仍绑定 B／手柄 RB，入口脚本中的 I 注释未作为改键依据。
+
+`ArtLayout/ListViewport/List` 为五列 GridLayoutGroup，使用 ScrollRect／RectMask2D；池项保持 Name／Count／Tag 的真实值，未配图项显示名称。只有明确对应的 1601 名簿配置图标，龙牙等五图按用户选择只归档预览。`UIScrollFocus` 位于 Core/UI，任务与背包共用导航滚入，不引入 Inventory → Quest 依赖。
+
+详情图与名称上方构图沿用交付底板，`ReadingViewport/ReadingContent` 内排列名称、类别、描述、配方说明，按钮固定在下方。`UITextButton` 是标准 Button 的字色扩展，深色状态底同步浅青字，点击与使用／合成服务保持原链。换物品编号时详情 unscaled 160ms OutQuad 淡入，同项刷新不重播，禁用／关闭取消并恢复 alpha；根过渡仍由 UIView 管。
+
 > 改 `Assets/_Project/Scripts/Runtime/Inventory/` 之前读这份。对外怎么调看
 > [`inventory-external-api.md`](inventory-external-api.md)，要加东西看 [`inventory-extension-guide.md`](inventory-extension-guide.md)。
 > 来源：`docs/roadmap.md` B1 背包白盒；与源码不符时以源码为准。

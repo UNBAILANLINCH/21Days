@@ -281,7 +281,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | `autoLabelShadow` / `speedLabelShadow`（均可选） | `AutoButton/LabelShadow`、`SpeedButton/LabelShadow` | 接了就镜像主标签文案 |
 | `choiceRoot` / `choiceTemplate` | `ChoiceRoot`（VerticalLayoutGroup，右侧竖排：anchor / pivot (1, 0.5)、右边距 40、宽 576、行距 18）/ `ChoiceTemplate`（正式阳版选项底图 Sliced，`pixelsPerUnitMultiplier = 1`，576×107，思源宋体 Bold 34.06 自适应到 24、居中；悬停反馈保留） | 模板下须有子物体 `Icon`（Image，名字写死）与 `Label`（TMP）；运行时隐藏 |
 
-漏接任一必需字段（含模板缺 `Icon`），`OnOpenAsync` 的 `Validate()` 会逐个点名抛出（`DialogueView.cs:355`）；可选字段漏接只是没有对应的显隐 / 键位小字 / 投影，不抛异常。
+漏接任一必需字段（含模板缺 `Icon`），`OnOpenAsync` 的 `Validate()` 会逐个点名抛出（`DialogueView.cs`）；可选字段漏接只是没有对应的显隐 / 键位小字 / 投影，不抛异常。
 
 其余预制体字段（HUD / 弹窗漏接在打开时点名抛出；气泡找不到交互组件记 Warn）：
 
@@ -329,6 +329,8 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 契约见 [`docs/telemetry.md`](../../../../docs/telemetry.md)。
 
 ## 测试与验证
+
+2026-10-19值守接入验证复现编辑模式销毁姓名TMP后补间迟到回调；ApplyNamePunch在写RectTransform前检查Unity对象有效性。TalkPanelConsistencyTests的NamePunch_WhenSpeakerDestroyed用真实预制体验证控件先销毁后整个补间期间无异常，不改原名牌样式。
 
 | 类型 | 位置 | 覆盖 |
 | --- | --- | --- |

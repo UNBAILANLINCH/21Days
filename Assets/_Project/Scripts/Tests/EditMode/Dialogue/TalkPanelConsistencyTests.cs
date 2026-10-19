@@ -7,6 +7,7 @@
 //   这是跨两个模块预制体的视觉契约，所以单独成类。刻意读真实资产路径：它守的就是这两份预制体本身。
 // Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……），比的正是落盘的值；
 //   只有强制布局用到 uGUI 的 LayoutGroup / LayoutRebuilder（对白的自动 / 跳过按钮由布局组排位，不跑布局量不出真实位置）。
+using System.Collections;
 using System.Collections.Generic;
 using Game.Core.UI;
 using NUnit.Framework;
@@ -14,6 +15,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.TestTools;
 
 namespace Game.Tests.EditMode.Dialogue
 {
@@ -154,6 +156,25 @@ namespace Game.Tests.EditMode.Dialogue
                     Assert.That(bird.localScale.x, Is.EqualTo(right ? -1 : 1));
                     if (!right) Assert.That(name.rectTransform.anchoredPosition, Is.EqualTo(initialName), "反复切换应恢复原位置");
                 }
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
+        [UnityTest]
+        public IEnumerator NamePunch_WhenSpeakerDestroyed_DoesNotAccessDestroyedText()
+        {
+            GameObject canvas = CreateReferenceCanvas();
+            try
+            {
+                var instance = Object.Instantiate(dialogue, canvas.transform, false);
+                var view = instance.GetComponent<Game.Dialogue.DialogueView>();
+                view.SetMotion(Game.Dialogue.DialogueMotionSettings.Default);
+                view.SetLine(1, 1, "值守", "稀客啊。");
+                Object.DestroyImmediate(FindDeep(instance.transform, "Speaker").gameObject);
+                double end = EditorApplication.timeSinceStartup + .3;
+                while (EditorApplication.timeSinceStartup < end) yield return null;
+                Assert.That(view != null && instance.activeInHierarchy, Is.True, "视图仍存在，仅姓名控件先销毁");
+                LogAssert.NoUnexpectedReceived();
             }
             finally { Object.DestroyImmediate(canvas); }
         }

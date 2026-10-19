@@ -341,6 +341,7 @@ namespace Game.Dialogue
 
         private void ApplyNamePunch(float t)
         {
+            if (speaker == null) return;
             float scale = motion.NameTagPunchScale + (1f - motion.NameTagPunchScale) * t;
             speaker.rectTransform.localScale = new Vector3(scale, scale, 1f);
             speaker.alpha = t;

@@ -131,3 +131,60 @@ Assets/InitTestScene*.unity.meta
 /Assets/_Project/Art/fbx/TDImportCache/
 /Assets/_Project/Art/fbx/TDImportCache.meta
 /ProjectSettings/ScriptableBuildPipeline.json
+
+# 本地提交辅助状态、字体备份和可重新打包的美术协作工具压缩包。
+# 只排除过程副本，Tools/artist-git/ 源码继续接受版本管理。
+/.tmp-audio-commit*
+/.tmp-minimap-commit*
+/Tools/Font_NotoSansSC_before_missing_atlas.asset.backup
+/Tools/artist-git*.zip
+/Tools/customer-animation-preview/
+
+# 已执行的店铺 MCP 请求载荷；保留本地，不混入功能提交。
+/PRP/independent-shop-mechanics/*.json
+
+# 本地环境导出、截图序列、测试存档与画面验收产物。
+# 不忽略整个 outputs：文策表、音频需求表、流程图及其制作脚本仍需整理归档。
+# 已跟踪的验收截图和摘要不受这些规则影响。
+/outputs/water/
+/outputs/ink-transition-preview/
+/outputs/title-video2-review/
+/outputs/prologue-start/
+/outputs/terrain-audit/
+/outputs/story-flow/
+/outputs/dialogue-ui/
+/outputs/ground-visibility/
+/outputs/title-selected-visible/
+/outputs/title-selected-native/
+/outputs/shop-rewards-20261016/
+/outputs/save-ui/
+/outputs/settings-ui/
+/outputs/five-shops/
+/outputs/confirm-ui/
+/outputs/npc-layout/
+/outputs/storyteller/
+/outputs/road-flicker/
+/outputs/package-audit-20261018/
+
+# 文策与音频资料只归档最终 Excel、流程图和页面；一次性制作脚本、重复预览、校验快照留本地。
+/outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.mjs
+/outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.png
+/outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.json
+/outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.ndjson
+/outputs/21days-copy-20261012/*.mjs
+/outputs/21days-copy-20261012/*.py
+/outputs/21days-copy-20261012/*.png
+/outputs/21days-copy-20261012/*.json
+/outputs/21days-copy-20261012/*.ndjson
+/outputs/21days-writer-guide-20261012/*.mjs
+/outputs/21days-writer-guide-20261012/*.py
+/outputs/21days-writer-guide-20261012/*.png
+/outputs/21days-writer-guide-20261012/*.json
+/outputs/21days-writer-guide-20261012/*.ndjson
+/outputs/narrative-discussion-20261012/*.cjs
+/outputs/narrative-discussion-20261012/*.png
+/outputs/narrative-discussion-20261012/*.json
+/outputs/writer-filled-20261016/*.mjs
+/outputs/writer-filled-20261016/*.png
+/outputs/writer-filled-20261016/*.json
+/outputs/writer-filled-20261016/*.ndjson

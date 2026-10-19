@@ -20,6 +20,9 @@ namespace Game.Editor.ShopPlaytest
         public static void Build()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("退出 Play 后生成划拳界面");
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
+            if (existing != null && existing.transform.Find("Paper") != null)
+                throw new InvalidOperationException("划拳已接入项目美术，停止白盒覆盖；直接编辑现有预制体");
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             var group = settings == null ? null : settings.FindGroup("UI");
             if (group == null) throw new InvalidOperationException("缺少 UI 地址组");
@@ -56,7 +59,7 @@ namespace Game.Editor.ShopPlaytest
                     serialized.FindProperty("resultLabel").objectReferenceValue = result;
                     Array(serialized, "fingerButtons", fingers); Array(serialized, "callButtons", calls); Array(serialized, "callLabels", labels);
                     serialized.FindProperty("confirmButton").objectReferenceValue = confirm; serialized.FindProperty("nextButton").objectReferenceValue = next;
-                    serialized.FindProperty("backButton").objectReferenceValue = back; serialized.FindProperty("defaultSelected").objectReferenceValue = fingers[1].gameObject;
+                    serialized.FindProperty("backButton").objectReferenceValue = back; serialized.FindProperty("defaultSelected").objectReferenceValue = fingers[1];
                     serialized.ApplyModifiedPropertiesWithoutUndo();
                 }
                 PrefabUtility.SaveAsPrefabAsset(root, Path, out bool saved);

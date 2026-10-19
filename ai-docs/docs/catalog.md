@@ -97,6 +97,8 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | Tab 任务面板的叠页素材、遮罩、字体依据、三版动效与验证 | [任务界面 UI 置入记录](ui-quest-20261019.md) |
 | 背包网格、名簿图标、其余五图预览、字体依据与三版动效 | [背包 UI 置入记录](ui-inventory-20261019.md) |
 | Boss战与金银行切片映射、字体依据、各三版动效与验证 | [战斗与打造 UI 接入记录](ui-battle-forging-20261020/README.md) |
+| 从已落地 UI 创作新界面：字体、色彩、透明度、构图与复用边界 | [风格参考](ui-style-reference.md)、[ui-style-create 技能](../../.claude/skills/ui-style-create/SKILL.md) |
+| 行酒令首版：真实划拳入口、风格组合与验证 | [行酒令记录](ui-tavern-20261020.md) |
 | 王录业拆件标定、透明序列、头像及既有书库对白接入 | [王录业接入记录](wang-luye-20261019.md) |
 | 纸片角色环境色与建筑阴影、标记隔离、参数和回退 | [环境融合接入记录](../../docs/paper-environment-integration.md) |
 | 轮回堂值守持卷外观、序列及原问询对白头像 | [轮回堂值守接入记录](lunhuitang-guard-20261019.md) |

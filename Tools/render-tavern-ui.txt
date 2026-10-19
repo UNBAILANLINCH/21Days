@@ -1,0 +1,67 @@
+// 人工MCP离屏检查；锚点ui-tavern-20261020/tavern-*.png，专属美术接管后随实作更换。
+// 只实例化真实预制体，夹具不进入存档／SO；finally关闭临时场景并恢复原活动场景。
+if(UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)throw new System.Exception("共享编辑器须释放且非Play");
+var original=UnityEngine.SceneManagement.SceneManager.GetActiveScene();bool dirty=original.isDirty;
+var scene=UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,UnityEditor.SceneManagement.NewSceneMode.Additive);
+UnityEngine.RenderTexture target=null;UnityEngine.Camera camera=null;
+Game.Tavern.TavernFingerGuessView view=null;
+try{
+    UnityEngine.SceneManagement.SceneManager.SetActiveScene(scene);
+    camera=new UnityEngine.GameObject("CaptureCamera",typeof(UnityEngine.Camera)).GetComponent<UnityEngine.Camera>();
+    camera.transform.position=new UnityEngine.Vector3(0,0,-10);camera.orthographic=true;camera.orthographicSize=5.4f;
+    camera.clearFlags=UnityEngine.CameraClearFlags.SolidColor;camera.backgroundColor=new UnityEngine.Color(.2f,.24f,.25f);camera.cullingMask=1<<31;
+    var host=new UnityEngine.GameObject("CaptureCanvas",typeof(UnityEngine.RectTransform),typeof(UnityEngine.Canvas),typeof(UnityEngine.UI.CanvasScaler));
+    var canvas=host.GetComponent<UnityEngine.Canvas>();canvas.renderMode=UnityEngine.RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+    var scaler=host.GetComponent<UnityEngine.UI.CanvasScaler>();scaler.uiScaleMode=UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+    scaler.referenceResolution=new UnityEngine.Vector2(1920,1080);scaler.matchWidthOrHeight=1;
+    var go=(UnityEngine.GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/TavernFingerGuessView.prefab"),scene);
+    go.transform.SetParent(host.transform,false);var rect=(UnityEngine.RectTransform)go.transform;
+    rect.anchorMin=UnityEngine.Vector2.zero;rect.anchorMax=UnityEngine.Vector2.one;rect.offsetMin=rect.offsetMax=UnityEngine.Vector2.zero;
+    foreach(var t in host.GetComponentsInChildren<UnityEngine.Transform>(true))t.gameObject.layer=31;
+    view=go.GetComponent<Game.Tavern.TavernFingerGuessView>();
+    typeof(Game.Tavern.TavernFingerGuessView).GetField("resultRevealSeconds",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).SetValue(view,0f);
+    view.OnOpenAsync(null,System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    string output="ai-docs/docs/ui-tavern-20261020";System.IO.Directory.CreateDirectory(output);
+    int[] widths={1920,1280,2560},heights={1080,720,1080};int captured=0;
+    System.Action<string,int,int> capture=(name,width,height)=>{
+        target=new UnityEngine.RenderTexture(width,height,24,UnityEngine.RenderTextureFormat.ARGB32);target.Create();camera.targetTexture=target;camera.aspect=(float)width/height;
+        UnityEngine.Canvas.ForceUpdateCanvases();
+        foreach(var t in go.GetComponentsInChildren<TMPro.TMP_Text>(true)){t.ForceMeshUpdate();if(t.isTextOverflowing)throw new System.Exception("文字溢出："+t.name+"/"+name);}
+        UnityEngine.Canvas.ForceUpdateCanvases();
+        var corners=new UnityEngine.Vector3[4];
+        foreach(var b in go.GetComponentsInChildren<UnityEngine.UI.Button>(true)){
+            ((UnityEngine.RectTransform)b.transform).GetWorldCorners(corners);
+            foreach(var p in corners){var v=camera.WorldToViewportPoint(p);if(v.x<0||v.x>1||v.y<0||v.y>1)throw new System.Exception("按钮越屏："+b.name);}
+        }
+        camera.Render();var previous=UnityEngine.RenderTexture.active;UnityEngine.RenderTexture.active=target;
+        var image=new UnityEngine.Texture2D(width,height,UnityEngine.TextureFormat.RGBA32,false);
+        try{image.ReadPixels(new UnityEngine.Rect(0,0,width,height),0,0);image.Apply();System.IO.File.WriteAllBytes(output+"/tavern-"+name+"-"+width+"x"+height+".png",image.EncodeToPNG());}
+        finally{UnityEngine.Object.DestroyImmediate(image);UnityEngine.RenderTexture.active=previous;camera.targetTexture=null;target.Release();UnityEngine.Object.DestroyImmediate(target);target=null;}
+        captured++;
+    };
+    for(int state=0;state<5;state++){
+        view.BeginRound(state==3?"来自远道的酒肆普通客人甲与同行旅人":"酒肆主人","你：醉意 20　酒肆主人：醉意 30");
+        if(state==1){view.SelectFinger(5);go.transform.Find("ChooseCall").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();view.SelectCall(5);if(view.SelectedCall!=10)throw new System.Exception("合法喊数边界变化错误");}
+        if(state==2){var result=new Game.Tavern.TavernFingerGuessRules.Result(5,10,5,6,Game.Tavern.TavernFingerGuessRules.Outcome.PlayerWins);view.ShowResult(ref result,"酒肆主人","你：醉意 20　酒肆主人：醉意 40","主人已有醉意，回席后可以向他发起挑战。");}
+        if(state==3)view.Reject("已离席，请返回街面重新交互。当前会话、身份或近距许可变化后，本次出拳不能继续；尚未揭晓的选择不会计入已结算历史，请重新与客人或主人交谈入席。");
+        if(state==4){var result=new Game.Tavern.TavernFingerGuessRules.Result(5,10,5,6,Game.Tavern.TavernFingerGuessRules.Outcome.PlayerWins);view.ShowResult(ref result,"酒肆主人","你：醉意 20　酒肆主人：醉意 40","主人已有醉意，回席后可以向他发起挑战。");go.transform.Find("DetailsButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();}
+        if(state==3)go.transform.Find("DetailsButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+        for(int i=0;i<widths.Length;i++)capture(new[]{"normal","selection","result","rejected","details"}[state],widths[i],heights[i]);
+    }
+    view.BeginRound("酒肆主人","你：醉意 0　酒肆主人：醉意 0");
+    go.transform.Find("ChooseCall").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+    var button=go.transform.Find("Confirm").GetComponent<UnityEngine.UI.Button>();
+    var method=typeof(UnityEngine.UI.Selectable).GetMethod("DoStateTransition",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+    var stateType=typeof(UnityEngine.UI.Selectable).GetNestedType("SelectionState",System.Reflection.BindingFlags.NonPublic);
+    foreach(string state in new[]{"Normal","Highlighted","Selected","Pressed","Disabled"}){
+        button.interactable=state!="Disabled";method.Invoke(button,new object[]{System.Enum.Parse(stateType,state),true});
+        if(state=="Pressed")button.transform.localScale=UnityEngine.Vector3.one*.94f;
+        capture("button-"+state,1920,1080);button.transform.localScale=UnityEngine.Vector3.one;
+    }
+    return captured+"张真实预制体布局图；每张校验TMP无溢出、按钮在屏内。状态为隔离夹具，不代表剧情通关。";
+}finally{
+    if(view!=null)view.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    if(camera!=null)camera.targetTexture=null;if(target!=null){target.Release();UnityEngine.Object.DestroyImmediate(target);}
+    UnityEngine.SceneManagement.SceneManager.SetActiveScene(original);UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene,true);
+    if(original.isDirty!=dirty)throw new System.Exception("原场景脏状态变化");
+}

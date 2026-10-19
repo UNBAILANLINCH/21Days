@@ -443,7 +443,8 @@ namespace Game.Battle
                 if (setup.IsOverridden)
                     telemetry.TrackWarn("settings_overridden", TelemetryProps.Of(("boss", run.Boss.Id), ("activation", run.Stage.ActivationId)));
                 // 开场失败时 EnterAsync 在黑幕下先跑 engagement.Dispose（恢复世界）再揭幕，与正常收场同序。
-                await arena.EnterAsync(presenter, run.Boss, session, engagement.Dispose, ct);
+                await arena.EnterAsync(presenter, run.Boss, session, engagement.Dispose, ct,
+                    run.IsEncounter ? run.Request.TargetId : run.Stage.TargetId);
                 try
                 {
                     exitKey = await FightAsync(session, ct);

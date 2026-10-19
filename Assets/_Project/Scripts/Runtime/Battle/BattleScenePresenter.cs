@@ -93,7 +93,7 @@ namespace Game.Battle
             BattleSession session = opening.Session ?? throw new ArgumentException("开场缺战斗会话", nameof(opening));
 
             stage = FindStage(opening.Arena);
-            stage.Prepare(boss.StagePrefab);
+            stage.Prepare(boss.StagePrefab, opening.TargetId);
             TakeCameras(opening.Arena);
 
             view = await ui.OpenAsync<BattleView>(null, ct);
@@ -141,6 +141,8 @@ namespace Game.Battle
             var source = new UniTaskCompletionSource<BattleCommand>();
             pending = source;
             CancellationTokenRegistration registration = ct.Register(() => source.TrySetCanceled(ct));
+            // 世界战场随探索场景卸载时，也要结束等指令，交回原流程收场。
+            CancellationTokenRegistration stageRegistration = stage.GetCancellationTokenOnDestroy().Register(() => source.TrySetCanceled());
             try
             {
                 return await source.Task;
@@ -148,6 +150,7 @@ namespace Game.Battle
             finally
             {
                 registration.Dispose();
+                stageRegistration.Dispose();
                 if (pending == source) pending = null;
                 // 指令一给出就把格子都锁住，防连点；流程接着会 PlayAsync 或再问一次。
                 if (view != null) view.Render(session, items, settings, false, turn, true, false);
@@ -185,6 +188,7 @@ namespace Game.Battle
             {
                 // 先交还相机再让 BattleArena 卸场景：卸载时 FallbackCamera 要看到世界相机已经开着，才不会抢回画面。
                 cameras.Release();
+                if (stage != null) stage.Release();
                 stage = null;
                 boss = null;
                 items.Clear();
@@ -379,6 +383,8 @@ namespace Game.Battle
 
         private static BattleStage FindStage(Scene arena)
         {
+            foreach (BattleStage candidate in UnityEngine.Object.FindObjectsByType<BattleStage>(FindObjectsSortMode.None))
+                if (candidate.IsWorldStage && candidate.gameObject.scene != arena) return candidate;
             if (!arena.IsValid() || !arena.isLoaded)
                 throw new InvalidOperationException($"战斗场景「{BattleArena.SceneKey}」没有加载成功，找不到舞台");
             foreach (GameObject root in arena.GetRootGameObjects())

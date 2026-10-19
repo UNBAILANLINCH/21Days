@@ -60,8 +60,8 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
      一视同仁，含对白插播）：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
      `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法。
   2. **Battle 的 `BattleActor`**（回合制战斗舞台上的角色，`Assets/_Project/Scripts/Runtime/Battle/BattleActor.cs`，顶部 `using Game.CharacterPuppet;`）：挂上外观后**关掉小人自带的驱动层**
-     `ChibiPuppetMotion`（`BattleActor.cs:271-272`；原因是它在 `timeScale = 0` 时每帧把小人强制写回待机，`BattleActor.cs:7-8`），
-     再**自己调** `ChibiPuppet.SetMoving`（`BattleActor.cs:276-278`，奔跑演出时 `running = true`、播放速率 1.6）与 `ChibiPuppet.SetFacing(faceLeft, true)`（`BattleActor.cs:134`，**立即翻面**：只在挂外观布台时调，是初始站位）写走跑和朝向。
+     `ChibiPuppetMotion`（`BattleActor.cs`；原因是它在 `timeScale = 0` 时每帧把小人强制写回待机，`BattleActor.cs`），
+     再**自己调** `ChibiPuppet.SetMoving`（`BattleActor.cs`，奔跑演出时 `running = true`、播放速率 1.6）与 `ChibiPuppet.SetFacing(faceLeft, true)`（`BattleActor.cs`，**立即翻面**：只在挂外观布台时调，是初始站位）写走跑和朝向。
      战斗全程世界暂停，所以这里不能靠「看位移」的 `ChibiPuppetMotion`。
   3. **Interaction 的 `InteractionPuppetPresenter`**（`Assets/_Project/Scripts/Runtime/Interaction/InteractionPuppetPresenter.cs:64`，统一交互第二波 D11）：
      统一焦点触发一次交互（`IInteractionFocus.OnInteracted`）后，玩家小人（`InteractionActor` 层级里找）调 `FaceTowards(目标位置)` + `PlayInteractPulse()`，
@@ -163,7 +163,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 - LitMotion `UpdateIgnoreTimeScale`：对白时停期间照转（后续交互要在时停里转向 NPC）。
 - `FaceLeft` 立刻返回**目标**朝向；`IsTurning` 表示补间进行中。
 - **立即翻面**入口 `SetFacing(left, instant: true)`：用于不该看到翻面的时刻。现有两处：驱动层启用后第一次定朝向（出生、读档进场、重新激活，
-  `ChibiPuppetMotion.cs` 的 OnEnable / LateUpdate；读档只能从标题进场，走的也是这条）；`BattleActor.ResetPose`（`BattleActor.cs:134`，只在挂外观布台时调）。
+  `ChibiPuppetMotion.cs` 的 OnEnable / LateUpdate；读档只能从标题进场，走的也是这条）；`BattleActor.ResetPose`（`BattleActor.cs`，只在挂外观布台时调）。
 - 句柄在 `OnDisable` / `OnDestroy` 掐断，掐断时直接落到目标朝向，不留半翻的纸片（`ChibiPuppet.cs`、`:113`、`:272`）。
 
 **朝向指定点与朝向保持**（`ChibiPuppet.FaceTowards(Vector3)`，`ChibiPuppet.cs`）：
@@ -303,4 +303,4 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
   深度偏移材质正常）。根缩放的绝对值夹在原幅值的 1% 以上（`ChibiPuppet.cs`、`:250`），避免恰为 0 时变换矩阵奇异；
   翻面中途的缩放不是 ±原幅值，读根 `localScale.x` 判朝向的代码要改读 `FaceLeft`。
 - `config` 为空的小人（例如 SampleScene 里那只非预制体实例、`parts` 为空的 `Chibi_chen`，挂在 `Patrol_B/Visual` 下，没有 `Sprite` 子物体）转身瞬间完成、交互动作不播；六个 `Chibi_*` 预制体都已引用共用配置。
-- 同一小人只允许一个驱动者写 `Moving` / `Running` / `Speed`：常态是 `ChibiPuppetMotion`；**战斗舞台上的小人例外**——`BattleActor` 先把 `ChibiPuppetMotion` 禁用、再自己写（`BattleActor.cs:271-278`），所以那里仍然只有一个驱动者。再加一处写参数会互相覆盖。
+- 同一小人只允许一个驱动者写 `Moving` / `Running` / `Speed`：常态是 `ChibiPuppetMotion`；**战斗舞台上的小人例外**——`BattleActor` 先把 `ChibiPuppetMotion` 禁用、再自己写（`BattleActor.cs`），所以那里仍然只有一个驱动者。再加一处写参数会互相覆盖。

@@ -10,6 +10,9 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Simulation;
+using Game.CharacterPuppet;
+using Game.Monster;
+using Game.Narrative;
 using LitMotion;
 using UnityEngine;
 
@@ -38,6 +41,17 @@ namespace Game.Battle
 
         [Tooltip("BossDefinition 没填舞台外观时用的占位外观（Prefabs/Battle/BattleBoss_Placeholder）。")]
         [SerializeField] private GameObject defaultBossPrefab;
+
+        [Header("复用探索场地（空则沿用独立舞台）")]
+        [SerializeField] private EncounterSceneView worldView;
+        [SerializeField] private Light battleFill;
+        [Tooltip("仅临时收起这些对象的渲染，不停用根节点、脚本或碰撞。")]
+        [SerializeField] private GameObject[] hideDuringBattle = Array.Empty<GameObject>();
+
+        private readonly System.Collections.Generic.Dictionary<Renderer, bool> hiddenRenderers = new System.Collections.Generic.Dictionary<Renderer, bool>();
+        private readonly System.Collections.Generic.Dictionary<Canvas, bool> hiddenCanvases = new System.Collections.Generic.Dictionary<Canvas, bool>();
+        private bool fillCaptured;
+        private bool fillWasEnabled;
 
         [Header("出招节奏（秒，不受时间缩放）")]
         [SerializeField, Min(0.01f)] private float dashSeconds = 0.16f;
@@ -84,17 +98,21 @@ namespace Game.Battle
         /// <summary>醉晃时长（界面中央提示与它同步）。</summary>
         public float SwaySeconds => swaySeconds;
 
+        /// <summary>当前探索场景提供的战场；人界仍走独立舞台。</summary>
+        public bool IsWorldStage => worldView != null && !worldView.IsHumanWorld;
+
         private void OnDisable()
         {
             if (shake.IsActive()) shake.Cancel();
             ResetRig();
+            Release();
         }
 
         /// <summary>
         /// 开场：校验引用、关着战斗相机（等相机交接打开）、玩家沿用场景里的外观、BOSS 挂上 <paramref name="bossPrefab"/>
         /// （空则用默认占位外观）、两人回原位。引用没拖齐时抛 <see cref="InvalidOperationException"/>（带修法）。
         /// </summary>
-        public void Prepare(GameObject bossPrefab)
+        public void Prepare(GameObject bossPrefab, string targetId = null)
         {
             if (stageCamera == null || player == null || boss == null || cameraRig == null)
             {
@@ -111,8 +129,84 @@ namespace Game.Battle
 
             ResetRig();
             stageCamera.enabled = false;
-            player.Mount(null);
-            boss.Mount(bossPrefab != null ? bossPrefab : defaultBossPrefab);
+            GameObject playerVisual = null;
+            GameObject bossVisual = bossPrefab != null ? bossPrefab : defaultBossPrefab;
+            if (IsWorldStage)
+            {
+                playerVisual = VisiblePuppet(worldView.CurrentControlObject);
+                if (playerVisual == null) playerVisual = VisiblePuppet(worldView.PlayerBody);
+                if (playerVisual == null) throw new InvalidOperationException("客栈战场缺少当前玩家外观");
+                GameObject targetVisual = TargetVisual(targetId);
+                if (targetVisual != null) bossVisual = targetVisual;
+            }
+            player.Mount(playerVisual);
+            boss.Mount(bossVisual);
+            if (IsWorldStage)
+            {
+                HideDressing();
+                if (battleFill != null)
+                {
+                    fillWasEnabled = battleFill.enabled;
+                    fillCaptured = true;
+                    battleFill.enabled = true;
+                }
+            }
+        }
+
+        /// <summary>收场及开场失败都走这里；恢复原可见状态，不改变其它系统的 enabled 请求。</summary>
+        public void Release()
+        {
+            foreach (var entry in hiddenRenderers)
+                if (entry.Key != null) entry.Key.forceRenderingOff = entry.Value;
+            foreach (var entry in hiddenCanvases)
+                if (entry.Key != null) entry.Key.enabled = entry.Value;
+            hiddenRenderers.Clear();
+            hiddenCanvases.Clear();
+            if (fillCaptured && battleFill != null) battleFill.enabled = fillWasEnabled;
+            fillCaptured = false;
+            if (worldView == null) return;
+            if (player != null) player.ClearMounted();
+            if (boss != null) boss.ClearMounted();
+        }
+
+        private void HideDressing()
+        {
+            foreach (GameObject root in hideDuringBattle)
+            {
+                if (root == null) continue;
+                foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (hiddenRenderers.ContainsKey(renderer)) continue;
+                    hiddenRenderers.Add(renderer, renderer.forceRenderingOff);
+                    renderer.forceRenderingOff = true;
+                }
+                foreach (Canvas canvas in root.GetComponentsInChildren<Canvas>(true))
+                {
+                    if (hiddenCanvases.ContainsKey(canvas)) continue;
+                    hiddenCanvases.Add(canvas, canvas.enabled);
+                    canvas.enabled = false;
+                }
+            }
+        }
+
+        private GameObject TargetVisual(string targetId)
+        {
+            if (string.IsNullOrEmpty(targetId)) return null;
+            foreach (GameObject root in gameObject.scene.GetRootGameObjects())
+                foreach (NarrativeTrigger trigger in root.GetComponentsInChildren<NarrativeTrigger>(true))
+                    if (trigger.TargetId == targetId) return VisiblePuppet(trigger.transform);
+            foreach (var actor in worldView.PatrolActors)
+                if (actor != null && actor.StableId == targetId) return VisiblePuppet(actor.transform);
+            return null;
+        }
+
+        private static GameObject VisiblePuppet(Transform root)
+        {
+            if (root == null) return null;
+            foreach (ChibiPuppet puppet in root.GetComponentsInChildren<ChibiPuppet>())
+                foreach (SpriteRenderer renderer in puppet.GetComponentsInChildren<SpriteRenderer>())
+                    if (renderer.enabled && !renderer.forceRenderingOff) return puppet.gameObject;
+            return null;
         }
 
         /// <summary>

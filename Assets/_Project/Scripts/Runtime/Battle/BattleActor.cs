@@ -114,12 +114,31 @@ namespace Game.Battle
             if (visualRoot == null) visualRoot = transform;
             if (prefab != null)
             {
-                if (mounted != null) Destroy(mounted);
+                ClearMounted();
                 mounted = Instantiate(prefab, visualRoot, false);
+                mounted.transform.localPosition = Vector3.zero;
+                mounted.transform.localRotation = Quaternion.identity;
             }
 
             BindVisual();
             ResetPose();
+        }
+
+        /// <summary>清理本场复制的外观，保留舞台与探索原角色；可重复调用。</summary>
+        public void ClearMounted()
+        {
+            CancelMotion();
+            SetFlash(false);
+            if (mounted != null)
+            {
+                mounted.SetActive(false);
+                Destroy(mounted);
+                mounted = null;
+            }
+            puppet = null;
+            renderers = Array.Empty<SpriteRenderer>();
+            baseMaterials = Array.Empty<Material>();
+            baseColors = Array.Empty<Color>();
         }
 
         /// <summary>回原位、摆正、恢复原材质与原色，小人回待机。</summary>

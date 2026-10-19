@@ -43,12 +43,12 @@
 | --- | --- | --- | --- | --- |
 | ddVEoY / 2 | 主角 | `player` | `Art/Sprites/Characters/player/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | ddVEoY / 3 | 妻子 | `wife` | `Art/Sprites/Characters/wife/parts/`（现有） | 已接收《妻子-何素.zip》的 13 张静态拆件，Unity 已生成 meta；组装、动画和服务器绑定仍待完成 |
-| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
+| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（现有） | 15张源图保留；持卷组合、120张透明整帧、头像及妖界原值守点已绑定，见[接入记录](lunhuitang-guard-20261019.md) |
 | ddVEoY / 5 | 泾阳老吏 | `jingyang_clerk` | `Art/Sprites/Characters/jingyang_clerk/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | ddVEoY / 6 | 民众 | `villagers` | `Art/Sprites/Characters/villagers/parts/`（现有） | 已接收 19 张拆件；不按编号推断动作帧或部位 |
 | ddVEoY / 7 | 镜中乡老 | `mirror_elder` | `Art/Sprites/Characters/mirror_elder/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 8 | 钱塘龙君 | `qiantang_dragon` | `Art/Sprites/Characters/qiantang_dragon/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
+| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（现有） | 15张源图保留；2026-10-19完成组装、168张整帧、头像及21007／21014绑定，见[接入记录](wang-luye-20261019.md) |
 | ddVEoY / 10 | 弥勒教信众 | `mile_believers` | `Art/Sprites/Characters/mile_believers/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 11 | 赵十四 | `zhao_shisi` | `Art/Sprites/Characters/zhao_shisi/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | pKSkSs / 2 | 都知 | `duzhi` | `Art/Sprites/Characters/duzhi/parts/`（拟） | 组装及动画接入待检查实际交付包 |

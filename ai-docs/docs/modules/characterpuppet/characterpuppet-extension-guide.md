@@ -10,6 +10,11 @@ maturity: stable
 > 要在小人上加东西时查这份。架构与数据流见 [`characterpuppet-module-guide.md`](characterpuppet-module-guide.md)，
 > 对外接口见 [`characterpuppet-external-api.md`](characterpuppet-external-api.md)。
 
+
+轮回堂值守复用同一流程：build-lunhuitang-guard-animation（首次标定）→bake-lunhuitang-guard-frames→FramePuppetGenerator，接线为Tools/bind-lunhuitang-guard.txt。纸张必须在持卷前臂父链，源PNG不改；只替换妖界enter_r0171视觉，保留原Point。静态实例Motion停用，talk／Idle由原门面选态，不套用王录业的临时退场。
+
+王录业当前制作入口是 `Tools/build-wang-luye-animation.txt`（只首次标定）→ `Tools/bake-wang-luye-frames.txt`（从保存的rig采样，源PNG不改）→ `FramePuppetGenerator.Generate`。重跑整帧生成器保留GUID和talk／serious状态；场景对白演员必须保持Motion停用，由 `ChibiPuppet.SetDialoguePose` 统一选态，不给talk／serious添加自动回Idle过渡。
+
 ## 扩展点一览
 
 | 想做的事 | 改哪 | 不动哪 |

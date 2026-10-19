@@ -32,9 +32,11 @@ def compile_rows(rows, occupied_ids):
             raise ValueError(f"对白编号已被占用：{tree_id}")
         nodes = []
         for row in pending:
-            nodes.append(dict(id=f"r{row[0]:04d}", revision=1, kind="Line", speaker="",
+            speaker = "lunhuitang_guard" if row[3] == "值守" and "轮回堂" in row[1] else "wang_luye" if row[3] == "王录业" else ""
+            expression = ("serious" if row[0] in (164, 166, 169) else "talk") if speaker == "wang_luye" else "talk" if speaker == "lunhuitang_guard" else ""
+            nodes.append(dict(id=f"r{row[0]:04d}", revision=1, kind="Line", speaker=speaker,
                               speakerName=row[3] if row[3] != "文书" else "", side="Left",
-                              expression="", clearOther=False, text=row[5], next="", outcome="",
+                              expression=expression, clearOther=False, text=row[5], next="", outcome="",
                               blocking=True, performance="", choices=[]))
         for i, node in enumerate(nodes):
             node["next"] = nodes[i + 1]["id"] if i + 1 < len(nodes) else "end"
@@ -106,6 +108,19 @@ def main():
         changed_scene[1][1] = "人间｜新的叙事地点"
         _, changed_story, _ = compile_rows(changed_scene, set())
         assert all(s["kind"] != "WaitAction" for s in changed_story["stages"])
+        wang, _, _ = compile_rows([row(148, "王录业", "结过两次")], set())
+        assert wang[0]["nodes"][0]["speaker"] == "wang_luye"
+        assert wang[0]["nodes"][0]["expression"] == "talk"
+        stern, _, _ = compile_rows([row(166, "王录业", "这是大忌。")], set())
+        assert stern[0]["nodes"][0]["expression"] == "serious"
+        guard = row(175, "值守", "稀客啊。")
+        guard[1] = "镜中长安-轮回堂"
+        guard_trees, _, _ = compile_rows([guard], set())
+        assert guard_trees[0]["nodes"][0]["speaker"] == "lunhuitang_guard"
+        assert guard_trees[0]["nodes"][0]["expression"] == "talk"
+        guard[1] = "另一处关卡"
+        unrelated, _, _ = compile_rows([guard], set())
+        assert unrelated[0]["nodes"][0]["speaker"] == ""
         for occupied, option in [({21000}, "否"), (set(), "是")]:
             sample[0][8] = option
             try:

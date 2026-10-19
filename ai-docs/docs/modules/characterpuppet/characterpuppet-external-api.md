@@ -21,12 +21,13 @@ maturity: stable
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `SetFacing` | `void SetFacing(bool left)` | 转身：根 `localScale.x` 从当前值**补间**到 ±原幅值（像纸片翻面，中途经过 0），保留实例整体缩放；时长 `config.turnSeconds`（默认 0.12 s，unscaled，填 0 = 瞬间）。补间中途改向从当前缩放接着补；往同一朝向重复调不重启（`ChibiPuppet.cs:120`、`:130`） |
+| `SetFacing` | `void SetFacing(bool left)` | 转身：根 `localScale.x` 从当前值**补间**到 ±原幅值（像纸片翻面，中途经过 0），保留实例整体缩放；时长 `config.turnSeconds`（默认 0.12 s，unscaled，填 0 = 瞬间）。补间中途改向从当前缩放接着补；往同一朝向重复调不重启（`ChibiPuppet.cs`、`:130`） |
 | `SetFacing` | `void SetFacing(bool left, bool instant)` | `instant` 为真时一帧到位——出生、读档、初始化这类不该看到翻面的时刻用（现有：驱动层启用后第一次定朝向、`BattleActor.ResetPose`） |
-| `FaceTowards` | `void FaceTowards(Vector3 worldPosition)` | 按目标相对自身在主相机右方向上的投影判左右（与驱动层同一口径与死区 `config.facingDeadZone`），走补间转身，并进入**朝向保持**：小人真正移动之前驱动层不改朝向，一移动即解除。只是表现层转身，逻辑朝向不变。取不到主相机时保持当前朝向（`ChibiPuppet.cs:163`） |
-| `PlayInteractPulse` | `void PlayInteractPulse()` | 程序化交互动作（占位）：`Sprite` 子物体 Y 缩放 1 → 0.9 → 1.04 → 1、下压时朝面向一侧前倾 5°，共 0.25 s（unscaled，参数在 config）；连续调用从头重播不叠加（`ChibiPuppet.cs:204`） |
-| `SetMoving` | `void SetMoving(bool isMoving, bool isRunning, float playbackRate)` | 写 Animator `Moving`（bool）、`Running`（bool，`isMoving` 为假时强制 false）与 `Speed`（float，Walk / Run 播放速率）；`isMoving` 为真时解除朝向保持（`ChibiPuppet.cs:184`）。旧签名 `SetMoving(bool, float)` 已删 |
-| `SetTint` | `void SetTint(Color tint)` | `parts` 里各渲染器颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs:218`） |
+| `FaceTowards` | `void FaceTowards(Vector3 worldPosition)` | 按目标相对自身在主相机右方向上的投影判左右（与驱动层同一口径与死区 `config.facingDeadZone`），走补间转身，并进入**朝向保持**：小人真正移动之前驱动层不改朝向，一移动即解除。只是表现层转身，逻辑朝向不变。取不到主相机时保持当前朝向（`ChibiPuppet.cs`） |
+| `PlayInteractPulse` | `void PlayInteractPulse()` | 程序化交互动作（占位）：`Sprite` 子物体 Y 缩放 1 → 0.9 → 1.04 → 1、下压时朝面向一侧前倾 5°，共 0.25 s（unscaled，参数在 config）；连续调用从头重播不叠加（`ChibiPuppet.cs`） |
+| `SetMoving` | `void SetMoving(bool isMoving, bool isRunning, float playbackRate)` | 写 Animator `Moving`（bool）、`Running`（bool，`isMoving` 为假时强制 false）与 `Speed`（float，Walk / Run 播放速率）；`isMoving` 为真时解除朝向保持（`ChibiPuppet.cs`）。旧签名 `SetMoving(bool, float)` 已删 |
+| `SetDialoguePose` | `void SetDialoguePose(bool speaking, bool serious)` | 仅对白演员：先停用ChibiPuppetMotion，再选Idle／talk／serious（严肃优先）；同态不重启，控制器缺态忽略。Narrative驱动王录业，停用时清选态缓存 |
+| `SetTint` | `void SetTint(Color tint)` | `parts` 里各渲染器颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs`） |
 | `FaceLeft` | 只读属性 | **目标**朝向（真 = 朝左）：`SetFacing` / `FaceTowards` 调用后立刻是新值，不是补间中途的缩放 |
 | `IsTurning` / `FacingHeld` / `IsPulsing` | 只读属性 | 转身补间进行中 / 朝向保持中 / 交互动作在播；驱动层读 `FacingHeld`，测试与回放读其余 |
 | `Animator` / `IsMoving` / `IsRunning` | 只读属性 | 测试与调试读状态用 |

@@ -10,6 +10,13 @@ maturity: seed
 > 运行入口为 NarrativeService；必须由 Boot 的 NarrativeInstaller 注册并完成初始化。
 > 资产接线/实际验证状态见 PRP/narrative-dialogue/tasks.md；内部结构见 [`narrative-module-guide.md`](narrative-module-guide.md)。
 
+
+`LunhuitangGuard` 是妖界原值守的只读外观引用；`PresentLunhuitangGuard(bool speaking)` 仅选Idle／talk，不负责显隐或推进剧情。该静态实例Motion停用，由SpotlightStoryFlow唯一选态；值守的原Point继续负责E交互与常驻显示。
+
+`WangLuye` 为人界对白演员只读引用；`PresentWangLuye(bool visible, bool speaking, bool serious, Transform player, Camera camera)` 仅由章节表现调用。首次显示在当前镜头右侧布位，换句不重布位，缺玩家／相机或妖界时隐藏；调用前该演员的ChibiPuppetMotion必须停用。`SpotlightStoryFlow` 负责21007／21014会话、换句和成对收尾，不由此方法推进剧情。
+
+`SpotlightStoryConfig.DialogueActorDistance` 为临时演员沿相机水平右方向的距离，默认1.5单位；缺配置时演员不显示。
+
 ## `NarrativeService`（根作用域）
 
 ```csharp

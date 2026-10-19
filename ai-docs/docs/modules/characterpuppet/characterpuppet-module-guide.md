@@ -12,6 +12,13 @@ maturity: stable
 > 别的模块要用小人 → [`characterpuppet-external-api.md`](characterpuppet-external-api.md)；
 > 换美术 / 加动作 / 给新角色接小人 → [`characterpuppet-extension-guide.md`](characterpuppet-extension-guide.md)。
 
+
+轮回堂值守（2026-10-19）：独立 `lunhuitang_guard` 交付15张静态拆件，持卷组合与源剪辑保留在同名rig及 `Chibi_lunhuitang_guard_parts.prefab`，经同一采样管线生成120张透明整帧（Idle48／talk48／Walk24）与淡笑／说话头像。妖界原值守视觉子物体替换为 `Chibi_lunhuitang_guard`，该静态实例停用Motion，由Narrative经原SetDialoguePose选态；显隐仍归原剧情点，不套用王录业的临时退场。操作与实际验证见 [值守接入记录](../../lunhuitang-guard-20261019.md)。
+
+王录业（2026-10-19）：`Chibi_wang_luye_parts.prefab` 保存本次15张PNG的14层可见组装与关节标定，`wang_luye/rig/` 保存源剪辑和Sprite；`Tools/build-wang-luye-animation.txt` 首次创建并拒绝覆盖已标定资产。`Tools/bake-wang-luye-frames.txt` 采样真实源剪辑，导出168张512×512透明整帧和三张半身头像，再复用 `FramePuppetGenerator.Generate` 生成 `Chibi_wang_luye.prefab`。24fps，PPU320，脚底pivot(0.5,20/512)，源图朝左由生成器flipX校正。Idle／talk／serious各48帧、Walk24帧；没有独立Run，沿用Walk回退。源PNG与既有角色不改。
+
+`SetDialoguePose(speaking, serious)` 是对白演员专用的门面选态入口（Idle／talk／serious；缺态忽略），只有停用 `ChibiPuppetMotion` 后才能调用。SampleScene的人界王录业实例已停用位移驱动，Narrative独占对白选态；其它角色仍按原驱动。对应对白与验证见 [接入记录](../../wang-luye-20261019.md)。
+
 ## 职责边界
 
 | 做 | 不做 |
@@ -29,7 +36,7 @@ maturity: stable
 
 | 类型 | 文件 | 职责 |
 | --- | --- | --- |
-| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs:16` | 表现门面：持有 `Animator` 与 `SpriteRenderer[] parts`（整帧小人一个，拆件小人多个）；唯一写 Animator 参数与根 `localScale.x` 的地方；转身补间、`FaceTowards` 与朝向保持、交互挤压回弹；另存本预制体剪辑的标定数据 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`（生成工具写入）与 `config` 引用 |
+| `ChibiPuppet`（MonoBehaviour，预制体根，`DisallowMultipleComponent`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppet.cs` | 表现门面：持有 `Animator` 与 `SpriteRenderer[] parts`（整帧小人一个，拆件小人多个）；唯一写 Animator 参数与根 `localScale.x` 的地方；转身补间、`FaceTowards` 与朝向保持、交互挤压回弹；另存本预制体剪辑的标定数据 `walkClipSpeed` / `runClipSpeed` / `hasRunClip`（生成工具写入）与 `config` 引用 |
 | `ChibiPuppetMotion`（MonoBehaviour，同根，`RequireComponent(ChibiPuppet)`） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotion.cs:14` | 驱动层：`LateUpdate` 读 `trackedRoot` 位移，攒满采样窗口后调规则判停 / 走 / 跑与速率，结果写给 `ChibiPuppet`；门面处于朝向保持时不改朝向 |
 | `ChibiPuppetMotionRules`（纯 C# 静态类，不依赖 UnityEngine） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetMotionRules.cs:11` | 判定规则：速度与走停滞回、跑走滞回、按剪辑地速标定的播放速率、朝向死区；转身补间时长与插值、朝向指定点、朝向保持、交互回弹曲线；EditMode 穷举 |
 | `ChibiPuppetConfig`（ScriptableObject，运行时只读） | `Assets/_Project/Scripts/Runtime/CharacterPuppet/ChibiPuppetConfig.cs:10` | 所有小人共用的阈值、夹取范围与程序化表现参数（转身时长、交互回弹）；资产 `Assets/_Project/Data/CharacterPuppet/ChibiPuppetConfig.asset`，门面与驱动层引用同一份 |
@@ -48,7 +55,7 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
 ```
 
 - 不引用 Monster / IsometricExploration / Dialogue 任何类型；与 `EncounterSceneView` 的协作全靠**场景接线**（`facingSource` 指向纸片）。
-- 反过来，运行时代码里引用 `Game.CharacterPuppet` 的有三处：
+- 反过来，运行时代码里引用 `Game.CharacterPuppet` 的有四处：
   1. Performance 的 `PerformanceTriggerRules.HideSceneCharacters`（演出前藏场景角色，对全部入口
      一视同仁，含对白插播）：以「物体上有 `ChibiPuppet`」判定这是场景角色，优先读
      `ChibiPuppetMotion.TrackedRoot` 取角色根，不调其余方法。
@@ -59,7 +66,8 @@ Game.CharacterPuppet（Runtime/CharacterPuppet/）
   3. **Interaction 的 `InteractionPuppetPresenter`**（`Assets/_Project/Scripts/Runtime/Interaction/InteractionPuppetPresenter.cs:64`，统一交互第二波 D11）：
      统一焦点触发一次交互（`IInteractionFocus.OnInteracted`）后，玩家小人（`InteractionActor` 层级里找）调 `FaceTowards(目标位置)` + `PlayInteractPulse()`，
      目标层级（自身 / 子物体 / 父链）里有小人时调它的 `FaceTowards(玩家位置)`；找不到就跳过。只调门面，不写 Animator 参数。
-  其余引用在编辑器工具、Showcase 与 EditMode 测试。小人组件改名 / 挪命名空间、或改 `SetMoving` / `SetFacing` / `FaceTowards` / `PlayInteractPulse` 签名要同步改这三处。
+  4. **Narrative 的 SpotlightSceneBindings**：持有人界王录业演员，Motion停用后只经 `SetDialoguePose` 选对白姿态，并经 `FaceTowards` 朝向玩家。显隐和会话清理由SpotlightStoryFlow负责。
+  其余引用在编辑器工具、Showcase 与 EditMode 测试。小人组件改名 / 挪命名空间、或改上述门面签名时同步核对这四处。
   本模块不反向认识 Interaction。
   **朝向保持与战斗**：BOSS 被交互后转向玩家并进入保持，但战斗舞台上的小人是另一份实例，且 `BattleActor` 关掉了驱动层（保持唯一的读方）、
   用 `SetFacing(faceLeft, true)` 立即翻面布台，保持不会带进战斗（2026-10-08 Battle 回放断言过）。
@@ -113,11 +121,11 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 | 跑走判定与速率标定 | `ChibiPuppetMotion.cs` 的 LateUpdate |
 | 朝向保持时跳过、与门面目标朝向比较后转身 | `ChibiPuppetMotion.cs` 的 LateUpdate |
 | 朝向解析 | `ChibiPuppetMotion.cs` 的 ResolveFacing |
-| 写 Animator 参数（并按移动解除朝向保持） | `ChibiPuppet.cs:184`、`:188` |
-| 转身补间 / 立即翻面（保留实例整体缩放） | `ChibiPuppet.cs:130` |
-| 朝向指定点并进入保持 | `ChibiPuppet.cs:163` |
-| 交互挤压回弹 | `ChibiPuppet.cs:204`、`:239` |
-| 停用 / 销毁时掐断补间（转身落到目标朝向、交互复位） | `ChibiPuppet.cs:107`、`:113`、`:272`、`:284` |
+| 写 Animator 参数（并按移动解除朝向保持） | `ChibiPuppet.cs`、`:188` |
+| 转身补间 / 立即翻面（保留实例整体缩放） | `ChibiPuppet.cs` |
+| 朝向指定点并进入保持 | `ChibiPuppet.cs` |
+| 交互挤压回弹 | `ChibiPuppet.cs`、`:239` |
+| 停用 / 销毁时掐断补间（转身落到目标朝向、交互复位） | `ChibiPuppet.cs`、`:113`、`:272`、`:284` |
 
 ### 规则细节
 
@@ -146,7 +154,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 
 ## 转身、朝向保持与交互动作（程序化，2026-10-08，roadmap D6）
 
-**转身补间**（`ChibiPuppet.SetFacing(bool[, bool instant])`，`ChibiPuppet.cs:130`）：
+**转身补间**（`ChibiPuppet.SetFacing(bool[, bool instant])`，`ChibiPuppet.cs`）：
 
 - 根 `localScale.x` 从**当前值**连续过渡到 ±原幅值（`baseScaleX`，保留实例整体缩放），像纸片绕竖轴翻面，中途经过 0。
   曲线 smoothstep（`ChibiPuppetMotionRules.TurnScaleX`），近似匀速转动时宽度的余弦投影。
@@ -156,20 +164,20 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
 - `FaceLeft` 立刻返回**目标**朝向；`IsTurning` 表示补间进行中。
 - **立即翻面**入口 `SetFacing(left, instant: true)`：用于不该看到翻面的时刻。现有两处：驱动层启用后第一次定朝向（出生、读档进场、重新激活，
   `ChibiPuppetMotion.cs` 的 OnEnable / LateUpdate；读档只能从标题进场，走的也是这条）；`BattleActor.ResetPose`（`BattleActor.cs:134`，只在挂外观布台时调）。
-- 句柄在 `OnDisable` / `OnDestroy` 掐断，掐断时直接落到目标朝向，不留半翻的纸片（`ChibiPuppet.cs:107`、`:113`、`:272`）。
+- 句柄在 `OnDisable` / `OnDestroy` 掐断，掐断时直接落到目标朝向，不留半翻的纸片（`ChibiPuppet.cs`、`:113`、`:272`）。
 
-**朝向指定点与朝向保持**（`ChibiPuppet.FaceTowards(Vector3)`，`ChibiPuppet.cs:163`）：
+**朝向指定点与朝向保持**（`ChibiPuppet.FaceTowards(Vector3)`，`ChibiPuppet.cs`）：
 
 - 左右判定：（目标 − 自身）点乘主相机右方向，过 `config.facingDeadZone` 死区（`ChibiPuppetMotionRules.ResolveFacingTowards`，与位移投影同一口径），再走补间转身。
 - 调用即进入保持（`FacingHeld = true`）。驱动层在保持期间不改朝向（只读）；保持由门面在 `SetMoving(isMoving: true)` 时按
-  `ChibiPuppetMotionRules.KeepFacingHold` 解除（`ChibiPuppet.cs:188`）——「真正移动」用的是驱动层带滞回的 Moving 判定，原地微抖不解除。
+  `ChibiPuppetMotionRules.KeepFacingHold` 解除（`ChibiPuppet.cs`）——「真正移动」用的是驱动层带滞回的 Moving 判定，原地微抖不解除。
   解除后驱动层与门面的目标朝向比较，不同就转回纸片 / 位移决定的朝向。之后再停下不会自己恢复保持，要再调一次 `FaceTowards`。
 - 单驱动者约束不变：保持状态记在门面、驱动层读，没有第二个组件写 Animator 参数。
 - 调用时小人正在走，下一个采样窗口就会解除保持并转回去。D11 的触发方（`InteractionPuppetPresenter`）不判站定：对白类交互立刻时停，
   时停分支只写待机、不解除保持；开箱等不时停的交互若玩家边走边按，转身会在下一个窗口被移动解除（通常本就朝着目标走，看不出来）。
 - NPC 不走动，被 `FaceTowards` 后会一直保持，直到场景重载；门面目前没有「解除保持」的公开入口（要「说完话转回去」得先加一个）。
 
-**交互动作**（`ChibiPuppet.PlayInteractPulse()`，`ChibiPuppet.cs:204`）：
+**交互动作**（`ChibiPuppet.PlayInteractPulse()`，`ChibiPuppet.cs`）：
 
 - 对全部 `parts` 的共同直属容器（当前均为 `Sprite`，`Awake` 记下原缩放与旋转）做一次挤压回弹：Y 缩放 1 → 0.9 → 1.04 → 1，
   下压时绕脚底朝面向一侧前倾 5°（局部绕 −Z 转，根翻面时一起镜像），共 0.25 s，unscaled；参数在 config。曲线 `ChibiPuppetMotionRules.InteractPulse`。
@@ -292,7 +300,7 @@ ResolveFacing → 与门面目标朝向不同才 ChibiPuppet.SetFacing(left, sna
   所以保持期间「小人看的方向」与「逻辑朝向」可以相反（例如背对怪物的玩家小人转过去看 NPC，潜行 / 处决等判定仍按逻辑朝向）。
   保持一解除，小人转回纸片朝向；纯纵向移动纸片不翻，所以会转回调用前的朝向。
 - **翻面经过 0 时的表现**：补间中点那一两帧纸片只剩一条竖线（2026-10-08 回放截到根缩放 0.08 的一帧：无黑闪、无穿地、脚下阴影不受影响，
-  深度偏移材质正常）。根缩放的绝对值夹在原幅值的 1% 以上（`ChibiPuppet.cs:26`、`:250`），避免恰为 0 时变换矩阵奇异；
+  深度偏移材质正常）。根缩放的绝对值夹在原幅值的 1% 以上（`ChibiPuppet.cs`、`:250`），避免恰为 0 时变换矩阵奇异；
   翻面中途的缩放不是 ±原幅值，读根 `localScale.x` 判朝向的代码要改读 `FaceLeft`。
 - `config` 为空的小人（例如 SampleScene 里那只非预制体实例、`parts` 为空的 `Chibi_chen`，挂在 `Patrol_B/Visual` 下，没有 `Sprite` 子物体）转身瞬间完成、交互动作不播；六个 `Chibi_*` 预制体都已引用共用配置。
 - 同一小人只允许一个驱动者写 `Moving` / `Running` / `Speed`：常态是 `ChibiPuppetMotion`；**战斗舞台上的小人例外**——`BattleActor` 先把 `ChibiPuppetMotion` 禁用、再自己写（`BattleActor.cs:271-278`），所以那里仍然只有一个驱动者。再加一处写参数会互相覆盖。

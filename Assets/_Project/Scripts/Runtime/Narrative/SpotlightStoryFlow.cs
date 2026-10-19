@@ -32,6 +32,8 @@ namespace Game.Narrative
         private readonly IInteractionRegistry interaction;
         private readonly QuestService quests;
         private readonly DialogueService dialogue;
+        private readonly DialogueRules dialogueRules;
+        private bool archiveDialogue;
         private readonly BattleFlow battle;
         private readonly RhythmState rhythm;
         private readonly ISubscriber<SessionStartedEvent> sessions;
@@ -44,6 +46,7 @@ namespace Game.Narrative
         private CancellationTokenSource lifetime;
         private CancellationTokenSource sessionLifetime = new CancellationTokenSource();
         private bool crossingMirror;
+        private Camera sceneCamera;
         private long sessionGeneration;
         private bool newGame, startHandled, working;
         private string visualStory = "", visualStage = "";
@@ -55,16 +58,19 @@ namespace Game.Narrative
         public SpotlightStoryFlow(NarrativeService narrative, ShopPlaytestState shops, IGameFlow flow,
             IInputService input, IWorldPauseService pause, IInteractionRegistry interaction, QuestService quests,
             DialogueService dialogue, BattleFlow battle, RhythmState rhythm,
-            ISubscriber<SessionStartedEvent> sessions, ITelemetryService telemetry, EncounterStep step, ILoadingCurtain curtain)
+            ISubscriber<SessionStartedEvent> sessions, ITelemetryService telemetry, EncounterStep step, ILoadingCurtain curtain, DialogueRules dialogueRules)
         {
             this.narrative = narrative; this.shops = shops; this.flow = flow; this.input = input;
             this.pause = pause; this.interaction = interaction; this.quests = quests;
             this.dialogue = dialogue; this.battle = battle; this.rhythm = rhythm; this.sessions = sessions;
             this.telemetry = telemetry.Scope("spotlight");
             this.step = step; this.curtain = curtain;
+            this.dialogueRules = dialogueRules;
         }
         public void Start()
         {
+            dialogue.OnStarted += DialogueStarted;
+            dialogue.OnEnded += DialogueEnded;
             sessionSubscription = sessions.Subscribe(start => {
                 sessionLifetime.Cancel(); sessionLifetime.Dispose(); sessionLifetime = new CancellationTokenSource();
                 crossingMirror = false; working = false;
@@ -86,6 +92,7 @@ namespace Game.Narrative
             Unbind(); scene = bindings;
             if (scene == null) return;
             lifetime = new CancellationTokenSource();
+            sceneCamera = Camera.main;
             if (scene.Config == null || scene.MainTarget == null || scene.MentorTarget == null) throw new InvalidOperationException("正式剧情场景引用未接齐");
             foreach (var point in scene.Points) { point.Bind(scene.Config, Allowed, Interact, scene.IsHumanStory); interaction.Register(point); }
         }
@@ -133,6 +140,15 @@ namespace Game.Narrative
             var bindings = encounter.IsHumanWorld ? humanBindings : demonBindings;
             if (scene != bindings) Bind(bindings);
             if (scene == null) return;
+            var line = dialogueRules.Current;
+            bool wangSpeaking = line != null && line.SpeakerId == "wang_luye";
+            bool serious = false;
+            if (wangSpeaking) foreach (var portrait in line.Portraits)
+                if (portrait.CharacterId == "wang_luye" && portrait.ExpressionId == "serious") serious = true;
+            scene.PresentWangLuye(archiveDialogue && dialogue.IsRunning, wangSpeaking && dialogueRules.Phase == DialogueSaveData.Phase.Typing,
+                wangSpeaking && serious, interaction.Actor == null ? null : interaction.Actor.Anchor, sceneCamera);
+            scene.PresentLunhuitangGuard(dialogue.IsRunning && line != null && line.SpeakerId == "lunhuitang_guard" &&
+                dialogueRules.Phase == DialogueSaveData.Phase.Typing);
             if (!startHandled)
             {
                 startHandled = true;
@@ -228,6 +244,7 @@ namespace Game.Narrative
         }
         private void Unbind()
         {
+            if (scene != null) scene.PresentWangLuye(false, false, false, null, null);
             if (scene != null) foreach (var point in scene.Points) { interaction.Unregister(point); point.Bind(scene.Config, null, null); }
             lifetime?.Cancel(); lifetime?.Dispose(); lifetime = null; scene = null;
             quests.SetObjectivePresentation(0, "");
@@ -235,8 +252,15 @@ namespace Game.Narrative
         }
         public void Dispose()
         {
+            dialogue.OnStarted -= DialogueStarted; dialogue.OnEnded -= DialogueEnded;
             sessionSubscription?.Dispose(); SceneManager.sceneLoaded -= Loaded; SceneManager.sceneUnloaded -= Unloaded; Unbind();
             sessionLifetime.Cancel(); sessionLifetime.Dispose();
+        }
+        private void DialogueStarted(DialogueStartedEvent started) => archiveDialogue = started.DialogueId == 21007 || started.DialogueId == 21014;
+        private void DialogueEnded(DialogueEndedEvent ended)
+        {
+            archiveDialogue = false;
+            if (scene != null) scene.PresentWangLuye(false, false, false, null, null);
         }
     }
 }

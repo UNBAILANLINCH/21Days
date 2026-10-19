@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Interaction;
+using Game.CharacterPuppet;
 using Game.IsometricExploration;
 using UnityEngine;
 namespace Game.Narrative
@@ -46,16 +47,26 @@ namespace Game.Narrative
         [SerializeField] private Point[] points = System.Array.Empty<Point>();
         [SerializeField] private GameObject[] legacyExamples = System.Array.Empty<GameObject>();
         [SerializeField] private GameObject windowFigure;
+        [SerializeField] private ChibiPuppet wangLuye;
+        [SerializeField] private ChibiPuppet lunhuitangGuard;
         public SpotlightStoryConfig Config => config;
         public bool IsHumanStory => humanStory;
         public NarrativeTrigger MainTarget => mainTarget;
         public NarrativeTrigger MentorTarget => mentorTarget;
         public Point[] Points => points;
         public GameObject WindowFigure => windowFigure;
+        public ChibiPuppet WangLuye => wangLuye;
+        public ChibiPuppet LunhuitangGuard => lunhuitangGuard;
+        public void PresentLunhuitangGuard(bool speaking)
+        {
+            if (lunhuitangGuard != null && lunhuitangGuard.gameObject.activeInHierarchy)
+                lunhuitangGuard.SetDialoguePose(speaking, false);
+        }
         private void Awake()
         {
             // 章节绑定前先收起，避免沿用作者预览状态而提前闪现。
             if (windowFigure != null) windowFigure.SetActive(false);
+            if (wangLuye != null) wangLuye.transform.parent.gameObject.SetActive(false);
             foreach (var point in points) if (point != null) point.ShowMarker(false);
         }
         public async UniTask PlayWindowShotAsync(Camera camera, CancellationToken token)
@@ -111,6 +122,22 @@ namespace Game.Narrative
             camera.fieldOfView = fov;
         }
         public Point Find(string stage) { foreach (var point in points) if (point != null && point.StageId == stage) return point; return null; }
+        public void PresentWangLuye(bool visible, bool speaking, bool serious, Transform player, Camera camera)
+        {
+            if (wangLuye == null) return;
+            var figure = wangLuye.transform.parent.gameObject;
+            visible = visible && humanStory && config != null && player != null && camera != null;
+            if (visible && !figure.activeSelf)
+            {
+                // 书库仍连续叙事，人物在当前镜头内临时布位，不新增地点或交互任务。
+                Vector3 right = camera.transform.right; right.y = 0f;
+                figure.transform.position = player.position + right.normalized * config.DialogueActorDistance;
+            }
+            if (figure.activeSelf != visible) figure.SetActive(visible);
+            if (!visible) return;
+            wangLuye.FaceTowards(player.position);
+            wangLuye.SetDialoguePose(speaking, serious);
+        }
         public void Display(string stage, bool formal, bool mentorBattle)
         {
             if (windowFigure != null) windowFigure.SetActive(formal && !humanStory &&

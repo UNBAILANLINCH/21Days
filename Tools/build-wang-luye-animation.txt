@@ -1,0 +1,75 @@
+// 人工通过 Unity MCP 执行；既有工具只接整帧，先按本交付标定刚性拆件，再交给 FramePuppetGenerator。
+// 锚点：Chibi_wang_luye_parts.prefab；已有标定资产时拒绝覆盖。源 PNG 不改。
+if (UnityEditor.EditorApplication.isPlaying) throw new System.InvalidOperationException("请先退出 Play");
+const string prefix = "Assets/_Project/";
+const string source = prefix + "Art/Sprites/Characters/wang_luye/parts/";
+const string rigPrefab = prefix + "Prefabs/Characters/Chibi_wang_luye_parts.prefab";
+if (UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(rigPrefab) != null) throw new System.InvalidOperationException("已有王录业标定，不重复创建");
+System.Action<string> folder = null;
+folder = path => { if (UnityEditor.AssetDatabase.IsValidFolder(path)) return; string parent=System.IO.Path.GetDirectoryName(path).Replace('\\','/'); folder(parent); UnityEditor.AssetDatabase.CreateFolder(parent,System.IO.Path.GetFileName(path)); };
+string directory=prefix+"Art/Animations/Characters/wang_luye/rig";folder(directory);
+string sprites=prefix+"Art/Sprites/Characters/wang_luye/rig";folder(sprites);
+var preview=UnityEditor.SceneManagement.EditorSceneManager.NewPreviewScene();
+try
+{
+    var root=new GameObject("Chibi_wang_luye_parts");UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root,preview);
+    root.AddComponent<UnityEngine.Rendering.SortingGroup>();
+    var visual=new GameObject("Sprite").transform;visual.SetParent(root.transform,false);
+    var rig=new GameObject("Rig").transform;rig.SetParent(visual,false);
+    System.Func<string,Transform,float,float,Transform> joint=(name,parent,x,y)=>{var t=new GameObject(name).transform;t.SetParent(parent,false);t.position=new Vector3((x-256)/320f,(492-y)/320f,0);return t;};
+    var body=joint("Body",rig,251,308);var head=joint("Head",body,252,204);
+    var hat=joint("Hat",head,252,100);var pendant=joint("Pendant",body,244,309);
+    var backArm=joint("BackArm",body,234,222);var backHand=joint("Forearm",backArm,209,264);
+    var frontArm=joint("FrontArm",body,277,222);var frontHand=joint("Forearm",frontArm,307,261);
+    var backFoot=joint("BackFoot",rig,220,445);var frontFoot=joint("FrontFoot",rig,281,444);
+    int order=0;
+    var materials=UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(prefix+"Art/Materials/Character/M_SpriteDepthClip.mat");
+    System.Func<string,Sprite> load=name=>{
+        string path=sprites+"/"+name+".asset";
+        var tex=UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(source+name+".png");
+        if(tex==null||tex.width!=512||tex.height!=512)throw new System.InvalidOperationException("拆件缺失或尺寸变化："+name);
+        var s=Sprite.Create(tex,new Rect(0,0,512,512),new Vector2(.5f,20f/512f),320,0,SpriteMeshType.FullRect);
+        s.name=name;UnityEditor.AssetDatabase.CreateAsset(s,path);return s;
+    };
+    System.Func<string,Transform,SpriteRenderer> image=(name,parent)=>{
+        var node=new GameObject(name);node.transform.SetParent(root.transform,false);
+        var r=node.AddComponent<SpriteRenderer>();r.sprite=load(name);r.sharedMaterial=materials;r.sortingOrder=order++;
+        r.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;node.transform.SetParent(parent,true);return r;
+    };
+    image("帽子后",hat);image("后手-上",backArm);image("后手-下",backHand);
+    image("后脚",backFoot);image("前脚",frontFoot);image("下半身",body);image("脖子",body);
+    image("上半身",body);image("头",head);var face=image("表情-严肃",head);var talking=load("表情-说话");
+    image("帽子",hat);image("饰品",pendant);image("前手-上",frontArm);image("前手-下",frontHand);
+    foreach(string state in new[]{"idle","walk","talk","serious"})
+    {
+        bool walking=state=="walk",speak=state=="talk";float duration=walking?1f:2f;
+        var clip=new AnimationClip();clip.name="rig_wang_luye_"+state;clip.frameRate=24;
+        System.Action<Transform,string,System.Func<float,float>> curve=(node,property,value)=>{
+            var keys=new Keyframe[49];for(int k=0;k<49;k++)keys[k]=new Keyframe(duration*k/48f,value(k/48f));keys[48].value=keys[0].value;
+            var c=new AnimationCurve(keys);for(int k=0;k<49;k++)c.SmoothTangents(k,0);
+            UnityEditor.AnimationUtility.SetEditorCurve(clip,UnityEditor.EditorCurveBinding.FloatCurve(UnityEditor.AnimationUtility.CalculateTransformPath(node,root.transform),typeof(Transform),property),c);
+        };
+        foreach(var node in new[]{body,head,backArm,backHand,frontArm,frontHand,pendant,backFoot,frontFoot})
+        {
+            bool foot=node==backFoot||node==frontFoot;float sign=node==frontFoot||node==frontArm||node==frontHand?-1:1;
+            float angle=node==body?.12f:node==head?(speak?.65f:.25f):node==pendant?.7f:foot?(walking?3:0):walking?sign*4:speak?sign*1.4f:sign*.4f;
+            curve(node,"localEulerAnglesRaw.z",t=>angle*Mathf.Sin(t*Mathf.PI*2));
+            float y=node.localPosition.y,x=node.localPosition.x;
+            curve(node,"m_LocalPosition.y",t=>y+(node==body?(walking?1.2f:1.5f)/320*(1-Mathf.Cos(t*Mathf.PI*(walking?4:2)))*.5f:foot&&walking?4f/320*Mathf.Pow(Mathf.Max(0,sign*Mathf.Sin(t*Mathf.PI*2)),2):0));
+            curve(node,"m_LocalPosition.x",t=>x+(foot&&walking?sign*4f/320*Mathf.Sin(t*Mathf.PI*2):0));
+        }
+        var faceKeys=new System.Collections.Generic.List<UnityEditor.ObjectReferenceKeyframe>();
+        for(int f=0;f<=duration*24;f++)faceKeys.Add(new UnityEditor.ObjectReferenceKeyframe{time=f/24f,value=speak&&f%12>=3&&f%12<8?talking:face.sprite});
+        UnityEditor.AnimationUtility.SetObjectReferenceCurve(clip,UnityEditor.EditorCurveBinding.PPtrCurve(UnityEditor.AnimationUtility.CalculateTransformPath(face.transform,root.transform),typeof(SpriteRenderer),"m_Sprite"),faceKeys.ToArray());
+        var settings=UnityEditor.AnimationUtility.GetAnimationClipSettings(clip);settings.loopTime=true;UnityEditor.AnimationUtility.SetAnimationClipSettings(clip,settings);
+        foreach(var binding in UnityEditor.AnimationUtility.GetCurveBindings(clip))
+        {
+            if(!binding.path.StartsWith("Sprite/Rig/")||root.transform.Find(binding.path)==null)throw new System.InvalidOperationException("关节绑定错误");
+            var c=UnityEditor.AnimationUtility.GetEditorCurve(clip,binding);if(Mathf.Abs(c.Evaluate(0)-c.Evaluate(duration))>.0001f)throw new System.InvalidOperationException("循环不闭合");
+        }
+        UnityEditor.AssetDatabase.CreateAsset(clip,directory+"/"+clip.name+".anim");
+    }
+    bool saved;UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,rigPrefab,out saved);if(!saved)throw new System.InvalidOperationException("标定保存失败");
+}
+finally{UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(preview);}
+return rigPrefab;

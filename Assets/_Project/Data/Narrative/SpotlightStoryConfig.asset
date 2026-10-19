@@ -92,3 +92,4 @@ MonoBehaviour:
   guideRadius: 7
   exitPadding: 0.5
   questId: 900
+  dialogueActorDistance: 1.5

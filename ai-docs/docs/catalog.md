@@ -93,6 +93,8 @@ Sample 是端到端跑通框架每一层的样板模块（配置表 → 纯 C# �
 | 策划怎么改数值 / 加道具 / 加配置表 | [`docs/designer-guide.md`](../../docs/designer-guide.md) |
 | 美术怎么放资源 / 导入规则 / 做 UI 面板 | [`docs/artist-guide.md`](../../docs/artist-guide.md) |
 | 聚光灯飞书资产逐项映射、已有接收目录、角色拆件与现行接入差异 | [飞书资产映射](feishu-asset-map.md) |
+| 王录业拆件标定、透明序列、头像及既有书库对白接入 | [王录业接入记录](wang-luye-20261019.md) |
+| 轮回堂值守持卷外观、序列及原问询对白头像 | [轮回堂值守接入记录](lunhuitang-guard-20261019.md) |
 | 这套 AI 工作流本身：五层怎么交互、日常怎么用、新增东西放哪层 | [`docs/ai-workflow.md`](../../docs/ai-workflow.md) |
 | 某阶段做了什么、当时怎么取舍、刻意没做什么 | [`docs/history/`](../../docs/history/) 下按日期的建设纪要 |
 | 踩过的坑，别重踩 | [`../pitfalls.md`](../pitfalls.md) |

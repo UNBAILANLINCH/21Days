@@ -44,6 +44,7 @@ namespace Game.CharacterPuppet
         private bool moving;
         private bool running;
         private bool facingHeld;
+        private int dialoguePose = -1;
         private Camera cachedCamera;
 
         private MotionHandle turnMotion;
@@ -106,6 +107,7 @@ namespace Game.CharacterPuppet
 
         private void OnDisable()
         {
+            dialoguePose = -1;
             StopTurn();
             StopPulse();
         }
@@ -194,6 +196,16 @@ namespace Game.CharacterPuppet
             animator.SetBool(MovingHash, moving);
             animator.SetBool(RunningHash, running);
             animator.SetFloat(SpeedHash, playbackRate);
+        }
+
+        /// <summary>对白表现专用；调用方先停用位移驱动，换句/换人时选说话、严肃或待机。旧控制器缺态时忽略。</summary>
+        public void SetDialoguePose(bool speaking, bool serious)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+            int state = Animator.StringToHash(serious ? "serious" : speaking ? "talk" : "Idle");
+            if (state == dialoguePose || !animator.HasState(0, state)) return;
+            dialoguePose = state;
+            animator.Play(state, 0, 0f);
         }
 
         /// <summary>

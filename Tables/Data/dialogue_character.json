@@ -1,5 +1,39 @@
 [
     {
+        "id": "lunhuitang_guard",
+        "displayName": "轮回堂值守",
+        "defaultExpression": "default",
+        "expressions": [
+            {
+                "id": "default",
+                "sprite": "Dialogue/Portrait_lunhuitang_guard_default"
+            },
+            {
+                "id": "talk",
+                "sprite": "Dialogue/Portrait_lunhuitang_guard_talk"
+            }
+        ]
+    },
+    {
+        "id": "wang_luye",
+        "displayName": "王录业",
+        "defaultExpression": "default",
+        "expressions": [
+            {
+                "id": "default",
+                "sprite": "Dialogue/Portrait_wang_luye_default"
+            },
+            {
+                "id": "talk",
+                "sprite": "Dialogue/Portrait_wang_luye_talk"
+            },
+            {
+                "id": "serious",
+                "sprite": "Dialogue/Portrait_wang_luye_serious"
+            }
+        ]
+    },
+    {
         "id": "elder",
         "displayName": "老者",
         "defaultExpression": "default",

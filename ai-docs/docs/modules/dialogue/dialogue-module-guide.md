@@ -300,6 +300,10 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 
 ## 内容表（Luban）
 
+轮回堂值守使用独立 `lunhuitang_guard` 角色：21008／21012／21013中12句原“值守”台词绑定talk表情，显示名与原文保留；地址 `Dialogue/Portrait_lunhuitang_guard_{default,talk}` 来自真实持卷组合。导入器只对轮回堂地点的“值守”映射，负对照保留其它地点同称谓不绑定。没有把它合并到王录业。
+
+2026-10-19王录业接入：21007／21014中35句原台词绑定 `wang_luye`；32句talk，原21007的r0164／r0166／r0169使用serious，其余说话人和文书不绑定。三张真实组装头像使用 `Dialogue/Portrait_wang_luye_{default,talk,serious}` 地址，默认闭口严肃图，沿用原头像槽、换人退场与关闭释放。文策导入器保留同一映射并有自检。场景动画由Narrative负责，不在View新增角色特例；记录见 [王录业接入](../../wang-luye-20261019.md)。
+
 | 项 | 约定 |
 | --- | --- |
 | schema | `Tables/Defines/dialogue.xml`（module `dialogue`），**不改** `__tables__.xlsx` / `__beans__.xlsx` |

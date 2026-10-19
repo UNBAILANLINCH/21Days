@@ -17,6 +17,11 @@ maturity: seed
 > 架构见 [`narrative-module-guide.md`](narrative-module-guide.md)，对外签名见 [`narrative-external-api.md`](narrative-external-api.md)。
 > 原七文件保持纯规则；运行入口 NarrativeService 与 NarrativeInstaller 已有源码，接线/实测状态见 tasks.md。
 
+
+王录业是连续书库叙事的临时演员，不增加跑点；绑定脚本 `Tools/bind-wang-luye-dialogue.txt` 只追加人界现有组件的引用。对白选态只经ChibiPuppet门面，必须保持该实例Motion停用；新增或调整会话范围时同步SpotlightStoryFlow开始／结束监听与真实对白回放，不能只替换头像而漏掉人物关闭清理。
+
+轮回堂值守则复用妖界原enter_r0171的Point与常驻规则，lunhuitangGuard仅引用其新视觉子物体，PresentLunhuitangGuard只选态。人界同ID为入镜点，不替换为值守；后续给值守加对白仍改源表与导入映射，不能借角色外观更换剧情出口。
+
 ## 扩展点一览
 
 | 要加什么 | 扩展点 | 改代码吗 |

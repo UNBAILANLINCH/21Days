@@ -7,6 +7,13 @@ maturity: seed
 
 # Narrative 模块指南
 
+
+轮回堂值守外观接入（2026-10-19）：妖界enter_r0171的锚点、QuestLocation和Point保持原样，SpotlightSceneBindings.lunhuitangGuard指向独立持卷外观。SpotlightStoryFlow读取已有DialogueRules说话人，通过PresentLunhuitangGuard调用原门面选择talk／Idle；不改变人物常驻和交互许可。人界同编号MirrorCrossing不是此次替换目标；角色与王录业独立。对白源表及验证见 [值守接入记录](../../lunhuitang-guard-20261019.md)。
+
+### 王录业书库对白表现（2026-10-19）
+
+SampleScene人界SpotlightSceneBindings的 `wangLuye` 引用独立 `WangLuyeDialogueFigure/Chibi_wang_luye`；初始隐藏，Motion停用，父容器带CameraBillboard。`SpotlightStoryFlow` 监听已有DialogueService的21007／21014开始和结束，在当前玩家相机右侧1.5单位临时布位，只在这两段会话中显示。换句时根据DialogueRules当前说话人、Typing阶段和显式头像表情，经CharacterPuppet门面选talk／serious／Idle；换人仍在场待机，结束／取消／Unbind收起。没有新书库地点、互动任务或剧情台词。21014已有内容在当前入口边界之后，定向服务测试不等于后续主线完成。素材与验证见 [接入记录](../../wang-luye-20261019.md)。
+
 ## 正式序章至会面接入（2026-10-18）
 
 ### 人间叙事与真实入镜修正（同日后续，以本段为准）

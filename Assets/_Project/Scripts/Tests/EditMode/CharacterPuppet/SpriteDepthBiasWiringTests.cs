@@ -61,6 +61,27 @@ namespace Game.Tests.EditMode.CharacterPuppet
             Assert.That(playerMaterial.GetFloat("_Cutoff"), Is.EqualTo(baseMaterial.GetFloat("_Cutoff")), "两份材质的 Alpha Cutoff 应一致");
             Assert.That(playerMaterial.GetColor("_Color"), Is.EqualTo(baseMaterial.GetColor("_Color")), "两份材质的 Tint 应一致");
             Assert.That(playerMaterial.renderQueue, Is.EqualTo(baseMaterial.renderQueue), "不许改渲染队列（透明队列会丢掉与灰盒的深度遮挡）");
+            foreach (string property in new[] { "_EnvironmentStrength", "_ShadowStrength", "_LightFloor", "_Saturation" })
+                Assert.That(playerMaterial.GetFloat(property), Is.EqualTo(baseMaterial.GetFloat(property)), "两份角色材质融合参数须一致：" + property);
+        }
+
+        [Test]
+        public void SampleScene_VisibleMarkers_KeepLegacyAppearance()
+        {
+            OpenScene();
+            int markers = 0;
+            foreach (GameObject root in scene.GetRootGameObjects())
+                foreach (SpriteRenderer renderer in root.GetComponentsInChildren<SpriteRenderer>(true))
+                {
+                    if (!renderer.enabled || !UsesDepthClip(renderer) ||
+                        renderer.GetComponentInParent<Game.CharacterPuppet.ChibiPuppet>(true) != null) continue;
+                    markers++;
+                    Material material = renderer.sharedMaterial;
+                    Assert.That(material.GetFloat("_EnvironmentStrength"), Is.Zero, PathOf(renderer.transform));
+                    Assert.That(material.GetFloat("_ShadowStrength"), Is.Zero, PathOf(renderer.transform));
+                    Assert.That(material.GetFloat("_Saturation"), Is.EqualTo(1f), PathOf(renderer.transform));
+                }
+            Assert.That(markers, Is.GreaterThanOrEqualTo(6), "必须实际检查场景标记与光环");
         }
 
         [Test]

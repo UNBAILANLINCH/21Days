@@ -31,6 +31,10 @@ Material:
     m_Floats:
     - _Cutoff: 0.5
     - _DepthBias: 0.02
+    - _EnvironmentStrength: 0.2
+    - _LightFloor: 0.45
+    - _Saturation: 1
+    - _ShadowStrength: 0.25
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

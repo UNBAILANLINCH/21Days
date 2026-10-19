@@ -33,6 +33,17 @@ namespace Game.Narrative
         [SerializeField, Min(.1f)] private float guideRadius = 7f;
         [SerializeField, Min(0f)] private float exitPadding = .5f;
         [SerializeField] private int questId = 900;
+        [Header("坊市入口窗边特写")]
+        [SerializeField] private Vector3 windowCameraOffset = new Vector3(-1.5f, 1.2f, -7f);
+        [SerializeField] private float windowLookHeight = 1f;
+        [SerializeField, Range(10f, 60f)] private float windowFieldOfView = 18f;
+        [SerializeField, Min(.1f)] private float windowBlendSeconds = 1.2f;
+        [SerializeField, Min(0f)] private float windowHoldSeconds = 1.4f;
+        public Vector3 WindowCameraOffset => windowCameraOffset;
+        public float WindowLookHeight => windowLookHeight;
+        public float WindowFieldOfView => windowFieldOfView;
+        public float WindowBlendSeconds => windowBlendSeconds;
+        public float WindowHoldSeconds => windowHoldSeconds;
         public float InteractionRadius => interactionRadius;
         public float GuideRadius => guideRadius;
         public float ExitPadding => exitPadding;

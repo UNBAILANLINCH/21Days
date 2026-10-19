@@ -273,6 +273,27 @@ namespace Game.Tests.Showcase.CharacterPuppet
                        && player != null && ui != null && dialogue != null && dialogueRules != null;
             }, "进世界后容器里取不到 PlayerModel / IInputService / IUIService / DialogueService / DialogueRules");
 
+            // 正式开场异步打开对白；按就绪状态持续操作按钮，不能在对白出现前只尝试关闭一次。
+            var narrative = ResolveService<Game.Narrative.NarrativeService>();
+            var pause = ResolveService<IWorldPauseService>();
+            float deadline = Time.realtimeSinceStartup + 60f;
+            yield return null;
+            while ((narrative.IsBusy || narrative.CurrentStoryId.Length == 0 || dialogue.IsRunning ||
+                    pause.IsPaused || !inputService.Actions.Gameplay.enabled) && Time.realtimeSinceStartup < deadline)
+            {
+                if (SkipConfirmRoot() != null) TryClick(FindUnder<Button>(SkipConfirmRoot(), "ConfirmButton"));
+                else
+                {
+                    Button skip = FindUnder<Button>(DialogueViewRoot(), "SkipButton");
+                    if (skip != null && skip.interactable) TryClick(skip);
+                    else if (ActiveChoices().Count > 0) ClickChoiceIfAny(1);
+                    else yield return Input.Press(inputService.Actions.Dialogue.Advance);
+                }
+                yield return null;
+            }
+            Assert.That(narrative.IsBusy || dialogue.IsRunning || pause.IsPaused ||
+                !inputService.Actions.Gameplay.enabled, Is.False, "必须在可移动阶段验证小人");
+
             puppet = FindRequired<ChibiPuppet>(PuppetPath);
         }
 

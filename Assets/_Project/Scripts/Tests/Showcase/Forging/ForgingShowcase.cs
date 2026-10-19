@@ -1,5 +1,6 @@
 // 职责：从人物对白进入圆盘界面，验证真实按钮、取消退款、点位纠错和关闭恢复。
 using System.Collections;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Core.Input;
 using Game.Core.Timing;
@@ -11,6 +12,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 namespace Game.Tests.Showcase.Forging
 {
@@ -21,7 +23,7 @@ namespace Game.Tests.Showcase.Forging
         [UnityTest]
         public IEnumerator ABC_CancelOrderedStrikesRefillAndSubmit()
         {
-            yield return Ready(2);
+            yield return ReadyUnlockedShop(2); // UI回放复用开放阶段夹具，不兼验完整主线导航。
             yield return OpenWorkbench(false);
             yield return Check("没有匠人身份不能打开打造界面", () => View == null);
             yield return Borrow(1);
@@ -29,6 +31,17 @@ namespace Game.Tests.Showcase.Forging
             yield return Step("金属额度、圆盘四点和右侧工件", null);
             yield return Check("圆盘恰好四点，未达数量不能提交", () => View.transform.Find("WorkbenchPanel/FourPointDisk").childCount == 4 && !Button("SubmitButton").interactable);
             yield return Snapshot("金银行圆盘打造界面");
+            yield return Input.HoldStick(Vector2.down, .08f);
+            yield return Check("手柄下移选中第二工件", () => EventSystem.current.currentSelectedGameObject == Button("Product1").gameObject, 2);
+            UnityEngine.InputSystem.Controls.KeyControl up = null;
+            foreach (var binding in ResolveService<IInputService>().Actions.UI.Navigate.bindings)
+                if (binding.isPartOfComposite && binding.name == "up" && binding.effectivePath.StartsWith("<Keyboard>"))
+                    up = UnityEngine.InputSystem.InputControlPath.TryFindControl(UnityEngine.InputSystem.Keyboard.current, binding.effectivePath) as UnityEngine.InputSystem.Controls.KeyControl;
+            Assert.That(up, Is.Not.Null, "键盘导航必须有向上绑定");
+            yield return Input.PressKey(up.keyCode);
+            yield return Check("键盘上移返回第一工件", () => EventSystem.current.currentSelectedGameObject == Button("Product0").gameObject, 2);
+            yield return Input.Press(ResolveService<IInputService>().Actions.UI.Submit);
+            yield return CapturePressMotion(Button("CraftButton"));
             yield return Click("CraftButton");
             yield return Check("物品A预留5金属，显示15/24", () => State.Forging.IsForging && State.Forging.Available == 15);
             yield return Click("Point1");
@@ -67,7 +80,7 @@ namespace Game.Tests.Showcase.Forging
         [UnityTest]
         public IEnumerator Workbench_CloseSaveRestoreAndEscKeepsUnfinishedProduct()
         {
-            yield return Ready(2); yield return Borrow(1);
+            yield return ReadyUnlockedShop(2); yield return Borrow(1);
             yield return OpenWorkbench(); yield return Click("CraftButton"); yield return Click("Point0");
             yield return Step("未完成工件返回街面，保留进度", null);
             yield return Click("BackButton"); yield return WaitClosed();
@@ -89,10 +102,18 @@ namespace Game.Tests.Showcase.Forging
             yield return Snapshot("关闭打造台恢复街面");
             yield return Step("打造界面打开时切换到隔离新局", null);
             yield return OpenWorkbench();
-            yield return ResolveService<GameSession>().NewGameAsync(2).ToCoroutine();
-            yield return Check("切局关闭界面并释放暂停，新槽没有旧工件", () => View == null &&
-                !ResolveService<IWorldPauseService>().IsPaused && ResolveService<IInputService>().Actions.Gameplay.enabled &&
-                !State.Forging.IsForging && State.Forging.Quota == 20 && State.CurrentRole == "", 8);
+            bool switched = false;
+            yield return ResolveService<GameSession>().NewGameAsync(2).ToCoroutine(value => switched = value);
+            Assert.That(switched, Is.True, "切局请求必须实际成功");
+            var newProgress = ResolveService<Game.Core.Save.ISaveService>().Get<Game.ShopPlaytest.ShopProgressSaveData>();
+            yield return Step($"切局现场：界面关闭={View == null}；暂停={ResolveService<IWorldPauseService>().IsPaused}；Gameplay={ResolveService<IInputService>().Actions.Gameplay.enabled}；五店绑定={State.World != null}；旧控制器工件={State.Forging.IsForging}；额度={State.Forging.Quota}；新槽工件为空={newProgress.Forging == null}；角色={State.CurrentRole}", null, 0);
+            // 新局先到阳界序章；全局暂停和未绑定的旧控制器不能代表打造台或新槽。
+            var pauseHolders = (IDictionary)ResolveService<IWorldPauseService>().GetType()
+                .GetField("holders", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .GetValue(ResolveService<IWorldPauseService>());
+            yield return Check("切局关闭打造台、释放其暂停令牌，新槽没有旧工件或换皮", () => View == null &&
+                !pauseHolders.Contains(State) && State.World == null && State.CurrentRole == "" &&
+                newProgress.Forging == null && newProgress.EquippedSkinId == "", 8);
             yield return Snapshot("打造界面切局清理");
         }
         private ForgingView View => ResolveService<IUIService>().Get<ForgingView>();
@@ -118,7 +139,45 @@ namespace Game.Tests.Showcase.Forging
             Button button = Button(name);
             Assert.That(button, Is.Not.Null, name);
             Assert.That(button.interactable, Is.True, name + "应可操作");
-            button.onClick.Invoke(); yield return null;
+            Canvas.ForceUpdateCanvases();
+            var rect = (RectTransform)button.transform;
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left,
+                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center)) };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            Assert.That(hits.Count > 0 && hits[0].gameObject.transform.IsChildOf(button.transform), Is.True,
+                "装饰不能挡住真实按钮：" + name);
+            ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+            yield return null;
+        }
+        private IEnumerator CapturePressMotion(Button button)
+        {
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) yield break;
+            var frames = new List<Texture2D>(); var times = new List<string>();
+            var overlay = FindRequired<ShowcaseOverlay>("ShowcaseOverlay"); bool visible = overlay.enabled;
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            overlay.enabled = false;
+            try
+            {
+                for (int i = 0; i < 14; i++)
+                {
+                    if (i == 1) ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerDownHandler);
+                    if (i == 7) ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+                    yield return null; yield return new WaitForEndOfFrame();
+                    frames.Add(ScreenCapture.CaptureScreenshotAsTexture());
+                    times.Add(Time.realtimeSinceStartup.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
+                string path = System.IO.Path.Combine(ShowcaseOptions.ReportRoot, "forging-motion", System.DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+                System.IO.Directory.CreateDirectory(path);
+                for (int i = 0; i < frames.Count; i++) System.IO.File.WriteAllBytes(System.IO.Path.Combine(path, "frame-" + i.ToString("00") + ".png"), frames[i].EncodeToPNG());
+                System.IO.File.WriteAllLines(System.IO.Path.Combine(path, "times.txt"), times);
+            }
+            finally
+            {
+                ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+                foreach (Texture2D frame in frames) if (frame != null) Object.Destroy(frame);
+                overlay.enabled = visible;
+            }
         }
         private IEnumerator WaitClosed() => WaitUntil("打造界面收尾恢复街面", () => View == null && !ResolveService<IWorldPauseService>().IsPaused, 5);
         private IEnumerator Strike() { while (State.Forging.IsForging) yield return Click("Point" + State.Forging.NextPoint); }

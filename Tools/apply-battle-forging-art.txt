@@ -1,0 +1,194 @@
+// 载体：人工通过 Unity MCP execute_code 执行；锚点：两个原有 UI 预制体；执行后即退出。
+// 复用原预制体与绑定，现有白盒生成器不能增量换肤，故用一次性编辑器 API 脚本而不新增运行时框架。
+if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) throw new System.InvalidOperationException("先退出播放");
+var serif = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/_Project/Art/Fonts/SourceHanSerifCN/SourceHanSerifCN-Bold SDF.asset");
+if (serif == null) throw new System.Exception("缺少既有思源宋体 Bold");
+var ink = new UnityEngine.Color32(32,105,120,255);
+var teal = new UnityEngine.Color32(84,150,165,255);
+var numberFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/_Project/Art/Fonts/SourceHanSansCN/SourceHanSansCN-Regular SDF.asset");
+if(numberFont==null)throw new System.Exception("缺少既有思源黑体 Regular");
+System.Func<string,string,UnityEngine.Sprite> art = (kind,name) => {
+    string path = "Assets/_Project/Art/Sprites/UI/" + kind + "/Delivery20261020/" + name + ".png";
+    var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(path);
+    if (sprite == null) throw new System.Exception("缺少切片：" + path);
+    return sprite;
+};
+System.Action<UnityEngine.Object,string,UnityEngine.Object> bind = (target,key,value) => {
+    var so = new UnityEditor.SerializedObject(target); var p = so.FindProperty(key);
+    if(p == null) throw new System.Exception("缺少字段："+key);
+    p.objectReferenceValue=value; so.ApplyModifiedPropertiesWithoutUndo();
+};
+System.Action<UnityEngine.Transform,float,float,float,float> place = (t,x,y,w,h) => {
+    var r=(UnityEngine.RectTransform)t; r.anchorMin=r.anchorMax=r.pivot=new UnityEngine.Vector2(.5f,.5f);
+    r.anchoredPosition=new UnityEngine.Vector2(x,y); r.sizeDelta=new UnityEngine.Vector2(w,h);
+};
+System.Action<UnityEngine.Transform,UnityEngine.Transform> before = (t,sibling) => {
+    int index=sibling.GetSiblingIndex();if(t.GetSiblingIndex()<index)index--;t.SetSiblingIndex(index);
+};
+System.Func<UnityEngine.Transform,string,UnityEngine.UI.Image> image = (parent,name) => {
+    var t=parent.Find(name);
+    if(t==null){t=new UnityEngine.GameObject(name,typeof(UnityEngine.RectTransform),typeof(UnityEngine.UI.Image)).transform;t.SetParent(parent,false);}
+    var im=t.GetComponent<UnityEngine.UI.Image>(); if(im==null)im=t.gameObject.AddComponent<UnityEngine.UI.Image>();
+    im.color=UnityEngine.Color.white; im.raycastTarget=false; return im;
+};
+System.Action<UnityEngine.Transform,UnityEngine.Sprite> skin = (t,sprite) => {
+    var im=t.GetComponent<UnityEngine.UI.Image>(); im.sprite=sprite; im.type=UnityEngine.UI.Image.Type.Simple; im.color=UnityEngine.Color.white;
+};
+System.Action<UnityEngine.Transform,float,UnityEngine.Color> text = (t,size,color) => {
+    var label=t.GetComponent<TMPro.TMP_Text>(); label.font=serif;label.fontStyle=TMPro.FontStyles.Normal;
+    label.fontSize=size;label.color=color;label.raycastTarget=false;
+    label.enableAutoSizing=true;label.fontSizeMin=size*.72f;label.fontSizeMax=size;
+    label.overflowMode=TMPro.TextOverflowModes.Ellipsis;
+};
+System.Action<UnityEngine.UI.Button,UnityEngine.Sprite> button = (b,normal) => {
+    b.image.sprite=normal;b.image.color=UnityEngine.Color.white;b.image.type=UnityEngine.UI.Image.Type.Simple;
+    b.transition=UnityEngine.UI.Selectable.Transition.ColorTint;
+    var c=b.colors;c.normalColor=UnityEngine.Color.white;c.highlightedColor=new UnityEngine.Color(.82f,1f,1f);
+    c.selectedColor=new UnityEngine.Color(.65f,.92f,1f);c.pressedColor=new UnityEngine.Color(.5f,.75f,.8f);
+    c.disabledColor=new UnityEngine.Color(.64f,.7f,.72f,.7f);c.fadeDuration=.08f;b.colors=c;
+    var n=b.navigation;n.mode=UnityEngine.UI.Navigation.Mode.Automatic;b.navigation=n;
+};
+foreach(string kind in new[]{"Battle","Forging"}){
+    string folder="Assets/_Project/Art/Sprites/UI/"+kind+"/Delivery20261020";
+    foreach(string guid in UnityEditor.AssetDatabase.FindAssets("t:Texture2D",new[]{folder})){
+        string p=UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+        var importer=(UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(p);
+        importer.textureType=UnityEditor.TextureImporterType.Sprite;importer.spriteImportMode=UnityEditor.SpriteImportMode.Single;
+        importer.alphaIsTransparency=true;importer.mipmapEnabled=false;importer.textureCompression=UnityEditor.TextureImporterCompression.Uncompressed;
+        importer.maxTextureSize=2048;importer.SaveAndReimport();
+    }
+}
+foreach(string kind in new[]{"Battle","Forging"}){
+    string path="Assets/_Project/Prefabs/UI/"+kind+"View.prefab";
+    var root=UnityEditor.PrefabUtility.LoadPrefabContents(path);
+    try{
+        foreach(var label in root.GetComponentsInChildren<TMPro.TMP_Text>(true))text(label.transform,label.fontSize,ink);
+        foreach(var im in root.GetComponentsInChildren<UnityEngine.UI.Image>(true)) if(im.GetComponent<UnityEngine.UI.Selectable>()==null)im.raycastTarget=false;
+        if(kind=="Forging"){
+            var view=root.GetComponent<Game.Forging.ForgingView>();var panel=root.transform.Find("WorkbenchPanel");
+            place(panel,0,0,1408,875);skin(panel,art(kind,"底框"));
+            var shade=root.transform.Find("Backdrop").GetComponent<UnityEngine.UI.Image>();shade.color=new UnityEngine.Color(.03f,.045f,.05f,.62f);shade.raycastTarget=true;
+            panel.Find("Divider").gameObject.SetActive(false);
+            var title=panel.Find("Title");place(title,0,322,400,85);text(title,50,new UnityEngine.Color32(92,149,161,255));title.GetComponent<TMPro.TMP_Text>().text="打造台";
+            var titleFrame=image(panel,"TitleFrame");titleFrame.sprite=art(kind,"主标题底");place(titleFrame.transform,0,407,455,94);
+            var titleArt=image(titleFrame.transform,"TitleArt");titleArt.sprite=art(kind,"金银行标题");place(titleArt.transform,0,0,210,105);
+            var quota=panel.Find("Quota");var quotaFrame=image(panel,"QuotaFrame");quotaFrame.sprite=art(kind,"金属份额底框");place(quotaFrame.transform,-480,15,255,390);before(quotaFrame.transform,quota);
+            var quotaTitle=panel.Find("QuotaTitle");if(quotaTitle==null){quotaTitle=new UnityEngine.GameObject("QuotaTitle",typeof(UnityEngine.RectTransform),typeof(TMPro.TextMeshProUGUI)).transform;quotaTitle.SetParent(panel,false);}
+            place(quotaTitle,-480,130,220,65);text(quotaTitle,32,new UnityEngine.Color32(231,251,252,255));quotaTitle.GetComponent<TMPro.TMP_Text>().text="金属份额";quotaTitle.GetComponent<TMPro.TMP_Text>().alignment=TMPro.TextAlignmentOptions.Center;
+            place(quota,-480,45,225,65);text(quota,33,UnityEngine.Color.white);
+            var materials=panel.Find("Materials");place(materials,-480,-40,200,105);text(materials,20,UnityEngine.Color.white);materials.GetComponent<TMPro.TMP_Text>().enableWordWrapping=true;
+            var disk=panel.Find("FourPointDisk");place(disk,0,0,620,620);disk.GetComponent<UnityEngine.UI.Image>().enabled=false;
+            var positions=new[]{new UnityEngine.Vector2(-28,115),new UnityEngine.Vector2(-110,-54),new UnityEngine.Vector2(110,54),new UnityEngine.Vector2(45,-128)};
+            for(int i=0;i<4;i++){
+                var point=disk.Find("Point"+i);place(point,positions[i].x,positions[i].y,145,145);
+                button(point.GetComponent<UnityEngine.UI.Button>(),art(kind,"道具未选中"));
+                var pointColors=point.GetComponent<UnityEngine.UI.Button>().colors;pointColors.disabledColor=UnityEngine.Color.white;point.GetComponent<UnityEngine.UI.Button>().colors=pointColors;
+                var label=point.Find("Label");place(label,0,0,100,70);text(label,26,ink);
+            }
+            bind(view,"idlePointSprite",art(kind,"道具未选中"));bind(view,"nextPointSprite",art(kind,"道具选中"));
+            var selections=new UnityEngine.UI.Image[3];var names=new TMPro.TMP_Text[3];
+            for(int i=0;i<3;i++){
+                var product=panel.Find("Product"+i);place(product,470,205-i*205,245,180);
+                button(product.GetComponent<UnityEngine.UI.Button>(),art(kind,"右侧框"));
+                var select=image(panel,"ProductSelection"+i);select.sprite=art(kind,"右侧框");select.color=new UnityEngine.Color(.1f,.65f,.68f);
+                place(select.transform,470,205-i*205,255,190);before(select.transform,product);selections[i]=select;
+                var name=product.Find("Name");if(name==null){name=new UnityEngine.GameObject("Name",typeof(UnityEngine.RectTransform),typeof(TMPro.TextMeshProUGUI)).transform;name.SetParent(product,false);}
+                place(name,0,48,215,60);text(name,25,ink);names[i]=name.GetComponent<TMPro.TMP_Text>();names[i].alignment=TMPro.TextAlignmentOptions.Center;
+                var label=product.Find("Label");place(label,-7,-40,201,60);text(label,27,new UnityEngine.Color32(30,54,51,255));label.GetComponent<TMPro.TMP_Text>().font=numberFont;
+                label.GetComponent<TMPro.TMP_Text>().alignment=TMPro.TextAlignmentOptions.BottomRight;
+            }
+            var so=new UnityEditor.SerializedObject(view);var arr=so.FindProperty("productSelections");arr.arraySize=3;
+            for(int i=0;i<3;i++)arr.GetArrayElementAtIndex(i).objectReferenceValue=selections[i];so.ApplyModifiedPropertiesWithoutUndo();
+            arr=so.FindProperty("productNameLabels");arr.arraySize=3;for(int i=0;i<3;i++)arr.GetArrayElementAtIndex(i).objectReferenceValue=names[i];so.ApplyModifiedPropertiesWithoutUndo();
+            var craft=panel.Find("CraftButton");place(craft,-240,-345,280,105);
+            var submit=panel.Find("SubmitButton");place(submit,240,-345,280,105);
+            foreach(var t in new[]{craft,submit}){
+                var old=t.GetComponent<UnityEngine.UI.Button>();
+                if(old.onClick.GetPersistentEventCount()!=0)throw new System.Exception("按钮包含持久事件，不能自动换组件");
+                UnityEngine.Object.DestroyImmediate(old);
+                var styled=t.gameObject.AddComponent<Game.Core.UI.UITextButton>();styled.targetGraphic=t.GetComponent<UnityEngine.UI.Image>();
+                button(styled,art(kind,"未选中按键底"));styled.transition=UnityEngine.UI.Selectable.Transition.SpriteSwap;
+                var states=new UnityEngine.UI.SpriteState();states.highlightedSprite=states.selectedSprite=states.pressedSprite=states.disabledSprite=art(kind,"按键底选中");styled.spriteState=states;
+                bind(styled,"label",t.Find("Label").GetComponent<TMPro.TMP_Text>());
+                var styleData=new UnityEditor.SerializedObject(styled);styleData.FindProperty("disabledTextColor").colorValue=new UnityEngine.Color(.549f,.792f,.859f,.7f);styleData.ApplyModifiedPropertiesWithoutUndo();
+                bind(view,t==craft?"craftButton":"submitButton",styled);
+                var label=t.Find("Label");place(label,0,0,235,90);text(label,48,ink);
+            }
+            place(panel.Find("Cost"),-240,-393,250,40);text(panel.Find("Cost"),22,ink);
+            var cancel=panel.Find("CancelWorkpieceButton");place(cancel,0,-256,180,48);button(cancel.GetComponent<UnityEngine.UI.Button>(),art(kind,"未选中按键底"));place(cancel.Find("Label"),0,0,165,44);text(cancel.Find("Label"),23,ink);
+            var progress=panel.Find("Progress");place(progress,0,-202,620,50);text(progress,22,ink);
+            var back=panel.Find("BackButton");if(back==null)back=root.transform.Find("BackButton");back.SetParent(root.transform,false);place(back,0,0,211,92);
+            var backRect=(UnityEngine.RectTransform)back;backRect.anchorMin=backRect.anchorMax=backRect.pivot=new UnityEngine.Vector2(0,1);backRect.anchoredPosition=new UnityEngine.Vector2(24,-18);
+            button(back.GetComponent<UnityEngine.UI.Button>(),art(kind,"返回"));back.Find("Label").gameObject.SetActive(false);
+            place(root.transform.Find("Message"),0,-492,1400,65);text(root.transform.Find("Message"),24,UnityEngine.Color.white);
+            bind(view,"defaultSelected",panel.Find("Product0").GetComponent<UnityEngine.UI.Button>());
+        }else{
+            var view=root.GetComponent<Game.Battle.BattleView>();
+            var turn=root.transform.Find("TurnBox");skin(turn,art(kind,"左上角回合底框"));
+            var tr=(UnityEngine.RectTransform)turn;tr.sizeDelta=new UnityEngine.Vector2(405,80);
+            text(turn.Find("Label"),29,new UnityEngine.Color32(52,138,155,255));
+            var arrow=image(turn,"Arrow");arrow.sprite=art(kind,"左上角回合装饰");place(arrow.transform,180,0,15,30);
+            var items=root.transform.Find("ItemBar");skin(items,art(kind,"道具最低框"));items.Find("Caption").gameObject.SetActive(false);
+            ((UnityEngine.RectTransform)items).sizeDelta=new UnityEngine.Vector2(654,154);
+            var itemPosition=((UnityEngine.RectTransform)items).anchoredPosition;itemPosition.x=-180;((UnityEngine.RectTransform)items).anchoredPosition=itemPosition;
+            var row=items.Find("ItemRow");((UnityEngine.RectTransform)row).anchoredPosition=UnityEngine.Vector2.zero;
+            var item=row.Find("ItemTemplate");skin(item,art(kind,"道具底框"));((UnityEngine.RectTransform)item).sizeDelta=new UnityEngine.Vector2(112,102);
+            skin(item.Find("Dim"),art(kind,"道具底框"));item.Find("Dim").GetComponent<UnityEngine.UI.Image>().color=new UnityEngine.Color(0,0,0,.25f);
+            var skills=root.transform.Find("SkillBar");skin(skills,art(kind,"技能最低部的框"));
+            ((UnityEngine.RectTransform)skills).sizeDelta=new UnityEngine.Vector2(804,232);
+            for(int i=1;i<=3;i++){
+                var slot=skills.Find("Skill"+i);place(slot,(i-2)*257,0,257,191);skin(slot,art(kind,"技能底"));
+                skin(slot.Find("Dim"),art(kind,"技能底"));slot.Find("Dim").GetComponent<UnityEngine.UI.Image>().color=new UnityEngine.Color(0,0,0,.22f);
+                var badge=slot.Find("Badge");badge.GetComponent<UnityEngine.UI.Image>().enabled=false;
+                place(badge,100,-61,45,50);text(badge.Find("Text"),27,new UnityEngine.Color32(30,54,51,255));badge.Find("Text").GetComponent<TMPro.TMP_Text>().font=numberFont;
+                text(slot.Find("Title"),46,ink);text(slot.Find("Detail"),30,new UnityEngine.Color32(92,149,161,255));
+            }
+            var status=root.transform.Find("StatusArea");((UnityEngine.RectTransform)status).anchoredPosition=new UnityEngine.Vector2(-402,266);
+            skin(status.Find("Rounds"),art(kind,"左上角回合底框"));
+            var rage=root.transform.Find("RageGauge");skin(rage,art(kind,"怒气底框"));var rr=(UnityEngine.RectTransform)rage;rr.sizeDelta=new UnityEngine.Vector2(131,383);rr.anchoredPosition=new UnityEngine.Vector2(-28,90);
+            rage.Find("Title").GetComponent<TMPro.TMP_Text>().enabled=false;
+            rage.Find("Dim").gameObject.SetActive(false);bind(rage.GetComponent<Game.Battle.BattleSlotWidget>(),"dim",null);
+            text(rage.Find("Detail"),25,new UnityEngine.Color32(92,149,161,255));
+            var pip=rage.Find("PipRow/PipTemplate");skin(pip,art(kind,"怒气暗淡"));((UnityEngine.RectTransform)pip).sizeDelta=new UnityEngine.Vector2(82,82);
+            bind(view,"ragePipOff",art(kind,"怒气暗淡"));bind(view,"ragePipOn",art(kind,"怒气点亮"));
+            foreach(string hud in new[]{"BossHud","PlayerHud"}){
+                bool boss=hud=="BossHud";var h=root.transform.Find(hud);var bar=h.Find("HealthBar");skin(bar,art(kind,boss?"boss血底框":"主角血量底"));
+                var br=(UnityEngine.RectTransform)bar;br.sizeDelta=new UnityEngine.Vector2(boss?351:253,41);
+                var fill=bar.Find("Fill");if(fill==null)fill=bar.Find("FillTrack/Fill");skin(fill,art(kind,boss?"boss满血":"主角满血"));
+                var track=bar.Find("FillTrack");if(track==null){track=new UnityEngine.GameObject("FillTrack",typeof(UnityEngine.RectTransform)).transform;track.SetParent(bar,false);}
+                track.SetSiblingIndex(0);var trackRect=(UnityEngine.RectTransform)track;trackRect.anchorMin=UnityEngine.Vector2.zero;trackRect.anchorMax=UnityEngine.Vector2.one;trackRect.offsetMin=new UnityEngine.Vector2(11,11);trackRect.offsetMax=new UnityEngine.Vector2(-11,-11);
+                fill.SetParent(track,false);var fillRect=(UnityEngine.RectTransform)fill;fillRect.offsetMin=fillRect.offsetMax=UnityEngine.Vector2.zero;
+                text(bar.Find("Label"),17,boss?new UnityEngine.Color32(140,24,24,255):new UnityEngine.Color32(52,138,155,255));
+                if(boss){
+                    var drunk=h.Find("DrunkBar");skin(drunk,art(kind,"boss黄底"));((UnityEngine.RectTransform)drunk).sizeDelta=new UnityEngine.Vector2(351,30);
+                    var df=drunk.Find("Fill");if(df==null)df=drunk.Find("FillTrack/Fill");skin(df,art(kind,"boss满黄"));
+                    var dt=drunk.Find("FillTrack");if(dt==null){dt=new UnityEngine.GameObject("FillTrack",typeof(UnityEngine.RectTransform)).transform;dt.SetParent(drunk,false);}
+                    dt.SetSiblingIndex(0);var dtr=(UnityEngine.RectTransform)dt;dtr.anchorMin=UnityEngine.Vector2.zero;dtr.anchorMax=UnityEngine.Vector2.one;dtr.offsetMin=new UnityEngine.Vector2(11,11);dtr.offsetMax=new UnityEngine.Vector2(-11,-11);
+                    df.SetParent(dt,false);((UnityEngine.RectTransform)df).offsetMin=((UnityEngine.RectTransform)df).offsetMax=UnityEngine.Vector2.zero;
+                    text(drunk.Find("Label"),18,new UnityEngine.Color32(128,84,0,255));
+                    place(h.Find("Name"),0,117,480,65);text(h.Find("Name"),43,new UnityEngine.Color32(209,4,4,255));
+                    place(h.Find("Status"),0,70,440,58);text(h.Find("Status"),28,new UnityEngine.Color32(226,182,100,255));
+                }
+            }
+            var hint=root.transform.Find("Hint");var banner=image(hint,"ResultBackdrop");banner.sprite=art(kind,"胜利底");place(banner.transform,0,0,1920,391);banner.transform.SetAsFirstSibling();
+            foreach(var label in hint.GetComponentsInChildren<TMPro.TMP_Text>(true))label.color=UnityEngine.Color.white;
+            foreach(var label in root.transform.Find("Tooltip").GetComponentsInChildren<TMPro.TMP_Text>(true))label.color=UnityEngine.Color.white;
+            var result=image(hint,"ResultTitle");result.sprite=art(kind,"胜利");result.preserveAspect=true;place(result.transform,0,0,361,241);
+            bind(view,"resultBackdrop",banner);bind(view,"resultTitle",result);bind(view,"victorySprite",art(kind,"胜利"));bind(view,"defeatSprite",art(kind,"失败"));
+            banner.gameObject.SetActive(false);result.gameObject.SetActive(false);
+            var so=new UnityEditor.SerializedObject(view);
+            foreach(string key in new[]{"litColor","rageFrameColor","rageFrameFullColor"})so.FindProperty(key).colorValue=UnityEngine.Color.white;
+            so.FindProperty("dimColor").colorValue=new UnityEngine.Color(.7f,.8f,.8f,1);so.ApplyModifiedPropertiesWithoutUndo();
+        }
+        var viewBase=root.GetComponent<Game.Core.UI.UIView>();var data=new UnityEditor.SerializedObject(viewBase);data.FindProperty("transition").enumValueIndex=0;data.ApplyModifiedPropertiesWithoutUndo();
+        foreach(var b in root.GetComponentsInChildren<UnityEngine.UI.Button>(true))if(b.GetComponent<Game.Core.UI.UIButtonFeedback>()==null)b.gameObject.AddComponent<Game.Core.UI.UIButtonFeedback>();
+        foreach(var im in root.GetComponentsInChildren<UnityEngine.UI.Image>(true)){
+            if(im.sprite!=null){string p=UnityEditor.AssetDatabase.GetAssetPath(im.sprite);if(p.EndsWith(".psd",System.StringComparison.OrdinalIgnoreCase)||p.EndsWith(".psb",System.StringComparison.OrdinalIgnoreCase)){
+                // Unity 内置控件皮肤并非外部交付源；既有状态格保留其内置依赖。
+                if(p.StartsWith("Assets/"))throw new System.Exception("界面不应引用外部PSD/PSB："+p);
+            }}
+        }
+        UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,path);
+    }finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}
+}
+return "BattleView/ForgingView 美术已增量绑定；未保存场景或全局字体。";

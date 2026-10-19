@@ -124,6 +124,16 @@ namespace Game.Tests.EditMode.Battle
             Assert.That(rect == null, Is.True, "飘字随面板一起销毁了（回调里面对的就是已销毁的对象）");
         }
 
+        [Test]
+        public void OnDisable_WithFloatsInFlight_CancelsAndReturnsToPool()
+        {
+            view.ShowFloat(Vector3.zero, "-3", BattleFloatTone.Damage, false, 0);
+            Assert.That(ActiveFloats().Count, Is.EqualTo(1));
+            // EditMode不会自动派发MonoBehaviour隐藏消息，显式派发真实生命周期入口。
+            typeof(BattleView).GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+            Assert.That(ActiveFloats(), Is.Empty, "覆盖战斗面板时应停止短动效并收回文字");
+        }
+
         private List<TMP_Text> ActiveFloats()
         {
             var found = new List<TMP_Text>();

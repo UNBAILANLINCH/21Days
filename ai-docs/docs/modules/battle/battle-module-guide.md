@@ -7,6 +7,10 @@ maturity: seed
 
 # Battle 模块指南
 
+## UI交付美术（2026-10-20）
+
+`BattleView`已增量接入道具/技能框、回合框、三根真实数值条、怒气亮灭与胜败美术。动态文字仍为TMP，固定胜败字不重复叠字；回合用尽等结果保留原文案。白盒生成器检测到交付美术后拒绝覆盖。资源映射、三版动效与实际验证见[本批接入记录](../../ui-battle-forging-20261020/README.md)，该记录区分离屏截图与真实回放，不以预制体绑定代替运行验收。
+
 ## 客栈实景战场（2026-10-20）
 
 SampleScene妖界新增 `DemonWorld/InnBattleStage`，复用中层右侧客栈 `立方体.339` 前方石铺地面；没有复制世界、删除建筑或修改碰撞。玩家／敌方脚底锚点为 `(16.25,4.9,-2.6)`／`(19.75,4.9,-2.6)`，避开左侧木箱并位于连续石砖带。舞台相机默认关闭、Untagged、无AudioListener，沿既有BattleCameraHandoff接管与交还。
@@ -231,7 +235,7 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 
 ## Esc 与暂停菜单（D7）
 
-`BattleView.CloseOnCancel = false`（`BattleView.cs:140`）→ `UICancelRouter` 判 Blocked，Esc 既不关战斗界面也不开暂停菜单；P 键在 Gameplay 图上，被世界锁关掉；
+`BattleView.CloseOnCancel = false`（`BattleView.cs`）→ `UICancelRouter` 判 Blocked，Esc 既不关战斗界面也不开暂停菜单；P 键在 Gameplay 图上，被世界锁关掉；
 进出场黑幕盖着时 `PauseMenuController` 的 `curtain.IsCovered` 条件挡住（`BattleScenePresenter.cs` 文件头的完整论证）。
 键盘 1/2/3 出招借用 Dialogue 图的 Choice1–3，只在战斗期间启用（`BattleScenePresenter.cs`、`:34`）。
 

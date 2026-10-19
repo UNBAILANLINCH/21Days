@@ -106,6 +106,9 @@ namespace Game.Editor.Battle
         private static string CheckEditor()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return "Play 中不能生成，先退出 Play。";
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(ViewPrefabPath);
+            if (existing != null && existing.transform.Find("Hint/ResultTitle") != null)
+                return "战斗界面已接入交付美术，禁止白盒重建覆盖；请直接编辑 BattleView 预制体。";
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
                 Scene open = SceneManager.GetSceneAt(i);

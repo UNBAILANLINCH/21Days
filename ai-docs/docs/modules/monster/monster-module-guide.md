@@ -7,6 +7,10 @@ maturity: stable
 
 # Monster 模块指南
 
+## 普通巡逻范围修订（2026-10-18）
+
+用户明确普通巡逻只警戒、追逐和抓捕，不进入回合制。正式BossRosterConfig中`monster_1003`保留显式ID，`monsterKindId`改为0；1001／1003均无按种类升级入口。实时攻击、扣血、击倒及抓捕照常结算；正式剧情／BOSS战与通用升级代码保留。下文2026-10-14的普通市令升级口径仅作机制历史，不能据此重新打开巡逻自动开战。
+
 ## 正式两界承载（2026-10-18 后续）
 
 正常入口只加载 `IsometricEncounter`（SampleScene）。`HumanWorld_Z300` 是同场景内共用CourtyardLatest网格、材质及草坡修复资源的人界副本，整体Z+300；`DemonWorld` 保留原地图坐标和五店引用。`PrepareHumanStory()` / `PrepareDemonStory()` 选择逻辑世界，不选择场景地址；互斥启用分组，原未激活对象状态不被改成全启用。人界停用妖界巡逻、五店与处决入口，只有一套玩家移动驱动和相机。
@@ -307,7 +311,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 ## Showcase 回放（2026-09-28 重写，走 Boot 真实流程）
 
-`Assets/_Project/Scripts/Tests/Showcase/Monster/MonsterShowcase.cs` 八条用例，全部标题「开始」进 SampleScene
+`Assets/_Project/Scripts/Tests/Showcase/Monster/MonsterShowcase.cs` 五条用例，全部标题「开始」进 SampleScene
 （`EnterDemoWorld`），虚拟手柄推摇杆、虚拟键盘按 Gameplay 动作驱动真实玩家 `player`，巡逻怪 `enerme` 由容器里的
 `MonsterRules` 自己跑逻辑 tick（不再自己 `new` 规则、不再手动喂 `MonsterIntent`、不再瞬移玩家）：
 
@@ -316,15 +320,10 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 | `Patrol_WalksAlongPointsAndTurnsBack` | 巡逻沿点位走动、到端点折返 |
 | `Sense_SneakBehindStaysCalm_FrontRedZoneTurnsHostile` | 背后潜行不警戒、正面红区照样敌对 |
 | `Hostile_ChasesFleeingPlayerAndHitsIt` | 敌对后追击逃跑的玩家并出手 |
-| `Attacked_ImmuneToNormalAttack_StillTurnsHostile` | 打 `killable = false` 的巡夜人：伤害被拒但照样转敌对 |
-| `Escalation_FrontalAttack_PlayerFirst` | 打中已察觉的市令 → 升级回合制「正面攻击」：玩家先手、市令满血开局 → 打赢 → 回世界（市令倒下 + 掉落 + 血量写回） |
-| `Escalation_MonsterStrikes_Ambushed` | 站进红区不出手，被市令打中 → 升级「被打」：市令先手 → 打输 → 镜碎页重开 |
-| `Escalation_UnawareStrike_SneakAttack` | 打中未察觉的市令 → 升级「偷袭」：玩家先手、市令开局先掉 20% |
+| `Attacked_ImmuneToNormalAttack_DoesNotStartTurnBasedBattle` | 已察觉的普通巡逻拒绝普攻伤害，保持实时场景，不进入回合制 |
 | `Caught_Xunye_KnockdownThenDowned` | 巡夜人（**没配战斗数据**）追上打中 → 不升级，走被抓口径：击倒 → 血尽判 Downed |
 
-2026-10-14 起升级那四条**从巡逻线以南接近市令**（经缝口绕到南侧走廊），不走观察点——从观察点下去必须横穿巡逻者乙的巡逻线；
-动身前用 `ShowcasePatrolForecast` 预判「别的巡逻者这几秒看不到这条路」（同 Identity / Stealth 的做法）。
-最近一次记录：2026-10-17 **8/8 PASS、检查点失败 0、异常 0**（`Logs/verify/monster/20261017-001349`）。
+上述进场与路线仍以旧灰盒为前提，尚未迁移到人界Z+300的新局流程，不能作为当前正式场景的验收入口。2026-10-17的8/8 PASS（`Logs/verify/monster/20261017-001349`）仅是历史证据。当前巡逻及轮回堂路径验证复用Narrative的真实人界对白、穿镜与现上层路线。
 
 ## 已知集成状态
 
@@ -381,7 +380,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 
 ## 附录·实时遭遇升级回合制（2026-10-14，PRP/combat-iteration D5）
 
-> 语义真源：**用户 2026-10-14 拍板「三种触发全要」**——玩家打中未察觉的怪 / 打中已警戒敌对的怪 / 怪打中玩家，三种都升回合制。
+> 历史语义：用户2026-10-14曾选择三种命中触发；2026-10-18已明确排除普通巡逻，现行范围见文首。以下保留通用升级机制契约。
 > 机制真源 `PRP/combat-iteration/prp.md` D5。
 
 **契约声明在 Monster 侧**（Monster 不能引用 `Game.Battle`，依赖边只有 Battle → Monster 一条）：
@@ -408,7 +407,7 @@ EditMode `EncounterStepTests` 的 `CorrectPlayerPosition_WhenActive_OverridesPla
 `escalation_abandoned`（被回放接管）。**回放中不埋点**：那不是「被拒」，是这条功能整个关掉。
 
 **验证**：EditMode `EncounterEscalationTests`（三种触发 + 负对照 + 完成 / 放弃 / 回放五条）、`BattleFlowEncounterTests`（遭遇版不碰剧情、恰好回调一次）、
-`BattleSetupTests`（翻译表与进场取整边界）、`SessionStateAdapterTests`（在途时不可存档）；回放 `MonsterShowcase` 的 `Escalation_*` 三条 + `Caught_Xunye_KnockdownThenDowned`。
+`BattleSetupTests`（翻译表与进场取整边界）、`SessionStateAdapterTests`（在途时不可存档）。普通巡逻资产由`SampleSceneCombatWiringTests`守住无映射，`EncounterEscalationTests.KindNotConfigured_MonsterHitStillDamagesAndCountsAsCaught`验证命中不吞伤害及抓捕结算。
 
 ## 修改时检查
 

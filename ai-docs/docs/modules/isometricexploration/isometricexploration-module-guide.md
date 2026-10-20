@@ -193,6 +193,10 @@ player（根节点，脚底，缩放 (1, 1, 1)，y = 4.8884）
 
 ## 探索 HUD 与沉浸模式
 
+2026-10-20：按用户要求暂时停用 `ExplorationHudView.prefab/ControlsRoot/ResetButton`，正常游戏不可见且不参与命中。保留按钮引用、监听与底层重置能力；需要恢复时重新激活该节点。不调用重置，不清空进度或存档。`OnOpenAsync` 与沉浸显隐不会将其重新激活；首次进场与自重进验证见[背包补充记录](../../ui-inventory-20261019.md)。
+
+2026-10-19 外观置入：沉浸按钮改用已烘焙书法图，右上 (-48,-80)、142×143；普通态不叠加 TMP「沉浸」，沉浸态在图下显示 TMP「退出沉浸」、alpha 0.75。保留原按钮引用、导航、IHudVisibility 与恢复逻辑；仅按钮隔离小 Canvas 并保留 GraphicRaycaster，复用 UIButtonFeedback。旧 220×72 白盒尺寸已被本次外观覆盖，详细映射和三版动效见 [本批记录](../../ui-beautify-20261019.md)。
+
 参考《明日方舟》旅行小记左下角按钮：一键隐藏全部 HUD 与世界空间交互标记，只留沉浸按钮本身。
 
 - **Core 能力**：`IHudVisibility`（`Core/UI/IHudVisibility.cs`，由 `UIService` 实现）+ 事件 `HudVisibilityChangedEvent`。

@@ -81,6 +81,8 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 
 ## 回放 / 调试测试口
 
+交付动作采样：`BattleActor.BeginAttackPose()`返回外观是否有attack态；`PlayAttackPoseAsync(from,to,seconds,ct)`用unscaled时间推进姿态，与MoveToAsync并行；`EndAttackPose()`取消独立采样补间并回Idle。由BattleStage.StrikeAsync统一调用，不从外部提交伤害或动画事件。无attack态时沿用原出招；阶段一Boss资产和重建顺序见[记录](../../stage1-boss-20261020/README.md)。
+
 世界舞台接线：`BattleStage.worldView` 指向当前EncounterSceneView，`hideDuringBattle` 只列需局部隐藏的原对象；`IsWorldStage` 在妖界有效。`Prepare(prefab, targetId = null)` 复制实际参战外观，`Release()` 恢复显隐并清理本场实例，幂等且由表现生命周期调用。`BattleOpening.TargetId` 为可选表现信息；不替代结果回写的剧情身份。`BattleActor.ClearMounted()` 只清本场复制外观，保留舞台及探索对象。
 
 | 成员 | 说明 |

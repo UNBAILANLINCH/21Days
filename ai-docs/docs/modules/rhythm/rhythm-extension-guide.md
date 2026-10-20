@@ -8,6 +8,13 @@ maturity: stable
 
 先读 [指南](rhythm-module-guide.md) 与 [公开接口](rhythm-external-api.md)。
 
+## 节拍提示试水的修改边界
+
+仅在独立 RhythmDemo 启用 `qtePilot`；恢复菜单关闭标记即可回原入口，不删除原谱、曲库或存档。只有虫儿飞适配，不隐式开启另外两曲。
+宽容参数在 RhythmConfig 中配置，通过运行副本生效；改规则需同步诊断 Header/Codec/Replay 以及规则身份。提示动画只能读取歌曲时刻，不能由动画完成回调判成功。
+QTE 通关用成功枚数比例，不用内部 Score；保持整枚 Hold 一次结算。未来换规则版本或接 Boss 时同时处理外部身份策略，不能直接复用旧 `four-lane-tap-hold` 身份。
+原轨道测试继续用于默认路径；新增收圈、同拍、宽窗重叠、尾部宽限、诊断兼容和独立入口测试。Showcase `QtePilot_ChordsHoldRetryAndChineseOutcome_Work` 覆盖短谱、暂停松开、失焦、校准切换与两种分辨率的按钮边界／射线命中；`QtePilot_Original58Notes_CompleteAndKeepLegacyProfiles` 播放原片段，验证完整原谱与旧档隔离。两者均已在本机执行，范围与限制见 [接入记录](../../rhythm-qte-20261020.md)。
+
 ## 调整当前试玩
 
 在 ChongErFei 配置中编辑片段起点、长度、下落预览时间与判定窗口。

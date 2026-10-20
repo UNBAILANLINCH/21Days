@@ -10,12 +10,19 @@ maturity: seed
 > 运行入口为 NarrativeService；必须由 Boot 的 NarrativeInstaller 注册并完成初始化。
 > 资产接线/实际验证状态见 PRP/narrative-dialogue/tasks.md；内部结构见 [`narrative-module-guide.md`](narrative-module-guide.md)。
 
+## `SpotlightSceneBindings`（正式场景接线）
 
 `LunhuitangGuard` 是妖界原值守的只读外观引用；`PresentLunhuitangGuard(bool speaking)` 仅选Idle／talk，不负责显隐或推进剧情。该静态实例Motion停用，由SpotlightStoryFlow唯一选态；值守的原Point继续负责E交互与常驻显示。
 
 `WangLuye` 为人界对白演员只读引用；`PresentWangLuye(bool visible, bool speaking, bool serious, Transform player, Camera camera)` 仅由章节表现调用。首次显示在当前镜头右侧布位，换句不重布位，缺玩家／相机或妖界时隐藏；调用前该演员的ChibiPuppetMotion必须停用。`SpotlightStoryFlow` 负责21007／21014会话、换句和成对收尾，不由此方法推进剧情。
 
 `SpotlightStoryConfig.DialogueActorDistance` 为临时演员沿相机水平右方向的距离，默认1.5单位；缺配置时演员不显示。
+
+`Points` 中每项保存 `stageId`、`anchor` 与可选 `marker`；`Position`、`Anchor`、`Marker` 只读，光点由 `Display(stage, formal, mentorBattle)` 按当前节点统一显隐。`WindowFigure` 为独立窗边角色引用；188／21009／197显示，战后隐藏，215会面实体在21011对白期间保持显示。调用方不靠设置这些表现对象推进剧情。
+
+酒肆主人的 `NarrativeTrigger` 必须保留 `shop_boss`／`SpotlightShopBoss`；`ShopPlaytestActor` 负责E对白，目标组件提供遭遇事实。移除目标会令划拳达标后的局部挑战被拒绝。
+
+`UniTask PlayWindowShotAsync(Camera camera, CancellationToken token)`：仅播放当前窗边实体的推近、停留、回镜，使用Config中的构图与非缩放时长；正常结束、异常或取消均恢复相机位姿、FOV及原跟随启用状态。调用方须独占相机并负责暂停／输入／保存门闸；正式入口只由`SpotlightStoryFlow`在188近距首次触发，不推进剧情。取消向上抛`OperationCanceledException`，缺相机／配置／人物引用抛`InvalidOperationException`。
 
 ## 剧情环境表现接口
 
@@ -111,11 +118,13 @@ void ReleaseBattle(long generation, long activationId);
 ```csharp
 string FlagKey { get; }  bool IsBound { get; }
 void Configure(string key);  void Bind(NarrativeService narrative);  void Unbind();  void Refresh();
+void SetSuppressed(bool value);
 static bool ShouldBeVisible(bool flagSet);   // = !flagSet
 ```
 
 标记成立 → `SetActive(false)`，不成立 → 显示；绑定、`OnChanged`、`Refresh()` 时重算；没绑定 / 键为空 / 服务未就绪不动物体。
 场景里的由 `NarrativeService` 加载时扫描绑定，运行时生成的自己调 `Bind`（`NarrativeFlagVisibility.cs:39-60`）。只读标记、不写标记。
+`SetSuppressed(true)`优先保持隐藏，即使服务未绑定；解除后恢复当前标记判定。正式流程仅对旧示例使用，不改变剧情标记或普通BOSS能力。
 
 ## `Game.Narrative.EncounterContext`（`sealed class`，值语义快照）
 

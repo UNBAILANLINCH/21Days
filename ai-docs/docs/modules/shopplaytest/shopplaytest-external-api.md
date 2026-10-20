@@ -24,7 +24,10 @@ ShopPlaytestState由正常Boot根注册，绑定到既有MonsterEncounterState�
 | Clothing/Forging/Tavern/Theater/Taming | 只读规则查询；其它模块不借此绕过意图写进度 |
 
 ShopPlaytestWorld.ShopAt(position)确定活动区；Display(shop, ownerId)显隐；Station/NearStation供现场交互。
-ShopPlaytestActor.SetVisible只改缓存Renderer；IsVisible与角色可用性不同，根节点保持激活。
+
+`CommandsFor`对`shop_guest`／`shop_station_4`始终返回规则命令0，不要求已穿酒客皮；命令0仅说明酒令和下一步。划拳／挑战仍仅在对应客人／主人且酒客身份生效时提供，并复核三店资格及近距。未穿皮的酒肆对白按是否已持有酒客皮说明取皮或背包使用，酒桌显示名为“酒桌 / 酒令”。
+ShopPlaytestActor.SetVisible记录分组显示请求，只改缓存Renderer与点击触发体；SetAlive同步模型生命，IsVisible为分组请求与存活状态的交集，根节点保持激活。已移到玩家层级的皮不受来源显隐影响。
+ShopPlaytestActor.Bind的末尾可选参数canUseIdentity单独限制F动作；省略时保持原绑定行为。CanInteract只表示现场E可回应，不代表玩法已开放；调用方不得凭它绕过阶段限制执行取皮、发奖或玩法命令。五店正式绑定对死亡NPC返回false，E/F与鼠标焦点同步收起，穿皮从取皮结果选项或背包TryWearSkin进入，不依赖来源NPC存活。结果换皮在对白结束后复核会话，取消或卸载不执行。戏班CommandsFor仅在shop_patrol提供学徒验身／都知改道，在shop_station_0提供乐正演奏；角色、目标与距离在提交时再次复验。
 ShopPlaytestView抛OnRole、OnCommand、OnBody、OnRetry；旧选店/回标题控件不作为入口。重试为明确标记的开发调试操作，会更新当前槽的本店进度；不回退剧情标记及已结算战斗掉落。
 
 保存由组合接线写ShopProgressSaveData分区，实际落盘调用方仍经GameSession。

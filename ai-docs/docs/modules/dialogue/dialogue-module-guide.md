@@ -306,6 +306,8 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 
 2026-10-19王录业接入：21007／21014中35句原台词绑定 `wang_luye`；32句talk，原21007的r0164／r0166／r0169使用serious，其余说话人和文书不绑定。三张真实组装头像使用 `Dialogue/Portrait_wang_luye_{default,talk,serious}` 地址，默认闭口严肃图，沿用原头像槽、换人退场与关闭释放。文策导入器保留同一映射并有自检。场景动画由Narrative负责，不在View新增角色特例；记录见 [王录业接入](../../wang-luye-20261019.md)。
 
+2026-10-19序章说书人接入现有左侧头像框：`21000..21003`的25句台词绑定独立角色`storyteller`，显示名仍为“说书人”，头像使用`Dialogue/Portrait_customer_default`。图片`Art/Sprites/Dialogue/Portrait_customer_default.png`由现有`Chibi_customers.prefab`正面造型导出透明半身像（512×512），可同名替换图片继续迭代。沿用头像及框的既有入退场；文策导入脚本同步保留序章说书人的角色绑定。
+
 | 项 | 约定 |
 | --- | --- |
 | schema | `Tables/Defines/dialogue.xml`（module `dialogue`），**不改** `__tables__.xlsx` / `__beans__.xlsx` |

@@ -26,16 +26,19 @@ maturity: seed
 
 正式章节新增节点时，同步源故事／对白、Quest目标及 `SpotlightStoryConfig` 节点。通过编辑器给 `SpotlightSceneBindings` 补实际锚点，保留稳定主目标；不要靠到过店铺或播过教程判玩法成功。菜单 `21Days/剧情/接入序章至酒肆会面` 仅首次接线，已有 SpotlightStory 时拒绝覆盖；后续直接编辑现有点位与配置。
 
+王录业是连续书库叙事的临时演员，不增加跑点；绑定脚本 `Tools/bind-wang-luye-dialogue.txt` 只追加人界现有组件的引用。对白选态只经ChibiPuppet门面，必须保持该实例Motion停用；新增或调整会话范围时同步SpotlightStoryFlow开始／结束监听与真实对白回放，不能只替换头像而漏掉人物关闭清理。
+
+轮回堂值守则复用妖界原enter_r0171的Point与常驻规则，lunhuitangGuard仅引用其新视觉子物体，PresentLunhuitangGuard只选态。人界同ID为入镜点，不替换为值守；后续给值守加对白仍改源表与导入映射，不能借角色外观更换剧情出口。
+
 软引导条件扩展在纯 `StoryGuideRules`，提示和范围在配置；节点变化才更新舞台，缺件文案按变化缓存，不能逐帧 Capture 或拼接字符串。完整回放入口 `NarrativeShowcase.Spotlight_ThreeShopsGuessBossAndReunion` 经过真实三店成果、划拳、BOSS与会面，不得用发道具／直接写任务进度替代。
+
+188靠近光点可自动播放窗边特写，但特写不提交阶段；回镜后仍须E推进。调整特写用`SpotlightStoryConfig`的Window字段；不要移动何素或交互点来补镜头构图，也不要借用会隐藏她的Performance舞台。相关回放同时检查拍摄时禁止交互、回镜恢复及离开后重返入口不重播。
+
+验证入口出现顺序必须真实完成轮回堂21008问询，不允许直接写188阶段来代替；要在171经过入口和21008对白中检查光点／窗边人影仍隐藏，完成后再回入口检查自动特写。
 
 > 要给剧情规则加条件类型、加阶段类型、加遭遇规则，或要把 Narrative 真正接进 Unity 时看这份。
 > 架构见 [`narrative-module-guide.md`](narrative-module-guide.md)，对外签名见 [`narrative-external-api.md`](narrative-external-api.md)。
 > 原七文件保持纯规则；运行入口 NarrativeService 与 NarrativeInstaller 已有源码，接线/实测状态见 tasks.md。
-
-
-王录业是连续书库叙事的临时演员，不增加跑点；绑定脚本 `Tools/bind-wang-luye-dialogue.txt` 只追加人界现有组件的引用。对白选态只经ChibiPuppet门面，必须保持该实例Motion停用；新增或调整会话范围时同步SpotlightStoryFlow开始／结束监听与真实对白回放，不能只替换头像而漏掉人物关闭清理。
-
-轮回堂值守则复用妖界原enter_r0171的Point与常驻规则，lunhuitangGuard仅引用其新视觉子物体，PresentLunhuitangGuard只选态。人界同ID为入镜点，不替换为值守；后续给值守加对白仍改源表与导入映射，不能借角色外观更换剧情出口。
 
 ## 扩展点一览
 

@@ -9,11 +9,15 @@ maturity: seed
 
 ## 背包美术接入（2026-10-19）
 
+2026-10-20用户确认暗杀所得各NPC皮共用一张交付图：1101–1103与1901–1909共12个Skin条目在原itemIcons中引用 `Loot/Deliveries/20261020/skin-source.png`。原名称、描述、身份、效果和库存各按物品ID保留；同图皮格子的底部标签显示具体名称，详情仍显示各自信息，面具不替换。接收及验证见[记录](../../stage1-boss-20261020/README.md)。
+
 当前预制体与验证结果见[本批记录](../../ui-inventory-20261019.md)，以下旧白盒层级与“未运行”仅是历史波次状态。现在实际输入资产仍绑定 B／手柄 RB，入口脚本中的 I 注释未作为改键依据。
 
-`ArtLayout/ListViewport/List` 为五列 GridLayoutGroup，使用 ScrollRect／RectMask2D；池项保持 Name／Count／Tag 的真实值，未配图项显示名称。只有明确对应的 1601 名簿配置图标，龙牙等五图按用户选择只归档预览。`UIScrollFocus` 位于 Core/UI，任务与背包共用导航滚入，不引入 Inventory → Quest 依赖。
+`ArtLayout/ListViewport/List` 为五列 GridLayoutGroup，使用 ScrollRect／RectMask2D；池项保持 Name／Count／Tag 的真实值，未配图项显示名称。1601 名簿沿用前批绑定；2026-10-20 用户明确确认后追加1803金襟扣、1804金带钩、1805金环扣，见[接续记录](../../ui-widgets-20261020.md)。龙牙等前批五图仍只归档预览。`UIScrollFocus` 位于 Core/UI，任务与背包共用导航滚入，不引入 Inventory → Quest 依赖。
 
 详情图与名称上方构图沿用交付底板，`ReadingViewport/ReadingContent` 内排列名称、类别、描述、配方说明，按钮固定在下方。`UITextButton` 是标准 Button 的字色扩展，深色状态底同步浅青字，点击与使用／合成服务保持原链。换物品编号时详情 unscaled 160ms OutQuad 淡入，同项刷新不重播，禁用／关闭取消并恢复 alpha；根过渡仍由 UIView 管。
+
+2026-10-20 居中修正：池项 `Icon` 与 `DetailIcon` 改中心 pivot，保持 `preserveAspect`；格子图标100×70、中心(70,-55)，数量区独立保留。详情图250×210、中心(317,-241)，对齐底板八角中心，阅读区不移动。九张交付图的可见边界均贴近原图，无需运行时读像素或改Sprite导入。全部40项及未绑定图的隔离预览见[核查记录](../../ui-inventory-20261019.md)。
 
 > 改 `Assets/_Project/Scripts/Runtime/Inventory/` 之前读这份。对外怎么调看
 > [`inventory-external-api.md`](inventory-external-api.md)，要加东西看 [`inventory-extension-guide.md`](inventory-extension-guide.md)。

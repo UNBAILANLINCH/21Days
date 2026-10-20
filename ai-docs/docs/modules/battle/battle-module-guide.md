@@ -7,9 +7,9 @@ maturity: seed
 
 # Battle 模块指南
 
-## UI交付美术（2026-10-20）
+## 阶段一Boss交付动画（2026-10-20）
 
-`BattleView`已增量接入道具/技能框、回合框、三根真实数值条、怒气亮灭与胜败美术。动态文字仍为TMP，固定胜败字不重复叠字；回合用尽等结果保留原文案。白盒生成器检测到交付美术后拒绝覆盖。资源映射、三版动效与实际验证见[本批接入记录](../../ui-battle-forging-20261020/README.md)，该记录区分离屏截图与真实回放，不以预制体绑定代替运行验收。
+真实酒肆主人 `shop_boss` 和名册 `sample_boss.stagePrefab` 使用 `Chibi_stage1_boss`，阶段九外观不改。`BattleActor.BeginAttackPose/PlayAttackPoseAsync/EndAttackPose`通过ChibiPuppet门面采样交付attack帧，独立unscaled补间与原位移并行。`StrikeAsync`仅在外观有attack态时增加预备和回收定位；原ImpactAsync仍唯一提交onImpact，取消及生命周期清理回Idle，缺态沿用旧表现。没有新增规则、AnimationEvent伤害或改存档。源资源、再生成顺序、预览与实测见[本批记录](../../stage1-boss-20261020/README.md)。
 
 ## 客栈实景战场（2026-10-20）
 
@@ -35,6 +35,9 @@ BattleView既有美术没有不透明的全屏底板，继续保留技能、道�
 
 交付检查：C# lint与diff空白检查通过，新测试.meta由Unity生成，无InitTestScene残留。gc_scan已执行，文档引用检查通过；全局静态不变量仍报NotoSansSC Regular、SourceHanSansCN Regular、SourceHanSerifCN Bold三份动态字体缓存过大，未清理这些已有字体资产，不把全局扫描记为通过。未提交或推送。
 
+## UI交付美术（2026-10-20）
+
+`BattleView`已增量接入道具/技能框、回合框、三根真实数值条、怒气亮灭与胜败美术。动态文字仍为TMP，固定胜败字不重复叠字；回合用尽等结果保留原文案。白盒生成器检测到交付美术后拒绝覆盖。资源映射、三版动效与实际验证见[本批接入记录](../../ui-battle-forging-20261020/README.md)，该记录区分离屏截图与真实回放，不以预制体绑定代替运行验收。
 
 ## 独立酒肆接线增量（2026-10-12）
 
@@ -207,7 +210,7 @@ EncounterStep 打击命中（玩家打中怪 / 怪打中玩家）→ 问 IEncoun
 - **接管 = 关世界相机的 `Camera` 组件、不关物体**（`BattleCameraHandoff.cs:48`），所以世界相机上的 `AudioListener` 与跟随脚本照常；
   战斗期间 `Camera.main` 为 null（`BattleCameraHandoff.cs:7-9`）。
 - 取「世界里正在渲染的相机」用 `Camera.allCameras` 排除战斗场景自己的（`BattleScenePresenter.cs`）；
-  战斗相机的底色（清屏方式、背景色、后处理、Volume 遮罩、抗锯齿）从世界主相机拷一份（`BattleCameraHandoff.cs:86-98`、`BattleScenePresenter.cs`）。
+  战斗相机的底色（清屏方式、背景色、后处理、Volume 遮罩、抗锯齿）从世界主相机拷一份（`BattleCameraHandoff.cs:86-98`、`BattleScenePresenter.cs,390`）。
 - 收场交还：战斗相机回到接管前的开关、被关的相机重新打开（`BattleCameraHandoff.cs:61-79`），**在卸载场景之前**——`CloseAsync` 的 finally 里先 `cameras.Release()`（`BattleScenePresenter.cs`），因为卸载时 `FallbackCamera` 要看到世界相机已经开着，才不会抢回画面。
 - 战斗场景叠加加载、**不切 `ActiveScene`**（`BattleArena.cs`、`:123`）：否则别的模块 `Instantiate` 会落进战斗场景跟着被卸载。舞台根放在世界原点之外
   （场景里根节点 y = −1000，PRP §9 W2a 行；`BattleStage.cs`）。实测 `ActiveScene` 一直是 Boot，舞台吃的是 Boot 的 `RenderSettings`（雾 / 环境光，PRP §9 W2a 行）。
@@ -224,7 +227,7 @@ PRP §9「W2a」行：**叠加加载会触发各模块的 `SceneManager.sceneLoa
 
 | 表现 | 做法 | 出处 |
 | --- | --- | --- |
-| 位移 / 后仰 / 醉晃 / 跳 / 倒地 | `LMotion` 用 `MotionScheduler.UpdateIgnoreTimeScale` | `BattleActor.cs` |
+| 位移 / 后仰 / 醉晃 / 跳 / 倒地 | `LMotion` 用 `MotionScheduler.UpdateIgnoreTimeScale` | `BattleActor.cs,193,207,226,244` |
 | 闪白 / 顿帧 / 提示停留 | `UniTask.Delay(..., ignoreTimeScale: true, ...)` | `BattleActor.cs`、`BattleStage.cs`、`BattleView.cs:252` |
 | 血条动画 | `UpdateIgnoreTimeScale` | `BattleBarWidget.cs:51` |
 | 开战门闸 | 按帧等、不按时间等 | `SceneWorldGate.cs:28-30` |

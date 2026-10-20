@@ -17,6 +17,8 @@
 
 ## 自动规则
 
+2026-10-20：`SourceHanSansCN/SourceHanSansCN-Regular.otf` 是本次交付的思源黑体 CN Regular，内嵌版权为2014／2015 Adobe、SIL OFL；同目录保留对应版权声明与完整许可证。只用于小任务栏与按键提示，未替换全局fallback。动态TMP采用90pt、Padding9、SDFAA、1024×1024、多图集。任务与交互正文继续复用已授权宋体Bold，Heavy／SemiBold近似差异见[本批记录](../../../../ai-docs/docs/ui-widgets-20261020.md)。
+
 无。字体资产要用 Font Asset Creator（或脚本）生成，不是拖进来就能用。
 
 ## 命名

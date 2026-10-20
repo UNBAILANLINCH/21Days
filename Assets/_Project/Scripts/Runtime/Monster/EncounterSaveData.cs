@@ -15,7 +15,8 @@ namespace Game.Monster
         public string SceneKey { get; set; } = "IsometricEncounter";
         // 逻辑快照只有 XZ；新档另存表现高度，避免在高台继续时卡在出生层下面。
         public float? ScenePlayerHeight { get; set; }
-        [Newtonsoft.Json.JsonIgnore] public bool LegacySceneRoute { get; private set; }
+        // 候选读档会经 JSON 深拷贝；迁移信息须保留到场景解析后消费。
+        [Newtonsoft.Json.JsonProperty] public bool LegacySceneRoute { get; private set; }
         public long Tick { get; set; }
         public bool Active { get; set; }
         public long EncounterId { get; set; }
@@ -39,6 +40,8 @@ namespace Game.Monster
                 TamingTargets = null; ControlledActorId = PlayerActorId; PreviousTame = false;
             }
         }
+        public void CompleteSceneRouteMigration() => LegacySceneRoute = false;
+
         public void Validate()
         {
             if (StoryWorld != "human" && StoryWorld != "demon") throw new ArgumentException("场景世界标识非法");

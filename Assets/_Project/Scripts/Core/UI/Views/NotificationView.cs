@@ -14,6 +14,7 @@ using LitMotion;
 using LitMotion.Extensions;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Core.UI.Views
 {
@@ -38,6 +39,14 @@ namespace Game.Core.UI.Views
 
         [Tooltip("正文文字；传空时整行隐藏。")]
         [SerializeField] private TMP_Text bodyLabel;
+
+        [SerializeField] private Image cardBackground;
+        [SerializeField] private Sprite successBackground;
+        [SerializeField] private Color successTitleColor = new Color32(32, 105, 120, 255);
+        [SerializeField] private Color successBodyColor = new Color32(92, 149, 161, 255);
+        private Sprite defaultBackground;
+        private Color defaultTitleColor;
+        private Color defaultBodyColor;
 
         [Tooltip("右下角小字的 CanvasGroup，进出场改它的 alpha。")]
         [SerializeField] private CanvasGroup cornerGroup;
@@ -76,6 +85,9 @@ namespace Game.Core.UI.Views
                 // 预制体里摆好的位置就是停靠位；只记一次，免得重开时把动画中途的位置当成停靠位。
                 restY = card.anchoredPosition.y;
                 restCaptured = true;
+                if (cardBackground != null) defaultBackground = cardBackground.sprite;
+                defaultTitleColor = titleLabel.color;
+                defaultBodyColor = bodyLabel.color;
             }
 
             cardGroup.blocksRaycasts = false;
@@ -109,9 +121,13 @@ namespace Game.Core.UI.Views
         }
 
         /// <summary>显示一张卡片（换下一条时也调它：直接换字并重播进场）。<paramref name="body"/> 为空则隐藏正文行。</summary>
-        public void ShowCard(string title, string body)
+        public void ShowCard(string title, string body, bool success = false)
         {
             Validate();
+            if (cardBackground != null)
+                cardBackground.sprite = success && successBackground != null ? successBackground : defaultBackground;
+            titleLabel.color = success ? successTitleColor : defaultTitleColor;
+            bodyLabel.color = success ? successBodyColor : defaultBodyColor;
             titleLabel.text = title;
             bool hasBody = !string.IsNullOrEmpty(body);
             bodyLabel.gameObject.SetActive(hasBody);
@@ -239,6 +255,17 @@ namespace Game.Core.UI.Views
         private void StopCornerMotion()
         {
             if (cornerMotion.IsActive()) cornerMotion.Cancel();
+        }
+
+        private void OnDisable()
+        {
+            StopMotions();
+            StopCornerMotion();
+            IsCardShown = false;
+            IsCornerShown = false;
+            if (cardGroup != null) cardGroup.alpha = 0f;
+            if (cornerGroup != null) cornerGroup.alpha = 0f;
+            if (restCaptured && card != null) SetY(restY);
         }
 
         private void Validate()

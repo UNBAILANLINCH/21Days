@@ -346,7 +346,7 @@ namespace Game.Tests.EditMode.Loot
         private sealed class FakeNotificationService : INotificationService
         {
             public List<(string Title, string Body)> Received { get; } = new List<(string Title, string Body)>();
-            public void Show(string title, string body = null, float seconds = 0f) => Received.Add((title, body));
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false) => Received.Add((title, body));
 
             // 拾取奖励走的是排队卡片那一档，角落小字本文件用不到。
             public void ShowCornerHint(string text, float seconds = 0f) => throw new NotSupportedException();

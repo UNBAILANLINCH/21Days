@@ -10,6 +10,8 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Simulation;
 using Game.Core.UI;
+using LitMotion;
+using LitMotion.Extensions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -50,6 +52,11 @@ namespace Game.Interaction
         [SerializeField] private TMP_Text label;
         [Tooltip("图标（占位，可空；当前 PC 式提示不显示）。")]
         [SerializeField] private Image icon;
+        [SerializeField] private Image keyArtwork;
+        [SerializeField] private LayoutElement keyBadgeLayout;
+        [SerializeField] private CanvasGroup promptGroup;
+        [SerializeField, Min(0f)] private float fadeSeconds = 0.16f;
+        private MotionHandle showMotion;
         [SerializeField] private Button secondaryButton;
         [SerializeField] private TMP_Text secondaryLabel;
         private string secondaryKeyText = "F";
@@ -89,6 +96,7 @@ namespace Game.Interaction
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
+            StopMotion();
             if (button != null) button.onClick.RemoveListener(RaiseInteract);
             if (secondaryButton != null) secondaryButton.onClick.RemoveListener(RaiseSecondaryInteract);
             OnInteract = null;
@@ -97,9 +105,19 @@ namespace Game.Interaction
         }
 
         /// <summary>设置键位徽章文字；传入输入系统给的绑定显示串，空则回退「E」。</summary>
-        public void SetKeyText(string bindingDisplay)
+        public void SetKeyText(string bindingDisplay, bool keyboard = true)
         {
-            if (keyLabel != null) keyLabel.text = FormatKeyText(bindingDisplay);
+            string text = string.IsNullOrWhiteSpace(bindingDisplay) ? "—" : bindingDisplay.Trim();
+            bool artwork = keyboard && text == "E" && keyArtwork != null;
+            if (keyArtwork != null) keyArtwork.gameObject.SetActive(artwork);
+            if (keyLabel != null)
+            {
+                if (keyLabel.text != text) keyLabel.text = text;
+                keyLabel.enabled = !artwork;
+                if (keyBadgeLayout != null)
+                    keyBadgeLayout.preferredWidth = artwork ? 42f : GameMath.Clamp(keyLabel.GetPreferredValues(text).x + 12f, 42f, 150f);
+            }
+            if (IsShown) FitWidth();
         }
 
         public void SetSecondaryKeyText(string bindingDisplay)
@@ -111,11 +129,19 @@ namespace Game.Interaction
         /// <summary>显示提示，右侧写「动词 · 名字」；名字为空只写动词。胶囊宽度随文字在 [minWidth, maxWidth] 里伸缩。</summary>
         public void Show(InteractionPrompt prompt)
         {
+            bool entering = !IsShown;
             if (label != null) label.text = FormatLabel(prompt);
             // 先激活再量宽：Root 在预制体里默认未激活，文字组件没初始化时量出的首选宽度不准，
             // 第一次显示会退回最小宽度把长提示截断（2026-10-08 World 回放截到「前往 · 镜中妖界长安…」）。
             if (root != null && !root.activeSelf) root.SetActive(true);
             FitWidth();
+            if (entering && promptGroup != null && isActiveAndEnabled && fadeSeconds > 0f)
+            {
+                StopMotion();
+                showMotion = LMotion.Create(0f, 1f, fadeSeconds)
+                    .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                    .WithEase(Ease.OutQuad).BindToAlpha(promptGroup).AddTo(gameObject);
+            }
         }
 
         /// <summary>
@@ -159,6 +185,7 @@ namespace Game.Interaction
 
         public void Hide()
         {
+            StopMotion();
             if (root != null && root.activeSelf) root.SetActive(false);
             ShowSecondary(null);
         }
@@ -210,5 +237,13 @@ namespace Game.Interaction
 
         private void RaiseInteract() => OnInteract?.Invoke();
         private void RaiseSecondaryInteract() => OnSecondaryInteract?.Invoke();
+
+        private void StopMotion()
+        {
+            if (showMotion.IsActive()) showMotion.Cancel();
+            if (promptGroup != null) promptGroup.alpha = 1f;
+        }
+
+        private void OnDisable() => StopMotion();
     }
 }

@@ -94,7 +94,8 @@ namespace Game.Quest
                 return;
             }
 
-            notifications.Show(Compose(format, definition.Title));
+            bool success = kind == "completed";
+            notifications.Show(Compose(format, definition.Title), success ? definition.Title : null, success: success);
             telemetry.Track("notified", ("id", questId), ("kind", kind));
         }
     }

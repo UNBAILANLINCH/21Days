@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using Game.Core.Simulation;
+using LitMotion;
+using LitMotion.Extensions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,6 +39,11 @@ namespace Game.Quest
         [SerializeField] private TMP_Text distanceLabel;
         [Tooltip("任务键键位提示（如「Tab」），运行时由 QuestHudPresenter 按输入绑定赋值。可空：不显示提示。")]
         [SerializeField] private TMP_Text keyHint;
+        [SerializeField] private CanvasGroup contentGroup;
+        [SerializeField, Min(0f)] private float contentFadeSeconds = 0.16f;
+        private MotionHandle contentMotion;
+        [SerializeField] private Vector2 heightRange = new Vector2(85f, 130f);
+        [SerializeField, Min(0f)] private float bottomInset = 12f;
 
         private bool visible = true;
 
@@ -58,6 +66,7 @@ namespace Game.Quest
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
+            StopContentMotion();
             if (button != null) button.onClick.RemoveListener(RaiseClicked);
             OnClicked = null;
             return UniTask.CompletedTask;
@@ -66,15 +75,26 @@ namespace Game.Quest
         /// <summary>显示追踪中的任务。</summary>
         public void SetTracked(string questTitle, string objectiveText)
         {
+            if (title.text == questTitle && objective.text == objectiveText) return;
             title.text = questTitle;
             objective.text = objectiveText;
+            if (root != null && root.transform is RectTransform rect)
+            {
+                RectTransform textRect = objective.rectTransform;
+                float contentHeight = string.IsNullOrEmpty(objectiveText) ? 0f
+                    : objective.GetPreferredValues(objectiveText, textRect.rect.width, 0f).y;
+                float height = GameMath.Abs(textRect.anchoredPosition.y)
+                    + GameMath.Min(contentHeight, textRect.rect.height) + bottomInset;
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                    GameMath.Clamp(height, heightRange.x, heightRange.y));
+            }
+            FadeContent();
         }
 
         /// <summary>没有追踪任务：标题显示占位，目标清空。</summary>
         public void SetUntracked(string placeholder)
         {
-            title.text = placeholder;
-            objective.text = string.Empty;
+            SetTracked(placeholder, string.Empty);
         }
 
         /// <summary>
@@ -117,7 +137,9 @@ namespace Game.Quest
         /// </summary>
         public void SetVisible(bool value)
         {
+            if (visible == value) return;
             visible = value;
+            if (!value) StopContentMotion();
             if (root != null && root.activeSelf != value) root.SetActive(value);
             if (!value) HideGuidance();
         }
@@ -138,5 +160,22 @@ namespace Game.Quest
         }
 
         private void RaiseClicked() => OnClicked?.Invoke();
+
+        private void FadeContent()
+        {
+            StopContentMotion();
+            if (contentGroup == null || !visible || !isActiveAndEnabled || contentFadeSeconds <= 0f) return;
+            contentMotion = LMotion.Create(0f, 1f, contentFadeSeconds)
+                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                .WithEase(Ease.OutQuad).BindToAlpha(contentGroup).AddTo(gameObject);
+        }
+
+        private void StopContentMotion()
+        {
+            if (contentMotion.IsActive()) contentMotion.Cancel();
+            if (contentGroup != null) contentGroup.alpha = 1f;
+        }
+
+        private void OnDisable() => StopContentMotion();
     }
 }

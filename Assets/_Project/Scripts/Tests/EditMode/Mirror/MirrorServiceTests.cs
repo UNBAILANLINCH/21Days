@@ -284,7 +284,7 @@ namespace Game.Tests.EditMode.Mirror
         /// <summary>吞掉通知：本文件不开箱。</summary>
         private sealed class NoopNotificationService : INotificationService
         {
-            public void Show(string title, string body = null, float seconds = 0f)
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false)
             {
             }
 

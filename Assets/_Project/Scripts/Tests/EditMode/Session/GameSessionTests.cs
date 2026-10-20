@@ -423,7 +423,7 @@ namespace Game.Tests.EditMode.Session
             public List<string> Titles { get; } = new List<string>();
             public List<string> CornerHints { get; } = new List<string>();
 
-            public void Show(string title, string body = null, float seconds = 0f) => Titles.Add(title);
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false) => Titles.Add(title);
 
             public void ShowCornerHint(string text, float seconds = 0f) => CornerHints.Add(text);
         }

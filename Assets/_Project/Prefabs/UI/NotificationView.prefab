@@ -737,6 +737,10 @@ MonoBehaviour:
   cardGroup: {fileID: 8333658478493011502}
   titleLabel: {fileID: 1870176177077082163}
   bodyLabel: {fileID: 2140813982832535620}
+  cardBackground: {fileID: 7857421896163119905}
+  successBackground: {fileID: 21300000, guid: 0afb0e0518f3c2f4d9d26c7e31db1e30, type: 3}
+  successTitleColor: {r: 0.1254902, g: 0.4117647, b: 0.47058824, a: 1}
+  successBodyColor: {r: 0.36078432, g: 0.58431375, b: 0.6313726, a: 1}
   cornerGroup: {fileID: 2468567930830711455}
   cornerLabel: {fileID: 1055799803539706991}
   cardSeconds: 0.2

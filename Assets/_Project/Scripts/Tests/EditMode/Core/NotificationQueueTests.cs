@@ -110,6 +110,24 @@ namespace Game.Tests.EditMode.Core
         }
 
         [Test]
+        public void Enqueue_SuccessWithDifferentBodies_KeepsEveryResultAndAppearance()
+        {
+            queue.Enqueue("完成任务", "甲", 1f, true);
+            queue.Enqueue("完成任务", "乙", 1f, true);
+            queue.Enqueue("完成任务", "乙", 2f, true);
+            queue.Enqueue("完成任务", "普通正文", 1f);
+            Assert.That(queue.PendingCount, Is.EqualTo(3));
+            queue.Advance(0f);
+            Assert.That(queue.Current.Success, Is.True);
+            Assert.That(queue.Current.Body, Is.EqualTo("甲"));
+            queue.Advance(1f);
+            Assert.That(queue.Current.Body, Is.EqualTo("乙"));
+            Assert.That(queue.Current.Seconds, Is.EqualTo(2f));
+            queue.Advance(2f);
+            Assert.That(queue.Current.Success, Is.False);
+        }
+
+        [Test]
         public void Enqueue_WhenMergeDisabled_KeepsDuplicates()
         {
             var plain = new NotificationQueue(false);

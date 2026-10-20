@@ -22,4 +22,4 @@ MonoBehaviour:
   mainKindLabel: "\u4E3B\u7EBF"
   sideKindLabel: "\u652F\u7EBF"
   activatedNotificationFormat: "\u63A5\u53D6\u4EFB\u52A1\uFF1A{0}"
-  completedNotificationFormat: "\u672C\u6BB5\u4E3B\u7EBF\u5B8C\u6210\uFF1A{0}\u3002\u540E\u7EED\u5185\u5BB9\u6682\u672A\u5F00\u653E\u3002"
+  completedNotificationFormat: "\u5B8C\u6210\u4EFB\u52A1"

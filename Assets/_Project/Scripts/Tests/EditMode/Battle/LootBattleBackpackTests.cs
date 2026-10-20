@@ -107,7 +107,7 @@ namespace Game.Tests.EditMode.Battle
 
         private sealed class Notifications : INotificationService
         {
-            public void Show(string title, string body = null, float seconds = 0f) { }
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false) { }
             public void ShowCornerHint(string text, float seconds = 0f) { }
         }
 

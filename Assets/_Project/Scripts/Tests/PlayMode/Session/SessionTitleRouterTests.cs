@@ -259,7 +259,7 @@ namespace Game.Tests.PlayMode.Session
         }
         private sealed class TestNotifications : INotificationService
         {
-            public void Show(string title, string body = null, float seconds = 0f) { }
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false) { }
             public void ShowCornerHint(string text, float seconds = 0f) { }
         }
     }

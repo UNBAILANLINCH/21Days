@@ -39,8 +39,8 @@ namespace Game.Quest
         [Tooltip("接取任务时通知的标题格式，{0} 为任务标题。")]
         [SerializeField] private string activatedNotificationFormat = "接取任务：{0}";
 
-        [Tooltip("完成任务时通知的标题格式，{0} 为任务标题。")]
-        [SerializeField] private string completedNotificationFormat = "任务完成：{0}";
+        [Tooltip("完成通知的标题；仍支持 {0} 格式，正文另显示实际任务名。")]
+        [SerializeField] private string completedNotificationFormat = "完成任务";
 
         public float EdgeMargin => edgeMargin;
         public float DistanceRefreshInterval => distanceRefreshInterval;

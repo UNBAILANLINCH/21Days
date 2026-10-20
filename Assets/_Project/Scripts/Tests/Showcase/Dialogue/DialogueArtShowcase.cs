@@ -9,6 +9,7 @@ using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Dialogue;
 using Game.IsometricExploration;
+using Game.Interaction;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -47,6 +48,52 @@ namespace Game.Tests.Showcase.Dialogue
             follow.SetTarget(npc.transform);
             yield return WaitUntil("只将验证镜头对准气泡 NPC，不启动正式序章", () =>
                 Vector3.Distance(follow.transform.position, npc.transform.position + follow.Offset) < .1f, 4f);
+
+            var focus = ResolveService<IInteractionFocus>();
+            // 回放程序集不引用容器；只反射调用现有公开点选入口，不读写私有焦点状态。
+            System.Action<IInteractable> selectFocus = target => focus.GetType().GetMethod("RequestFocus")
+                .Invoke(focus, new object[] { target });
+            var registry = ResolveService<IInteractionRegistry>();
+            var input = ResolveService<IInputService>();
+            bool gameplayBefore = input.Actions.Gameplay.enabled;
+            // 这是不进入正式世界的美术夹具：复制既有 NPC 到真实玩家半径内，不瞬移玩家、不改场景或半径。
+            Vector3 player = registry.Actor.Anchor.position;
+            var firstObject = Track(UnityEngine.Object.Instantiate(npc.gameObject, player + Vector3.right, npc.transform.rotation));
+            var otherObject = Track(UnityEngine.Object.Instantiate(npc.gameObject, player + Vector3.left, npc.transform.rotation));
+            var firstMarkerNpc = firstObject.GetComponent<DialogueInteractable>();
+            var otherMarkerNpc = otherObject.GetComponent<DialogueInteractable>();
+            registry.Register(firstMarkerNpc); registry.Register(otherMarkerNpc);
+            input.EnableMap(InputService.GameplayMap);
+            follow.SetTarget(firstObject.transform);
+            try
+            {
+                SpriteRenderer focused = FindDeep<SpriteRenderer>(firstObject.transform, "MarkerFocus");
+                SpriteRenderer idle = FindDeep<SpriteRenderer>(firstObject.transform, "MarkerIdle");
+                Assert.That(focused, Is.Not.Null); Assert.That(idle, Is.Not.Null);
+                yield return WaitUntil("近距离 NPC 夹具已入镜", () => Vector3.Distance(follow.transform.position,
+                    firstObject.transform.position + follow.Offset) < .1f, 4f);
+                yield return Step("经现有点选入口选中近距离 NPC，再把焦点交给另一 NPC", () => selectFocus(firstMarkerNpc), 0f);
+                yield return Check("聚焦时新叹号显示，省略号隐藏", () => firstMarkerNpc.Focused && focused.gameObject.activeSelf
+                    && focused.sprite.name == "marker-exclamation" && !idle.gameObject.activeSelf, 3f);
+                overlay.enabled = false;
+                yield return Snapshot("叹号_当前焦点");
+                overlay.enabled = true;
+                selectFocus(otherMarkerNpc);
+                yield return Check("焦点转移后显示新省略号，保留原状态语义", () => !firstMarkerNpc.Focused && idle.gameObject.activeSelf
+                    && idle.sprite.name == "marker-ellipsis" && !focused.gameObject.activeSelf, 3f);
+                overlay.enabled = false;
+                yield return Snapshot("省略号_可交互未聚焦");
+                overlay.enabled = true;
+            }
+            finally
+            {
+                registry.Unregister(firstMarkerNpc); registry.Unregister(otherMarkerNpc);
+                UnityEngine.Object.Destroy(firstObject); UnityEngine.Object.Destroy(otherObject);
+                if (!gameplayBefore) input.DisableMap(InputService.GameplayMap);
+                follow.SetTarget(npc.transform);
+            }
+            yield return WaitUntil("镜头回到原台词 NPC", () => Vector3.Distance(follow.transform.position,
+                npc.transform.position + follow.Offset) < .1f, 4f);
 
             using (ResolveService<IWorldPauseService>().Acquire(this))
             {

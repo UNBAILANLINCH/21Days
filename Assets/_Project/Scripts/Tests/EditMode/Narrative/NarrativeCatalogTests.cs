@@ -56,7 +56,7 @@ namespace Game.Tests.EditMode.Narrative
                     Assert.That(node.Text, Does.Not.StartWith("（"), "策划说明不应显示给玩家");
                 }
             }
-            Assert.That(lines, Is.EqualTo(355));
+            Assert.That(lines, Is.EqualTo(352), "案卷四行合成一个显示节点，原文内容保留");
         }
 
         /// <summary>战斗关样例必须能整条翻译进表；校验器从「一律抛」改为「可进表 + 有校验」的回归锚点。</summary>

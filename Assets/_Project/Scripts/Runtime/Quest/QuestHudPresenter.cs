@@ -71,6 +71,7 @@ namespace Game.Quest
         private InputAction journalAction;
         private string journalHint = string.Empty;
         private string lastPresentationText = "";
+        private bool gamepadHints;
 
         public QuestHudPresenter(QuestService service, QuestSceneBinder binder, QuestPanelController panel,
             QuestConfig config, DialogueService dialogue, IUIService ui, IHudVisibility hudVisibility,
@@ -113,6 +114,7 @@ namespace Game.Quest
             dialogue.OnStarted += HandleDialogueStarted;
             dialogue.OnEnded += HandleDialogueEnded;
             dialogueHooked = true;
+            InputSystem.onActionChange += HandleInputChange;
         }
 
         /// <summary>
@@ -144,7 +146,7 @@ namespace Game.Quest
         public void Tick()
         {
             if (hud == null) return;
-            hud.SetVisible(!dialogue.IsRunning);
+            hud.SetVisible(!dialogue.IsRunning && !hudVisibility.IsHudHidden);
             if (lastPresentationText != service.PresentationObjective) RefreshText();
             // 沉浸模式：世界空间目标标记隐藏；贴边箭头在 Hud 面板里，随面板一起被 UIService 隐藏。
             if (dialogue.IsRunning || hudVisibility.IsHudHidden)
@@ -211,6 +213,7 @@ namespace Game.Quest
         {
             if (disposed) return;
             disposed = true;
+            InputSystem.onActionChange -= HandleInputChange;
             if (subscription != null)
             {
                 subscription.Dispose();
@@ -344,7 +347,7 @@ namespace Game.Quest
 
             journalAction = input.Actions.Gameplay.Journal; // lint-ok: 开任务面板是 UI 行为，不进确定性模拟与回放
             journalAction.performed += HandleJournal;
-            journalHint = KeyboardBindingDisplay(journalAction);
+            journalHint = InputBindingDisplay.Read(journalAction, gamepadHints);
         }
 
         private void HandleJournal(InputAction.CallbackContext context)
@@ -352,6 +355,19 @@ namespace Game.Quest
             if (!ShouldOpenOnJournal(hud != null, dialogue.IsRunning, panel.IsOpen)) return;
             telemetry.Track("journal_key");
             OpenPanelAsync().Forget();
+        }
+
+        private void HandleInputChange(object source, InputActionChange change)
+        {
+            bool next;
+            if (InputBindingDisplay.TryGetDevice(source, change, out next))
+            {
+                if (next == gamepadHints) return;
+                gamepadHints = next;
+            }
+            else if (change != InputActionChange.BoundControlsChanged) return;
+            journalHint = InputBindingDisplay.Read(journalAction, gamepadHints);
+            if (hud != null) hud.SetKeyHint(journalHint);
         }
 
         private async UniTaskVoid OpenPanelAsync()
@@ -389,7 +405,7 @@ namespace Game.Quest
                 hud.OnClicked += HandleHudClicked;
                 hud.SetKeyHint(journalHint);
                 hud.HideGuidance();
-                hud.SetVisible(!dialogue.IsRunning);
+                hud.SetVisible(!dialogue.IsRunning && !hudVisibility.IsHudHidden);
                 lastTrackedId = -1;
                 RefreshText();
             }

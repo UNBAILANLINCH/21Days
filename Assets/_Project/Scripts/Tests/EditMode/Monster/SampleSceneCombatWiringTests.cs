@@ -3,7 +3,7 @@
 //   2. 巡逻者乙（Patrol_B，协作者的线）两个新字段仍是默认值（0 / false）——它靠默认值保持旧行为（TamingActor 文件头）；
 //   3. Npc_SampleBoss 挂了 BossAggro（bossId = sample_boss，头顶提示物体已拖、默认关着）；
 //   4. 四份资产的口径：露馅后果 = 追逐、六种原因都失去身份；被抓 = 先击倒没血才死、不按次数判死；
-//      三个升级开关全开；名册里有市令（1003）那一行、sample_boss 开了发难（半径 5、反应 3 秒）。
+//      普通巡逻不按种类升级回合制；显式剧情/BOSS 行仍在、sample_boss 开了发难（半径 5、反应 3 秒）。
 // 为什么新建（复用 → 扩展 → 新建）：
 //   复用——SampleSceneObstacleWiringTests 守「谁挡人」，ExecutionSceneWiringTests 守处决的容器接线（new GameObject 搭），
 //   都不读这几项；扩展——塞进前者职责说不通（碰撞与战斗口径是两件事），后者不读真实场景。
@@ -41,7 +41,7 @@ namespace Game.Tests.EditMode.Monster
         private const string PatrolBStableId = "patrol-b";
         private const int PatrolBIndex = 1;
 
-        /// <summary>市令（主怪种类）：名册里要有它的战斗数据，升级回合制才找得到对手。</summary>
+        /// <summary>普通巡逻的主怪种类：保留实时警戒、追逐与抓捕，不自动升级回合制。</summary>
         private const int ShilingKindId = 1003;
 
         private const string BossObjectName = "Npc_SampleBoss";
@@ -118,6 +118,58 @@ namespace Game.Tests.EditMode.Monster
         // ───────────────────────── 资产 ─────────────────────────
 
         [Test]
+        public void FormalShopBoss_HasLiveNarrativeTarget_ForChallengeRouting()
+        {
+            var world = FindAll<Game.ShopPlaytest.ShopPlaytestWorld>()[0];
+            var boss = System.Array.Find(world.Actors, actor => actor.StableId == "shop_boss");
+            var trigger = boss.GetComponent<Game.Narrative.NarrativeTrigger>();
+            Assert.That(trigger, Is.Not.Null, "移除目标组件会使划拳达标后的挑战被拒绝");
+            Assert.That(trigger.enabled && trigger.gameObject.activeInHierarchy, Is.True);
+            Assert.That(trigger.TargetId, Is.EqualTo("shop_boss"));
+            Assert.That(trigger.TargetKind, Is.EqualTo("SpotlightShopBoss"));
+        }
+
+        [Test]
+        public void FormalAfterBattlePoints_KeepClearOfShopInteractionCenters()
+        {
+            Physics.SyncTransforms();
+            var world = FindAll<Game.ShopPlaytest.ShopPlaytestWorld>()[0];
+            var bindings = FindAll<Game.Narrative.SpotlightSceneBindings>().Find(item => !item.IsHumanStory);
+            foreach (string stage in new[] { "enter_r0198", "enter_r0215" })
+            {
+                var point = bindings.Find(stage);
+                Assert.That(point.Marker, Is.Not.Null, "当前剧情地点应有光点");
+                Assert.That(System.Array.Exists(Physics.OverlapCapsule(point.Position + Vector3.up * .35f,
+                    point.Position + Vector3.up * 1.5f, .4f, LayerMask.GetMask("Obstacle")),
+                    collider => collider.gameObject.scene == scene), Is.False, stage + "不能摆进桌椅或箱子");
+                foreach (var actor in world.Actors)
+                    Assert.That(Vector3.Distance(point.Position, actor.Position), Is.GreaterThan(1.6f),
+                        stage + "不能再挤到店铺人物交互中心：" + actor.StableId);
+            }
+        }
+
+        [Test]
+        public void FormalStory_LegacyIsolationIncludesOldPerformanceAndBosses()
+        {
+            var bindings = FindAll<Game.Narrative.SpotlightSceneBindings>().Find(item => !item.IsHumanStory);
+            Assert.That(bindings != null, Is.True);
+            var names = new List<string>();
+            using (var serialized = new SerializedObject(bindings))
+            {
+                var examples = serialized.FindProperty("legacyExamples");
+                for (int i = 0; i < examples.arraySize; i++)
+                {
+                    var example = examples.GetArrayElementAtIndex(i).objectReferenceValue;
+                    if (example != null) names.Add(example.name);
+                }
+            }
+            Assert.That(names, Does.Contain("Trigger_VillageEntrance"));
+            Assert.That(names, Does.Contain("Npc_SampleBoss"));
+            Assert.That(names, Does.Contain("Npc_Stage9Boss"));
+            Assert.That(names, Does.Contain("Npc_BattleDrill"));
+        }
+
+        [Test]
         public void IdentityConfig_ExposureChases_AndAllSixCausesLoseIdentity()
         {
             IdentitySettings settings = LoadAsset<IdentityConfig>(IdentityConfigPath).Settings;
@@ -149,13 +201,16 @@ namespace Game.Tests.EditMode.Monster
         }
 
         [Test]
-        public void BossRoster_HasShilingRow_AndSampleBossAggroArmed()
+        public void BossRoster_PatrolKindsDoNotEscalate_AndExplicitBossEntriesRemain()
         {
             BossRoster roster = LoadAsset<BossRosterConfig>(BossRosterConfigPath).CreateRoster();
 
-            Assert.That(roster.TryGetByKind(ShilingKindId, out BossDefinition shiling), Is.True,
-                "名册里应有 monsterKindId = 1003（市令）的一行：市令升级回合制要靠它");
-            Assert.That(shiling.MonsterKindId, Is.EqualTo(ShilingKindId));
+            Assert.That(roster.TryGetByKind(ShilingKindId, out _), Is.False, "普通巡逻市令不应映射自动回合制入口");
+            Assert.That(roster.TryGetByKind(XunyeKindId, out _), Is.False, "普通巡逻巡夜人不应映射自动回合制入口");
+            Assert.That(roster.TryGet("monster_1003", out BossDefinition shiling), Is.True, "保留市令的显式ID入口");
+            Assert.That(shiling.MonsterKindId, Is.EqualTo(0), "仅解除按种类自动映射，不删除显式战斗定义");
+            Assert.That(roster.TryGet("stage9_boss", out _), Is.True, "保留阶段九BOSS入口");
+            Assert.That(roster.TryGet("spotlight_mentor", out _), Is.True, "保留序章切磋入口");
 
             Assert.That(roster.TryGet(SampleBossId, out BossDefinition sampleBoss), Is.True, "名册里应有 sample_boss");
             Assert.That(sampleBoss.AggroEnabled, Is.True, "sample_boss 应开主动发难");

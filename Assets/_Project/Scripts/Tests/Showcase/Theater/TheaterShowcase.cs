@@ -11,13 +11,14 @@ using UnityEngine.UI;
 namespace Game.Tests.Showcase.Theater
 {
     [Category("Showcase")]
+    [Timeout(600000)]
     public sealed class TheaterShowcase : ShopPlaytestShowcase
     {
         protected override string Module => "Theater";
         [UnityTest]
         public IEnumerator Roles_FourLanePerformanceReturnsAndRetries()
         {
-            yield return Ready(0);
+            yield return ReadyUnlockedShop(0);
             Game.ShopPlaytest.ShopPlaytestActor station = null;
             foreach (var actor in State.World.Actors) if (actor.StableId == "shop_station_0") station = actor;
             yield return OpenConversation(station);
@@ -26,7 +27,13 @@ namespace Game.Tests.Showcase.Theater
                 choice => choice.Id == "command2"), Is.False, "本体不出现乐正演奏选项");
             yield return Choose("leave");
             yield return Check("前置不足，音游未打开", () => !ResolveService<RhythmState>().IsActivityOpen);
+            yield return Borrow(1);
+            yield return Borrow(2);
             yield return Borrow(0);
+            yield return Check("三位取皮者均已死亡，能力仍由玩家穿皮使用", () =>
+                State.Taming.GetTarget("shop_apprentice").Model.Health == 0 &&
+                State.Taming.GetTarget("shop_director").Model.Health == 0 &&
+                State.Taming.GetTarget("shop_musician").Model.Health == 0);
             yield return Command(0);
             yield return Borrow(1);
             yield return Command(1);
@@ -64,7 +71,7 @@ namespace Game.Tests.Showcase.Theater
         [UnityTest]
         public IEnumerator LowScore_AndPauseExit_ReturnToPlayableTheater()
         {
-            yield return Ready(0);
+            yield return ReadyUnlockedShop(0);
             yield return Borrow(0);
             yield return Command(0);
             yield return Borrow(1);

@@ -71,6 +71,7 @@ namespace Game.ShopPlaytest
         private ShopPlaytestWorld world;
         private EncounterSceneView encounterView;
         private readonly Queue<string> replies = new Queue<string>();
+        private int pendingSkinItem;
         private ShopPlaytestActor conversationActor;
         private ForgingView forgingView;
         // 卸载等结束信号；活动本身由Forget观察，不能再并发await同一个UniTask。
@@ -136,7 +137,7 @@ namespace Game.ShopPlaytest
             FindActor("shop_boss").gameObject.SetActive(!tavernCompleted);
             foreach (ShopPlaytestActor actor in world.Actors)
             { actor.Bind(Interact, CanInteract, TakeOrWearSkin, selected => interactionFocus.RequestFocus(selected),
-                target => OwnsSkin(target.Role) ? "换皮" : "潜行刺杀取皮"); interaction.Register(actor); }
+                target => OwnsSkin(target.Role) ? "换皮" : "潜行刺杀取皮", CanTakeOrWearSkin); interaction.Register(actor); }
             Taming.OnControlChanged += ControlChanged;
             step.OnAdvanced += AdvanceIdentity;
             Taming.BindSelection(CanSelect);
@@ -144,6 +145,7 @@ namespace Game.ShopPlaytest
             step.BindPlayerModifiers(() => tavern.Rules.SpeedMultiplier, () => tavern.Rules.CanSneak);
             battleSetup.BindDrunkSource(BossDrunk);
             narrative.OnChanged += NarrativeChanged;
+            SyncActorLife();
             ControlChanged(Taming.CurrentControlId);
             ShopPlaytestActor restored = FindActor(savedSkin);
             if (restored != null) TryWearSkin(ShopSkinRules.ItemId(restored.Role), out _);
@@ -156,9 +158,13 @@ namespace Game.ShopPlaytest
             return null;
         }
         // 旧场景仍引用衣肆柜台锚点，交谈统一由现场裁衣匠承接。
+        // 战后顾客仍会靠近玩家；两处主线等待先收普通入口，避免客人持续抢走地点的E焦点。
         private bool CanInteract(ShopPlaytestActor actor) => world != null && actor.StableId != "shop_station_1" && !Busy && !HasPendingReply && actor.Shop == ActiveShop &&
-            (narrative.CurrentStoryId != "spotlight_current" || narrative.CurrentStageId == "action_r0197") &&
-            actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId)));
+            (narrative.CurrentStoryId != "spotlight_current" || narrative.CurrentStageId != "enter_r0198" && narrative.CurrentStageId != "enter_r0215") &&
+            actor.IsVisible && (actor.Role.Length == 0 || (actor.StableId != Taming.CurrentControlId && Taming.IsAvailable(actor.StableId) &&
+                Taming.GetTarget(actor.StableId).Model.Health > 0));
+        private bool ShopGameplayAllowed => narrative.CurrentStoryId != "spotlight_current" || narrative.CurrentStageId == "action_r0197";
+        private bool CanTakeOrWearSkin(ShopPlaytestActor actor) => CanInteract(actor) && ShopGameplayAllowed;
         private bool CanSelect(string id)
         {
             return FindActor(id) == null;
@@ -166,9 +172,15 @@ namespace Game.ShopPlaytest
         private void Interact(ShopPlaytestActor actor)
         {
             if (!CanInteract(actor) || Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
+            if (!ShopGameplayAllowed)
+            {
+                conversationActor = actor;
+                Show(narrative.CurrentStageId == "enter_r0171" ? "先到轮回堂，向门前值守问询，再来逛店。"
+                    : narrative.CurrentStageId == "enter_r0188" ? "先到坊市入口，查看酒肆窗边的线索，再来逛店。"
+                    : "先处理眼前的事，再来店里看看。");
+                return;
+            }
             if (actor.Shop == 4 && !CheckTavernEntry()) return;
-            if (actor.Role.Length > 0 && Taming.GetTarget(actor.StableId).Model.Health <= 0)
-            { Show("这人已被刺杀；取得的皮可以在背包中使用。"); return; }
             ConverseAsync(actor).Forget();
         }
         public void ReturnBody()
@@ -182,9 +194,10 @@ namespace Game.ShopPlaytest
             loot.Items.TryGetValue(ShopSkinRules.ItemId(skinRole), out int count) && count > 0;
         private void TakeOrWearSkin(ShopPlaytestActor actor)
         {
-            if (!actor.CanInteractSecondary || !CanInteract(actor) ||
+            if (!actor.CanInteractSecondary || !CanTakeOrWearSkin(actor) ||
                 Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
             if (actor.Shop == 4 && !CheckTavernEntry()) return;
+            conversationActor = null;
             int itemId = ShopSkinRules.ItemId(actor.Role);
             if (OwnsSkin(actor.Role))
             { Show(TryWearSkin(itemId, out string reason) ? "已换上" + actor.DisplayName + "的皮。" : reason); return; }
@@ -196,9 +209,12 @@ namespace Game.ShopPlaytest
             var attack = new ExecutionInput(in snapshot, itemId != 0);
             ExecutionVerdict result = execution.TryExecute(in attack, target);
             if (!result.Allowed) { Show("刺杀失败：" + result.Describe() + "。需潜行、绕背并靠近未察觉的目标。"); return; }
+            SyncActorLife();
             if (!loot.GrantItems(itemId, 1)) { Show("取皮入包失败，请重新进场恢复。"); return; }
+            pendingSkinItem = itemId;
             Persist();
-            Show(actor.DisplayName + "的皮已存入背包；使用皮后才能获得身份。");
+            Show(actor.DisplayName + "的皮已存入背包；使用皮后才能获得身份。" +
+                (actor.Shop == 0 ? "验身、调巡逻找巡逻学徒，演奏到戏台；本领随皮保留。" : ""));
         }
         public bool TryWearSkin(int itemId, out string reason)
         {
@@ -249,9 +265,15 @@ namespace Game.ShopPlaytest
         private void AdvanceIdentity(float deltaTime)
         {
             if (world == null || boundGeneration != sessionGeneration) return;
+            SyncActorLife();
             bool owned = role.Length > 0 && identity.IsBorrowing && identity.Current.Value == role;
             IdentityExitReason reason = identityRules.AdvanceIdentity(identity, deltaTime);
             if (owned && reason != IdentityExitReason.None) { ClearSkin(); Persist(); }
+        }
+        private void SyncActorLife()
+        {
+            foreach (ShopPlaytestActor actor in world.Actors)
+                if (actor != null) actor.SetAlive(actor.Role.Length == 0 || Taming.GetTarget(actor.StableId).Model.Health > 0);
         }
         private float AwarenessMultiplier(string id) => id == "shop_boss" ? tavern.Rules.BossAwarenessMultiplier
             : id == "shop_customer_a" || id == "shop_customer_b" ? tavern.Rules.CustomerAwareness(id) : 1f;
@@ -268,12 +290,10 @@ namespace Game.ShopPlaytest
                     if (currentRole == "customer1") return new[] { 4 };
                     if (currentRole == "customer2") return new[] { 5 };
                     return Array.Empty<int>();
-                case "shop_apprentice": case "shop_musician": return Array.Empty<int>();
-                case "shop_director": return currentRole == "musician" ? new[] { 2 } : Array.Empty<int>();
+                case "shop_apprentice": case "shop_musician": case "shop_director": return Array.Empty<int>();
                 case "shop_patrol": return currentRole == "apprentice" ? new[] { 0 } : currentRole == "director" ? new[] { 1 } : Array.Empty<int>();
                 case "shop_station_0":
-                    return currentRole == "apprentice" ? new[] { 0 } : currentRole == "director" ? new[] { 1 }
-                        : currentRole == "musician" ? new[] { 2 } : Array.Empty<int>();
+                    return currentRole == "musician" ? new[] { 2 } : Array.Empty<int>();
                 case "shop_officer": return currentRole == "officer" ? new[] { 0 } : Array.Empty<int>();
                 case "shop_smith": case "shop_station_2":
                     if (currentRole == "officer") return new[] { 0 };
@@ -282,7 +302,7 @@ namespace Game.ShopPlaytest
                 case "shop_boss": return currentRole == "guest" ? new[] { 1, 3 } : Array.Empty<int>();
                 case "shop_customer_a": return currentRole == "guest" ? new[] { 2 } : Array.Empty<int>();
                 case "shop_customer_b": return currentRole == "guest" ? new[] { 4 } : Array.Empty<int>();
-                case "shop_guest": case "shop_station_4": return currentRole == "guest" ? new[] { 0 } : Array.Empty<int>();
+                case "shop_guest": case "shop_station_4": return new[] { 0 };
                 default: return Array.Empty<int>();
             }
         }
@@ -318,7 +338,7 @@ namespace Game.ShopPlaytest
             try
             {
                 DialogueResult result = await dialogue.PlayAsync(Conversation(actor.StableId, actor.DisplayName, greeting, choices.ToArray()), actor.transform, actor.StableId, token);
-                if (token.IsCancellationRequested || string.IsNullOrEmpty(result.Outcome) || world != scene || CurrentRole != recognizedRole || !CanInteract(actor) ||
+                if (token.IsCancellationRequested || string.IsNullOrEmpty(result.Outcome) || world != scene || CurrentRole != recognizedRole || !CanInteract(actor) || !ShopGameplayAllowed ||
                     Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius) return;
                 conversationActor = actor;
                 if (actor.StableId == "shop_tailor")
@@ -342,8 +362,18 @@ namespace Game.ShopPlaytest
             if (actor.StableId == "shop_customer_a" && tavern.UnlockedClue(actor.StableId).Length > 0) key = "customer_a_drunk";
             if (actor.StableId == "shop_customer_b" && tavern.UnlockedClue(actor.StableId).Length > 0) key = "customer_b_drunk";
             string line = ShopLine(key);
+            if (actor.Shop == 4 && (CurrentRole != "guest" || actor.StableId == "shop_station_4" || actor.StableId == "shop_guest"))
+                line += "\n\n" + TavernGuidance();
             return CurrentRole.Length == 0 || actor.StableId.StartsWith("shop_station_", StringComparison.Ordinal)
                 ? line : (equippedSkin == null ? Taming.GetDisplayName(Taming.CurrentControlId) : equippedSkin.DisplayName) + "，" + line;
+        }
+        private string TavernGuidance()
+        {
+            if (CurrentRole != "guest")
+                return OwnsSkin("guest")
+                    ? "酒客皮已在背包，使用它换上酒客身份，再找客人或主人划拳。"
+                    : "入席划拳需要酒客身份：先潜行绕到酒客背后刺杀取皮，再在背包中使用酒客皮。";
+            return "酒桌只讲酒令。划拳请走近普通客人甲、普通客人乙或主人，按 E 交谈后选择划拳；让主人喝过一杯，再向他发起挑战。";
         }
         private string ShopLine(string key)
         {
@@ -361,7 +391,8 @@ namespace Game.ShopPlaytest
                 case "shop_apprentice": return "apprentice";
                 case "shop_musician": return "musician";
                 case "shop_patrol": return currentRole == "apprentice" ? "theater_verify" : currentRole == "director" ? "theater_command" : "patrol";
-                case "shop_director": case "shop_station_0": return currentRole == "apprentice" ? "theater_verify" : currentRole == "director" ? "theater_command" : currentRole == "musician" ? "theater_perform" : "theater_visitor";
+                case "shop_director": return "theater_visitor";
+                case "shop_station_0": return "theater_perform";
                 case "shop_officer": return "quota";
                 case "shop_smith": case "shop_station_2": return currentRole == "officer" ? "forge_officer" : currentRole == "smith" ? "forge_smith" : "forge_visitor";
                 case "shop_innkeeper": case "shop_station_3": return "inn";
@@ -374,8 +405,9 @@ namespace Game.ShopPlaytest
         }
         private void ExecuteCommand(int index, ShopPlaytestActor actor)
         {
-            if (world == null || ActiveShop < 0 || Busy || index < 0 || index >= Commands[ActiveShop].Length ||
-                actor == null || actor.Shop != ActiveShop || !actor.IsVisible ||
+            if (world == null || ActiveShop < 0 || Busy || !ShopGameplayAllowed || index < 0 || index >= Commands[ActiveShop].Length ||
+                actor == null || actor.Shop != ActiveShop || !CanInteract(actor) ||
+                !Array.Exists(CommandsFor(actor.StableId, CurrentRole, forging.Rules.IsForging, forging.Rules.NextPoint), command => command == index) ||
                 Vector3.Distance(ControlledScenePosition, actor.Position) > actor.InteractionRadius)
             { telemetry.TrackWarn("command_rejected", TelemetryProps.Of(("reason", "unavailable_or_distance"), ("command", index))); return; }
             if (ActiveShop == 4 && !CheckTavernEntry()) return;
@@ -399,7 +431,7 @@ namespace Game.ShopPlaytest
                     string targetId = index == 1 || index == 3 ? "shop_boss" : index == 4 ? "shop_customer_b" : "shop_customer_a";
                     if (index != 0 && !NearDrinkTarget(targetId)) { Show("走近对应酒客或BOSS再操作"); return; }
                     if (index == 3) { StartBattleAsync().Forget(); return; }
-                    if (index == 0) { Show("先各出零至五指，再喊双方总数。只有一人猜中才分胜负，输者饮一杯；同中或都不中不罚。走近客人或主人即可划拳。"); return; }
+                    if (index == 0) { Show("先各出零至五指，再喊双方总数。只有一人猜中才分胜负，输者饮一杯；同中或都不中不罚。\n\n" + TavernGuidance()); return; }
                     OpenGuessAsync(actor, targetId).Forget(); return;
             }
             Persist(); Show(message);
@@ -672,13 +704,21 @@ namespace Game.ShopPlaytest
         private async UniTask ReplyAsync(string text)
         {
             var actor = conversationActor;
+            var scene = world;
+            long generation = sessionGeneration;
+            int skinItem = pendingSkinItem; pendingSkinItem = 0;
+            CancellationToken token = lifetime.Token;
             string speaker = actor != null ? actor.DisplayName : ActiveShop >= 0 ? Titles[ActiveShop] : "";
             string id = actor != null ? actor.StableId : "result";
             try
             {
-                await dialogue.PlayAsync(Conversation(id + ":reply", speaker, text,
-                    new[] { new DialogueContent.Choice { Id = "close", Text = "知道了", Outcome = "close" } }),
-                    actor != null ? actor.transform : null, id, lifetime.Token);
+                var choices = new List<DialogueContent.Choice>();
+                if (skinItem != 0) choices.Add(new DialogueContent.Choice { Id = "wear", Text = "换上这张皮", Outcome = "wear" });
+                choices.Add(new DialogueContent.Choice { Id = "close", Text = skinItem != 0 ? "先收进背包" : "知道了", Outcome = "close" });
+                DialogueResult result = await dialogue.PlayAsync(Conversation(id + ":reply", speaker, text, choices.ToArray()),
+                    actor != null ? actor.transform : null, id, token);
+                if (!token.IsCancellationRequested && world == scene && generation == sessionGeneration && skinItem != 0 && result.Outcome == "wear")
+                    if (!TryWearSkin(skinItem, out string reason)) Show(reason);
             }
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("reply_failed", error); }
@@ -708,7 +748,7 @@ namespace Game.ShopPlaytest
                 if (interaction.Actor != null) interaction.Actor.SetAnchor(null);
                 if (world != null) foreach (ShopPlaytestActor actor in world.Actors)
                     if (actor != null) { actor.Bind(null, null); interaction.Unregister(actor); }
-                replies.Clear(); conversationActor = null; world = null; encounterView = null; role = "";
+                replies.Clear(); pendingSkinItem = 0; conversationActor = null; world = null; encounterView = null; role = "";
                 lifetime.Dispose(); lifetime = null; closeRhythmAfterFrame = -1; awaitingBattle = awaitingOutcome = false;
             }
         }

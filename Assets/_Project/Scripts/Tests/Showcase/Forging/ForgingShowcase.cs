@@ -21,6 +21,49 @@ namespace Game.Tests.Showcase.Forging
     {
         protected override string Module => "Forging";
         [UnityTest]
+        [Timeout(600000)]
+        public IEnumerator Assassination_HidesSourcesAndOffersImmediateSkinChange()
+        {
+            yield return ReadyUnlockedShop(2);
+            foreach (string id in new[] { "shop_officer", "shop_smith" })
+            {
+                Game.ShopPlaytest.ShopPlaytestActor actor = null;
+                foreach (var candidate in State.World.Actors) if (candidate.StableId == id) actor = candidate;
+                Assert.That(actor, Is.Not.Null);
+                var model = State.Taming.GetTarget(id).Model;
+                yield return MoveTo(model.Position - model.Facing.normalized * .8f);
+                yield return OpenConversation(actor);
+                yield return Choose("leave");
+                var actions = ResolveService<IInputService>().Actions.Gameplay;
+                yield return Input.Hold(actions.Sneak);
+                yield return Input.Press(actions.Execute);
+                yield return Input.Release(actions.Sneak);
+                yield return WaitUntil("取皮结果打开", () => DialogueRunning, 5);
+                yield return Check("原角色、名字与环全部收起，死者不能交互", () => model.Health == 0 &&
+                    !actor.IsVisible && !actor.CanInteract && !actor.CanInteractSecondary &&
+                    System.Array.TrueForAll(actor.GetComponentsInChildren<Renderer>(true), renderer => !renderer.enabled), 3);
+                yield return Snapshot("刺杀后原角色退场_" + actor.Role);
+                Vector2 before = State.ControlledPosition;
+                yield return Choose("wear");
+                yield return Check("结果选项直接换皮，位置不变且皮保留", () => State.CurrentSkinActorId == id && State.CurrentRole == actor.Role &&
+                    Vector2.Distance(before, State.ControlledPosition) < .01f &&
+                    ResolveService<Game.Loot.LootService>().Items[Game.ShopPlaytest.ShopSkinRules.ItemId(actor.Role)] == 1, 3);
+                State.World.Display(-1, State.Taming.PlayerId);
+                State.World.Display(2, State.Taming.PlayerId);
+                yield return Check("分组重新显示不能复活来源或隐藏玩家的皮", () => !actor.IsVisible &&
+                    System.Array.TrueForAll(actor.GetComponentsInChildren<Renderer>(true), renderer => !renderer.enabled) &&
+                    Object.FindObjectOfType<Game.Monster.EncounterSceneView>().PlayerBody.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>() != null);
+                yield return Snapshot("结果直接换皮_" + actor.Role);
+            }
+            yield return Borrow(0);
+            yield return Command(0);
+            yield return Borrow(1);
+            yield return OpenWorkbench();
+            yield return Check("两位来源死亡后仍可补料与打开打造台", () => State.Forging.Available == 24 && View != null);
+            yield return Snapshot("两位来源死亡后继续打造");
+            yield return Click("BackButton"); yield return WaitClosed();
+        }
+        [UnityTest]
         public IEnumerator ABC_CancelOrderedStrikesRefillAndSubmit()
         {
             yield return ReadyUnlockedShop(2); // UI回放复用开放阶段夹具，不兼验完整主线导航。

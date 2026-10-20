@@ -39,7 +39,7 @@ MonoBehaviour:
       phases: []
       sneakHealthLossPercentOverride: -1
       rageClearOnPhaseChange: 0
-    monsterKindId: 1003
+    monsterKindId: 0
     aggroEnabled: 0
     aggroChargeSpeed: 3
     aggroRadius: 5

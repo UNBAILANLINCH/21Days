@@ -195,6 +195,24 @@ namespace Game.Tests.EditMode.Monster
             Assert.That(LastLineFor(RequestedEvent), Does.Contain("\"reject\":\"not_configured\""));
         }
 
+        [Test]
+        public void KindNotConfigured_MonsterHitStillDamagesAndCountsAsCaught()
+        {
+            Rig rig = NewRig(PrimaryFar, additionalRoute: AdditionalAdjacentFacing, additionalFull: true,
+                caughtPolicy: ChaseCaughtPolicy.KnockdownThenDeath);
+            rig.Port.Configured = false;
+
+            Tick(rig.Step);
+
+            Assert.That(rig.Additional.AttackedThisStep, Is.True, "前提：普通巡逻真实命中玩家");
+            Assert.That(rig.Player.Model.Health, Is.EqualTo(playerConfig.MaxHealth - rig.Additional.AttackDamage), "不能吞掉实时伤害");
+            Assert.That(rig.Step.Facts.IsTrue(StealthFactKeys.ChaseCaught), Is.True, "未配置回合制仍走原抓捕结算");
+            Assert.That(rig.Step.IsEscalating, Is.False);
+            Assert.That(rig.Port.Requests, Is.Empty);
+            Assert.That(LastLineFor(RequestedEvent), Does.Contain("\"reject\":\"not_configured\""));
+            Assert.That(LastLineFor("monster/chase_caught"), Is.Not.Null);
+        }
+
         /// <summary>开关关（MonsterConfig 代码默认 = 旧行为）：照旧扣血，埋 disabled，端口连问都不问。</summary>
         [Test]
         public void SwitchOff_HitDamagesAsBefore_AndTracksDisabled()

@@ -131,6 +131,8 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+  kindId: 0
+  fullParticipant: 0
 --- !u!65 &9084713978393781095
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -201,7 +203,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stableId: shop_station_0
   role: 
-  displayName: "\u9A8C\u8EAB\u5904 / \u620F\u53F0"
+  displayName: "\u620F\u53F0"
   shop: 0
   borrowRadius: 2
   clickCollider: {fileID: 8433802103534355316}
@@ -1452,6 +1454,8 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+  kindId: 0
+  fullParticipant: 0
 --- !u!65 &7448309876216579523
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1840,6 +1844,8 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+  kindId: 0
+  fullParticipant: 0
 --- !u!65 &3322365045328237757
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2281,6 +2287,8 @@ MonoBehaviour:
   passive: 1
   addedForShops: 1
   observationOnly: 0
+  kindId: 0
+  fullParticipant: 0
 --- !u!65 &3302232279539986182
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2507,7 +2515,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u9A8C\u8EAB\u5904 / \u620F\u53F0"
+  m_text: "\u620F\u53F0"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 453285a30e2cba341acf7942b15d8697, type: 2}
   m_sharedMaterial: {fileID: -4485631154906868716, guid: 453285a30e2cba341acf7942b15d8697, type: 2}

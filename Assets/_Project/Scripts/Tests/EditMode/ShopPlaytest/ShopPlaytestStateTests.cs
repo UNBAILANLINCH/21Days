@@ -16,6 +16,19 @@ namespace Game.Tests.EditMode.ShopPlaytest
         public void ClothingCustomer_NoMechanicalClueButtons(string id)
             => Assert.That(ShopPlaytestState.CommandsFor(id, "", false, 0), Is.Empty);
         [Test]
+        public void Theater_SkinAbilitiesUseLivingPatrolAndStage()
+        {
+            Assert.That(ShopPlaytestState.CommandsFor("shop_patrol", "apprentice", false, 0), Is.EqualTo(new[] { 0 }));
+            Assert.That(ShopPlaytestState.CommandsFor("shop_patrol", "director", false, 0), Is.EqualTo(new[] { 1 }));
+            Assert.That(ShopPlaytestState.CommandsFor("shop_station_0", "musician", false, 0), Is.EqualTo(new[] { 2 }));
+            foreach (string role in new[] { "", "apprentice", "director", "smith" })
+                Assert.That(ShopPlaytestState.CommandsFor("shop_station_0", role, false, 0), Is.Empty);
+            foreach (string id in new[] { "shop_apprentice", "shop_director", "shop_musician" })
+                Assert.That(ShopPlaytestState.CommandsFor(id, "musician", false, 0), Is.Empty);
+            Assert.That(ShopPlaytestState.CommandsFor("shop_patrol", "musician", false, 0), Is.Empty);
+            Assert.That(ShopPlaytestState.GreetingKey("shop_station_0", "musician"), Is.EqualTo("theater_perform"));
+        }
+        [Test]
         public void Tailor_UsesBorrowedIdentityAndDoesNotOfferOtherCustomers()
         {
             Assert.That(ShopPlaytestState.CommandsFor("shop_tailor", "", false, 0), Is.Empty);
@@ -31,6 +44,17 @@ namespace Game.Tests.EditMode.ShopPlaytest
         [Test]
         public void Boss_OnlyDrinkAndChallenge()
             => Assert.That(ShopPlaytestState.CommandsFor("shop_boss", "guest", false, 0), Is.EqualTo(new[] { 1, 3 }));
+        [TestCase("")]
+        [TestCase("smith")]
+        [TestCase("guest")]
+        public void TavernRules_AvailableWithoutSkin_ButGamesStillRequireGuest(string role)
+        {
+            Assert.That(ShopPlaytestState.CommandsFor("shop_station_4", role, false, 0), Is.EqualTo(new[] { 0 }));
+            Assert.That(ShopPlaytestState.CommandsFor("shop_guest", role, false, 0), Is.EqualTo(new[] { 0 }));
+            if (role != "guest")
+                foreach (string id in new[] { "shop_boss", "shop_customer_a", "shop_customer_b" })
+                    Assert.That(ShopPlaytestState.CommandsFor(id, role, false, 0), Is.Empty);
+        }
         [Test]
         public void UnknownActor_DoesNotAcquireStoreCommands()
             => Assert.That(ShopPlaytestState.CommandsFor("unknown", "smith", true, 1), Is.Empty);

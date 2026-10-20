@@ -39,6 +39,8 @@ namespace Game.CharacterPuppet
         [SerializeField] private ChibiPuppetConfig config;
 
         private Color[] baseColors;
+        private Color currentTint = Color.white;
+        private float opacity = 1f;
         private float baseScaleX = 1f;
         private bool faceLeft;
         private bool moving;
@@ -66,6 +68,7 @@ namespace Game.CharacterPuppet
         public float WalkClipSpeed => walkClipSpeed;
         public float RunClipSpeed => runClipSpeed;
         public bool HasRunClip => hasRunClip;
+        public float SneakingOpacity => config == null ? ChibiPuppetConfig.DefaultSneakingOpacity : config.SneakingOpacity;
 
         /// <summary>转身补间是否在进行（根 localScale.x 还没到 ±原幅值）。</summary>
         public bool IsTurning => turnMotion.IsActive();
@@ -229,6 +232,8 @@ namespace Game.CharacterPuppet
         /// <summary>整体染色：各分件颜色 = 预制体基底色 × tint；传白色即还原。</summary>
         public void SetTint(Color tint)
         {
+            currentTint = tint;
+            tint.a *= opacity;
             if (parts == null || baseColors == null)
             {
                 return;
@@ -241,6 +246,15 @@ namespace Game.CharacterPuppet
                     parts[i].color = baseColors[i] * tint;
                 }
             }
+        }
+
+        /// <summary>透明度独立于染色，退出潜行时保留原分件颜色。</summary>
+        public void SetOpacity(float value)
+        {
+            value = Mathf.Clamp01(value); // lint-ok: 仅限渲染透明度，不参与玩法或重放状态
+            if (opacity == value) return;
+            opacity = value;
+            SetTint(currentTint);
         }
 
         private void ApplyTurn(float progress)

@@ -9,6 +9,10 @@ namespace Game.CharacterPuppet
     [CreateAssetMenu(menuName = "21Days/CharacterPuppet/Config", fileName = "ChibiPuppetConfig")]
     public sealed class ChibiPuppetConfig : ScriptableObject
     {
+        public const float DefaultSneakingOpacity = 0.45f;
+        [Tooltip("受控角色潜行时的不透明度；1为正常显示")]
+        [SerializeField, Range(0f, 1f)] private float sneakingOpacity = DefaultSneakingOpacity;
+        public float SneakingOpacity => sneakingOpacity;
         [Tooltip("静止时速度（单位/秒）达到此值才切到走路")]
         [SerializeField, Min(0f)] private float moveStartSpeed = 0.15f;
         [Tooltip("走动中速度（单位/秒）降到此值及以下才回到待机；应小于起步阈值形成滞回")]

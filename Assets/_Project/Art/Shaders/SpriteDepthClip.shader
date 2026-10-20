@@ -75,6 +75,14 @@ Shader "21Days/SpriteDepthClip"
             return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv).a * _Color.a * vertexAlpha;
         }
 
+        // 覆盖率淡出保留深度与拆件遮挡；直接乘裁剪阈值会让潜行角色整片消失。
+        void ClipSpriteAlpha(float2 uv, half opacity, float2 pixel)
+        {
+            clip(SampleAlpha(uv, 1.0h) - _Cutoff);
+            float threshold = frac(52.9829189 * frac(dot(floor(pixel), float2(0.06711056, 0.00583715))));
+            clip(opacity - max(threshold, 0.0001));
+        }
+
         // 深度偏移：把裁剪空间 z 换成「观察空间里往相机挪 _DepthBias 个世界单位」那一点的深度，xy 与 w 原样不动。
         // 走同一个投影矩阵求偏移点的 NDC 深度，DX 反向 Z / OpenGL 正向 Z / 正交相机都不用另分支；
         // 只有「别越过近裁剪面」这一步要按 UNITY_REVERSED_Z 区分方向。_DepthBias 为 0 时原样返回，其它角色的深度与改前逐位一致。
@@ -144,6 +152,7 @@ Shader "21Days/SpriteDepthClip"
                 output.positionCS = ApplyDepthBias(positionInputs.positionWS, positionInputs.positionCS);
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.color = input.color * _Color;
+                output.color.a = input.color.a;
                 // 雾按真实深度算，偏移只影响深度测试。
                 output.fogFactor = ComputeFogFactor(positionInputs.positionCS.z);
                 output.positionWS = positionInputs.positionWS;
@@ -153,7 +162,7 @@ Shader "21Days/SpriteDepthClip"
             half4 Frag(Varyings input) : SV_Target
             {
                 half4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * input.color;
-                clip(color.a - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.color.a, input.positionCS.xy);
                 UNITY_BRANCH
                 if (_EnvironmentStrength > 0.0h || _ShadowStrength > 0.0h)
                 {
@@ -238,7 +247,7 @@ Shader "21Days/SpriteDepthClip"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 return 0;
             }
             ENDHLSL
@@ -284,7 +293,7 @@ Shader "21Days/SpriteDepthClip"
 
             half DepthFrag(Varyings input) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 return input.positionCS.z;
             }
             ENDHLSL
@@ -331,7 +340,7 @@ Shader "21Days/SpriteDepthClip"
 
             half4 DepthNormalsFrag(Varyings input, half facing : VFACE) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 // 双面纸片：背面翻转法线，避免 SSAO 读到朝里的法线。
                 float3 normalWS = normalize(input.normalWS) * (facing > 0 ? 1.0 : -1.0);
                 return half4(NormalizeNormalPerPixel(normalWS), 0.0);

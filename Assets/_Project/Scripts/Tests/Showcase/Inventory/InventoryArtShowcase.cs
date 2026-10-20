@@ -25,6 +25,90 @@ namespace Game.Tests.Showcase.Inventory
         protected override float BootShutdownSettleSeconds => .5f;
 
         [UnityTest, Timeout(240000)]
+        public IEnumerator Icons_AllItemsCenteredAndSceneReentryKeepsResetHidden()
+        {
+            yield return EnterStoryWorld();
+            yield return WaitCurtainRevealed();
+            yield return AdvanceFormalDialogue();
+            var ui = ResolveService<IUIService>();
+            var input = ResolveService<IInputService>();
+            var loot = ResolveService<LootService>();
+            yield return Check("首次进场重置按钮未激活且不能命中", () => ResetButtonHidden(ui), 5f);
+            yield return Snapshot("首次进场_重置按钮隐藏");
+            var table = ResolveService<Game.Core.Config.IConfigService>().Tables.TbItem;
+            yield return Step("通过公开物资口填充全部正式物品（隔离存档夹具）", () =>
+            {
+                for (int i = 0; i < table.DataList.Count; i++)
+                    loot.GrantItems(table.DataList[i].Id, i % 3 == 0 ? 1 : i % 3 == 1 ? 999 : int.MaxValue);
+            }, 0f);
+            yield return Input.Press(input.Actions.Gameplay.Inventory);
+            yield return WaitUntil("真实背包入口打开", () => ui.Get<InventoryPanelView>() != null && Row(ui.Get<InventoryPanelView>(), table.DataList[0].Name, false) != null, 5f);
+            var panel = ui.Get<InventoryPanelView>();
+            yield return Step("核对全部物品的图标与名称兜底", () =>
+            {
+                foreach (var item in table.DataList)
+                {
+                    var row = Row(panel, item.Name);
+                    var icon = row.transform.Find("Icon").GetComponent<Image>();
+                    bool bound = item.Id == 1601 || item.Id == 1803 || item.Id == 1804 || item.Id == 1805;
+                    Assert.That(icon.gameObject.activeSelf, Is.EqualTo(bound), item.Name);
+                    Assert.That(row.transform.Find("Name").gameObject.activeSelf, Is.EqualTo(!bound), item.Name);
+                    if (bound) Assert.That(icon.preserveAspect && icon.rectTransform.pivot == new Vector2(.5f, .5f), Is.True, item.Name);
+                    Assert.That(row.transform.Find("Count").GetComponent<TMP_Text>().isTextOverflowing, Is.False, item.Name);
+                }
+            }, 0f);
+            foreach (int id in new[] { 1601, 1803, 1804, 1805 })
+            {
+                string name = table.Get(id).Name;
+                yield return Step("选中并核对详情图：" + name, () => Select(panel, name), 0f);
+                yield return WaitUntil("详情淡入完成", () => panel.transform.Find("ArtLayout/Detail").GetComponent<CanvasGroup>().alpha > .99f, 3f);
+                AssertCentered(FindDeep<Image>(panel.transform, "DetailIcon"));
+                var overlay = FindRequired<ShowcaseOverlay>("ShowcaseOverlay");
+                overlay.enabled = false;
+                yield return Snapshot("居中_" + id);
+                overlay.enabled = true;
+            }
+            yield return Input.Press(input.Actions.UI.Cancel);
+            yield return WaitUntil("背包关闭恢复输入", () => input.Actions.Gameplay.enabled, 5f);
+            int kept = Owned(loot, 1805);
+            yield return Step("重进当前探索状态，不调用重置能力", null, 0f);
+            yield return ResolveService<Game.Core.Flow.IGameFlow>().GoToAsync<Game.Monster.MonsterEncounterState>().ToCoroutine();
+            yield return WaitCurtainRevealed();
+            yield return Check("重进后重置按钮仍未激活且不能命中，物品数量保留", () => Owned(loot, 1805) == kept && ResetButtonHidden(ui), 5f);
+            yield return Snapshot("重进场景_重置按钮隐藏且物品保留");
+        }
+
+        private static bool ResetButtonHidden(IUIService ui)
+        {
+            var hud = ui.Get<Game.IsometricExploration.ExplorationHudView>();
+            if (hud == null) return false;
+            var button = FindDeep<Button>(hud.transform, "ResetButton");
+            if (button == null || button.gameObject.activeSelf) return false;
+            var rect = (RectTransform)button.transform;
+            var data = new PointerEventData(EventSystem.current)
+            {
+                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center))
+            };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(data, hits);
+            return hits.TrueForAll(hit => !hit.gameObject.transform.IsChildOf(button.transform));
+        }
+
+        private static void AssertCentered(Image image)
+        {
+            Assert.That(image.preserveAspect, Is.True);
+            Assert.That(image.rectTransform.pivot, Is.EqualTo(new Vector2(.5f, .5f)));
+            Canvas.ForceUpdateCanvases();
+            var mesh = image.canvasRenderer.GetMesh();
+            try
+            {
+                Assert.That(mesh.vertexCount, Is.GreaterThan(0));
+                Assert.That(mesh.bounds.center.magnitude, Is.LessThan(.05f), image.sprite.name);
+            }
+            finally { Object.Destroy(mesh); }
+        }
+
+        [UnityTest, Timeout(240000)]
         public IEnumerator Backpack_RealActionsAndArtBoundaries()
         {
             yield return EnterStoryWorld();

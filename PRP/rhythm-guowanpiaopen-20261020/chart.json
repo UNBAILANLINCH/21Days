@@ -1,0 +1,170 @@
+{
+  "title": "锅碗瓢盆",
+  "schemaVersion": 2,
+  "chartId": "guowanpiaopen-demo",
+  "audioKey": "GuoWanPiaoPen",
+  "clipStartSeconds": 0,
+  "durationSeconds": 7.392,
+  "approachSeconds": 1.2,
+  "countdownSeconds": 3,
+  "noteTimes": [],
+  "noteLanes": [],
+  "chartOffsetMs": 0,
+  "bpmSegments": [],
+  "notes": [
+    {
+      "id": "gwp-01",
+      "lane": 0,
+      "timeMs": 45,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-02",
+      "lane": 1,
+      "timeMs": 235,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-03",
+      "lane": 2,
+      "timeMs": 510,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-04",
+      "lane": 3,
+      "timeMs": 1440,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-05",
+      "lane": 0,
+      "timeMs": 1740,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-06",
+      "lane": 1,
+      "timeMs": 2205,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-07",
+      "lane": 2,
+      "timeMs": 2495,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-08",
+      "lane": 3,
+      "timeMs": 2820,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-09",
+      "lane": 0,
+      "timeMs": 3280,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-10",
+      "lane": 1,
+      "timeMs": 3740,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-11",
+      "lane": 2,
+      "timeMs": 3930,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-12",
+      "lane": 3,
+      "timeMs": 4200,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-13",
+      "lane": 0,
+      "timeMs": 4420,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-14",
+      "lane": 1,
+      "timeMs": 4635,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-15",
+      "lane": 2,
+      "timeMs": 5055,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-16",
+      "lane": 3,
+      "timeMs": 5280,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-17",
+      "lane": 0,
+      "timeMs": 5585,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-18",
+      "lane": 1,
+      "timeMs": 5900,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-19",
+      "lane": 2,
+      "timeMs": 6140,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-20",
+      "lane": 3,
+      "timeMs": 6510,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-21",
+      "lane": 0,
+      "timeMs": 6815,
+      "type": 0,
+      "durationMs": 0
+    },
+    {
+      "id": "gwp-22",
+      "lane": 1,
+      "timeMs": 7130,
+      "type": 0,
+      "durationMs": 0
+    }
+  ]
+}

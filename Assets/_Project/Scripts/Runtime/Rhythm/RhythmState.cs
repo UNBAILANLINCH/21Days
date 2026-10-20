@@ -149,7 +149,7 @@ namespace Game.Rhythm
         public void ConfigureCatalog(RhythmCatalogConfig value)
         {
             if (view != null || IsPlaying || starting) throw new InvalidOperationException("会话打开后不能替换曲库");
-            if (qtePilotCopy != null) throw new InvalidOperationException("虫儿飞试水入口不加载其他曲目");
+            if (qtePilotCopy != null) throw new InvalidOperationException("QTE 试玩入口不加载曲库");
             if (value == null) throw new ArgumentNullException(nameof(value));
             value.Validate(); catalog = value; selectedSong = value.Song(0); config = selectedSong.Chart;
         }
@@ -157,10 +157,10 @@ namespace Game.Rhythm
         public void ConfigureQtePilot()
         {
             if (view != null || IsPlaying || starting || externalRequest != null || catalog != null)
-                throw new InvalidOperationException("请在独立入口初始化时启用虫儿飞试水");
+                throw new InvalidOperationException("请在独立入口初始化时启用 QTE 试玩");
             if (qtePilotCopy != null) return;
-            if (config == null || config.ChartId != "chongerfei-demo")
-                throw new InvalidOperationException("本轮试水只支持虫儿飞谱面");
+            if (config == null || !config.SupportsQtePilot)
+                throw new InvalidOperationException("此配置不是已接入的 QTE 试玩曲目");
             qtePilotCopy = config.CreateQtePilotCopy();
             config = qtePilotCopy;
         }
@@ -216,6 +216,7 @@ namespace Game.Rhythm
                 pauseToken = pause.Acquire(this);
                 using (telemetry.BeginSpan("view_ready")) view = await ui.OpenAsync<RhythmView>(config, ct);
                 view.SetActivityExit(activityOpen);
+                view.BindPromptActions(actions);
                 view.OnStartClicked += StartRound;
                 view.OnLibraryStartClicked += StartFromLibrary;
                 view.OnManualCalibrationClicked += StartManualCalibration;
@@ -323,6 +324,7 @@ namespace Game.Rhythm
                 actions = UnityEngine.Object.Instantiate(config.Input);
                 for (int i = 0; i < 4; i++) { LaneAction(i).performed += OnLane; LaneAction(i).canceled += OnRelease; }
                 view.ConfigureSong(config, song.Title, song.Difficulty);
+                view.BindPromptActions(actions);
                 inSongMenu = false;
                 view.SetDiagnosticAvailable(false);
                 view.Ready($"通关需达到 {RhythmProgressRules.RequiredScore(Rules.Count, song.PassScoreRatio)} 分（满分的 {song.PassScoreRatio:P0}）");

@@ -11,12 +11,14 @@ namespace Game.Tests.EditMode.Rhythm
 {
     public sealed class RhythmStateTests
     {
-        [Test]
-        public void QtePilot_UsesOwnedCopyAndRejectsCatalog_WithoutChangingSource()
+        [TestCase("chongerfei-demo")]
+        [TestCase("guowanpiaopen-demo")]
+        public void QtePilot_UsesOwnedCopyAndRejectsCatalog_WithoutChangingSource(string chartId)
         {
             using var telemetry = new TelemetryService(TelemetryOptions.Default,
                 new UnityTelemetryClock(), new UnityDebugTelemetrySink());
             var source = ScriptableObject.CreateInstance<RhythmConfig>();
+            JsonUtility.FromJsonOverwrite("{\"chartId\":\"" + chartId + "\"}", source);
             var catalog = ScriptableObject.CreateInstance<RhythmCatalogConfig>();
             var state = new RhythmState(source, null, null, null, null, null, null, telemetry, null);
             var flags = BindingFlags.Instance | BindingFlags.NonPublic;

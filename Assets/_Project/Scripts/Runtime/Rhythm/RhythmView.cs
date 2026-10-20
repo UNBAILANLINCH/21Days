@@ -4,16 +4,19 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using Game.Core.Input;
 using Game.Core.Simulation;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 namespace Game.Rhythm
 {
     public sealed class RhythmView : UIView
     {
         [SerializeField] private RectTransform noteArea;
+        [SerializeField] private RectTransform qtePromptPrefab;
         [SerializeField] private TMP_Text scoreLabel;
         [SerializeField] private TMP_Text feedbackLabel;
         [SerializeField] private TMP_Text statusLabel;
@@ -29,14 +32,22 @@ namespace Game.Rhythm
         private RectTransform[] notes;
         private RhythmTrackGraphic[] noteImages;
         private TMP_Text[] promptLabels;
+        private TMP_Text[] promptHints;
+        private CanvasGroup[] promptGroups;
+        private int[] promptLanes;
+        private Vector2[] promptCenters;
+        private GameObject viewBackground;
+        private Color pauseButtonColor;
+        private Vector2 noteAreaAnchorMin, noteAreaAnchorMax, noteAreaOffsetMin, noteAreaOffsetMax;
         private bool[] promptHolding;
         private bool[] promptResolved;
         private byte[] promptJudgement;
         private double[] promptPulseUntil;
         private bool builtQte;
         private RhythmTrackGraphic trackBackground;
-        private static readonly string[] PromptKeys = { "D", "F", "J", "K" };
-        private static readonly string[] HoldKeys = { "D\n按住", "F\n按住", "J\n按住", "K\n按住" };
+        private readonly string[] promptKeys = new string[4];
+        private InputActionAsset promptActions;
+        private bool gamepadHints;
         private double feedbackUntil = double.NegativeInfinity;
         private Slider visualSlider;
         private TMP_Text visualLabel;
@@ -127,7 +138,7 @@ namespace Game.Rhythm
             editingSettings = false; manualTrial = false; settingsSaving = false;
             ShowPause(false);
             settingsPanel.SetActive(false); manualPanel.SetActive(false); developerPanel.SetActive(false);
-            ConfigureSong(config, "虫儿飞", "调试谱");
+            ConfigureSong(config, config.Title, "调试谱");
             HideSongMenu();
             HideCalibrationResult();
             if (songMenuButton != null) songMenuButton.gameObject.SetActive(false);
@@ -138,6 +149,7 @@ namespace Game.Rhythm
             calibrationButton.onClick.AddListener(CalibrationClicked);
             practiceButton.onClick.AddListener(PracticeClicked);
             diagnosticButton.onClick.AddListener(DiagnosticExportClicked);
+            InputSystem.onActionChange += PromptBindingChanged;
             return UniTask.CompletedTask;
         }
         public override UniTask OnCloseAsync(CancellationToken ct)
@@ -150,7 +162,41 @@ namespace Game.Rhythm
             practiceButton.onClick.RemoveListener(PracticeClicked);
             diagnosticButton.onClick.RemoveListener(DiagnosticExportClicked);
             if (songMenuButton != null) songMenuButton.onClick.RemoveListener(SongMenuClicked);
+            InputSystem.onActionChange -= PromptBindingChanged;
+            promptActions = null;
             return UniTask.CompletedTask;
+        }
+        public void BindPromptActions(InputActionAsset actions)
+        {
+            promptActions = actions; gamepadHints = false;
+            RefreshPromptKeys();
+        }
+        private void PromptBindingChanged(object source, InputActionChange change)
+        {
+            var action = source as InputAction;
+            var map = source as InputActionMap;
+            if (promptActions == null || (source != promptActions &&
+                (action == null || action.actionMap == null || action.actionMap.asset != promptActions) && (map == null || map.asset != promptActions))) return;
+            if (InputBindingDisplay.TryGetDevice(source, change, out bool next))
+            {
+                if (next == gamepadHints) return;
+                gamepadHints = next;
+            }
+            else if (change != InputActionChange.BoundControlsChanged) return;
+            RefreshPromptKeys();
+        }
+        private void RefreshPromptKeys()
+        {
+            for (int lane = 0; lane < promptKeys.Length; lane++)
+            {
+                var action = promptActions == null ? null : promptActions.FindAction("Rhythm/Lane" + lane);
+                string key = InputBindingDisplay.Read(action, gamepadHints);
+                if (key.Length == 0) key = InputBindingDisplay.Read(action, false);
+                promptKeys[lane] = key.Length == 0 ? "—" : key;
+            }
+            if (builtQte && promptLabels != null)
+                for (int i = 0; i < promptLabels.Length; i++)
+                    if (promptLabels[i].text != promptKeys[promptLanes[i]]) promptLabels[i].text = promptKeys[promptLanes[i]];
         }
         public void SetOffset(float value)
         {
@@ -202,11 +248,24 @@ namespace Game.Rhythm
                 notes = new RectTransform[rules.Count];
                 noteImages = new RhythmTrackGraphic[rules.Count];
                 promptLabels = new TMP_Text[rules.Count];
+                promptHints = new TMP_Text[rules.Count]; promptGroups = new CanvasGroup[rules.Count]; promptLanes = new int[rules.Count];
+                promptCenters = new Vector2[rules.Count];
                 promptHolding = new bool[rules.Count];
                 promptResolved = new bool[rules.Count]; promptJudgement = new byte[rules.Count]; promptPulseUntil = new double[rules.Count];
                 builtQte = config.IsQteMode;
                 for (int i = 0; i < rules.Count; i++)
                 {
+                    if (builtQte)
+                    {
+                        if (qtePromptPrefab == null) throw new InvalidOperationException("QTE 提示美术未绑定，请运行应用八角提示美术菜单");
+                        var root = Instantiate(qtePromptPrefab, noteArea);
+                        root.name = "Note" + i;
+                        notes[i] = root; promptGroups[i] = root.GetComponent<CanvasGroup>();
+                        noteImages[i] = root.GetComponentInChildren<RhythmTrackGraphic>(true);
+                        promptLabels[i] = root.Find("Face/PromptKey").GetComponent<TMP_Text>();
+                        promptHints[i] = root.Find("Face/HoldHint").GetComponent<TMP_Text>();
+                        continue;
+                    }
                     var item = new GameObject("Note" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(RhythmTrackGraphic)).GetComponent<RhythmTrackGraphic>();
                     item.transform.SetParent(noteArea, false);
                     item.rectTransform.anchorMin = Vector2.zero; item.rectTransform.anchorMax = Vector2.one;
@@ -216,24 +275,24 @@ namespace Game.Rhythm
                     item.color = LaneColor(rules.NoteLane(i));
                     noteImages[i] = item;
                     notes[i] = item.rectTransform;
-                    if (builtQte)
-                    {
-                        var label = Instantiate(feedbackLabel, item.transform);
-                        label.name = "PromptKey"; label.raycastTarget = false;
-                        Place(label.rectTransform, new Vector2(0.25f, 0.25f), new Vector2(0.75f, 0.75f));
-                        label.alignment = TextAlignmentOptions.Center;
-                        label.enableAutoSizing = true; label.fontSizeMin = 14; label.fontSizeMax = 36;
-                        label.gameObject.SetActive(true); promptLabels[i] = label;
-                    }
                 }
             }
             if (builtQte)
+            {
+                int group = -1;
+                double previousTime = double.NegativeInfinity;
                 for (int i = 0; i < rules.Count; i++)
                 {
+                    if (rules.NoteTime(i) > previousTime + .000001) { group++; previousTime = rules.NoteTime(i); }
+                    promptCenters[i] = PromptCenter(group);
                     promptHolding[i] = false;
                     promptResolved[i] = false; promptJudgement[i] = 0; promptPulseUntil[i] = double.NegativeInfinity;
-                    promptLabels[i].text = rules.NoteType(i) == RhythmNoteType.Hold ? HoldKeys[rules.NoteLane(i)] : PromptKeys[rules.NoteLane(i)];
+                    promptLanes[i] = rules.NoteLane(i);
+                    promptLabels[i].text = promptKeys[promptLanes[i]];
+                    promptHints[i].enabled = rules.NoteType(i) == RhythmNoteType.Hold;
+                    SetPromptVisible(i, false);
                 }
+            }
             playing = true;
             SetPlayControls(true);
             for (int i = 0; i < 4; i++) lightRemaining[i] = float.NegativeInfinity;
@@ -274,7 +333,7 @@ namespace Game.Rhythm
             if (next != countdown)
             {
                 countdown = next;
-                statusLabel.text = next > 0 ? $"倒数 {next}" : config.IsQteMode ? "外圈与内圈重合时按键" : "音符到达横线时按键";
+                statusLabel.text = next > 0 ? $"倒数 {next}" : config.IsQteMode ? string.Empty : "音符到达横线时按键";
             }
             progressSlider.SetValueWithoutNotify(GameMath.Clamp01((float)(seconds / roundDuration)));
             for (int i = 0; i < 4; i++)
@@ -333,13 +392,11 @@ namespace Game.Rhythm
                     }
                     bool pulse = seconds < promptPulseUntil[i];
                     noteImages[i].enabled = pulse; promptLabels[i].enabled = false;
+                    SetPromptVisible(i, pulse); promptHints[i].enabled = false;
                     if (pulse)
                     {
-                        float pulseX = 0.35f + rules.NoteLane(i) * 0.1f;
-                        Place(notes[i], new Vector2(pulseX - 0.04f, 0), new Vector2(pulseX + 0.04f, 0.06f));
                         var flash = promptJudgement[i] == 1 ? LaneColor(0) : new Color(1f, 0.6f, 0.5f);
-                        flash.a = (float)((promptPulseUntil[i] - seconds) / 0.18);
-                        promptLabels[i].color = flash;
+                        promptGroups[i].alpha = (float)((promptPulseUntil[i] - seconds) / 0.18);
                         noteImages[i].ShowPrompt(0, false, 0, flash);
                     }
                     continue;
@@ -347,21 +404,20 @@ namespace Game.Rhythm
                 bool holding = rules.IsHolding(i);
                 bool visible = !rules.IsResolved(i) && (holding || ((primary || upcoming) && rules.NoteTime(i) - displaySeconds <= config.ApproachSeconds));
                 noteImages[i].enabled = visible; promptLabels[i].enabled = visible;
+                SetPromptVisible(i, visible);
                 if (!visible) continue;
                 int count = holding ? heldCount : primary ? currentCount : nextCount;
                 int slot = holding ? heldSlot++ : groupSlot;
-                float y = holding ? 0.06f : primary ? 0.35f : 0.72f;
-                float height = holding ? 0.27f : primary ? 0.36f : 0.26f;
-                float width = GameMath.Min(0.35f, 1f / count);
-                float x = 0.5f + (slot - (count - 1) * 0.5f) * width;
+                float height = .22f;
+                float y = holding ? .02f : promptCenters[i].y - height * .5f;
+                float width = GameMath.Min(.13f, .8f / count);
+                float centerX = holding ? .5f : GameMath.Clamp(promptCenters[i].x, .05f + count * width * .5f, .95f - count * width * .5f);
+                float x = centerX + (slot - (count - 1) * 0.5f) * width;
                 Place(notes[i], new Vector2(x - width * 0.5f, y), new Vector2(x + width * 0.5f, y + height));
-                var tint = LaneColor(rules.NoteLane(i)); tint.a = holding || primary ? 1 : 0.4f;
-                promptLabels[i].color = tint;
-                if (promptHolding[i] != holding)
-                {
-                    promptHolding[i] = holding;
-                    promptLabels[i].text = holding || rules.NoteType(i) == RhythmNoteType.Hold ? HoldKeys[rules.NoteLane(i)] : PromptKeys[rules.NoteLane(i)];
-                }
+                float alpha = holding || primary ? 1 : 0.4f;
+                if (promptGroups[i].alpha != alpha) promptGroups[i].alpha = alpha;
+                var tint = promptLabels[i].color;
+                promptHolding[i] = holding;
                 float progress = holding ? PromptHoldProgress(rules.NoteTime(i), rules.NoteEnd(i), seconds, rules.OffsetMs, false) : 0;
                 noteImages[i].ShowPrompt(RhythmTrackGraphic.PositionAt(rules.NoteTime(i), seconds, visualOffsetMs, config.ApproachSeconds), holding, progress, tint);
             }
@@ -369,6 +425,18 @@ namespace Game.Rhythm
         // 未收到规则结算之前不画满进度，正补偿及输入批次延后都不会提前暗示松开。
         public static float PromptHoldProgress(double start, double end, double songSeconds, double inputOffsetMs, bool resolved)
             => resolved ? 1 : GameMath.Min(0.98f, GameMath.Clamp01((float)((songSeconds - inputOffsetMs / 1000 - start) / (end - start))));
+        public static Vector2 PromptCenter(int group)
+        {
+            switch (group % 6)
+            {
+                case 0: return new Vector2(.28f, .68f);
+                case 1: return new Vector2(.72f, .76f);
+                case 2: return new Vector2(.48f, .68f);
+                case 3: return new Vector2(.72f, .8f);
+                case 4: return new Vector2(.32f, .78f);
+                default: return new Vector2(.55f, .68f);
+            }
+        }
         private void HideNotes()
         {
             if (noteImages == null) return;
@@ -376,7 +444,12 @@ namespace Game.Rhythm
             {
                 noteImages[i].enabled = false;
                 if (promptLabels != null && promptLabels[i] != null) promptLabels[i].enabled = false;
+                if (builtQte) SetPromptVisible(i, false);
             }
+        }
+        private void SetPromptVisible(int index, bool visible)
+        {
+            if (notes[index].gameObject.activeSelf != visible) notes[index].gameObject.SetActive(visible);
         }
         private void PromptFeedback(string text, bool success)
         {
@@ -482,6 +555,13 @@ namespace Game.Rhythm
         public void ConfigureSong(RhythmConfig chart, string title, string difficulty)
         {
             config = chart; songTitle = title;
+            viewBackground.SetActive(!chart.IsQteMode);
+            if (chart.IsQteMode) Place(noteArea, new Vector2(.05f, .12f), new Vector2(.95f, .9f));
+            else
+            {
+                noteArea.anchorMin = noteAreaAnchorMin; noteArea.anchorMax = noteAreaAnchorMax;
+                noteArea.offsetMin = noteAreaOffsetMin; noteArea.offsetMax = noteAreaOffsetMax;
+            }
             var songRules = chart.CreateRules(0, null);
             songNoteCount = songRules.Count;
             int holds = 0;
@@ -799,6 +879,8 @@ namespace Game.Rhythm
         private void ExtraControls()
         {
             if (calibrationButton != null) return;
+            noteAreaAnchorMin = noteArea.anchorMin; noteAreaAnchorMax = noteArea.anchorMax;
+            noteAreaOffsetMin = noteArea.offsetMin; noteAreaOffsetMax = noteArea.offsetMax;
             calibrationButton = Instantiate(startButton, startButton.transform.parent);
             calibrationButton.gameObject.name = "CalibrationButton";
             calibrationButton.onClick = new Button.ButtonClickedEvent();
@@ -820,6 +902,7 @@ namespace Game.Rhythm
             subtitle.enableAutoSizing = true; subtitle.fontSizeMin = 18; subtitle.fontSizeMax = 28;
             startLabel.enableAutoSizing = true; startLabel.fontSizeMin = 18; startLabel.fontSizeMax = 28;
             instructions = transform.Find("Instructions").GetComponent<TMP_Text>();
+            viewBackground = transform.Find("Background").gameObject;
             subtitle.text = songSummary;
             calibrationButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(offsetSlider.GetComponent<RectTransform>().anchoredPosition.x, -105);
             offsetLabel.rectTransform.anchoredPosition = new Vector2(offsetLabel.rectTransform.anchoredPosition.x, -195);
@@ -841,12 +924,15 @@ namespace Game.Rhythm
             trackBackground = noteArea.gameObject.AddComponent<RhythmTrackGraphic>();
             trackBackground.Configure(true);
             BuildSettings();
+            pauseButtonColor = playExit.image.color;
         }
         // 页面只整理现有入口，规则与保存仍交由 State。
         private static void Place(RectTransform rect, Vector2 min, Vector2 max)
         {
-            rect.anchorMin = min; rect.anchorMax = max;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            if (rect.anchorMin != min) rect.anchorMin = min;
+            if (rect.anchorMax != max) rect.anchorMax = max;
+            if (rect.offsetMin != Vector2.zero) rect.offsetMin = Vector2.zero;
+            if (rect.offsetMax != Vector2.zero) rect.offsetMax = Vector2.zero;
         }
         private Button PageButton(Transform parent, string name, string text, Vector2 min, Vector2 max, UnityEngine.Events.UnityAction click)
         {
@@ -977,8 +1063,11 @@ namespace Game.Rhythm
         {
             referenceCalibration = false;
             playExit.GetComponentInChildren<TMP_Text>().text = "暂停";
+            playExit.image.color = config.IsQteMode ? Color.clear : pauseButtonColor;
+            heading.gameObject.SetActive(!config.IsQteMode || !active);
+            subtitle.gameObject.SetActive(!config.IsQteMode || !active);
             noteArea.gameObject.SetActive(true);
-            progressSlider.gameObject.SetActive(true);
+            progressSlider.gameObject.SetActive(!config.IsQteMode);
             feedbackLabel.gameObject.SetActive(true);
             foreach (var light in laneLights) light.gameObject.SetActive(!config.IsQteMode);
             SetLaneGuides(!config.IsQteMode);

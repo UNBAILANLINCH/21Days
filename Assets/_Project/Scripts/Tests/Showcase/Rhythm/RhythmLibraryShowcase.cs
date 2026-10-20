@@ -17,6 +17,7 @@ using Game.Core.Timing;
 using Game.Core.UI;
 using Game.Core.UI.Views;
 using Game.Rhythm;
+using UnityEngine.Rendering.Universal;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -137,7 +138,8 @@ namespace Game.Tests.Showcase.Rhythm
             RenderPage(view, 2048, 1152, "calibration-return-" + page, true);
         }
 
-        internal static void RenderPage(RhythmView view, int width, int height, string page, bool checkLibraryHit = false, string captureFolder = null)
+        internal static void RenderPage(RhythmView view, int width, int height, string page, bool checkLibraryHit = false, string captureFolder = null,
+            Action<Camera, Texture2D> inspect = null, bool sceneBackground = false)
         {
             // 只改测试中的运行时 Canvas，实际按目标像素布局并渲染；不改 GameView/EditorPrefs 或任何资产。
             var canvas = view.GetComponentInParent<Canvas>().rootCanvas;
@@ -154,8 +156,17 @@ namespace Game.Tests.Showcase.Rhythm
             {
                 camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.04f, .05f, .08f);
                 camera.orthographic = true; camera.nearClipPlane = .01f; camera.farClipPlane = 10;
+                if (sceneBackground)
+                {
+                    var worldCamera = Camera.main;
+                    Assert.That(worldCamera, Is.Not.Null, "场景主相机");
+                    camera.CopyFrom(worldCamera);
+                    camera.transform.SetPositionAndRotation(worldCamera.transform.position, worldCamera.transform.rotation);
+                    camera.GetUniversalAdditionalCameraData().SetRenderer(1);
+                }
                 camera.targetTexture = target;
-                canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera;
+                canvas.planeDistance = sceneBackground ? camera.nearClipPlane + .5f : 1;
                 if (scaler != null)
                 {
                     scaler.enabled = false;
@@ -205,6 +216,7 @@ namespace Game.Tests.Showcase.Rhythm
                 string folder = Path.Combine("Logs", "verify", captureFolder ?? (checkLibraryHit ? "rhythm-ui-return-20261007" : "rhythm-ui-20261006"));
                 Directory.CreateDirectory(folder);
                 File.WriteAllBytes(Path.Combine(folder, width + "x" + height + "-" + page + ".png"), texture.EncodeToPNG());
+                inspect?.Invoke(camera, texture);
             }
             finally
             {

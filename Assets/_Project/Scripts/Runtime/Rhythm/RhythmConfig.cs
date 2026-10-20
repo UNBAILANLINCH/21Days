@@ -10,6 +10,7 @@ namespace Game.Rhythm
     public sealed class RhythmConfig : ScriptableObject
     {
         [SerializeField] private AudioClip song;
+        [SerializeField] private string title = "虫儿飞";
         [SerializeField] private InputActionAsset input;
         [SerializeField] private float clipStartSeconds = 16f;
         [SerializeField] private float durationSeconds = 40f;
@@ -44,6 +45,8 @@ namespace Game.Rhythm
             new RhythmNoteData("practice-hold-j", 2, 3000, RhythmNoteType.Hold, 2000),
             new RhythmNoteData("practice-hold-k", 3, 6000, RhythmNoteType.Hold, 2000) };
         public AudioClip Song => song;
+        public string Title => title;
+        public bool SupportsQtePilot => chartId == "chongerfei-demo" || chartId == "guowanpiaopen-demo";
         public InputActionAsset Input => input;
         public float ClipStartSeconds => clipStartSeconds;
         public float DurationSeconds => durationSeconds;
@@ -57,10 +60,10 @@ namespace Game.Rhythm
         public double GoodMs => qteMode ? qteGoodMs : goodMs;
         public bool IsQteMode => qteMode;
         public double HoldReleaseGraceMs => qteMode ? qteHoldReleaseGraceMs : 0;
-        /// <summary>仅创建虫儿飞试点运行副本；调用方负责销毁，不修改曲库原始资产。</summary>
+        /// <summary>创建独立试点运行副本；调用方负责销毁，不修改曲库原始资产。</summary>
         public RhythmConfig CreateQtePilotCopy()
         {
-            if (chartId != "chongerfei-demo") throw new InvalidOperationException("QTE 试点仅支持虫儿飞谱面");
+            if (!SupportsQtePilot) throw new InvalidOperationException("此谱面不属于已接入的 QTE 试玩曲目");
             var copy = Instantiate(this);
             copy.qteMode = true;
             return copy;

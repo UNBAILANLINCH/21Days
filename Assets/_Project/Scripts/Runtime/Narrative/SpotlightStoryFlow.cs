@@ -52,6 +52,7 @@ namespace Game.Narrative
         private CancellationTokenSource sessionLifetime = new CancellationTokenSource();
         private bool crossingMirror;
         private Camera sceneCamera;
+        private bool windowShotPlayed;
         private long sessionGeneration;
         private bool newGame, startHandled, working;
         private string visualStory = "", visualStage = "";
@@ -90,6 +91,7 @@ namespace Game.Narrative
                 CancelEnvironmentTransition();
                 sessionLifetime.Cancel(); sessionLifetime.Dispose(); sessionLifetime = new CancellationTokenSource();
                 crossingMirror = false; working = false;
+                windowShotPlayed = false;
                 sessionGeneration++; newGame = start.IsNewGame; startHandled = false;
                 RestoreEnvironment(); environmentDirty = true; environmentTransition = false;
             });
@@ -142,6 +144,7 @@ namespace Game.Narrative
         }
         private bool Blocked => crossingMirror || working || dialogue.IsRunning || narrative.IsBusy || battle.IsBattleRunning || rhythm.IsActivityOpen || pause.IsPaused;
         private bool Allowed(SpotlightSceneBindings.Point point) => scene != null && IsFormalStory && !Blocked &&
+            (point.StageId != "enter_r0188" || scene.IsHumanStory || windowShotPlayed) &&
             narrative.CurrentStageId == point.StageId && !StoryGuideRules.IsAutomaticEntry(point.StageId) && point.StageId != "enter_r0293" && interaction.Actor != null;
         private void Interact(SpotlightSceneBindings.Point point)
         {
@@ -210,6 +213,13 @@ namespace Game.Narrative
                 quests.SetObjectivePresentation(scene.Config.QuestId, IsFormalStory ? StoryGuideRules.Objective(currentStage, scene.IsHumanStory) : "");
             }
             if (!IsFormalStory) return;
+            if (!Blocked && !scene.IsHumanStory && currentStage == "enter_r0188" && !windowShotPlayed && interaction.Actor != null)
+            {
+                var entrance = scene.Find(currentStage);
+                if (entrance != null && (interaction.Actor.Anchor.position - entrance.Position).sqrMagnitude <=
+                    scene.Config.InteractionRadius * scene.Config.InteractionRadius)
+                { PlayWindowShotAsync(encounter).Forget(); return; }
+            }
             if (!Blocked && scene.IsHumanStory && StoryGuideRules.IsAutomaticEntry(currentStage))
             { AdvanceNarrationAsync().Forget(); return; }
             UpdateQuest();
@@ -323,6 +333,37 @@ namespace Game.Narrative
             catch (OperationCanceledException) { }
             catch (Exception error) { telemetry.TrackError("start_failed", error); startHandled = false; }
             finally { if (generation == sessionGeneration) working = false; }
+        }
+        private async UniTask PlayWindowShotAsync(MonsterEncounterState encounter)
+        {
+            working = true; windowShotPlayed = true;
+            long generation = sessionGeneration;
+            bool gameplay = input.Actions.Gameplay.enabled; // lint-ok: 运镜结束成对恢复输入图。
+            bool navigationBlocked = encounter.NavigationBlocked;
+            encounter.NavigationBlocked = true;
+            IDisposable hold = pause.Acquire(this);
+            input.DisableMap(InputService.GameplayMap);
+            using (var token = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, sessionLifetime.Token))
+            {
+                try
+                {
+                    telemetry.Track("window_shot_started");
+                    await scene.PlayWindowShotAsync(sceneCamera, token.Token);
+                    telemetry.Track("window_shot_completed");
+                }
+                catch (OperationCanceledException) { if (generation == sessionGeneration) windowShotPlayed = false; }
+                catch (Exception error) { telemetry.TrackError("window_shot_failed", error); }
+                finally
+                {
+                    hold.Dispose();
+                    if (generation == sessionGeneration)
+                    {
+                        if (gameplay) input.EnableMap(InputService.GameplayMap);
+                        encounter.NavigationBlocked = navigationBlocked;
+                        working = false;
+                    }
+                }
+            }
         }
         private async UniTask AdvanceNarrationAsync()
         {

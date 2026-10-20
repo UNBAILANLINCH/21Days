@@ -215,6 +215,30 @@ namespace Game.Battle
         /// </summary>
         public async UniTask StrikeAsync(BattleActor attacker, BattleActor target, bool heavy, Action onImpact, CancellationToken ct)
         {
+            if (attacker.BeginAttackPose())
+            {
+                try
+                {
+                    // 同一命中口：动画只定位姿态，不新增伤害事件或依赖AnimationEvent。
+                    UniTask preparation = attacker.PlayAttackPoseAsync(0f, 0.33f, windUpSeconds, ct);
+                    if (heavy && windUpSeconds > 0f)
+                        await UniTask.WhenAll(preparation, attacker.WindUpAsync(windUpDistance, windUpSeconds, ct));
+                    else
+                        await preparation;
+                    float dash = heavy ? dashSeconds * 1.25f : dashSeconds;
+                    await UniTask.WhenAll(attacker.MoveToAsync(StrikePoint(attacker, target, heavy), dash, true, ct),
+                        attacker.PlayAttackPoseAsync(0.33f, 0.5f, dash, ct));
+                    await ImpactAsync(target, heavy, onImpact, ct);
+                    if (hitStopSeconds > 0f) await UniTask.Delay(TimeSpan.FromSeconds(hitStopSeconds), true, PlayerLoopTiming.Update, ct);
+                    await UniTask.WhenAll(attacker.ReturnHomeAsync(returnSeconds, ct),
+                        attacker.PlayAttackPoseAsync(0.5f, 1f, returnSeconds, ct));
+                }
+                finally
+                {
+                    attacker.EndAttackPose();
+                }
+                return;
+            }
             if (heavy && windUpSeconds > 0f) await attacker.WindUpAsync(windUpDistance, windUpSeconds, ct);
             await attacker.MoveToAsync(StrikePoint(attacker, target, heavy), heavy ? dashSeconds * 1.25f : dashSeconds, true, ct);
             await ImpactAsync(target, heavy, onImpact, ct);

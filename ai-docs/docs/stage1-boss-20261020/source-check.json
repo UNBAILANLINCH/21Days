@@ -1,0 +1,180 @@
+[
+  {
+    "name": "左侧衣服",
+    "sha256": "a4959f4854c2b8f94e44730685eb89e2ec72d52de718231a21e96475c0ad8c8c",
+    "alpha_bounds": [
+      109,
+      238,
+      231,
+      508
+    ],
+    "visible_pixels": 22037
+  },
+  {
+    "name": "红丝带",
+    "sha256": "607d3323562890836d712c04a7f0f488116d74c210cfdc7dfd7b627f1b3d82ee",
+    "alpha_bounds": [
+      284,
+      63,
+      393,
+      157
+    ],
+    "visible_pixels": 2120
+  },
+  {
+    "name": "衣服",
+    "sha256": "486283a05eebb475abbbe3c5b7b2902930714ed2522c83c8e9b30701c1736d97",
+    "alpha_bounds": [
+      159,
+      228,
+      370,
+      511
+    ],
+    "visible_pixels": 43532
+  },
+  {
+    "name": "右衣服下",
+    "sha256": "c9c1cf2e8f58bdc11045bf574ec4adc30de8ab97f9042a222b546b442b1caa94",
+    "alpha_bounds": [
+      270,
+      235,
+      451,
+      512
+    ],
+    "visible_pixels": 26489
+  },
+  {
+    "name": "右衣服上",
+    "sha256": "b507fb10619335680cf5d1528ce5e97825f69f5a68ab4e404fabe43b8ef57358",
+    "alpha_bounds": [
+      271,
+      208,
+      459,
+      501
+    ],
+    "visible_pixels": 22259
+  },
+  {
+    "name": "毛领",
+    "sha256": "20d61c7fe24dd5694dfa70051df093beee3343aa4b866875ec155149c8b567f9",
+    "alpha_bounds": [
+      134,
+      164,
+      384,
+      347
+    ],
+    "visible_pixels": 28713
+  },
+  {
+    "name": "珠子左",
+    "sha256": "92264b9716eae67d62965b6fe1b7da1315c1d5f3e282eecb1cea709591a6beb6",
+    "alpha_bounds": [
+      139,
+      290,
+      184,
+      477
+    ],
+    "visible_pixels": 4687
+  },
+  {
+    "name": "珠子右",
+    "sha256": "44d738122330dfe20b53455a1aac9a634ac8b820bb0ff6477593080a27f924c6",
+    "alpha_bounds": [
+      270,
+      287,
+      342,
+      486
+    ],
+    "visible_pixels": 5336
+  },
+  {
+    "name": "鞋子",
+    "sha256": "5d831a0f50dc8b09e50d1f681f4e6f8e0181181dda8f45e398a40638f21d694b",
+    "alpha_bounds": [
+      148,
+      452,
+      304,
+      511
+    ],
+    "visible_pixels": 5772
+  },
+  {
+    "name": "胡子",
+    "sha256": "63fb4870c6a02bbd9ab66138ea15e3e438784eb149aa18739a84217f74924ac1",
+    "alpha_bounds": [
+      138,
+      111,
+      352,
+      314
+    ],
+    "visible_pixels": 22198
+  },
+  {
+    "name": "脸",
+    "sha256": "f329dc4689bb11648a8dcc90de5b3bd37c0a3d21968a67e7079b636d90db672c",
+    "alpha_bounds": [
+      150,
+      0,
+      332,
+      252
+    ],
+    "visible_pixels": 23573
+  },
+  {
+    "name": "头冠",
+    "sha256": "0251417a4789d99b776157f21977d05c14e3c27005934e4419530b1c014a486a",
+    "alpha_bounds": [
+      111,
+      1,
+      277,
+      102
+    ],
+    "visible_pixels": 6735
+  },
+  {
+    "name": "头冠珠子",
+    "sha256": "09a3472e6c1f06318e8d81c6a88b9adab601e2a0e782fd696b48e33128991ec8",
+    "alpha_bounds": [
+      107,
+      15,
+      184,
+      84
+    ],
+    "visible_pixels": 3682
+  },
+  {
+    "composite_mean_channel_error": 2.9246012369791668e-05,
+    "composite_max_channel_error": 1,
+    "composite_pixels_over_3": 0
+  },
+  {
+    "state": "idle",
+    "frames": 72,
+    "bounds_union": [
+      168,
+      94,
+      525,
+      608
+    ]
+  },
+  {
+    "state": "walk",
+    "frames": 72,
+    "bounds_union": [
+      168,
+      94,
+      525,
+      608
+    ]
+  },
+  {
+    "state": "attack",
+    "frames": 25,
+    "bounds_union": [
+      139,
+      87,
+      563,
+      610
+    ]
+  }
+]

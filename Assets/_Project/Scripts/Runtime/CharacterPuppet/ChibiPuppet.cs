@@ -18,6 +18,8 @@ namespace Game.CharacterPuppet
         private static readonly int MovingHash = Animator.StringToHash("Moving");
         private static readonly int RunningHash = Animator.StringToHash("Running");
         private static readonly int SpeedHash = Animator.StringToHash("Speed");
+        private static readonly int AttackHash = Animator.StringToHash("attack");
+        private static readonly int IdleHash = Animator.StringToHash("Idle");
 
         /// <summary>
         /// 翻面经过 0 时根缩放的最小幅值（占原幅值的比例）：缩放恰为 0 时变换矩阵奇异，
@@ -209,6 +211,23 @@ namespace Game.CharacterPuppet
             if (state == dialoguePose || !animator.HasState(0, state)) return;
             dialoguePose = state;
             animator.Play(state, 0, 0f);
+        }
+
+        /// <summary>动作采样；调用方先停用Motion。attack态速度为0，由舞台节奏定位帧，缺态沿用原表现。</summary>
+        public bool SetAttackPose(float normalizedTime)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null || !animator.HasState(0, AttackHash)) return false;
+            animator.Play(AttackHash, 0, Mathf.Clamp01(normalizedTime)); // lint-ok: 仅采样表现帧，不参与战斗判定
+            animator.Update(0f);
+            return true;
+        }
+
+        /// <summary>动作、取消和收场后回待机，不从动画回调提交伤害。</summary>
+        public void EndAttackPose()
+        {
+            if (animator == null || animator.runtimeAnimatorController == null || !animator.HasState(0, AttackHash)) return;
+            animator.Play(IdleHash, 0, 0f);
+            animator.Update(0f);
         }
 
         /// <summary>

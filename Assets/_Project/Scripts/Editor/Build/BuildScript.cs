@@ -187,7 +187,8 @@ namespace Game.Editor
                 target = target,
                 targetGroup = group,
                 options = options,
-                extraScriptingDefines = rhythmTest ? Rhythm.RhythmTestBuildPreset.Defines : new string[0],
+                extraScriptingDefines = rhythmTest ? Rhythm.RhythmTestBuildPreset.Defines : HasFlag("-isolatedTest")
+                    ? new[] { Game.Core.Platform.PlatformServiceBase.IsolatedBuildDefine } : new string[0],
             };
 
             Log($"开始打包，产物 {fullOutputPath}");

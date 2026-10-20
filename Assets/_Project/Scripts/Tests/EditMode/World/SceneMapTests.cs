@@ -1,13 +1,119 @@
 // 职责：地图投影与打开门槛的边界检查；场景接线和按键路径由 SceneMapShowcase 验证。
 // 为什么新建：现有世界测试只验转场与镜头约束，没有地图的等比投影或输入让位规则。
 using Game.World;
+using Game.Editor.World;
 using NUnit.Framework;
+using TMPro;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Tests.EditMode.World
 {
     public sealed class SceneMapTests
     {
+        [Test]
+        public void StyleLoadedMap_NullInputs_RejectsWithoutCreatingObjects()
+        {
+            Assert.Throws<System.ArgumentException>(() => SceneMapBuilder.StyleLoadedMap(null, null, null, null));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void StyleLoadedMap_ApplyOrRepeat_PreservesOuterLayoutAndBindings(bool repeat)
+        {
+            var root = new GameObject("纸页样式测试", typeof(RectTransform));
+            root.SetActive(false);
+            TMP_FontAsset font = null;
+            Texture2D texture = null;
+            Sprite sprite = null;
+            try
+            {
+                font = TMP_FontAsset.CreateFontAsset(Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+                texture = new Texture2D(2, 2);
+                sprite = Sprite.Create(texture, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
+                var view = root.AddComponent<SceneMapView>();
+                RectTransform panel = StyleNode("MapPanel", root.transform, new Vector2(264f, 294f));
+                panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0f, 1f);
+                panel.anchoredPosition = new Vector2(31f, -25f);
+                panel.gameObject.AddComponent<Image>();
+                RectTransform contents = StyleNode("Contents", panel, panel.sizeDelta);
+                var title = StyleNode("Title", contents, new Vector2(236f, 28f)).gameObject.AddComponent<TextMeshProUGUI>();
+                title.text = "Current world";
+                var map = StyleNode("Map", contents, new Vector2(224f, 224f)).gameObject.AddComponent<SceneMapGraphic>();
+                var player = StyleNode("Player", map.transform, Vector2.one * 8f);
+                player.gameObject.AddComponent<Image>();
+                var template = StyleNode("MarkerTemplate", map.transform, Vector2.one * 6f).gameObject.AddComponent<Image>();
+                template.gameObject.SetActive(false);
+                StyleNode("Legend", contents, new Vector2(244f, 20f)).gameObject.AddComponent<TextMeshProUGUI>();
+                StyleNode("North", map.transform, new Vector2(36f, 20f)).gameObject.AddComponent<TextMeshProUGUI>();
+                using (var data = new SerializedObject(view))
+                {
+                    data.FindProperty("map").objectReferenceValue = map;
+                    data.FindProperty("title").objectReferenceValue = title;
+                    data.FindProperty("contentRoot").objectReferenceValue = panel.gameObject;
+                    data.FindProperty("playerMarker").objectReferenceValue = player;
+                    data.FindProperty("markerTemplate").objectReferenceValue = template;
+                    data.ApplyModifiedPropertiesWithoutUndo();
+                }
+                SceneMapBuilder.StyleLoadedMap(root, font, font, sprite);
+                int children = root.GetComponentsInChildren<Transform>(true).Length;
+                if (repeat)
+                {
+                    panel.name = "CustomMapPanel";
+                    SceneMapBuilder.StyleLoadedMap(root, font, font, sprite);
+                }
+                Assert.That(root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(children));
+                Assert.That(panel.anchoredPosition, Is.EqualTo(new Vector2(31f, -25f)));
+                Assert.That(panel.sizeDelta, Is.EqualTo(new Vector2(264f, 294f)));
+                Assert.That(panel.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(panel.pivot, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(title.text, Is.EqualTo("Current world"));
+                Assert.That(template.gameObject.activeSelf, Is.False);
+                Assert.That(player.GetComponents<Outline>().Length, Is.EqualTo(1));
+                Assert.That(template.GetComponents<Outline>().Length, Is.EqualTo(1));
+                var guard = typeof(SceneMapBuilder).GetMethod("HasPaperStyle",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(guard, Is.Not.Null);
+                Assert.That(guard.Invoke(null, new object[] { root }), Is.True, "改名后仍应阻止旧生成器覆盖");
+                Assert.That(contents.Find("MapPaperFrame").GetSiblingIndex(), Is.Zero);
+                Assert.That(contents.Find("North"), Is.Not.Null);
+                Assert.That(map.GetComponent<CanvasRenderer>(), Is.Not.Null);
+                foreach (Graphic graphic in panel.GetComponentsInChildren<Graphic>(true))
+                    Assert.That(graphic.raycastTarget, Is.False);
+                using (var data = new SerializedObject(view))
+                {
+                    Assert.That(data.FindProperty("map").objectReferenceValue, Is.SameAs(map));
+                    Assert.That(data.FindProperty("title").objectReferenceValue, Is.SameAs(title));
+                    Assert.That(data.FindProperty("contentRoot").objectReferenceValue, Is.SameAs(panel.gameObject));
+                    Assert.That(data.FindProperty("playerMarker").objectReferenceValue, Is.SameAs(player));
+                    Assert.That(data.FindProperty("markerTemplate").objectReferenceValue, Is.SameAs(template));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(sprite);
+                Object.DestroyImmediate(texture);
+                if (font != null)
+                {
+                    foreach (Texture2D atlas in font.atlasTextures)
+                        if (atlas != null) Object.DestroyImmediate(atlas);
+                    if (font.material != null) Object.DestroyImmediate(font.material);
+                    Object.DestroyImmediate(font);
+                }
+            }
+        }
+
+        private static RectTransform StyleNode(string name, Transform parent, Vector2 size)
+        {
+            var node = new GameObject(name, typeof(RectTransform));
+            node.transform.SetParent(parent, false);
+            var rect = (RectTransform)node.transform;
+            rect.sizeDelta = size;
+            return rect;
+        }
+
         [Test]
         public void Project_WorldCenter_MapsToAreaCenter()
         {

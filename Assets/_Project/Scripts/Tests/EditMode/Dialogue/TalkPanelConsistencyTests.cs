@@ -7,8 +7,8 @@
 //   这是跨两个模块预制体的视觉契约，所以单独成类。刻意读真实资产路径：它守的就是这两份预制体本身。
 // Image / TMP 字段经 SerializedObject 按序列化名读（m_Color、m_fontSize……），比的正是落盘的值；
 //   只有强制布局用到 uGUI 的 LayoutGroup / LayoutRebuilder（对白的自动 / 跳过按钮由布局组排位，不跑布局量不出真实位置）。
-using System.Collections;
 using System.Collections.Generic;
+using System.Collections;
 using Game.Core.UI;
 using NUnit.Framework;
 using TMPro;
@@ -156,6 +156,31 @@ namespace Game.Tests.EditMode.Dialogue
                     Assert.That(bird.localScale.x, Is.EqualTo(right ? -1 : 1));
                     if (!right) Assert.That(name.rectTransform.anchoredPosition, Is.EqualTo(initialName), "反复切换应恢复原位置");
                 }
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
+        [TestCase(1920)]
+        [TestCase(1440)]
+        public void Archive_FitsSinglePanelAtWideAndFourByThree(int width)
+        {
+            GameObject canvas = CreateReferenceCanvas();
+            ((RectTransform)canvas.transform).sizeDelta = new Vector2(width, 1080);
+            try
+            {
+                var instance = Object.Instantiate(dialogue, canvas.transform, false);
+                var view = instance.GetComponent<Game.Dialogue.DialogueView>();
+                view.SetLine(1, 1, "文书", "【仪凤三年，泾阳大水】\n【泾水暴涨，坏民田，摧民宅，溺死者三千七百人。】\n【已结。】\n【已结。】");
+                view.SetVisible(int.MaxValue);
+                ForceLayout(instance);
+                var body = FindDeep(instance.transform, "Body").GetComponent<TMP_Text>();
+                body.ForceMeshUpdate();
+                Assert.That(body.isTextOverflowing, Is.False);
+                Assert.That(body.fontSize, Is.GreaterThanOrEqualTo(26));
+                Assert.That(view.VisibleText.Split('\n').Length, Is.EqualTo(4));
+                view.SetLine(1, 2, "王录业", "这张案卷上有两个已结。");
+                body.ForceMeshUpdate();
+                Assert.That(body.fontSize, Is.EqualTo(34.06f).Within(.01f), "下一句恢复正常字号");
             }
             finally { Object.DestroyImmediate(canvas); }
         }

@@ -97,6 +97,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 74496400a4b9412498bdc4d2be37222f
+    m_Address: Dialogue/Portrait_customer_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 78ccf4aa9d7c71c46b51fd6c9aacfe3e
     m_Address: Dialogue/Portrait_traveler_default
     m_ReadOnly: 0

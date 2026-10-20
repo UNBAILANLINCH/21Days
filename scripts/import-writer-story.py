@@ -31,8 +31,12 @@ def compile_rows(rows, occupied_ids):
         if tree_id in occupied_ids:
             raise ValueError(f"对白编号已被占用：{tree_id}")
         nodes = []
-        for row in pending:
-            speaker = "lunhuitang_guard" if row[3] == "值守" and "轮回堂" in row[1] else "wang_luye" if row[3] == "王录业" else ""
+        for index, row in enumerate(pending):
+            if row[3] == "文书" and index > 0 and pending[index - 1][3] == "文书":
+                nodes[-1]["text"] += "\n" + row[5]
+                nodes[-1]["revision"] = 2
+                continue
+            speaker = "lunhuitang_guard" if row[3] == "值守" and "轮回堂" in row[1] else "wang_luye" if row[3] == "王录业" else "storyteller" if row[3] == "说书人" and row[1].startswith("序章") else ""
             expression = ("serious" if row[0] in (164, 166, 169) else "talk") if speaker == "wang_luye" else "talk" if speaker == "lunhuitang_guard" else ""
             nodes.append(dict(id=f"r{row[0]:04d}", revision=1, kind="Line", speaker=speaker,
                               speakerName=row[3] if row[3] != "文书" else "", side="Left",
@@ -75,7 +79,8 @@ def compile_rows(rows, occupied_ids):
         current["exits"] = [dict(result="Done" if current["kind"] == "Dialogue" else "Success",
                                  next=stages[i + 1]["id"])]
     assert len(records) == len(rows)
-    assert sum(len(t["nodes"]) - 1 for t in trees) == sum(r["disposition"] == "dialogue" for r in records)
+    assert "\n".join(n["text"] for t in trees for n in t["nodes"] if n["kind"] == "Line") == "\n".join(
+        r["text"] for r in records if r["disposition"] == "dialogue")
     assert len({s["id"] for s in stages}) == len(stages)
     return trees, dict(id="spotlight_current", entry=stages[0]["id"], stages=stages), records
 
@@ -102,15 +107,22 @@ def main():
         sample = [row(1, "说书人", "开场"), row(2, "演出说明（非字幕）", "转身"),
                   row(3, "策划说明（非字幕）", "战斗教学"), row(4, "崔皓", "战后")]
         trees, story, records = compile_rows(sample, set())
+        assert trees[0]["nodes"][0]["speaker"] == "storyteller"
+        assert trees[1]["nodes"][0]["speaker"] == ""
         assert [n["text"] for t in trees for n in t["nodes"] if n["kind"] == "Line"] == ["开场", "战后"]
         assert [s["kind"] for s in story["stages"]] == ["Dialogue", "WaitAction", "Dialogue", "End"]
         changed_scene = [row(1, "说书人", "前情"), row(2, "崔皓", "线索")]
         changed_scene[1][1] = "人间｜新的叙事地点"
         _, changed_story, _ = compile_rows(changed_scene, set())
         assert all(s["kind"] != "WaitAction" for s in changed_story["stages"])
-        wang, _, _ = compile_rows([row(148, "王录业", "结过两次")], set())
-        assert wang[0]["nodes"][0]["speaker"] == "wang_luye"
-        assert wang[0]["nodes"][0]["expression"] == "talk"
+        documents = [row(144, "文书", "案卷标题"), row(145, "文书", "正文"),
+                     row(146, "文书", "已结"), row(147, "文书", "已结"), row(148, "王录业", "结过两次")]
+        document_trees, _, document_records = compile_rows(documents, set())
+        assert len(document_records) == 5
+        assert document_trees[0]["nodes"][0]["text"] == "案卷标题\n正文\n已结\n已结"
+        assert document_trees[0]["nodes"][0]["next"] == "r0148"
+        assert document_trees[0]["nodes"][1]["speaker"] == "wang_luye"
+        assert document_trees[0]["nodes"][1]["expression"] == "talk"
         stern, _, _ = compile_rows([row(166, "王录业", "这是大忌。")], set())
         assert stern[0]["nodes"][0]["expression"] == "serious"
         guard = row(175, "值守", "稀客啊。")

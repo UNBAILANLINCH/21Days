@@ -287,6 +287,42 @@ namespace Game.Tests.EditMode.Narrative
         }
 
         [Test]
+        public void PresentWangLuye_SpawnsOnceBesidePlayer_AndHidesOnCloseOrDemonWorld()
+        {
+            var bindings = CreateBindings();
+            var figure = Track(new GameObject("WangFigure"));
+            var puppetObject = new GameObject("WangPuppet"); puppetObject.transform.SetParent(figure.transform);
+            var puppet = puppetObject.AddComponent<Game.CharacterPuppet.ChibiPuppet>();
+            var config = Track(ScriptableObject.CreateInstance<SpotlightStoryConfig>());
+            var player = Track(new GameObject("Player")); player.transform.position = new Vector3(3, 4, 5);
+            var camera = Track(new GameObject("Camera")).AddComponent<Camera>();
+            using (var serialized = new SerializedObject(bindings))
+            {
+                serialized.FindProperty("wangLuye").objectReferenceValue = puppet;
+                serialized.FindProperty("config").objectReferenceValue = config;
+                serialized.FindProperty("humanStory").boolValue = true;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            figure.SetActive(false);
+            bindings.PresentWangLuye(true, true, false, player.transform, camera);
+            Assert.That(figure.activeSelf, Is.True);
+            Vector3 position = figure.transform.position;
+            Assert.That(Vector3.Distance(position, player.transform.position), Is.EqualTo(1.5f).Within(.001f));
+            player.transform.position += Vector3.right * 2;
+            bindings.PresentWangLuye(true, false, true, player.transform, camera);
+            Assert.That(figure.transform.position, Is.EqualTo(position), "换句不能重布位或追着玩家走");
+            bindings.PresentWangLuye(false, false, false, null, null);
+            Assert.That(figure.activeSelf, Is.False);
+            using (var serialized = new SerializedObject(bindings))
+            {
+                serialized.FindProperty("humanStory").boolValue = false;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            bindings.PresentWangLuye(true, true, false, player.transform, camera);
+            Assert.That(figure.activeSelf, Is.False, "妖界不可显示人界书库人物");
+        }
+
+        [Test]
         public void Unbind_ThenVictory_IgnoresChange()
         {
             // 负对照：解绑后剧情再变也不再收到通知（物体随场景卸载时走的就是这条）。

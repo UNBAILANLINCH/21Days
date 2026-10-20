@@ -71,6 +71,17 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         [Test]
+        public void TryGet_PingyangArchive_UsesOneMultilineNodeAndContinuesToWang()
+        {
+            Assert.That(catalog.TryGet(21007, out var content), Is.True);
+            var archive = content.Get("r0144");
+            Assert.That(archive.Text.Split('\n'), Is.EqualTo(new[] { "【仪凤三年，泾阳大水】", "【泾水暴涨，坏民田，摧民宅，溺死者三千七百人。】", "【已结。】", "【已结。】" }));
+            Assert.That(archive.Next, Is.EqualTo("r0148"));
+            Assert.That(content.Nodes.Any(node => node.Id == "r0145" || node.Id == "r0146" || node.Id == "r0147"), Is.False);
+            Assert.That(content.Get(archive.Next).SpeakerName, Is.EqualTo("王录业"));
+        }
+
+        [Test]
         public void TryGet_WhenIdIsUnknown_ReturnsFalse()
         {
             Assert.That(catalog.TryGet(9999, out DialogueContent content), Is.False);
@@ -108,6 +119,25 @@ namespace Game.Tests.EditMode.Dialogue
             Assert.That(second.Portraits[0].Slot, Is.EqualTo(1));
             Assert.That(second.Portraits[0].CharacterId, Is.EqualTo("traveler"));
             Assert.That(second.Portraits[0].ExpressionId, Is.EqualTo("default"), "表情为空取角色默认表情");
+        }
+
+        [Test]
+        public void Characters_EveryExpression_HasPortraitAddress()
+        {
+            IReadOnlyList<DialogueCharacter> characters = catalog.Characters;
+            Assert.That(characters.Select(c => c.Id), Is.EquivalentTo(new[] { "elder", "traveler", "storyteller", "wang_luye", "lunhuitang_guard" }));
+
+            foreach (DialogueCharacter character in characters)
+            {
+                Assert.That(character.SpriteKeys, Is.Not.Empty, character.Id);
+                foreach (string key in character.SpriteKeys)
+                {
+                    if (character.Id == "storyteller")
+                        Assert.That(key, Is.EqualTo("Dialogue/Portrait_customer_default"), "说书人使用当前顾客造型头像");
+                    else
+                        Assert.That(key, Does.StartWith("Dialogue/Portrait_" + character.Id + "_"), character.Id);
+                }
+            }
         }
 
         [Test]
@@ -162,19 +192,25 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         [Test]
-        public void Characters_EveryExpression_HasPortraitAddress()
+        public void TryGet_PrologueStoryteller_ShowsPortraitOnEveryLine()
         {
-            IReadOnlyList<DialogueCharacter> characters = catalog.Characters;
-            Assert.That(characters.Select(c => c.Id), Is.EquivalentTo(new[] { "elder", "traveler", "wang_luye", "lunhuitang_guard" }));
-
-            foreach (DialogueCharacter character in characters)
+            int lines = 0;
+            for (int id = 21000; id <= 21003; id++)
             {
-                Assert.That(character.SpriteKeys, Is.Not.Empty, character.Id);
-                foreach (string key in character.SpriteKeys)
+                Assert.That(catalog.TryGet(id, out DialogueContent content), Is.True);
+                foreach (DialogueContent.Node node in content.Nodes)
                 {
-                    Assert.That(key, Does.StartWith("Dialogue/Portrait_" + character.Id + "_"), character.Id);
+                    if (node.Kind != DialogueContent.NodeKind.Line) continue;
+                    Assert.That(node.SpeakerName, Is.EqualTo("说书人"));
+                    Assert.That(node.SpeakerId, Is.EqualTo("storyteller"));
+                    Assert.That(node.Portraits.Length, Is.EqualTo(1));
+                    Assert.That(node.Portraits[0].Slot, Is.EqualTo(0));
+                    Assert.That(node.Portraits[0].Action, Is.EqualTo(DialogueContent.PortraitAction.Show));
+                    Assert.That(node.Portraits[0].CharacterId, Is.EqualTo("storyteller"));
+                    lines++;
                 }
             }
+            Assert.That(lines, Is.EqualTo(25));
         }
 
         [Test]

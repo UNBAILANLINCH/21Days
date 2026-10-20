@@ -137,7 +137,7 @@ namespace Game.Tests.Showcase.Rhythm
             RenderPage(view, 2048, 1152, "calibration-return-" + page, true);
         }
 
-        private void RenderPage(RhythmView view, int width, int height, string page, bool checkLibraryHit = false)
+        internal static void RenderPage(RhythmView view, int width, int height, string page, bool checkLibraryHit = false, string captureFolder = null)
         {
             // 只改测试中的运行时 Canvas，实际按目标像素布局并渲染；不改 GameView/EditorPrefs 或任何资产。
             var canvas = view.GetComponentInParent<Canvas>().rootCanvas;
@@ -164,6 +164,27 @@ namespace Game.Tests.Showcase.Rhythm
                         Mathf.Log(height / reference.y, 2), scaler.matchWidthOrHeight));
                 }
                 Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
+                if (captureFolder != null)
+                {
+                    var raycaster = canvas.GetComponent<GraphicRaycaster>();
+                    foreach (var button in view.GetComponentsInChildren<Button>())
+                    {
+                        if (!button.interactable) continue;
+                        var rect = button.GetComponent<RectTransform>();
+                        var corners = new Vector3[4]; rect.GetWorldCorners(corners);
+                        foreach (var corner in corners)
+                        {
+                            var screen = RectTransformUtility.WorldToScreenPoint(camera, corner);
+                            Assert.That(screen.x, Is.InRange(-0.5f, width + 0.5f), button.name + " 水平越界");
+                            Assert.That(screen.y, Is.InRange(-0.5f, height + 0.5f), button.name + " 垂直越界");
+                        }
+                        var point = RectTransformUtility.WorldToScreenPoint(camera, rect.TransformPoint(rect.rect.center));
+                        var hits = new List<UnityEngine.EventSystems.RaycastResult>();
+                        raycaster.Raycast(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = point }, hits);
+                        Assert.That(hits.Count, Is.GreaterThan(0), button.name + " 无点击目标");
+                        Assert.That(hits[0].gameObject.GetComponentInParent<Button>(), Is.SameAs(button), button.name + " 点击被遮挡");
+                    }
+                }
                 if (checkLibraryHit)
                 {
                     var raycaster = canvas.GetComponent<GraphicRaycaster>();
@@ -181,7 +202,7 @@ namespace Game.Tests.Showcase.Rhythm
                     }
                 }
                 texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
-                string folder = Path.Combine("Logs", "verify", checkLibraryHit ? "rhythm-ui-return-20261007" : "rhythm-ui-20261006");
+                string folder = Path.Combine("Logs", "verify", captureFolder ?? (checkLibraryHit ? "rhythm-ui-return-20261007" : "rhythm-ui-20261006"));
                 Directory.CreateDirectory(folder);
                 File.WriteAllBytes(Path.Combine(folder, width + "x" + height + "-" + page + ".png"), texture.EncodeToPNG());
             }

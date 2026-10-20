@@ -6,8 +6,8 @@ namespace Game.Rhythm
 {
     public sealed class RhythmDiagnosticData
     {
-        public const int FormatVersion = 1;
-        public const int RulesVersion = 1;
+        public const int FormatVersion = 2;
+        public const int RulesVersion = 2;
         public const int MaximumCommands = 65536;
         public const int MaximumNotes = 4096;
         public enum Kind { Input, Batch, Bridge, End }
@@ -33,22 +33,28 @@ namespace Game.Rhythm
             public double VisualOffsetMs { get; }
             public double PerfectMs { get; }
             public double GoodMs { get; }
+            public bool IsQteMode { get; }
+            public double HoldReleaseGraceMs { get; }
             public Header(int session, string chartId, string audioId, string contentVersion,
                 string environment, string inputUpdateMode, double clipStartSeconds,
                 double scheduledDsp, double scheduledRealtime, double bridgeWidthSeconds,
                 double chartOffsetMs = 0, double inputOffsetMs = 0, double visualOffsetMs = 0,
-                double perfectMs = 65, double goodMs = 140)
+                double perfectMs = 65, double goodMs = 140,
+                bool qteMode = false, double holdReleaseGraceMs = 0)
             {
                 Session = session; ChartId = Text(chartId); AudioId = Text(audioId);
                 ContentVersion = Text(contentVersion); Environment = Text(environment);
                 InputUpdateMode = Text(inputUpdateMode);
                 Check(clipStartSeconds, scheduledDsp, scheduledRealtime, bridgeWidthSeconds,
-                    chartOffsetMs, inputOffsetMs, visualOffsetMs, perfectMs, goodMs);
+                    chartOffsetMs, inputOffsetMs, visualOffsetMs, perfectMs, goodMs, holdReleaseGraceMs);
                 if (clipStartSeconds < 0 || bridgeWidthSeconds < 0) throw new ArgumentOutOfRangeException(nameof(clipStartSeconds));
+                if (holdReleaseGraceMs < 0 || holdReleaseGraceMs > goodMs || (!qteMode && holdReleaseGraceMs != 0))
+                    throw new ArgumentOutOfRangeException(nameof(holdReleaseGraceMs));
                 ClipStartSeconds = clipStartSeconds; ScheduledDsp = scheduledDsp;
                 ScheduledRealtime = scheduledRealtime; BridgeWidthSeconds = bridgeWidthSeconds;
                 ChartOffsetMs = chartOffsetMs; InputOffsetMs = inputOffsetMs; VisualOffsetMs = visualOffsetMs;
                 PerfectMs = perfectMs; GoodMs = goodMs;
+                IsQteMode = qteMode; HoldReleaseGraceMs = holdReleaseGraceMs;
             }
             public double SongAtRealtime(double realtime) => realtime - ScheduledRealtime;
         }

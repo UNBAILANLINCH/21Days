@@ -10,13 +10,15 @@ namespace Game.Rhythm
         [SerializeField] private RhythmConfig config;
         [SerializeField] private RhythmCatalogConfig catalog;
         [SerializeField] private bool autoEnterDemo = true;
+        [SerializeField] private bool qtePilot;
         public override void Install(IContainerBuilder builder)
         {
             if (config == null) throw new System.InvalidOperationException("RhythmInstaller 未配置谱面");
             builder.RegisterInstance(config);
             builder.RegisterEntryPoint<RhythmState>(Lifetime.Singleton).AsSelf();
             if (autoEnterDemo) builder.RegisterEntryPoint<RhythmDemoEntry>(Lifetime.Singleton);
-            if (catalog != null) builder.RegisterBuildCallback(container => container.Resolve<RhythmState>().ConfigureCatalog(catalog));
+            if (qtePilot) builder.RegisterBuildCallback(container => container.Resolve<RhythmState>().ConfigureQtePilot());
+            else if (catalog != null) builder.RegisterBuildCallback(container => container.Resolve<RhythmState>().ConfigureCatalog(catalog));
         }
     }
 }

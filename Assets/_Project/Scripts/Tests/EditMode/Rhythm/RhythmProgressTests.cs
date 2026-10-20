@@ -7,6 +7,32 @@ namespace Game.Tests.EditMode.Rhythm
 {
     public sealed class RhythmProgressTests
     {
+        [TestCase(58, 60, 35)]
+        [TestCase(10, 60, 6)]
+        [TestCase(1, 60, 1)]
+        [TestCase(int.MaxValue, 100, int.MaxValue)]
+        public void QtePass_RequiredSuccessfulNotes_UsesIntegerCeiling(int count, int percent, int expected)
+        {
+            Assert.That(RhythmProgressRules.RequiredSuccessfulNotes(count, percent), Is.EqualTo(expected));
+        }
+        [TestCase(35, true)]
+        [TestCase(34, false)]
+        public void QtePass_GoodNotes_CountAsFullSuccess(int good, bool expected)
+        {
+            var result = new RhythmRunResult("run", "context", RhythmPlayMode.Combat, RhythmRunCompletion.Completed,
+                "finished", "song", "chart", "1", RhythmProgressRules.QteRulesetId, "1", 58, 0, good, 58 - good, 0, good * 500, good);
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(result), Is.EqualTo(expected));
+        }
+        [Test]
+        public void QtePass_IncompleteOrInvalidThreshold_DoesNotPassEarly()
+        {
+            var result = new RhythmRunResult("run", "context", RhythmPlayMode.Combat, RhythmRunCompletion.Aborted,
+                "stopped", "song", "chart", "1", RhythmProgressRules.QteRulesetId, "1", 10, 6, 0, 0, 0, 6000, 6);
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(result), Is.False);
+            Assert.Throws<ArgumentException>(() => RhythmProgressRules.RequiredSuccessfulNotes(0));
+            Assert.Throws<ArgumentException>(() => RhythmProgressRules.RequiredSuccessfulNotes(58, 0));
+            Assert.Throws<ArgumentException>(() => RhythmProgressRules.RequiredSuccessfulNotes(58, 101));
+        }
         private static readonly string Intro = RhythmProgressRules.ProgressKey("intro", "chongerfei-demo", "20261004-v3");
         private static readonly string Guitar = RhythmProgressRules.ProgressKey("guitar", "guitar-test", "1");
         private static readonly string Attention = RhythmProgressRules.ProgressKey("attention", "attention-test", "1");

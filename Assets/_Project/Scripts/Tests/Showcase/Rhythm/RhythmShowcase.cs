@@ -928,6 +928,139 @@ namespace Game.Tests.Showcase.Rhythm
             yield return Snapshot("跨轨组合复用TapHold规则");
         }
 
+        [UnityTest]
+        public IEnumerator QtePilot_ChordsHoldRetryAndChineseOutcome_Work()
+        {
+            yield return WaitUntil("独立入口就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var source = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"chartId\":\"chongerfei-demo\",\"noteTimes\":[],\"noteLanes\":[],\"clipStartSeconds\":16,\"durationSeconds\":3,\"countdownSeconds\":0.5,\"approachSeconds\":1,\"notes\":[{\"id\":\"chord-d\",\"lane\":0,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"chord-f\",\"lane\":1,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"hold-j\",\"lane\":2,\"timeMs\":1000,\"type\":1,\"durationMs\":1000},{\"id\":\"tap-k\",\"lane\":3,\"timeMs\":1500,\"type\":0,\"durationMs\":0}]}", source);
+            var ui = ResolveService<IUIService>();
+            scenarioState = new RhythmState(source, ui, ResolveService<IAudioService>(), ResolveService<ISaveService>(), flow,
+                ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            scenarioState.ConfigureQtePilot();
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>();
+            scenarioTick = scenarioHost.StartCoroutine(TickScenario());
+            Input.Prime();
+            var view = ui.Get<RhythmView>();
+            FindDeep<Slider>(view.transform, "Offset").value = 0;
+            scenarioState.StartRound();
+            yield return WaitUntil("节拍提示开始", () => scenarioState.IsPlaying, 5f);
+            Assert.That(FindDeep<Button>(view.transform, "PauseExit").GetComponentInChildren<TMPro.TMP_Text>(true).text, Does.Contain("返回标题"));
+            Assert.That(scenarioState.Rules.IsQteMode, Is.True);
+            Assert.That(source.IsQteMode, Is.False);
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Score").gameObject.activeInHierarchy, Is.False);
+            Assert.That(FindDeep<Image>(view.transform, "JudgementLine").gameObject.activeInHierarchy, Is.False);
+            yield return WaitUntil("提示出现后暂停检查布局", () => scenarioState.SongSeconds >= 0.1, 5f);
+            scenarioState.PauseRound();
+            double paused = scenarioState.SongSeconds;
+            view.ShowPause(false);
+            RhythmLibraryShowcase.RenderPage(view, 1280, 800, "qte-prompts", captureFolder: "rhythm-qte-20261020");
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "qte-prompts", captureFolder: "rhythm-qte-20261020");
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(scenarioState.SongSeconds, Is.EqualTo(paused));
+            Assert.That(scenarioState.Rules.Perfect + scenarioState.Rules.Good + scenarioState.Rules.Miss, Is.Zero);
+            view.ShowPause(true); scenarioState.ResumeRound();
+            yield return Snapshot("节拍提示无下落轨道与分数");
+            yield return PerformCurrentChart(scenarioState);
+            yield return WaitUntil("单曲演奏完成", () => !scenarioState.IsPlaying, 5f);
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(scenarioState.LastRunResult), Is.True);
+            Assert.That(scenarioState.Rules.CompletedHolds, Is.EqualTo(1));
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text, Is.EqualTo("演奏成功"));
+            Assert.That(scenarioState.LastDiagnostic.SessionHeader.IsQteMode, Is.True);
+            RhythmLibraryShowcase.RenderPage(view, 1280, 800, "qte-success", captureFolder: "rhythm-qte-20261020");
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "qte-success", captureFolder: "rhythm-qte-20261020");
+            yield return Snapshot("单句中文成功提示");
+            scenarioState.StartRound();
+            yield return WaitUntil("重试启动", () => scenarioState.IsPlaying, 5f);
+            yield return WaitUntil("漏按不打断，完整结束", () => !scenarioState.IsPlaying, 8f);
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(4));
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(scenarioState.LastRunResult), Is.False);
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text, Is.EqualTo("再试一次"));
+            yield return Snapshot("失败可重试无额外结算表");
+            scenarioState.StartRound();
+            yield return WaitUntil("重试长按头部", () => scenarioState.IsPlaying && scenarioState.SongSeconds >= 1, 5f);
+            yield return Input.Hold(scenarioState.LaneAction(2));
+            yield return WaitUntil("已抓住长按", () => scenarioState.Rules.IsHolding(2), 1f);
+            scenarioState.PauseRound();
+            int misses = scenarioState.Rules.Miss;
+            yield return Input.Release(scenarioState.LaneAction(2));
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(misses));
+            scenarioState.ResumeRound();
+            yield return WaitUntil("暂停松开恢复后失败一次", () => !scenarioState.Rules.IsHolding(2), 2f);
+            Assert.That(scenarioState.Rules.CompletedHolds, Is.Zero);
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(misses + 1));
+            typeof(RhythmView).GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, new object[] { false });
+            Assert.That(scenarioState.IsPlaying, Is.False);
+            Assert.That(scenarioState.LastRunResult.Completion, Is.EqualTo(RhythmRunCompletion.Aborted));
+            AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "SettingsButton").onClick.Invoke();
+            FindDeep<Button>(view.transform, "ManualCalibration").onClick.Invoke();
+            yield return WaitUntil("手动试听使用原输入链路", () => scenarioState.IsPlaying, 5f);
+            FindDeep<Button>(view.transform, "ManualCancel").onClick.Invoke();
+            Assert.That(scenarioState.IsPlaying, Is.False); AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "SettingsButton").onClick.Invoke();
+            FindDeep<Button>(view.transform, "CalibrationButton").onClick.Invoke();
+            yield return WaitUntil("自动参考拍开始", () => scenarioState.IsPlaying, 5f);
+            AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "PlayExit").onClick.Invoke();
+            Assert.That(scenarioState.IsPlaying, Is.False); AssertNoPromptLabels(view);
+            yield return Snapshot("暂停松开失焦与校准切换清理提示");
+        }
+
+        [UnityTest, Timeout(120000)]
+        public IEnumerator QtePilot_Original58Notes_CompleteAndKeepLegacyProfiles()
+        {
+            yield return WaitUntil("原谱入口就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var source = ResolveService<RhythmConfig>();
+            var saves = ResolveService<ISaveService>();
+            var legacy = new RhythmCalibrationData { OffsetMs = 123, VisualOffsetMs = 45 };
+            yield return saves.WriteProfileAsync("rhythm-calibration", legacy).ToCoroutine();
+            var progress = new RhythmProgressData(); progress.UnlockedSongs.Add("legacy-sentinel");
+            yield return saves.WriteProfileAsync("rhythm-progress", progress).ToCoroutine();
+            var ui = ResolveService<IUIService>();
+            bool gameplay = ResolveService<IInputService>().Actions.Gameplay.enabled; // lint-ok: 只验证退出恢复动作图，不采样设备按键。
+            bool wasPaused = ResolveService<IWorldPauseService>().IsPaused;
+            scenarioState = new RhythmState(source, ui, ResolveService<IAudioService>(), saves, flow,
+                ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            scenarioState.ConfigureQtePilot();
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>(); scenarioTick = scenarioHost.StartCoroutine(TickScenario()); Input.Prime();
+            var view = ui.Get<RhythmView>();
+            Assert.That(scenarioState.Rules.OffsetMs, Is.Zero, "不读取旧校准档");
+            Assert.That(scenarioState.Rules.Count, Is.EqualTo(58));
+            yield return Step("播放原虫儿飞片段并自动演奏58枚原谱", scenarioState.StartRound, 0f);
+            yield return WaitUntil("原谱播放启动", () => scenarioState.IsPlaying, 5f);
+            yield return PerformCurrentChart(scenarioState);
+            yield return WaitUntil("原谱完整结束", () => !scenarioState.IsPlaying, 5f);
+            yield return Check("58枚全部成功，2枚长按，中文演奏成功", () => scenarioState.Rules.Perfect + scenarioState.Rules.Good == 58 &&
+                scenarioState.Rules.CompletedHolds == 2 && scenarioState.Rules.Miss == 0 &&
+                FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text == "演奏成功");
+            Assert.That(scenarioState.LastRunResult.RulesetId, Is.EqualTo(RhythmProgressRules.QteRulesetId));
+            Assert.That(RhythmDiagnosticReplay.Run(scenarioState.LastDiagnostic).Matches, Is.True);
+            yield return Snapshot("原58枚谱完整QTE演奏成功");
+            yield return scenarioState.ExitAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            RhythmCalibrationData restored = null; RhythmProgressData restoredProgress = null;
+            yield return saves.ReadProfileAsync<RhythmCalibrationData>("rhythm-calibration").ContinueWith(value => restored = value).ToCoroutine();
+            yield return saves.ReadProfileAsync<RhythmProgressData>("rhythm-progress").ContinueWith(value => restoredProgress = value).ToCoroutine();
+            Assert.That(restored.OffsetMs, Is.EqualTo(123)); Assert.That(restored.VisualOffsetMs, Is.EqualTo(45));
+            Assert.That(restoredProgress.UnlockedSongs, Is.EquivalentTo(new[] { "legacy-sentinel" }));
+            Assert.That(restoredProgress.Records.Count, Is.Zero);
+            Assert.That(ResolveService<IInputService>().Actions.Gameplay.enabled, Is.EqualTo(gameplay)); // lint-ok: 验证输入所有权成对恢复。
+            Assert.That(ResolveService<IWorldPauseService>().IsPaused, Is.EqualTo(wasPaused));
+            Assert.That(ui.Get<RhythmView>(), Is.Null);
+        }
+
+        private static void AssertNoPromptLabels(RhythmView view)
+        {
+            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                if (label.name == "PromptKey") Assert.That(label.enabled && label.gameObject.activeInHierarchy, Is.False);
+        }
+
         private IEnumerator PerformCurrentChart(RhythmState state)
         {
             var clock = (AudioPlayback)typeof(RhythmState).GetField("playback", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(state);

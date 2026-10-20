@@ -22,6 +22,7 @@ namespace Game.Rhythm
     public sealed class RhythmState : GameState, ITickable, IDisposable
     {
         private RhythmConfig config;
+        private RhythmConfig qtePilotCopy;
         private RhythmCatalogConfig catalog;
         private RhythmSongData selectedSong;
         private RhythmProgressData progress;
@@ -129,7 +130,7 @@ namespace Game.Rhythm
             externalRequest = request; externalSession = consumer;
         }
         // 只有独立测试预设使用测试 key；正式 Player 和编辑器保留原档案契约。
-        private string ProfileName => activityProfile != null ? activityProfile + "-calibration" : PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-calibration" : "rhythm-calibration";
+        private string ProfileName => qtePilotCopy != null ? "rhythm-qte-pilot-calibration" : activityProfile != null ? activityProfile + "-calibration" : PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-calibration" : "rhythm-calibration";
         private string ProgressProfileName => activityProfile != null ? activityProfile + "-progress" : PlatformServiceBase.IsIsolatedTestBuild ? "rhythm-test-progress" : "rhythm-progress";
         public RhythmRules Rules { get; private set; }
         public string SelectedSongId => selectedSong == null ? config.ChartId : selectedSong.Id;
@@ -148,8 +149,20 @@ namespace Game.Rhythm
         public void ConfigureCatalog(RhythmCatalogConfig value)
         {
             if (view != null || IsPlaying || starting) throw new InvalidOperationException("会话打开后不能替换曲库");
+            if (qtePilotCopy != null) throw new InvalidOperationException("虫儿飞试水入口不加载其他曲目");
             if (value == null) throw new ArgumentNullException(nameof(value));
             value.Validate(); catalog = value; selectedSong = value.Song(0); config = selectedSong.Chart;
+        }
+        /// <summary>仅在入口初始化时启用；复制配置，不改原谱面、不读写旧曲库成绩。</summary>
+        public void ConfigureQtePilot()
+        {
+            if (view != null || IsPlaying || starting || externalRequest != null || catalog != null)
+                throw new InvalidOperationException("请在独立入口初始化时启用虫儿飞试水");
+            if (qtePilotCopy != null) return;
+            if (config == null || config.ChartId != "chongerfei-demo")
+                throw new InvalidOperationException("本轮试水只支持虫儿飞谱面");
+            qtePilotCopy = config.CreateQtePilotCopy();
+            config = qtePilotCopy;
         }
         public RhythmDiagnosticData LastDiagnostic { get; private set; }
         public RhythmCalibrationResult CalibrationCandidate => pendingCalibration;
@@ -224,7 +237,7 @@ namespace Game.Rhythm
                 view.OnCalibrationPreview += PreviewCalibration;
                 view.SetOffset((float)calibration.OffsetMs);
                 view.SetVisualOffset(calibration.VisualOffsetMs);
-                view.Ready("选择歌曲、短长按练习或参考拍校准");
+                view.Ready(config.IsQteMode ? "随提示合圈按键，完成六成音符即可通过" : "选择歌曲、短长按练习或参考拍校准");
                 if (catalog != null)
                 {
                     view.OnSongSelected += SelectSong;
@@ -613,6 +626,8 @@ namespace Game.Rhythm
             StopRound(RhythmDiagnosticData.Reason.Finished);
             if (manualCalibration) view.Ready("试听结束，保存试用值或取消保留原值");
             else view.Finish(Rules, practiceRound);
+            if (config.IsQteMode && !practiceRound && result != null)
+                view.SetQteResult(RhythmProgressRules.HasSuccessfulNoteRatio(result));
             if (!practiceRound && recordSong && selectedSong != null && progress != null && result?.Mode == RhythmPlayMode.FreePlay)
             {
                 bool recorded = result != null && RhythmProgressRules.RecordRun(progress, selectedSong, result);
@@ -673,7 +688,7 @@ namespace Game.Rhythm
             var song = selectedSong;
             var result = new RhythmRunResult(request.RunId, request.ContextId, request.Mode, completion, reason,
                 request.SongId, config.ChartId, song == null ? "standalone" : song.Revision,
-                song == null ? "four-lane-tap-hold" : song.RulesetId, song == null ? "1" : song.ScoringVersion,
+                Rules.IsQteMode ? RhythmProgressRules.QteRulesetId : song == null ? "four-lane-tap-hold" : song.RulesetId, song == null ? "1" : song.ScoringVersion,
                 Rules.Count, Rules.Perfect, Rules.Good, Rules.Miss, Rules.CompletedHolds, Rules.Score, Rules.MaxCombo, Rules.OffsetMs);
             LastRunResult = result;
             pendingRunResult = result;
@@ -784,7 +799,8 @@ namespace Game.Rhythm
                 practice ? clip.name : config.AudioKey, "chart-schema-" + config.SchemaVersion,
                 Application.platform + "/Unity-" + Application.unityVersion, InputSystem.settings.updateMode.ToString(),
                 practice && !manualCalibration ? 0 : config.ClipStartSeconds, playback.DspStart, playback.InputStart, playback.BridgeSampleSpanSeconds,
-                Rules.ChartOffsetMs, Rules.OffsetMs, calibration.VisualOffsetMs, Rules.PerfectMs, Rules.GoodMs);
+                Rules.ChartOffsetMs, Rules.OffsetMs, calibration.VisualOffsetMs, Rules.PerfectMs, Rules.GoodMs,
+                Rules.IsQteMode, Rules.HoldReleaseGraceMs);
             diagnostic = new RhythmDiagnosticSession(header, Rules.CopyNotes(), telemetry: telemetry);
             Rules = diagnostic.Rules;
             nextBridgeSample = double.NegativeInfinity;
@@ -1057,6 +1073,10 @@ namespace Game.Rhythm
                 UnityEngine.Object.Destroy(actions); actions = null;
             }
         }
-        public void Dispose() { closing = true; ClearCalibrationSuggestion(); StopRound(); externalRequest = null; externalSession = null; Release(); }
+        public void Dispose()
+        {
+            closing = true; ClearCalibrationSuggestion(); StopRound(); externalRequest = null; externalSession = null; Release();
+            if (qtePilotCopy != null) { UnityEngine.Object.Destroy(qtePilotCopy); qtePilotCopy = null; }
+        }
     }
 }

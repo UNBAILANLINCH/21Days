@@ -36,7 +36,8 @@ namespace Game.Rhythm
             if (notes == null || notes.Length > Data.MaximumNotes || commandLimit < 1 || commandLimit > Data.MaximumCommands)
                 throw new ArgumentOutOfRangeException(nameof(commandLimit));
             this.notes = (RhythmNoteData[])notes.Clone(); this.commandLimit = commandLimit;
-            Rules = new RhythmRules(this.notes, header.PerfectMs, header.GoodMs, header.InputOffsetMs, header.ChartOffsetMs, telemetry);
+            Rules = new RhythmRules(this.notes, header.PerfectMs, header.GoodMs, header.InputOffsetMs,
+                header.ChartOffsetMs, telemetry, header.IsQteMode, header.HoldReleaseGraceMs);
             foreach (var note in notes) Data.Text(note.Id);
             observedResolved = new bool[Rules.Count]; observedHolding = new bool[Rules.Count];
             headGrades = new RhythmGrade[Rules.Count]; queue.Begin(header.Session);

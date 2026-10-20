@@ -28,6 +28,7 @@ namespace Game.Rhythm
                     w.Write(h.ClipStartSeconds); w.Write(h.ScheduledDsp); w.Write(h.ScheduledRealtime);
                     w.Write(h.BridgeWidthSeconds); w.Write(h.ChartOffsetMs); w.Write(h.InputOffsetMs);
                     w.Write(h.VisualOffsetMs); w.Write(h.PerfectMs); w.Write(h.GoodMs);
+                    w.Write(h.IsQteMode); w.Write(h.HoldReleaseGraceMs);
                     w.Write(data.Notes.Count);
                     foreach (var n in data.Notes)
                     { Text(w, n.Id); w.Write(n.Lane); w.Write(n.TimeMs); w.Write((int)n.Type); w.Write(n.DurationMs); }
@@ -61,10 +62,16 @@ namespace Game.Rhythm
             if (!source.CanSeek || source.Length - source.Position > MaximumBytes) throw new InvalidDataException("诊断流必须可定位且有界");
             using (var r = new BinaryReader(source, Utf8, true))
             {
-                if (r.ReadInt32() != Magic || r.ReadInt32() != Data.FormatVersion || r.ReadInt32() != Data.RulesVersion)
+                if (r.ReadInt32() != Magic)
+                    throw new InvalidDataException("不支持的诊断格式或判定版本");
+                int format = r.ReadInt32(); int rules = r.ReadInt32();
+                // v1 没有 QTE 策略字段，始终按旧严格窗口与零松键宽限回放。
+                bool legacy = format == 1 && rules == 1;
+                if (!legacy && (format != Data.FormatVersion || rules != Data.RulesVersion))
                     throw new InvalidDataException("不支持的诊断格式或判定版本");
                 var h = new Data.Header(r.ReadInt32(), Text(r), Text(r), Text(r), Text(r), Text(r),
-                    Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r));
+                    Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r), Number(r),
+                    legacy ? false : Boolean(r), legacy ? 0 : Number(r));
                 var notes = new RhythmNoteData[Count(r, Data.MaximumNotes)];
                 for (int i = 0; i < notes.Length; i++)
                     notes[i] = new RhythmNoteData(Text(r), r.ReadInt32(), Number(r),
@@ -99,6 +106,12 @@ namespace Game.Rhythm
             double value = r.ReadDouble();
             if (!RhythmRules.Finite(value)) throw new InvalidDataException("诊断数值非法");
             return value;
+        }
+        private static bool Boolean(BinaryReader r)
+        {
+            byte value = r.ReadByte();
+            if (value > 1) throw new InvalidDataException("诊断布尔值非法");
+            return value == 1;
         }
         private static T EnumValue<T>(BinaryReader r) where T : struct
         {

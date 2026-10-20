@@ -161,6 +161,96 @@ namespace Game.Tests.EditMode.Rhythm
         }
 
         [Test]
+        public void Codec_QteOverlapAndReleaseGrace_RoundTripPreservesPolicyAndJudgements()
+        {
+            var header = new Data.Header(7, "qte", "reference", "test", "pure-logic", "Dynamic",
+                0, 100, 200, 0, perfectMs: 100, goodMs: 250, qteMode: true, holdReleaseGraceMs: 100);
+            var notes = new[] { new RhythmNoteData("earlier", 0, 1000),
+                new RhythmNoteData("nearest", 0, 1300),
+                new RhythmNoteData("hold", 1, 1500, RhythmNoteType.Hold, 500) };
+            var session = new RhythmDiagnosticSession(header, notes);
+            Input(session, 0, 1.2); Input(session, 1, 1.5);
+            Input(session, 1, 1.9, RhythmInputEdge.Release);
+            Drain(session, 0, 2.1, 2.1); session.End(Data.Reason.Finished);
+            Assert.That(session.Rules.IsQteMode, Is.True);
+            Assert.That(session.Rules.HoldReleaseGraceMs, Is.EqualTo(100));
+            Assert.That(session.Rules.Perfect, Is.EqualTo(2));
+            Assert.That(session.Rules.Miss, Is.EqualTo(1));
+            using (var stream = new MemoryStream())
+            {
+                RhythmDiagnosticCodec.Write(stream, session.Snapshot()); stream.Position = 0;
+                var restored = RhythmDiagnosticCodec.Read(stream);
+                Assert.That(restored.SessionHeader.IsQteMode, Is.True);
+                Assert.That(restored.SessionHeader.HoldReleaseGraceMs, Is.EqualTo(100));
+                Assert.That(restored.SessionHeader.PerfectMs, Is.EqualTo(100));
+                Assert.That(restored.SessionHeader.GoodMs, Is.EqualTo(250));
+                var replay = RhythmDiagnosticReplay.Run(restored);
+                Assert.That(replay.Matches, Is.True);
+                Assert.That(replay.Score, Is.EqualTo(session.Rules.Score));
+                Assert.That(replay.Replayed.Judgements.First().NoteId, Is.EqualTo("nearest"));
+                Assert.That(replay.Replayed.Judgements.Single(j => j.InputSequence == 3).Grade,
+                    Is.EqualTo(RhythmGrade.Perfect));
+            }
+        }
+
+        [Test]
+        public void Codec_LegacyV1Capture_PreservesStrictReleaseAndUpgradesWithoutReinterpreting()
+        {
+            var session = new RhythmDiagnosticSession(Header(), Notes());
+            Input(session, 1, 1.5); Input(session, 1, 1.95, RhythmInputEdge.Release);
+            Drain(session, 0, 3.2, 3.2); session.End(Data.Reason.Finished);
+            using (var current = new MemoryStream())
+            using (var upgraded = new MemoryStream())
+            {
+                RhythmDiagnosticCodec.Write(current, session.Snapshot());
+                byte[] legacy = LegacyV1Bytes(current.ToArray());
+                var restored = RhythmDiagnosticCodec.Read(new MemoryStream(legacy));
+                Assert.That(restored.SessionHeader.IsQteMode, Is.False);
+                Assert.That(restored.SessionHeader.HoldReleaseGraceMs, Is.Zero);
+                var replay = RhythmDiagnosticReplay.Run(restored);
+                Assert.That(replay.Matches, Is.True);
+                Assert.That(replay.Score, Is.Zero);
+                Assert.That(restored.Judgements.Single(j => j.Cause == Data.Reason.EarlyRelease).Grade,
+                    Is.EqualTo(RhythmGrade.Miss));
+                RhythmDiagnosticCodec.Write(upgraded, restored);
+                Assert.That(upgraded.ToArray(), Is.EqualTo(current.ToArray()));
+                Assert.That(legacy[4], Is.EqualTo(1));
+                Assert.That(legacy[8], Is.EqualTo(1));
+            }
+        }
+
+        // 依据 v1 固定布局构造兼容夹具：去掉 v2 头部尾端的 bool/double，其他 bytes 完整保留。
+        private static byte[] LegacyV1Bytes(byte[] current)
+        {
+            using (var stream = new MemoryStream(current))
+            using (var reader = new BinaryReader(stream))
+            {
+                stream.Position = 16; // magic、格式版本、规则版本、会话号。
+                for (int i = 0; i < 5; i++)
+                {
+                    int length = reader.ReadInt32(); stream.Position += length;
+                }
+                stream.Position += 9 * sizeof(double);
+                int policyOffset = (int)stream.Position;
+                byte[] legacy = current.Take(policyOffset).Concat(current.Skip(policyOffset + 9)).ToArray();
+                Array.Copy(BitConverter.GetBytes(1), 0, legacy, 4, 4);
+                Array.Copy(BitConverter.GetBytes(1), 0, legacy, 8, 4);
+                return legacy;
+            }
+        }
+
+        [TestCase(false, -1)]
+        [TestCase(false, 100)]
+        [TestCase(true, 141)]
+        [TestCase(true, double.NaN)]
+        [TestCase(true, double.PositiveInfinity)]
+        public void Header_InvalidReleaseGrace_IsRejected(bool qteMode, double grace)
+        {
+            Assert.That(() => new Data.Header(7, "qte", "reference", "test", "pure-logic", "Dynamic",
+                0, 100, 200, 0, qteMode: qteMode, holdReleaseGraceMs: grace), Throws.InstanceOf<ArgumentException>());
+        }
+
+        [Test]
         public void Codec_UnsupportedVersionTruncationAndTrailingBytes_AreRejected()
         {
             var s = new RhythmDiagnosticSession(Header(), Notes()); s.End(Data.Reason.DeviceChanged);
@@ -169,6 +259,8 @@ namespace Game.Tests.EditMode.Rhythm
                 RhythmDiagnosticCodec.Write(stream, s.Snapshot()); byte[] bytes = stream.ToArray();
                 byte[] badVersion = (byte[])bytes.Clone(); badVersion[4] = 99;
                 Assert.Throws<InvalidDataException>(() => RhythmDiagnosticCodec.Read(new MemoryStream(badVersion)));
+                byte[] mixedVersion = (byte[])bytes.Clone(); mixedVersion[8] = 1;
+                Assert.Throws<InvalidDataException>(() => RhythmDiagnosticCodec.Read(new MemoryStream(mixedVersion)));
                 Assert.Throws<EndOfStreamException>(() => RhythmDiagnosticCodec.Read(new MemoryStream(bytes.Take(bytes.Length - 1).ToArray())));
                 Assert.Throws<InvalidDataException>(() => RhythmDiagnosticCodec.Read(new MemoryStream(bytes.Concat(new byte[] { 0 }).ToArray())));
             }

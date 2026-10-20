@@ -17,6 +17,10 @@ namespace Game.Rhythm
         [SerializeField] private float countdownSeconds = 3f;
         [SerializeField] private float perfectMs = 65f;
         [SerializeField] private float goodMs = 140f;
+        [SerializeField] private float qtePerfectMs = 100f;
+        [SerializeField] private float qteGoodMs = 250f;
+        [SerializeField] private float qteHoldReleaseGraceMs = 100f;
+        [NonSerialized] private bool qteMode;
         [SerializeField] private double[] noteTimes;
         [SerializeField] private int[] noteLanes;
         [SerializeField] private int schemaVersion = 1;
@@ -50,7 +54,17 @@ namespace Game.Rhythm
         public string AudioKey => audioKey;
         public double ChartOffsetMs => chartOffsetMs;
         public float FinishBufferSeconds => finishBufferSeconds;
-        public double GoodMs => goodMs;
+        public double GoodMs => qteMode ? qteGoodMs : goodMs;
+        public bool IsQteMode => qteMode;
+        public double HoldReleaseGraceMs => qteMode ? qteHoldReleaseGraceMs : 0;
+        /// <summary>仅创建虫儿飞试点运行副本；调用方负责销毁，不修改曲库原始资产。</summary>
+        public RhythmConfig CreateQtePilotCopy()
+        {
+            if (chartId != "chongerfei-demo") throw new InvalidOperationException("QTE 试点仅支持虫儿飞谱面");
+            var copy = Instantiate(this);
+            copy.qteMode = true;
+            return copy;
+        }
         public float CalibrationBpm => calibrationBpm;
         public int CalibrationWarmupBeats => calibrationWarmupBeats;
         public int CalibrationSampleBeats => calibrationSampleBeats;
@@ -61,7 +75,8 @@ namespace Game.Rhythm
         public float PracticeDurationSeconds => practiceDurationSeconds;
         public RhythmRules CreatePracticeRules(double offsetMs, Game.Core.Telemetry.ITelemetryScope telemetry)
         {
-            var rules = new RhythmRules(practiceNotes, perfectMs, goodMs, offsetMs, 0, telemetry);
+            var rules = new RhythmRules(practiceNotes, qteMode ? qtePerfectMs : perfectMs, GoodMs, offsetMs, 0, telemetry,
+                qteMode, HoldReleaseGraceMs);
             if (!RhythmRules.Finite(practiceDurationSeconds) || practiceDurationSeconds <= 0 || rules.LastEndSeconds > practiceDurationSeconds)
                 throw new ArgumentException("练习谱终点或时长无效");
             return rules;
@@ -91,7 +106,8 @@ namespace Game.Rhythm
                 records = notes;
             }
             else throw new ArgumentException("不支持的谱面版本");
-            var rules = new RhythmRules(records, perfectMs, goodMs, offsetMs, chartOffsetMs, telemetry);
+            var rules = new RhythmRules(records, qteMode ? qtePerfectMs : perfectMs, GoodMs, offsetMs, chartOffsetMs, telemetry,
+                qteMode, HoldReleaseGraceMs);
             if (rules.LastEndSeconds > durationSeconds) throw new ArgumentException("音符终点超出音频片段");
             return rules;
         }

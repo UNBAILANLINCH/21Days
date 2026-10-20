@@ -23,6 +23,8 @@ namespace Game.Rhythm
             result.ChartId == ChartId && result.Revision == Revision && result.RulesetId == RulesetId && result.ScoringVersion == ScoringVersion;
         public bool IsSuccess(RhythmRunResult result) => Matches(result) && result.Mode == RhythmPlayMode.Combat &&
             result.Completion == RhythmRunCompletion.Completed &&
-            result.Score >= RhythmProgressRules.RequiredScore(result.NoteCount, PassScorePercent / 100d);
+            (RulesetId == RhythmProgressRules.QteRulesetId
+                ? RhythmProgressRules.HasSuccessfulNoteRatio(result, PassScorePercent)
+                : result.Score >= RhythmProgressRules.RequiredScore(result.NoteCount, PassScorePercent / 100d));
     }
 }

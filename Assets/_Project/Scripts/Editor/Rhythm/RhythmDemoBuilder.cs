@@ -22,6 +22,37 @@ namespace Game.Editor.Rhythm
         private const string PrefabPath = "Assets/_Project/Prefabs/UI/RhythmView.prefab";
         private static TMP_FontAsset font;
 
+        [MenuItem("21Days/音游/虫儿飞试水/启用节拍提示")]
+        public static void EnableQtePilot() => SetQtePilot(true);
+
+        [MenuItem("21Days/音游/虫儿飞试水/恢复原版入口")]
+        public static void DisableQtePilot() => SetQtePilot(false);
+
+        private static void SetQtePilot(bool enabled)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("先退出播放模式");
+            var scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath) throw new InvalidOperationException("请先打开独立 RhythmDemo 场景，不改其他场景入口");
+            RhythmInstaller target = null;
+            foreach (var root in scene.GetRootGameObjects())
+                foreach (var installer in root.GetComponentsInChildren<RhythmInstaller>(true))
+                {
+                    if (target != null) throw new InvalidOperationException("场景中存在多个音游入口，请先检查接线");
+                    target = installer;
+                }
+            if (target == null) throw new InvalidOperationException("场景中没有 RhythmInstaller");
+            var data = new SerializedObject(target);
+            var chart = data.FindProperty("config").objectReferenceValue as RhythmConfig;
+            if (enabled && (chart == null || chart.ChartId != "chongerfei-demo"))
+                throw new InvalidOperationException("试水入口必须引用原虫儿飞谱面");
+            if (data.FindProperty("qtePilot").boolValue == enabled) return;
+            Undo.RecordObject(target, enabled ? "启用虫儿飞节拍提示" : "恢复音游原版入口");
+            data.FindProperty("qtePilot").boolValue = enabled;
+            data.ApplyModifiedProperties();
+            EditorSceneManager.MarkSceneDirty(scene);
+            // 不自动保存：保留开发者原有的场景未保存内容和撤销能力。
+        }
+
         [MenuItem("21Days/音游/迁移选中谱面到毫秒记录 v2")]
         public static void MigrateSelectedChart()
         {

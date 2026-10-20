@@ -28,6 +28,16 @@ namespace Game.Rhythm
         [SerializeField] private Image[] laneLights;
         private RectTransform[] notes;
         private RhythmTrackGraphic[] noteImages;
+        private TMP_Text[] promptLabels;
+        private bool[] promptHolding;
+        private bool[] promptResolved;
+        private byte[] promptJudgement;
+        private double[] promptPulseUntil;
+        private bool builtQte;
+        private RhythmTrackGraphic trackBackground;
+        private static readonly string[] PromptKeys = { "D", "F", "J", "K" };
+        private static readonly string[] HoldKeys = { "D\n按住", "F\n按住", "J\n按住", "K\n按住" };
+        private double feedbackUntil = double.NegativeInfinity;
         private Slider visualSlider;
         private TMP_Text visualLabel;
         private Button calibrationButton;
@@ -157,13 +167,13 @@ namespace Game.Rhythm
             startButton.interactable = true;
             startLabel.text = "开始演奏";
             heading.text = songTitle; subtitle.text = songSummary; instructions.text = songInstructions;
-            practiceButton.GetComponentInChildren<TMP_Text>().text = "短 Tap/Hold 练习";
+            practiceButton.GetComponentInChildren<TMP_Text>().text = config.IsQteMode ? "单击与长按练习" : "短 Tap/Hold 练习";
             statusLabel.text = message;
             feedbackLabel.text = "D / F / J / K";
             resultPanel.SetActive(false);
             SetPlayControls(false);
             if (manualTrial) ShowManualCalibration();
-            if (noteImages != null) for (int i = 0; i < noteImages.Length; i++) noteImages[i].enabled = false;
+            HideNotes();
         }
         public void Starting()
         {
@@ -186,11 +196,15 @@ namespace Game.Rhythm
         public void Begin(RhythmRules rules, double duration = -1, bool practice = false)
         {
             roundDuration = duration > 0 ? duration : config.DurationSeconds;
-            if (notes == null || notes.Length != rules.Count)
+            if (notes == null || notes.Length != rules.Count || builtQte != config.IsQteMode)
             {
                 if (notes != null) for (int i = 0; i < notes.Length; i++) Destroy(notes[i].gameObject);
                 notes = new RectTransform[rules.Count];
                 noteImages = new RhythmTrackGraphic[rules.Count];
+                promptLabels = new TMP_Text[rules.Count];
+                promptHolding = new bool[rules.Count];
+                promptResolved = new bool[rules.Count]; promptJudgement = new byte[rules.Count]; promptPulseUntil = new double[rules.Count];
+                builtQte = config.IsQteMode;
                 for (int i = 0; i < rules.Count; i++)
                 {
                     var item = new GameObject("Note" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(RhythmTrackGraphic)).GetComponent<RhythmTrackGraphic>();
@@ -202,8 +216,24 @@ namespace Game.Rhythm
                     item.color = LaneColor(rules.NoteLane(i));
                     noteImages[i] = item;
                     notes[i] = item.rectTransform;
+                    if (builtQte)
+                    {
+                        var label = Instantiate(feedbackLabel, item.transform);
+                        label.name = "PromptKey"; label.raycastTarget = false;
+                        Place(label.rectTransform, new Vector2(0.25f, 0.25f), new Vector2(0.75f, 0.75f));
+                        label.alignment = TextAlignmentOptions.Center;
+                        label.enableAutoSizing = true; label.fontSizeMin = 14; label.fontSizeMax = 36;
+                        label.gameObject.SetActive(true); promptLabels[i] = label;
+                    }
                 }
             }
+            if (builtQte)
+                for (int i = 0; i < rules.Count; i++)
+                {
+                    promptHolding[i] = false;
+                    promptResolved[i] = false; promptJudgement[i] = 0; promptPulseUntil[i] = double.NegativeInfinity;
+                    promptLabels[i].text = rules.NoteType(i) == RhythmNoteType.Hold ? HoldKeys[rules.NoteLane(i)] : PromptKeys[rules.NoteLane(i)];
+                }
             playing = true;
             SetPlayControls(true);
             for (int i = 0; i < 4; i++) lightRemaining[i] = float.NegativeInfinity;
@@ -215,16 +245,21 @@ namespace Game.Rhythm
             startButton.interactable = true;
             resultPanel.SetActive(false);
             startLabel.text = practice ? $"切回{songTitle}" : $"重开{songTitle}";
-            practiceButton.GetComponentInChildren<TMP_Text>().text = practice ? "重开 Tap/Hold 练习" : "短 Tap/Hold 练习";
+            practiceButton.GetComponentInChildren<TMP_Text>().text = config.IsQteMode ? "单击与长按练习" : practice ? "重开 Tap/Hold 练习" : "短 Tap/Hold 练习";
             heading.text = practice ? "Tap / Hold 练习" : songTitle;
             subtitle.text = practice ? "独立参考拍 · 不混入歌曲谱面" : songSummary;
             instructions.text = practice ? "D、F 单击一次\nJ、K 长条按住到尾\n\n到尾自动成功\n提前松开会失败\n\n右侧可随时重开练习" : songInstructions;
+            if (config.IsQteMode) { heading.text = practice ? "跟拍练习" : songTitle; instructions.text = songInstructions; }
             feedbackLabel.text = "准备";
+            feedbackUntil = double.NegativeInfinity;
             Score(rules);
         }
         public void Frame(double seconds, RhythmRules rules)
         {
+            if (double.IsNaN(feedbackUntil)) feedbackUntil = seconds + 0.65;
             double displaySeconds = seconds - visualOffsetMs / 1000;
+            if (config.IsQteMode) PromptFrame(seconds, displaySeconds, rules);
+            else
             for (int i = 0; i < notes.Length; i++)
             {
                 double remaining = rules.NoteTime(i) - displaySeconds;
@@ -239,7 +274,7 @@ namespace Game.Rhythm
             if (next != countdown)
             {
                 countdown = next;
-                statusLabel.text = next > 0 ? $"倒数 {next}" : "音符到达横线时按键";
+                statusLabel.text = next > 0 ? $"倒数 {next}" : config.IsQteMode ? "外圈与内圈重合时按键" : "音符到达横线时按键";
             }
             progressSlider.SetValueWithoutNotify(GameMath.Clamp01((float)(seconds / roundDuration)));
             for (int i = 0; i < 4; i++)
@@ -249,6 +284,105 @@ namespace Game.Rhythm
                     seconds < lightRemaining[i] ? 0.9f : 0.14f);
             }
         }
+        // 当前组、下一组和已按住音符分别占一行；同拍及同键后续提示不共用对象。
+        private void PromptFrame(double seconds, double displaySeconds, RhythmRules rules)
+        {
+            PromptGroups(rules, out double current, out double next);
+            int currentCount = PromptGroupSize(rules, current), nextCount = PromptGroupSize(rules, next), heldCount = 0;
+            for (int i = 0; i < rules.Count; i++)
+            {
+                if (rules.IsHolding(i)) heldCount++;
+            }
+            RenderPromptGroups(seconds, displaySeconds, rules, current, next, currentCount, nextCount, heldCount);
+            if (seconds >= feedbackUntil && feedbackLabel.text.Length != 0) feedbackLabel.text = string.Empty;
+        }
+        public static void PromptGroups(RhythmRules rules, out double current, out double next)
+        {
+            current = double.PositiveInfinity; next = double.PositiveInfinity;
+            for (int i = 0; i < rules.Count; i++)
+            {
+                if (rules.IsResolved(i) || rules.IsHolding(i)) continue;
+                double time = rules.NoteTime(i);
+                if (time < current) { next = current; current = time; }
+                else if (time > current + 0.000001 && time < next) next = time;
+            }
+        }
+        // 同拍组保留全部成员的槽位，部分命中后剩余按键不横向跳位。
+        public static int PromptGroupSize(RhythmRules rules, double time)
+        {
+            int count = 0;
+            for (int i = 0; i < rules.Count; i++)
+                if (GameMath.Abs(rules.NoteTime(i) - time) < 0.000001) count++;
+            return count;
+        }
+        private void RenderPromptGroups(double seconds, double displaySeconds, RhythmRules rules, double current, double next,
+            int currentCount, int nextCount, int heldCount)
+        {
+            int currentSlot = 0, nextSlot = 0, heldSlot = 0;
+            for (int i = 0; i < rules.Count; i++)
+            {
+                bool primary = GameMath.Abs(rules.NoteTime(i) - current) < 0.000001;
+                bool upcoming = GameMath.Abs(rules.NoteTime(i) - next) < 0.000001;
+                int groupSlot = primary ? currentSlot++ : upcoming ? nextSlot++ : -1;
+                if (rules.IsResolved(i))
+                {
+                    if (!promptResolved[i])
+                    {
+                        promptResolved[i] = true; promptPulseUntil[i] = noteImages[i].enabled ? seconds + 0.18 : seconds;
+                        if (promptJudgement[i] == 0) promptJudgement[i] = promptHolding[i] ? (byte)1 : (byte)2;
+                    }
+                    bool pulse = seconds < promptPulseUntil[i];
+                    noteImages[i].enabled = pulse; promptLabels[i].enabled = false;
+                    if (pulse)
+                    {
+                        float pulseX = 0.35f + rules.NoteLane(i) * 0.1f;
+                        Place(notes[i], new Vector2(pulseX - 0.04f, 0), new Vector2(pulseX + 0.04f, 0.06f));
+                        var flash = promptJudgement[i] == 1 ? LaneColor(0) : new Color(1f, 0.6f, 0.5f);
+                        flash.a = (float)((promptPulseUntil[i] - seconds) / 0.18);
+                        promptLabels[i].color = flash;
+                        noteImages[i].ShowPrompt(0, false, 0, flash);
+                    }
+                    continue;
+                }
+                bool holding = rules.IsHolding(i);
+                bool visible = !rules.IsResolved(i) && (holding || ((primary || upcoming) && rules.NoteTime(i) - displaySeconds <= config.ApproachSeconds));
+                noteImages[i].enabled = visible; promptLabels[i].enabled = visible;
+                if (!visible) continue;
+                int count = holding ? heldCount : primary ? currentCount : nextCount;
+                int slot = holding ? heldSlot++ : groupSlot;
+                float y = holding ? 0.06f : primary ? 0.35f : 0.72f;
+                float height = holding ? 0.27f : primary ? 0.36f : 0.26f;
+                float width = GameMath.Min(0.35f, 1f / count);
+                float x = 0.5f + (slot - (count - 1) * 0.5f) * width;
+                Place(notes[i], new Vector2(x - width * 0.5f, y), new Vector2(x + width * 0.5f, y + height));
+                var tint = LaneColor(rules.NoteLane(i)); tint.a = holding || primary ? 1 : 0.4f;
+                promptLabels[i].color = tint;
+                if (promptHolding[i] != holding)
+                {
+                    promptHolding[i] = holding;
+                    promptLabels[i].text = holding || rules.NoteType(i) == RhythmNoteType.Hold ? HoldKeys[rules.NoteLane(i)] : PromptKeys[rules.NoteLane(i)];
+                }
+                float progress = holding ? PromptHoldProgress(rules.NoteTime(i), rules.NoteEnd(i), seconds, rules.OffsetMs, false) : 0;
+                noteImages[i].ShowPrompt(RhythmTrackGraphic.PositionAt(rules.NoteTime(i), seconds, visualOffsetMs, config.ApproachSeconds), holding, progress, tint);
+            }
+        }
+        // 未收到规则结算之前不画满进度，正补偿及输入批次延后都不会提前暗示松开。
+        public static float PromptHoldProgress(double start, double end, double songSeconds, double inputOffsetMs, bool resolved)
+            => resolved ? 1 : GameMath.Min(0.98f, GameMath.Clamp01((float)((songSeconds - inputOffsetMs / 1000 - start) / (end - start))));
+        private void HideNotes()
+        {
+            if (noteImages == null) return;
+            for (int i = 0; i < noteImages.Length; i++)
+            {
+                noteImages[i].enabled = false;
+                if (promptLabels != null && promptLabels[i] != null) promptLabels[i].enabled = false;
+            }
+        }
+        private void PromptFeedback(string text, bool success)
+        {
+            feedbackLabel.text = text; feedbackLabel.color = success ? LaneColor(0) : new Color(1f, 0.6f, 0.5f);
+            feedbackUntil = double.NaN;
+        }
         public void Flash(int lane, double seconds) { lightRemaining[lane] = (float)seconds + 0.12f; }
         public void Hit(RhythmHitResult result, RhythmRules rules)
         {
@@ -257,6 +391,13 @@ namespace Game.Rhythm
             {
                 double error = result.RawErrorMs - offsetSlider.value;
                 manualFeedback.text = $"本次{(error < 0 ? "早" : "晚")} {GameMath.Abs(error):0} ms\n当前试用 {offsetSlider.value:+0;-0;0} ms\n只试听试打，不计成绩";
+            }
+            if (config.IsQteMode)
+            {
+                if (result.Note >= 0 && promptJudgement != null && result.Note < promptJudgement.Length && !result.HoldStarted)
+                    promptJudgement[result.Note] = result.Grade == RhythmGrade.Miss ? (byte)2 : (byte)1;
+                PromptFeedback(result.HoldStarted ? "按住，跟随节拍" : result.Grade == RhythmGrade.Miss ? "错过了，继续" : "合拍", result.Grade != RhythmGrade.Miss);
+                return;
             }
             if (result.HoldStarted) { feedbackLabel.color = LaneColor(0); feedbackLabel.text = $"头部 {result.Grade}\n继续按住至尾部"; return; }
             if (result.Grade == RhythmGrade.Miss)
@@ -272,13 +413,19 @@ namespace Game.Rhythm
         }
         public void Missed(RhythmRules rules)
         {
+            if (config.IsQteMode) { PromptFeedback("错过了，继续", false); return; }
             feedbackLabel.color = new Color(1f, 0.45f, 0.5f);
             feedbackLabel.text = "MISS";
             Score(rules);
         }
-        public void Score(RhythmRules rules) => scoreLabel.text = $"{rules.Score:000000}\n连击 {rules.Combo}　最高 {rules.MaxCombo}";
+        public void Score(RhythmRules rules)
+        {
+            if (config.IsQteMode) { scoreLabel.gameObject.SetActive(false); return; }
+            scoreLabel.text = $"{rules.Score:000000}\n连击 {rules.Combo}　最高 {rules.MaxCombo}";
+        }
         public void HoldCompleted(RhythmRules rules)
         {
+            if (config.IsQteMode) { PromptFeedback("长按完成，可以松开", true); return; }
             feedbackLabel.color = LaneColor(0); feedbackLabel.text = "长按完成 ✓\n现在可以松开"; Score(rules);
         }
         public void Finish(RhythmRules rules, bool practice = false)
@@ -287,7 +434,21 @@ namespace Game.Rhythm
             resultPanel.SetActive(true);
             startLabel.text = "重试本曲";
             SetPostRoundControls();
+            if (config.IsQteMode)
+            {
+                resultPanel.SetActive(false); feedbackLabel.gameObject.SetActive(true);
+                feedbackLabel.text = practice ? "练习结束" : "演奏结束";
+                return;
+            }
             resultLabel.text = $"{(practice ? "练习完成" : "演奏完成")}\n\n{rules.Score:000000}\n\nPerfect  {rules.Perfect}    Good  {rules.Good}\nMiss  {rules.Miss}    最高连击  {rules.MaxCombo}\n长按成功  {rules.CompletedHolds}";
+        }
+        public void SetQteResult(bool passed)
+        {
+            statusLabel.text = string.Empty;
+            resultPanel.SetActive(false); feedbackLabel.gameObject.SetActive(true);
+            Place(feedbackLabel.rectTransform, new Vector2(0.25f, 0.4f), new Vector2(0.65f, 0.65f));
+            feedbackLabel.text = passed ? "演奏成功" : "再试一次";
+            feedbackLabel.color = passed ? LaneColor(0) : Color.white;
         }
         public void Interrupted(string message)
         {
@@ -316,7 +477,7 @@ namespace Game.Rhythm
         {
             var label = backButton == null ? null : backButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null) label.text = activity ? "退出演奏" : "返回标题";
-            if (activityPauseExit != null) activityPauseExit.GetComponentInChildren<TMP_Text>(true).text = activity ? "退出演奏" : "退出 · 返回曲库";
+            if (activityPauseExit != null) activityPauseExit.GetComponentInChildren<TMP_Text>(true).text = activity ? "退出演奏" : config.IsQteMode ? "退出 · 返回标题" : "退出 · 返回曲库";
         }
         public void ConfigureSong(RhythmConfig chart, string title, string difficulty)
         {
@@ -327,13 +488,19 @@ namespace Game.Rhythm
             for (int i = 0; i < songRules.Count; i++) if (songRules.NoteType(i) == RhythmNoteType.Hold) holds++;
             songSummary = $"{difficulty} / {songNoteCount - holds} 个单击 · {holds} 个长按";
             songInstructions = holds > 0 ? "让音符到达横线\n按下对应的键\n\nD    F    J    K\n单击轻点一次\n长条按住至尾\n提前松开会失败" : "让音符到达横线\n按下对应的键\n\nD    F    J    K\n\n单击轻点一次\n长按可用右侧练习";
+            if (config.IsQteMode)
+            {
+                songSummary = "随乐而奏 · 完成六成音符即可通过";
+                songInstructions = "跟随音乐\n外圈与内圈重合时按键\n\nD    F    J    K\n标有按住的提示持续按住\n提示完成后即可松开\n错过后继续跟拍";
+            }
             Score(songRules);
             progressSlider.SetValueWithoutNotify(0);
-            if (noteImages != null) for (int i = 0; i < noteImages.Length; i++) noteImages[i].enabled = false;
+            HideNotes();
             for (int i = 0; i < laneLights.Length; i++) laneLights[i].color = new Color(LaneColor(i).r, LaneColor(i).g, LaneColor(i).b, 0.14f);
         }
         public void SetSongResult(bool passed, int required, int best)
         {
+            if (config.IsQteMode) { SetQteResult(passed); return; }
             statusLabel.text = passed ? "通关达标！可返回选曲查看解锁" : $"尚未达标，需要 {required} 分；可重试";
             resultLabel.text += $"\n{(passed ? "通关" : "未达标")} · 目标 {required} · 最佳 {best}";
         }
@@ -505,7 +672,7 @@ namespace Game.Rhythm
         public void SetVisualOffset(float value)
         {
             visualOffsetMs = value; visualSlider.SetValueWithoutNotify(value);
-            visualLabel.text = $"视觉延迟 {value:+0;-0;0} ms\n正值：画面稍晚到线";
+            visualLabel.text = $"视觉延迟 {value:+0;-0;0} ms\n正值：视觉提示稍晚到达";
         }
         private void VisualChanged(float value) { SetVisualOffset(value); if (!editingSettings) OnVisualOffsetChanged?.Invoke(value); }
         private void CalibrationClicked() { if (settingsSaving) return; CancelSettingsDraft(); settingsPanel.SetActive(false); OnCalibrationClicked?.Invoke(); }
@@ -527,7 +694,7 @@ namespace Game.Rhythm
             int progress = GameMath.Clamp((int)(seconds / beatSeconds) - warmup, 0, total);
             if (phase == calibrationPhase && samples == calibrationSamples && progress == calibrationProgress) return;
             if (calibrationPhase == int.MinValue && noteImages != null)
-                for (int i = 0; i < noteImages.Length; i++) noteImages[i].enabled = false;
+                HideNotes();
             calibrationPhase = phase; calibrationSamples = samples; calibrationProgress = progress;
             startButton.interactable = true; practiceButton.interactable = true; startLabel.text = $"{songTitle}（取消校准）";
             heading.text = "参考拍校准"; subtitle.text = "独立节拍器 · 听声跟拍";
@@ -671,8 +838,8 @@ namespace Game.Rhythm
                 var oldLane = transform.Find("Lane" + i); // 只在面板打开时调整旧布局，不在每帧查找。
                 if (oldLane != null) oldLane.gameObject.SetActive(false);
             }
-            var graphic = noteArea.gameObject.AddComponent<RhythmTrackGraphic>();
-            graphic.Configure(true);
+            trackBackground = noteArea.gameObject.AddComponent<RhythmTrackGraphic>();
+            trackBackground.Configure(true);
             BuildSettings();
         }
         // 页面只整理现有入口，规则与保存仍交由 State。
@@ -813,9 +980,11 @@ namespace Game.Rhythm
             noteArea.gameObject.SetActive(true);
             progressSlider.gameObject.SetActive(true);
             feedbackLabel.gameObject.SetActive(true);
-            foreach (var light in laneLights) light.gameObject.SetActive(true);
-            SetLaneGuides(true);
-            scoreLabel.gameObject.SetActive(true);
+            foreach (var light in laneLights) light.gameObject.SetActive(!config.IsQteMode);
+            SetLaneGuides(!config.IsQteMode);
+            if (trackBackground != null) trackBackground.enabled = !config.IsQteMode;
+            if (config.IsQteMode) Place(feedbackLabel.rectTransform, new Vector2(0.3f, 0.02f), new Vector2(0.7f, 0.12f));
+            scoreLabel.gameObject.SetActive(!config.IsQteMode);
             playExit.gameObject.SetActive(active);
             settingsButton.gameObject.SetActive(!active);
             startButton.gameObject.SetActive(!active);

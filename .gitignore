@@ -144,7 +144,11 @@ Assets/InitTestScene*.unity.meta
 /PRP/independent-shop-mechanics/*.json
 
 # 本地环境导出、截图序列、测试存档与画面验收产物。
-# 不忽略整个 outputs：文策表、音频需求表、流程图及其制作脚本仍需整理归档。
+# 不忽略整个 outputs：流程图和页面按需归档；Excel 输出和填写副本只留本地。
+# 正式配置源表放 Tables/，正式设计源件放 docs/design/；不按扩展名全仓库屏蔽。
+/outputs/**/*.xlsx
+/outputs/**/*.xls
+/outputs/**/*.xlsm
 # 已跟踪的验收截图和摘要不受这些规则影响。
 /outputs/water/
 /outputs/ink-transition-preview/
@@ -166,7 +170,7 @@ Assets/InitTestScene*.unity.meta
 /outputs/road-flicker/
 /outputs/package-audit-20261018/
 
-# 文策与音频资料只归档最终 Excel、流程图和页面；一次性制作脚本、重复预览、校验快照留本地。
+# 文策与音频资料按需归档流程图和页面；一次性制作脚本、重复预览、校验快照留本地。
 /outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.mjs
 /outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.png
 /outputs/01a12bf6-bdd2-7442-9958-4623b3d026f1/audio-demand/*.json

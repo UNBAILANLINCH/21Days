@@ -1567,6 +1567,30 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 4591eca6f7af61541b677e21f1641cf4, type: 3}
   - itemId: 1803
     sprite: {fileID: 21300000, guid: 61880243861b081458e70523950c6ac0, type: 3}
+  - itemId: 1101
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1102
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1103
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1901
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1902
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1903
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1904
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1905
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1906
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1907
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1908
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
+  - itemId: 1909
+    sprite: {fileID: 21300000, guid: a017ba7876c9cf94496141bfd2774cb7, type: 3}
   detailRevealSeconds: 0.16
   commonColor: {r: 0.12941177, g: 0.41568628, b: 0.4745098, a: 1}
   rareColor: {r: 0.12, g: 0.27, b: 0.58, a: 1}
@@ -4206,11 +4230,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 315425930439920793}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 0.5}
-  m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -12, y: 0}
-  m_SizeDelta: {x: 100, y: 44}
-  m_Pivot: {x: 1, y: 0.5}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 70, y: -122}
+  m_SizeDelta: {x: 120, y: 32}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &39002741681018284
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4249,7 +4273,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 0.85, b: 0.4, a: 1}
+  m_fontColor: {r: 0.12941177, g: 0.41568628, b: 0.4745098, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4273,8 +4297,8 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 4
-  m_VerticalAlignment: 4096
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0

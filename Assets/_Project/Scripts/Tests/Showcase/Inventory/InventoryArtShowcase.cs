@@ -50,9 +50,13 @@ namespace Game.Tests.Showcase.Inventory
                 {
                     var row = Row(panel, item.Name);
                     var icon = row.transform.Find("Icon").GetComponent<Image>();
-                    bool bound = item.Id == 1601 || item.Id == 1803 || item.Id == 1804 || item.Id == 1805;
+                    bool skin = item.Category == global::cfg.EItemCategory.Skin;
+                    bool bound = skin || item.Id == 1601 || item.Id == 1803 || item.Id == 1804 || item.Id == 1805;
                     Assert.That(icon.gameObject.activeSelf, Is.EqualTo(bound), item.Name);
                     Assert.That(row.transform.Find("Name").gameObject.activeSelf, Is.EqualTo(!bound), item.Name);
+                    var tag = row.transform.Find("Tag").GetComponent<TMP_Text>();
+                    Assert.That(tag.gameObject.activeSelf, Is.EqualTo(skin), item.Name);
+                    if (skin) Assert.That(tag.text, Is.EqualTo(item.Name), "共用皮图标仍须显示各自名称");
                     if (bound) Assert.That(icon.preserveAspect && icon.rectTransform.pivot == new Vector2(.5f, .5f), Is.True, item.Name);
                     Assert.That(row.transform.Find("Count").GetComponent<TMP_Text>().isTextOverflowing, Is.False, item.Name);
                 }

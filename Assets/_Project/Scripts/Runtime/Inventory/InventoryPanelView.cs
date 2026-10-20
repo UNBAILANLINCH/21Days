@@ -169,7 +169,8 @@ namespace Game.Inventory
                 row.Id = entry.Id;
                 SetText(row.Name, entry.Name);
                 SetText(row.Count, CountPrefix + entry.Count);
-                SetText(row.Tag, InventoryRules.CategoryLabel(entry.Category));
+                SetText(row.Tag, entry.Category == global::cfg.EItemCategory.Skin ? entry.Name : InventoryRules.CategoryLabel(entry.Category));
+                SetActive(row.Tag.gameObject, entry.Category == global::cfg.EItemCategory.Skin);
                 Sprite icon = FindIcon(entry.Id);
                 row.Icon.sprite = icon;
                 row.Icon.color = Color.white;

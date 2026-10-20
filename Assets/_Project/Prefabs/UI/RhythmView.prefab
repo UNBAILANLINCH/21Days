@@ -2946,7 +2946,7 @@ MonoBehaviour:
   transition: 0
   defaultSelected: {fileID: 0}
   noteArea: {fileID: 161985345789233838}
-  noteTemplate: {fileID: 5728362807910973511}
+  qtePromptPrefab: {fileID: 1046751487287579636, guid: 96b544357c735e4438fa640de3cf6a67, type: 3}
   scoreLabel: {fileID: 4619504438640552001}
   feedbackLabel: {fileID: 3064856718460375662}
   statusLabel: {fileID: 2542266242385400834}

@@ -1,0 +1,29 @@
+// 人工经Unity MCP执行；只替换妖界enter_r0171的视觉子物体，保留剧情点、位置、标签和交互。
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("请先退出Play");
+Game.Narrative.SpotlightSceneBindings bindings=null;
+foreach(var b in UnityEngine.Object.FindObjectsByType<Game.Narrative.SpotlightSceneBindings>(UnityEngine.FindObjectsInactive.Include,UnityEngine.FindObjectsSortMode.None))if(!b.IsHumanStory){if(bindings!=null)throw new System.InvalidOperationException("妖界接线不唯一");bindings=b;}
+if(bindings==null||bindings.gameObject.scene.path!="Assets/_Project/Scenes/SampleScene.unity")throw new System.InvalidOperationException("目标场景不符");
+var point=bindings.Find("enter_r0171");if(point==null||point.Anchor==null)throw new System.InvalidOperationException("缺少值守点");
+if(bindings.LunhuitangGuard==null)
+{
+    var old=point.Anchor.GetComponentsInChildren<Game.CharacterPuppet.ChibiPuppet>(true);
+    if(old.Length!=1||UnityEditor.PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(old[0].gameObject)!="Assets/_Project/Prefabs/Characters/Chibi_chen.prefab")throw new System.InvalidOperationException("占位外观已变化，停止覆盖");
+    var asset=UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Characters/Chibi_lunhuitang_guard.prefab");if(asset==null)throw new System.InvalidOperationException("缺少值守预制体");
+    var instance=(GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(asset,old[0].transform.parent);
+    instance.transform.localPosition=old[0].transform.localPosition;instance.transform.localRotation=old[0].transform.localRotation;instance.transform.localScale=old[0].transform.localScale;
+    instance.AddComponent<Game.IsometricExploration.CameraBillboard>();
+    var motion=instance.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>();motion.enabled=false;
+    var data=new UnityEditor.SerializedObject(motion);data.FindProperty("trackedRoot").objectReferenceValue=point.Anchor;data.ApplyModifiedPropertiesWithoutUndo();
+    var serialized=new UnityEditor.SerializedObject(bindings);serialized.FindProperty("lunhuitangGuard").objectReferenceValue=instance.GetComponent<Game.CharacterPuppet.ChibiPuppet>();serialized.ApplyModifiedPropertiesWithoutUndo();
+    UnityEngine.Object.DestroyImmediate(old[0].gameObject);
+    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bindings.gameObject.scene);UnityEditor.SceneManagement.EditorSceneManager.SaveScene(bindings.gameObject.scene);
+}
+var settings=UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject.Settings;var group=settings.FindGroup("UI");if(group==null)throw new System.InvalidOperationException("缺少UI组");
+foreach(string expression in new[]{"default","talk"})
+{
+    string path="Assets/_Project/Art/Sprites/Dialogue/Portrait_lunhuitang_guard_"+expression+".png";
+    var importer=(UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(path);importer.textureType=UnityEditor.TextureImporterType.Sprite;importer.spriteImportMode=UnityEditor.SpriteImportMode.Single;importer.alphaIsTransparency=true;importer.textureCompression=UnityEditor.TextureImporterCompression.Uncompressed;importer.SaveAndReimport();
+    var entry=settings.CreateOrMoveEntry(UnityEditor.AssetDatabase.AssetPathToGUID(path),group);entry.address="Dialogue/Portrait_lunhuitang_guard_"+expression;
+}
+UnityEditor.EditorUtility.SetDirty(group);UnityEditor.AssetDatabase.SaveAssetIfDirty(group);UnityEditor.EditorUtility.SetDirty(settings);UnityEditor.AssetDatabase.SaveAssetIfDirty(settings);
+return "妖界值守外观和两个头像地址已绑定；人界入镜点与王录业未替换。";

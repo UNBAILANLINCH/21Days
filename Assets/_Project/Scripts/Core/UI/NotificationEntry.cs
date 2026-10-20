@@ -7,11 +7,12 @@ namespace Game.Core.UI
     /// <summary>一条通知。由 <see cref="NotificationQueue.Enqueue"/> 构造，秒数已按下限修正。</summary>
     public readonly struct NotificationEntry
     {
-        public NotificationEntry(string title, string body, float seconds)
+        public NotificationEntry(string title, string body, float seconds, bool success = false)
         {
             Title = title;
             Body = body;
             Seconds = seconds;
+            Success = success;
         }
 
         public string Title { get; }
@@ -20,5 +21,7 @@ namespace Game.Core.UI
         public string Body { get; }
 
         public float Seconds { get; }
+
+        public bool Success { get; }
     }
 }

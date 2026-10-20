@@ -48,12 +48,14 @@ maturity: seed
 
 ## 换整套表现（`IBattlePresenter`）
 
+仅换战斗地点无需新增Presenter：在世界场景放BattleStage，接相机、CameraRig、两个BattleActor、worldView及局部hideDuringBattle；相机默认关闭、无MainCamera标签／AudioListener，角色锚点必须贴地且攻击／后撤范围无障碍。当前SampleScene复用客栈前场。世界舞台不搬探索玩家；实际外观按当前玩家与本场targetId复制，CloseAsync或舞台停用时Release，禁止把整个环境根放进隐藏列表。没有世界舞台时原独立舞台仍可用。
+
 实现四个方法（接口说明 `IBattlePresenter.cs:5-42`），在 `BattleInstaller` 把 `IBattlePresenter` 的注册（`BattleInstaller.cs:72-73`）换成新类。约定：
 
 - `OpenAsync` 在黑幕下调，失败一半也会被 `CloseAsync`；`CloseAsync` 必须容错、可重入。
-- `WaitCommandAsync` 返回 `BattleCommand`（招式 / 道具 / 结束回合）；被拒时流程会带 `Rejection` 再问一次（`BattleFlow.cs:307-316`），连续 100 次被拒放弃这一场。
+- `WaitCommandAsync` 返回 `BattleCommand`（招式 / 道具 / 结束回合）；被拒时流程会带 `Rejection` 再问一次（`BattleFlow.cs`），连续 100 次被拒放弃这一场。
 - 相机交接用 `BattleCameraHandoff`，**战斗相机不能打 `MainCamera` 标签**；收场要在卸载场景之前交还相机（guide「相机接管规则」）。
-- 角色挂纸片小人用 `BattleActor`；它会关掉小人的 `ChibiPuppetMotion` 自己写走跑朝向（`BattleActor.cs:271-278`）。别的驱动方式要避免同一小人两个写参数的地方。
+- 角色挂纸片小人用 `BattleActor`；它会关掉小人的 `ChibiPuppetMotion` 自己写走跑朝向（`BattleActor.BindVisual`／`SetMoving`）。别的驱动方式要避免同一小人两个写参数的地方。
 
 ## 新增一种背包口
 

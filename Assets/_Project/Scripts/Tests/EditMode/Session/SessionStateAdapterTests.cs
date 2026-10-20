@@ -6,10 +6,14 @@
 // 夹具：EncounterStep 是真的（玩家 + 一只不接种类表的怪 + 假升级端口）；适配器的其余构造依赖（对白、UI、遭遇状态、任务、存档）
 //   本组属性一个都不读，只为过构造的判空——用 FormatterServices.GetUninitializedObject 造未初始化实例，不跑它们的构造函数
 //   （真构造要拉起 Addressables / 输入 / 表数据，与被测的那一行无关）。
+using System;
+using System.Collections;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Flow;
+using Game.Core.Platform;
 using Game.Core.Save;
 using Game.Core.Simulation;
 using Game.Core.Telemetry;
@@ -20,8 +24,11 @@ using Game.Player;
 using Game.Quest;
 using Game.Session;
 using NUnit.Framework;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace Game.Tests.EditMode.Session
 {
@@ -55,6 +62,55 @@ namespace Game.Tests.EditMode.Session
                 StoryId = "spotlight_current", StageId = stage } };
             Assert.That(SessionStateAdapter.ResolveLegacyStoryScene(saved, narrative), Is.EqualTo(human ? "SpotlightHuman" : "IsometricEncounter"));
         }
+
+        [UnityTest]
+        public IEnumerator LegacySceneRoute_ReadCandidateAndCommit_RestoresHumanOnce() => UniTask.ToCoroutine(async () =>
+        {
+            string root = Path.Combine(Path.GetTempPath(), "21Days-route-tests", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                foreach (int version in new[] { 1, 2, 3, 4 })
+                foreach (string stage in new[] { "enter_r0026", "action_r0070", "enter_r0083", "enter_r0129", "enter_r0171", "action_r0197" })
+                {
+                    bool human = version < 3 && stage != "enter_r0171" && stage != "action_r0197";
+                    string context = "v" + version + ":" + stage;
+                    var service = new JsonSaveService(new FakePlatformService(root), null, null);
+                    JObject encounterJson = JObject.FromObject(step.Capture(0));
+                    encounterJson.Remove(nameof(EncounterSaveData.StoryWorld));
+                    var narrative = new Game.Narrative.NarrativeSaveData { Current = new Game.Narrative.NarrativeSaveData.Frame {
+                        StoryId = "spotlight_current", StageId = stage } };
+                    var partitions = new JObject {
+                        [typeof(EncounterSaveData).FullName] = new JObject { ["version"] = version, ["data"] = encounterJson },
+                        [typeof(Game.Narrative.NarrativeSaveData).FullName] = new JObject {
+                            ["version"] = narrative.Version, ["data"] = JObject.FromObject(narrative) }
+                    };
+                    File.WriteAllText(service.GetSlotPath(1), new JObject { ["formatVersion"] = 1, ["partitions"] = partitions }.ToString());
+
+                    SaveSnapshot candidate = await service.ReadCandidateAsync(1);
+                    Assert.That(candidate, Is.Not.Null, context);
+                    Assert.That(SessionStateAdapter.ResolveLegacyStoryScene(candidate.Require<EncounterSaveData>(), narrative),
+                        Is.EqualTo(human ? "SpotlightHuman" : "IsometricEncounter"), context + "：候选克隆保留迁移信息");
+                    service.Commit(candidate);
+                    var encounter = Placeholder<MonsterEncounterState>();
+                    var restoring = new SessionStateAdapter(new StubFlow(), Placeholder<DialogueService>(), Placeholder<UIService>(), step,
+                        encounter, Placeholder<QuestService>(), service, sessionConfig);
+                    restoring.PrepareRestore(true);
+                    EncounterSaveData restored = service.Get<EncounterSaveData>();
+                    Assert.That(encounter.IsHumanWorld, Is.EqualTo(human), context);
+                    Assert.That(restored.Player.PositionY, Is.EqualTo(human ? EncounterSaveData.HumanOffsetZ : 0f), context);
+                    Assert.That(restored.LegacySceneRoute, Is.False, context + "：解析后消费迁移信息");
+
+                    Assert.That(await service.SaveAsync(1), Is.True, context);
+                    service.Commit(await service.ReadCandidateAsync(1));
+                    restoring.PrepareRestore(true);
+                    Assert.That(encounter.IsHumanWorld, Is.EqualTo(human), context + "：v4再次继续保留世界");
+                    Assert.That(service.Get<EncounterSaveData>().Player.PositionY,
+                        Is.EqualTo(human ? EncounterSaveData.HumanOffsetZ : 0f), context + "：不能重复加300");
+                }
+            }
+            finally { Directory.Delete(root, true); }
+        });
 
         [SetUp]
         public void SetUp()
@@ -141,6 +197,15 @@ namespace Game.Tests.EditMode.Session
 
         // 只为过适配器构造的判空：不跑构造函数、不初始化任何字段（被测属性不读它们，见文件头）。
         private static T Placeholder<T>() where T : class => (T)FormatterServices.GetUninitializedObject(typeof(T));
+
+        private sealed class FakePlatformService : IPlatformService
+        {
+            public FakePlatformService(string saveRoot) => SaveRoot = saveRoot;
+            public PlatformKind Kind => PlatformKind.Standalone;
+            public string SaveRoot { get; }
+            public bool IsTouchPrimary => false;
+            public void Vibrate(VibrationKind kind) { }
+        }
 
         /// <summary>一律接受、什么都不做的升级端口（战斗侧由 Battle 组的用例覆盖）。</summary>
         private sealed class AcceptingPort : IEncounterEscalationPort

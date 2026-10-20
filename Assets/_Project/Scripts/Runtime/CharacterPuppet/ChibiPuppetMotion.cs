@@ -70,6 +70,7 @@ namespace Game.CharacterPuppet
 
         private void LateUpdate()
         {
+            puppet.SetOpacity(facingSource == null ? 1f : facingSource.color.a);
             float dt = Time.deltaTime; // lint-ok: 纯表现层，只反推动画状态，不参与逻辑推进与重放
             Vector3 position = trackedRoot.position;
             if (dt <= 0f)
@@ -131,6 +132,11 @@ namespace Game.CharacterPuppet
             {
                 puppet.SetFacing(nextFaceLeft, snap);
             }
+        }
+
+        private void OnDisable()
+        {
+            if (puppet != null) puppet.SetOpacity(1f);
         }
 
         private bool ResolveFacing(Vector3 delta, float dt)

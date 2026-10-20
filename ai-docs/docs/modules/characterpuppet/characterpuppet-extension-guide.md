@@ -24,6 +24,12 @@ maturity: stable
 
 ## 换正式美术（序列帧）
 
+阶段一Boss重建顺序：`build-stage1-boss-animation`（仅首次）→`bake-stage1-boss-frames`→FramePuppetGenerator→`bind-stage1-boss-art`→`verify-stage1-boss-art.py`。最后的bind不能省：生成器会重置attack速度与loopTime；该角色attack必须speed=0、非循环，舞台通过门面按命中节奏采样。位置动画须写全XYZ常量／曲线，避免只绑Y时X在SampleAnimation归零。源图、层序和验证见[记录](../../stage1-boss-20261020/README.md)。
+
+轮回堂值守复用同一流程：build-lunhuitang-guard-animation（首次标定）→bake-lunhuitang-guard-frames→FramePuppetGenerator，接线为Tools/bind-lunhuitang-guard.txt。纸张必须在持卷前臂父链，源PNG不改；只替换妖界enter_r0171视觉，保留原Point。静态实例Motion停用，talk／Idle由原门面选态，不套用王录业的临时退场。
+
+王录业当前制作入口是 `Tools/build-wang-luye-animation.txt`（只首次标定）→ `Tools/bake-wang-luye-frames.txt`（从保存的rig采样，源PNG不改）→ `FramePuppetGenerator.Generate`。重跑整帧生成器保留GUID和talk／serious状态；场景对白演员必须保持Motion停用，由 `ChibiPuppet.SetDialoguePose` 统一选态，不给talk／serious添加自动回Idle过渡。
+
 1. 美术按 `docs/artist-guide.md` 3.4 交帧：`Art/Sprites/Characters/<名字>/chr_<名字>_<状态>_<NN>.png`，至少 `idle` + `walk`（`run` 可选），同一画布、脚底锚点一致、默认朝右；
    走 / 跑建议 24 fps。帧是按多快的地速画的写进 `meta.json` 的 `animations.walk.groundSpeed` / `animations.run.groundSpeed`（缺省 3 / 5）。
 2. 菜单 **21Days → 角色 → 从序列帧生成小人…** 选该目录，目标高度与原来一致（现为 1.6）；或脚本调 `FramePuppetGenerator.Generate(...)`。

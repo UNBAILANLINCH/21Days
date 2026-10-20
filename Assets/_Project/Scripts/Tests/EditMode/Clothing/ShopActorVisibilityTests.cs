@@ -8,6 +8,36 @@ namespace Game.Tests.EditMode.Clothing
     public sealed class ShopActorVisibilityTests
     {
         [Test]
+        public void DeadActor_StaysHiddenAcrossShopChanges_WithoutHidingWornVisual()
+        {
+            var root = new GameObject("actor");
+            var player = new GameObject("player");
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(root.transform);
+            var label = new GameObject("name").AddComponent<SpriteRenderer>();
+            label.transform.SetParent(root.transform);
+            var actor = root.AddComponent<ShopPlaytestActor>();
+            try
+            {
+                actor.SetVisible(true);
+                actor.SetAlive(false);
+                Assert.That(actor.IsVisible, Is.False);
+                Assert.That(visual.GetComponent<Renderer>().enabled, Is.False);
+                Assert.That(label.enabled, Is.False);
+                Assert.That(root.activeInHierarchy, Is.True, "保留角色根与模型引用");
+                visual.transform.SetParent(player.transform);
+                visual.GetComponent<Renderer>().enabled = true;
+                actor.SetVisible(false); actor.SetVisible(true);
+                Assert.That(actor.IsVisible, Is.False, "切店不能复活死者");
+                Assert.That(label.enabled, Is.False);
+                Assert.That(visual.GetComponent<Renderer>().enabled, Is.True, "已穿到玩家的皮不随来源隐藏");
+                actor.SetAlive(true);
+                Assert.That(actor.IsVisible, Is.True, "模型重置后恢复原分组可见性");
+                Assert.That(label.enabled, Is.True);
+            }
+            finally { Object.DestroyImmediate(root); Object.DestroyImmediate(player); }
+        }
+        [Test]
         public void HideShow_KeepsActorAvailableAndRestoresOriginalRendererMask()
         {
             var root = new GameObject("actor"); var visible = GameObject.CreatePrimitive(PrimitiveType.Cube);

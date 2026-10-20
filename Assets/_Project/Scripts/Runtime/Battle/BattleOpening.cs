@@ -8,11 +8,12 @@ namespace Game.Battle
     /// <summary>开场参数（只在 <see cref="IBattlePresenter.OpenAsync"/> 调用内有效，场景卸载后 <see cref="Arena"/> 失效）。</summary>
     public readonly struct BattleOpening
     {
-        public BattleOpening(BossDefinition boss, BattleSession session, Scene arena)
+        public BattleOpening(BossDefinition boss, BattleSession session, Scene arena, string targetId = null)
         {
             Boss = boss;
             Session = session;
             Arena = arena;
+            TargetId = targetId;
         }
 
         /// <summary>BOSS 定义（显示名、外观预制体）。</summary>
@@ -23,5 +24,8 @@ namespace Game.Battle
 
         /// <summary>叠加加载的战斗场景（<c>BattleArena</c>）；没切成 ActiveScene（PRP D4）。</summary>
         public Scene Arena { get; }
+
+        /// <summary>本场真实参战目标；仅用于选择现场外观，不参与规则或结果身份判定。</summary>
+        public string TargetId { get; }
     }
 }

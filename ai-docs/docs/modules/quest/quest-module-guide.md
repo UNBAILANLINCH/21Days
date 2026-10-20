@@ -7,6 +7,18 @@ maturity: stable
 
 # Quest 模块指南
 
+## 小任务追踪与完成通知（2026-10-20）
+
+详见[小部件 UI 接续](../../ui-widgets-20261020.md)。`QuestHudView/Root` 接入独立任务追踪底板，保留小地图下方位置、真实追踪事件、点击／Journal 打开面板及空态。宋体标题框须容纳实际字高（当前44px）；目标最多两行，底板在85–130px间按文字增高，布局只在内容改变时计算。`Content` 子 Canvas＋CanvasGroup 负责160ms unscaled淡入，隐藏／禁用／关闭停止；沉浸和对白均收起，状态没变不重复写显隐。
+
+Journal 提示在设备动作或有效绑定变化时更新，不再固定键盘 Tab。完成通知仍只由 `QuestNotificationPresenter` 发一次，标题默认「完成任务」、正文是实际任务名，经原 `INotificationService.Show(..., success:true)` 队列显示；不新增奖励或业务事件。`QuestTargetMarker` 换为本批叹号并保留黄色染色与原接管语义。
+
+## 任务面板美术（2026-10-19）
+
+本批记录与验证状态见[任务界面 UI 置入](../../ui-quest-20261019.md)。`QuestPanelView` 保留原 Tab 打开、进行中／已完成分类、详情与追踪事件；只扩展显示与导航。叠页模板的 `Paper` 和 `Highlight` 分别接主支线未选中／选中图片，原 `Kind` TMP 保留数据但隐藏以免与烘焙字重复，完成附注仍是动态 TMP。`listScroll` 指向独立 RectMask2D 视口，避免列表透出详情板的半透明左边缘；详情有独立长文滚动区和可导航滚动条。
+
+共用 `UIScrollFocus` 只接子项 Select，使倾斜页签完整滚入视口，不接管滚轮或拖动。列表布局仅在数据批量更新后计算；`detailGroup` 只在换任务时做 unscaled 160ms 淡入，同任务的追踪／目标更新不重播，关闭或禁用取消并还原。整页面板仍由既有 UITransition 过渡。
+
 ## 人间叙事不任务化（2026-10-18）
 
 正式900删除七个人间检查目标及永久阶段二占位，共四项：三店成果、酒肆BOSS、21010、21011，会面后真实完成。原HUD、任务列表及通知保留；`SetObjectivePresentation(questId,text)` 仅覆盖指定任务当前可见目标，人界交谈／镜面、妖界轮回堂／坊市按节点更新，解绑清空，197恢复表内真实成果目标。没有隐藏整套任务UI。
@@ -41,7 +53,7 @@ maturity: stable
 | `QuestObjectiveDriver` | 入口点：订阅对话结束 → 上报 TalkTo；每帧对到达型当前目标测距 → 上报 ReachLocation | 根作用域入口点 |
 | `QuestGuidanceMath` | 静态纯函数 `Solve(viewportPoint, canvasSize, edgeMargin)`：视口坐标 → 屏内返回投影点本身（不带箭头）/ 屏外贴边位置 + 箭头角度（相机背后先翻转）；`DistanceMeters` 直线距离半数进位取整 | `QuestHudPresenter` 调；探索模块 `ExplorationCompassRules` 复用 `Solve` |
 | `QuestHudView` | `UIView`（Hud 层）：任务栏 + 屏外贴边标识（`guidancePivot` 旋转带箭头公转、距离文本反向旋转保持正立），只显示与抛事件 | `IUIService` 实例化 |
-| `QuestHudPresenter` | 入口点：`BootCompletedEvent` 后开 HUD 常驻并实例化世界标记、挂任务键（`Gameplay/Journal`）订阅并把第一条键盘绑定写进 HUD 键位提示；订阅四个事件刷新文字；每帧摆标记（画面内只留标记，画面外才画贴边箭头 + 节流距离）并接管 / 交还 NPC 对话图标（`SetOverridden` → 纯静态 `SwitchIconOverride`）；对白中与沉浸模式隐藏；点任务栏或按任务键开面板 | 根作用域入口点 |
+| `QuestHudPresenter` | 入口点：`BootCompletedEvent` 后开 HUD、实例化世界标记并订阅 Journal；提示按最近设备及有效绑定更新，退出时退订。四个任务事件刷新文字；每帧只摆标记并节流距离，成对接管／交还 NPC 图标；对白和沉浸中隐藏；点任务栏或按任务键开面板 | 根作用域入口点 |
 | `QuestNotificationPresenter` | 入口点：订阅 `QuestActivatedEvent` / `QuestCompletedEvent`，经 `service.Content.TryGet` 取任务标题，按 `QuestConfig` 的两条格式拼好交给 `INotificationService.Show`；`BootCompletedEvent` 之前的事件（启动时激活首条任务）不弹 | 根作用域入口点 |
 | `QuestPanelView` | `UIView`（Panel 层）：「进行中 / 已完成」两个标签按钮（子物体 `Selected` 为选中态，抛 `OnTabSelected(QuestPanelTab)`）+ 列表 + 详情 + 追踪按钮；已完成标签下目标全 ✓、追踪按钮隐藏；只显示与抛事件 | `IUIService` 实例化 |
 | `QuestPanelController` | 开关面板会话：持世界暂停令牌 + 关 Gameplay 图；记当前标签（每次打开默认「进行中」，按标签选 `GetOrdered` / `GetCompleted`，切标签选中首项，任务事件刷新保持当前标签）；把面板事件转成 `service.Track/Untrack`；被 Esc（Core `UICancelRouter`）从外部关掉时经 `OnClosed` 收尾 | 根作用域单例 |

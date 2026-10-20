@@ -39,11 +39,11 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `IsBattleRunning` | `bool` | 有一场战斗在流程里（含等世界就绪）。`BattleFlow.cs:126` |
-| `IsBattleEngaged` | `bool` | 已越过门闸、世界被按住（舞台 / 界面在场或正在进出）。`BattleFlow.cs:129` |
-| `IsFightingBoss(bossId)` | `bool` | 流程里这一仗是不是跟名册里那一行打的（BOSS 发难组件用它分辨）。`BattleFlow.cs:136` |
-| `CanEscalate(kindId)` | `bool` | 这个怪物种类有没有回合制数据（遭遇侧在 tick 里问）。`BattleFlow.cs:204` |
-| `TryEscalate(encounter, in request, out reject)` | `bool` | 遭遇侧的升级端口实现；见 [`IEncounterEscalationPort`](../monster/monster-external-api.md)。`BattleFlow.cs:217` |
+| `IsBattleRunning` | `bool` | 有一场战斗在流程里（含等世界就绪）。`BattleFlow.cs` |
+| `IsBattleEngaged` | `bool` | 已越过门闸、世界被按住（舞台 / 界面在场或正在进出）。`BattleFlow.cs` |
+| `IsFightingBoss(bossId)` | `bool` | 流程里这一仗是不是跟名册里那一行打的（BOSS 发难组件用它分辨）。`BattleFlow.cs` |
+| `CanEscalate(kindId)` | `bool` | 这个怪物种类有没有回合制数据（遭遇侧在 tick 里问）。`BattleFlow.cs` |
+| `TryEscalate(encounter, in request, out reject)` | `bool` | 遭遇侧的升级端口实现；见 [`IEncounterEscalationPort`](../monster/monster-external-api.md)。`BattleFlow.cs` |
 
 别的模块想「战斗中不要做 X」读这几个即可，不要自己监听事件拼状态。其余方法都是内部的（`Start` / `Dispose` 由容器调）。
 
@@ -81,17 +81,21 @@ BOSS 物体上的 `BossEntryContext` 实现它，回答「这只 BOSS 察觉到�
 
 ## 回放 / 调试测试口
 
+交付动作采样：`BattleActor.BeginAttackPose()`返回外观是否有attack态；`PlayAttackPoseAsync(from,to,seconds,ct)`用unscaled时间推进姿态，与MoveToAsync并行；`EndAttackPose()`取消独立采样补间并回Idle。由BattleStage.StrikeAsync统一调用，不从外部提交伤害或动画事件。无attack态时沿用原出招；阶段一Boss资产和重建顺序见[记录](../../stage1-boss-20261020/README.md)。
+
+世界舞台接线：`BattleStage.worldView` 指向当前EncounterSceneView，`hideDuringBattle` 只列需局部隐藏的原对象；`IsWorldStage` 在妖界有效。`Prepare(prefab, targetId = null)` 复制实际参战外观，`Release()` 恢复显隐并清理本场实例，幂等且由表现生命周期调用。`BattleOpening.TargetId` 为可选表现信息；不替代结果回写的剧情身份。`BattleActor.ClearMounted()` 只清本场复制外观，保留舞台及探索对象。
+
 | 成员 | 说明 |
 | --- | --- |
 | `BattleSetup.OverrideSettings(in BattleSettings)` | 临时换回合制数值，返回 `IDisposable`。**只在 `Debug.isDebugBuild` 可用**，否则抛；开打时埋 `battle/settings_overridden`。仅供回放，玩法代码不得调。`BattleSetup.cs:83` |
 | `BattleSetup.Settings` / `IsOverridden` | 开仗实际用的数值 / 是否处于替换状态。`BattleSetup.cs:67,70` |
-| `BattleScenePresenter.Stage` / `View` / `IsAwaitingCommand` | 回放读舞台、界面与「正在等指令」。`BattleScenePresenter.cs:80,83,86` |
+| `BattleScenePresenter.Stage` / `View` / `IsAwaitingCommand` | 回放读舞台、界面与「正在等指令」。`BattleScenePresenter.cs,83,86` |
 
 ## 前置条件与注意
 
 - 需要 Boot 的 `GameBootstrap` 挂 `BattleInstaller`，并拖好 `TurnBasedConfig.asset` 与 `BossRosterConfig.asset`；缺了记 Error 并用默认 / 空名册顶上（`BattleInstaller.cs:113-128`）。
 - 依赖 `NarrativeInstaller` / `LootInstaller` 已注册（`BattleInstaller.cs:35`）。
-- 战斗场景地址 `BattleArena`（`BattleArena.cs:26`）须在 `AssetGroups/Scenes.asset`，界面地址 `BattleView`（= 类名）须在 `AssetGroups/UI.asset`。
+- 战斗场景地址 `BattleArena`（`BattleArena.cs`）须在 `AssetGroups/Scenes.asset`，界面地址 `BattleView`（= 类名）须在 `AssetGroups/UI.asset`。
 - 开战方式**三种都有**（07:15-28）：偷袭 / 正面攻击 / 被打。剧情版由 `BossEntryContext` 的局势定，遭遇版由触发情形翻译（`BattleSetup.TranslateEscalation`，`BattleSetup.cs:159`）。
 - 三个 `TryCreate` 重载（`BattleSetup.cs:106,126,139`）：不带局势 / 带 `IBattleEntryContext` / 带 `EncounterEscalationRequest`（后者才传玩家实时血量做比例换算）。
 - 「按 E 挑战」在 BOSS 开了主动发难时要**在反应时间内**完成，否则它先冲上来按「被打」开战（`BossAggro`，见 battle guide）。

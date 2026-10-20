@@ -20,7 +20,7 @@ namespace Game.Core.Flow
     /// 排队而不是打断：切换过程中来的请求进队列，等当前这次切完再按顺序处理——
     /// 打断会让某个状态的 Exit 半途而废，留下开了一半的 UI 和没释放的资源。
     /// </summary>
-    public sealed class GameFlow : IGameFlow
+    public sealed class GameFlow : IGameFlow, IGameFlowTransitionStatus
     {
         private readonly IObjectResolver resolver;
         private readonly IPublisher<GameStateChangedEvent> stateChangedPublisher;
@@ -72,6 +72,7 @@ namespace Game.Core.Flow
         }
 
         public GameState Current { get; private set; }
+        public bool IsTransitioning => processing;
 
         public UniTask GoToAsync<TState>(CancellationToken ct = default) where TState : GameState
         {

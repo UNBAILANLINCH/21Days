@@ -33,6 +33,8 @@ namespace Game.Narrative
         [SerializeField, Min(.1f)] private float guideRadius = 7f;
         [SerializeField, Min(0f)] private float exitPadding = .5f;
         [SerializeField] private int questId = 900;
+        [SerializeField, Min(.1f)] private float dialogueActorDistance = 1.5f;
+        public float DialogueActorDistance => dialogueActorDistance;
         [Header("坊市入口窗边特写")]
         [SerializeField] private Vector3 windowCameraOffset = new Vector3(-1.5f, 1.2f, -7f);
         [SerializeField] private float windowLookHeight = 1f;

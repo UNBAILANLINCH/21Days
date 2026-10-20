@@ -5,7 +5,7 @@
 
 ## Codex 执行约定
 
-- 九项项目技能已在 `.agents/skills/` 注册，入口引用 `.claude/skills/` 的同一份正文与脚本。可用 `$unity-mcp`、`$unity-test`、`$build`、`$new-feature`、`$review-change`、`$generate-doc`、`$project-lint`、`$unity-code-review`、`$evolution` 显式调用。
+- 项目技能已在 `.agents/skills/` 注册，入口引用 `.claude/skills/` 的同一份正文与脚本。可用 `$unity-mcp`、`$unity-test`、`$build`、`$new-feature`、`$review-change`、`$generate-doc`、`$project-lint`、`$unity-code-review`、`$evolution`、`$ui-beautify`、`$ui-style-create` 显式调用。给定参考的 UI 置入按 [ui-beautify](.claude/skills/ui-beautify/SKILL.md)，从项目风格创作新界面按 [ui-style-create](.claude/skills/ui-style-create/SKILL.md)。
 - `build`、`new-feature`、`review-change`、`unity-test` 保留原技能的显式调用策略；其余技能允许按任务描述选择。技能注册不等于 hooks 注册。
 
 - 如果 `python` 不在 PATH，使用已安装的 uv 查找解释器：PowerShell 中 `$projectPython = uv python find`，再用 `& $projectPython <脚本> <参数>` 执行相同检查。

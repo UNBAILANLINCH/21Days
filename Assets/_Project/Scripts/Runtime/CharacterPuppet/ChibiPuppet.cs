@@ -18,6 +18,8 @@ namespace Game.CharacterPuppet
         private static readonly int MovingHash = Animator.StringToHash("Moving");
         private static readonly int RunningHash = Animator.StringToHash("Running");
         private static readonly int SpeedHash = Animator.StringToHash("Speed");
+        private static readonly int AttackHash = Animator.StringToHash("attack");
+        private static readonly int IdleHash = Animator.StringToHash("Idle");
 
         /// <summary>
         /// 翻面经过 0 时根缩放的最小幅值（占原幅值的比例）：缩放恰为 0 时变换矩阵奇异，
@@ -39,11 +41,14 @@ namespace Game.CharacterPuppet
         [SerializeField] private ChibiPuppetConfig config;
 
         private Color[] baseColors;
+        private Color currentTint = Color.white;
+        private float opacity = 1f;
         private float baseScaleX = 1f;
         private bool faceLeft;
         private bool moving;
         private bool running;
         private bool facingHeld;
+        private int dialoguePose = -1;
         private Camera cachedCamera;
 
         private MotionHandle turnMotion;
@@ -65,6 +70,7 @@ namespace Game.CharacterPuppet
         public float WalkClipSpeed => walkClipSpeed;
         public float RunClipSpeed => runClipSpeed;
         public bool HasRunClip => hasRunClip;
+        public float SneakingOpacity => config == null ? ChibiPuppetConfig.DefaultSneakingOpacity : config.SneakingOpacity;
 
         /// <summary>转身补间是否在进行（根 localScale.x 还没到 ±原幅值）。</summary>
         public bool IsTurning => turnMotion.IsActive();
@@ -106,6 +112,7 @@ namespace Game.CharacterPuppet
 
         private void OnDisable()
         {
+            dialoguePose = -1;
             StopTurn();
             StopPulse();
         }
@@ -196,6 +203,33 @@ namespace Game.CharacterPuppet
             animator.SetFloat(SpeedHash, playbackRate);
         }
 
+        /// <summary>对白表现专用；调用方先停用位移驱动，换句/换人时选说话、严肃或待机。旧控制器缺态时忽略。</summary>
+        public void SetDialoguePose(bool speaking, bool serious)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+            int state = Animator.StringToHash(serious ? "serious" : speaking ? "talk" : "Idle");
+            if (state == dialoguePose || !animator.HasState(0, state)) return;
+            dialoguePose = state;
+            animator.Play(state, 0, 0f);
+        }
+
+        /// <summary>动作采样；调用方先停用Motion。attack态速度为0，由舞台节奏定位帧，缺态沿用原表现。</summary>
+        public bool SetAttackPose(float normalizedTime)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null || !animator.HasState(0, AttackHash)) return false;
+            animator.Play(AttackHash, 0, Mathf.Clamp01(normalizedTime)); // lint-ok: 仅采样表现帧，不参与战斗判定
+            animator.Update(0f);
+            return true;
+        }
+
+        /// <summary>动作、取消和收场后回待机，不从动画回调提交伤害。</summary>
+        public void EndAttackPose()
+        {
+            if (animator == null || animator.runtimeAnimatorController == null || !animator.HasState(0, AttackHash)) return;
+            animator.Play(IdleHash, 0, 0f);
+            animator.Update(0f);
+        }
+
         /// <summary>
         /// 程序化交互动作（占位，等美术出 interact 帧）：对 Sprite 子物体做一次挤压回弹——Y 缩放 1 → 1 − squash → 1 + overshoot → 1，
         /// 下压时绕脚底朝面向一侧前倾。时长与幅度取 config；连续调用从头重播，不叠加。
@@ -217,6 +251,8 @@ namespace Game.CharacterPuppet
         /// <summary>整体染色：各分件颜色 = 预制体基底色 × tint；传白色即还原。</summary>
         public void SetTint(Color tint)
         {
+            currentTint = tint;
+            tint.a *= opacity;
             if (parts == null || baseColors == null)
             {
                 return;
@@ -229,6 +265,15 @@ namespace Game.CharacterPuppet
                     parts[i].color = baseColors[i] * tint;
                 }
             }
+        }
+
+        /// <summary>透明度独立于染色，退出潜行时保留原分件颜色。</summary>
+        public void SetOpacity(float value)
+        {
+            value = Mathf.Clamp01(value); // lint-ok: 仅限渲染透明度，不参与玩法或重放状态
+            if (opacity == value) return;
+            opacity = value;
+            SetTint(currentTint);
         }
 
         private void ApplyTurn(float progress)

@@ -51,6 +51,7 @@ Assets/_Project/
 | 场景、预制体、SO、材质、asmdef | [.claude/rules/unity-assets.md](../.claude/rules/unity-assets.md) |
 | Unity 测试规范 | [.claude/rules/unity-tests.md](../.claude/rules/unity-tests.md) |
 | 编辑器操作 | [.claude/skills/unity-mcp/SKILL.md](../.claude/skills/unity-mcp/SKILL.md) |
+| 从现有风格创作新 UI／给定参考置入 | [.claude/skills/ui-style-create/SKILL.md](../.claude/skills/ui-style-create/SKILL.md)／[ui-beautify](../.claude/skills/ui-beautify/SKILL.md) |
 | 新玩法模块 | [.claude/skills/new-feature/SKILL.md](../.claude/skills/new-feature/SKILL.md) |
 | 执行测试 | [.claude/skills/unity-test/SKILL.md](../.claude/skills/unity-test/SKILL.md) |
 | 本机构建 | [.claude/skills/build/SKILL.md](../.claude/skills/build/SKILL.md) |

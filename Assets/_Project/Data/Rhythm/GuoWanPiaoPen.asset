@@ -1,0 +1,175 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e9f811916d55314896aef57330f56c5, type: 3}
+  m_Name: GuoWanPiaoPen
+  m_EditorClassIdentifier: 
+  song: {fileID: 8300000, guid: 14003259e27b9c846abcf385f62f093c, type: 3}
+  title: "\u9505\u7897\u74E2\u76C6"
+  input: {fileID: 11400000, guid: 2556934514d0c344b88bb8b58ea7b043, type: 2}
+  clipStartSeconds: 0
+  durationSeconds: 7.392
+  approachSeconds: 1.2
+  countdownSeconds: 3
+  perfectMs: 65
+  goodMs: 140
+  qtePerfectMs: 100
+  qteGoodMs: 250
+  qteHoldReleaseGraceMs: 100
+  noteTimes: []
+  noteLanes: 
+  schemaVersion: 2
+  chartId: guowanpiaopen-demo
+  audioKey: GuoWanPiaoPen
+  laneCount: 4
+  notes:
+  - id: gwp-01
+    lane: 0
+    timeMs: 45
+    type: 0
+    durationMs: 0
+  - id: gwp-02
+    lane: 1
+    timeMs: 235
+    type: 0
+    durationMs: 0
+  - id: gwp-03
+    lane: 2
+    timeMs: 510
+    type: 0
+    durationMs: 0
+  - id: gwp-04
+    lane: 3
+    timeMs: 1440
+    type: 0
+    durationMs: 0
+  - id: gwp-05
+    lane: 0
+    timeMs: 1740
+    type: 0
+    durationMs: 0
+  - id: gwp-06
+    lane: 1
+    timeMs: 2205
+    type: 0
+    durationMs: 0
+  - id: gwp-07
+    lane: 2
+    timeMs: 2495
+    type: 0
+    durationMs: 0
+  - id: gwp-08
+    lane: 3
+    timeMs: 2820
+    type: 0
+    durationMs: 0
+  - id: gwp-09
+    lane: 0
+    timeMs: 3280
+    type: 0
+    durationMs: 0
+  - id: gwp-10
+    lane: 1
+    timeMs: 3740
+    type: 0
+    durationMs: 0
+  - id: gwp-11
+    lane: 2
+    timeMs: 3930
+    type: 0
+    durationMs: 0
+  - id: gwp-12
+    lane: 3
+    timeMs: 4200
+    type: 0
+    durationMs: 0
+  - id: gwp-13
+    lane: 0
+    timeMs: 4420
+    type: 0
+    durationMs: 0
+  - id: gwp-14
+    lane: 1
+    timeMs: 4635
+    type: 0
+    durationMs: 0
+  - id: gwp-15
+    lane: 2
+    timeMs: 5055
+    type: 0
+    durationMs: 0
+  - id: gwp-16
+    lane: 3
+    timeMs: 5280
+    type: 0
+    durationMs: 0
+  - id: gwp-17
+    lane: 0
+    timeMs: 5585
+    type: 0
+    durationMs: 0
+  - id: gwp-18
+    lane: 1
+    timeMs: 5900
+    type: 0
+    durationMs: 0
+  - id: gwp-19
+    lane: 2
+    timeMs: 6140
+    type: 0
+    durationMs: 0
+  - id: gwp-20
+    lane: 3
+    timeMs: 6510
+    type: 0
+    durationMs: 0
+  - id: gwp-21
+    lane: 0
+    timeMs: 6815
+    type: 0
+    durationMs: 0
+  - id: gwp-22
+    lane: 1
+    timeMs: 7130
+    type: 0
+    durationMs: 0
+  bpmSegments: []
+  chartOffsetMs: 0
+  finishBufferSeconds: 0.1
+  calibrationBpm: 120
+  calibrationWarmupBeats: 8
+  calibrationSampleBeats: 32
+  calibrationMinimumSamples: 24
+  calibrationWindowMs: 250
+  calibrationMaxMadMs: 30
+  farWidthRatio: 0.32
+  practiceDurationSeconds: 9
+  practiceNotes:
+  - id: practice-tap-d
+    lane: 0
+    timeMs: 1000
+    type: 0
+    durationMs: 0
+  - id: practice-tap-f
+    lane: 1
+    timeMs: 2000
+    type: 0
+    durationMs: 0
+  - id: practice-hold-j
+    lane: 2
+    timeMs: 3000
+    type: 1
+    durationMs: 2000
+  - id: practice-hold-k
+    lane: 3
+    timeMs: 6000
+    type: 1
+    durationMs: 2000

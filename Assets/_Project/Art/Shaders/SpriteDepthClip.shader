@@ -4,8 +4,8 @@
 //   但不吃 SpriteRenderer 的顶点色（状态色要靠它），且会给纸片加上不想要的 PBR 高光。
 // 为什么不扩展：工程里此前没有任何 .shader 可扩展；模板自带着色器在 Packages 里，不能改。
 // 本着色器只管表现，不含任何玩法逻辑。
-// 注意：受雾、投影、参与 SSAO，但不接收场景阴影与光照（UniversalForward 只做裁剪 + 顶点色 + 雾，没有 NdotL）——
-//   这是有意取舍：纸片角色靠脚下 BlobShadow 落地，避免 3D 光照把手绘明暗打乱。
+// 默认仍是不受光表现；可选环境色与主光阴影弱混合，保留手绘明暗，不做 PBR。
+// 环境用固定世界向上方向采样，避免 Billboard / 翻面改变纸片法线时闪亮；BlobShadow 继续负责脚底接触。
 //
 // 深度偏移 _DepthBias（2026-09-30 加，修「玩家与 NPC 两张纸片交错叠加」）：
 //   · 起因：纸片都经 CameraBillboard 转成与相机成像平面平行，站在同一排（同 z、同地面高度）的两个角色观察深度完全相同
@@ -35,6 +35,10 @@ Shader "21Days/SpriteDepthClip"
         _Cutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
         // 深度偏移（世界单位，朝相机）；只给玩家的材质变体设正值，取值依据见文件头。
         _DepthBias ("Depth Bias (world units toward camera)", Range(0, 0.05)) = 0
+        _EnvironmentStrength ("Environment Blend", Range(0, 1)) = 0
+        _ShadowStrength ("Main Light Shadow Blend", Range(0, 1)) = 0
+        _LightFloor ("Environment Minimum (before blend)", Range(0, 1)) = 0.45
+        _Saturation ("Artwork Saturation", Range(0, 1)) = 1
     }
 
     SubShader
@@ -60,11 +64,23 @@ Shader "21Days/SpriteDepthClip"
             half4 _Color;
             half _Cutoff;
             float _DepthBias;
+            half _EnvironmentStrength;
+            half _ShadowStrength;
+            half _LightFloor;
+            half _Saturation;
         CBUFFER_END
 
         half SampleAlpha(float2 uv, half vertexAlpha)
         {
             return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv).a * _Color.a * vertexAlpha;
+        }
+
+        // 覆盖率淡出保留深度与拆件遮挡；直接乘裁剪阈值会让潜行角色整片消失。
+        void ClipSpriteAlpha(float2 uv, half opacity, float2 pixel)
+        {
+            clip(SampleAlpha(uv, 1.0h) - _Cutoff);
+            float threshold = frac(52.9829189 * frac(dot(floor(pixel), float2(0.06711056, 0.00583715))));
+            clip(opacity - max(threshold, 0.0001));
         }
 
         // 深度偏移：把裁剪空间 z 换成「观察空间里往相机挪 _DepthBias 个世界单位」那一点的深度，xy 与 w 原样不动。
@@ -108,6 +124,10 @@ Shader "21Days/SpriteDepthClip"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_fog
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
             {
@@ -122,6 +142,7 @@ Shader "21Days/SpriteDepthClip"
                 float2 uv : TEXCOORD0;
                 half4 color : COLOR;
                 half fogFactor : TEXCOORD1;
+                float3 positionWS : TEXCOORD2;
             };
 
             Varyings Vert(Attributes input)
@@ -131,15 +152,35 @@ Shader "21Days/SpriteDepthClip"
                 output.positionCS = ApplyDepthBias(positionInputs.positionWS, positionInputs.positionCS);
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.color = input.color * _Color;
+                output.color.a = input.color.a;
                 // 雾按真实深度算，偏移只影响深度测试。
                 output.fogFactor = ComputeFogFactor(positionInputs.positionCS.z);
+                output.positionWS = positionInputs.positionWS;
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
                 half4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * input.color;
-                clip(color.a - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.color.a, input.positionCS.xy);
+                UNITY_BRANCH
+                if (_EnvironmentStrength > 0.0h || _ShadowStrength > 0.0h)
+                {
+                #if defined(_MAIN_LIGHT_SHADOWS_SCREEN)
+                    float4 shadowCoord = float4(GetNormalizedScreenSpaceUV(input.positionCS), 0.0, 1.0);
+                #else
+                    // 片元真实位置选级联，深度偏移只管角色排序。
+                    float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+                #endif
+                    Light mainLight = GetMainLight(shadowCoord, input.positionWS, half4(1, 1, 1, 1));
+                    half3 environment = SampleSH(half3(0, 1, 0))
+                        + mainLight.color * mainLight.distanceAttenuation * saturate(mainLight.direction.y);
+                    environment = clamp(environment, _LightFloor, 1.25h);
+                    color.rgb *= lerp(half3(1, 1, 1), environment, _EnvironmentStrength);
+                    color.rgb *= lerp(1.0h, mainLight.shadowAttenuation, _ShadowStrength);
+                }
+                half luminance = dot(color.rgb, half3(0.2126h, 0.7152h, 0.0722h));
+                color.rgb = lerp(luminance.xxx, color.rgb, _Saturation);
                 color.rgb = MixFog(color.rgb, input.fogFactor);
                 return half4(color.rgb, 1.0h);
             }
@@ -206,7 +247,7 @@ Shader "21Days/SpriteDepthClip"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 return 0;
             }
             ENDHLSL
@@ -252,7 +293,7 @@ Shader "21Days/SpriteDepthClip"
 
             half DepthFrag(Varyings input) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 return input.positionCS.z;
             }
             ENDHLSL
@@ -299,7 +340,7 @@ Shader "21Days/SpriteDepthClip"
 
             half4 DepthNormalsFrag(Varyings input, half facing : VFACE) : SV_Target
             {
-                clip(SampleAlpha(input.uv, input.alpha) - _Cutoff);
+                ClipSpriteAlpha(input.uv, input.alpha, input.positionCS.xy);
                 // 双面纸片：背面翻转法线，避免 SSAO 读到朝里的法线。
                 float3 normalWS = normalize(input.normalWS) * (facing > 0 ? 1.0 : -1.0);
                 return half4(NormalizeNormalPerPixel(normalWS), 0.0);

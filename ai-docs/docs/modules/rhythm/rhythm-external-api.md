@@ -8,6 +8,18 @@ maturity: stable
 
 调用前读 [模块指南](rhythm-module-guide.md)。所有玩法类型位于 `Game.Rhythm`。
 
+### 节拍提示试水接口
+
+- `RhythmState.ConfigureQtePilot()`：独立入口初始化时调用；拒绝已开面板、曲库或外部请求，只复制虫儿飞配置，副本由 State 释放。
+- `RhythmConfig.CreateQtePilotCopy()`：返回仅当前运行使用的配置，调用方负责销毁；`IsQteMode` 与 `HoldReleaseGraceMs` 提供只读策略。
+- 新版 `RhythmRules` 构造函数在末尾追加可选 `bool qteMode=false, double holdReleaseGraceMs=0`；旧调用语义不变，输入时间域不变。
+- `RhythmProgressRules.RequiredSuccessfulNotes(count, percent=60)`／`HasSuccessfulNoteRatio(result, percent=60)`：整数上取整，后者仅完整局可通过；58 枚至少成功 35 枚。
+- `RhythmFixedChartCombatPolicy` 仅在规则身份为 `RhythmProgressRules.QteRulesetId` 时按成功数判断；旧规则仍按分数。未来接战斗必须匹配完整曲谱／规则身份，不把自由局自动转成战斗伤害。
+- `RhythmDiagnosticData.Header` 末尾追加同名可选策略参数；Codec 写 v2、兼容读 v1，旧捕获默认为严格规则和零宽限。
+- `RhythmView.SetQteResult(bool)` 只显示中文结果，不承担胜负判定。正式 Boss 横幅由调用方使用已有 `BattleView.ShowResultAsync`，本轮未接该演出。
+
+本机验证与当前独立场景开关状态见 [接入记录](../../rhythm-qte-20261020.md)；自动回放不代表真人对拍通过。
+
 | 接口 | 用途与约束 |
 | --- | --- |
 | `RhythmConfig.CreateRules(double offsetMs, ITelemetryScope telemetry)` | 建立新一轮规则；配置只读 |

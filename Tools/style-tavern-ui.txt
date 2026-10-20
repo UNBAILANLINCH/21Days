@@ -1,0 +1,121 @@
+// 人工经MCP执行；锚点为TavernFingerGuessView/Paper。仅修改该预制体，不保存场景或共享素材。
+// 正式专属设计接管后停止使用；不调用SaveAssets，不改源PNG、字体或meta。
+if(UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)throw new System.Exception("共享编辑器须先释放且非Play");
+string path="Assets/_Project/Prefabs/UI/TavernFingerGuessView.prefab";
+string art="Assets/_Project/Art/Sprites/UI/";
+var root=UnityEditor.PrefabUtility.LoadPrefabContents(path);
+try{
+    var view=root.GetComponent<Game.Tavern.TavernFingerGuessView>();
+    if(view==null)throw new System.Exception("缺少原划拳视图");
+    var font=UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/_Project/Art/Fonts/SourceHanSerifCN/SourceHanSerifCN-Bold SDF.asset");
+    var numberFont=UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/_Project/Art/Fonts/SourceHanSansCN/SourceHanSansCN-Regular SDF.asset");
+    if(font==null||numberFont==null)throw new System.Exception("已有授权字体缺失");
+    UnityEngine.Color ink=new UnityEngine.Color32(33,106,121,255),secondary=new UnityEngine.Color32(92,149,161,255);
+    System.Func<string,UnityEngine.Sprite> sprite=p=>{var s=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(art+p);if(s==null)throw new System.Exception(p);return s;};
+    var idle=sprite("Inventory/Delivery20261019/Slices/cell-idle.png");
+    var selected=sprite("Inventory/Delivery20261019/Slices/cell-selected.png");
+    var actionIdle=sprite("Inventory/Delivery20261019/Slices/button-idle.png");
+    var actionSelected=sprite("Inventory/Delivery20261019/Slices/button-selected.png");
+    System.Func<string,UnityEngine.Transform,UnityEngine.Vector2,UnityEngine.Vector2,UnityEngine.GameObject> node=(name,parent,position,size)=>{
+        var child=parent.Find(name);if(child==null)child=root.transform.Find(name);
+        var go=child==null?new UnityEngine.GameObject(name,typeof(UnityEngine.RectTransform)):child.gameObject;
+        go.transform.SetParent(parent,false);var r=(UnityEngine.RectTransform)go.transform;
+        r.anchorMin=r.anchorMax=r.pivot=new UnityEngine.Vector2(.5f,.5f);r.anchoredPosition=position;r.sizeDelta=size;return go;
+    };
+    System.Action<TMPro.TMP_Text,float> text=(t,size)=>{
+        t.font=font;t.fontStyle=TMPro.FontStyles.Normal;t.fontSize=size;t.fontSizeMin=size;t.fontSizeMax=size;
+        t.color=ink;t.characterSpacing=0;t.lineSpacing=0;t.raycastTarget=false;t.alignment=TMPro.TextAlignmentOptions.Center;
+        t.enableWordWrapping=true;t.overflowMode=TMPro.TextOverflowModes.Truncate;t.enableAutoSizing=false;
+    };
+    System.Func<string,UnityEngine.Vector2,UnityEngine.Vector2,TMPro.TMP_Text> label=(name,position,size)=>{
+        var go=node(name,root.transform,position,size);var t=go.GetComponent<TMPro.TMP_Text>();
+        if(t==null)t=go.AddComponent<TMPro.TextMeshProUGUI>();return t;
+    };
+    var paper=node("Paper",root.transform,UnityEngine.Vector2.zero,new UnityEngine.Vector2(1520,932));
+    var paperImage=paper.GetComponent<UnityEngine.UI.Image>();if(paperImage==null)paperImage=paper.AddComponent<UnityEngine.UI.Image>();
+    paperImage.sprite=sprite("Confirm/ui_confirm_panel.png");paperImage.color=UnityEngine.Color.white;paperImage.raycastTarget=false;
+    paper.transform.SetAsFirstSibling();root.GetComponent<UnityEngine.UI.Image>().color=new UnityEngine.Color(.035f,.09f,.1f,.7f);
+    var frame=node("TitleFrame",root.transform,new UnityEngine.Vector2(0,420),new UnityEngine.Vector2(455,94));
+    var frameImage=frame.GetComponent<UnityEngine.UI.Image>();if(frameImage==null)frameImage=frame.AddComponent<UnityEngine.UI.Image>();
+    frameImage.sprite=sprite("Forging/Delivery20261020/主标题底.png");frameImage.raycastTarget=false;frameImage.color=UnityEngine.Color.white;
+    var heading=label("Heading",new UnityEngine.Vector2(0,420),new UnityEngine.Vector2(290,80));text(heading,50);heading.text="行酒令";
+    var title=label("Title",new UnityEngine.Vector2(0,315),new UnityEngine.Vector2(1120,60));text(title,34);
+    var status=label("Status",new UnityEngine.Vector2(0,265),new UnityEngine.Vector2(1120,42));text(status,24);status.color=secondary;
+    root.transform.Find("FingersTitle").gameObject.SetActive(false);root.transform.Find("CallTitle").gameObject.SetActive(false);
+    var fingerRoot=node("FingerRoot",root.transform,UnityEngine.Vector2.zero,new UnityEngine.Vector2(1120,200));
+    var callRoot=node("CallRoot",root.transform,UnityEngine.Vector2.zero,new UnityEngine.Vector2(1120,200));
+    System.Func<UnityEngine.GameObject,bool,UnityEngine.UI.Button> button=(go,choice)=>{
+        var old=go.GetComponent<UnityEngine.UI.Button>();if(old!=null)UnityEngine.Object.DestroyImmediate(old);
+        var b=go.AddComponent<Game.Core.UI.UITextButton>();var image=go.GetComponent<UnityEngine.UI.Image>();if(image==null)image=go.AddComponent<UnityEngine.UI.Image>();
+        b.targetGraphic=image;image.sprite=choice?idle:actionIdle;image.color=UnityEngine.Color.white;image.raycastTarget=true;
+        var t=go.GetComponentInChildren<TMPro.TMP_Text>(true);
+        if(t==null)t=node("Label",go.transform,UnityEngine.Vector2.zero,UnityEngine.Vector2.zero).AddComponent<TMPro.TextMeshProUGUI>();
+        text(t,34);
+        var r=t.rectTransform;r.anchorMin=UnityEngine.Vector2.zero;r.anchorMax=UnityEngine.Vector2.one;r.pivot=new UnityEngine.Vector2(.5f,.5f);
+        r.anchoredPosition=UnityEngine.Vector2.zero;r.sizeDelta=choice?new UnityEngine.Vector2(-30,-32):new UnityEngine.Vector2(-40,-24);
+        using(var so=new UnityEditor.SerializedObject(b)){
+            so.FindProperty("label").objectReferenceValue=t;
+            so.FindProperty("normalTextColor").colorValue=choice?ink:(UnityEngine.Color)new UnityEngine.Color32(25,87,104,255);
+            so.FindProperty("focusedTextColor").colorValue=choice?ink:(UnityEngine.Color)new UnityEngine.Color32(140,202,219,255);
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+        if(choice){
+            b.transition=UnityEngine.UI.Selectable.Transition.ColorTint;
+            var colors=b.colors;colors.normalColor=UnityEngine.Color.white;colors.highlightedColor=new UnityEngine.Color(.85f,1,1,1);
+            colors.selectedColor=colors.highlightedColor;colors.pressedColor=new UnityEngine.Color(.7f,.88f,.9f,1);colors.disabledColor=new UnityEngine.Color(.75f,.8f,.8f,.65f);colors.fadeDuration=.08f;b.colors=colors;
+        }else{
+            b.transition=UnityEngine.UI.Selectable.Transition.SpriteSwap;var states=b.spriteState;
+            states.highlightedSprite=states.selectedSprite=states.pressedSprite=actionSelected;states.disabledSprite=actionIdle;b.spriteState=states;
+        }
+        if(go.GetComponent<Game.Core.UI.UIButtonFeedback>()==null)go.AddComponent<Game.Core.UI.UIButtonFeedback>();
+        return b;
+    };
+    var fingers=new UnityEngine.UI.Button[6];var calls=new UnityEngine.UI.Button[6];var callLabels=new TMPro.TMP_Text[6];
+    for(int i=0;i<6;i++){
+        var f=node("Finger"+i,fingerRoot.transform,new UnityEngine.Vector2(-450+i*180,-50),new UnityEngine.Vector2(140,140));
+        var c=node("Call"+i,callRoot.transform,new UnityEngine.Vector2(-450+i*180,-50),new UnityEngine.Vector2(140,140));
+        fingers[i]=button(f,true);calls[i]=button(c,true);callLabels[i]=c.GetComponentInChildren<TMPro.TMP_Text>(true);
+        var fingerText=f.GetComponentInChildren<TMPro.TMP_Text>(true);fingerText.font=numberFont;fingerText.fontSize=34;
+        fingerText.text=i+" 指";
+        callLabels[i].font=numberFont;
+    }
+    var result=label("Result",new UnityEngine.Vector2(0,130),new UnityEngine.Vector2(1160,110));text(result,46);
+    result.enableAutoSizing=true;result.fontSizeMin=34;result.fontSizeMax=46;
+    var resultGroup=result.GetComponent<UnityEngine.CanvasGroup>();if(resultGroup==null)resultGroup=result.gameObject.AddComponent<UnityEngine.CanvasGroup>();
+    if(result.GetComponent<UnityEngine.Canvas>()==null)result.gameObject.AddComponent<UnityEngine.Canvas>();
+    var confirm=button(node("Confirm",root.transform,new UnityEngine.Vector2(0,-300),new UnityEngine.Vector2(250,100)),false);
+    var next=button(node("Next",root.transform,new UnityEngine.Vector2(0,-300),new UnityEngine.Vector2(250,100)),false);
+    var back=button(node("Back",root.transform,new UnityEngine.Vector2(300,-300),new UnityEngine.Vector2(250,100)),false);
+    var chooseCall=button(node("ChooseCall",root.transform,new UnityEngine.Vector2(0,-300),new UnityEngine.Vector2(250,100)),false);
+    var changeFinger=button(node("ChangeFinger",root.transform,new UnityEngine.Vector2(-300,-300),new UnityEngine.Vector2(250,100)),false);
+    var detailsButton=button(node("DetailsButton",root.transform,new UnityEngine.Vector2(0,-390),new UnityEngine.Vector2(320,68)),false);
+    var detailsButtonLabel=detailsButton.GetComponentInChildren<TMPro.TMP_Text>(true);text(detailsButtonLabel,24);
+    confirm.GetComponentInChildren<TMPro.TMP_Text>(true).text="出拳";
+    chooseCall.GetComponentInChildren<TMPro.TMP_Text>(true).text="下一步";changeFinger.GetComponentInChildren<TMPro.TMP_Text>(true).text="重选出指";
+    var details=label("Details",new UnityEngine.Vector2(0,-80),new UnityEngine.Vector2(1120,250));text(details,27);
+    details.enableAutoSizing=true;details.fontSizeMin=22;details.fontSizeMax=27;
+    for(int i=0;i<6;i++){
+        fingers[i].navigation=new UnityEngine.UI.Navigation{mode=UnityEngine.UI.Navigation.Mode.Explicit,selectOnLeft=i>0?fingers[i-1]:null,selectOnRight=i<5?fingers[i+1]:null,selectOnDown=chooseCall};
+        calls[i].navigation=new UnityEngine.UI.Navigation{mode=UnityEngine.UI.Navigation.Mode.Explicit,selectOnLeft=i>0?calls[i-1]:null,selectOnRight=i<5?calls[i+1]:null,selectOnDown=confirm};
+    }
+    using(var so=new UnityEditor.SerializedObject(view)){
+        so.FindProperty("title").objectReferenceValue=title;so.FindProperty("status").objectReferenceValue=status;so.FindProperty("resultLabel").objectReferenceValue=result;
+        so.FindProperty("choiceIdle").objectReferenceValue=idle;so.FindProperty("choiceSelected").objectReferenceValue=selected;
+        so.FindProperty("resultGroup").objectReferenceValue=resultGroup;so.FindProperty("resultRevealSeconds").floatValue=.16f;
+        so.FindProperty("fingerRoot").objectReferenceValue=fingerRoot;so.FindProperty("callRoot").objectReferenceValue=callRoot;
+        so.FindProperty("chooseCallButton").objectReferenceValue=chooseCall;so.FindProperty("changeFingerButton").objectReferenceValue=changeFinger;
+        so.FindProperty("detailsLabel").objectReferenceValue=details;so.FindProperty("detailsButton").objectReferenceValue=detailsButton;
+        so.FindProperty("detailsButtonLabel").objectReferenceValue=detailsButtonLabel;
+        string[] fields={"fingerButtons","callButtons","callLabels"};UnityEngine.Object[][] values={fingers,calls,callLabels};
+        for(int j=0;j<fields.Length;j++){var a=so.FindProperty(fields[j]);a.arraySize=6;for(int i=0;i<6;i++)a.GetArrayElementAtIndex(i).objectReferenceValue=values[j][i];}
+        so.FindProperty("confirmButton").objectReferenceValue=confirm;so.FindProperty("nextButton").objectReferenceValue=next;so.FindProperty("backButton").objectReferenceValue=back;
+        so.FindProperty("defaultSelected").objectReferenceValue=fingers[1];so.ApplyModifiedPropertiesWithoutUndo();
+    }
+    heading.transform.SetAsLastSibling();
+    // 先确认完整接线，初始化合法选项后关闭，不将演示对手／醉意写成业务数据。
+    view.OnOpenAsync(null,System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    view.BeginRound("对手", "");view.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+    title.text="划拳";result.text="出几指？";
+    bool saved;UnityEditor.PrefabUtility.SaveAsPrefabAsset(root,path,out saved);if(!saved)throw new System.Exception("预制体保存失败");
+    return "已复用现有素材接入行酒令；场景、规则与源美术未改。";
+}finally{UnityEditor.PrefabUtility.UnloadPrefabContents(root);}

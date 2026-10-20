@@ -71,6 +71,17 @@ namespace Game.Tests.EditMode.Dialogue
         }
 
         [Test]
+        public void TryGet_PingyangArchive_UsesOneMultilineNodeAndContinuesToWang()
+        {
+            Assert.That(catalog.TryGet(21007, out var content), Is.True);
+            var archive = content.Get("r0144");
+            Assert.That(archive.Text.Split('\n'), Is.EqualTo(new[] { "【仪凤三年，泾阳大水】", "【泾水暴涨，坏民田，摧民宅，溺死者三千七百人。】", "【已结。】", "【已结。】" }));
+            Assert.That(archive.Next, Is.EqualTo("r0148"));
+            Assert.That(content.Nodes.Any(node => node.Id == "r0145" || node.Id == "r0146" || node.Id == "r0147"), Is.False);
+            Assert.That(content.Get(archive.Next).SpeakerName, Is.EqualTo("王录业"));
+        }
+
+        [Test]
         public void TryGet_WhenIdIsUnknown_ReturnsFalse()
         {
             Assert.That(catalog.TryGet(9999, out DialogueContent content), Is.False);
@@ -114,16 +125,92 @@ namespace Game.Tests.EditMode.Dialogue
         public void Characters_EveryExpression_HasPortraitAddress()
         {
             IReadOnlyList<DialogueCharacter> characters = catalog.Characters;
-            Assert.That(characters.Select(c => c.Id), Is.EquivalentTo(new[] { "elder", "traveler" }));
+            Assert.That(characters.Select(c => c.Id), Is.EquivalentTo(new[] { "elder", "traveler", "storyteller", "wang_luye", "lunhuitang_guard" }));
 
             foreach (DialogueCharacter character in characters)
             {
                 Assert.That(character.SpriteKeys, Is.Not.Empty, character.Id);
                 foreach (string key in character.SpriteKeys)
                 {
-                    Assert.That(key, Does.StartWith("Dialogue/Portrait_" + character.Id + "_"), character.Id);
+                    if (character.Id == "storyteller")
+                        Assert.That(key, Is.EqualTo("Dialogue/Portrait_customer_default"), "说书人使用当前顾客造型头像");
+                    else
+                        Assert.That(key, Does.StartWith("Dialogue/Portrait_" + character.Id + "_"), character.Id);
                 }
             }
+        }
+
+        [Test]
+        public void TryGet_WangLuyeExistingLines_HaveCorrectPortraitAndExpression()
+        {
+            int count = 0, serious = 0;
+            foreach (int id in new[] { 21007, 21014 })
+            {
+                Assert.That(catalog.TryGet(id, out var content), Is.True);
+                foreach (var node in content.Nodes)
+                {
+                    if (node.SpeakerName != "王录业")
+                    {
+                        Assert.That(node.SpeakerId, Is.Not.EqualTo("wang_luye"), node.Id);
+                        continue;
+                    }
+                    Assert.That(node.SpeakerId, Is.EqualTo("wang_luye"), node.Id);
+                    Assert.That(node.Portraits.Length, Is.EqualTo(1));
+                    Assert.That(node.Portraits[0].Slot, Is.EqualTo(0));
+                    Assert.That(node.Portraits[0].CharacterId, Is.EqualTo("wang_luye"));
+                    if (node.Portraits[0].ExpressionId == "serious") serious++;
+                    else Assert.That(node.Portraits[0].ExpressionId, Is.EqualTo("talk"));
+                    count++;
+                }
+            }
+            Assert.That(count, Is.EqualTo(35));
+            Assert.That(serious, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void TryGet_LunhuitangGuard_IsDistinctFromWangLuye_AndKeepsOriginalLines()
+        {
+            int count = 0;
+            foreach (int id in new[] { 21008, 21012, 21013 })
+            {
+                Assert.That(catalog.TryGet(id, out var content), Is.True);
+                foreach (var node in content.Nodes)
+                {
+                    if (node.SpeakerName != "值守")
+                    {
+                        Assert.That(node.SpeakerId, Is.Not.EqualTo("lunhuitang_guard"));
+                        continue;
+                    }
+                    Assert.That(node.SpeakerId, Is.EqualTo("lunhuitang_guard"));
+                    Assert.That(node.Portraits.Length, Is.EqualTo(1));
+                    Assert.That(node.Portraits[0].CharacterId, Is.EqualTo("lunhuitang_guard"));
+                    Assert.That(node.Portraits[0].ExpressionId, Is.EqualTo("talk"));
+                    count++;
+                }
+            }
+            Assert.That(count, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void TryGet_PrologueStoryteller_ShowsPortraitOnEveryLine()
+        {
+            int lines = 0;
+            for (int id = 21000; id <= 21003; id++)
+            {
+                Assert.That(catalog.TryGet(id, out DialogueContent content), Is.True);
+                foreach (DialogueContent.Node node in content.Nodes)
+                {
+                    if (node.Kind != DialogueContent.NodeKind.Line) continue;
+                    Assert.That(node.SpeakerName, Is.EqualTo("说书人"));
+                    Assert.That(node.SpeakerId, Is.EqualTo("storyteller"));
+                    Assert.That(node.Portraits.Length, Is.EqualTo(1));
+                    Assert.That(node.Portraits[0].Slot, Is.EqualTo(0));
+                    Assert.That(node.Portraits[0].Action, Is.EqualTo(DialogueContent.PortraitAction.Show));
+                    Assert.That(node.Portraits[0].CharacterId, Is.EqualTo("storyteller"));
+                    lines++;
+                }
+            }
+            Assert.That(lines, Is.EqualTo(25));
         }
 
         [Test]

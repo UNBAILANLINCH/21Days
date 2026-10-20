@@ -1,0 +1,7 @@
+{
+  "fps": 24,
+  "pivot": { "x": 0.5, "y": 0.0390625 },
+  "animations": {
+    "walk": { "groundSpeed": 3 }
+  }
+}

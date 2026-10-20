@@ -11,8 +11,8 @@ namespace Game.Narrative
             if (human && stage == "action_r0070") return "与李诏阳切磋，学习回合制战斗";
             if (human && (stage == "enter_r0083" || stage == "talk_21006")) return "寻找并与赵十四交谈";
             if (human) return stage == "enter_r0171" ? "前往戏班右侧平台，靠近镜面穿越" : "与李诏阳交谈，听取旧案线索";
-            if (stage == "enter_r0171") return "前往轮回堂，向门前值守问询";
-            if (stage == "enter_r0188") return "离开轮回堂，前往坊市入口查看酒肆";
+            if (stage == "enter_r0171") return "按住 Shift 潜行避开巡逻，经左桥前往轮回堂问询";
+            if (stage == "enter_r0188") return "前往二、三层楼梯光点（坊市入口），查看酒肆二楼窗边";
             return "";
         }
         public enum Action { None, Interact, Sneak, Equip, Verify, Redirect, Perform, Clothes, Quota, Forge, Guess, Challenge, Meet, Complete }

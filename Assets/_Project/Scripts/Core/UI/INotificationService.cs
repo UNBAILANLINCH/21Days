@@ -18,9 +18,9 @@ namespace Game.Core.UI
         /// <summary>
         /// 追加一条通知。<paramref name="title"/> 为空串时忽略；<paramref name="body"/> 为空则卡片只显示标题。
         /// <paramref name="seconds"/> ≤ 0 时取 <see cref="UIConfig.NotificationSeconds"/>。
-        /// 待显示队列里已有同标题的一条时合并成一条（用新正文与时长），不重复刷屏。
+        /// 默认按同标题合并；success 使用成功卡片，并且只有标题与正文都相同才合并，独立成果不互相覆盖。
         /// </summary>
-        void Show(string title, string body = null, float seconds = 0f);
+        void Show(string title, string body = null, float seconds = 0f, bool success = false);
 
         /// <summary>
         /// 右下角小字，<b>不进队列</b>：立即显示，与卡片通知互不影响——自动保存这类「高频、不重要、

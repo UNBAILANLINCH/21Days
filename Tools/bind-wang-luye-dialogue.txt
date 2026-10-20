@@ -1,0 +1,20 @@
+// 人工通过 Unity MCP 绑定已核实的人界叙事组件；仅追加王录业引用，不重建 UI 或场景。
+// 锚点：人界 SpotlightStory.wangLuye；已有引用时只校验，不覆盖。
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("请先退出 Play");
+Game.Narrative.SpotlightSceneBindings bindings=null;
+foreach(var item in UnityEngine.Object.FindObjectsByType<Game.Narrative.SpotlightSceneBindings>(UnityEngine.FindObjectsInactive.Include,UnityEngine.FindObjectsSortMode.None))if(item.IsHumanStory){if(bindings!=null)throw new System.InvalidOperationException("人界接线不唯一");bindings=item;}
+if(bindings==null||bindings.gameObject.scene.path!="Assets/_Project/Scenes/SampleScene.unity")throw new System.InvalidOperationException("人界目标或场景不符");
+if(bindings.WangLuye==null)
+{
+    var figure=new GameObject("WangLuyeDialogueFigure");figure.transform.SetParent(bindings.transform,false);
+    figure.AddComponent<Game.IsometricExploration.CameraBillboard>();
+    var asset=UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Characters/Chibi_wang_luye.prefab");if(asset==null)throw new System.InvalidOperationException("缺王录业预制体");
+    var instance=(GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(asset,figure.transform);instance.transform.localPosition=Vector3.zero;
+    // 对白演员由章节表现选态，停止读位移，避免同帧把说话态写回 Idle。
+    instance.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>().enabled=false;
+    var serialized=new UnityEditor.SerializedObject(bindings);serialized.FindProperty("wangLuye").objectReferenceValue=instance.GetComponent<Game.CharacterPuppet.ChibiPuppet>();serialized.ApplyModifiedPropertiesWithoutUndo();
+    figure.SetActive(false);UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bindings.gameObject.scene);
+    UnityEditor.SceneManagement.EditorSceneManager.SaveScene(bindings.gameObject.scene);
+}
+if(bindings.WangLuye.GetComponent<Game.CharacterPuppet.ChibiPuppetMotion>().enabled)throw new System.InvalidOperationException("对白演员存在第二个驱动");
+return "王录业场景演员绑定完成，初始隐藏；场景、UI 和其它人物原有结果保留。";

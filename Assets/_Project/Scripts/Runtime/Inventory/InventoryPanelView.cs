@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using LitMotion;
+using LitMotion.Extensions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,6 +66,18 @@ namespace Game.Inventory
         [Tooltip("详情区合成说明（原料清单 / 拒绝原因）。**预制体字段**：缺了只是不显示这行字。")]
         [SerializeField] private TMP_Text recipeLabel;
 
+        [Header("交付美术与阅读区域")]
+        [SerializeField] private ScrollRect listScroll;
+        [SerializeField] private ScrollRect detailScroll;
+        [SerializeField] private Image detailIcon;
+        [SerializeField] private CanvasGroup detailGroup;
+        [SerializeField] private ItemIcon[] itemIcons;
+        [Min(0f)] [SerializeField] private float detailRevealSeconds = .16f;
+        private MotionHandle detailReveal;
+        private int detailId;
+        private int columns;
+        private InventoryFilter currentFilter;
+
         [Header("品质色（白盒占位图标的颜色）")]
         [SerializeField] private Color commonColor = new Color(0.85f, 0.85f, 0.85f, 1f);
         [SerializeField] private Color rareColor = new Color(0.30f, 0.55f, 0.95f, 1f);
@@ -96,6 +110,7 @@ namespace Game.Inventory
         {
             Validate();
             ValidateActionButtons();
+            columns = listRoot.GetComponent<GridLayoutGroup>().constraintCount;
             itemTemplate.SetActive(false);
             RemoveListeners();
             filterAllButton.onClick.AddListener(RaiseFilterAll);
@@ -109,6 +124,8 @@ namespace Game.Inventory
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
+            StopDetailReveal();
+            detailId = 0;
             RemoveListeners();
             // 面板可能被 UIService 从外部关掉（Esc 走 CloseTopAsync），通知持有者收尾暂停令牌与输入图。
             Action closed = OnClosed;
@@ -126,6 +143,8 @@ namespace Game.Inventory
         /// <summary>标出当前筛选档位（对应按钮的 Highlight 显示）。</summary>
         public void SetFilter(InventoryFilter filter)
         {
+            if (currentFilter != filter && listScroll != null) listScroll.verticalNormalizedPosition = 1f;
+            currentFilter = filter;
             SetHighlight(filterAllButton, filter == InventoryFilter.All);
             SetHighlight(filterItemsButton, filter == InventoryFilter.Items);
             SetHighlight(filterCluesButton, filter == InventoryFilter.Clues);
@@ -148,26 +167,50 @@ namespace Game.Inventory
 
                 InventoryEntry entry = entries[i];
                 row.Id = entry.Id;
-                row.Name.text = entry.Name;
-                row.Count.text = CountPrefix + entry.Count;
-                row.Tag.text = InventoryRules.CategoryLabel(entry.Category);
-                row.Icon.color = QualityColor(entry.Quality);
+                SetText(row.Name, entry.Name);
+                SetText(row.Count, CountPrefix + entry.Count);
+                SetText(row.Tag, entry.Category == global::cfg.EItemCategory.Skin ? entry.Name : InventoryRules.CategoryLabel(entry.Category));
+                SetActive(row.Tag.gameObject, entry.Category == global::cfg.EItemCategory.Skin);
+                Sprite icon = FindIcon(entry.Id);
+                row.Icon.sprite = icon;
+                row.Icon.color = Color.white;
+                SetActive(row.Icon.gameObject, icon != null);
+                SetActive(row.Name.gameObject, icon == null);
+                row.Name.color = QualityColor(entry.Quality);
+                row.IdleImage.enabled = entry.Id != selectedId;
+                row.Button.targetGraphic = entry.Id == selectedId ? row.SelectedImage : row.IdleImage;
                 SetActive(row.Highlight, entry.Id == selectedId);
                 SetActive(row.Root, true);
             }
 
             SetActive(emptyLabel, count == 0);
             if (count == 0) SetActive(detailRoot, false);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(listRoot);
         }
 
         /// <summary>刷新详情。<paramref name="hasEntry"/> 为 false 时隐藏详情区。</summary>
         public void SetDetail(bool hasEntry, InventoryEntry entry)
         {
             SetActive(detailRoot, hasEntry);
-            if (!hasEntry) return;
-            detailName.text = entry.Name;
-            detailCategory.text = InventoryRules.CategoryLabel(entry.Category);
-            detailDescription.text = entry.Desc;
+            if (!hasEntry) { StopDetailReveal(); detailId = 0; return; }
+            bool changed = detailId != entry.Id;
+            detailId = entry.Id;
+            SetText(detailName, entry.Name);
+            SetText(detailCategory, InventoryRules.CategoryLabel(entry.Category));
+            SetText(detailDescription, entry.Desc);
+            detailIcon.sprite = FindIcon(entry.Id);
+            SetActive(detailIcon.gameObject, detailIcon.sprite != null);
+            if (changed)
+            {
+                detailScroll.verticalNormalizedPosition = 1f;
+                StopDetailReveal();
+                if (detailRevealSeconds > 0f && isActiveAndEnabled)
+                {
+                    detailGroup.alpha = 0f;
+                    detailReveal = LMotion.Create(0f, 1f, detailRevealSeconds).WithEase(Ease.OutQuad)
+                        .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).BindToAlpha(detailGroup).AddTo(gameObject);
+                }
+            }
         }
 
         /// <summary>
@@ -188,13 +231,69 @@ namespace Game.Inventory
             string craft = craftHint ?? string.Empty;
             if (use.Length == 0 && craft.Length == 0)
             {
-                recipeLabel.text = string.Empty;
+                SetText(recipeLabel, string.Empty);
                 SetActive(recipeLabel.gameObject, false);
+                RefreshReadingAndNavigation();
                 return;
             }
 
-            recipeLabel.text = use.Length == 0 ? craft : (craft.Length == 0 ? use : use + "\n" + craft);
+            SetText(recipeLabel, use.Length == 0 ? craft : (craft.Length == 0 ? use : use + "\n" + craft));
             SetActive(recipeLabel.gameObject, true);
+            RefreshReadingAndNavigation();
+        }
+
+        private Sprite FindIcon(int id)
+        {
+            if (itemIcons != null)
+                for (int i = 0; i < itemIcons.Length; i++)
+                    if (itemIcons[i] != null && itemIcons[i].ItemId == id) return itemIcons[i].Sprite;
+            return null;
+        }
+
+        private void RefreshReadingAndNavigation()
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(detailScroll.content);
+            var visible = new List<Button>();
+            for (int i = 0; i < items.Count; i++) if (items[i].Root.activeSelf) visible.Add(items[i].Button);
+            Selectable first = visible.Count == 0 ? closeButton : visible[0];
+            Selectable action = useButton != null && useButton.IsInteractable() ? useButton
+                : craftButton != null && craftButton.IsInteractable() ? craftButton : closeButton;
+            var bar = detailScroll.verticalScrollbar;
+            bool scrollable = detailRoot.activeSelf && detailScroll.content.rect.height > detailScroll.viewport.rect.height;
+            Selectable right = scrollable && bar != null ? bar : action;
+            for (int i = 0; i < visible.Count; i++)
+                Navigate(visible[i], i < columns ? (Selectable)filterAllButton : visible[i - columns],
+                    i + columns < visible.Count ? visible[i + columns] : action,
+                    i % columns == 0 ? (Selectable)filterAllButton : visible[i - 1],
+                    i % columns == columns - 1 || i == visible.Count - 1 ? right : visible[i + 1]);
+            Navigate(filterAllButton, closeButton, filterItemsButton, closeButton, first);
+            Navigate(filterItemsButton, filterAllButton, filterCluesButton, closeButton, first);
+            Navigate(filterCluesButton, filterItemsButton, closeButton, closeButton, first);
+            Navigate(closeButton, null, filterAllButton, null, first);
+            if (useButton != null) Navigate(useButton, right == useButton ? first : right, closeButton, first,
+                craftButton != null && craftButton.IsInteractable() ? craftButton : closeButton);
+            if (craftButton != null) Navigate(craftButton, right == craftButton ? first : right, closeButton,
+                useButton != null && useButton.IsInteractable() ? useButton : first, closeButton);
+            if (bar != null) Navigate(bar, null, null, first, action);
+        }
+
+        private static void Navigate(Selectable target, Selectable up, Selectable down, Selectable left, Selectable right)
+        {
+            target.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up,
+                selectOnDown = down, selectOnLeft = left, selectOnRight = right };
+        }
+
+        private void OnDisable() => StopDetailReveal();
+
+        private void StopDetailReveal()
+        {
+            if (detailReveal.IsActive()) detailReveal.Cancel();
+            if (detailGroup != null) detailGroup.alpha = 1f;
+        }
+
+        private static void SetText(TMP_Text label, string value)
+        {
+            if (label.text != value) label.text = value;
         }
 
         private Color QualityColor(global::cfg.EItemQuality quality)
@@ -216,7 +315,9 @@ namespace Game.Inventory
             {
                 Root = go,
                 Button = go.GetComponent<Button>(),
+                IdleImage = go.GetComponent<Image>(),
                 Highlight = t.Find(HighlightName).gameObject,
+                SelectedImage = t.Find(HighlightName).GetComponent<Image>(),
                 Icon = t.Find(IconName).GetComponent<Image>(),
                 Name = FindText(t, NameName),
                 Count = FindText(t, CountName),
@@ -224,6 +325,7 @@ namespace Game.Inventory
             };
             // 只在建池项时绑一次；之后换内容只改 row.Id，回调读字段。
             row.Button.onClick.AddListener(() => OnEntrySelected?.Invoke(row.Id));
+            go.AddComponent<UIScrollFocus>().Bind(listScroll);
             return row;
         }
 
@@ -254,6 +356,11 @@ namespace Game.Inventory
             if (detailCategory == null) missing.Add(nameof(detailCategory));
             if (detailDescription == null) missing.Add(nameof(detailDescription));
             if (closeButton == null) missing.Add(nameof(closeButton));
+            if (listScroll == null || listScroll.viewport == null) missing.Add(nameof(listScroll));
+            if (detailScroll == null || detailScroll.viewport == null) missing.Add(nameof(detailScroll));
+            if (detailIcon == null) missing.Add(nameof(detailIcon));
+            if (detailGroup == null) missing.Add(nameof(detailGroup));
+            if (listRoot != null && listRoot.GetComponent<GridLayoutGroup>() == null) missing.Add("listRoot(GridLayoutGroup)");
             if (missing.Count > 0)
                 throw new InvalidOperationException("InventoryPanelView 引用未接线：" + string.Join("、", missing));
         }
@@ -289,6 +396,10 @@ namespace Game.Inventory
         {
             Transform highlight = button.transform.Find(HighlightName);
             if (highlight != null) SetActive(highlight.gameObject, value);
+            Image idle = button.GetComponent<Image>();
+            idle.enabled = !value;
+            button.targetGraphic = value ? highlight.GetComponent<Image>() : idle;
+            button.transform.Find("Label").GetComponent<TMP_Text>().color = value ? Color.white : new Color(33f / 255f, 106f / 255f, 121f / 255f);
         }
 
         private static TMP_Text FindText(Transform parent, string childName)
@@ -324,11 +435,22 @@ namespace Game.Inventory
             public int Id;
             public GameObject Root;
             public Button Button;
+            public Image IdleImage;
             public GameObject Highlight;
             public Image Icon;
+            public Image SelectedImage;
             public TMP_Text Name;
             public TMP_Text Count;
             public TMP_Text Tag;
+        }
+
+        [Serializable]
+        private sealed class ItemIcon
+        {
+            [SerializeField] private int itemId;
+            [SerializeField] private Sprite sprite;
+            public int ItemId => itemId;
+            public Sprite Sprite => sprite;
         }
     }
 }

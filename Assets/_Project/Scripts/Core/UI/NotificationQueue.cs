@@ -28,7 +28,7 @@ namespace Game.Core.UI
         private NotificationEntry current;
         private float remaining;
 
-        /// <param name="mergeSameTitle">为 true 时，入队的标题与某条待显示项相同则原位替换那条（不追加）。
+        /// <param name="mergeSameTitle">为 true 时，同样式同标题的待显示项原位替换；成功样式还要求正文相同。
         /// 正在显示的那条不参与合并——它的文字已经上屏，改了反而闪。</param>
         public NotificationQueue(bool mergeSameTitle)
         {
@@ -50,16 +50,18 @@ namespace Game.Core.UI
         /// <summary>
         /// 入队。标题为 null 或空串返回 false 不入队；秒数低于 <see cref="MinSeconds"/> 时按下限算。
         /// </summary>
-        public bool Enqueue(string title, string body, float seconds)
+        public bool Enqueue(string title, string body, float seconds, bool success = false)
         {
             if (string.IsNullOrEmpty(title)) return false;
-            NotificationEntry entry = new NotificationEntry(title, body, seconds < MinSeconds ? MinSeconds : seconds);
+            NotificationEntry entry = new NotificationEntry(title, body, seconds < MinSeconds ? MinSeconds : seconds, success);
 
             if (mergeSameTitle)
             {
                 for (int i = 0; i < pending.Count; i++)
                 {
-                    if (string.Equals(pending[i].Title, title, StringComparison.Ordinal))
+                    // 成功卡片共用标题，正文不同代表不同成果，必须逐条显示。
+                    if (pending[i].Success == success && string.Equals(pending[i].Title, title, StringComparison.Ordinal)
+                        && (!success || string.Equals(pending[i].Body, body, StringComparison.Ordinal)))
                     {
                         pending[i] = entry;
                         return true;

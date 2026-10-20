@@ -1,0 +1,6 @@
+{
+  "fps": 24,
+  "pivot": { "x": 0.5, "y": 0.05 },
+  "frameWidth": 640,
+  "frameHeight": 640
+}

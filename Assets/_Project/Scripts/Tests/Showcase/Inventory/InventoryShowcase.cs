@@ -275,7 +275,7 @@ namespace Game.Tests.Showcase.Inventory
         {
             var rows = new List<Transform>();
             InventoryPanelView current = Panel();
-            Transform list = current == null ? null : current.transform.Find("List");
+            Transform list = current == null ? null : current.transform.Find("ArtLayout/ListViewport/List");
             if (list == null)
             {
                 return rows;

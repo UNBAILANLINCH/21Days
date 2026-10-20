@@ -37,8 +37,9 @@ MonoBehaviour:
       {Interact} \u7A7F\u8D8A\u3002"
   - stageId: enter_r0188
     displayName: "\u574A\u5E02\u5165\u53E3"
-    verb: "\u4EA4\u8C08"
-    hint: "\u524D\u5F80\u574A\u5E02\u5165\u53E3\uFF0C\u6309 {Interact} \u67E5\u770B\u9152\u8086\u7A97\u8FB9\u3002"
+    verb: "\u67E5\u770B\u7A97\u8FB9"
+    hint: "\u6CBF\u4E8C\u5C42\u901A\u5F80\u4E09\u5C42\u7684\u697C\u68AF\u9760\u8FD1\u5149\u70B9\uFF0C\u89C2\u770B\u7A97\u8FB9\u7279\u5199\uFF1B\u56DE\u955C\u540E\u6309
+      {Interact} \u67E5\u770B\u9152\u8086\u4E8C\u697C\u7A97\u8FB9\u7684\u4EBA\u5F71\u3002"
   - stageId: enter_r0198
     displayName: "\u9152\u8086\u697C\u68AF\u53E3"
     verb: "\u4EA4\u8C08"
@@ -92,3 +93,9 @@ MonoBehaviour:
   guideRadius: 7
   exitPadding: 0.5
   questId: 900
+  dialogueActorDistance: 1.5
+  windowCameraOffset: {x: -1.5, y: 1.2, z: -7}
+  windowLookHeight: 1
+  windowFieldOfView: 18
+  windowBlendSeconds: 1.2
+  windowHoldSeconds: 1.4

@@ -181,8 +181,8 @@ namespace Game.Editor.ShopPlaytest
                     for (int i = 0; i < Roles[shop].Length; i++)
                         Actor(actorsRoot, "shop_" + Roles[shop][i], Roles[shop][i], People[shop][i], shop,
                             shop == 4 ? new Vector3(-.8f, 0, .6f) : new Vector3((i - (Roles[shop].Length - 1) * .5f) * 1.6f, 0, -1f), true, true, i);
-                    string stationName = shop == 0 ? "验身处 / 戏台" : shop == 1 ? "裁衣匠 / 领衣柜台" :
-                        shop == 2 ? "拨料文书 / 打造台" : shop == 3 ? "客栈掌柜 / 线索" : "酒桌 / 挑战";
+                    string stationName = shop == 0 ? "戏台" : shop == 1 ? "裁衣匠 / 领衣柜台" :
+                        shop == 2 ? "拨料文书 / 打造台" : shop == 3 ? "客栈掌柜 / 线索" : "酒桌 / 酒令";
                     var station = new GameObject("InteractionPoint");
                     station.transform.SetParent(template.transform, false); station.transform.localPosition = new Vector3(0, 0, -.2f);
                     if (shop != 1)

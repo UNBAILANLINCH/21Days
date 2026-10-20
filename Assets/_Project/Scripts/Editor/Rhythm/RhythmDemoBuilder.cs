@@ -1,5 +1,7 @@
 // 职责：生成独立四轨试玩场景及其资产。现有模块生成器不含音游内容，扩展通用生成器会混入曲目专用布局。
 using System;
+using System.IO;
+using System.Linq;
 using Game.Core.Boot;
 using Game.Rhythm;
 using TMPro;
@@ -10,6 +12,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
 
 namespace Game.Editor.Rhythm
@@ -20,7 +23,130 @@ namespace Game.Editor.Rhythm
         private const string DataRoot = "Assets/_Project/Data/Rhythm";
         private const string ConfigPath = DataRoot + "/ChongErFei.asset";
         private const string PrefabPath = "Assets/_Project/Prefabs/UI/RhythmView.prefab";
+        private const string PromptPath = "Assets/_Project/Prefabs/UI/Rhythm/RhythmQtePrompt.prefab";
         private static TMP_FontAsset font;
+
+        [MenuItem("21Days/音游/应用场景QTE与锅碗瓢盆")]
+        public static void ApplySceneQteDemo()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("先退出播放模式");
+            const string path = DataRoot + "/GuoWanPiaoPen.asset";
+            var config = AssetDatabase.LoadAssetAtPath<RhythmConfig>(path);
+            if (config == null)
+            {
+                config = ScriptableObject.CreateInstance<RhythmConfig>();
+                JsonUtility.FromJsonOverwrite(File.ReadAllText("PRP/rhythm-guowanpiaopen-20261020/chart.json"), config);
+                var data = new SerializedObject(config);
+                data.FindProperty("song").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/_Project/Audio/Rhythm/GuoWanPiaoPen.mp3");
+                data.FindProperty("input").objectReferenceValue = AssetDatabase.LoadAssetAtPath<InputActionAsset>(DataRoot + "/RhythmInput.asset");
+                data.ApplyModifiedPropertiesWithoutUndo();
+                var validation = config.CreateQtePilotCopy();
+                try { validation.CreateRules(0, null); }
+                finally { Object.DestroyImmediate(validation); }
+                AssetDatabase.CreateAsset(config, path);
+            }
+            ApplyQtePromptArt();
+            var previous = SceneManager.GetActiveScene();
+            var scene = SceneManager.GetSceneByPath(ScenePath);
+            bool opened = !scene.isLoaded;
+            if (opened) scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
+            SceneManager.SetActiveScene(scene);
+            try
+            {
+                var installer = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<RhythmInstaller>(true)).Single();
+                var data = new SerializedObject(installer);
+                data.FindProperty("config").objectReferenceValue = config;
+                data.FindProperty("qtePilot").boolValue = true;
+                data.FindProperty("catalog").objectReferenceValue = null;
+                data.ApplyModifiedPropertiesWithoutUndo();
+                if (!scene.GetRootGameObjects().Any(r => r.name == "QteInnBackdrop")) CreateInnBackdrop(scene);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException("音游 Demo 保存失败");
+                AssetDatabase.SaveAssetIfDirty(config);
+            }
+            finally
+            {
+                if (previous.IsValid() && previous.isLoaded) SceneManager.SetActiveScene(previous);
+                if (opened) EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void CreateInnBackdrop(Scene scene)
+        {
+            const string sourcePath = "Assets/_Project/Scenes/SampleScene.unity";
+            var source = SceneManager.GetSceneByPath(sourcePath);
+            bool opened = !source.isLoaded;
+            if (opened) source = EditorSceneManager.OpenScene(sourcePath, OpenSceneMode.Additive);
+            try
+            {
+                var demon = source.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true)).First(t => t.name == "DemonWorld");
+                var backdrop = new GameObject("QteInnBackdrop"); SceneManager.MoveGameObjectToScene(backdrop, scene);
+                var area = new Bounds(new Vector3(18, 5, 2), new Vector3(28, 14, 24));
+                foreach (var renderer in demon.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (!renderer.enabled || filter == null || filter.sharedMesh == null || renderer.GetComponent<TMP_Text>() != null || !renderer.bounds.Intersects(area)) continue;
+                    bool visible = true;
+                    for (var ancestor = renderer.transform; ancestor != demon; ancestor = ancestor.parent)
+                        if (!ancestor.gameObject.activeSelf) { visible = false; break; }
+                    if (!visible) continue;
+                    // 仅复用局部可见网格与材质，不复制 NPC、剧情、碰撞或第二套世界逻辑。
+                    var node = new GameObject(renderer.name, typeof(MeshFilter), typeof(MeshRenderer));
+                    node.layer = renderer.gameObject.layer;
+                    node.transform.SetParent(backdrop.transform, false);
+                    node.transform.SetPositionAndRotation(renderer.transform.position, renderer.transform.rotation);
+                    node.transform.localScale = renderer.transform.lossyScale;
+                    node.GetComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
+                    var copy = node.GetComponent<MeshRenderer>(); copy.sharedMaterials = renderer.sharedMaterials;
+                    copy.shadowCastingMode = renderer.shadowCastingMode; copy.receiveShadows = renderer.receiveShadows;
+                }
+                foreach (var actor in new[] { new { Name = "Chibi_player", X = 16.7f }, new { Name = "Chibi_yuezheng", X = 19.1f } })
+                {
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Characters/" + actor.Name + ".prefab");
+                    if (prefab == null) throw new InvalidOperationException("缺少已接入人物：" + actor.Name);
+                    var visual = (GameObject)PrefabUtility.InstantiatePrefab(prefab, backdrop.transform);
+                    visual.transform.position = new Vector3(actor.X, 4.9f, -2.6f);
+                }
+                var stageCamera = demon.Find("InnBattleStage").GetComponentInChildren<Camera>(true);
+                var camera = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Camera>(true)).Single(c => c.CompareTag("MainCamera"));
+                camera.transform.SetPositionAndRotation(stageCamera.transform.position, stageCamera.transform.rotation);
+                camera.orthographic = false; camera.fieldOfView = stageCamera.fieldOfView;
+                camera.GetUniversalAdditionalCameraData().SetRenderer(1);
+            }
+            finally { if (opened) EditorSceneManager.CloseScene(source, true); }
+        }
+
+
+        [MenuItem("21Days/音游/虫儿飞试水/启用节拍提示")]
+        public static void EnableQtePilot() => SetQtePilot(true);
+
+        [MenuItem("21Days/音游/虫儿飞试水/恢复原版入口")]
+        public static void DisableQtePilot() => SetQtePilot(false);
+
+        private static void SetQtePilot(bool enabled)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("先退出播放模式");
+            var scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath) throw new InvalidOperationException("请先打开独立 RhythmDemo 场景，不改其他场景入口");
+            RhythmInstaller target = null;
+            foreach (var root in scene.GetRootGameObjects())
+                foreach (var installer in root.GetComponentsInChildren<RhythmInstaller>(true))
+                {
+                    if (target != null) throw new InvalidOperationException("场景中存在多个音游入口，请先检查接线");
+                    target = installer;
+                }
+            if (target == null) throw new InvalidOperationException("场景中没有 RhythmInstaller");
+            var data = new SerializedObject(target);
+            var chart = data.FindProperty("config").objectReferenceValue as RhythmConfig;
+            if (enabled && (chart == null || !chart.SupportsQtePilot))
+                throw new InvalidOperationException("试水入口必须引用已接入的 QTE 曲目");
+            if (data.FindProperty("qtePilot").boolValue == enabled) return;
+            Undo.RecordObject(target, enabled ? "启用虫儿飞节拍提示" : "恢复音游原版入口");
+            data.FindProperty("qtePilot").boolValue = enabled;
+            data.ApplyModifiedProperties();
+            EditorSceneManager.MarkSceneDirty(scene);
+            // 不自动保存：保留开发者原有的场景未保存内容和撤销能力。
+        }
 
         [MenuItem("21Days/音游/迁移选中谱面到毫秒记录 v2")]
         public static void MigrateSelectedChart()
@@ -61,7 +187,7 @@ namespace Game.Editor.Rhythm
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null)
                 throw new InvalidOperationException("试玩场景已存在，直接打开；不覆盖现有内容");
             EnsureFolder(DataRoot);
-            EnsureFolder("Assets/_Project/Prefabs/UI");
+            EnsureFolder("Assets/_Project/Prefabs/UI/Rhythm");
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/_Project/Art/Fonts/Font_NotoSansSC_Regular SDF.asset");
             var config = AssetDatabase.LoadAssetAtPath<RhythmConfig>(ConfigPath);
             bool newConfig = config == null;
@@ -153,7 +279,7 @@ namespace Game.Editor.Rhythm
 
         private static void CreateView()
         {
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null) return;
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null) { ApplyQtePromptArt(); return; }
             var root = new GameObject("RhythmView", typeof(RectTransform), typeof(CanvasGroup));
             var rect = root.GetComponent<RectTransform>();
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
@@ -203,6 +329,57 @@ namespace Game.Editor.Rhythm
             data.ApplyModifiedPropertiesWithoutUndo();
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             Object.DestroyImmediate(root);
+            ApplyQtePromptArt();
+        }
+        [MenuItem("21Days/音游/应用八角提示美术")]
+        public static void ApplyQtePromptArt()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("先退出播放模式");
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/_Project/Art/Sprites/UI/Rhythm/Delivery20261020/qte-keycap.png");
+            var keyFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/_Project/Art/Fonts/SourceHanSansCN/SourceHanSansCN-Regular SDF.asset");
+            if (sprite == null || keyFont == null) throw new InvalidOperationException("八角键帽或思源黑体字体未导入");
+            EnsureFolder("Assets/_Project/Prefabs/UI/Rhythm");
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PromptPath) == null)
+            {
+                var root = new GameObject("RhythmQtePrompt", typeof(RectTransform), typeof(CanvasGroup));
+                try
+                {
+                    var group = root.GetComponent<CanvasGroup>(); group.interactable = false; group.blocksRaycasts = false;
+                    var face = new GameObject("Face", typeof(RectTransform), typeof(AspectRatioFitter));
+                    face.transform.SetParent(root.transform, false);
+                    var fitter = face.GetComponent<AspectRatioFitter>(); fitter.aspectRatio = 1; fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                    var cap = Box("Keycap", face.transform, Vector2.zero, Vector2.one, Color.white);
+                    cap.sprite = sprite; cap.preserveAspect = true;
+                    cap.rectTransform.anchorMin = new Vector2(.07f, .07f); cap.rectTransform.anchorMax = new Vector2(.93f, .93f);
+                    cap.rectTransform.offsetMin = cap.rectTransform.offsetMax = Vector2.zero;
+                    var ring = new GameObject("TimingRing", typeof(RectTransform), typeof(CanvasRenderer), typeof(RhythmTrackGraphic));
+                    ring.transform.SetParent(face.transform, false); Stretch(ring.GetComponent<RectTransform>());
+                    ring.GetComponent<RhythmTrackGraphic>().Configure(false);
+                    var key = new GameObject("PromptKey", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+                    key.transform.SetParent(face.transform, false);
+                    key.rectTransform.anchorMin = new Vector2(.3f, .25f); key.rectTransform.anchorMax = new Vector2(.7f, .75f);
+                    key.rectTransform.offsetMin = key.rectTransform.offsetMax = Vector2.zero;
+                    key.font = keyFont; key.fontStyle = FontStyles.Bold; key.color = new Color32(151, 226, 248, 255);
+                    key.alignment = TextAlignmentOptions.MidlineGeoAligned; key.margin = Vector4.zero;
+                    key.enableAutoSizing = true; key.fontSizeMin = 8; key.fontSizeMax = 100;
+                    key.enableWordWrapping = false; key.raycastTarget = false; key.text = "F";
+                    var hint = Object.Instantiate(key, face.transform); hint.name = "HoldHint"; hint.text = "按住";
+                    hint.fontStyle = FontStyles.Normal; hint.fontSizeMax = 22; hint.fontSizeMin = 8;
+                    hint.rectTransform.anchorMin = new Vector2(.05f, -.18f); hint.rectTransform.anchorMax = new Vector2(.95f, -.02f);
+                    hint.rectTransform.offsetMin = hint.rectTransform.offsetMax = Vector2.zero;
+                    PrefabUtility.SaveAsPrefabAsset(root, PromptPath);
+                }
+                finally { Object.DestroyImmediate(root); }
+            }
+            var viewRoot = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                var data = new SerializedObject(viewRoot.GetComponent<RhythmView>());
+                data.FindProperty("qtePromptPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>(PromptPath).GetComponent<RectTransform>();
+                data.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(viewRoot, PrefabPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(viewRoot); }
         }
         private static void Set(SerializedObject data, string property, Object value) => data.FindProperty(property).objectReferenceValue = value;
         private static void Stretch(RectTransform rect) { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }

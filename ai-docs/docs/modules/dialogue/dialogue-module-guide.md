@@ -197,7 +197,7 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | `CanInteract` | 在范围内、没有对白进行，且「已转交给外部入口」或「有树已绑定」或「无树有台词」 | `DialogueInteractable.cs:93` |
 | 范围 | Inspector `actor` 优先，否则场景 Actor（Binder 注入）；两者皆空或半径 ≤ 0 恒在范围；三维距离 | `DialogueInteractable.cs:115`–`128` |
 | 头顶标记 | 焦点优先于可交互；气泡 `IsShowing` 时标记与名字全隐；名字只在焦点时显示；`MarkerOverridden` 时只隐「…/!」两张图、名字仍随焦点（判定在纯静态 `ResolveVisibility`） | `DialogueInteractableMarker.cs:53` |
-| 气泡 | 逐字（TMP 可见字符）→ ▼ → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs:102`、`108`、`114`、`125`、`156`、`163`–`170` |
+| 气泡 | 逐字（TMP 可见字符）→ 图片继续标 → 停留 `holdSeconds`（默认 4）→ 淡出 `fadeSeconds`；显示中再交互直接换句重来；unscaled。换句时设完文本即 `LayoutRebuilder.ForceRebuildLayoutImmediate` 强制重排，高度当帧跟上新句 | `DialogueSpeechBubble.cs` |
 
 ### 为什么这样设计（源码读不出来的部分）
 
@@ -281,16 +281,18 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 | `autoLabelShadow` / `speedLabelShadow`（均可选） | `AutoButton/LabelShadow`、`SpeedButton/LabelShadow` | 接了就镜像主标签文案 |
 | `choiceRoot` / `choiceTemplate` | `ChoiceRoot`（VerticalLayoutGroup，右侧竖排：anchor / pivot (1, 0.5)、右边距 40、宽 576、行距 18）/ `ChoiceTemplate`（正式阳版选项底图 Sliced，`pixelsPerUnitMultiplier = 1`，576×107，思源宋体 Bold 34.06 自适应到 24、居中；悬停反馈保留） | 模板下须有子物体 `Icon`（Image，名字写死）与 `Label`（TMP）；运行时隐藏 |
 
-漏接任一必需字段（含模板缺 `Icon`），`OnOpenAsync` 的 `Validate()` 会逐个点名抛出（`DialogueView.cs:355`）；可选字段漏接只是没有对应的显隐 / 键位小字 / 投影，不抛异常。
+漏接任一必需字段（含模板缺 `Icon`），`OnOpenAsync` 的 `Validate()` 会逐个点名抛出（`DialogueView.cs`）；可选字段漏接只是没有对应的显隐 / 键位小字 / 投影，不抛异常。
 
 其余预制体字段（HUD / 弹窗漏接在打开时点名抛出；气泡找不到交互组件记 Warn）：
 
 | 预制体 | 字段 → 物体 |
 | --- | --- |
 | `Prefabs/UI/DialogueSkipConfirmView.prefab` | `message` → `Message`；`confirm` → `ConfirmButton`；`cancel` → `CancelButton`；`defaultSelected`（UIView 通用字段）→ `CancelButton`（打开即选中取消） |
-| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 400、等比缩放 0.006（父级缩放为 1 时宽 2.4 世界单位；按探索相机 FOV 20、距离约 18 定，约为 1080p 下画布 1 像素 ≈ 屏幕 1 像素）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，别给它们写死高度 |
+| `Prefabs/World/DialogueSpeechBubble.prefab`（世界空间 Canvas） | `root` → `Content`；`nameLabel` → `Name`；`body` → `Body`；`arrow` → `Arrow`（Image）；`group` → 根 `CanvasGroup`；`target` 留空（向父级找）。根宽 434、等比缩放 0.006（场景实例可保留已有缩放校准）。布局：根 `VerticalLayoutGroup` + `ContentSizeFitter`（纵向 Preferred）、`Content` 再一层 `VerticalLayoutGroup`，高度随正文变化；Body 子 Canvas 隔离逐字 |
 
 ## 对白面板视觉与演出面板共用规范
+
+2026-10-19 追加的是 **NPC 世界空间气泡**，不是本节的底部面板。`DialogueSpeechBubble.prefab` 接入新阳间切片与思源宋体 Bold，动态姓名使用 `【名字】`，正文沿用逐字；Arrow 改为 Image。入场 180ms、退场 140ms，禁用时取消补间、退订来源并隐藏内容；Body 子 Canvas 隔离逐字。`DialogueSpeechBubbleYin.prefab` 是仅供预览的阴间变体，没有场景/剧情自动切换。资源映射、近似项与三版动效见 [本批置入记录](../../ui-beautify-20261019.md)。
 
 2026-10-13 修复右侧遮挡：矩形底框与 `StoneBird` 装饰分开，根上 `UIPanelAppearance` 按可见头像调整左右布局；右头像显示时名字靠右、装饰和底框纹样镜像到对侧，文字与人物图不翻转。入退场重叠时按图片透明度选择侧别；只读取序列化图片引用，不在每帧查找对象。阴/阳配色选择仍只接受显式调用，与左右布局独立。
 
@@ -299,6 +301,12 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 里的节点 / 锚点 / 颜色表，两边共用节点名与样式值。`Tests/EditMode/Dialogue/TalkPanelConsistencyTests.cs` 读两份真实预制体逐节点比对 Rect、Image、TMP 属性；改任一面板必须同步另一份，否则这组测试会挂。样式全在预制体，代码（`DialogueView.cs` / `PerformanceView.cs`）只填文字与显隐。
 
 ## 内容表（Luban）
+
+轮回堂值守使用独立 `lunhuitang_guard` 角色：21008／21012／21013中12句原“值守”台词绑定talk表情，显示名与原文保留；地址 `Dialogue/Portrait_lunhuitang_guard_{default,talk}` 来自真实持卷组合。导入器只对轮回堂地点的“值守”映射，负对照保留其它地点同称谓不绑定。没有把它合并到王录业。
+
+2026-10-19王录业接入：21007／21014中35句原台词绑定 `wang_luye`；32句talk，原21007的r0164／r0166／r0169使用serious，其余说话人和文书不绑定。三张真实组装头像使用 `Dialogue/Portrait_wang_luye_{default,talk,serious}` 地址，默认闭口严肃图，沿用原头像槽、换人退场与关闭释放。文策导入器保留同一映射并有自检。场景动画由Narrative负责，不在View新增角色特例；记录见 [王录业接入](../../wang-luye-20261019.md)。
+
+2026-10-19序章说书人接入现有左侧头像框：`21000..21003`的25句台词绑定独立角色`storyteller`，显示名仍为“说书人”，头像使用`Dialogue/Portrait_customer_default`。图片`Art/Sprites/Dialogue/Portrait_customer_default.png`由现有`Chibi_customers.prefab`正面造型导出透明半身像（512×512），可同名替换图片继续迭代。沿用头像及框的既有入退场；文策导入脚本同步保留序章说书人的角色绑定。
 
 | 项 | 约定 |
 | --- | --- |
@@ -329,6 +337,8 @@ Controller、View、Rules、Focus、键位入口、气泡一律不碰 `Time.time
 契约见 [`docs/telemetry.md`](../../../../docs/telemetry.md)。
 
 ## 测试与验证
+
+2026-10-19值守接入验证复现编辑模式销毁姓名TMP后补间迟到回调；ApplyNamePunch在写RectTransform前检查Unity对象有效性。TalkPanelConsistencyTests的NamePunch_WhenSpeakerDestroyed用真实预制体验证控件先销毁后整个补间期间无异常，不改原名牌样式。
 
 | 类型 | 位置 | 覆盖 |
 | --- | --- | --- |

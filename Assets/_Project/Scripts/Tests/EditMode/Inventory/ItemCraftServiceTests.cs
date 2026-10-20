@@ -201,7 +201,7 @@ namespace Game.Tests.EditMode.Inventory
 
         private sealed class NoNotifications : INotificationService
         {
-            public void Show(string title, string body = null, float seconds = 0f)
+            public void Show(string title, string body = null, float seconds = 0f, bool success = false)
             {
             }
 

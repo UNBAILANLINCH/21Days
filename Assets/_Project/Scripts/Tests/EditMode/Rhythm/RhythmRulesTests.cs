@@ -12,6 +12,107 @@ namespace Game.Tests.EditMode.Rhythm
     {
         private static RhythmRules Create(double offset = 0) => new RhythmRules(new[] { 1d, 2d, 3d, 4d }, new[] { 0, 1, 2, 3 }, 65, 140, offset, null);
 
+        [TestCase(-0.1, RhythmGrade.Perfect)]
+        [TestCase(0.1, RhythmGrade.Perfect)]
+        [TestCase(-0.25, RhythmGrade.Good)]
+        [TestCase(0.25, RhythmGrade.Good)]
+        [TestCase(0.251, RhythmGrade.None)]
+        public void QteHit_WideWindow_UsesSongTarget(double error, RhythmGrade grade)
+        {
+            var rules = new RhythmRules(new[] { new RhythmNoteData("a", 0, 1000) }, 100, 250, 0, 0, null, true, 100);
+            Assert.That(rules.Hit(new RhythmHitIntent(0, 1 + error)).Grade, Is.EqualTo(grade));
+        }
+        [TestCase(1.157, 0)]
+        [TestCase(1.158, 1)]
+        public void QteHit_OverlappingHeads_NearestAndEarlierTie(double time, int expected)
+        {
+            var notes = new[] { new RhythmNoteData("a", 0, 1000), new RhythmNoteData("b", 0, 1314) };
+            Assert.Throws<ArgumentException>(() => new RhythmRules(notes, 100, 250, 0, 0, null));
+            var rules = new RhythmRules(notes, 100, 250, 0, 0, null, true, 100);
+            Assert.That(rules.Hit(new RhythmHitIntent(0, time)).Note, Is.EqualTo(expected));
+            Assert.That(rules.Perfect + rules.Good, Is.EqualTo(1));
+        }
+        [Test]
+        public void QteChart_DuplicateHeadsAndHoldOccupancy_StillRejects()
+        {
+            Assert.Throws<ArgumentException>(() => new RhythmRules(new[] {
+                new RhythmNoteData("a", 0, 1000), new RhythmNoteData("b", 0, 1000) }, 100, 250, 0, 0, null, true, 100));
+            Assert.Throws<ArgumentException>(() => new RhythmRules(new[] {
+                new RhythmNoteData("a", 0, 1000, RhythmNoteType.Hold, 1000), new RhythmNoteData("b", 0, 2200) }, 100, 250, 0, 0, null, true, 100));
+        }
+        [Test]
+        public void QteHit_ActiveHold_DoesNotConsumeOverlappingEarlierTap()
+        {
+            var rules = new RhythmRules(new[] { new RhythmNoteData("a", 0, 1000),
+                new RhythmNoteData("b", 0, 1314, RhythmNoteType.Hold, 1000) }, 100, 250, 0, 0, null, true, 100);
+            Assert.That(rules.Hit(new RhythmHitIntent(0, 1.2)).HoldStarted, Is.True);
+            Assert.That(rules.Hit(new RhythmHitIntent(0, 1.21)).Grade, Is.EqualTo(RhythmGrade.None));
+            Assert.That(rules.IsResolved(0), Is.False);
+        }
+        [TestCase(0, 1.9, RhythmGrade.Perfect)]
+        [TestCase(0, 1.899, RhythmGrade.Miss)]
+        [TestCase(100, 2.0, RhythmGrade.Perfect)]
+        [TestCase(-100, 1.8, RhythmGrade.Perfect)]
+        public void QteHold_ReleaseGrace_UsesCompensatedTail(double offset, double release, RhythmGrade expected)
+        {
+            var rules = new RhythmRules(new[] { new RhythmNoteData("h", 0, 1000, RhythmNoteType.Hold, 1000) }, 100, 250, offset, 0, null, true, 100);
+            rules.Hit(new RhythmHitIntent(0, 1 + offset / 1000));
+            Assert.That(rules.Hit(new RhythmHitIntent(0, release, RhythmInputEdge.Release)).Grade, Is.EqualTo(expected));
+            Assert.That(rules.Perfect + rules.Miss, Is.EqualTo(1));
+            rules.Advance(3);
+            Assert.That(rules.Perfect + rules.Miss, Is.EqualTo(1));
+        }
+        [Test]
+        public void QteHold_NoRelease_DoesNotCompleteBeforeTail()
+        {
+            var rules = new RhythmRules(new[] { new RhythmNoteData("h", 0, 1000, RhythmNoteType.Hold, 1000) }, 100, 250, 0, 0, null, true, 100);
+            rules.Hit(new RhythmHitIntent(0, 1));
+            rules.Advance(1.9);
+            Assert.That(rules.IsHolding(0), Is.True);
+            rules.Advance(2);
+            Assert.That(rules.CompletedHolds, Is.EqualTo(1));
+        }
+        [Test]
+        public void Hold_WithoutQteOptIn_StillMissesEarlyRelease()
+        {
+            var notes = new[] { new RhythmNoteData("h", 0, 1000, RhythmNoteType.Hold, 1000) };
+            var rules = new RhythmRules(notes, 65, 140, 0, 0, null);
+            rules.Hit(new RhythmHitIntent(0, 1));
+            Assert.That(rules.Hit(new RhythmHitIntent(0, 1.999, RhythmInputEdge.Release)).Grade, Is.EqualTo(RhythmGrade.Miss));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new RhythmRules(notes, 65, 140, 0, 0, null, false, 100));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new RhythmRules(notes, 100, 250, 0, 0, null, true, double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new RhythmRules(notes, 100, 250, 0, 0, null, true, 251));
+        }
+        [Test]
+        public void QteConfig_RuntimeCopy_PreservesOriginalAndPractice()
+        {
+            var source = ScriptableObject.CreateInstance<RhythmConfig>();
+            RhythmConfig copy = null;
+            try
+            {
+                typeof(RhythmConfig).GetField("noteTimes", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(source, new[] { 1d });
+                typeof(RhythmConfig).GetField("noteLanes", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(source, new[] { 0 });
+                copy = source.CreateQtePilotCopy();
+                Assert.That(source.IsQteMode, Is.False);
+                Assert.That(source.GoodMs, Is.EqualTo(140));
+                Assert.That(copy.IsQteMode, Is.True);
+                Assert.That(copy.GoodMs, Is.EqualTo(250));
+                Assert.That(copy.HoldReleaseGraceMs, Is.EqualTo(100));
+                Assert.That(copy.CreateRules(0, null).PerfectMs, Is.EqualTo(100));
+                Assert.That(copy.CreateRules(0, null).IsQteMode, Is.True);
+                Assert.That(source.CreateRules(0, null).PerfectMs, Is.EqualTo(65));
+                Assert.That(copy.CreateRules(0, null).NoteTime(0), Is.EqualTo(source.CreateRules(0, null).NoteTime(0)));
+                Assert.That(copy.CreatePracticeRules(0, null).IsQteMode, Is.True);
+                Assert.That(copy.CreatePracticeRules(0, null).GoodMs, Is.EqualTo(250));
+                Assert.That(copy.CreatePracticeRules(0, null).HoldReleaseGraceMs, Is.EqualTo(100));
+                Assert.That(source.CreatePracticeRules(0, null).IsQteMode, Is.False);
+                Assert.That(source.CreatePracticeRules(0, null).GoodMs, Is.EqualTo(140));
+                typeof(RhythmConfig).GetField("chartId", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(source, "other-song");
+                Assert.Throws<InvalidOperationException>(() => source.CreateQtePilotCopy());
+            }
+            finally { if (copy != null) UnityEngine.Object.DestroyImmediate(copy); UnityEngine.Object.DestroyImmediate(source); }
+        }
+
         [TestCase(-0.065, RhythmGrade.Perfect)]
         [TestCase(0.065, RhythmGrade.Perfect)]
         [TestCase(-0.14, RhythmGrade.Good)]
@@ -336,6 +437,79 @@ namespace Game.Tests.EditMode.Rhythm
                 Assert.That(Vertex(mesh, 1).x - Vertex(mesh, 0).x, Is.EqualTo(noteWidth).Within(1e-4));
                 Assert.That((Vertex(mesh, 0).x + Vertex(mesh, 1).x) * 0.5f, Is.EqualTo(width * 0.125f).Within(1e-4));
                 Assert.That(Vertex(mesh, 2).y - Vertex(mesh, 0).y, Is.EqualTo(20).Within(1e-4));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); }
+        }
+        [TestCase(-150)]
+        [TestCase(0)]
+        [TestCase(150)]
+        public void PromptRing_ClosesAtVisualTargetWithoutChangingJudgement(float visualOffset)
+        {
+            double target = 1 + visualOffset / 1000d;
+            Assert.That(RhythmTrackGraphic.PromptRadius(RhythmTrackGraphic.PositionAt(1, target, visualOffset, 2.5f)), Is.EqualTo(0.23f).Within(1e-6));
+            Assert.That(RhythmTrackGraphic.PromptRadius(RhythmTrackGraphic.PositionAt(1, target - 2.5, visualOffset, 2.5f)), Is.EqualTo(0.45f).Within(1e-6));
+            var rules = Create(); rules.Hit(new RhythmHitIntent(0, 1));
+            Assert.That(rules.Perfect, Is.EqualTo(1));
+        }
+        [Test]
+        public void PromptGroups_ChordsLateHeadsAndActiveHold_RetainIndependentUpcomingGroups()
+        {
+            var rules = new RhythmRules(new[] {
+                new RhythmNoteData("hold", 0, 1000, RhythmNoteType.Hold, 3000),
+                new RhythmNoteData("chord", 1, 1000), new RhythmNoteData("next", 2, 1600),
+                new RhythmNoteData("same-key-later", 2, 2200) }, 65, 140, 0, 0, null);
+            RhythmView.PromptGroups(rules, out double current, out double next);
+            Assert.That(current, Is.EqualTo(1)); Assert.That(next, Is.EqualTo(1.6));
+            rules.Hit(new RhythmHitIntent(0, 1));
+            RhythmView.PromptGroups(rules, out current, out next);
+            Assert.That(current, Is.EqualTo(1), "未决同拍仍是当前组，不能因另一枚已按住而跳过");
+            rules.Advance(1.2);
+            RhythmView.PromptGroups(rules, out current, out next);
+            Assert.That(rules.IsHolding(0), Is.True);
+            Assert.That(current, Is.EqualTo(1.6)); Assert.That(next, Is.EqualTo(2.2));
+        }
+        [Test]
+        public void PromptGroupSize_PartialChordHit_PreservesOriginalSlotFootprint()
+        {
+            var rules = new RhythmRules(new[] { 1d, 1d, 1d, 2d }, new[] { 0, 1, 3, 2 }, 65, 140, 0, null);
+            Assert.That(RhythmView.PromptGroupSize(rules, 1), Is.EqualTo(3));
+            rules.Hit(new RhythmHitIntent(0, 1));
+            RhythmView.PromptGroups(rules, out double current, out double next);
+            Assert.That(current, Is.EqualTo(1)); Assert.That(next, Is.EqualTo(2));
+            Assert.That(RhythmView.PromptGroupSize(rules, current), Is.EqualTo(3));
+            rules.Hit(new RhythmHitIntent(1, 1));
+            Assert.That(RhythmView.PromptGroupSize(rules, current), Is.EqualTo(3));
+        }
+        [TestCase(-150)]
+        [TestCase(0)]
+        [TestCase(150)]
+        public void PromptHoldProgress_SignedOffsetNeverSignalsCompletionBeforeResolution(double offset)
+        {
+            Assert.That(RhythmView.PromptHoldProgress(1, 3, 2 + offset / 1000, offset, false), Is.EqualTo(0.5f).Within(1e-6));
+            Assert.That(RhythmView.PromptHoldProgress(1, 3, 3 + offset / 1000, offset, false), Is.LessThan(1));
+            Assert.That(RhythmView.PromptHoldProgress(1, 3, 4 + offset / 1000, offset, false), Is.LessThan(1));
+            Assert.That(RhythmView.PromptHoldProgress(1, 3, 3 + offset / 1000, offset, true), Is.EqualTo(1));
+        }
+        [TestCase(600, 650)]
+        [TestCase(360, 480)]
+        [TestCase(900, 900)]
+        public void PromptRing_MeshUsesCircularBoundsAtDifferentAspectRatios(float width, float height)
+        {
+            var host = new GameObject("PromptRingTest", typeof(RectTransform), typeof(CanvasRenderer), typeof(RhythmTrackGraphic));
+            try
+            {
+                var graphic = host.GetComponent<RhythmTrackGraphic>();
+                graphic.rectTransform.sizeDelta = new Vector2(width, height);
+                graphic.Configure(false); graphic.ShowPrompt(1, false, 0, Color.white);
+                var populate = typeof(RhythmTrackGraphic).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new[] { typeof(VertexHelper) }, null);
+                using var mesh = new VertexHelper(); populate.Invoke(graphic, new object[] { mesh });
+                Assert.That(mesh.currentVertCount, Is.EqualTo(512));
+                float expected = Mathf.Min(width, height) * 0.45f;
+                for (int i = 256; i < mesh.currentVertCount; i += 4)
+                    Assert.That(((Vector2)Vertex(mesh, i + 1) - graphic.rectTransform.rect.center).magnitude, Is.EqualTo(expected).Within(0.001f));
+                graphic.ShowPrompt(0, true, 0.5f, Color.white); populate.Invoke(graphic, new object[] { mesh });
+                Assert.That(mesh.currentVertCount, Is.EqualTo(384), "按住进度只绘制已完成半环");
             }
             finally { UnityEngine.Object.DestroyImmediate(host); }
         }

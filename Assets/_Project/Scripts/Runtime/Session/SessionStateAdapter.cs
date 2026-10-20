@@ -102,6 +102,7 @@ namespace Game.Session
             EncounterSaveData target = saves.Get<EncounterSaveData>();
             target.SceneKey = encounter.ActiveSceneAddress;
             target.StoryWorld = encounter.IsHumanWorld ? "human" : "demon";
+            target.CompleteSceneRouteMigration();
             target.ScenePlayerHeight = encounter.ActivePlayerHeight;
             target.Tick = captured.Tick;
             target.Active = captured.Active;
@@ -136,6 +137,7 @@ namespace Game.Session
                     saved.Player.PositionY += EncounterSaveData.HumanOffsetZ;
                 }
                 saved.SceneKey = MonsterEncounterState.DemonStoryAddress;
+                saved.CompleteSceneRouteMigration();
                 encounter.PrepareRestore(saved);
             }
             catch (Exception e)

@@ -69,6 +69,47 @@ namespace Game.Tests.EditMode.Core
         }
 
         [Test]
+        public void Presentation_HoldsCoverUntilCovered_AndRevealsOnlyWhenRequested()
+        {
+            var presentation = root.AddComponent<ControlledPresentation>();
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("transitionPresentation").objectReferenceValue = presentation;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            UniTask cover = curtain.CoverAsync(CancellationToken.None);
+            Assert.That(cover.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(presentation.RevealCalls, Is.Zero);
+            presentation.Covered.TrySetResult();
+            Assert.That(cover.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            Assert.That(curtain.IsCovered, Is.True);
+            Assert.That(presentation.RevealCalls, Is.Zero, "全遮完成不能自行揭幕");
+
+            UniTask reveal = curtain.RevealAsync(CancellationToken.None);
+            Assert.That(presentation.RevealCalls, Is.EqualTo(1));
+            Assert.That(reveal.Status, Is.EqualTo(UniTaskStatus.Pending));
+            presentation.Revealed.TrySetResult();
+            Assert.That(reveal.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            Assert.That(curtain.IsCovered, Is.False);
+            AssertViewHidden("表现揭幕完成后释放遮挡");
+        }
+
+        [Test]
+        public void Presentation_RevealDuringCover_CancelsOldCoverWithoutLeavingBlackScreen()
+        {
+            var presentation = root.AddComponent<ControlledPresentation>();
+            var serialized = new SerializedObject(view);
+            serialized.FindProperty("transitionPresentation").objectReferenceValue = presentation;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            UniTask cover = curtain.CoverAsync(CancellationToken.None);
+            UniTask reveal = curtain.RevealAsync(CancellationToken.None);
+            Assert.That(cover.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            presentation.Revealed.TrySetResult();
+            Assert.That(reveal.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+            Assert.That(curtain.IsCovered, Is.False);
+            AssertViewHidden("盖幕中被揭幕接手");
+        }
+
+        [Test]
         public void RevealAsync_WhileFirstOpenPending_ViewStaysHiddenAfterOpen()
         {
             ui.HoldOpen = true;
@@ -195,6 +236,33 @@ namespace Game.Tests.EditMode.Core
         /// 只认 <see cref="LoadingView"/> 的假面板服务。打开时同 UIService 先走 <see cref="UIView.OnOpenAsync"/>
         /// （LoadingView 在这里把自己摆成隐藏态）；可以让打开挂起，制造「首次打开还在异步实例化」的窗口。
         /// </summary>
+        public sealed class ControlledPresentation : MonoBehaviour, ILoadingTransitionPresentation
+        {
+            public UniTaskCompletionSource Covered { get; private set; }
+            public UniTaskCompletionSource Revealed { get; private set; }
+            public int RevealCalls { get; private set; }
+
+            public UniTask CoverAsync(CancellationToken ct)
+            {
+                Covered = new UniTaskCompletionSource();
+                return Covered.Task.AttachExternalCancellation(ct);
+            }
+
+            public UniTask RevealAsync(CancellationToken ct)
+            {
+                RevealCalls++;
+                Covered?.TrySetResult();
+                Revealed = new UniTaskCompletionSource();
+                return Revealed.Task.AttachExternalCancellation(ct);
+            }
+
+            public void HideImmediate()
+            {
+                Covered?.TrySetResult();
+                Revealed?.TrySetResult();
+            }
+        }
+
         private sealed class FakeUIService : IUIService
         {
             private readonly LoadingView view;

@@ -47,6 +47,9 @@ namespace Game.Core.UI.Views
         [Tooltip("加载指示里依次脉动的圆点，按数组顺序错开相位。")]
         [SerializeField] private RectTransform[] hintDots;
 
+        [Tooltip("可选加载表现，必须实现 ILoadingTransitionPresentation；未配置时使用黑底淡入淡出。")]
+        [SerializeField] private MonoBehaviour transitionPresentation;
+
         [Tooltip("加载指示淡入的秒数（真实时间）。")]
         [Min(0.01f)]
         [SerializeField] private float hintFadeSeconds = 0.2f;
@@ -74,6 +77,9 @@ namespace Game.Core.UI.Views
         /// <summary>落幕开始到揭幕完成之间为 true。</summary>
         private bool shown;
 
+        private ILoadingTransitionPresentation Presentation => transitionPresentation == null
+            ? null : (ILoadingTransitionPresentation)transitionPresentation;
+
         public override UILayer Layer => UILayer.Top;
 
         public override bool IsFullScreen => false;
@@ -95,8 +101,7 @@ namespace Game.Core.UI.Views
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
-            StopMotions();
-            shown = false;
+            HideImmediate();
             return UniTask.CompletedTask;
         }
 
@@ -122,7 +127,16 @@ namespace Game.Core.UI.Views
             FitBackgroundToCanvas();
             Group.blocksRaycasts = true;
 
-            await FadeAsync(1f, fadeSeconds, ct);
+            if (Presentation != null)
+            {
+                if (fadeMotion.IsActive()) fadeMotion.Cancel();
+                Group.alpha = 1f;
+                await Presentation.CoverAsync(ct);
+            }
+            else
+            {
+                await FadeAsync(1f, fadeSeconds, ct);
+            }
             if (version == fadeVersion)
             {
                 StartHint(hintDelaySeconds);
@@ -136,7 +150,8 @@ namespace Game.Core.UI.Views
 
             // 还在等延时的指示不许在淡出途中冒出来；已经出来的随根节点一起淡掉。
             if (hintMotion.IsActive()) hintMotion.Cancel();
-            await FadeAsync(0f, fadeSeconds, ct);
+            if (Presentation != null) await Presentation.RevealAsync(ct);
+            else await FadeAsync(0f, fadeSeconds, ct);
             if (version == fadeVersion)
             {
                 ApplyHidden();
@@ -214,6 +229,7 @@ namespace Game.Core.UI.Views
         {
             // 退出游戏时 UIService 先把视图随 UIRoot 销毁，揭幕的收尾还会走到这里：已销毁就什么都不做，免得多一条警告。
             if (this == null) return;
+            Presentation?.HideImmediate();
             StopMotions();
             shown = false;
             CanvasGroup group = Group;
@@ -308,6 +324,10 @@ namespace Game.Core.UI.Views
 
         private void Validate()
         {
+            if (transitionPresentation != null && !(transitionPresentation is ILoadingTransitionPresentation))
+            {
+                throw new System.InvalidOperationException("LoadingView 的加载表现没有实现 ILoadingTransitionPresentation");
+            }
             if (background == null || hintGroup == null || hintDots == null)
             {
                 throw new System.InvalidOperationException(

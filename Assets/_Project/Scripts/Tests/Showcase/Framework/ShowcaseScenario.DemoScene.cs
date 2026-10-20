@@ -40,7 +40,8 @@ namespace Game.Tests.Showcase
         protected const float DemoBootTimeoutSeconds = 20f;
 
         /// <summary><see cref="EnterDemoWorld"/> 点「开始」后等进世界、再等遭遇逻辑就绪的上限（真实秒）。</summary>
-        protected const float DemoEnterTimeoutSeconds = 20f;
+        // 当前 SampleScene 本地加载实测超过 40 秒，与正式剧情回放的 60 秒预算对齐。
+        protected const float DemoEnterTimeoutSeconds = 60f;
 
         /// <summary>
         /// 玩家出生点 (-4, 3.4)：离长者 3 米（交互半径 2 之外，要先走过去）、离巡逻怪约 18 米、离左墙（x -6）2 米。

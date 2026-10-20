@@ -227,6 +227,17 @@ namespace Game.Tests.EditMode.Monster
                 view.Bind(playerModel, monsterModel);
                 lateUpdate.Invoke(view, null);
                 Assert.That(playerObject.transform.position.x, Is.EqualTo(current.x));
+                playerRules.Step(new Game.Player.PlayerIntent(Vector2.zero, true, false, false, false), .01f);
+                lateUpdate.Invoke(view, null);
+                Assert.That(playerRenderer.color.a, Is.EqualTo(Game.CharacterPuppet.ChibiPuppetConfig.DefaultSneakingOpacity));
+                Assert.That(monsterRenderer.color.a, Is.EqualTo(1f));
+                playerRules.Step(new Game.Player.PlayerIntent(Vector2.zero, false, false, false, false), .01f);
+                lateUpdate.Invoke(view, null);
+                Assert.That(playerRenderer.color.a, Is.EqualTo(1f));
+                playerRules.Step(new Game.Player.PlayerIntent(Vector2.zero, true, false, false, false), .01f);
+                lateUpdate.Invoke(view, null);
+                view.Unbind();
+                Assert.That(playerRenderer.color.a, Is.EqualTo(1f));
             }
             finally
             {

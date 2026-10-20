@@ -12,6 +12,7 @@ using Game.Player;
 using Game.Taming;
 using Game.IsometricExploration;
 using Game.Stealth;
+using Game.CharacterPuppet;
 using UnityEngine;
 
 namespace Game.Monster
@@ -129,6 +130,7 @@ namespace Game.Monster
         private MonsterMode lastMode = (MonsterMode)255;
         private bool lastSneaking;
         private bool lastDisguised;
+        private float sneakingOpacity = ChibiPuppetConfig.DefaultSneakingOpacity;
         // 处决提示三件套：绑定的交互入口 + 上一次渲染的提示文字 + 上一次的判定形状（只在变化时重建字符串）。
         private ExecutionInteractor execution;
         private string executionStatus = ExecutionHint.UnboundLabel;
@@ -354,10 +356,17 @@ namespace Game.Monster
             execution = executionSource;
             EnsureBodies();
             EnsureCamera();
+            var puppet = playerBody.GetComponentInChildren<ChibiPuppet>(true);
+            sneakingOpacity = puppet == null ? ChibiPuppetConfig.DefaultSneakingOpacity : puppet.SneakingOpacity;
         }
 
         public void Unbind()
         {
+            SetVisualOpacity(playerSprite, 1f);
+            SetVisualOpacity(monsterSprite, 1f);
+            if (patrolActors != null)
+                foreach (TamingActor actor in patrolActors)
+                    if (actor != null) SetVisualOpacity(actor.Visual, 1f);
             if (encounter != null) encounter.Taming.OnControlChanged -= OnControlChanged;
             if (patrolActors != null)
                 foreach (TamingActor actor in patrolActors)
@@ -512,6 +521,8 @@ namespace Game.Monster
             playerTint.color = player.Health <= 0 ? Color.black
                 : player.IsDisguised ? Color.green
                 : player.IsSneaking ? Color.cyan : new Color(0.2f, 0.55f, 1f);
+            SetVisualOpacity(playerSprite, player.IsSneaking && (encounter == null || CurrentControlId == encounter.Taming.PlayerId)
+                ? sneakingOpacity : 1f);
             RenderMonster(monster, monsterBody, monsterSprite, monsterStateIndicator, alpha,
                 encounter != null && encounter.Taming.IsTamed, encounter != null && actorIds.Length > 0 && CurrentControlId == actorIds[0]);
             if (encounter != null)
@@ -592,6 +603,15 @@ namespace Game.Monster
             tint.color = model.Health <= 0 ? Color.black : isControlled ? Color.cyan : isTamed ? Color.green
                 : model.Mode == MonsterMode.Hostile ? Color.red
                 : model.Mode == MonsterMode.Alert ? new Color(1f, 0.55f, 0f) : Color.gray;
+            SetVisualOpacity(sprite, isControlled && player != null && player.IsSneaking ? sneakingOpacity : 1f);
+        }
+
+        private static void SetVisualOpacity(SpriteRenderer sprite, float opacity)
+        {
+            if (sprite == null) return;
+            Color color = sprite.color;
+            color.a = opacity;
+            sprite.color = color;
         }
 
         /// <summary>

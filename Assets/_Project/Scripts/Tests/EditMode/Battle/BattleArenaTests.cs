@@ -33,7 +33,8 @@ namespace Game.Tests.EditMode.Battle
             var presenter = new BattleFakes.Presenter();
             bool coveredWhileRestoring = false;
 
-            arena.EnterAsync(presenter, boss, null, null, CancellationToken.None).GetAwaiter().GetResult();
+            arena.EnterAsync(presenter, boss, null, null, CancellationToken.None, "shop_boss").GetAwaiter().GetResult();
+            Assert.That(presenter.LastOpening.Value.TargetId, Is.EqualTo("shop_boss"), "表现按本场目标选择外观");
             Assert.That(arena.IsLoaded, Is.True);
             Assert.That(curtain.IsCovered, Is.False, "开场后揭幕");
             arena.ExitAsync(presenter, () => coveredWhileRestoring = curtain.IsCovered).GetAwaiter().GetResult();

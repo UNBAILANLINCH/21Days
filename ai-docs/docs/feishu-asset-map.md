@@ -1,6 +1,6 @@
 # 聚光灯飞书资产映射
 
-> 角色交付核对日期：2026-10-18；其余类别沿用各节注明的快照。定义资源归属与接入位置；服务器资产同步仅处理明确绑定的交付文件，启用状态以服务器配置和推送实测为准。
+> 玩法角色交付核对日期：2026-10-20，主线角色交付快照为 2026-10-18；其余类别沿用各节注明的快照。定义资源归属与接入位置；服务器资产同步仅处理明确绑定的交付文件，启用状态以服务器配置和推送实测为准。
 > 新建原因：现有策划转写只保存原文，美术手册只定义通用目录，均未承载逐项飞书资源与项目目标的对应关系；本表放在知识层，避免飞书重拉覆盖人工映射。
 
 本表对应外部飞书文档《2026gamejam聚光灯》的资产部分。策划原文继续维护在 [聚光灯策划目录](../../docs/design/spotlight/README.md)，不再建立第二份正文。角色拆件交付按用户确认保留；是否为逐件序列帧，必须检查实际交付包才能判断。
@@ -43,23 +43,23 @@
 | --- | --- | --- | --- | --- |
 | ddVEoY / 2 | 主角 | `player` | `Art/Sprites/Characters/player/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | ddVEoY / 3 | 妻子 | `wife` | `Art/Sprites/Characters/wife/parts/`（现有） | 已接收《妻子-何素.zip》的 13 张静态拆件，Unity 已生成 meta；组装、动画和服务器绑定仍待完成 |
-| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
+| ddVEoY / 4 | 轮回堂值守 | `lunhuitang_guard` | `Art/Sprites/Characters/lunhuitang_guard/parts/`（现有） | 15张源图保留；持卷组合、120张透明整帧、头像及妖界原值守点已绑定，见[接入记录](lunhuitang-guard-20261019.md) |
 | ddVEoY / 5 | 泾阳老吏 | `jingyang_clerk` | `Art/Sprites/Characters/jingyang_clerk/parts/`（拟） | 组装及动画接入待检查实际交付包 |
 | ddVEoY / 6 | 民众 | `villagers` | `Art/Sprites/Characters/villagers/parts/`（现有） | 已接收 19 张拆件；不按编号推断动作帧或部位 |
 | ddVEoY / 7 | 镜中乡老 | `mirror_elder` | `Art/Sprites/Characters/mirror_elder/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 8 | 钱塘龙君 | `qiantang_dragon` | `Art/Sprites/Characters/qiantang_dragon/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（现有） | 已接收 15 张拆件；组装及动画待接入 |
+| ddVEoY / 9 | 王录业 | `wang_luye` | `Art/Sprites/Characters/wang_luye/parts/`（现有） | 15张源图保留；2026-10-19完成组装、168张整帧、头像及21007／21014绑定，见[接入记录](wang-luye-20261019.md) |
 | ddVEoY / 10 | 弥勒教信众 | `mile_believers` | `Art/Sprites/Characters/mile_believers/parts/`（拟） | 原文允许复用民众；保留独立逻辑 ID，是否共用图件待确认 |
 | ddVEoY / 11 | 赵十四 | `zhao_shisi` | `Art/Sprites/Characters/zhao_shisi/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 2 | 都知 | `duzhi` | `Art/Sprites/Characters/duzhi/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 3 | 乐正 | `yuezheng` | `Art/Sprites/Characters/yuezheng/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 4 | 学徒 | `apprentice` | `Art/Sprites/Characters/apprentice/parts/`（拟） | 组装及动画接入待检查实际交付包 |
-| pKSkSs / 5 | 裁衣匠 | `tailor` | `Art/Sprites/Characters/tailor/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| pKSkSs / 2 | 都知 | `duzhi` | `Art/Sprites/Characters/duzhi/parts/`（现有） | 2026-10-20 接收 16 张原始拆件；未组装或接动画 |
+| pKSkSs / 3 | 乐正 | `yuezheng` | `Art/Sprites/Characters/yuezheng/parts/`（现有） | 2026-10-20 接收 17 张原始拆件；未组装或接动画 |
+| pKSkSs / 4 | 学徒 | `apprentice` | `Art/Sprites/Characters/apprentice/parts/`（现有） | 2026-10-20 接收 16 张原始拆件；未组装或接动画 |
+| pKSkSs / 5 | 裁衣匠 | `tailor` | `Art/Sprites/Characters/tailor/parts/`（现有） | 2026-10-20 接收“改后”版本 19 张拆件；旧 ZIP 另存，不混入当前 parts |
 | pKSkSs / 6 | 顾客 | `customers` | `Art/Sprites/Characters/customers/parts/`（现有） | 一套 17 件拆件外观，已有待机、走路、奔跑；应用衣肆三顾客及酒肆酒客，不代表已交付多套外观 |
 | pKSkSs / 7 | 金银匠 | `goldsmith` | `Art/Sprites/Characters/goldsmith/parts/`（现有） | 已接收 19 张拆件；组装及动画待接入 |
 | pKSkSs / 8 | 官证 | `official_witness` | `Art/Sprites/Characters/official_witness/parts/`（现有） | 已接收 16 张拆件；组装及动画待接入 |
 | pKSkSs / 9 | 杂役 | `handyman` | `Art/Sprites/Characters/handyman/parts/`（现有） | 已接收 18 张拆件；组装及动画待接入 |
-| pKSkSs / 10 | 阶段一BOSS | `stage1_boss` | `Art/Sprites/Characters/stage1_boss/parts/`（拟） | 组装及动画接入待检查实际交付包 |
+| pKSkSs / 10 | 阶段一BOSS | `stage1_boss` | `Art/Sprites/Characters/stage1_boss/parts/`（现有） | 2026-10-20本地PNG交付13件，组装、169张透明帧及酒肆原Boss绑定；无飞书token，见[记录](stage1-boss-20261020/README.md) |
 | pKSkSs / 11 | 小怪（醉酒的顾客） | `drunk_customer` | `Art/Sprites/Characters/drunk_customer/parts/`（现有） | 独立 PSD，14 张源拆件；运行时将脚层裁成左右两件并提供待机、走路、奔跑，应用酒肆两顾客；保留 ObservationOnly 行为，未新增攻击动作 |
 
 主页另列“女主”“乡中老人”“仪式民众”等名称，而当前主线表只有上述十项。不能自动把女主合并到妻子、乡中老人合并到镜中乡老；先核对是否别名或新增需求。
@@ -199,6 +199,12 @@
 6. 发布通知分开说明“发现交付 / 已落盘 / 已导入 / 已推送分支 / PR 链接或未建原因”。仅真实文件差异触发推送及 PR，仍由用户合入主支；策划正文与表格快照不随美术发布。
 
 本批新增 133 张 PNG，13 张妻子图件复用已有文件。正在运行的 Unity 构建进程已自动导入新增文件；146 张图片均为 Sprite Single，图片及所属目录的 `.meta` 齐全、GUID 唯一，原图散列与交付一致，并通过现有 `assets.validate_files` 校验。已生成真实包内成员与目标文件的绑定记录；服务器配置未安装本批文件绑定，不代表服务器自动接收规则已部署。未组装新角色或替换已有动画。
+
+## 2026-10-20 玩法角色补交接收
+
+完整读取玩法角色表 `pKSkSs` 的 `A1:D11`，版本 219。按用户要求只补齐本地缺失的都知（D2）、乐正（D3）、学徒（D4）、裁衣匠（D5），分别接收到上表对应的 `parts/`。裁衣匠同格两份附件中，采用紧邻“（改后）”文字的第二份附件，旧版原包另存用于追溯，不混入新版本。
+
+本批共 68 张 512×512 RGBA PNG，原字节、画布和中文文件名保持不变；PSD／PSB 留在原始 ZIP。Unity 已生成 68 份图片和 8 份目录 `.meta`，核对 Sprite Single、GUID 唯一、图片散列与原包一致，控制台无错误。顾客、金银匠、官证、杂役和醉酒顾客的附件 token 与已有交付记录一致，本次未重复下载或改动；阶段一 BOSS 的附件格仍为空，保留其本地交付。未组装角色、修改场景、提交或部署服务器。
 
 ## 服务器资产同步范围
 

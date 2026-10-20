@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bosses:
   - id: sample_boss
-    displayName: "\u9636\u6BB5\u4E00 BOSS\uFF08\u5360\u4F4D\uFF09"
+    displayName: "\u9636\u6BB5\u4E00 BOSS"
     maxHealth: 220
     outOfBattleDrunk: 50
     playerHealth: 120
-    stagePrefab: {fileID: 2268993245604400291, guid: e830738e7b9353143a78278c4119956c, type: 3}
+    stagePrefab: {fileID: 1440866250182045367, guid: 7c781eaf8ff50bb49bef59b777be8fdb, type: 3}
     battleProfile:
       phases: []
       sneakHealthLossPercentOverride: -1
@@ -39,7 +39,7 @@ MonoBehaviour:
       phases: []
       sneakHealthLossPercentOverride: -1
       rageClearOnPhaseChange: 0
-    monsterKindId: 1003
+    monsterKindId: 0
     aggroEnabled: 0
     aggroChargeSpeed: 3
     aggroRadius: 5

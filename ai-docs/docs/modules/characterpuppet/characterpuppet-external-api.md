@@ -21,12 +21,17 @@ maturity: stable
 
 | 成员 | 签名 | 说明 |
 | --- | --- | --- |
-| `SetFacing` | `void SetFacing(bool left)` | 转身：根 `localScale.x` 从当前值**补间**到 ±原幅值（像纸片翻面，中途经过 0），保留实例整体缩放；时长 `config.turnSeconds`（默认 0.12 s，unscaled，填 0 = 瞬间）。补间中途改向从当前缩放接着补；往同一朝向重复调不重启（`ChibiPuppet.cs:120`、`:130`） |
+| `SetFacing` | `void SetFacing(bool left)` | 转身：根 `localScale.x` 从当前值**补间**到 ±原幅值（像纸片翻面，中途经过 0），保留实例整体缩放；时长 `config.turnSeconds`（默认 0.12 s，unscaled，填 0 = 瞬间）。补间中途改向从当前缩放接着补；往同一朝向重复调不重启（`ChibiPuppet.cs`） |
 | `SetFacing` | `void SetFacing(bool left, bool instant)` | `instant` 为真时一帧到位——出生、读档、初始化这类不该看到翻面的时刻用（现有：驱动层启用后第一次定朝向、`BattleActor.ResetPose`） |
-| `FaceTowards` | `void FaceTowards(Vector3 worldPosition)` | 按目标相对自身在主相机右方向上的投影判左右（与驱动层同一口径与死区 `config.facingDeadZone`），走补间转身，并进入**朝向保持**：小人真正移动之前驱动层不改朝向，一移动即解除。只是表现层转身，逻辑朝向不变。取不到主相机时保持当前朝向（`ChibiPuppet.cs:163`） |
-| `PlayInteractPulse` | `void PlayInteractPulse()` | 程序化交互动作（占位）：`Sprite` 子物体 Y 缩放 1 → 0.9 → 1.04 → 1、下压时朝面向一侧前倾 5°，共 0.25 s（unscaled，参数在 config）；连续调用从头重播不叠加（`ChibiPuppet.cs:204`） |
-| `SetMoving` | `void SetMoving(bool isMoving, bool isRunning, float playbackRate)` | 写 Animator `Moving`（bool）、`Running`（bool，`isMoving` 为假时强制 false）与 `Speed`（float，Walk / Run 播放速率）；`isMoving` 为真时解除朝向保持（`ChibiPuppet.cs:184`）。旧签名 `SetMoving(bool, float)` 已删 |
-| `SetTint` | `void SetTint(Color tint)` | `parts` 里各渲染器颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs:218`） |
+| `FaceTowards` | `void FaceTowards(Vector3 worldPosition)` | 按目标相对自身在主相机右方向上的投影判左右（与驱动层同一口径与死区 `config.facingDeadZone`），走补间转身，并进入**朝向保持**：小人真正移动之前驱动层不改朝向，一移动即解除。只是表现层转身，逻辑朝向不变。取不到主相机时保持当前朝向（`ChibiPuppet.cs`） |
+| `PlayInteractPulse` | `void PlayInteractPulse()` | 程序化交互动作（占位）：`Sprite` 子物体 Y 缩放 1 → 0.9 → 1.04 → 1、下压时朝面向一侧前倾 5°，共 0.25 s（unscaled，参数在 config）；连续调用从头重播不叠加（`ChibiPuppet.cs`） |
+| `SetMoving` | `void SetMoving(bool isMoving, bool isRunning, float playbackRate)` | 写 Animator `Moving`（bool）、`Running`（bool，`isMoving` 为假时强制 false）与 `Speed`（float，Walk / Run 播放速率）；`isMoving` 为真时解除朝向保持（`ChibiPuppet.cs`）。旧签名 `SetMoving(bool, float)` 已删 |
+| `SetDialoguePose` | `void SetDialoguePose(bool speaking, bool serious)` | 仅对白演员：先停用ChibiPuppetMotion，再选Idle／talk／serious（严肃优先）；同态不重启，控制器缺态忽略。Narrative驱动王录业，停用时清选态缓存 |
+| `SetAttackPose` | `bool SetAttackPose(float normalizedTime)` | 先停用Motion；采样孤立attack态（状态speed=0），进度夹0–1。缺态返回false，调用方沿用原表现；不提交伤害 |
+| `EndAttackPose` | `void EndAttackPose()` | 回Idle并立即采样；舞台在结束、取消、停用和清理调用，缺attack态忽略 |
+| `SetTint` | `void SetTint(Color tint)` | `parts` 里各渲染器颜色 = 预制体基底色 × tint；传 `Color.white` 还原（`ChibiPuppet.cs`） |
+| `SetOpacity` | `void SetOpacity(float value)` | 透明度倍率夹到0–1，与原色及当前Tint相乘；1恢复，不累乘。运动驱动跟随`FacingSource.color.a`，停用时恢复 |
+| `SneakingOpacity` | 只读属性 | 共用配置中的潜行不透明度，默认0.45；供遭遇视图绑定时读取 |
 | `FaceLeft` | 只读属性 | **目标**朝向（真 = 朝左）：`SetFacing` / `FaceTowards` 调用后立刻是新值，不是补间中途的缩放 |
 | `IsTurning` / `FacingHeld` / `IsPulsing` | 只读属性 | 转身补间进行中 / 朝向保持中 / 交互动作在播；驱动层读 `FacingHeld`，测试与回放读其余 |
 | `Animator` / `IsMoving` / `IsRunning` | 只读属性 | 测试与调试读状态用 |
@@ -61,15 +66,15 @@ maturity: stable
 
 | 方法 | 说明 |
 | --- | --- |
-| `bool Evaluate(float deltaMagnitude, float dt, float moveStart, float moveStop, bool wasMoving, out float speed)` | 速度 = 位移 / dt；静止时 ≥ `moveStart` 起步，走动中 ≤ `moveStop` 停（滞回）；dt ≤ 0 视为静止（`ChibiPuppetMotionRules.cs:23`） |
-| `bool ResolveRunning(float speed, float runStartSpeed, float runStopSpeed, bool wasRunning, bool hasRunClip)` | 走着时 ≥ `runStartSpeed` 切跑，跑着时 ≤ `runStopSpeed` 切回走（滞回）；`hasRunClip` 为假恒返回 false（`ChibiPuppetMotionRules.cs:40`） |
-| `bool ResolveFacing(float deltaAlongRight, float deadZone, bool previousFaceLeft)` | 死区内保持上次朝向，否则负为朝左（`ChibiPuppetMotionRules.cs:55`） |
-| `float PlaybackRate(float speed, float clipSpeed, float min, float max)` | `clamp(speed / clipSpeed, min, max)`；`clipSpeed ≤ 0` 时按 1 夹取（`ChibiPuppetMotionRules.cs:69`）。取代旧的 `WalkPlaybackRate(speed, perUnit, min, max)` |
-| `bool ResolveFacingTowards(float targetOffsetAlongRight, float deadZone, bool currentFaceLeft)` | 朝向指定点：（目标 − 自身）在相机右方向的投影，口径同 `ResolveFacing`（`ChibiPuppetMotionRules.cs:84`） |
-| `bool KeepFacingHold(bool held, bool moving)` | 朝向保持是否继续：`held && !moving`（`ChibiPuppetMotionRules.cs:93`） |
-| `float TurnDuration(float fromScaleX, float toScaleX, float baseMagnitude, float turnSeconds)` | 转身耗时 = turnSeconds × 剩余行程 /（2 × 幅值），中途改向剩多少走多少；无行程 / 非正参数返回 0（`ChibiPuppetMotionRules.cs:102`） |
-| `float TurnScaleX(float fromScaleX, float toScaleX, float progress)` | 转身进度处的根缩放，smoothstep（近似纸片转动的余弦投影），进度越界夹取（`ChibiPuppetMotionRules.cs:123`） |
-| `void InteractPulse(float progress, float squash, float overshoot, out float scaleY, out float lean01)` | 交互回弹曲线：Y 缩放 1 → 1 − squash（前 30%）→ 1 + overshoot（至 65%）→ 1，前倾程度随下压升降；两端为（1, 0）（`ChibiPuppetMotionRules.cs:133`） |
+| `bool Evaluate(float deltaMagnitude, float dt, float moveStart, float moveStop, bool wasMoving, out float speed)` | 速度 = 位移 / dt；静止时 ≥ `moveStart` 起步，走动中 ≤ `moveStop` 停（滞回）；dt ≤ 0 视为静止（`ChibiPuppetMotionRules.cs`） |
+| `bool ResolveRunning(float speed, float runStartSpeed, float runStopSpeed, bool wasRunning, bool hasRunClip)` | 走着时 ≥ `runStartSpeed` 切跑，跑着时 ≤ `runStopSpeed` 切回走（滞回）；`hasRunClip` 为假恒返回 false（`ChibiPuppetMotionRules.cs`） |
+| `bool ResolveFacing(float deltaAlongRight, float deadZone, bool previousFaceLeft)` | 死区内保持上次朝向，否则负为朝左（`ChibiPuppetMotionRules.cs`） |
+| `float PlaybackRate(float speed, float clipSpeed, float min, float max)` | `clamp(speed / clipSpeed, min, max)`；`clipSpeed ≤ 0` 时按 1 夹取（`ChibiPuppetMotionRules.cs`）。取代旧的 `WalkPlaybackRate(speed, perUnit, min, max)` |
+| `bool ResolveFacingTowards(float targetOffsetAlongRight, float deadZone, bool currentFaceLeft)` | 朝向指定点：（目标 − 自身）在相机右方向的投影，口径同 `ResolveFacing`（`ChibiPuppetMotionRules.cs`） |
+| `bool KeepFacingHold(bool held, bool moving)` | 朝向保持是否继续：`held && !moving`（`ChibiPuppetMotionRules.cs`） |
+| `float TurnDuration(float fromScaleX, float toScaleX, float baseMagnitude, float turnSeconds)` | 转身耗时 = turnSeconds × 剩余行程 /（2 × 幅值），中途改向剩多少走多少；无行程 / 非正参数返回 0（`ChibiPuppetMotionRules.cs`） |
+| `float TurnScaleX(float fromScaleX, float toScaleX, float progress)` | 转身进度处的根缩放，smoothstep（近似纸片转动的余弦投影），进度越界夹取（`ChibiPuppetMotionRules.cs`） |
+| `void InteractPulse(float progress, float squash, float overshoot, out float scaleY, out float lean01)` | 交互回弹曲线：Y 缩放 1 → 1 − squash（前 30%）→ 1 + overshoot（至 65%）→ 1，前倾程度随下压升降；两端为（1, 0）（`ChibiPuppetMotionRules.cs`） |
 
 其他表现（如将来的 NPC 纸片动画）要复用同一套走 / 停 / 跑判定时直接调这里，不要另写阈值。
 
@@ -93,7 +98,7 @@ maturity: stable
 
 ## 禁止事项
 
-- **不要在别处写 Animator 参数 `Moving` / `Running` / `Speed`**，也不要直接 `Animator.Play` 切状态：唯一写入口是 `ChibiPuppet.SetMoving`，驱动者常态只有 `ChibiPuppetMotion`；例外是战斗舞台：`BattleActor` 会先禁用该小人的 `ChibiPuppetMotion` 再自己调 `SetMoving` / `SetFacing`（`Assets/_Project/Scripts/Runtime/Battle/BattleActor.cs:271-278`），同一小人任一时刻仍只有一个驱动者。多处写会互相覆盖、闪烁。
+- **不要在别处写 Animator 参数 `Moving` / `Running` / `Speed` 或直接 `Animator.Play`**：走停只经 `ChibiPuppet.SetMoving`，常态驱动为 `ChibiPuppetMotion`。战斗演员先停用Motion后由BattleActor驱动；对白演员也先停用Motion，再由Narrative经 `SetDialoguePose` 选态。同一小人任一时刻仍只有一个驱动者。
 - **不要用 scaled 时间做小人动画**：Animator 必须保持 `UnscaledTime`，否则对话时停时画面定格；转身与交互补间同样走 unscaled（LitMotion `UpdateIgnoreTimeScale`）。
 - **不要拿 `FaceTowards` 当逻辑朝向**：它只转表现层，隐藏纸片的 `flipX`、玩家 / 怪物模型的 `Facing` 都不变；要改逻辑朝向找对应模块。
 - 不要在别处改 `Sprite` 子物体的 `localScale` / `localRotation`：交互动作以 `Awake` 时的值为基准，结束 / 停用时写回该值。

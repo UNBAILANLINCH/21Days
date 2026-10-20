@@ -31,15 +31,22 @@ namespace Game.Rhythm
         public double GoodMs => goodMs;
         public double ChartOffsetMs { get; }
         public double LastEndSeconds { get; }
+        public bool IsQteMode { get; }
+        public double HoldReleaseGraceMs { get; }
 
         public RhythmRules(double[] times, int[] lanes, double perfectMs, double goodMs, double offsetMs, ITelemetryScope telemetry)
             : this(FromLegacy(times, lanes), perfectMs, goodMs, offsetMs, 0, telemetry) { }
 
-        public RhythmRules(RhythmNoteData[] source, double perfectMs, double goodMs, double offsetMs, double chartOffsetMs, ITelemetryScope telemetry)
+        public RhythmRules(RhythmNoteData[] source, double perfectMs, double goodMs, double offsetMs, double chartOffsetMs, ITelemetryScope telemetry,
+            bool qteMode = false, double holdReleaseGraceMs = 0)
         {
             if (source == null || source.Length == 0) throw new ArgumentException("谱面不能为空");
             if (!Finite(perfectMs) || !Finite(goodMs) || perfectMs <= 0 || goodMs < perfectMs || !Finite(offsetMs) || GameMath.Abs(offsetMs) > 300 || !Finite(chartOffsetMs))
                 throw new ArgumentOutOfRangeException(nameof(perfectMs));
+            if (!Finite(holdReleaseGraceMs) || holdReleaseGraceMs < 0 || holdReleaseGraceMs > goodMs || (!qteMode && holdReleaseGraceMs != 0))
+                throw new ArgumentOutOfRangeException(nameof(holdReleaseGraceMs));
+            IsQteMode = qteMode;
+            HoldReleaseGraceMs = holdReleaseGraceMs;
             notes = (RhythmNoteData[])source.Clone();
             var ids = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < notes.Length; i++)
@@ -67,7 +74,9 @@ namespace Game.Rhythm
                 times[i] = (notes[i].TimeMs + chartOffsetMs) / 1000;
                 ends[i] = times[i] + notes[i].DurationMs / 1000;
                 int lane = notes[i].Lane; int before = previous[lane];
-                if (before >= 0 && (times[i] - times[before] <= goodMs * 2 / 1000 + 1e-9 ||
+                // QTE 宽窗允许相邻头部交叠；最近目标优先，等距保留稳定排序中的较早目标。
+                // 同键同刻与 Hold 占用仍禁止，避免一次按下承担两个目标。
+                if (before >= 0 && (times[i] - times[before] <= (qteMode ? 0 : goodMs * 2 / 1000) + 1e-9 ||
                     (notes[before].Type == RhythmNoteType.Hold && times[i] - goodMs / 1000 <= ends[before] + 1e-9)))
                     throw new ArgumentException("同轨判定窗或长按占用冲突：" + notes[before].Id + " / " + notes[i].Id);
                 previous[lane] = i; if (ends[i] > lastEnd) lastEnd = ends[i];
@@ -107,6 +116,9 @@ namespace Game.Rhythm
             if (intent.Lane < 0 || intent.Lane > 3 || !Finite(intent.SongSeconds) ||
                 (intent.Edge != RhythmInputEdge.Press && intent.Edge != RhythmInputEdge.Release)) throw new ArgumentOutOfRangeException(nameof(intent));
             if (intent.Edge == RhythmInputEdge.Release) return Release(in intent);
+            if (IsQteMode)
+                for (int i = 0; i < Count; i++)
+                    if (states[i] == 1 && notes[i].Lane == intent.Lane) return new RhythmHitResult(-1, RhythmGrade.None, 0, 0);
             int best = -1;
             double error = double.MaxValue;
             for (int i = 0; i < Count; i++)
@@ -114,7 +126,7 @@ namespace Game.Rhythm
                 if (states[i] != 0 || notes[i].Lane != intent.Lane) continue;
                 if (notes[i].Type == RhythmNoteType.Hold && intent.SongSeconds - OffsetMs / 1000 > ends[i]) continue;
                 double candidate = (intent.SongSeconds - times[i]) * 1000 - OffsetMs;
-                if (GameMath.Abs(candidate) <= goodMs + 0.000001 && GameMath.Abs(candidate) < GameMath.Abs(error))
+                if (GameMath.Abs(candidate) <= goodMs + 0.000001 && GameMath.Abs(candidate) < GameMath.Abs(error) - (IsQteMode ? 0.000001 : 0))
                 { best = i; error = candidate; }
             }
             if (best < 0) return new RhythmHitResult(-1, RhythmGrade.None, 0, 0);
@@ -132,7 +144,7 @@ namespace Game.Rhythm
             {
                 if (states[i] != 1 || notes[i].Lane != intent.Lane) continue;
                 double error = (intent.SongSeconds - ends[i]) * 1000 - OffsetMs;
-                var grade = error >= -0.000001 ? headGrades[i] : RhythmGrade.Miss;
+                var grade = error >= -HoldReleaseGraceMs - 0.000001 ? headGrades[i] : RhythmGrade.Miss;
                 Resolve(i, grade);
                 return new RhythmHitResult(i, grade, (intent.SongSeconds - ends[i]) * 1000, error);
             }

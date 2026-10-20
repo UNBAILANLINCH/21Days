@@ -50,7 +50,7 @@ namespace Game.Battle
         /// </summary>
         /// <param name="restoreOnFailure">开场失败时在黑幕下恢复世界（BattleFlow 传世界锁的 Dispose）；它自己再抛只留痕，不盖掉原始异常。</param>
         public async UniTask EnterAsync(IBattlePresenter presenter, BossDefinition boss, BattleSession session, Action restoreOnFailure,
-            CancellationToken ct)
+            CancellationToken ct, string targetId = null)
         {
             if (presenter == null) throw new ArgumentNullException(nameof(presenter));
             if (IsLoaded) throw new InvalidOperationException("战斗场景已经在场：上一场没有走 BattleArena.ExitAsync");
@@ -60,7 +60,7 @@ namespace Game.Battle
                 await curtain.CoverAsync(ct);
                 scene = await LoadAsync(ct);
                 opened = true; // 从这里起 OpenAsync 可能已做了一半，失败也要 CloseAsync（IBattlePresenter 的契约）
-                await presenter.OpenAsync(new BattleOpening(boss, session, scene.Scene), ct);
+                await presenter.OpenAsync(new BattleOpening(boss, session, scene.Scene, targetId), ct);
             }
             catch
             {

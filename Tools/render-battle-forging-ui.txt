@@ -1,0 +1,78 @@
+// 人工通过MCP执行的离屏视觉检查；只创建临时场景，不保存源资产，finally还原原场景。
+if(UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)throw new System.Exception("先退出播放");
+var original=UnityEngine.SceneManagement.SceneManager.GetActiveScene();bool dirty=original.isDirty;
+var scene=UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,UnityEditor.SceneManagement.NewSceneMode.Additive);
+UnityEngine.RenderTexture rt=null;UnityEngine.Camera camera=null;
+try{
+    UnityEngine.SceneManagement.SceneManager.SetActiveScene(scene);
+    camera=new UnityEngine.GameObject("UICaptureCamera",typeof(UnityEngine.Camera)).GetComponent<UnityEngine.Camera>();
+    camera.transform.position=new UnityEngine.Vector3(0,0,-10);camera.orthographic=true;camera.orthographicSize=5.4f;
+    camera.clearFlags=UnityEngine.CameraClearFlags.SolidColor;camera.backgroundColor=new UnityEngine.Color(.2f,.24f,.25f);camera.cullingMask=1<<31;
+    var canvasObject=new UnityEngine.GameObject("UICaptureCanvas",typeof(UnityEngine.RectTransform),typeof(UnityEngine.Canvas),typeof(UnityEngine.UI.CanvasScaler));
+    var canvas=canvasObject.GetComponent<UnityEngine.Canvas>();canvas.renderMode=UnityEngine.RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;
+    var scaler=canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>();scaler.uiScaleMode=UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new UnityEngine.Vector2(1920,1080);scaler.matchWidthOrHeight=1;
+    System.Func<string,UnityEngine.GameObject> spawn=name=>{
+        var go=(UnityEngine.GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_Project/Prefabs/UI/"+name+".prefab"),scene);
+        go.transform.SetParent(canvasObject.transform,false);var r=(UnityEngine.RectTransform)go.transform;r.anchorMin=UnityEngine.Vector2.zero;r.anchorMax=UnityEngine.Vector2.one;r.offsetMin=r.offsetMax=UnityEngine.Vector2.zero;return go;
+    };
+    string output="ai-docs/docs/ui-battle-forging-20261020";System.IO.Directory.CreateDirectory(output);
+    int[] widths={1920,1280,2560};int[] heights={1080,720,1080};
+    foreach(string kind in new[]{"Forging","Battle"}){
+        var go=spawn(kind+"View");
+        var forge=go.GetComponent<Game.Forging.ForgingView>();var battle=go.GetComponent<Game.Battle.BattleView>();
+        Game.Forging.ForgingController controller=null;Game.TurnBased.BattleSession session=null;
+        System.Func<Game.Forging.ForgingAction,int,string> forgingApply=null;
+        var settings=Game.TurnBased.BattleSettings.PlaceholderDefault;
+        if(forge!=null){
+            controller=new Game.Forging.ForgingController(UnityEditor.AssetDatabase.LoadAssetAtPath<Game.Forging.ForgingConfig>("Assets/_Project/Data/ShopPlaytest/Forging.asset"),null);
+            forgingApply=(a,v)=>{string reason;var intent=new Game.Forging.ForgingIntent(a,v,true,true);controller.Rules.Apply(ref intent,out reason);return reason;};
+            forge.OnOpenAsync(new System.ValueTuple<Game.Forging.ForgingController,System.Func<Game.Forging.ForgingAction,int,string>>(controller,forgingApply),System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+        }else{
+            battle.OnOpenAsync(null,System.Threading.CancellationToken.None).GetAwaiter().GetResult();battle.enabled=false;
+            var kernel=new Game.TurnBased.TurnBasedKernel(ref settings,new Game.Core.Simulation.XorShiftRandomStream(7));Game.TurnBased.BattleEntryReject reject;
+            var request=new Game.TurnBased.BattleEntryRequest(false,false,true,false,Game.TurnBased.MonsterAlertState.Alert,Game.TurnBased.BattleInitiator.PlayerAttacked);var playerSnapshot=new Game.TurnBased.PlayerBattleSnapshot(120,120);var bossSnapshot=new Game.TurnBased.BossBattleSnapshot(220,220,50);
+            if(!kernel.TryStartBattle(ref request,ref playerSnapshot,ref bossSnapshot,out session,out reject))throw new System.Exception(reject.ToString());
+        }
+        for(int state=0;state<3;state++){
+            if(forge!=null){
+                if(state==1)forgingApply(Game.Forging.ForgingAction.StartProduct,0);
+                if(state==2){forgingApply(Game.Forging.ForgingAction.Cancel,0);forgingApply(Game.Forging.ForgingAction.StartProduct,2);}
+                forge.OnRefresh();
+                var expected=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/_Project/Art/Sprites/UI/Forging/Delivery20261020/"+(controller.Rules.IsForging?"道具选中":"道具未选中")+".png");
+                int point=controller.Rules.IsForging?controller.Rules.NextPoint:0;
+                if(go.transform.Find("WorkbenchPanel/FourPointDisk/Point"+point).GetComponent<UnityEngine.UI.Image>().sprite!=expected)throw new System.Exception("下一点位美术未随真实规则更新");
+            }else{
+                if(state>0){session.TryCastSkill(Game.TurnBased.PlayerSkill.Skill1);session.RunBossTurn();}
+                if(state==2){session.TryCastSkill(Game.TurnBased.PlayerSkill.Skill1);session.RunBossTurn();}
+                var items=new[]{new Game.Battle.BattleItemSlot("2001",state==2?"长名称活力药剂与临时增益道具":"活力药剂",2,false),new Game.Battle.BattleItemSlot("2008","坚韧斗篷",1,true)};
+                battle.Render(session,items,ref settings,true,Game.Battle.BattleHudRules.TurnText(session),true,false);
+                if(state==2){
+                    foreach(var bar in go.GetComponentsInChildren<Game.Battle.BattleBarWidget>(true))if(bar.name=="HealthBar")bar.Set(0,100,"生命 0/100",false);
+                    foreach(var bar in go.GetComponentsInChildren<Game.Battle.BattleBarWidget>(true))if(bar.name=="HealthBar" && bar.Ratio!=0)throw new System.Exception("空血条比例错误");
+                }
+            }
+            foreach(UnityEngine.Transform t in canvasObject.GetComponentsInChildren<UnityEngine.Transform>(true))t.gameObject.layer=31;
+            for(int i=0;i<widths.Length;i++){
+                rt=new UnityEngine.RenderTexture(widths[i],heights[i],24,UnityEngine.RenderTextureFormat.ARGB32);rt.Create();camera.targetTexture=rt;camera.aspect=(float)widths[i]/heights[i];
+                UnityEngine.Canvas.ForceUpdateCanvases();
+                if(battle!=null){
+                    battle.Configure(state==2?"极长名称的阶段一首领与同伴联合挑战":"阶段一BOSS",settings.PlayerSkills.RageMax,camera,UnityEngine.Vector3.zero,UnityEngine.Vector3.zero);
+                    foreach(string name in new[]{"BossHud","PlayerHud"}){var r=(UnityEngine.RectTransform)go.transform.Find(name);r.gameObject.SetActive(true);r.anchoredPosition=new UnityEngine.Vector2(name=="BossHud"?400:-400,100);}
+                }
+                foreach(var label in canvasObject.GetComponentsInChildren<TMPro.TMP_Text>())label.ForceMeshUpdate();UnityEngine.Canvas.ForceUpdateCanvases();camera.Render();
+                var previous=UnityEngine.RenderTexture.active;UnityEngine.RenderTexture.active=rt;
+                var img=new UnityEngine.Texture2D(widths[i],heights[i],UnityEngine.TextureFormat.RGBA32,false);img.ReadPixels(new UnityEngine.Rect(0,0,widths[i],heights[i]),0,0);img.Apply();
+                string path=output+"/"+kind.ToLowerInvariant()+"-state"+state+"-"+widths[i]+"x"+heights[i]+".png";System.IO.File.WriteAllBytes(path,img.EncodeToPNG());UnityEngine.Object.DestroyImmediate(img);
+                UnityEngine.RenderTexture.active=previous;camera.targetTexture=null;rt.Release();UnityEngine.Object.DestroyImmediate(rt);rt=null;
+            }
+        }
+        if(forge!=null)forge.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+        else battle.OnCloseAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+        UnityEngine.Object.DestroyImmediate(go);
+    }
+    return "18张离屏预制体截图已保存；测试夹具数值不写入生产资产。";
+}finally{
+    if(camera!=null)camera.targetTexture=null;if(rt!=null){rt.Release();UnityEngine.Object.DestroyImmediate(rt);}
+    UnityEngine.SceneManagement.SceneManager.SetActiveScene(original);UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene,true);
+    if(original.isDirty!=dirty)throw new System.Exception("原场景脏状态改变");
+}

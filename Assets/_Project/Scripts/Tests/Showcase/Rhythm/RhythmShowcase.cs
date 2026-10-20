@@ -128,7 +128,7 @@ namespace Game.Tests.Showcase.Rhythm
             var flow = ResolveService<IGameFlow>();
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
             Input.Prime();
-            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config = Track(Object.Instantiate(LegacyChart()));
             // 仅修改运行时副本，不改项目 SO。短谱走同一 State/UI/音频/Input System，便于验证边界。
             JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":4,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"zero-hold\",\"lane\":0,\"timeMs\":0,\"type\":1,\"durationMs\":1000},{\"id\":\"later-hold\",\"lane\":1,\"timeMs\":2000,\"type\":1,\"durationMs\":500}],\"calibrationWarmupBeats\":0,\"calibrationSampleBeats\":4,\"calibrationMinimumSamples\":3}", config);
             var saves = ResolveService<ISaveService>();
@@ -196,7 +196,7 @@ namespace Game.Tests.Showcase.Rhythm
             yield return WaitUntil("音游准备界面", () => ResolveService<IGameFlow>() != null && ResolveService<IGameFlow>().Current is RhythmState, 30f);
             var flow = ResolveService<IGameFlow>();
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
-            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config = Track(Object.Instantiate(LegacyChart()));
             JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":0.5,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"short-tap\",\"lane\":0,\"timeMs\":100,\"type\":0,\"durationMs\":0}]}", config);
             scenarioState = new RhythmState(config, ResolveService<IUIService>(), ResolveService<IAudioService>(), ResolveService<ISaveService>(),
                 flow, ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
@@ -279,7 +279,7 @@ namespace Game.Tests.Showcase.Rhythm
             yield return WaitUntil("音游准备界面", () => ResolveService<IGameFlow>() != null && ResolveService<IGameFlow>().Current is RhythmState, 30f);
             var flow = ResolveService<IGameFlow>();
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
-            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config = Track(Object.Instantiate(LegacyChart()));
             JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":0.5,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"export-tap\",\"lane\":0,\"timeMs\":100,\"type\":0,\"durationMs\":0}]}", config);
             scenarioState = new RhythmState(config, ResolveService<IUIService>(), ResolveService<IAudioService>(), ResolveService<ISaveService>(),
                 flow, ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
@@ -524,7 +524,7 @@ namespace Game.Tests.Showcase.Rhythm
             Assert.That(ResolveService<IPlatformService>().SaveRoot, Is.EqualTo(PlatformServiceBase.SaveRootOverride));
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
             yield return saves.WriteProfileAsync("rhythm-calibration", new RhythmCalibrationData {OffsetMs=-40,VisualOffsetMs=125}).ToCoroutine();
-            var config = Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config = Track(Object.Instantiate(LegacyChart()));
             JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":4,\"notes\":[{\"id\":\"calibration-flow-tap\",\"lane\":0,\"timeMs\":100,\"type\":0,\"durationMs\":0}]}",config);
             scenarioState = new RhythmState(config,ui,ResolveService<IAudioService>(),saves,flow,ResolveService<IInputService>(),
                 ResolveService<IWorldPauseService>(),ResolveService<ITelemetryService>(),ResolveService<INotificationService>());
@@ -642,7 +642,7 @@ namespace Game.Tests.Showcase.Rhythm
             Assert.That(ResolveService<IPlatformService>().SaveRoot,Is.EqualTo(PlatformServiceBase.SaveRootOverride));
             yield return flow.GoToAsync<TitleState>().ToCoroutine();
             yield return saves.WriteProfileAsync("rhythm-calibration",new RhythmCalibrationData {OffsetMs=100,VisualOffsetMs=125}).ToCoroutine();
-            var config=Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config=Track(Object.Instantiate(LegacyChart()));
             JsonUtility.FromJsonOverwrite("{\"calibrationWarmupBeats\":0,\"calibrationSampleBeats\":8,\"calibrationMinimumSamples\":6}",config);
             scenarioState=new RhythmState(config,ui,ResolveService<IAudioService>(),saves,flow,ResolveService<IInputService>(),
                 ResolveService<IWorldPauseService>(),ResolveService<ITelemetryService>(),ResolveService<INotificationService>());
@@ -916,7 +916,7 @@ namespace Game.Tests.Showcase.Rhythm
         {
             yield return WaitUntil("组合回放就绪",()=>ResolveService<IGameFlow>()?.Current is RhythmState,30f);
             var flow=ResolveService<IGameFlow>(); yield return flow.GoToAsync<TitleState>().ToCoroutine();
-            var config=Track(Object.Instantiate(ResolveService<RhythmConfig>()));
+            var config=Track(Object.Instantiate(LegacyChart()));
             JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"noteTimes\":[],\"noteLanes\":[],\"clipStartSeconds\":16,\"durationSeconds\":3,\"countdownSeconds\":0.2,\"approachSeconds\":0.15,\"notes\":[{\"id\":\"chord-a\",\"lane\":0,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"chord-b\",\"lane\":1,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"hold-a\",\"lane\":2,\"timeMs\":1000,\"type\":1,\"durationMs\":1000},{\"id\":\"hold-b\",\"lane\":3,\"timeMs\":1000,\"type\":1,\"durationMs\":1000},{\"id\":\"tap-with-hold\",\"lane\":0,\"timeMs\":1000,\"type\":0,\"durationMs\":0},{\"id\":\"tap-during-hold\",\"lane\":1,\"timeMs\":1500,\"type\":0,\"durationMs\":0}]}",config);
             scenarioState=new RhythmState(config,ResolveService<IUIService>(),ResolveService<IAudioService>(),ResolveService<ISaveService>(),flow,
                 ResolveService<IInputService>(),ResolveService<IWorldPauseService>(),ResolveService<ITelemetryService>(),ResolveService<INotificationService>());
@@ -928,11 +928,307 @@ namespace Game.Tests.Showcase.Rhythm
             yield return Snapshot("跨轨组合复用TapHold规则");
         }
 
-        private IEnumerator PerformCurrentChart(RhythmState state)
+        [UnityTest]
+        public IEnumerator QtePilot_ChordsHoldRetryAndChineseOutcome_Work()
+        {
+            yield return WaitUntil("独立入口就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var source = Track(Object.Instantiate(LegacyChart()));
+            JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"chartId\":\"chongerfei-demo\",\"noteTimes\":[],\"noteLanes\":[],\"clipStartSeconds\":16,\"durationSeconds\":3,\"countdownSeconds\":0.5,\"approachSeconds\":1,\"notes\":[{\"id\":\"chord-d\",\"lane\":0,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"chord-f\",\"lane\":1,\"timeMs\":500,\"type\":0,\"durationMs\":0},{\"id\":\"hold-j\",\"lane\":2,\"timeMs\":1000,\"type\":1,\"durationMs\":1000},{\"id\":\"tap-k\",\"lane\":3,\"timeMs\":1500,\"type\":0,\"durationMs\":0}]}", source);
+            var ui = ResolveService<IUIService>();
+            scenarioState = new RhythmState(source, ui, ResolveService<IAudioService>(), ResolveService<ISaveService>(), flow,
+                ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            scenarioState.ConfigureQtePilot();
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>();
+            scenarioTick = scenarioHost.StartCoroutine(TickScenario());
+            Input.Prime();
+            var view = ui.Get<RhythmView>();
+            FindDeep<Slider>(view.transform, "Offset").value = 0;
+            scenarioState.StartRound();
+            yield return WaitUntil("节拍提示开始", () => scenarioState.IsPlaying, 5f);
+            Assert.That(FindDeep<Button>(view.transform, "PauseExit").GetComponentInChildren<TMPro.TMP_Text>(true).text, Does.Contain("返回标题"));
+            Assert.That(scenarioState.Rules.IsQteMode, Is.True);
+            Assert.That(source.IsQteMode, Is.False);
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Score").gameObject.activeInHierarchy, Is.False);
+            Assert.That(FindDeep<Image>(view.transform, "JudgementLine").gameObject.activeInHierarchy, Is.False);
+            yield return WaitUntil("提示出现后暂停检查布局", () => scenarioState.SongSeconds >= 0.1, 5f);
+            scenarioState.PauseRound();
+            double paused = scenarioState.SongSeconds;
+            view.ShowPause(false);
+            RhythmLibraryShowcase.RenderPage(view, 1280, 800, "qte-prompts", captureFolder: "rhythm-qte-20261020");
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "qte-prompts", captureFolder: "rhythm-qte-20261020");
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(scenarioState.SongSeconds, Is.EqualTo(paused));
+            Assert.That(scenarioState.Rules.Perfect + scenarioState.Rules.Good + scenarioState.Rules.Miss, Is.Zero);
+            view.ShowPause(true); scenarioState.ResumeRound();
+            yield return Snapshot("节拍提示无下落轨道与分数");
+            yield return PerformCurrentChart(scenarioState);
+            yield return WaitUntil("单曲演奏完成", () => !scenarioState.IsPlaying, 5f);
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(scenarioState.LastRunResult), Is.True);
+            Assert.That(scenarioState.Rules.CompletedHolds, Is.EqualTo(1));
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text, Is.EqualTo("演奏成功"));
+            Assert.That(scenarioState.LastDiagnostic.SessionHeader.IsQteMode, Is.True);
+            RhythmLibraryShowcase.RenderPage(view, 1280, 800, "qte-success", captureFolder: "rhythm-qte-20261020");
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "qte-success", captureFolder: "rhythm-qte-20261020");
+            yield return Snapshot("单句中文成功提示");
+            scenarioState.StartRound();
+            yield return WaitUntil("重试启动", () => scenarioState.IsPlaying, 5f);
+            yield return WaitUntil("漏按不打断，完整结束", () => !scenarioState.IsPlaying, 8f);
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(4));
+            Assert.That(RhythmProgressRules.HasSuccessfulNoteRatio(scenarioState.LastRunResult), Is.False);
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text, Is.EqualTo("再试一次"));
+            yield return Snapshot("失败可重试无额外结算表");
+            scenarioState.StartRound();
+            yield return WaitUntil("重试长按头部", () => scenarioState.IsPlaying && scenarioState.SongSeconds >= 1, 5f);
+            yield return Input.Hold(scenarioState.LaneAction(2));
+            yield return WaitUntil("已抓住长按", () => scenarioState.Rules.IsHolding(2), 1f);
+            scenarioState.PauseRound();
+            int misses = scenarioState.Rules.Miss;
+            yield return Input.Release(scenarioState.LaneAction(2));
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(misses));
+            scenarioState.ResumeRound();
+            yield return WaitUntil("暂停松开恢复后失败一次", () => !scenarioState.Rules.IsHolding(2), 2f);
+            Assert.That(scenarioState.Rules.CompletedHolds, Is.Zero);
+            Assert.That(scenarioState.Rules.Miss, Is.EqualTo(misses + 1));
+            typeof(RhythmView).GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, new object[] { false });
+            Assert.That(scenarioState.IsPlaying, Is.False);
+            Assert.That(scenarioState.LastRunResult.Completion, Is.EqualTo(RhythmRunCompletion.Aborted));
+            AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "SettingsButton").onClick.Invoke();
+            FindDeep<Button>(view.transform, "ManualCalibration").onClick.Invoke();
+            yield return WaitUntil("手动试听使用原输入链路", () => scenarioState.IsPlaying, 5f);
+            FindDeep<Button>(view.transform, "ManualCancel").onClick.Invoke();
+            Assert.That(scenarioState.IsPlaying, Is.False); AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "SettingsButton").onClick.Invoke();
+            FindDeep<Button>(view.transform, "CalibrationButton").onClick.Invoke();
+            yield return WaitUntil("自动参考拍开始", () => scenarioState.IsPlaying, 5f);
+            AssertNoPromptLabels(view);
+            FindDeep<Button>(view.transform, "PlayExit").onClick.Invoke();
+            Assert.That(scenarioState.IsPlaying, Is.False); AssertNoPromptLabels(view);
+            yield return Snapshot("暂停松开失焦与校准切换清理提示");
+        }
+
+        [UnityTest, Timeout(120000)]
+        public IEnumerator QtePilot_Original58Notes_CompleteAndKeepLegacyProfiles()
+        {
+            yield return WaitUntil("原谱入口就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>();
+            yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var source = LegacyChart();
+            var saves = ResolveService<ISaveService>();
+            var legacy = new RhythmCalibrationData { OffsetMs = 123, VisualOffsetMs = 45 };
+            yield return saves.WriteProfileAsync("rhythm-calibration", legacy).ToCoroutine();
+            var progress = new RhythmProgressData(); progress.UnlockedSongs.Add("legacy-sentinel");
+            yield return saves.WriteProfileAsync("rhythm-progress", progress).ToCoroutine();
+            var ui = ResolveService<IUIService>();
+            bool gameplay = ResolveService<IInputService>().Actions.Gameplay.enabled; // lint-ok: 只验证退出恢复动作图，不采样设备按键。
+            bool wasPaused = ResolveService<IWorldPauseService>().IsPaused;
+            scenarioState = new RhythmState(source, ui, ResolveService<IAudioService>(), saves, flow,
+                ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            scenarioState.ConfigureQtePilot();
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>(); scenarioTick = scenarioHost.StartCoroutine(TickScenario()); Input.Prime();
+            var view = ui.Get<RhythmView>();
+            Assert.That(scenarioState.Rules.OffsetMs, Is.Zero, "不读取旧校准档");
+            Assert.That(scenarioState.Rules.Count, Is.EqualTo(58));
+            yield return Step("播放原虫儿飞片段并自动演奏58枚原谱", scenarioState.StartRound, 0f);
+            yield return WaitUntil("原谱播放启动", () => scenarioState.IsPlaying, 5f);
+            yield return PerformCurrentChart(scenarioState);
+            yield return WaitUntil("原谱完整结束", () => !scenarioState.IsPlaying, 5f);
+            yield return Check("58枚全部成功，2枚长按，中文演奏成功", () => scenarioState.Rules.Perfect + scenarioState.Rules.Good == 58 &&
+                scenarioState.Rules.CompletedHolds == 2 && scenarioState.Rules.Miss == 0 &&
+                FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text == "演奏成功");
+            Assert.That(scenarioState.LastRunResult.RulesetId, Is.EqualTo(RhythmProgressRules.QteRulesetId));
+            Assert.That(RhythmDiagnosticReplay.Run(scenarioState.LastDiagnostic).Matches, Is.True);
+            yield return Snapshot("原58枚谱完整QTE演奏成功");
+            yield return scenarioState.ExitAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            RhythmCalibrationData restored = null; RhythmProgressData restoredProgress = null;
+            yield return saves.ReadProfileAsync<RhythmCalibrationData>("rhythm-calibration").ContinueWith(value => restored = value).ToCoroutine();
+            yield return saves.ReadProfileAsync<RhythmProgressData>("rhythm-progress").ContinueWith(value => restoredProgress = value).ToCoroutine();
+            Assert.That(restored.OffsetMs, Is.EqualTo(123)); Assert.That(restored.VisualOffsetMs, Is.EqualTo(45));
+            Assert.That(restoredProgress.UnlockedSongs, Is.EquivalentTo(new[] { "legacy-sentinel" }));
+            Assert.That(restoredProgress.Records.Count, Is.Zero);
+            Assert.That(ResolveService<IInputService>().Actions.Gameplay.enabled, Is.EqualTo(gameplay)); // lint-ok: 验证输入所有权成对恢复。
+            Assert.That(ResolveService<IWorldPauseService>().IsPaused, Is.EqualTo(wasPaused));
+            Assert.That(ui.Get<RhythmView>(), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator QteArt_AllKeysCenteredAndBindingChanges_Work()
+        {
+            yield return WaitUntil("美术入口就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var flow = ResolveService<IGameFlow>(); yield return flow.GoToAsync<TitleState>().ToCoroutine();
+            var source = Track(Object.Instantiate(LegacyChart()));
+            JsonUtility.FromJsonOverwrite("{\"schemaVersion\":2,\"chartId\":\"chongerfei-demo\",\"noteTimes\":[],\"noteLanes\":[],\"durationSeconds\":4,\"countdownSeconds\":1,\"approachSeconds\":2,\"notes\":[{\"id\":\"d\",\"lane\":0,\"timeMs\":1000},{\"id\":\"f\",\"lane\":1,\"timeMs\":1000},{\"id\":\"j\",\"lane\":2,\"timeMs\":1000},{\"id\":\"k\",\"lane\":3,\"timeMs\":1000},{\"id\":\"hold\",\"lane\":2,\"timeMs\":2000,\"type\":1,\"durationMs\":1000}]}", source);
+            var ui = ResolveService<IUIService>();
+            scenarioState = new RhythmState(source, ui, ResolveService<IAudioService>(), ResolveService<ISaveService>(), flow,
+                ResolveService<IInputService>(), ResolveService<IWorldPauseService>(), ResolveService<ITelemetryService>(), ResolveService<INotificationService>());
+            scenarioState.ConfigureQtePilot();
+            yield return scenarioState.EnterAsync(System.Threading.CancellationToken.None).ToCoroutine();
+            scenarioHost = Object.FindObjectOfType<GameBootstrap>(); scenarioTick = scenarioHost.StartCoroutine(TickScenario()); Input.Prime();
+            var view = ui.Get<RhythmView>(); scenarioState.StartRound();
+            yield return WaitUntil("四键和下一组长按出现", () => scenarioState.IsPlaying && scenarioState.SongSeconds >= .1, 5f);
+            scenarioState.PauseRound(); view.ShowPause(false);
+            yield return Step("四键字形与八角中心，多分辨率实际渲染", null, 0f);
+            System.IO.Directory.CreateDirectory("Logs/verify/rhythm-qte-art-20261020");
+            System.IO.File.WriteAllText("Logs/verify/rhythm-qte-art-20261020/centers.tsv", "resolution\tkey\tcap center\tglyph center\tink center\terror px\n");
+            foreach (var size in new[] { new Vector2Int(1280, 800), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+                RhythmLibraryShowcase.RenderPage(view, size.x, size.y, "all-keys", captureFolder: "rhythm-qte-art-20261020",
+                    inspect: (camera, pixels) => AssertPromptArt(view, camera, pixels));
+            for (int frame = 0; frame < 5; frame++)
+            {
+                if (frame > 0)
+                {
+                    view.ShowPause(true); scenarioState.ResumeRound();
+                    double target = .1 + frame * .18;
+                    yield return WaitUntil("收圈预览时刻", () => scenarioState.SongSeconds >= target, 2f);
+                    scenarioState.PauseRound(); view.ShowPause(false);
+                }
+                RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "motion-" + frame.ToString("00"), captureFolder: "rhythm-qte-art-20261020");
+            }
+            scenarioState.LaneAction(0).ApplyBindingOverride("<Keyboard>/space");
+            yield return null;
+            Assert.That(FindDeep<TMPro.TMP_Text>(view.transform, "PromptKey").text, Is.EqualTo("Space"));
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "binding-space", captureFolder: "rhythm-qte-art-20261020",
+                inspect: (camera, pixels) => AssertPromptArt(view, camera, pixels));
+            scenarioState.LaneAction(0).RemoveAllBindingOverrides();
+            view.ShowPause(true); scenarioState.ResumeRound();
+            yield return WaitUntil("四键同拍时刻", () => scenarioState.SongSeconds >= .98, 3f);
+            for (int lane = 0; lane < 4; lane++) yield return Input.Hold(scenarioState.LaneAction(lane));
+            for (int lane = 0; lane < 4; lane++) yield return Input.Release(scenarioState.LaneAction(lane));
+            yield return WaitUntil("长按头部", () => scenarioState.SongSeconds >= 1.98, 3f);
+            yield return Input.Hold(scenarioState.LaneAction(2));
+            yield return WaitUntil("长按进度可见", () => scenarioState.Rules.IsHolding(4) && scenarioState.SongSeconds >= 2.2, 2f);
+            scenarioState.PauseRound(); view.ShowPause(false);
+            RhythmLibraryShowcase.RenderPage(view, 1920, 1080, "hold-j", captureFolder: "rhythm-qte-art-20261020",
+                inspect: (camera, pixels) => AssertPromptArt(view, camera, pixels, 1));
+            view.ShowPause(true); scenarioState.ResumeRound();
+            yield return WaitUntil("长按自动完成", () => scenarioState.Rules.CompletedHolds == 1, 3f);
+            yield return Input.Release(scenarioState.LaneAction(2));
+            yield return WaitUntil("美术短谱完整结束", () => !scenarioState.IsPlaying, 6f);
+            yield return Check("四键同拍和长按全部成功", () => scenarioState.Rules.Perfect + scenarioState.Rules.Good == 5 && scenarioState.Rules.CompletedHolds == 1);
+            yield return Snapshot("八角提示完整演奏");
+        }
+
+        private static void AssertPromptArt(RhythmView view, Camera camera, Texture2D pixels, int expected = 5)
+        {
+            int count = 0;
+            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>())
+            {
+                if (label.name != "PromptKey" || !label.enabled) continue;
+                count++;
+                label.ForceMeshUpdate();
+                var cap = label.transform.parent.Find("Keycap").GetComponent<Image>();
+                var ring = label.transform.parent.Find("TimingRing").GetComponent<RectTransform>();
+                var center = RectTransformUtility.WorldToScreenPoint(camera, cap.rectTransform.TransformPoint(cap.rectTransform.rect.center));
+                // TMP textBounds 包含进位/行度量；可见字符顶点才是本次要核验的字形边界。
+                var glyphMin = Vector3.positiveInfinity; var glyphMax = Vector3.negativeInfinity;
+                for (int i = 0; i < label.textInfo.characterCount; i++)
+                {
+                    var character = label.textInfo.characterInfo[i];
+                    if (!character.isVisible) continue;
+                    glyphMin = Vector3.Min(glyphMin, character.bottomLeft); glyphMax = Vector3.Max(glyphMax, character.topRight);
+                }
+                var glyph = RectTransformUtility.WorldToScreenPoint(camera, label.transform.TransformPoint((glyphMin + glyphMax) * .5f));
+                float halfWidth = (glyphMax.x - glyphMin.x) * .5f, halfHeight = (glyphMax.y - glyphMin.y) * .5f;
+                Assert.That(Mathf.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight), Is.LessThan(ring.rect.width * .215f), label.text + " 不与目标圈相交");
+                Assert.That(Vector2.Distance(center, glyph), Is.LessThan(.6f), label.text + " 字形几何中心");
+                Assert.That(Vector2.Distance(center, RectTransformUtility.WorldToScreenPoint(camera, ring.TransformPoint(ring.rect.center))), Is.LessThan(.1f));
+                Assert.That(ring.rect.width, Is.EqualTo(ring.rect.height).Within(.1f));
+                var renderer = ring.GetComponent<CanvasRenderer>();
+                Assert.That(renderer, Is.Not.Null, "判定圈绘图组件");
+                var mesh = renderer.GetMesh();
+                Assert.That(mesh, Is.Not.Null, "判定圈已提交网格");
+                Assert.That(mesh.vertexCount, Is.InRange(256, 512), "目标圈与收圈/长按进度实际网格");
+                Assert.That(cap.sprite.name, Is.EqualTo("qte-keycap"));
+                Assert.That(label.color, Is.EqualTo((Color)new Color32(151, 226, 248, 255)));
+                Assert.That(label.fontStyle, Is.EqualTo(TMPro.FontStyles.Bold));
+                Assert.That(label.raycastTarget || cap.raycastTarget, Is.False);
+                var low = RectTransformUtility.WorldToScreenPoint(camera, label.transform.TransformPoint(glyphMin));
+                var high = RectTransformUtility.WorldToScreenPoint(camera, label.transform.TransformPoint(glyphMax));
+                int minX = pixels.width, minY = pixels.height, maxX = -1, maxY = -1;
+                for (int y = Mathf.Max(0, Mathf.FloorToInt(low.y)); y <= Mathf.Min(pixels.height - 1, Mathf.CeilToInt(high.y)); y++)
+                    for (int x = Mathf.Max(0, Mathf.FloorToInt(low.x)); x <= Mathf.Min(pixels.width - 1, Mathf.CeilToInt(high.x)); x++)
+                    {
+                        var color = pixels.GetPixel(x, y);
+                        if (color.r < .18f || color.g < color.r * 1.2f || color.b < color.r * 1.3f) continue;
+                        minX = Mathf.Min(minX, x); minY = Mathf.Min(minY, y); maxX = Mathf.Max(maxX, x); maxY = Mathf.Max(maxY, y);
+                    }
+                Assert.That(maxX, Is.GreaterThanOrEqualTo(minX), label.text + " 实际字像素");
+                var ink = new Vector2((minX + maxX + 1) * .5f, (minY + maxY + 1) * .5f);
+                Assert.That(Vector2.Distance(center, ink), Is.LessThan(1.6f), label.text + " 可见像素中心");
+                Debug.Log($"[VERIFY][QteArt] {pixels.width}x{pixels.height} key={label.text} cap={center} glyph={glyph} ink={ink} error={Vector2.Distance(center, ink):F3}px");
+                System.IO.File.AppendAllText("Logs/verify/rhythm-qte-art-20261020/centers.tsv",
+                    System.FormattableString.Invariant($"{pixels.width}x{pixels.height}\t{label.text}\t{center.x:F3},{center.y:F3}\t{glyph.x:F3},{glyph.y:F3}\t{ink.x:F3},{ink.y:F3}\t{Vector2.Distance(center, ink):F3}\n"));
+            }
+            Assert.That(count, Is.EqualTo(expected));
+        }
+
+        [UnityTest]
+        public IEnumerator SceneQte_GuoWanPiaoPen_RealDemoCompletesWithoutBoard()
+        {
+            yield return WaitUntil("新音乐 Demo 就绪", () => ResolveService<IGameFlow>()?.Current is RhythmState, 30f);
+            var state = ResolveService<RhythmState>();
+            var config = ResolveService<RhythmConfig>();
+            var view = ResolveService<IUIService>().Get<RhythmView>();
+            Assert.That(config.ChartId, Is.EqualTo("guowanpiaopen-demo"));
+            Assert.That(config.Title, Is.EqualTo("锅碗瓢盆"));
+            Assert.That(config.Song.length, Is.EqualTo(7.392f).Within(.01f));
+            Assert.That(state.Rules.Count, Is.EqualTo(22));
+            Assert.That(view.transform.Find("Background").gameObject.activeInHierarchy, Is.False);
+            Input.Prime();
+            yield return Step("在客栈场景中开始锅碗瓢盆", state.StartRound, 0f);
+            yield return WaitUntil("场景提示出现", () => state.IsPlaying && state.SongSeconds >= -.3, 5f);
+            state.PauseRound(); view.ShowPause(false);
+            Assert.That(view.transform.Find("Heading").gameObject.activeInHierarchy, Is.False);
+            foreach (var size in new[] { new Vector2Int(1280, 800), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+                RhythmLibraryShowcase.RenderPage(view, size.x, size.y, "scene-qte", captureFolder: "rhythm-scene-qte-20261020", sceneBackground: true);
+            view.ShowPause(true); state.ResumeRound();
+            for (int i = 0; i < 3; i++)
+            {
+                int note = i;
+                yield return WaitUntil("跟随前三次敲击", () => state.SongSeconds >= state.Rules.NoteTime(note) - .02, 2f);
+                yield return Input.Press(state.LaneAction(state.Rules.NoteLane(note)));
+            }
+            state.PauseRound(); view.ShowPause(false);
+            foreach (var size in new[] { new Vector2Int(1280, 800), new Vector2Int(1920, 1080), new Vector2Int(2560, 1080) })
+                RhythmLibraryShowcase.RenderPage(view, size.x, size.y, "scene-playing", captureFolder: "rhythm-scene-qte-20261020", sceneBackground: true);
+            view.ShowPause(true); state.ResumeRound();
+            yield return PerformCurrentChart(state, 3);
+            yield return WaitUntil("新音乐完整播放结束", () => !state.IsPlaying, 4f);
+            yield return Check("22次敲击全部完成并演奏成功", () => state.Rules.Perfect + state.Rules.Good == 22 && state.Rules.Miss == 0 &&
+                FindDeep<TMPro.TMP_Text>(view.transform, "Feedback").text == "演奏成功");
+            yield return Snapshot("客栈浮现QTE与新曲成功");
+            state.StartRound();
+            yield return WaitUntil("新曲可重试", () => state.IsPlaying && state.SongSeconds < 0 && state.Rules.Score == 0, 5f);
+            state.PauseRound();
+            FindDeep<Button>(view.transform, "PauseExit").onClick.Invoke();
+            yield return Check("退出后关闭提示并返回标题", () => ResolveService<IGameFlow>().Current is TitleState && ResolveService<IUIService>().Get<RhythmView>() == null, 5f);
+        }
+
+        private static RhythmConfig LegacyChart()
+        {
+#if UNITY_EDITOR
+            // 旧曲回归显式使用旧资产，不能随独立 Demo 的新音乐一起改变测试音频。
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<RhythmConfig>("Assets/_Project/Data/Rhythm/ChongErFei.asset");
+#else
+            throw new System.NotSupportedException("本组旧曲回归仅在编辑器运行");
+#endif
+        }
+
+        private static void AssertNoPromptLabels(RhythmView view)
+        {
+            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                if (label.name == "PromptKey") Assert.That(label.enabled && label.gameObject.activeInHierarchy, Is.False);
+        }
+
+        private IEnumerator PerformCurrentChart(RhythmState state, int firstNote = 0)
         {
             var clock = (AudioPlayback)typeof(RhythmState).GetField("playback", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(state);
             var edges = new List<ChartEdge>();
-            for (int i = 0; i < state.Rules.Count; i++)
+            for (int i = firstNote; i < state.Rules.Count; i++)
             {
                 edges.Add(new ChartEdge(i, state.Rules.NoteTime(i) - 0.02, true, edges.Count));
                 edges.Add(new ChartEdge(i, state.Rules.NoteType(i) == RhythmNoteType.Hold ? state.Rules.NoteEnd(i) + 0.02 :

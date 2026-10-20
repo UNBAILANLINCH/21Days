@@ -60,6 +60,7 @@ namespace Game.Battle
         private Quaternion homeRotation = Quaternion.identity;
         private bool homeCaptured;
         private MotionHandle motion;
+        private MotionHandle attackMotion;
 
         /// <summary>头顶锚点（跟着本物体动：冲刺、后仰、跳、醉晃、倒地时都会移走）。</summary>
         public Transform Head => head;
@@ -100,6 +101,7 @@ namespace Game.Battle
 
         private void OnDisable()
         {
+            EndAttackPose();
             CancelMotion();
             SetFlash(false);
         }
@@ -114,17 +116,38 @@ namespace Game.Battle
             if (visualRoot == null) visualRoot = transform;
             if (prefab != null)
             {
-                if (mounted != null) Destroy(mounted);
+                ClearMounted();
                 mounted = Instantiate(prefab, visualRoot, false);
+                mounted.transform.localPosition = Vector3.zero;
+                mounted.transform.localRotation = Quaternion.identity;
             }
 
             BindVisual();
             ResetPose();
         }
 
+        /// <summary>清理本场复制的外观，保留舞台与探索原角色；可重复调用。</summary>
+        public void ClearMounted()
+        {
+            EndAttackPose();
+            CancelMotion();
+            SetFlash(false);
+            if (mounted != null)
+            {
+                mounted.SetActive(false);
+                Destroy(mounted);
+                mounted = null;
+            }
+            puppet = null;
+            renderers = Array.Empty<SpriteRenderer>();
+            baseMaterials = Array.Empty<Material>();
+            baseColors = Array.Empty<Color>();
+        }
+
         /// <summary>回原位、摆正、恢复原材质与原色，小人回待机。</summary>
         public void ResetPose()
         {
+            EndAttackPose();
             CancelMotion();
             SetFlash(false);
             transform.SetPositionAndRotation(HomePosition, homeRotation);
@@ -162,6 +185,26 @@ namespace Game.Battle
         /// <summary>加重版出招前的蓄力：往自己身后撤一小步。</summary>
         public UniTask WindUpAsync(float distance, float seconds, CancellationToken ct) =>
             MoveToAsync(HomePosition + Vector3.right * (faceLeft ? distance : -distance), seconds, false, ct);
+
+        /// <summary>有交付attack态的外观才使用拆件出招。</summary>
+        public bool BeginAttackPose() => puppet != null && puppet.SetAttackPose(0f);
+
+        /// <summary>与位移并行的预备／出手／回收帧，世界暂停时仍播放。</summary>
+        public async UniTask PlayAttackPoseAsync(float from, float to, float seconds, CancellationToken ct)
+        {
+            if (attackMotion.IsActive()) attackMotion.Cancel();
+            attackMotion = LMotion.Create(from, to, GameMath.Max(0.01f, seconds))
+                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale)
+                .Bind(value => { if (puppet != null) puppet.SetAttackPose(value); })
+                .AddTo(gameObject);
+            await attackMotion.ToUniTask(CancelBehavior.Cancel, false, ct);
+        }
+
+        public void EndAttackPose()
+        {
+            if (attackMotion.IsActive()) attackMotion.Cancel();
+            if (puppet != null) puppet.EndAttackPose();
+        }
 
         /// <summary>
         /// 受击闪白：整片换成闪白材质至少 <paramref name="seconds"/> 秒、且至少渲染 <see cref="FlashMinFrames"/> 帧，再换回原材质。

@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.UI;
+using LitMotion;
+using LitMotion.Extensions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,6 +24,7 @@ namespace Game.Quest
     {
         private const string ItemTitleName = "Title";
         private const string ItemKindName = "Kind";
+        private const string ItemStatusName = "Status";
         private const string ItemHighlightName = "Highlight";
         private const string ObjectiveMarkName = "Mark";
         private const string ObjectiveTextName = "Text";
@@ -35,6 +38,7 @@ namespace Game.Quest
         [SerializeField] private GameObject itemTemplate;
         [Tooltip("没有进行中任务时显示的提示。")]
         [SerializeField] private GameObject emptyLabel;
+        [SerializeField] private GameObject emptyBackdrop;
         [Tooltip("右侧详情区根节点。")]
         [SerializeField] private GameObject detailRoot;
         [SerializeField] private TMP_Text detailTitle;
@@ -52,6 +56,23 @@ namespace Game.Quest
         [SerializeField] private Button tabInProgressButton;
         [Tooltip("「已完成」标签按钮；子物体 Selected 为选中态。")]
         [SerializeField] private Button tabCompletedButton;
+        [Header("交付美术与阅读区域")]
+        [SerializeField] private Sprite mainIdle;
+        [SerializeField] private Sprite mainSelected;
+        [SerializeField] private Sprite sideIdle;
+        [SerializeField] private Sprite sideSelected;
+        [SerializeField] private Image detailKindIcon;
+        [SerializeField] private Sprite mainWordmark;
+        [SerializeField] private Sprite sideWordmark;
+        [SerializeField] private ScrollRect listScroll;
+        [SerializeField] private ScrollRect detailScroll;
+        [SerializeField] private CanvasGroup detailGroup;
+        [Min(0f)] [SerializeField] private float detailRevealSeconds = 0.16f;
+        [SerializeField] private Color itemTextColor = new Color(88f / 255f, 150f / 255f, 163f / 255f);
+
+        private MotionHandle detailReveal;
+        private int detailId;
+        private QuestPanelTab currentTab;
 
         private readonly List<ItemEntry> items = new List<ItemEntry>();
         private readonly List<ObjectiveEntry> objectives = new List<ObjectiveEntry>();
@@ -87,6 +108,8 @@ namespace Game.Quest
 
         public override UniTask OnCloseAsync(CancellationToken ct)
         {
+            StopDetailReveal();
+            detailId = 0;
             if (trackButton != null) trackButton.onClick.RemoveListener(RaiseTrackToggled);
             if (closeButton != null) closeButton.onClick.RemoveListener(RaiseClose);
             if (tabInProgressButton != null) tabInProgressButton.onClick.RemoveListener(RaiseTabInProgress);
@@ -107,6 +130,8 @@ namespace Game.Quest
         /// <summary>切换标签的选中态显示（只改外观，不抛事件）。</summary>
         public void SetTab(QuestPanelTab tab)
         {
+            if (currentTab != tab && listScroll != null) listScroll.verticalNormalizedPosition = 1f;
+            currentTab = tab;
             SetTabSelected(tabInProgressButton, tab == QuestPanelTab.InProgress);
             SetTabSelected(tabCompletedButton, tab == QuestPanelTab.Completed);
         }
@@ -130,16 +155,35 @@ namespace Game.Quest
 
                 QuestProgress progress = ordered[i];
                 entry.Id = progress.Id;
-                entry.Title.text = progress.Definition.Title;
-                entry.Kind.text = progress.Definition.Kind == QuestKind.Main ? mainLabel : sideLabel;
-                SetActive(entry.Highlight, progress.Id == selectedId);
+                bool selected = progress.Id == selectedId;
+                bool main = progress.Definition.Kind == QuestKind.Main;
+                bool completed = progress.State == QuestState.Completed;
+                SetText(entry.Title, progress.Definition.Title);
+                entry.Title.maxVisibleLines = completed ? 1 : 2;
+                entry.Title.enableWordWrapping = !completed;
+                entry.Title.color = selected ? Color.white : itemTextColor;
+                SetText(entry.Status, "（已完成）");
+                entry.Status.color = entry.Title.color;
+                SetActive(entry.Status.gameObject, completed);
+                SetText(entry.Kind, main ? mainLabel : sideLabel);
+                if (entry.Paper != null)
+                {
+                    entry.Paper.sprite = main ? mainIdle : sideIdle;
+                    SetActive(entry.Paper.gameObject, !selected);
+                    entry.Button.targetGraphic = selected ? entry.SelectedPaper : entry.Paper;
+                }
+                if (entry.SelectedPaper != null) entry.SelectedPaper.sprite = main ? mainSelected : sideSelected;
+                SetActive(entry.Highlight, selected);
                 SetActive(entry.Root, true);
             }
 
             TMP_Text emptyTmp = emptyLabel.GetComponent<TMP_Text>();
-            if (emptyTmp != null && emptyText != null) emptyTmp.text = emptyText;
+            if (emptyTmp != null && emptyText != null) SetText(emptyTmp, emptyText);
             SetActive(emptyLabel, count == 0);
+            SetActive(emptyBackdrop, count == 0);
             if (count == 0) SetActive(detailRoot, false);
+            // 池项和长标题一次批量变更后排版，供导航滚动读到实际位置；不在帧循环刷新。
+            LayoutRebuilder.ForceRebuildLayoutImmediate(listRoot);
         }
 
         /// <summary>
@@ -151,17 +195,23 @@ namespace Game.Quest
         {
             if (progress == null)
             {
+                StopDetailReveal();
+                detailId = 0;
                 SetActive(detailRoot, false);
                 SetActive(trackButton.gameObject, true);
                 trackButton.interactable = false;
+                RefreshNavigation();
                 return;
             }
 
             SetActive(detailRoot, true);
             QuestDefinition definition = progress.Definition;
-            detailTitle.text = definition.Title;
-            detailKind.text = kindLabel;
-            detailDescription.text = definition.Description;
+            bool changed = detailId != progress.Id;
+            detailId = progress.Id;
+            SetText(detailTitle, definition.Title);
+            SetText(detailKind, kindLabel);
+            SetText(detailDescription, definition.Description);
+            if (detailKindIcon != null) detailKindIcon.sprite = definition.Kind == QuestKind.Main ? mainWordmark : sideWordmark;
 
             IReadOnlyList<QuestObjectiveDefinition> defs = definition.Objectives;
             bool hasPresentation = !string.IsNullOrEmpty(currentObjective);
@@ -178,21 +228,28 @@ namespace Game.Quest
 
                 if (hasPresentation)
                 {
-                    entry.Mark.text = PendingMark; entry.Text.text = currentObjective;
+                    SetText(entry.Mark, PendingMark); SetText(entry.Text, currentObjective);
                     SetActive(entry.Root, true); continue;
                 }
                 QuestObjectiveDefinition def = defs[i];
                 bool current = !completed && i == progress.ObjectiveIndex;
-                entry.Mark.text = completed || i < progress.ObjectiveIndex ? DoneMark : PendingMark;
-                entry.Text.text = current && def.RequiredCount > 1
+                SetText(entry.Mark, completed || i < progress.ObjectiveIndex ? DoneMark : PendingMark);
+                SetText(entry.Text, current && def.RequiredCount > 1
                     ? def.Text + " " + progress.Count + "/" + def.RequiredCount
-                    : def.Text;
+                    : def.Text);
                 SetActive(entry.Root, true);
             }
 
             SetActive(trackButton.gameObject, !completed);
-            trackLabel.text = tracked ? untrackText : trackText;
+            SetText(trackLabel, tracked ? untrackText : trackText);
             trackButton.interactable = true;
+            if (detailScroll != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(detailScroll.content);
+                if (changed) detailScroll.verticalNormalizedPosition = 1f;
+            }
+            RefreshNavigation();
+            if (changed) RevealDetail();
         }
 
         private ItemEntry CreateItem()
@@ -204,11 +261,76 @@ namespace Game.Quest
                 Button = go.GetComponent<Button>(),
                 Title = FindText(go.transform, ItemTitleName),
                 Kind = FindText(go.transform, ItemKindName),
+                Status = FindText(go.transform, ItemStatusName),
                 Highlight = go.transform.Find(ItemHighlightName).gameObject,
+                Paper = go.transform.Find("Paper") == null ? null : go.transform.Find("Paper").GetComponent<Image>(),
+                SelectedPaper = go.transform.Find(ItemHighlightName).GetComponent<Image>(),
             };
             // 只在建池项时绑一次；之后换内容只改 entry.Id，回调读字段。
             entry.Button.onClick.AddListener(() => OnQuestSelected?.Invoke(entry.Id));
+            if (listScroll != null)
+                go.AddComponent<UIScrollFocus>().Bind(listScroll);
             return entry;
+        }
+
+        private void RefreshNavigation()
+        {
+            Button first = null, previous = tabInProgressButton, selected = null;
+            Selectable right = trackButton.gameObject.activeInHierarchy && trackButton.interactable ? trackButton : closeButton;
+            if (detailScroll != null && detailRoot.activeSelf && detailScroll.verticalScrollbar != null
+                && detailScroll.content.rect.height > detailScroll.viewport.rect.height)
+                right = detailScroll.verticalScrollbar;
+            for (int i = 0; i < items.Count; i++)
+            {
+                ItemEntry item = items[i];
+                if (!item.Root.activeSelf) continue;
+                if (first == null) first = item.Button;
+                if (item.Highlight.activeSelf) selected = item.Button;
+                SetNavigation(item.Button, previous, closeButton, closeButton, right);
+                if (previous != tabInProgressButton)
+                {
+                    Navigation navigation = previous.navigation;
+                    navigation.selectOnDown = item.Button;
+                    previous.navigation = navigation;
+                }
+                previous = item.Button;
+            }
+            SetNavigation(tabInProgressButton, closeButton, first == null ? closeButton : first, closeButton, tabCompletedButton);
+            SetNavigation(tabCompletedButton, closeButton, first == null ? closeButton : first, tabInProgressButton, right);
+            SetNavigation(closeButton, null, tabInProgressButton, null, tabInProgressButton);
+            SetNavigation(trackButton, detailScroll == null ? null : detailScroll.verticalScrollbar, closeButton,
+                selected == null ? tabInProgressButton : selected, null);
+            if (detailScroll != null && detailScroll.verticalScrollbar != null)
+                SetNavigation(detailScroll.verticalScrollbar, null, null,
+                    selected == null ? tabInProgressButton : selected, trackButton.gameObject.activeSelf ? trackButton : closeButton);
+        }
+
+        private static void SetNavigation(Selectable target, Selectable up, Selectable down, Selectable left, Selectable right)
+        {
+            target.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up,
+                selectOnDown = down, selectOnLeft = left, selectOnRight = right };
+        }
+
+        private void RevealDetail()
+        {
+            StopDetailReveal();
+            if (detailGroup == null || detailRevealSeconds <= 0f || !isActiveAndEnabled) return;
+            detailGroup.alpha = 0f;
+            detailReveal = LMotion.Create(0f, 1f, detailRevealSeconds).WithEase(Ease.OutQuad)
+                .WithScheduler(MotionScheduler.UpdateIgnoreTimeScale).BindToAlpha(detailGroup).AddTo(gameObject);
+        }
+
+        private void OnDisable() => StopDetailReveal();
+
+        private void StopDetailReveal()
+        {
+            if (detailReveal.IsActive()) detailReveal.Cancel();
+            if (detailGroup != null) detailGroup.alpha = 1f;
+        }
+
+        private static void SetText(TMP_Text label, string value)
+        {
+            if (label.text != value) label.text = value;
         }
 
         private ObjectiveEntry CreateObjective()
@@ -233,10 +355,14 @@ namespace Game.Quest
                 if (itemTemplate.GetComponent<Button>() == null) missing.Add(nameof(itemTemplate) + "(Button)");
                 if (FindText(itemTemplate.transform, ItemTitleName) == null) missing.Add(nameof(itemTemplate) + "/" + ItemTitleName);
                 if (FindText(itemTemplate.transform, ItemKindName) == null) missing.Add(nameof(itemTemplate) + "/" + ItemKindName);
+                if (FindText(itemTemplate.transform, ItemStatusName) == null) missing.Add(nameof(itemTemplate) + "/" + ItemStatusName);
                 if (itemTemplate.transform.Find(ItemHighlightName) == null) missing.Add(nameof(itemTemplate) + "/" + ItemHighlightName);
+                Transform paper = itemTemplate.transform.Find("Paper");
+                if (paper == null || paper.GetComponent<Image>() == null) missing.Add(nameof(itemTemplate) + "/Paper(Image)");
             }
 
             if (emptyLabel == null) missing.Add(nameof(emptyLabel));
+            if (emptyBackdrop == null) missing.Add(nameof(emptyBackdrop));
             if (detailRoot == null) missing.Add(nameof(detailRoot));
             if (detailTitle == null) missing.Add(nameof(detailTitle));
             if (detailKind == null) missing.Add(nameof(detailKind));
@@ -256,6 +382,16 @@ namespace Game.Quest
             else if (tabInProgressButton.transform.Find(TabSelectedName) == null) missing.Add(nameof(tabInProgressButton) + "/" + TabSelectedName);
             if (tabCompletedButton == null) missing.Add(nameof(tabCompletedButton));
             else if (tabCompletedButton.transform.Find(TabSelectedName) == null) missing.Add(nameof(tabCompletedButton) + "/" + TabSelectedName);
+            if (mainIdle == null) missing.Add(nameof(mainIdle));
+            if (mainSelected == null) missing.Add(nameof(mainSelected));
+            if (sideIdle == null) missing.Add(nameof(sideIdle));
+            if (sideSelected == null) missing.Add(nameof(sideSelected));
+            if (detailKindIcon == null) missing.Add(nameof(detailKindIcon));
+            if (mainWordmark == null) missing.Add(nameof(mainWordmark));
+            if (sideWordmark == null) missing.Add(nameof(sideWordmark));
+            if (listScroll == null || listScroll.viewport == null) missing.Add(nameof(listScroll));
+            if (detailScroll == null || detailScroll.viewport == null) missing.Add(nameof(detailScroll));
+            if (detailGroup == null) missing.Add(nameof(detailGroup));
             if (missing.Count > 0)
                 throw new InvalidOperationException("QuestPanelView 引用未接线：" + string.Join("、", missing));
         }
@@ -289,7 +425,10 @@ namespace Game.Quest
             public Button Button;
             public TMP_Text Title;
             public TMP_Text Kind;
+            public TMP_Text Status;
             public GameObject Highlight;
+            public Image Paper;
+            public Image SelectedPaper;
         }
 
         private sealed class ObjectiveEntry

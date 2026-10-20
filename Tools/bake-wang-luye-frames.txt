@@ -1,0 +1,42 @@
+// 人工经 Unity MCP 采样已保存的标定剪辑；不复制动画公式，透明帧交给现有 FramePuppetGenerator。
+// 锚点：wang_luye/chr_wang_luye_*.png；仅更新这份已标定 rig 对应的整帧，不改源拆件。
+if(UnityEditor.EditorApplication.isPlaying)throw new System.InvalidOperationException("请先退出 Play");
+const string prefix="Assets/_Project/";
+string directory=prefix+"Art/Sprites/Characters/wang_luye";
+if(UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefix+"Prefabs/Characters/Chibi_wang_luye_parts.prefab")==null)throw new System.InvalidOperationException("缺少已保存的王录业标定");
+var preview=new UnityEditor.PreviewRenderUtility();var material=new Material(Shader.Find("Sprites/Default"));
+var target=new RenderTexture(512,512,24,RenderTextureFormat.ARGB32);target.Create();var previous=RenderTexture.active;
+try
+{
+    var instance=UnityEngine.Object.Instantiate(UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefix+"Prefabs/Characters/Chibi_wang_luye_parts.prefab"));preview.AddSingleGO(instance);
+    foreach(var r in instance.GetComponentsInChildren<SpriteRenderer>())r.sharedMaterial=material;
+    var camera=preview.camera;camera.orthographic=true;camera.orthographicSize=.8f;camera.transform.position=new Vector3(0,.7375f,-10);camera.transform.rotation=Quaternion.identity;
+    camera.nearClipPlane=.01f;camera.farClipPlane=30;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Color.clear;camera.targetTexture=target;
+    System.Action<string> capture=path=>{
+        camera.Render();RenderTexture.active=target;var pixels=new Texture2D(512,512,TextureFormat.RGBA32,false);
+        try{
+            pixels.ReadPixels(new Rect(0,0,512,512),0,0);pixels.Apply();var colors=pixels.GetPixels32();bool opaque=false;
+            // Sprite 默认材质输出预乘 RGB；PNG 保持直通 alpha，避免再导入后边缘二次变暗。
+            for(int i=0;i<colors.Length;i++){var c=colors[i];if(c.a>0){opaque=true;if(c.a<255){c.r=(byte)Mathf.Min(255,c.r*255/c.a);c.g=(byte)Mathf.Min(255,c.g*255/c.a);c.b=(byte)Mathf.Min(255,c.b*255/c.a);colors[i]=c;}}}
+            if(!opaque||colors[0].a!=0)throw new System.InvalidOperationException("透明渲染不符");
+            pixels.SetPixels32(colors);pixels.Apply();System.IO.File.WriteAllBytes(path,pixels.EncodeToPNG());
+        }finally{UnityEngine.Object.DestroyImmediate(pixels);}
+    };
+    foreach(string state in new[]{"idle","walk","talk","serious"})
+    {
+        var clip=UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>(prefix+"Art/Animations/Characters/wang_luye/rig/rig_wang_luye_"+state+".anim");
+        // 对象引用曲线结尾有一帧持留；不把它另烘成重复帧。
+        if(clip==null)throw new System.InvalidOperationException("缺少标定剪辑");int count=Mathf.RoundToInt(clip.length*24)-1;
+        for(int frame=0;frame<count;frame++){clip.SampleAnimation(instance,frame/24f);capture(directory+"/chr_wang_luye_"+state+"_"+(frame+1).ToString("00")+".png");}
+    }
+    camera.orthographicSize=.5f;camera.transform.position=new Vector3(0,1.06875f,-10);
+    foreach(string expression in new[]{"default","talk","serious"})
+    {
+        var clip=UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>(prefix+"Art/Animations/Characters/wang_luye/rig/rig_wang_luye_"+(expression=="talk"?"talk":"serious")+".anim");clip.SampleAnimation(instance,expression=="talk"?.2f:0);
+        capture(prefix+"Art/Sprites/Dialogue/Portrait_wang_luye_"+expression+".png");
+    }
+    camera.targetTexture=null;
+}
+finally{RenderTexture.active=previous;target.Release();UnityEngine.Object.DestroyImmediate(target);preview.Cleanup();UnityEngine.Object.DestroyImmediate(material);}
+UnityEditor.AssetDatabase.Refresh();
+return "168 transparent frames and 3 bust portraits baked from saved Unity rig.";

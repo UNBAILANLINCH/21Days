@@ -11,9 +11,9 @@ maturity: seed
 
 安装正式剧情时，新局准备SampleScene内Z+300人界；正常仅加载IsometricEncounter。镜面换界不经GameFlow重进或卸载，复用原玩家／相机／移动驱动，在黑幕、暂停和输入／保存闸门下切分组并传到妖界对应镜台。Continue仍走既有会话重进流程，换界绑定互斥门防止旧请求与离场交错。
 
-遭遇v4捕获StoryWorld（human/demon）、同一SceneKey及实际XZ／高度，恢复同时对齐PreviousPosition与相机。v3的SpotlightHuman档转为人界、玩家Z+300；v1/2 Isometric且正式故事停在26／70／83／129的旧档也迁为人界，171／188／197及已有妖界／五店进度不偏移。迁移来源版本标记不序列化，避免新妖界档被旧阶段推断反复迁走。Quest v3另迁移900七项旧检查及已完成后的永久占位，其余分区保留。
+遭遇v4捕获StoryWorld（human/demon）、同一SceneKey及实际XZ／高度，恢复同时对齐PreviousPosition与相机。v3的SpotlightHuman档转为人界、玩家Z+300；v1/2 Isometric且正式故事停在26／70／83／129的旧档也迁为人界，171／188／197及已有妖界／五店进度不偏移。迁移来源标记随JSON候选复制保留，解析路由后消费；新现场捕获也清除该标记，避免重复偏移。Quest v3另迁移900七项旧检查及已完成后的永久占位，其余分区保留。
 
-**实施中缺口**：上述v1/2路由尚不可靠。只读复核确认ReadCandidate、Require、Commit均经过SaveSnapshot JSON克隆，[JsonIgnore]来源标记会丢失；静态Migrate测试不足以证明真实Continue。须修为可克隆、解析后消费的迁移信息并以真实候选链验证。穿越中Continue的Gameplay所有权恢复亦待定向实测；当前不能宣称两项已修复。
+真实候选链回归已复现并修复：`ReadCandidate→Require→Commit→PrepareRestore`覆盖v1/2人间四阶段、妖界负对照、v3/4不误迁及再次存读不重复加300；相关35项定向EditMode通过（job `ec333a7489304eeb81bfa59e7641c6db`）。独立包旧档画面及穿越中Continue的Gameplay所有权恢复仍待实测。
 
 `SpotlightStoryFlow.CanSave` 同时检查转场、在途叙事与首次开场完成；会话变更取消旧转场并释放标志。失败在未提交剧情结果时恢复镜前，可重新按E。地图只属于玩法场景，Boot保持常驻服务；正常切换卸载旧图后进入新图。
 

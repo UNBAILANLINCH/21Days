@@ -51,11 +51,11 @@ namespace Game.Core.UI
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
-        public void Show(string title, string body = null, float seconds = 0f)
+        public void Show(string title, string body = null, float seconds = 0f, bool success = false)
         {
             if (disposed) return;
             float hold = seconds > 0f ? seconds : config.NotificationSeconds;
-            if (!queue.Enqueue(title, body, hold)) return;
+            if (!queue.Enqueue(title, body, hold, success)) return;
             if (pumping) return;
             PumpAsync(lifetime.Token).Forget();
         }
@@ -93,7 +93,7 @@ namespace Game.Core.UI
                 while (queue.HasCurrent)
                 {
                     NotificationEntry entry = queue.Current;
-                    target.ShowCard(entry.Title, entry.Body);
+                    target.ShowCard(entry.Title, entry.Body, entry.Success);
 
                     // 等到当前项变了（到时出队）为止；这段不分配。
                     do

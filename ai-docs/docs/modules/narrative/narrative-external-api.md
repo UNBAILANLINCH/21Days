@@ -10,6 +10,51 @@ maturity: seed
 > 运行入口为 NarrativeService；必须由 Boot 的 NarrativeInstaller 注册并完成初始化。
 > 资产接线/实际验证状态见 PRP/narrative-dialogue/tasks.md；内部结构见 [`narrative-module-guide.md`](narrative-module-guide.md)。
 
+## `SpotlightSceneBindings`（正式场景接线）
+
+`LunhuitangGuard` 是妖界原值守的只读外观引用；`PresentLunhuitangGuard(bool speaking)` 仅选Idle／talk，不负责显隐或推进剧情。该静态实例Motion停用，由SpotlightStoryFlow唯一选态；值守的原Point继续负责E交互与常驻显示。
+
+`WangLuye` 为人界对白演员只读引用；`PresentWangLuye(bool visible, bool speaking, bool serious, Transform player, Camera camera)` 仅由章节表现调用。首次显示在当前镜头右侧布位，换句不重布位，缺玩家／相机或妖界时隐藏；调用前该演员的ChibiPuppetMotion必须停用。`SpotlightStoryFlow` 负责21007／21014会话、换句和成对收尾，不由此方法推进剧情。
+
+`SpotlightStoryConfig.DialogueActorDistance` 为临时演员沿相机水平右方向的距离，默认1.5单位；缺配置时演员不显示。
+
+`Points` 中每项保存 `stageId`、`anchor` 与可选 `marker`；`Position`、`Anchor`、`Marker` 只读，光点由 `Display(stage, formal, mentorBattle)` 按当前节点统一显隐。`WindowFigure` 为独立窗边角色引用；188／21009／197显示，战后隐藏，215会面实体在21011对白期间保持显示。调用方不靠设置这些表现对象推进剧情。
+
+酒肆主人的 `NarrativeTrigger` 必须保留 `shop_boss`／`SpotlightShopBoss`；`ShopPlaytestActor` 负责E对白，目标组件提供遭遇事实。移除目标会令划拳达标后的局部挑战被拒绝。
+
+`UniTask PlayWindowShotAsync(Camera camera, CancellationToken token)`：仅播放当前窗边实体的推近、停留、回镜，使用Config中的构图与非缩放时长；正常结束、异常或取消均恢复相机位姿、FOV及原跟随启用状态。调用方须独占相机并负责暂停／输入／保存门闸；正式入口只由`SpotlightStoryFlow`在188近距首次触发，不推进剧情。取消向上抛`OperationCanceledException`，缺相机／配置／人物引用抛`InvalidOperationException`。
+
+## 剧情环境表现接口
+
+```csharp
+// SpotlightEnvironmentRules：纯只读映射，不推进剧情。
+enum Preset { None, Dawn, Day, MoonNight }
+static SpotlightEnvironmentRules.State Resolve(NarrativeSaveData snapshot);
+// State 的只读属性：Lighting、Snow、AltarFire、Candles、WaterMist。
+
+// SpotlightEnvironmentConfig：ScriptableObject，只读预设配置。
+SpotlightEnvironmentConfig.LightingSettings Get(SpotlightEnvironmentRules.Preset preset);
+Color FlameColor { get; }
+float AltarIntensity { get; }
+float CandleIntensity { get; }
+
+// SpotlightEnvironmentView：场景表现，由 SpotlightStoryFlow 协调调用。
+void Apply(SpotlightEnvironmentRules.State state);
+void Restore();
+bool HasApplied { get; }
+SpotlightEnvironmentRules.State CurrentState { get; }
+event Action OnInvalidated;
+```
+
+- `Resolve` 优先读取当前正式帧；当前为局部遭遇时回看 `Parent` 中的 `spotlight_current`。空快照、无正式帧、未知节点返回默认状态（`None` 且局部效果关闭）。不从历史标记或现实时间猜时段，不修改快照。
+- `Apply` 缺配置、缺方向光或收到 `None` 时调用 `Restore`；已应用的相同状态不重复写入。局部效果引用允许为空，缺件不会自动创建。只播放活动对象上的粒子，不启用禁用的待摆位标记。
+- 视图 Inspector 引用为 `config`、`directionalLight`、`snow`、`altarFire`、`altarFlame`、`candles`、`waterMist`；粒子关闭 Play On Awake。方向光与环境全局设置由单一视图接管，不能让另一个时钟/天气脚本同时写入。
+- `Restore` 还原捕获的灯光状态，停止并清空已接粒子；全局 `RenderSettings` 仅在原活动场景仍是所有者时还原，避免污染另一场景。禁用/销毁视图也会恢复。`OnInvalidated` 在启用/禁用时通知协调者重算，不是剧情写入入口。
+- `LightingSettings` 提供只读 `LightColor/LightIntensity/LightEulerAngles`、`AmbientSky/AmbientEquator/AmbientGround/AmbientIntensity`、`ReflectionIntensity`、`FogEnabled/FogColor/FogStart/FogEnd`。`Get(None)` 返回 `null`。
+- `SpotlightStoryFlow` 负责变化通知、快照读取及书库黑幕切光，不应由外部每帧调用 `Capture` 或自行推进节点。正式剧情目前到 `enter_r0293`；后续环境映射仅为表现规则，不构成后续剧情接线承诺。
+
+首次安装与所选位置补效果使用 [环境作者菜单](narrative-extension-guide.md#剧情环境首次接线与补位)，不通过运行时 Find 或自动造地图。播放中的剧情粒子使用非缩放时间，避免对白暂停世界时冻住；Restore停止并清空。实际安装、编译、分批回归及尚未接线的锚点见 [本地验证](narrative-module-guide.md#本地验证2026-10-20)，视觉验收仍待确认。
+
 ## `NarrativeService`（根作用域）
 
 ```csharp
@@ -73,11 +118,13 @@ void ReleaseBattle(long generation, long activationId);
 ```csharp
 string FlagKey { get; }  bool IsBound { get; }
 void Configure(string key);  void Bind(NarrativeService narrative);  void Unbind();  void Refresh();
+void SetSuppressed(bool value);
 static bool ShouldBeVisible(bool flagSet);   // = !flagSet
 ```
 
 标记成立 → `SetActive(false)`，不成立 → 显示；绑定、`OnChanged`、`Refresh()` 时重算；没绑定 / 键为空 / 服务未就绪不动物体。
 场景里的由 `NarrativeService` 加载时扫描绑定，运行时生成的自己调 `Bind`（`NarrativeFlagVisibility.cs:39-60`）。只读标记、不写标记。
+`SetSuppressed(true)`优先保持隐藏，即使服务未绑定；解除后恢复当前标记判定。正式流程仅对旧示例使用，不改变剧情标记或普通BOSS能力。
 
 ## `Game.Narrative.EncounterContext`（`sealed class`，值语义快照）
 

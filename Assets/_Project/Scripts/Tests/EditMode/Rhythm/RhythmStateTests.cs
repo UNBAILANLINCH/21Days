@@ -11,6 +11,56 @@ namespace Game.Tests.EditMode.Rhythm
 {
     public sealed class RhythmStateTests
     {
+        [TestCase("chongerfei-demo")]
+        [TestCase("guowanpiaopen-demo")]
+        public void QtePilot_UsesOwnedCopyAndRejectsCatalog_WithoutChangingSource(string chartId)
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default,
+                new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var source = ScriptableObject.CreateInstance<RhythmConfig>();
+            JsonUtility.FromJsonOverwrite("{\"chartId\":\"" + chartId + "\"}", source);
+            var catalog = ScriptableObject.CreateInstance<RhythmCatalogConfig>();
+            var state = new RhythmState(source, null, null, null, null, null, null, telemetry, null);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var copyField = typeof(RhythmState).GetField("qtePilotCopy", flags);
+            RhythmConfig copy = null;
+            try
+            {
+                state.ConfigureQtePilot();
+                copy = (RhythmConfig)copyField.GetValue(state);
+                Assert.That(copy, Is.Not.SameAs(source));
+                Assert.That(copy.IsQteMode, Is.True);
+                Assert.That(source.IsQteMode, Is.False);
+                state.ConfigureQtePilot();
+                Assert.That(copyField.GetValue(state), Is.SameAs(copy));
+                Assert.Throws<InvalidOperationException>(() => state.ConfigureCatalog(catalog));
+                var profile = typeof(RhythmState).GetProperty("ProfileName", flags).GetValue(state);
+                Assert.That(profile, Is.EqualTo("rhythm-qte-pilot-calibration"));
+            }
+            finally
+            {
+                // EditMode 用立即销毁收尾，不调用运行时 Destroy 路径。
+                copyField.SetValue(state, null);
+                state.Dispose();
+                UnityEngine.Object.DestroyImmediate(copy);
+                UnityEngine.Object.DestroyImmediate(catalog);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void QtePilot_RejectsOtherSong_WithoutCreatingCopy()
+        {
+            using var telemetry = new TelemetryService(TelemetryOptions.Default,
+                new UnityTelemetryClock(), new UnityDebugTelemetrySink());
+            var source = ScriptableObject.CreateInstance<RhythmConfig>();
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(RhythmConfig).GetField("chartId", flags).SetValue(source, "other-song");
+            var state = new RhythmState(source, null, null, null, null, null, null, telemetry, null);
+            try { Assert.Throws<InvalidOperationException>(state.ConfigureQtePilot); }
+            finally { state.Dispose(); UnityEngine.Object.DestroyImmediate(source); }
+        }
+
         [TestCase(0.0)]
         [TestCase(0.2)]
         [TestCase(2.0)]

@@ -10,7 +10,7 @@
 //   震屏时跟着画面一起抖）。不跟冲刺 / 后仰 / 跳 / 醉晃 / 倒地走：倒地时头顶锚点会横甩出去，BOSS 的条曾被带到屏幕右缘截断。
 //   冲刺也不跟：一来一回只有半秒多，跟着走只会让条横飞一趟；而且冲到对手身前那一刻，攻击方的条会正好压在对手的条上，
 //   挡住此刻最该看清的对手掉血。条留在原位，人回来时自然对上。飘字同样从站立头顶起飘。
-// 胜负大字（ShowResultAsync）与「跳过回合」等中央提示是同一条深色横条 + 白字，区别只是不淡出、留到落幕收场。
+// 胜负固定美术复用中央提示组且不叠TMP；回合用尽等其它文案仍用TMP，结果均留到落幕收场。
 // 表现补间（飘字、中央提示淡入淡出）跟着面板的生命周期走（PRP/combat-iteration W7c）：
 //   · 面板没在显示（被全屏面板盖住 = UIService 把它 SetActive(false)，或已关）时不开补间——看不见，而且这时 AddTo 挂上的
 //     LitMotion 链接件所在物体没激活过，Awake / OnDestroy 都不会跑，面板随后被销毁也没人掐句柄。W6b Monster 回放
@@ -65,6 +65,8 @@ namespace Game.Battle
         [SerializeField] private BattleSlotWidget rageSlot;
         [SerializeField] private RectTransform ragePipRow;
         [SerializeField] private Image ragePipTemplate;
+        [SerializeField] private Sprite ragePipOff;
+        [SerializeField] private Sprite ragePipOn;
 
         [Header("BOSS 头顶（07「BOSS状态显示」：血条上方状态、下方醉酒值）")]
         [SerializeField] private RectTransform bossHud;
@@ -88,6 +90,10 @@ namespace Game.Battle
         [SerializeField] private TMP_Text floatTemplate;
         [SerializeField] private CanvasGroup hintGroup;
         [SerializeField] private TMP_Text hintText;
+        [SerializeField] private Image resultBackdrop;
+        [SerializeField] private Image resultTitle;
+        [SerializeField] private Sprite victorySprite;
+        [SerializeField] private Sprite defeatSprite;
         [SerializeField] private RectTransform tooltipRoot;
         [SerializeField] private CanvasGroup tooltipGroup;
         [SerializeField] private TMP_Text tooltipText;
@@ -171,6 +177,7 @@ namespace Game.Battle
             ragePipTemplate.gameObject.SetActive(false);
             floatTemplate.gameObject.SetActive(false);
             hintGroup.alpha = 0f;
+            SetResultArt(null);
             HideTooltip();
             if (stunMark != null) stunMark.SetActive(false);
             if (endTurnButton != null) endTurnButton.gameObject.SetActive(false);
@@ -239,6 +246,7 @@ namespace Game.Battle
         /// </summary>
         public async UniTask FlashHintAsync(string text, float holdSeconds, CancellationToken ct)
         {
+            SetResultArt(null);
             if (!await HoldHintAsync(text, holdSeconds, ct)) return;
             if (hintText.text != text) return; // 已被新提示顶掉，淡出交给新提示
             hintMotion = FadeHint(1f, 0f);
@@ -250,7 +258,26 @@ namespace Game.Battle
         /// **不淡出**——留在屏上直到流程落幕收场（BattleArena.ExitAsync 先落黑幕再关界面），画面暗下去前最后看到的就是结果。
         /// 下次开场 <see cref="OnOpenAsync"/> 会把它清掉。
         /// </summary>
-        public UniTask ShowResultAsync(string text, float holdSeconds, CancellationToken ct) => HoldHintAsync(text, holdSeconds, ct).AsUniTask();
+        public UniTask ShowResultAsync(string text, float holdSeconds, CancellationToken ct)
+        {
+            SetResultArt(text);
+            return HoldHintAsync(text, holdSeconds, ct).AsUniTask();
+        }
+
+        private void SetResultArt(string text)
+        {
+            Sprite sprite = text == BattleCueRules.VictoryText ? victorySprite
+                : text == BattleCueRules.DefeatText ? defeatSprite : null;
+            bool show = sprite != null && resultTitle != null && resultBackdrop != null;
+            if (resultTitle != null) { resultTitle.sprite = sprite; resultTitle.gameObject.SetActive(show); }
+            if (resultBackdrop != null) resultBackdrop.gameObject.SetActive(show);
+            if (hintText != null) hintText.enabled = !show;
+            if (hintGroup != null)
+            {
+                Image background = hintGroup.GetComponent<Image>();
+                if (background != null) background.enabled = !show;
+            }
+        }
 
         // 中央横条淡入到不透明、再停 holdSeconds；没东西可显示（空字 / 预制体缺引用）返回 false。新提示会顶掉正在播的旧提示。
         private async UniTask<bool> HoldHintAsync(string text, float holdSeconds, CancellationToken ct)
@@ -302,6 +329,12 @@ namespace Game.Battle
         private static void HideFloat(TMP_Text label)
         {
             if (label != null) label.gameObject.SetActive(false);
+        }
+
+        private void OnDisable()
+        {
+            if (hintMotion.IsActive()) hintMotion.Cancel();
+            floatMotions.Cancel();
         }
 
         private void LateUpdate() => FollowHeads();
@@ -374,7 +407,14 @@ namespace Game.Battle
             EnsureRagePips(skills.RageMax);
             bool full = BattleHudRules.RageFull(rage, skills.RageMax);
             for (int i = 0; i < ragePips.Count; i++)
-                ragePips[i].color = i < rage ? (full ? rageFullColor : rageColor) : rageEmptyColor;
+            {
+                bool useArt = ragePipOff != null && ragePipOn != null;
+                if (useArt) ragePips[i].sprite = i < rage ? ragePipOn : ragePipOff;
+                ragePips[i].color = useArt ? Color.white : i < rage ? (full ? rageFullColor : rageColor) : rageEmptyColor;
+                // 两张源图的外圈留白不同，保持亮灭时主体纹样同大。
+                ragePips[i].rectTransform.localScale = useArt && i >= rage
+                    ? Vector3.one * (ragePipOff.rect.width / ragePipOn.rect.width) : Vector3.one;
+            }
             if (rageSlot != null)
             {
                 rageSlot.SetTexts("怒气", rage + "/" + skills.RageMax, null);
@@ -605,7 +645,7 @@ namespace Game.Battle
                 || tooltipRoot == null || tooltipGroup == null || tooltipText == null || skillSlots == null || skillSlots.Length < 3)
             {
                 throw new InvalidOperationException(
-                    "BattleView 预制体引用不全。修法：菜单 21Days/战斗/重建战斗白盒 重新生成 Assets/_Project/Prefabs/UI/BattleView.prefab。");
+                    "BattleView 预制体引用不全，请核对 Assets/_Project/Prefabs/UI/BattleView.prefab 的序列化接线；已接美术的界面不能用白盒覆盖。");
             }
         }
     }

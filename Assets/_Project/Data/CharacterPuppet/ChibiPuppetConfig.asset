@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9707456cf4be29f4c9deb8c0c0afdae0, type: 3}
   m_Name: ChibiPuppetConfig
   m_EditorClassIdentifier: 
+  sneakingOpacity: 0.45
   moveStartSpeed: 0.15
   moveStopSpeed: 0.05
   runStartSpeed: 4
@@ -20,3 +21,8 @@ MonoBehaviour:
   facingDeadZone: 0.01
   rateMin: 0.8
   rateMax: 1.6
+  turnSeconds: 0.12
+  interactPulseSeconds: 0.25
+  interactSquash: 0.1
+  interactOvershoot: 0.04
+  interactLeanDegrees: 5

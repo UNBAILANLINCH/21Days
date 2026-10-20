@@ -31,6 +31,9 @@
 .PARAMETER Development
     开发版构建：带 Development 标记，可连 Profiler，体积更大，不要用来发版。
 
+.PARAMETER IsolatedTest
+    完整主线测试复用 isolated-test/saves；保留正式场景和内容范围，不读写正式存档。
+
 .PARAMETER Release
     强制 Android 走 IL2CPP + 仅 ARM64：临时改 ProjectSettings，出完包由 BuildScript
     立刻改回原样，工作区不留 diff。
@@ -82,6 +85,9 @@ param(
     [string]$OutputPath,
 
     [switch]$Development,
+
+    # 完整流程测试只隔离存档，保留原场景与 Addressables 范围。
+    [switch]$IsolatedTest,
 
     # 只影响 Android：强制 IL2CPP + 仅 ARM64，出完包设置立刻还原。
     # 工程默认已是 IL2CPP + ARM64，所以平时加不加都一样，它只防「默认被人改回 32 位」。
@@ -239,6 +245,11 @@ if ($PSBoundParameters.ContainsKey('BuildNumber')) {
 
 if ($Development) {
     $unityArgs += '-development'
+}
+
+if ($IsolatedTest) {
+    $unityArgs += '-isolatedTest'
+    Write-Host '完整流程测试：仅使用 isolated-test/saves，不读取或覆盖正式存档。'
 }
 
 if ($Release) {

@@ -77,8 +77,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 435f1988cd255d5408b7ba10cc2d1b7f
+    m_Address: Dialogue/Portrait_lunhuitang_guard_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5c8d1a58deb981e42914a17ba0ca0fa8
     m_Address: SceneMapView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5facd0b43a91cc74baefbabf5f4fb5f3
+    m_Address: Dialogue/Portrait_wang_luye_serious
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -87,8 +97,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 74496400a4b9412498bdc4d2be37222f
+    m_Address: Dialogue/Portrait_customer_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 78ccf4aa9d7c71c46b51fd6c9aacfe3e
     m_Address: Dialogue/Portrait_traveler_default
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7f69ad0753bba464486817997171704c
+    m_Address: Dialogue/Portrait_wang_luye_default
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -142,8 +162,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9ffa9ed31233ced4d958d5c8119a4ab1
+    m_Address: Dialogue/Portrait_lunhuitang_guard_talk
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a3de1a952dfcfcf4ca2fe7fc00291e36
     m_Address: QuestHudView
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: abf926a4203bd3949835528306eac79b
+    m_Address: Dialogue/Portrait_wang_luye_talk
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

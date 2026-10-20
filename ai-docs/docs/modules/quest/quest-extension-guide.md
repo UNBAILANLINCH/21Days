@@ -60,7 +60,9 @@ maturity: stable
 | `guidancePivot` | 标识中心的空枢轴 `ArrowPivot`，旋转它让箭头绕标识公转；箭头与距离文本都挂它下面（层级尺寸见 guide 接线要求） |
 | `guidanceArrow` | 屏外箭头，只管显隐（可空：不显示箭头） |
 | `distanceLabel` | 距离文字，与箭头相对，运行时反向旋转保持正立 |
-| `keyHint` | 任务键键位提示（TMP，可空）；运行时由 `QuestHudPresenter` 按 `Gameplay/Journal` 第一条键盘绑定写入（如「Tab」），没有键盘绑定时隐藏 |
+| `keyHint` | 任务键提示（TMP，可空）；按 `Gameplay/Journal` 当前提示设备的有效绑定更新，无绑定时隐藏 |
+| `contentGroup` / `contentFadeSeconds` | 动态内容小 CanvasGroup／换内容淡入秒数，隐藏和禁用时取消；不替代根 UIView 过渡 |
+| `heightRange` / `bottomInset` | 底板高85–130、目标下留12，数据变化时按目标实际字高夹取，不每帧排版 |
 
 `QuestPanelView`（`Prefabs/UI/QuestPanelView.prefab`，地址 `QuestPanelView`）：
 
@@ -91,7 +93,7 @@ maturity: stable
 | `locationMarkerHeight`（1.5） | 地点目标（或无 Collider 的 NPC）头顶标记离地高度（米） |
 | `targetMarkerAddress`（"QuestTargetMarker"） | 世界空间目标标记预制体的 Addressables 地址，要与预制体登记的地址一致 |
 | `untrackedLabel` / `mainKindLabel` / `sideKindLabel` | HUD / 面板固定文案 |
-| `activatedNotificationFormat`（"接取任务：{0}"） / `completedNotificationFormat`（"任务完成：{0}"） | 接取 / 完成通知标题格式，`{0}` 为任务标题；留空则只显示标题，写坏（如 `{1}`）退回「格式原文 + 标题」不抛 |
+| `activatedNotificationFormat`（"接取任务：{0}"） / `completedNotificationFormat`（"完成任务"） | 标题仍支持 `{0}` 格式及错误回退；完成卡片正文另传实际任务名并使用 success 样式，接取保留普通样式 |
 
 ## 不该从哪扩
 

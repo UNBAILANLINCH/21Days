@@ -6,6 +6,20 @@ namespace Game.Tests.EditMode.Rhythm
 {
     public sealed class RhythmExternalSessionTests
     {
+        [Test]
+        public void FixedPolicy_QteIdentity_UsesSuccessCountAndPreservesLegacyScoring()
+        {
+            var qte = new RhythmFixedChartCombatPolicy("song", "chart", "1", RhythmProgressRules.QteRulesetId, "1");
+            var legacy = new RhythmFixedChartCombatPolicy("song", "chart", "1", "four-lane-tap-hold", "1");
+            var qteResult = new RhythmRunResult("q", "scene", RhythmPlayMode.Combat, RhythmRunCompletion.Completed,
+                "finished", "song", "chart", "1", RhythmProgressRules.QteRulesetId, "1", 10, 0, 6, 4, 0, 3000, 6);
+            var legacyResult = new RhythmRunResult("l", "scene", RhythmPlayMode.Combat, RhythmRunCompletion.Completed,
+                "finished", "song", "chart", "1", "four-lane-tap-hold", "1", 10, 0, 6, 4, 0, 3000, 6);
+            Assert.That(qte.IsSuccess(qteResult), Is.True);
+            Assert.That(qte.IsSuccess(legacyResult), Is.False);
+            Assert.That(legacy.IsSuccess(legacyResult), Is.False);
+            Assert.That(legacy.IsSuccess(qteResult), Is.False);
+        }
         private sealed class Permission : IRhythmEntryPermission
         {
             public bool Valid { get; set; } = true;

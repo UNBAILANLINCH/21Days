@@ -7,6 +7,12 @@ maturity: stable
 
 # Interaction 模块指南
 
+## 交互提示美术（2026-10-20）
+
+[本批接续记录](../../ui-widgets-20261020.md)：`InteractPromptHudView/Root` 使用浅青白底条，高58、宽270–640，动态正文宋体Bold近似参考Heavy（26.58、#5C95A1）。`keyArtwork` 仅在当前键鼠有效提示为 E 时显示；Q改键／手柄使用动态TMP，普通交互空绑定显示破折号。`keyBadgeLayout` 随显示串在42–150宽内调整，切设备后重新按内容定宽。特殊动作继续保留第二按钮与自身绑定。
+
+`InteractionFocus` 订阅 Input System 动作／绑定通知，在设备或有效绑定变化时更新提示，Dispose退订；没有增加第二条交互按键采样。`promptGroup` 由无到有时160ms unscaled淡入，离开、对白让位、关闭或禁用取消，重复换目标直接换字。原焦点选择、半径、E／F归属和每帧一次保护不变。
+
 > 改 `Assets/_Project/Scripts/Runtime/Interaction/` 之前读这份。设计见 [`PRP/interaction/prp.md`](../../../../PRP/interaction/prp.md)
 > （第 3 节决策 D1–D11，第 8 节两波执行修订）；与源码不符时以源码为准。
 > 别的模块要读焦点 / 拿玩家锚点 → [`interaction-external-api.md`](interaction-external-api.md)；
@@ -152,7 +158,7 @@ F 键让位记在模块 `stealth`：`stealth_execute_rejected`，`reason = inter
 
 ## 已知约束
 
-- **只显示键盘键位**：普通 / 特殊动作分别取 `Interact` / `Execute` 第一条 `<Keyboard>` 绑定显示串（`InteractionFocus.cs`），打开时赋一次；手柄为主时不切换。
+- 提示设备按最近触发动作切换；沿现有键盘／鼠标及 Gamepad 绑定读取，不新增设备图标库。
 - **面板打开动画那几帧焦点仍在**：任务 / 背包面板在 `await ui.OpenAsync` 之后才关 Gameplay 图（PRP §8 第一波第 1 条）。
 - **NPC 被交互后一直面向那个方向**：NPC 不走动，朝向保持不会自己解除；要「说完话转回去」得在小人门面加解除入口，本模块不做。
 - **按键型传送点的范围是三维距离**：世界灰盒里出口与玩家根同高（y 0），与旧的 XZ 判定等价；出口摆高了要相应放大 `triggerRadius`。

@@ -1,0 +1,18 @@
+{ tier = 5, preset = Day, view = exploration, mode = 1, changed = 855, difference = 4404, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier5-Day-exploration-1.png }
+{ tier = 5, preset = Day, view = exploration, mode = 2, changed = 10498, difference = 83521, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier5-Day-exploration-2.png }
+{ tier = 5, preset = Day, view = inn-roof, mode = 1, changed = 1021, difference = 4967, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier5-Day-inn-roof-1.png }
+{ tier = 5, preset = Day, view = inn-roof, mode = 2, changed = 11346, difference = 89004, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier5-Day-inn-roof-2.png }
+{ tier = 5, preset = MoonNight, view = exploration, mode = 1, changed = 112, difference = 544, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier5-MoonNight-exploration-1.png }
+{ tier = 5, preset = MoonNight, view = exploration, mode = 2, changed = 12248, difference = 194086, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier5-MoonNight-exploration-2.png }
+{ tier = 5, preset = MoonNight, view = inn-roof, mode = 1, changed = 418, difference = 3049, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier5-MoonNight-inn-roof-1.png }
+{ tier = 5, preset = MoonNight, view = inn-roof, mode = 2, changed = 13825, difference = 219164, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier5-MoonNight-inn-roof-2.png }
+{ tier = 0, preset = Day, view = exploration, mode = 1, changed = 0, difference = 0, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier0-Day-exploration-1.png }
+{ tier = 0, preset = Day, view = exploration, mode = 2, changed = 9618, difference = 78842, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier0-Day-exploration-2.png }
+{ tier = 0, preset = Day, view = inn-roof, mode = 1, changed = 0, difference = 0, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier0-Day-inn-roof-1.png }
+{ tier = 0, preset = Day, view = inn-roof, mode = 2, changed = 11043, difference = 86710, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier0-Day-inn-roof-2.png }
+{ tier = 0, preset = MoonNight, view = exploration, mode = 1, changed = 0, difference = 0, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier0-MoonNight-exploration-1.png }
+{ tier = 0, preset = MoonNight, view = exploration, mode = 2, changed = 12411, difference = 195471, left = 832, right = 1088, bottom = 405, top = 643, file = Captures/paper-environment-20261020/tier0-MoonNight-exploration-2.png }
+{ tier = 0, preset = MoonNight, view = inn-roof, mode = 1, changed = 67, difference = 555, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier0-MoonNight-inn-roof-1.png }
+{ tier = 0, preset = MoonNight, view = inn-roof, mode = 2, changed = 13957, difference = 220829, left = 869, right = 1051, bottom = 408, top = 646, file = Captures/paper-environment-20261020/tier0-MoonNight-inn-roof-2.png }
+{ tier = 5, probe = shadow, darkened = 10121, file = Captures/paper-environment-20261020/shadow-probe-tier5-1.png }
+{ tier = 0, probe = shadow, darkened = 10112, file = Captures/paper-environment-20261020/shadow-probe-tier0-1.png }

@@ -15,10 +15,12 @@ namespace Game.ShopPlaytest
         [SerializeField] private BoxCollider clickCollider;
         private Renderer[] renderers;
         private bool[] originalVisibility;
+        private bool alive = true, groupVisible;
         private Action<ShopPlaytestActor> talk;
         private Action<ShopPlaytestActor> select;
         private Action<ShopPlaytestActor> borrow;
         private Func<ShopPlaytestActor, bool> allowed;
+        private Func<ShopPlaytestActor, bool> identityAllowed;
         private Func<ShopPlaytestActor, string> skinPrompt;
         public string StableId => stableId;
         public string Role => role;
@@ -29,26 +31,34 @@ namespace Game.ShopPlaytest
         public float InteractionRadius => borrowRadius;
         public int InteractionPriority => 0;
         public bool CanInteract => talk != null && IsVisible && allowed != null && allowed(this);
-        public InteractionPrompt Prompt => new InteractionPrompt("对话", displayName);
-        public bool CanInteractSecondary => CanInteract && ShopSkinRules.ItemId(role) != 0 && borrow != null;
+        public InteractionPrompt Prompt => new InteractionPrompt(stableId == "shop_station_0" ? "演奏" : "对话", displayName);
+        public bool CanInteractSecondary => CanInteract && ShopSkinRules.ItemId(role) != 0 && borrow != null &&
+            (identityAllowed == null || identityAllowed(this));
         public InteractionPrompt SecondaryPrompt => new InteractionPrompt(skinPrompt == null ? "刺杀取皮" : skinPrompt(this), displayName);
         public void SetVisible(bool visible)
         {
+            groupVisible = visible;
             if (renderers == null)
             {
                 renderers = GetComponentsInChildren<Renderer>(true);
                 originalVisibility = new bool[renderers.Length];
                 for (int i = 0; i < renderers.Length; i++) originalVisibility[i] = renderers[i].enabled;
             }
-            IsVisible = visible;
-            if (clickCollider != null) clickCollider.enabled = visible;
+            IsVisible = visible && alive;
+            if (clickCollider != null) clickCollider.enabled = IsVisible;
             for (int i = 0; i < renderers.Length; i++)
-                if (renderers[i] != null && renderers[i].transform.IsChildOf(transform)) renderers[i].enabled = visible && originalVisibility[i];
+                if (renderers[i] != null && renderers[i].transform.IsChildOf(transform)) renderers[i].enabled = IsVisible && originalVisibility[i];
+        }
+        public void SetAlive(bool value)
+        {
+            if (alive == value) return;
+            alive = value;
+            SetVisible(groupVisible);
         }
         public void Bind(Action<ShopPlaytestActor> handler, Func<ShopPlaytestActor, bool> canInteract,
             Action<ShopPlaytestActor> borrowIdentity = null, Action<ShopPlaytestActor> selectActor = null,
-            Func<ShopPlaytestActor, string> secondaryText = null)
-        { talk = handler; allowed = canInteract; borrow = borrowIdentity; select = selectActor; skinPrompt = secondaryText; }
+            Func<ShopPlaytestActor, string> secondaryText = null, Func<ShopPlaytestActor, bool> canUseIdentity = null)
+        { talk = handler; allowed = canInteract; borrow = borrowIdentity; select = selectActor; skinPrompt = secondaryText; identityAllowed = canUseIdentity; }
         public void Interact() { if (CanInteract) talk(this); }
         public void InteractSecondary() { if (CanInteractSecondary) borrow(this); }
         public void OnPointerClick(PointerEventData eventData)

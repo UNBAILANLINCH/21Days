@@ -14,7 +14,6 @@ using Game.Core.UI;
 using MessagePipe;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Utilities;
 using VContainer.Unity;
 
 namespace Game.Interaction
@@ -26,9 +25,6 @@ namespace Game.Interaction
     /// </summary>
     public sealed class InteractionFocus : IInteractionFocus, ITickable, IStartable, IDisposable
     {
-        // 键盘绑定路径前缀；只用于挑出「提示文字」该显示哪条绑定，不读键值。
-        private const string KeyboardPathPrefix = "<Keyboard>";
-
         private readonly IInteractionRegistry registry;
         private readonly IUIService ui;
         private readonly IHudVisibility hudVisibility;
@@ -43,6 +39,7 @@ namespace Game.Interaction
         private int interactedFrame = int.MinValue;
         private bool disposed;
         private IInteractable selected;
+        private bool gamepadHints;
 
         /// <param name="frameCounter">当前帧号来源，判「焦点本帧刚变」用；为 null 时取 <see cref="Time.frameCount"/>（测试注入可控的帧号）。</param>
         public InteractionFocus(IInteractionRegistry registry, IUIService ui, IHudVisibility hudVisibility,
@@ -80,6 +77,7 @@ namespace Game.Interaction
             DisposableBagBuilder bag = DisposableBag.CreateBuilder();
             bootCompleted.Subscribe(_ => OpenHudAsync().Forget()).AddTo(bag);
             bootSubscription = bag.Build();
+            InputSystem.onActionChange += HandleInputChange;
         }
 
         public void Tick()
@@ -167,6 +165,7 @@ namespace Game.Interaction
         {
             if (disposed) return;
             disposed = true;
+            InputSystem.onActionChange -= HandleInputChange;
             if (bootSubscription != null)
             {
                 bootSubscription.Dispose();
@@ -241,10 +240,7 @@ namespace Game.Interaction
                 hud.OnInteract += RequestInteract;
                 hud.OnSecondaryInteract -= RequestSecondaryInteract;
                 hud.OnSecondaryInteract += RequestSecondaryInteract;
-                // 键位徽章只在打开时赋一次（改键 UI 尚无，运行中不会变）。
-                hud.SetKeyText(ReadKeyboardDisplay(InteractAction(input.Actions))); // lint-ok: 只读绑定显示串做提示文字，不读输入值
-                GameInput actions = input.Actions; // lint-ok: 只读取绑定显示串，不采样输入。
-                hud.SetSecondaryKeyText(ReadKeyboardDisplay(actions == null ? null : actions.Gameplay.Execute));
+                RefreshKeyHints();
                 if (Current != null) hud.Show(Current.Prompt);
                 else hud.Hide();
                 hud.ShowSecondary(Current as ISecondaryInteractable);
@@ -279,23 +275,24 @@ namespace Game.Interaction
         // 不复用 Confirm（它是 LiveInputSource 采样的确定性输入位，PRP/interaction §5 第 7 条）。
         private static InputAction InteractAction(GameInput actions) => actions == null ? null : actions.Gameplay.Interact; // lint-ok: 交互不进逻辑帧、不影响回放，交互键只在这里取
 
-        /// <summary>
-        /// 取动作第一条键盘绑定的显示串（如「E」）；没有键盘绑定返回空串，由 HUD 回退「E」。
-        /// 只显示键盘串：判「最近一次输入来自手柄」要跟踪设备切换，暂不做，手柄玩家看到的仍是键盘键位。
-        /// </summary>
-        private static string ReadKeyboardDisplay(InputAction action)
+        private void HandleInputChange(object source, InputActionChange change)
         {
-            if (action == null) return string.Empty;
-            ReadOnlyArray<InputBinding> bindings = action.bindings;
-            for (int i = 0; i < bindings.Count; i++)
+            bool next;
+            if (InputBindingDisplay.TryGetDevice(source, change, out next))
             {
-                InputBinding binding = bindings[i];
-                if (binding.isComposite || binding.isPartOfComposite) continue;
-                string path = binding.effectivePath;
-                if (path != null && path.StartsWith(KeyboardPathPrefix, StringComparison.Ordinal))
-                    return action.GetBindingDisplayString(i);
+                if (next == gamepadHints) return;
+                gamepadHints = next;
             }
-            return string.Empty;
+            else if (change != InputActionChange.BoundControlsChanged) return;
+            RefreshKeyHints();
+        }
+
+        private void RefreshKeyHints()
+        {
+            if (hud == null) return;
+            GameInput actions = input.Actions; // lint-ok: 只读有效绑定用于提示，不采样玩法输入。
+            hud.SetKeyText(InputBindingDisplay.Read(InteractAction(actions), gamepadHints), !gamepadHints);
+            hud.SetSecondaryKeyText(InputBindingDisplay.Read(actions == null ? null : actions.Gameplay.Execute, gamepadHints));
         }
 
         private static bool IsDestroyed(IInteractable interactable) => interactable is UnityEngine.Object unityObject && unityObject == null;

@@ -6,6 +6,18 @@ namespace Game.Rhythm
 {
     public static class RhythmProgressRules
     {
+        public const string QteRulesetId = "qte-beat-v1";
+        public static int RequiredSuccessfulNotes(int count, int percent = 60)
+        {
+            if (count < 1 || percent < 1 || percent > 100) throw new ArgumentException("音符数量或成功比例无效");
+            return (int)(((long)count * percent + 99) / 100);
+        }
+        public static bool HasSuccessfulNoteRatio(RhythmRunResult result, int percent = 60)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            int required = RequiredSuccessfulNotes(result.NoteCount, percent);
+            return result.Completion == RhythmRunCompletion.Completed && (long)result.Perfect + result.Good >= required;
+        }
         public static void Normalize(RhythmProgressData data)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));

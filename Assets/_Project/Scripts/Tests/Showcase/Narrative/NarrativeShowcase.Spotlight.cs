@@ -82,6 +82,108 @@ namespace Game.Tests.Showcase.Narrative
         }
 
         [UnityTest]
+        [Timeout(400000)]
+        public IEnumerator Spotlight_PatrolHitRemainsRealtimeCaught()
+        {
+            yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026"); yield return NarrationToMirror();
+            yield return StoryPoint("enter_r0171"); yield return WaitCurtainRevealed();
+            var step = ResolveService<Game.Monster.EncounterStep>();
+            var patrol = step.Taming.GetTarget("patrol-a");
+            var player = ResolveService<Game.Player.PlayerModel>();
+            var battle = ResolveService<Game.Battle.BattleFlow>();
+            var arena = ResolveService<Game.Battle.BattleArena>();
+            Assert.That(battle.CanEscalate(patrol.Kind.KindId), Is.False);
+            // 受控命中夹具：原通路由轮回堂用例实走；此处只隔离真实Boot配置下的命中与抓捕结算。
+            Vector2 start = player.Position + Vector2.left * .6f;
+            patrol.Reset(new[] { start, start + Vector2.right * .1f });
+            int health = player.Health;
+            bool hostile = false, escalated = false;
+            yield return WaitUntil("现场普通巡逻真实命中玩家", () =>
+            {
+                hostile |= patrol.Model.Mode == Game.Monster.MonsterMode.Hostile;
+                escalated |= step.IsEscalating || battle.IsBattleRunning || arena.IsLoaded;
+                return player.Health < health;
+            }, 5);
+            yield return Check("普通巡逻受控命中后仍为实时抓捕", () => hostile && player.Health < health &&
+                step.Facts.IsTrue(Game.Stealth.StealthFactKeys.ChaseCaught) &&
+                ResolveService<Game.Player.PlayerRules>().Knockdown.IsDowned &&
+                !escalated && !step.IsEscalating && !battle.IsBattleRunning && !arena.IsLoaded, 3);
+            Assert.That(ResolveService<NarrativeService>().CurrentStageId, Is.EqualTo("enter_r0171"));
+            yield return Snapshot("普通巡逻命中_实时抓捕无回合制");
+        }
+
+        [UnityTest]
+        [Timeout(600000)]
+        public IEnumerator Spotlight_ShopsBeforeUnlock_ExplainNextStepWithoutGrantingGameplay()
+        {
+            yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026"); yield return NarrationToMirror();
+            yield return StoryPoint("enter_r0171"); yield return WaitCurtainRevealed();
+            var narrative = ResolveService<NarrativeService>();
+            var saves = ResolveService<Game.Core.Save.ISaveService>();
+            var loot = ResolveService<Game.Loot.LootService>();
+            var registry = ResolveService<Game.Interaction.IInteractionRegistry>();
+            var focus = ResolveService<Game.Interaction.InteractionFocus>();
+            var input = ResolveService<IInputService>();
+            var ui = ResolveService<IUIService>();
+            var dialogueRules = ResolveService<Game.Dialogue.DialogueRules>();
+            Assert.That(ResolveService<SpotlightStoryFlow>().Bindings.IsHumanStory, Is.False);
+            Assert.That(narrative.CurrentStageId, Is.EqualTo("enter_r0171"));
+            for (int phase = 0; phase < 2; phase++)
+            {
+                string stage = phase == 0 ? "enter_r0171" : "enter_r0188";
+                if (phase > 0)
+                {
+                    // 后续节点是受控夹具，只验交互门槛，不冒充已走过轮回堂至坊市的完整通路。
+                    narrative.CaptureIntoPartition(); saves.Get<NarrativeSaveData>().Current.StageId = stage;
+                    narrative.ReloadFromSave(); yield return null;
+                }
+                yield return GoToShop(1);
+                var customer = System.Array.Find(State.World.Actors, actor => actor.StableId == "shop_customer1");
+                Assert.That(customer, Is.Not.Null);
+                yield return MoveTo(Object.FindObjectOfType<Game.Monster.EncounterSceneView>().ToLogicPosition(customer.Position));
+                focus.RequestFocus(customer); yield return null;
+                yield return Check("前置未完仍显示顾客乙的E交互，F未开放", () => focus.Current == customer && customer.CanInteract &&
+                    !customer.CanInteractSecondary && ui.Get<Game.Interaction.InteractPromptHudView>() != null &&
+                    !ui.Get<Game.Interaction.InteractPromptHudView>().IsSecondaryShown, 5);
+                Assert.That(input.Actions.Gameplay.enabled, Is.True);
+                Assert.That(registry.Candidates, Does.Contain(customer));
+                Assert.That(Vector3.Distance(registry.Actor.Anchor.position, customer.Position), Is.LessThanOrEqualTo(customer.InteractionRadius));
+                var itemsBefore = new Dictionary<int, int>(loot.Items);
+                var model = State.Taming.GetTarget(customer.StableId).Model;
+                int healthBefore = model.Health;
+                yield return Input.Hold(input.Actions.Gameplay.Sneak);
+                yield return Input.Press(input.Actions.Gameplay.Execute);
+                yield return Input.Release(input.Actions.Gameplay.Sneak);
+                customer.InteractSecondary();
+                Assert.That(DialogueRunning, Is.False, "F不能退化为E对白");
+                Assert.That(model.Health, Is.EqualTo(healthBefore), "前置未完不能刺杀取皮");
+                yield return Input.Press(input.Actions.Gameplay.Interact);
+                yield return WaitUntil("顾客乙说明当前剧情去向", () => DialogueRunning, 5);
+                yield return ShowChoices();
+                Assert.That(dialogueRules.Current.Text, Does.Contain(phase == 0 ? "轮回堂" : "坊市入口"));
+                Assert.That(dialogueRules.Current.Choices.Length, Is.EqualTo(1));
+                Assert.That(dialogueRules.Current.Choices[0].Id, Is.EqualTo("close"), "不能提前开放店铺玩法选项");
+                yield return Snapshot("前置店铺交互_" + stage);
+                yield return Choose("close"); yield return FinishReplies();
+                Assert.That(narrative.CurrentStageId, Is.EqualTo(stage), "询问店铺不能代替主线现场交互");
+                CollectionAssert.AreEquivalent(itemsBefore, loot.Items);
+                Assert.That(State.Clothing.Received || State.Theater.Completed || State.Forging.Submitted, Is.False);
+            }
+            narrative.CaptureIntoPartition(); saves.Get<NarrativeSaveData>().Current.StageId = "action_r0197";
+            narrative.ReloadFromSave(); yield return null;
+            yield return GoToShop(1);
+            var unlockedCustomer = System.Array.Find(State.World.Actors, actor => actor.StableId == "shop_customer1");
+            yield return OpenConversation(unlockedCustomer); yield return ShowChoices();
+            Assert.That(System.Array.Exists(dialogueRules.Current.Choices, choice => choice.Id == "leave"), Is.True, "197恢复正常人物对白");
+            yield return Choose("leave"); yield return FinishReplies();
+            Assert.That(unlockedCustomer.CanInteractSecondary, Is.True, "197恢复F取皮入口");
+            yield return Borrow(1);
+            Assert.That(loot.Items.ContainsKey(1905), Is.True);
+        }
+
+        [UnityTest]
         [Timeout(600000)]
         public IEnumerator Spotlight_MirrorArrivalRequiresLunhuitangInteraction()
         {
@@ -124,11 +226,17 @@ namespace Game.Tests.Showcase.Narrative
             yield return session.ContinueAsync(1).ToCoroutine(); yield return WaitCurtainRevealed();
             yield return Check("妖界同编号节点继续仍等待轮回堂，不重穿也不播对白", () => !story.Bindings.IsHumanStory &&
                 narrative.CurrentStageId == "enter_r0171" && !DialogueRunning, 5);
+            AssertLegacyExamplesHidden(story.Bindings.gameObject.scene);
             yield return StoryPoint("enter_r0171", false);
             var guard = story.Bindings.Find("enter_r0171");
             Assert.That(guard.Position.x, Is.LessThan(-20), "必须位于上层左侧桥后的轮回堂");
             Assert.That(guard.Position.z, Is.GreaterThan(10));
             Assert.That(guard.Prompt.Verb, Is.EqualTo("问询"));
+            var guardParts = guard.Anchor.GetComponentsInChildren<SpriteRenderer>(true);
+            Assert.That(guardParts, Is.Not.Empty, "值守必须使用现场已有小人");
+            System.Func<bool> guardVisible = () => guard.Anchor.gameObject.activeInHierarchy &&
+                System.Array.Exists(guardParts, part => part != null && part.enabled && part.gameObject.activeInHierarchy);
+            yield return Check("问询前值守小人在原地显示", guardVisible, 3);
             yield return Snapshot("真实轮回堂门前_主动问询之前");
             yield return MoveTo(new Vector2(-20f, 17.7f));
             yield return Input.Press(interact); guard.Interact();
@@ -136,16 +244,45 @@ namespace Game.Tests.Showcase.Narrative
             yield return MoveTo(new Vector2(guard.Position.x, 19.8f), .15f);
             yield return Input.Press(interact);
             yield return WaitUntil("实际值守旁E才播放21008", () => DialogueRunning && narrative.CurrentStageId == "talk_21008", 5);
+            yield return Check("21008首句时值守仍显示且不能重复交互", () => guardVisible() && !guard.CanInteract, 3);
+            var dialogueRules = ResolveService<Game.Dialogue.DialogueRules>();
+            yield return WaitUntil("问询首句显示完成", () => dialogueRules.Current != null && dialogueRules.Current.Id == "r0173" &&
+                dialogueRules.Phase == Game.Dialogue.DialogueSaveData.Phase.AwaitAdvance, 8);
+            yield return Input.Press(ResolveService<IInputService>().Actions.Dialogue.Advance);
+            yield return WaitUntil("值守说出方相面具台词", () => dialogueRules.Current != null && dialogueRules.Current.Id == "r0175" &&
+                dialogueRules.Phase == Game.Dialogue.DialogueSaveData.Phase.AwaitAdvance, 8);
+            yield return Check("方相面具台词时值守小人持续显示", guardVisible, 3);
             yield return Snapshot("真实值守问询");
             yield return AdvanceFormalDialogue();
             for (int i = 0; i < 3; i++) yield return Input.Press(interact);
             yield return Check("值守结束仍需走到坊市，不自动播放窗边剧情", () => narrative.CurrentStageId == "enter_r0188" && !DialogueRunning &&
                 quests.PresentationObjective.Contains("坊市"), 5);
+            yield return Check("问询结束后值守仍在原地且不再接受171交互", () => guardVisible() && !guard.CanInteract, 3);
+            yield return Snapshot("值守问询结束_人物保留");
             yield return StoryPoint("enter_r0188"); yield return AdvanceFormalDialogue();
             yield return Check("实际坊市交互后才恢复三店目标，旧地点教程不残留", () => narrative.CurrentStageId == "action_r0197" &&
                 quests.PresentationObjective.Length == 0 &&
                 FindDeep<TMPro.TMP_Text>(ui.Get<QuestHudView>().transform, "Objective").text.Contains("戏班"), 5);
+            guard.Interact();
+            narrative.ReloadFromSave();
+            yield return null;
+            AssertLegacyExamplesHidden(story.Bindings.gameObject.scene);
+            yield return Check("197阶段值守实体仍在，错误阶段交互不重播或推进", () => guardVisible() && !guard.CanInteract &&
+                narrative.CurrentStageId == "action_r0197" && !DialogueRunning, 3);
             yield return Snapshot("坊市到达后_原目标栏恢复");
+        }
+
+        private static void AssertLegacyExamplesHidden(UnityEngine.SceneManagement.Scene scene)
+        {
+            foreach (string name in new[] { "Npc_SampleBoss", "Npc_Stage9Boss", "Npc_BattleDrill", "Trigger_VillageEntrance" })
+            {
+                Transform found = null;
+                foreach (var root in scene.GetRootGameObjects())
+                    foreach (var child in root.GetComponentsInChildren<Transform>(true))
+                        if (child.name == name) found = child;
+                Assert.That(found != null, Is.True, "缺少旧示例负对照：" + name);
+                Assert.That(found.gameObject.activeInHierarchy, Is.False, "正式流程不能重新开启旧示例：" + name);
+            }
         }
 
         [UnityTest]
@@ -200,12 +337,44 @@ namespace Game.Tests.Showcase.Narrative
         [Timeout(900000)]
         public IEnumerator Spotlight_ThreeShopsGuessBossAndReunion()
         {
+            InspectStoryPresentation = true;
             yield return Ready(0);
             yield return Step("三店自由探索：戏班、衣肆、金银行");
             yield return CompleteStoryShop(0);
             yield return GoToShop(1); yield return CompleteStoryShop(1);
             yield return GoToShop(2); yield return CompleteStoryShop(2);
             yield return ContinueToReunion();
+        }
+        [UnityTest]
+        [Timeout(300000)]
+        public IEnumerator Spotlight_WindowCloseupRestoresInteractionAndDoesNotRepeat()
+        {
+            InspectStoryPresentation = true;
+            yield return EnterStoryWorld(); yield return AdvanceFormalDialogue();
+            yield return StoryPoint("enter_r0026"); yield return NarrationToMirror();
+            yield return StoryPoint("enter_r0171"); yield return WaitCurtainRevealed();
+            var narrative = ResolveService<NarrativeService>();
+            var story = ResolveService<SpotlightStoryFlow>();
+            var entrance = story.Bindings.Find("enter_r0188");
+            yield return Step("先走过坊市入口，轮回堂问询前不能出现光点或特写", hold: 0);
+            yield return GoToWorldPoint(entrance.Position, .4f);
+            yield return Check("轮回堂未完成：入口光点隐藏，窗边人影隐藏，镜头仍跟随玩家", () =>
+                narrative.CurrentStageId == "enter_r0171" && !entrance.Marker.activeInHierarchy &&
+                !story.Bindings.WindowFigure.activeInHierarchy && story.CanSave &&
+                Camera.main.GetComponent<Game.IsometricExploration.SmoothCameraFollow>().enabled, 3);
+            yield return Snapshot("轮回堂前_坊市入口不触发");
+            yield return StoryPoint("enter_r0171");
+            yield return Check("轮回堂问询中：入口光点与窗边人影仍隐藏", () =>
+                narrative.CurrentStageId == "talk_21008" && !entrance.Marker.activeInHierarchy &&
+                !story.Bindings.WindowFigure.activeInHierarchy, 3);
+            yield return AdvanceFormalDialogue();
+            yield return Check("轮回堂问询结束才出现入口光点，远处不运镜", () =>
+                narrative.CurrentStageId == "enter_r0188" && entrance.Marker.activeInHierarchy &&
+                story.Bindings.WindowFigure.activeInHierarchy && story.CanSave, 3);
+            yield return StoryPoint("enter_r0188");
+            yield return AdvanceFormalDialogue();
+            yield return Check("回镜后E接原剧情并开放三店", () => narrative.CurrentStageId == "action_r0197", 5);
+            yield return Snapshot("窗边特写后_原剧情接续");
         }
         [UnityTest]
         [Timeout(400000)]
@@ -334,6 +503,10 @@ namespace Game.Tests.Showcase.Narrative
             yield return Command(3, false); yield return AdvanceFormalDialogue(); yield return PlayBattle(); yield return AdvanceFormalDialogue();
             yield return Check("实际胜利续回正式主线", () => State.TavernCompleted && ResolveService<NarrativeService>().CurrentStageId == "enter_r0198", 5);
             yield return StoryPoint("enter_r0198"); yield return AdvanceFormalDialogue();
+            Assert.That(ResolveService<SpotlightStoryFlow>().Bindings.WindowFigure.activeSelf, Is.False, "战后窗边人影已离场");
+            var wife = ResolveService<SpotlightStoryFlow>().Bindings.Find("enter_r0215").Anchor.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>(true);
+            Assert.That(wife.name, Is.EqualTo("Chibi_wife"), "会面使用何素拆件动画");
+            yield return Snapshot("战后何素现身会面");
             yield return StoryPoint("enter_r0215"); yield return AdvanceFormalDialogue();
             yield return Check("会面完成，停在下一段前", () => ResolveService<NarrativeService>().CurrentStageId == "enter_r0293", 5);
             yield return Snapshot("会面后本段完成");

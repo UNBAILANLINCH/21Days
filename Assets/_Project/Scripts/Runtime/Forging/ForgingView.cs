@@ -23,6 +23,10 @@ namespace Game.Forging
         [SerializeField] private Button submitButton;
         [SerializeField] private Button cancelButton;
         [SerializeField] private Button backButton;
+        [SerializeField] private TMP_Text[] productNameLabels;
+        [SerializeField] private Sprite idlePointSprite;
+        [SerializeField] private Sprite nextPointSprite;
+        [SerializeField] private Image[] productSelections;
         [SerializeField] private Color nextPointColor = new Color(1f, .76f, .25f);
         [SerializeField] private Color idlePointColor = new Color(.55f, .63f, .68f);
         private ForgingController controller;
@@ -53,18 +57,26 @@ namespace Game.Forging
             if (controller == null) return;
             ForgingRules rules = controller.Rules;
             if (rules.IsForging) selected = rules.CurrentProduct;
-            quotaLabel.text = $"金属份额\n{rules.Available}/{controller.MaximumQuota}";
-            materialLabel.text = $"库存 {rules.Quota}   累计消耗 {rules.Spent}   预留 {rules.Reserved}";
+            quotaLabel.text = $"{rules.Available}/{controller.MaximumQuota}";
+            materialLabel.text = $"库存 {rules.Quota}\n累计消耗 {rules.Spent}\n预留 {rules.Reserved}";
             for (int i = 0; i < productLabels.Length; i++)
             {
                 string name = controller.ProductName(i);
-                productLabels[i].text = rules.Submitted ? $"{name}\n已提交" : $"{(selected == i ? "◆ " : "")}{name}\n{rules.Count(i)}/{rules.Required(i)}";
+                bool separateName = productNameLabels != null && i < productNameLabels.Length && productNameLabels[i] != null;
+                if (separateName) productNameLabels[i].text = name;
+                string count = rules.Submitted ? "已提交" : $"{rules.Count(i)}/{rules.Required(i)}";
+                productLabels[i].text = separateName ? count : $"{name}\n{count}";
+                if (productSelections != null && i < productSelections.Length && productSelections[i] != null)
+                    productSelections[i].enabled = selected == i;
             }
             foreach (Button button in productButtons) button.interactable = !rules.IsForging && !rules.Submitted;
             for (int i = 0; i < pointButtons.Length; i++)
             {
                 pointButtons[i].interactable = rules.IsForging && !rules.Submitted;
-                pointButtons[i].image.color = rules.NextPoint == i ? nextPointColor : idlePointColor;
+                bool next = rules.IsForging && rules.NextPoint == i;
+                bool useArt = idlePointSprite != null && nextPointSprite != null;
+                if (useArt) pointButtons[i].image.sprite = next ? nextPointSprite : idlePointSprite;
+                pointButtons[i].image.color = useArt ? Color.white : next ? nextPointColor : idlePointColor;
             }
             progressLabel.text = rules.Submitted ? "打造任务已完成" : rules.IsForging
                 ? $"{controller.ProductName(selected)} · {rules.Progress}/{rules.RequiredStrikes} · 点击高亮点 {rules.NextPoint + 1}"

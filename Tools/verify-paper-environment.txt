@@ -1,0 +1,174 @@
+// 执行载体：空闲编辑器中的 Unity MCP execute_code；不自动运行，不挂正式场景。
+// 状态锚点：Captures/paper-environment-20261020 的同条件图片与返回的像素变化统计；finally 还原引用、光照、画质并销毁临时对象。
+// 现有材质工具不能做相机像素对照，故只在验证时创建临时相机/材质；正式回放仍使用原角色和舞台。
+if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode || UnityEditor.EditorApplication.isCompiling || UnityEditor.BuildPipeline.isBuildingPlayer)
+    throw new System.InvalidOperationException("必须等待编辑器与测试空闲");
+var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+if (scene.name != "SampleScene") throw new System.InvalidOperationException("请先打开 SampleScene");
+var main = Camera.main;
+var environment = UnityEngine.Object.FindObjectOfType<Game.Narrative.SpotlightEnvironmentView>();
+if (main == null || environment == null || environment.HasApplied) throw new System.InvalidOperationException("需要空闲场景相机与未应用的剧情环境入口");
+var originals = new System.Collections.Generic.Dictionary<SpriteRenderer, Material>();
+var clones = new System.Collections.Generic.Dictionary<Material, Material>();
+var poses = new System.Collections.Generic.Dictionary<Animator, bool>();
+var records = new System.Collections.Generic.List<object>();
+int quality = QualitySettings.GetQualityLevel();
+bool dirty = scene.isDirty;
+var activeTexture = RenderTexture.active;
+GameObject cameraObject = null;
+RenderTexture target = null;
+Texture2D pixels = null;
+GameObject blocker = null;
+Material blockerMaterial = null;
+string folder = "Captures/paper-environment-20261020";
+try
+{
+    foreach (var puppet in UnityEngine.Object.FindObjectsOfType<Game.CharacterPuppet.ChibiPuppet>(true))
+    {
+        var animator = puppet.GetComponent<Animator>();
+        if (animator != null && !poses.ContainsKey(animator)) { poses.Add(animator, animator.enabled); animator.enabled = false; }
+    }
+    foreach (var puppet in UnityEngine.Object.FindObjectsOfType<Game.CharacterPuppet.ChibiPuppet>(true))
+        foreach (var renderer in puppet.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            var original = renderer.sharedMaterial;
+            if (original == null || original.shader.name != "21Days/SpriteDepthClip" || originals.ContainsKey(renderer)) continue;
+            if (!clones.ContainsKey(original)) clones.Add(original, new Material(original) { hideFlags = HideFlags.HideAndDontSave });
+            originals.Add(renderer, original);
+            renderer.sharedMaterial = clones[original];
+        }
+    if (originals.Count == 0) throw new System.InvalidOperationException("没有真实角色");
+    System.IO.Directory.CreateDirectory(folder);
+    cameraObject = new GameObject("PaperEnvironmentCapture") { hideFlags = HideFlags.HideAndDontSave };
+    var camera = cameraObject.AddComponent<Camera>();
+    camera.CopyFrom(main);
+    camera.enabled = false;
+    camera.transform.SetPositionAndRotation(main.transform.position, main.transform.rotation);
+    var data = cameraObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+    var mainData = main.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+    if (mainData != null) UnityEditor.EditorUtility.CopySerialized(mainData, data);
+    data.SetRenderer(1);
+    target = new RenderTexture(1920, 1080, 24);
+    target.Create();
+    camera.targetTexture = target;
+    pixels = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
+    var player = UnityEngine.Object.FindObjectOfType<Game.Monster.EncounterSceneView>().PlayerBody;
+    var innkeeper = GameObject.Find("shop_innkeeper");
+    if (player == null || innkeeper == null) throw new System.InvalidOperationException("缺少代表角色");
+    foreach (int tier in new[] { 5, 0 })
+    {
+        QualitySettings.SetQualityLevel(tier, true);
+        foreach (var preset in new[] { Game.Narrative.SpotlightEnvironmentRules.Preset.Day, Game.Narrative.SpotlightEnvironmentRules.Preset.MoonNight })
+        {
+            environment.Apply(new Game.Narrative.SpotlightEnvironmentRules.State(preset));
+            foreach (string view in new[] { "exploration", "inn-roof" })
+            {
+                camera.transform.position = main.transform.position + (view == "exploration" ? Vector3.zero : innkeeper.transform.position - player.position);
+                var focus = (view == "exploration" ? player : innkeeper.transform).GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>();
+                var bounds = focus.GetComponentInChildren<SpriteRenderer>().bounds;
+                Vector2 minimum = Vector2.one, maximum = Vector2.zero;
+                foreach (float x in new[] { -1f, 1f }) foreach (float y in new[] { -1f, 1f }) foreach (float z in new[] { -1f, 1f })
+                {
+                    var point = camera.WorldToViewportPoint(bounds.center + Vector3.Scale(bounds.extents, new Vector3(x, y, z)));
+                    minimum = Vector2.Min(minimum, new Vector2(point.x, point.y));
+                    maximum = Vector2.Max(maximum, new Vector2(point.x, point.y));
+                }
+                int left = Mathf.Clamp(Mathf.FloorToInt(minimum.x * 1920), 0, 1919), right = Mathf.Clamp(Mathf.CeilToInt(maximum.x * 1920), 0, 1919);
+                int bottom = Mathf.Clamp(Mathf.FloorToInt(minimum.y * 1080), 0, 1079), top = Mathf.Clamp(Mathf.CeilToInt(maximum.y * 1080), 0, 1079);
+                Color32[] baseline = null;
+                foreach (int mode in new[] { 0, 1, 2 })
+                {
+                    foreach (var material in clones.Values)
+                    {
+                        material.SetFloat("_EnvironmentStrength", mode == 2 ? .2f : 0f);
+                        material.SetFloat("_ShadowStrength", mode == 0 ? 0f : .25f);
+                        material.SetFloat("_LightFloor", .45f);
+                        material.SetFloat("_Saturation", 1f);
+                    }
+                    camera.Render();
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0);
+                    pixels.Apply();
+                    string file = folder + "/tier" + tier + "-" + preset + "-" + view + "-" + mode + ".png";
+                    System.IO.File.WriteAllBytes(file, pixels.EncodeToPNG());
+                    var colors = pixels.GetPixels32();
+                    if (baseline == null) baseline = colors;
+                    else
+                    {
+                        int changed = 0;
+                        long difference = 0;
+                        for (int i = 0; i < colors.Length; i++)
+                        {
+                            int px = i % 1920, py = i / 1920;
+                            if (px < left || px > right || py < bottom || py > top) continue;
+                            int delta = System.Math.Abs(colors[i].r - baseline[i].r) + System.Math.Abs(colors[i].g - baseline[i].g) + System.Math.Abs(colors[i].b - baseline[i].b);
+                            if (delta > 3) { changed++; difference += delta; }
+                        }
+                        if (mode == 2 && changed < 50) throw new System.InvalidOperationException("融合没有实际改变代表画面：" + file);
+                        records.Add(new { tier, preset = preset.ToString(), view, mode, changed, difference, left, right, bottom, top, file });
+                    }
+                }
+            }
+        }
+    }
+    // 控制遮挡体只投影、不进相机画面，避免用“角色刚好不在建筑阴影内”误判阴影功能。
+    environment.Apply(new Game.Narrative.SpotlightEnvironmentRules.State(Game.Narrative.SpotlightEnvironmentRules.Preset.Day));
+    camera.transform.position = main.transform.position;
+    var actorBounds = player.GetComponentInChildren<Game.CharacterPuppet.ChibiPuppet>().GetComponentInChildren<SpriteRenderer>().bounds;
+    blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+    blocker.name = "PaperEnvironmentShadowProbe";
+    blocker.hideFlags = HideFlags.HideAndDontSave;
+    blocker.transform.position = actorBounds.center - RenderSettings.sun.transform.forward * 4f;
+    blocker.transform.localScale = Vector3.one * 6f;
+    blockerMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit")) { hideFlags = HideFlags.HideAndDontSave };
+    blocker.GetComponent<MeshRenderer>().sharedMaterial = blockerMaterial;
+    blocker.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+    foreach (int tier in new[] { 5, 0 })
+    {
+        QualitySettings.SetQualityLevel(tier, true);
+        Color32[] baseline = null;
+        foreach (int mode in new[] { 0, 1 })
+        {
+            foreach (var material in clones.Values)
+            {
+                material.SetFloat("_EnvironmentStrength", 0f);
+                material.SetFloat("_ShadowStrength", mode == 0 ? 0f : .25f);
+            }
+            camera.Render(); RenderTexture.active = target;
+            pixels.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0); pixels.Apply();
+            string file = folder + "/shadow-probe-tier" + tier + "-" + mode + ".png";
+            System.IO.File.WriteAllBytes(file, pixels.EncodeToPNG());
+            var colors = pixels.GetPixels32();
+            if (baseline == null) baseline = colors;
+            else
+            {
+                int darkened = 0;
+                // shortcut: 像素区域按当前 1920×1080 探索构图标定，镜头改版后按新角色投影重新标定。
+                for (int y = 430; y < 650; y++) for (int x = 850; x < 1070; x++)
+                {
+                    int i = y * 1920 + x;
+                    if (baseline[i].r + baseline[i].g + baseline[i].b - colors[i].r - colors[i].g - colors[i].b > 9) darkened++;
+                }
+                records.Add(new { tier, probe = "shadow", darkened, file });
+                if (darkened < 1000) throw new System.InvalidOperationException("控制阴影没有压暗真实角色：" + file + "，像素=" + darkened);
+            }
+        }
+    }
+}
+finally
+{
+    foreach (var pair in originals) if (pair.Key != null) pair.Key.sharedMaterial = pair.Value;
+    foreach (var pair in poses) if (pair.Key != null) pair.Key.enabled = pair.Value;
+    environment.Restore();
+    QualitySettings.SetQualityLevel(quality, true);
+    RenderTexture.active = activeTexture;
+    if (cameraObject != null) UnityEngine.Object.DestroyImmediate(cameraObject);
+    if (pixels != null) UnityEngine.Object.DestroyImmediate(pixels);
+    if (target != null) { target.Release(); UnityEngine.Object.DestroyImmediate(target); }
+    if (blocker != null) UnityEngine.Object.DestroyImmediate(blocker);
+    if (blockerMaterial != null) UnityEngine.Object.DestroyImmediate(blockerMaterial);
+    foreach (var material in clones.Values) UnityEngine.Object.DestroyImmediate(material);
+}
+if (scene.isDirty != dirty) throw new System.InvalidOperationException("验证改变了场景脏标记，请检查，不能直接保存");
+System.IO.File.WriteAllLines(folder + "/metrics.txt", records.Select(record => record.ToString()).ToArray());
+return new { renderers = originals.Count, restoredQuality = QualitySettings.GetQualityLevel(), sceneDirty = scene.isDirty, records };

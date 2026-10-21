@@ -240,7 +240,8 @@ namespace Game.Session
             {
                 using (telemetry.BeginSpan("title_start_transition"))
                     if (title != null) await title.PlayStartTransitionAsync(title.GetCancellationTokenOnDestroy());
-                // 与标题直接开始一致：由正式场景的分段软引导接手。
+                // 与标题「开始」一致：转场后先过开局操作说明，再开新局。
+                await tutorial.ShowAsync();
                 bool started = await session.NewGameAsync(slot);
                 if (!started) notifications.Show(NewGameFailedTitle);
             }

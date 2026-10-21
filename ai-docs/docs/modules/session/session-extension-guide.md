@@ -61,7 +61,7 @@ maturity: seed
 ## 依赖方向约束
 
 标题开始转场的时长与强度在 `Data/UI/TitleStartConfig.asset`；引用通过 Unity 编辑器接入 TitleView 与 TitleStartTransition。
-只调整表现时不改 Session 的槽位选择规则。新入口保留标题转场与 finally 复位；2026-10-18 起由正式节点软引导承接教程，不重新加全屏说明闸门。新增在途玩法必须参与 SessionStateAdapter 稳定判断，不能只依赖 UI 盖屏。
+只调整表现时不改 Session 的槽位选择规则。新入口保留标题转场与 finally 复位，转场后先过 `NewGameTutorial.ShowAsync` 再开新局（2026-10-21 恢复全屏说明闸门，进世界后仍由正式节点软引导承接后续教程）。新增在途玩法必须参与 SessionStateAdapter 稳定判断，不能只依赖 UI 盖屏。
 读档短版参数为 `TitleStartConfig.LoadMirrorSeconds/LoadWaveSeconds`，不能通过修改 `MirrorSeconds/WaveSeconds` 缩短新游戏。
 选档收卷时长为 `SessionConfig.LoadRollSeconds`，只在读档模式调用；纸面用 RectMask2D 裁切，底轴用原 Sprite 的 UV 区域移动，不缩放原图或修改共享资产。
 

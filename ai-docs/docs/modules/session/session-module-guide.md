@@ -19,7 +19,7 @@ maturity: seed
 
 ## 正式新局与软引导（2026-10-18）
 
-本轮正常新游戏入口保留标题转场，进入世界后由 Narrative 的节点／区域软引导承接，不再调用 `NewGameTutorial.ShowAsync`。旧 TutorialView 与独立测试保留兼容资产，下方操作说明章节为历史实现，不能据此恢复全屏等待。
+2026-10-21 起恢复开局操作说明：两条正常新游戏入口（标题「开始」、选槽面板选空槽）在标题转场之后先 `NewGameTutorial.ShowAsync`，玩家按键关掉再 `NewGameAsync`；进入世界后 Narrative 的节点／区域软引导照常接手，两者并存。下方「开局操作说明」章节为现行实现。
 
 `SessionStateAdapter.NarrativeStable` 同时检查正式开场已启动、Narrative稳定和 `TavernController.Guess.IsPending == false`。未揭晓划拳或开场尚未启动时，即时保存也拒绝；结算写完醉意／消息／学习后才允许稳定存档。可选依赖通过 Installer 的 TryResolve 保持无五店的最小作用域兼容。实际验证见 [本批任务](../../../../PRP/tavern-story-guidance/tasks.md)。
 

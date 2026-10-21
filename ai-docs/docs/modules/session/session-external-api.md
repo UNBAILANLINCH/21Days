@@ -45,7 +45,7 @@ ISessionStateSource 新增 NarrativeStable 与 ValidateCandidate(SaveSnapshot)�
 
 新游戏/继续切换尚未结束或写盘在途时，NewGameAsync与ContinueAsync拒绝重入并返回false。切槽期间SaveNowAsync直接返回false，不捕获旧现场，也不把旧离场请求延后写入目标槽；新场景完成后的RequestSave留到切换结束再由Tick处理。失败/取消也会释放切换守卫。
 
-> **2026-10-18 新游戏入口**：两条正常入口保留标题转场后调用 `NewGameAsync`，进入世界后由 `SpotlightStoryFlow` 按节点／范围提示，不再打开全屏操作说明。`NewGameTutorial` 保留兼容 API，正常入口不调用。
+> **2026-10-21 新游戏入口**：两条正常入口在标题转场后先调用 `NewGameTutorial.ShowAsync` 显示全屏操作说明，玩家关掉后再 `NewGameAsync`；进入世界后由 `SpotlightStoryFlow` 按节点／范围提示。（2026-10-18 曾停用全屏说明，10-21 恢复。）
 
 **线程 / 时序**：`SaveNowAsync` 的捕获段（`state.CaptureEncounter` + 更新 `SessionSaveData`）在第一个
 `await` 之前**同步**完成，所以在 `GameStateChangingEvent` 回调里调用时，捕获发生在前一状态 `ExitAsync`
